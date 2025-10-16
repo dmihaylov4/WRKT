@@ -1,0 +1,5 @@
+{
+  "pectoralis major": ["pectoralis-major","pectoralis-major-clavicular","pectoralis-major-sternal"],
+  "pectoralis minor": ["pectoralis-minor"],
+  "quadriceps": ["quadriceps","rectus-femoris","vastus-lateralis","vastus-medialis","vastus-intermedius"]
+}

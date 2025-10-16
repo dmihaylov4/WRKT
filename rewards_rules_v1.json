@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "xp": {
+    "workout_completed": { "amount": 50, "once_per_workout": true },
+    "set_logged":        { "amount": 5,  "cap_per_workout": 40, "max_per_day": 200 },
+    "pr_achieved":       { "amount": 25, "max_per_day": 100 },
+    "exercise_new":      { "amount": 25, "max_per_day": 100, "max_per_exercise_daily": 1 }
+  },
+  "achievements": [
+    { "id": "first_workout", "title": "First Workout!", "desc": "Finish your first workout",
+      "trigger": "workout_completed", "threshold": 1, "tier": null, "reward": { "xp": 100, "coins": 0 } },
+
+    { "id": "explorer_5", "title": "Explorer I", "desc": "Try 5 different exercises",
+      "trigger": "exercise_new", "threshold": 5, "tier": "bronze", "reward": { "xp": 100, "coins": 0 } },
+
+    { "id": "explorer_15", "title": "Explorer II", "desc": "Try 15 different exercises",
+      "trigger": "exercise_new", "threshold": 15, "tier": "silver", "reward": { "xp": 250, "coins": 0 } }
+  ]
+}
