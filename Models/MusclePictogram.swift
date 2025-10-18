@@ -1,11 +1,3 @@
-//
-//  MusclePictogram.swift
-//  WRKT
-//
-//  Created by Dimitar Mihaylov on 09.10.25.
-//
-
-
 import SwiftUI
 
 struct MusclePictogram: View {
@@ -40,97 +32,103 @@ private struct BodyFront: View {
 
     var body: some View {
         GeometryReader { geo in
-            let W = geo.size.width
+            let w = geo.size.width
+            let h = geo.size.height
 
-            ZStack {
-                
-                RoundedRectangle(cornerRadius: W*0.12, style: .continuous)
-                    .fill(background)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: W*0.12, style: .continuous)
-                            .stroke(foreground.opacity(0.18), lineWidth: 1)
-                    )
-                    .padding(W*0.08)
+            // Base silhouette (very stylized)
+            RoundedRectangle(cornerRadius: w*0.12, style: .continuous)
+                .fill(background)
+                .overlay(RoundedRectangle(cornerRadius: w*0.12).stroke(foreground.opacity(0.18), lineWidth: 1))
+                .padding(w*0.08)
 
-                // Shoulders
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.50, 0.23, 0.70, 0.12, in: geo.size))
+            // Regions
+            Group {
+                // Shoulders (front dome)
+                capsule(x: 0.50, y: 0.23, w: 0.70, h: 0.12)
                     .fill(color(for: .shoulders))
 
-                // Chest upper/mid/lower
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.50, 0.36, 0.72, 0.08, in: geo.size))
+                // Chest upper/mid/lower as stacked bands
+                capsule(x: 0.50, y: 0.36, w: 0.72, h: 0.08)
                     .fill(color(for: .chestUpper))
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.50, 0.46, 0.72, 0.08, in: geo.size))
+                capsule(x: 0.50, y: 0.46, w: 0.72, h: 0.08)
                     .fill(color(for: .chestMid))
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.50, 0.56, 0.72, 0.08, in: geo.size))
+                capsule(x: 0.50, y: 0.56, w: 0.72, h: 0.08)
                     .fill(color(for: .chestLower))
 
-                // Biceps / Forearms
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.12, 0.45, 0.16, 0.38, in: geo.size))
-                    .fill(color(for: .biceps))
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.88, 0.45, 0.16, 0.38, in: geo.size))
-                    .fill(color(for: .biceps))
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.12, 0.58, 0.16, 0.25, in: geo.size))
-                    .fill(color(for: .forearms))
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.88, 0.58, 0.16, 0.25, in: geo.size))
-                    .fill(color(for: .forearms))
+                // Biceps / Triceps / Forearms represented as side bars
+                // (front view favors biceps/forearms)
+                sideBar(left: true,  y: 0.45, h: 0.38).fill(color(for: .biceps))
+                sideBar(left: false, y: 0.45, h: 0.38).fill(color(for: .biceps))
+                sideBar(left: true,  y: 0.58, h: 0.25).fill(color(for: .forearms))
+                sideBar(left: false, y: 0.58, h: 0.25).fill(color(for: .forearms))
 
                 // Abs / Obliques
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.50, 0.66, 0.52, 0.10, in: geo.size))
-                    .fill(color(for: .abs))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.27, 0.62, 0.20, 0.10, in: geo.size))
-                    .fill(color(for: .obliques))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.73, 0.62, 0.20, 0.10, in: geo.size))
-                    .fill(color(for: .obliques))
+                capsule(x: 0.50, y: 0.66, w: 0.52, h: 0.10).fill(color(for: .abs))
+                oblique(left: true).fill(color(for: .obliques))
+                oblique(left: false).fill(color(for: .obliques))
 
                 // Quads / Adductors / Abductors
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.80, 0.70, 0.10, in: geo.size))
-                    .fill(color(for: .quads))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.18, 0.80, 0.16, 0.10, in: geo.size))
-                    .fill(color(for: .abductors))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.82, 0.80, 0.16, 0.10, in: geo.size))
-                    .fill(color(for: .abductors))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.80, 0.20, 0.10, in: geo.size))
-                    .fill(color(for: .adductors))
+                legBand(y: 0.80, w: 0.70, h: 0.10).fill(color(for: .quads))
+                sideBand(y: 0.80, left: true).fill(color(for: .abductors))
+                sideBand(y: 0.80, left: false).fill(color(for: .abductors))
+                innerBand(y: 0.80).fill(color(for: .adductors))
 
                 // Calves
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.92, 0.55, 0.08, in: geo.size))
-                    .fill(color(for: .calves))
+                legBand(y: 0.92, w: 0.55, h: 0.08).fill(color(for: .calves))
             }
         }
     }
 
-    private func isPrimary(_ r: MuscleRegion) -> Bool { primary.contains(r) }
-    private func isSecondary(_ r: MuscleRegion) -> Bool { secondary.contains(r) }
-    private func color(for r: MuscleRegion) -> Color {
+    // MARK: Drawing helpers (front)
+    func isPrimary(_ r: MuscleRegion) -> Bool { primary.contains(r) }
+    func isSecondary(_ r: MuscleRegion) -> Bool { secondary.contains(r) }
+
+    func fillFor(_ r: MuscleRegion) -> Color {
         if isPrimary(r) { return accent }
         if isSecondary(r) { return accent.opacity(0.35) }
         return .clear
     }
 
-    /// Map normalized coords (0...1) to actual CGRect in the given size.
-    private func unitRect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, in size: CGSize) -> CGRect {
-        CGRect(x: (x - w/2) * size.width,
-               y: (y - h/2) * size.height,
-               width:  w * size.width,
-               height: h * size.height)
+    func color(for r: MuscleRegion) -> Color {
+        // faint grid for non-empty background
+        fillFor(r)
+    }
+
+    func capsule(x: CGFloat, y: CGFloat, w: CGFloat, h: CGFloat) -> some Shape {
+        RoundedRectangle(cornerRadius: 999)
+            .path(in: CGRect(x: x - w/2, y: y - h/2, width: w, height: h))
+    }
+
+    func sideBar(left: Bool, y: CGFloat, h: CGFloat) -> some Shape {
+        let x: CGFloat = left ? 0.12 : 0.88
+        return RoundedRectangle(cornerRadius: 999)
+            .path(in: CGRect(x: x - 0.08, y: y - h/2, width: 0.16, height: h))
+    }
+
+    func oblique(left: Bool) -> some Shape {
+        let x: CGFloat = left ? 0.27 : 0.73
+        return RoundedRectangle(cornerRadius: 6)
+            .path(in: CGRect(x: x - 0.10, y: 0.62, width: 0.20, height: 0.10))
+    }
+
+    func legBand(y: CGFloat, w: CGFloat, h: CGFloat) -> some Shape {
+        RoundedRectangle(cornerRadius: 6)
+            .path(in: CGRect(x: 0.50 - w/2, y: y - h/2, width: w, height: h))
+    }
+
+    func sideBand(y: CGFloat, left: Bool) -> some Shape {
+        let x: CGFloat = left ? 0.18 : 0.82
+        return RoundedRectangle(cornerRadius: 6)
+            .path(in: CGRect(x: x - 0.08, y: y - 0.05, width: 0.16, height: 0.10))
+    }
+
+    func innerBand(y: CGFloat) -> some Shape {
+        RoundedRectangle(cornerRadius: 6)
+            .path(in: CGRect(x: 0.50 - 0.10, y: y - 0.05, width: 0.20, height: 0.10))
     }
 }
+
+// MARK: - Back silhouette
 private struct BodyBack: View {
     let primary: Set<MuscleRegion>
     let secondary: Set<MuscleRegion>
@@ -140,70 +138,60 @@ private struct BodyBack: View {
 
     var body: some View {
         GeometryReader { geo in
-            let W = geo.size.width
+            let w = geo.size.width
 
-            ZStack {
-                RoundedRectangle(cornerRadius: W*0.12, style: .continuous)
-                    .fill(background)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: W*0.12, style: .continuous)
-                            .stroke(foreground.opacity(0.18), lineWidth: 1)
-                    )
-                    .padding(W*0.08)
+            RoundedRectangle(cornerRadius: w*0.12, style: .continuous)
+                .fill(background)
+                .overlay(RoundedRectangle(cornerRadius: w*0.12).stroke(foreground.opacity(0.18), lineWidth: 1))
+                .padding(w*0.08)
 
-                // Traps / rear delts
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.26, 0.70, 0.10, in: geo.size))
-                    .fill(color(for: .trapsRear))
+            Group {
+                // Traps / rear delts band
+                band(y: 0.26, w: 0.70, h: 0.10).fill(color(for: .trapsRear))
 
-                // Lats / Mid / Lower back
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.40, 0.72, 0.10, in: geo.size))
-                    .fill(color(for: .lats))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.52, 0.72, 0.10, in: geo.size))
-                    .fill(color(for: .midBack))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.62, 0.72, 0.10, in: geo.size))
-                    .fill(color(for: .lowerBack))
+                // Lats, Mid, Lower back bands
+                band(y: 0.40, w: 0.72, h: 0.10).fill(color(for: .lats))
+                band(y: 0.52, w: 0.72, h: 0.10).fill(color(for: .midBack))
+                band(y: 0.62, w: 0.72, h: 0.10).fill(color(for: .lowerBack))
 
-                // Triceps (back)
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.12, 0.50, 0.16, 0.36, in: geo.size))
-                    .fill(color(for: .triceps))
-                RoundedRectangle(cornerRadius: 999)
-                    .path(in: unitRect(0.88, 0.50, 0.16, 0.36, in: geo.size))
-                    .fill(color(for: .triceps))
+                // Triceps emphasized on back view
+                sideBar(y: 0.50, h: 0.36, left: true).fill(color(for: .triceps))
+                sideBar(y: 0.50, h: 0.36, left: false).fill(color(for: .triceps))
 
-                // Glutes / Hamstrings / Calves
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.72, 0.55, 0.12, in: geo.size))
-                    .fill(color(for: .glutes))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.84, 0.65, 0.10, in: geo.size))
-                    .fill(color(for: .hamstrings))
-                RoundedRectangle(cornerRadius: 6)
-                    .path(in: unitRect(0.50, 0.92, 0.55, 0.08, in: geo.size))
-                    .fill(color(for: .calves))
+                // Glutes
+                band(y: 0.72, w: 0.55, h: 0.12).fill(color(for: .glutes))
+
+                // Hamstrings
+                band(y: 0.84, w: 0.65, h: 0.10).fill(color(for: .hamstrings))
+
+                // Calves
+                band(y: 0.92, w: 0.55, h: 0.08).fill(color(for: .calves))
             }
         }
     }
 
-    private func isPrimary(_ r: MuscleRegion) -> Bool { primary.contains(r) }
-    private func isSecondary(_ r: MuscleRegion) -> Bool { secondary.contains(r) }
-    private func color(for r: MuscleRegion) -> Color {
+    // MARK: helpers (back)
+    func isPrimary(_ r: MuscleRegion) -> Bool { primary.contains(r) }
+    func isSecondary(_ r: MuscleRegion) -> Bool { secondary.contains(r) }
+
+    func color(for r: MuscleRegion) -> Color {
         if isPrimary(r) { return accent }
         if isSecondary(r) { return accent.opacity(0.35) }
         return .clear
     }
 
-    private func unitRect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, in size: CGSize) -> CGRect {
-        CGRect(x: (x - w/2) * size.width,
-               y: (y - h/2) * size.height,
-               width:  w * size.width,
-               height: h * size.height)
+    func band(y: CGFloat, w: CGFloat, h: CGFloat) -> some Shape {
+        RoundedRectangle(cornerRadius: 6)
+            .path(in: CGRect(x: 0.50 - w/2, y: y - h/2, width: w, height: h))
+    }
+
+    func sideBar(y: CGFloat, h: CGFloat, left: Bool) -> some Shape {
+        let x: CGFloat = left ? 0.12 : 0.88
+        return RoundedRectangle(cornerRadius: 999)
+            .path(in: CGRect(x: x - 0.08, y: y - h/2, width: 0.16, height: h))
     }
 }
+
 // MARK: - Tiny hex helper (reuse from your codebase if present)
 private extension Color {
     init(hex: String) {

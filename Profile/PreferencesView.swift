@@ -7,6 +7,7 @@
 
 
 import SwiftUI
+import SwiftData
 
 struct PreferencesView: View {
     // Stored app settings (use your existing keys where possible)
@@ -17,6 +18,9 @@ struct PreferencesView: View {
 
     @State private var showResetAlert = false
     @State private var exportSheet = false
+
+    @Query private var goals: [WeeklyGoal]
+    @Environment(\.modelContext) private var context
 
     private var appVersion: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -65,6 +69,25 @@ struct PreferencesView: View {
                     Label("Reset progress", systemImage: "trash")
                 }
             }
+
+            // Debug Section
+            #if DEBUG
+            Section("Debug") {
+                if let goal = goals.first, goal.isSet {
+                    Button {
+                        goal.isSet = false
+                        try? context.save()
+                    } label: {
+                        Label("Reset Weekly Goal", systemImage: "arrow.counterclockwise.circle")
+                            .foregroundStyle(.orange)
+                    }
+                } else {
+                    Text("Weekly goal not set")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+            }
+            #endif
 
             Section("About") {
                 HStack {

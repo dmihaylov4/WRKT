@@ -514,7 +514,8 @@ struct ExerciseSessionView: View {
 
         if returnToHomeOnSave {
             NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-            NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)  // ⬅️ go to Home root
+           // NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)  // ⬅️ go to Home root
+            AppBus.postResetHome(reason: .user_intent)
         } else {
             NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
         }
@@ -529,7 +530,8 @@ struct ExerciseSessionView: View {
 
         if returnToHomeOnSave {
             NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-            NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)  // ⬅️ already correct pattern
+           // NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)  // ⬅️ already correct pattern
+            AppBus.postResetHome(reason: .user_intent)
         } else {
             NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
         }
@@ -1626,8 +1628,10 @@ private enum MuscleLexicon {
             out.formUnion(["deep-external-rotators"])
         case "quadriceps", "quads", "quadriceps femoris":
             out.formUnion(["quadriceps","quadriceps-1","quadriceps-2","quadriceps-3","quadriceps-4"])
-        case "hip adductors", "adductors", "adductor":
-            out.formUnion(["hip-adductors","hip-adductors-1","hip-adductors-2","adductors"])
+        case "adductor magnus", "adductor-longus", "adductor longus",
+             "adductor brevis", "adductor-brevis",
+             "gracilis", "pectineus":
+            out.formUnion(["adductors", "hip-adductors", "hip-adductors-1", "hip-adductors-2"])
         case "hip flexors", "hip-flexors": out.formUnion(["hip-flexors"])
         case "abductors", "abductor", "tfl": out.formUnion(["abductors"])
         case "gluteus maximus", "glute max", "gluteus-maximus":

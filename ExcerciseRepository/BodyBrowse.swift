@@ -176,7 +176,7 @@ struct MuscleExerciseListView: View {
                 }
                 .background(DS.Semantic.surface)
             } else {
-                List(rows) { ex in
+                List(rows, id: \.id) { ex in
                     HStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(ex.name).font(.body)
@@ -206,9 +206,11 @@ struct MuscleExerciseListView: View {
                                 .allowsHitTesting(false)
                         }
                     }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 .listStyle(.plain)
                 .background(DS.Semantic.surface)
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: rows.map { $0.id })
             }
         }
         .safeAreaInset(edge: .top) {
@@ -216,7 +218,7 @@ struct MuscleExerciseListView: View {
                 .overlay(Divider().background(DS.Semantic.border), alignment: .bottom)
         }
         .sheet(item: $showingSessionFor) { ctx in
-            ExerciseSessionView(exercise: ctx.exercise, currentEntryID: nil)
+            ExerciseSessionView(exercise: ctx.exercise, currentEntryID: nil, returnToHomeOnSave: true)
                 .environmentObject(store)
         }
         .navigationTitle(subregion)
@@ -500,7 +502,9 @@ struct FavoriteHeartButton: View {
     var body: some View {
         let isFav = favs.contains(exerciseID)
         Button {
-            favs.toggle(exerciseID)
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                favs.toggle(exerciseID)
+            }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             Image(systemName: isFav ? "heart.fill" : "heart")
@@ -508,6 +512,8 @@ struct FavoriteHeartButton: View {
                 .foregroundStyle(isFav ? filledTint : .secondary)
                 .padding(8)
                 .background(.ultraThinMaterial, in: Circle())
+                .symbolEffect(.bounce, value: isFav)
+                .scaleEffect(isFav ? 1.0 : 0.95)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")

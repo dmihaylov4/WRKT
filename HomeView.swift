@@ -4,6 +4,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Routes the Home stack can push to
 enum BrowseRoute: Hashable {
@@ -15,6 +16,12 @@ enum BrowseRoute: Hashable {
 struct HomeView: View {
     @EnvironmentObject var store: WorkoutStore
     @State private var path = NavigationPath()
+
+    @Query private var goals: [WeeklyGoal]
+    
+    @Environment(\.modelContext) private var context
+    //DELETED BECAUSE ONBOARDING
+    //@State private var showGoalSetup = false
 
     // Split animation state
     @Namespace private var regionNS
@@ -46,7 +53,7 @@ struct HomeView: View {
                             systemImage: "figure.strengthtraining.traditional",
                             matchedID: "region-upper",
                             namespace: regionNS,
-                            tint: DS.Palette.marone   // #6B21A8
+                            tint: DS.Palette.marone
                         ) {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                                 expandedRegion = .upper
@@ -59,7 +66,7 @@ struct HomeView: View {
                             systemImage: "figure.step.training",
                             matchedID: "region-lower",
                             namespace: regionNS,
-                            tint: DS.Palette.marone   // #BA5C12 (keeps to your palette)
+                            tint: DS.Palette.marone
                         ) {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                                 expandedRegion = .lower
@@ -138,10 +145,30 @@ struct HomeView: View {
             collapsePanel(animated: false)
         }
         .onReceive(NotificationCenter.default.publisher(for: .homeTabReselected)) { _ in
-            collapsePanel()
+            print("🏠 HomeView: Received homeTabReselected notification")
+            // Reset to root state when Home tab is re-tapped
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                path = NavigationPath()
+                expandedRegion = nil
+                showTiles = false
+            }
         }
+       // .onAppear {
+            // Check if weekly goal is set, show setup if not
+            //if let goal = goals.first, !goal.isSet {
+              //  showGoalSetup = true
+            //} else if goals.isEmpty {
+            //    showGoalSetup = true
+          //  }
+        //}
+       // .sheet(isPresented: $showGoalSetup) {
+         //   NavigationStack {
+           //     WeeklyGoalSetupView(goal: goals.first)
+             //       .interactiveDismissDisabled() // Require user to set goal
+           // }
+       // }
         //.tint(DS.Semantic.brand)
-     
+
     }
 }
 
@@ -303,6 +330,22 @@ private struct SubregionTile: View {
         )
         .foregroundStyle(DS.Semantic.textPrimary)
         .contentShape(Rectangle())
+    }
+}
+
+
+
+
+
+private extension Color {
+    init(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        var v: UInt64 = 0; Scanner(string: s).scanHexInt64(&v)
+        let r = Double((v >> 16) & 0xFF) / 255.0
+        let g = Double((v >>  8) & 0xFF) / 255.0
+        let b = Double( v        & 0xFF) / 255.0
+        self = Color(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
     }
 }
 

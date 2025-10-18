@@ -1,11 +1,3 @@
-//
-//  MuscleIconMapper.swift
-//  WRKT
-//
-//  Created by Dimitar Mihaylov on 09.10.25.
-//
-
-
 import Foundation
 
 enum MuscleIconMapper {

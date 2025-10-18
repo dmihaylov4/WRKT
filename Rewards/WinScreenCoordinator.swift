@@ -24,7 +24,19 @@ final class WinScreenCoordinator: ObservableObject {
             .collect(.byTime(DispatchQueue.main, .milliseconds(400)))
             .sink { [weak self] batch in
                 guard let self, !batch.isEmpty else { return }
-                let merged = batch.reduce(batch[0]) { $0.merged(with: $1) }
+                print("🎉 WinScreenCoordinator: Merging \(batch.count) summaries")
+                for (idx, summary) in batch.enumerated() {
+                    print("  Summary[\(idx)]: \(summary.xpLineItems.count) line items, \(summary.xp) total XP")
+                    for item in summary.xpLineItems {
+                        print("    - \(item.source) +\(item.xp)")
+                    }
+                }
+                // Fix: Use dropFirst() to avoid merging batch[0] with itself
+                let merged = batch.dropFirst().reduce(batch[0]) { $0.merged(with: $1) }
+                print("  Merged result: \(merged.xpLineItems.count) line items, \(merged.xp) total XP")
+                for item in merged.xpLineItems {
+                    print("    - \(item.source) +\(item.xp)")
+                }
                 self.enqueueMerged(merged)
             }
             .store(in: &bag)

@@ -10,19 +10,28 @@
 import Foundation
 import SwiftData
 
-@Model final class RewardProgress {
-    @Attribute(.unique) var id: String = "global"     // single row
-    var xp: Int
-    var level: Int
-    var nextLevelXP: Int
-    var longestStreak: Int
-    var currentStreak: Int
-    var lastActivityAt: Date?
 
-    init(xp: Int = 0, level: Int = 1, nextLevelXP: Int = 150,
-         longestStreak: Int = 0, currentStreak: Int = 0, lastActivityAt: Date? = nil) {
-        self.xp = xp; self.level = level; self.nextLevelXP = nextLevelXP
-        self.longestStreak = longestStreak; self.currentStreak = currentStreak
+@Model final class RewardProgress {
+    @Attribute(.unique) var id: String = "global"
+    var xp: Int = 0
+    var level: Int = 1
+    var prevLevelXP: Int = 0      // ✅ default value for migration
+    var nextLevelXP: Int = 150
+    var longestStreak: Int = 0
+    var currentStreak: Int = 0
+    var lastActivityAt: Date? = nil
+    var streakFrozen: Bool = false  // Streak freeze active
+    var freezeUsedAt: Date? = nil   // When freeze was last used
+
+    init(xp: Int = 0, level: Int = 1,
+         prevLevelXP: Int = 0, nextLevelXP: Int = 150,
+         longestStreak: Int = 0, currentStreak: Int = 0,
+         lastActivityAt: Date? = nil) {
+        self.xp = xp; self.level = level
+        self.prevLevelXP = prevLevelXP
+        self.nextLevelXP = nextLevelXP
+        self.longestStreak = longestStreak
+        self.currentStreak = currentStreak
         self.lastActivityAt = lastActivityAt
     }
 }

@@ -34,10 +34,12 @@ final class WorkoutStore: ObservableObject {
     private var currentFileURL: URL { appSupportDir.appendingPathComponent("current_workout.json") }
     private var runsFileURL: URL { appSupportDir.appendingPathComponent("runs.json") }
 
-    private var stats: StatsAggregator?   // actor ref; safe to store
+    private var _stats: StatsAggregator?   // actor ref; safe to store
+
+    var stats: StatsAggregator? { _stats }  // public getter
 
      func installStats(_ stats: StatsAggregator) {
-         self.stats = stats
+         self._stats = stats
      }
     // MARK: - Init
     // init(repo:)
@@ -87,8 +89,8 @@ final class WorkoutStore: ObservableObject {
 
         // 👉 Persist PRs immediately when a workout is finished
         updatePRIndex(with: completed)
-        Task.detached(priority: .utility) { [stats] in
-                   await stats?.apply(completed)
+        Task.detached(priority: .utility) { [_stats, completedWorkouts] in
+                   await _stats?.apply(completed, allWorkouts: completedWorkouts)
                }
 
         Task {
@@ -216,8 +218,8 @@ final class WorkoutStore: ObservableObject {
          saveToDisk()
 
          let weeks = Set(removed.map { startOfWeek(for: $0.date) })
-         Task.detached(priority: .utility) { [stats, completedWorkouts] in
-             await stats?.invalidate(weeks: weeks, from: completedWorkouts)
+         Task.detached(priority: .utility) { [_stats, completedWorkouts] in
+             await _stats?.invalidate(weeks: weeks, from: completedWorkouts)
          }
     }
 
@@ -226,8 +228,8 @@ final class WorkoutStore: ObservableObject {
             completedWorkouts[idx] = workout
             saveToDisk()
             let week = startOfWeek(for: workout.date)
-                       Task.detached(priority: .utility) { [stats, completedWorkouts] in
-                           await stats?.invalidate(weeks: [week], from: completedWorkouts)
+                       Task.detached(priority: .utility) { [_stats, completedWorkouts] in
+                           await _stats?.invalidate(weeks: [week], from: completedWorkouts)
                        }
         }
     }
@@ -271,17 +273,40 @@ final class WorkoutStore: ObservableObject {
         saveRunsToDisk()
     }
 
+    func updateRun(_ run: Run) {
+        if let index = runs.firstIndex(where: { $0.id == run.id }) {
+            runs[index] = run
+            saveRunsToDisk()
+        }
+    }
+
+    func removeRun(withId id: UUID) {
+        runs.removeAll(where: { $0.id == id })
+        saveRunsToDisk()
+    }
+
     func deleteRuns(at offsets: IndexSet) {
         runs.remove(atOffsets: offsets)
+        saveRunsToDisk()
+    }
+
+    func persist() {
         saveRunsToDisk()
     }
 
     func importRunsFromHealth() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }
         do {
-            try await HealthKitManager.shared.requestReadPermissions()
-            let importer = HealthRunImporter()
-            try await importer.importNewRuns(into: self, since: lastHealthImportEndDate)
+            // Request authorization if needed
+            if HealthKitManager.shared.connectionState != .connected {
+                try await HealthKitManager.shared.requestAuthorization()
+                await HealthKitManager.shared.setupBackgroundObservers()
+            }
+
+            // Trigger incremental sync using the new unified pipeline
+            await HealthKitManager.shared.syncWorkoutsIncremental()
+
+            // Update last import date
             if let latest = runs.map({ $0.date }).max() {
                 lastHealthImportEndDate = latest
                 defaults.set(latest, forKey: lastImportKey)
@@ -635,30 +660,35 @@ extension WorkoutStore {
               await Persistence.shared.deleteCurrentWorkout()
           }
           currentWorkout = nil
-        Task.detached(priority: .utility) { [stats] in
-                   await stats?.apply(completed)
+        Task.detached(priority: .utility) { [_stats, completedWorkouts] in
+                   await _stats?.apply(completed, allWorkouts: completedWorkouts)
                }
           return (completed.id.uuidString, newPRs)
       }
 
-    /// Simple PR count: new best per exact reps or new best e1RM.
+    /// Count unique exercises that have a new PR (not individual sets)
     private func countPRs(in workout: CompletedWorkout) -> Int {
-        var count = 0
+        var exercisesWithPR = Set<String>()
         for e in workout.entries {
             let existing = prIndex[e.exerciseID] ?? ExercisePRs()
             for s in e.sets where s.tag == .working && s.reps > 0 && s.weight > 0 {
                 let prevBestAtReps = existing.bestPerReps[s.reps] ?? 0
-                if s.weight > prevBestAtReps { count += 1; continue }
+                if s.weight > prevBestAtReps {
+                    exercisesWithPR.insert(e.exerciseID)
+                    break
+                }
 
                 let e1rm = s.weight * (1.0 + Double(s.reps)/30.0)
                 if let prevE1 = existing.bestE1RM, e1rm > prevE1 {
-                    count += 1
+                    exercisesWithPR.insert(e.exerciseID)
+                    break
                 } else if existing.bestE1RM == nil {
-                    count += 1
+                    exercisesWithPR.insert(e.exerciseID)
+                    break
                 }
             }
         }
-        return count
+        return exercisesWithPR.count
     }
 }
 
