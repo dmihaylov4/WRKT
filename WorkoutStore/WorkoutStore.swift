@@ -115,12 +115,128 @@ final class WorkoutStore: ObservableObject {
         currentWorkout = w
         persistCurrent()
         updateLastWorkingFromCurrent()      // 👈 keep memory warm during the session
-        
+
         let entry = w.entries[idx]
         let hasWorking = entry.sets.contains { $0.tag == .working && $0.reps > 0 }
         if hasWorking {
             let key = canonicalExerciseKey(from: entry.exerciseID)   // from DexKeying.swift
             RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
+        }
+    }
+
+    // MARK: - HealthKit Workout Matching
+
+    /// Matches a completed workout with HealthKit data within ±10 minutes
+    /// Returns true if a match was found and updated
+    @discardableResult
+    func matchWithHealthKit(_ workout: CompletedWorkout) -> Bool {
+        // Skip if already matched
+        guard workout.matchedHealthKitUUID == nil else {
+            print("⏭️ Workout already matched, skipping")
+            return false
+        }
+
+        // Find strength training workouts from HealthKit within ±10 minutes
+        let matchWindow: TimeInterval = 10 * 60  // 10 minutes in seconds
+        let workoutEndTime = workout.date  // The time workout was finished
+        let startWindow = workoutEndTime.addingTimeInterval(-matchWindow)
+        let endWindow = workoutEndTime.addingTimeInterval(matchWindow)
+
+        print("🔍 Matching workout at \(workoutEndTime.formatted(date: .abbreviated, time: .shortened))")
+        print("   Window: \(startWindow.formatted(date: .omitted, time: .shortened)) - \(endWindow.formatted(date: .omitted, time: .shortened))")
+        print("   Total runs available: \(runs.count)")
+
+        // Look for strength training workouts in runs (HealthKit imports)
+        let strengthTypes = ["Strength Training", "Functional Training", "Core Training"]
+        let strengthRuns = runs.filter { run in
+            guard let type = run.workoutType else { return false }
+            return strengthTypes.contains(type)
+        }
+
+        print("   Strength training runs found: \(strengthRuns.count)")
+
+        let candidates = strengthRuns.filter { run in
+            let inWindow = run.date >= startWindow && run.date <= endWindow
+            if inWindow {
+                print("   ✓ Candidate: \(run.workoutType ?? "Unknown") at \(run.date.formatted(date: .omitted, time: .shortened))")
+            }
+            return inWindow
+        }
+
+        print("   Candidates in window: \(candidates.count)")
+
+        // If we found a match, pick the closest one
+        guard let match = candidates.min(by: { abs($0.date.timeIntervalSince(workoutEndTime)) < abs($1.date.timeIntervalSince(workoutEndTime)) }) else {
+            print("   ❌ No match found")
+            return false
+        }
+
+        // Fetch detailed heart rate data in background
+        Task {
+            await fetchAndStoreHeartRateData(for: workout.id, healthKitUUID: match.healthKitUUID)
+        }
+
+        // Update the workout with matched data
+        if let idx = completedWorkouts.firstIndex(where: { $0.id == workout.id }) {
+            completedWorkouts[idx].matchedHealthKitUUID = match.healthKitUUID
+            completedWorkouts[idx].matchedHealthKitCalories = match.calories
+            completedWorkouts[idx].matchedHealthKitHeartRate = match.avgHeartRate
+            completedWorkouts[idx].matchedHealthKitDuration = match.durationSec
+            saveToDisk()
+
+            print("   ✅ Matched with HealthKit workout at \(match.date.formatted(date: .omitted, time: .shortened))")
+            print("      Duration: \(match.durationSec)s, Calories: \(match.calories ?? 0), HR: \(match.avgHeartRate ?? 0)")
+            return true
+        }
+
+        return false
+    }
+
+    /// Fetches detailed heart rate samples for a matched workout
+    private func fetchAndStoreHeartRateData(for workoutID: UUID, healthKitUUID: UUID?) async {
+        guard let hkUUID = healthKitUUID else { return }
+
+        print("   📈 Fetching heart rate samples for workout...")
+
+        do {
+            // Find the HealthKit workout
+            let workouts = try await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID)
+            guard let hkWorkout = workouts.first else {
+                print("   ⚠️ Could not find HealthKit workout")
+                return
+            }
+
+            // Fetch heart rate samples
+            let (samples, avg, max, min) = try await HealthKitManager.shared.fetchHeartRateSamples(for: hkWorkout)
+
+            print("   ✅ Fetched \(samples.count) heart rate samples")
+            print("      Avg: \(Int(avg)) bpm, Max: \(Int(max)) bpm, Min: \(Int(min)) bpm")
+
+            // Update workout with HR data
+            await MainActor.run {
+                if let idx = completedWorkouts.firstIndex(where: { $0.id == workoutID }) {
+                    completedWorkouts[idx].matchedHealthKitHeartRate = avg
+                    completedWorkouts[idx].matchedHealthKitMaxHeartRate = max
+                    completedWorkouts[idx].matchedHealthKitMinHeartRate = min
+                    completedWorkouts[idx].matchedHealthKitHeartRateSamples = samples
+                    saveToDisk()
+                }
+            }
+        } catch {
+            print("   ❌ Failed to fetch heart rate samples: \(error)")
+        }
+    }
+
+    /// Attempts to match all unmatched workouts with HealthKit data
+    func matchAllWorkoutsWithHealthKit() {
+        var matchCount = 0
+        for workout in completedWorkouts where workout.matchedHealthKitUUID == nil {
+            if matchWithHealthKit(workout) {
+                matchCount += 1
+            }
+        }
+        if matchCount > 0 {
+            print("✅ Matched \(matchCount) workouts with HealthKit data")
         }
     }
 
@@ -275,9 +391,49 @@ final class WorkoutStore: ObservableObject {
 
     func updateRun(_ run: Run) {
         if let index = runs.firstIndex(where: { $0.id == run.id }) {
-            runs[index] = run
+            let oldType = runs[index].workoutType
+
+            // Force @Published to trigger by reassigning the entire array
+            var updatedRuns = runs
+            updatedRuns[index] = run
+            runs = updatedRuns
+
+            print("    🔄 Updated run: \(oldType ?? "nil") → \(run.workoutType ?? "nil")")
             saveRunsToDisk()
+        } else {
+            print("    ⚠️ Could not find run with id \(run.id) to update")
         }
+    }
+
+    /// Batch update multiple runs at once (more efficient for bulk updates)
+    func batchUpdateRuns(_ updatedRuns: [Run]) {
+        print("📦 batchUpdateRuns called with \(updatedRuns.count) runs")
+
+        var runsCopy = runs
+        var updateCount = 0
+        var typeUpdateCount = 0
+
+        for run in updatedRuns {
+            if let index = runsCopy.firstIndex(where: { $0.id == run.id }) {
+                let oldType = runsCopy[index].workoutType
+                runsCopy[index] = run
+
+                if run.workoutType != nil && oldType == nil {
+                    typeUpdateCount += 1
+                }
+
+                updateCount += 1
+
+                if updateCount <= 3 {
+                    print("   [\(updateCount)] \(oldType ?? "nil") → \(run.workoutType ?? "nil")")
+                }
+            }
+        }
+
+        runs = runsCopy
+        print("📦 Batch updated \(updateCount)/\(updatedRuns.count) runs")
+        print("   Type field populated for \(typeUpdateCount) runs")
+        saveRunsToDisk()
     }
 
     func removeRun(withId id: UUID) {
@@ -311,6 +467,9 @@ final class WorkoutStore: ObservableObject {
                 lastHealthImportEndDate = latest
                 defaults.set(latest, forKey: lastImportKey)
             }
+
+            // Match workouts with HealthKit data
+            matchAllWorkoutsWithHealthKit()
         } catch {
             print("⚠️ Health import failed: \(error)")
         }
@@ -408,6 +567,7 @@ final class WorkoutStore: ObservableObject {
     private func saveRunsToDisk() {
         let toSave = runs
         let url = runsFileURL
+        print("💾 Saving \(toSave.count) runs to disk...")
         Task.detached(priority: .utility) {
             do {
                 let encoder = JSONEncoder()
@@ -415,6 +575,7 @@ final class WorkoutStore: ObservableObject {
                 encoder.dateEncodingStrategy = .iso8601
                 let data = try encoder.encode(toSave)
                 try data.write(to: url, options: [.atomic])
+                print("✅ Saved runs to disk successfully")
             } catch {
                 print("⚠️ Failed to save runs: \(error)")
             }

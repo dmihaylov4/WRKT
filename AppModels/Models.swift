@@ -109,11 +109,26 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
     var date: Date = .now
     var entries: [WorkoutEntry]
 
+    // Matched HealthKit workout data (if found within ±10 min of completion)
+    var matchedHealthKitUUID: UUID?
+    var matchedHealthKitCalories: Double?
+    var matchedHealthKitHeartRate: Double?           // Average HR
+    var matchedHealthKitMaxHeartRate: Double?        // Max HR
+    var matchedHealthKitMinHeartRate: Double?        // Min HR
+    var matchedHealthKitDuration: Int?               // in seconds
+    var matchedHealthKitHeartRateSamples: [HeartRateSample]?  // Time-series for graph
+
     init(id: UUID = UUID(), date: Date = .now, entries: [WorkoutEntry]) {
         self.id = id
         self.date = date
         self.entries = entries
     }
+}
+
+// Heart rate sample for time-series graphing
+struct HeartRateSample: Codable, Hashable {
+    let timestamp: Date      // When this sample was recorded
+    let bpm: Double          // Beats per minute
 }
 
 struct CurrentWorkout: Identifiable, Codable, Hashable {
@@ -139,6 +154,8 @@ struct Run: Identifiable, Codable, Hashable {
     var avgHeartRate: Double?
     var calories: Double?
     var route: [Coordinate]?   // nil when no route
+    var workoutType: String?   // HealthKit workout activity type (e.g., "Running", "Cycling", "Traditional Strength Training")
+    var workoutName: String?   // Custom workout name from Apple Fitness/Watch
 
     init(
         id: UUID = UUID(),
@@ -149,7 +166,9 @@ struct Run: Identifiable, Codable, Hashable {
         healthKitUUID: UUID? = nil,
         avgHeartRate: Double? = nil,
         calories: Double? = nil,
-        route: [Coordinate]? = nil
+        route: [Coordinate]? = nil,
+        workoutType: String? = nil,
+        workoutName: String? = nil
     ) {
         self.id = id
         self.date = date
@@ -160,6 +179,8 @@ struct Run: Identifiable, Codable, Hashable {
         self.avgHeartRate = avgHeartRate
         self.calories = calories
         self.route = route
+        self.workoutType = workoutType
+        self.workoutName = workoutName
     }
 }
 

@@ -2,6 +2,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import HealthKit
 
 // MARK: - Shell types & animation
 private enum AppTab: Int { case home = 0, calendar = 1, runs = 2, profile = 3 }
@@ -19,7 +20,11 @@ struct AppShellView: View {
     @StateObject private var healthKit = HealthKitManager.shared
 
     // Shell UI state
-    @State private var selectedTab: AppTab = .home
+    @State private var selectedTab: AppTab = .home {
+        didSet {
+            print("📍 selectedTab changed: \(oldValue) → \(selectedTab)")
+        }
+    }
     @State private var grabCollapsed = false
     @State private var showLiveOverlay = false
     @State private var showContent = false
@@ -27,7 +32,11 @@ struct AppShellView: View {
     //Onboarding needed
     
     @Query private var goals: [WeeklyGoal]
-    @State private var showGoalSetupSheet = false
+    @State private var showGoalSetupSheet = false {
+        didSet {
+            print("🎯 showGoalSetupSheet changed: \(oldValue) → \(showGoalSetupSheet)")
+        }
+    }
 
     private var needsGoalSetup: Bool {
         guard let g = goals.first else { return true }
@@ -93,6 +102,15 @@ struct AppShellView: View {
                         .scrollContentBackground(.hidden)
                         .navigationTitle("Profile")
                         .navigationBarTitleDisplayMode(.inline)
+                        .onAppear {
+                            print("🟢 Profile NavigationStack appeared")
+                            print("   selectedTab = \(selectedTab)")
+                            print("   needsGoalSetup = \(needsGoalSetup)")
+                        }
+                        .onDisappear {
+                            print("🔴 Profile NavigationStack disappeared")
+                            print("   selectedTab = \(selectedTab)")
+                        }
                 }
                 .tabItem { Label("Profile", systemImage: "person.crop.circle") }
                 .tag(AppTab.profile)
@@ -101,13 +119,22 @@ struct AppShellView: View {
             .tint(DS.Palette.marone)
 
             .overlay(
-                TabBarReselectionDetector { index in
-                    print("🔄 Tab reselected: \(index)")
-                    if index == AppTab.home.rawValue {
-                        print("🏠 Posting homeTabReselected notification")
-                        NotificationCenter.default.post(name: .homeTabReselected, object: nil)
+                TabBarReselectionDetector(
+                    selectedTab: $selectedTab,
+                    onReselect: { index in
+                        print("🔄 Tab reselected: \(index)")
+                        if index == AppTab.home.rawValue {
+                            print("🏠 Posting homeTabReselected notification")
+                            NotificationCenter.default.post(name: .homeTabReselected, object: nil)
+                        } else if index == AppTab.calendar.rawValue {
+                            print("📅 Posting calendarTabReselected notification")
+                            NotificationCenter.default.post(name: .calendarTabReselected, object: nil)
+                        } else if index == AppTab.runs.rawValue {
+                            print("🏃 Posting cardioTabReselected notification")
+                            NotificationCenter.default.post(name: .cardioTabReselected, object: nil)
+                        }
                     }
-                }
+                )
                 .allowsHitTesting(false)
             )
 
@@ -122,7 +149,12 @@ struct AppShellView: View {
             // Sync shell state with tab selection
             .onChange(of: selectedTab) { newTab in
                 print("🔄 Tab changed to: \(newTab) (rawValue: \(newTab.rawValue))")
+                print("   needsGoalSetup: \(needsGoalSetup)")
+                print("   showGoalSetupSheet: \(showGoalSetupSheet)")
+
                 NotificationCenter.default.post(name: .tabSelectionChanged, object: nil)
+                // Also post tabDidChange to dismiss detail views
+                NotificationCenter.default.post(name: .tabDidChange, object: nil)
 
                 // Keep your current behavior (pill shows only on Home).
                 if newTab != .home {
@@ -134,6 +166,12 @@ struct AppShellView: View {
                 if showLiveOverlay {
                     withAnimation(ShellAnim.spring) { showContent = false; showLiveOverlay = false }
                 }
+
+                // Check if weekly goal setup is needed when navigating to Home or Profile
+                if needsGoalSetup && (newTab == .home || newTab == .profile) {
+                    print("   → Showing goal setup sheet")
+                    showGoalSetupSheet = true
+                }
             }
             // NEW
             .onAppear {
@@ -143,17 +181,16 @@ struct AppShellView: View {
                 }
             }
 
-            .onChange(of: selectedTab) { newTab in
-                // re-check when the user navigates — but don’t force a tab swap
-                if needsGoalSetup && (newTab == .home || newTab == .profile) {
-                    showGoalSetupSheet = true
-                }
-            }
-
             .sheet(isPresented: $showGoalSetupSheet) {
                 NavigationStack {
                     WeeklyGoalSetupView(goal: goals.first)
                         .interactiveDismissDisabled() // keep your requirement
+                        .onAppear {
+                            print("📋 Goal setup sheet appeared")
+                        }
+                        .onDisappear {
+                            print("📋 Goal setup sheet dismissed")
+                        }
                 }
             }
             
@@ -311,9 +348,18 @@ struct AppShellView: View {
             HealthKitManager.shared.workoutStore = store
             HealthKitManager.shared.registerBackgroundTasks()
 
-            // Check if already authorized and setup observers
-            if HealthKitManager.shared.connectionState == .connected {
+            // Check authorization status on launch
+            print("🏥 Checking HealthKit authorization status on launch...")
+            let authStatus = HealthKitManager.shared.store.authorizationStatus(for: .workoutType())
+            print("   Authorization status: \(authStatus.rawValue)")
+
+            // Update connection state based on authorization
+            if authStatus == .sharingAuthorized {
+                print("   ✅ HealthKit is authorized, setting connected state")
+                HealthKitManager.shared.connectionState = .connected
                 HealthKitManager.shared.setupBackgroundObservers()
+            } else {
+                print("   ⚠️ HealthKit not authorized (status: \(authStatus.rawValue))")
             }
         }
 
@@ -428,11 +474,12 @@ struct WRKTApp: App {
 
 // Robust UITabBar re-tap detector
 private struct TabBarReselectionDetector: UIViewRepresentable {
+    @Binding var selectedTab: AppTab
     let onReselect: (_ index: Int) -> Void
 
     func makeCoordinator() -> Coordinator {
         print("🔧 TabBarReselectionDetector: makeCoordinator called")
-        return Coordinator(onReselect: onReselect)
+        return Coordinator(selectedTab: $selectedTab, onReselect: onReselect)
     }
 
     func makeUIView(context: Context) -> UIView {
@@ -543,9 +590,11 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
     }
 
     final class Coordinator: NSObject, UITabBarControllerDelegate {
+        @Binding var selectedTab: AppTab
         private let onReselect: (_ index: Int) -> Void
 
-        init(onReselect: @escaping (_ index: Int) -> Void) {
+        init(selectedTab: Binding<AppTab>, onReselect: @escaping (_ index: Int) -> Void) {
+            self._selectedTab = selectedTab
             self.onReselect = onReselect
             print("🎯 Coordinator: Initialized")
         }
@@ -565,6 +614,15 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
                 Haptics.soft()
                 print("🎯 Coordinator: Calling onReselect(\(tabBarController.selectedIndex))")
                 onReselect(tabBarController.selectedIndex)
+            } else {
+                // Regular tab switch - update SwiftUI state
+                if let newIndex = tabBarController.viewControllers?.firstIndex(of: viewController),
+                   let newTab = AppTab(rawValue: newIndex) {
+                    print("🎯 Coordinator: Updating selectedTab to \(newTab)")
+                    DispatchQueue.main.async {
+                        self.selectedTab = newTab
+                    }
+                }
             }
             return true
         }

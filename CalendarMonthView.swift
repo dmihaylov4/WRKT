@@ -55,6 +55,7 @@ private func hms(_ seconds: Int) -> String {
 // MARK: - Calendar View
 struct CalendarMonthView: View {
     @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var healthKit: HealthKitManager
 
     @State private var monthAnchor: Date = .now
     @State private var selectedDay: Date = .now
@@ -119,10 +120,12 @@ struct CalendarMonthView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.bottom, 16)
             .frame(height: gridHeight)
 
-            Divider().overlay(Theme.border)
+            Divider()
+                .overlay(Theme.border)
+                .padding(.top, 8)
 
             // Day detail — simplified & workout-centric
             ScrollView {
@@ -136,6 +139,19 @@ struct CalendarMonthView: View {
         .navigationBarTitleDisplayMode(.inline)
         .tint(Theme.accent)
         .safeAreaInset(edge: .bottom) { if hasActiveWorkout { Color.clear.frame(height: 65) } }
+        .task {
+            // Auto-sync when calendar appears (throttled to max once per 5 min)
+            let didSync = await healthKit.autoSyncIfNeeded()
+            if didSync {
+                // If we synced new data, try matching workouts
+                store.matchAllWorkoutsWithHealthKit()
+            }
+        }
+        .onAppear {
+            // Reset to today when view appears
+            selectedDay = .now
+            print("📅 CalendarMonthView appeared - reset selected day to today")
+        }
     }
 
     // MARK: - Navigation helpers
@@ -550,25 +566,113 @@ private struct DayDetail: View {
     }
 
     private struct WorkoutRow: View {
+        @EnvironmentObject var store: WorkoutStore
         let workout: CompletedWorkout
+        @State private var selectedExercise: Exercise?
+        @EnvironmentObject var repo: ExerciseRepository
+
+        private var hasHealthData: Bool {
+            workout.matchedHealthKitUUID != nil
+        }
+
+        // Determine workout type from matched HealthKit data
+        private var workoutType: String {
+            // Try to find the matched run to get the workout type
+            if let hkUUID = workout.matchedHealthKitUUID,
+               let matchedRun = store.runs.first(where: { $0.healthKitUUID == hkUUID }),
+               let type = matchedRun.workoutType {
+                return type
+            }
+            // Default to "Strength Workout" for app-logged workouts
+            return "Strength Workout"
+        }
+
+        // Calculate start time based on duration
+        private var startTime: Date {
+            if let duration = workout.matchedHealthKitDuration {
+                return workout.date.addingTimeInterval(-TimeInterval(duration))
+            }
+            // Estimate 1 hour workout if no duration data
+            return workout.date.addingTimeInterval(-3600)
+        }
+
+        private var timeRange: String {
+            let start = startTime.formatted(date: .omitted, time: .shortened)
+            let end = workout.date.formatted(date: .omitted, time: .shortened)
+            return "\(start) - \(end)"
+        }
 
         var body: some View {
             NavigationLink {
                 WorkoutDetailView(workout: workout)
             } label: {
-                HStack {
-                    Label {
-                        Text(timeOnly(workout.date))
-                            .foregroundStyle(Theme.text)
-                    } icon: {
-                        Image(systemName: "dumbbell")
-                            .foregroundStyle(Theme.accent)
+                VStack(spacing: 6) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(workoutType)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Theme.text)
+
+                            Text(timeRange)
+                                .font(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+
+                        Spacer()
+
+                        // Show Apple Health badge if matched
+                        if hasHealthData {
+                            Image(systemName: "heart.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(.pink)
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(Theme.secondary)
+                            .opacity(0.6)
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Theme.secondary)
-                        .opacity(0.6)
+
+                    // Show matched HealthKit data
+                    if hasHealthData {
+                        HStack(spacing: 12) {
+                            if let duration = workout.matchedHealthKitDuration, duration > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "timer")
+                                        .font(.caption2)
+                                        .foregroundStyle(Theme.secondary)
+                                    Text(hms(duration))
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(Theme.secondary)
+                                }
+                            }
+
+                            if let calories = workout.matchedHealthKitCalories, calories > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "flame.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                    Text("\(Int(calories)) cal")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(Theme.secondary)
+                                }
+                            }
+
+                            if let hr = workout.matchedHealthKitHeartRate, hr > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "heart.fill")
+                                        .font(.caption2)
+                                        .foregroundStyle(.pink)
+                                    Text("\(Int(hr)) bpm")
+                                        .font(.caption2.monospacedDigit())
+                                        .foregroundStyle(Theme.secondary)
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .padding(.top, 2)
+                    }
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)

@@ -19,6 +19,7 @@ private enum Theme {
 struct CardioDetailView: View {
     let run: Run
     @State private var hasActiveWorkoutInset = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 12) {
@@ -66,6 +67,15 @@ struct CardioDetailView: View {
         .safeAreaInset(edge: .bottom) {
             if hasActiveWorkoutInset { Color.clear.frame(height: 65) }
         }
+        // Listen for tab changes
+        .onReceive(NotificationCenter.default.publisher(for: .tabDidChange)) { _ in
+            dismiss()
+        }
+        // Listen for cardio tab reselection
+        .onReceive(NotificationCenter.default.publisher(for: .cardioTabReselected)) { _ in
+            print("🏃 CardioDetailView received cardio reselection - dismissing")
+            dismiss()
+        }
     }
 }
 
@@ -81,8 +91,25 @@ private struct StatGrid: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(run.date.formatted(date: .abbreviated, time: .shortened))
-                .font(.headline)
+            // Workout Name (if available)
+            if let workoutName = run.workoutName, !workoutName.isEmpty {
+                Text(workoutName)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(Theme.text)
+            }
+
+            // Workout Type and Date
+            HStack(spacing: 4) {
+                if let workoutType = run.workoutType {
+                    Text(workoutType)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                    Text("•").font(.subheadline).foregroundStyle(Theme.secondary)
+                }
+                Text(run.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.secondary)
+            }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
                                 GridItem(.flexible(), spacing: 10)],

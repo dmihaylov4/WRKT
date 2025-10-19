@@ -99,12 +99,23 @@ struct HealthAuthSheet: View {
 
         Task {
             do {
+                print("🔐 Requesting HealthKit authorization...")
                 try await healthKit.requestAuthorization()
-                await healthKit.syncWorkoutsIncremental()
+                print("✅ Authorization granted, connection state: \(healthKit.connectionState)")
+
+                // Do a FULL sync on first authorization to populate all workout types
+                print("🔄 Starting full initial sync...")
+                await healthKit.forceFullResync()
+                print("✅ Full sync complete")
+
                 await healthKit.syncExerciseTimeIncremental()
                 healthKit.setupBackgroundObservers()
-                dismiss()
+
+                await MainActor.run {
+                    dismiss()
+                }
             } catch {
+                print("❌ Authorization failed: \(error)")
                 self.error = error
                 isAuthorizing = false
             }

@@ -24,14 +24,35 @@ enum HealthConnectionState: String, Codable {
 @MainActor
 final class HealthKitManager: ObservableObject {
     static let shared = HealthKitManager()
-    private init() {}
 
     let store = HKHealthStore()
 
-    @Published var connectionState: HealthConnectionState = .disconnected
+    @Published var connectionState: HealthConnectionState {
+        didSet {
+            // Persist connection state to UserDefaults
+            UserDefaults.standard.set(connectionState.rawValue, forKey: "healthkit.connectionState")
+            print("💾 Saved connectionState: \(connectionState)")
+        }
+    }
+
+    private init() {
+        // Restore connection state from UserDefaults
+        if let savedState = UserDefaults.standard.string(forKey: "healthkit.connectionState"),
+           let state = HealthConnectionState(rawValue: savedState) {
+            self.connectionState = state
+            print("📂 Restored connectionState: \(state)")
+        } else {
+            self.connectionState = .disconnected
+            print("📂 No saved state, defaulting to .disconnected")
+        }
+    }
     @Published var isSyncing = false
     @Published var lastSyncDate: Date?
     @Published var syncError: Error?
+
+    // Auto-sync throttling (avoid syncing too frequently)
+    private var lastAutoSyncDate: Date?
+    private let autoSyncThrottleInterval: TimeInterval = 5 * 60  // 5 minutes
 
     // SwiftData context (injected from app)
     var modelContext: ModelContext?
@@ -75,19 +96,49 @@ final class HealthKitManager: ObservableObject {
             }
         }
 
+        print("📝 Requesting authorization for \(toRead.count) data types...")
         try await store.requestAuthorization(toShare: [], read: toRead)
+        print("✅ requestAuthorization completed")
 
         // Check authorization status
         let status = store.authorizationStatus(for: .workoutType())
-        switch status {
-        case .sharingAuthorized:
+        print("🔍 Authorization status after request: \(status.rawValue)")
+        print("   (.notDetermined=0, .sharingDenied=1, .sharingAuthorized=2)")
+
+        // HealthKit often returns incorrect status for privacy reasons
+        // The ONLY reliable way to know is to try querying data
+        print("   → Testing data access with a sample query...")
+        let canReadData = await testDataAccess()
+
+        if canReadData {
+            print("   ✅ Data access confirmed - setting connectionState to .connected")
+            print("   (Note: status said \(status.rawValue) but we can actually read data)")
             connectionState = .connected
-        case .notDetermined:
-            connectionState = .limited
-        case .sharingDenied:
-            connectionState = .disconnected
-        @unknown default:
-            connectionState = .limited
+        } else {
+            print("   ❌ Cannot read data")
+            if status == .sharingDenied {
+                print("   → Setting connectionState to .disconnected")
+                connectionState = .disconnected
+            } else {
+                print("   → Setting connectionState to .limited")
+                connectionState = .limited
+            }
+        }
+
+        print("🏁 Final connectionState: \(connectionState)")
+    }
+
+    // MARK: - Test Data Access
+
+    private func testDataAccess() async -> Bool {
+        do {
+            // Try to fetch just 1 workout to test if we have access
+            let (workouts, _, _) = try await fetchWorkoutsAnchored(anchor: nil)
+            print("   📊 Test query returned \(workouts.count) workouts")
+            return true
+        } catch {
+            print("   ❌ Test query failed: \(error)")
+            return false
         }
     }
 
@@ -164,6 +215,35 @@ final class HealthKitManager: ObservableObject {
 
     // MARK: - Incremental Sync (Anchored Queries)
 
+    /// Performs auto-sync if data is stale (throttled to avoid excessive syncing)
+    /// Returns true if sync was performed
+    @discardableResult
+    func autoSyncIfNeeded() async -> Bool {
+        // Only sync if connected
+        guard connectionState == .connected else { return false }
+
+        // Don't sync if already syncing
+        guard !isSyncing else { return false }
+
+        // Check if we need to sync (throttle to avoid too frequent syncs)
+        let now = Date()
+        if let lastSync = lastAutoSyncDate {
+            let timeSinceLastSync = now.timeIntervalSince(lastSync)
+            if timeSinceLastSync < autoSyncThrottleInterval {
+                print("⏭️ Skipping auto-sync (last sync was \(Int(timeSinceLastSync))s ago)")
+                return false
+            }
+        }
+
+        print("🔄 Auto-syncing HealthKit data...")
+        lastAutoSyncDate = now
+
+        await syncWorkoutsIncremental()
+        await syncExerciseTimeIncremental()
+
+        return true
+    }
+
     func syncWorkoutsIncremental() async {
         guard let context = modelContext else {
             print("⚠️ ModelContext not set")
@@ -207,6 +287,143 @@ final class HealthKitManager: ObservableObject {
 
         } catch {
             print("❌ Workout sync failed: \(error)")
+            syncError = error
+        }
+    }
+
+    /// Force re-import all workouts from HealthKit (resets anchor and updates all runs with new fields)
+    func forceFullResync() async {
+        print("🚀 forceFullResync() called")
+
+        guard let context = modelContext else {
+            print("⚠️ ModelContext not set")
+            return
+        }
+
+        guard let store = workoutStore else {
+            print("⚠️ WorkoutStore not set")
+            return
+        }
+
+        print("✓ ModelContext and WorkoutStore are set")
+
+        isSyncing = true
+        defer {
+            isSyncing = false
+            print("🏁 isSyncing set to false")
+        }
+
+        do {
+            print("🔄 Starting full re-sync of all HealthKit workouts...")
+            print("   Current runs count: \(await MainActor.run { store.runs.count })")
+
+            // Delete the anchor to force full re-import
+            let descriptor = FetchDescriptor<HealthSyncAnchor>(
+                predicate: #Predicate { $0.dataType == "all_workouts" }
+            )
+            if let existingAnchor = try context.fetch(descriptor).first {
+                context.delete(existingAnchor)
+                try context.save()
+                print("  ✓ Reset sync anchor")
+            }
+
+            // Perform full sync (with nil anchor, it fetches everything)
+            let (added, deleted, newAnchor) = try await fetchWorkoutsAnchored(anchor: nil)
+
+            print("  → Processing \(added.count) workouts from HealthKit")
+
+            // Collect all updates in a batch for efficiency
+            var updatedRuns: [Run] = []
+
+            // Process all workouts
+            for (index, workout) in added.enumerated() {
+                if index % 100 == 0 {
+                    print("  → Progress: \(index)/\(added.count)")
+                }
+
+                // Check if run already exists
+                let existingRun = await MainActor.run {
+                    store.runs.first(where: { $0.healthKitUUID == workout.uuid })
+                }
+
+                if let existing = existingRun {
+                    // Update existing run
+                    var updated = existing
+                    updated.date = workout.endDate  // Update to END date for matching
+                    updated.distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+                    updated.durationSec = Int(workout.duration)
+                    updated.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+
+                    let newType = workoutActivityTypeName(workout.workoutActivityType)
+                    updated.workoutType = newType
+                    updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+                    if index < 5 {  // Debug first 5
+                        print("    [Debug] Updating: old=\(existing.workoutType ?? "nil") new=\(newType)")
+                        print("             date: \(existing.date.formatted(date: .omitted, time: .shortened)) → \(workout.endDate.formatted(date: .omitted, time: .shortened))")
+                    }
+
+                    // Fetch heart rate if needed
+                    if updated.avgHeartRate == nil {
+                        updated.avgHeartRate = try? await averageHeartRate(for: workout)
+                    }
+
+                    updatedRuns.append(updated)
+                } else {
+                    // Import new workout
+                    let km = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+                    let sec = Int(workout.duration)
+                    let kcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+                    let avgHR = try? await averageHeartRate(for: workout)
+                    let workoutType = workoutActivityTypeName(workout.workoutActivityType)
+                    let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+                    let run = Run(
+                        date: workout.endDate,  // Use END date for matching with app workout completion time
+                        distanceKm: km,
+                        durationSec: sec,
+                        notes: nil,
+                        healthKitUUID: workout.uuid,
+                        avgHeartRate: avgHR,
+                        calories: kcal,
+                        route: nil,
+                        workoutType: workoutType,
+                        workoutName: workoutName
+                    )
+
+                    await MainActor.run {
+                        store.addRun(run)
+                    }
+                }
+            }
+
+            // Batch update all modified runs
+            if !updatedRuns.isEmpty {
+                await MainActor.run {
+                    store.batchUpdateRuns(updatedRuns)
+                }
+            }
+
+            // Process deletions
+            for deletedWorkout in deleted {
+                try deleteWorkoutIfExists(uuid: deletedWorkout.uuid, context: context)
+            }
+
+            // Save new anchor
+            let anchorRecord = try fetchOrCreateAnchor(dataType: "all_workouts", context: context)
+            anchorRecord.updateAnchor(newAnchor)
+            try context.save()
+
+            lastSyncDate = .now
+            syncError = nil
+
+            print("✅ Full re-sync complete! Updated \(added.count) workouts")
+
+            // Queue route fetching for recent workouts
+            await queueRouteFetching(for: Array(added.prefix(20)), context: context)
+
+        } catch {
+            print("❌ Full re-sync failed: \(error)")
             syncError = error
         }
     }
@@ -318,6 +535,11 @@ final class HealthKitManager: ObservableObject {
             updated.distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
             updated.durationSec = Int(workout.duration)
             updated.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+            let workoutType = workoutActivityTypeName(workout.workoutActivityType)
+            updated.workoutType = workoutType
+            updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+            print("  ↻ Updating: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))")
 
             await MainActor.run {
                 store.updateRun(updated)
@@ -333,15 +555,25 @@ final class HealthKitManager: ObservableObject {
         // Fetch average heart rate
         let avgHR = try? await averageHeartRate(for: workout)
 
+        // Extract workout type name (e.g., "Running", "Cycling", "Traditional Strength Training")
+        let workoutType = workoutActivityTypeName(workout.workoutActivityType)
+
+        // Extract custom workout name from metadata (if user named it in Apple Fitness)
+        let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+        print("  + Importing: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))")
+
         let run = Run(
-            date: workout.startDate,
+            date: workout.endDate,  // Use END date for matching with app workout completion time
             distanceKm: km,
             durationSec: sec,
             notes: nil,
             healthKitUUID: workout.uuid,
             avgHeartRate: avgHR,
             calories: kcal,
-            route: nil  // Fetched separately via queue
+            route: nil,  // Fetched separately via queue
+            workoutType: workoutType,
+            workoutName: workoutName
         )
 
         await MainActor.run {
@@ -483,7 +715,7 @@ final class HealthKitManager: ObservableObject {
 
     // MARK: - Helper Queries
 
-    private func fetchWorkoutByUUID(_ uuid: UUID) async throws -> [HKWorkout] {
+    func fetchWorkoutByUUID(_ uuid: UUID) async throws -> [HKWorkout] {
         try await withCheckedThrowingContinuation { continuation in
             let predicate = HKQuery.predicateForObject(with: uuid)
             let query = HKSampleQuery(
@@ -518,6 +750,75 @@ final class HealthKitManager: ObservableObject {
         let bpmUnit = HKUnit.count().unitDivided(by: .minute())
         let values = samples.map { $0.quantity.doubleValue(for: bpmUnit) }
         return values.reduce(0, +) / Double(values.count)
+    }
+
+    // MARK: - Heart Rate Samples (for graphing)
+
+    func fetchHeartRateSamples(for workout: HKWorkout) async throws -> (samples: [HeartRateSample], avg: Double, max: Double, min: Double) {
+        guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+            return ([], 0, 0, 0)
+        }
+
+        let pred = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [])
+        let sortByDate = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        let hkSamples: [HKQuantitySample] = try await withCheckedThrowingContinuation { cont in
+            let q = HKSampleQuery(sampleType: hrType, predicate: pred, limit: HKObjectQueryNoLimit, sortDescriptors: [sortByDate]) { _, s, e in
+                if let e { cont.resume(throwing: e); return }
+                cont.resume(returning: (s as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(q)
+        }
+
+        guard !hkSamples.isEmpty else { return ([], 0, 0, 0) }
+
+        let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+        let samples = hkSamples.map { sample in
+            HeartRateSample(
+                timestamp: sample.startDate,
+                bpm: sample.quantity.doubleValue(for: bpmUnit)
+            )
+        }
+
+        let bpms = samples.map { $0.bpm }
+        let avg = bpms.reduce(0, +) / Double(bpms.count)
+        let max = bpms.max() ?? 0
+        let min = bpms.min() ?? 0
+
+        return (samples, avg, max, min)
+    }
+
+    // MARK: - Workout Type Mapping
+
+    private func workoutActivityTypeName(_ type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .running: return "Running"
+        case .walking: return "Walking"
+        case .cycling: return "Cycling"
+        case .hiking: return "Hiking"
+        case .swimming: return "Swimming"
+        case .traditionalStrengthTraining: return "Strength Training"
+        case .functionalStrengthTraining: return "Functional Training"
+        case .rowing: return "Rowing"
+        case .elliptical: return "Elliptical"
+        case .stairClimbing: return "Stair Climbing"
+        case .yoga: return "Yoga"
+        case .pilates: return "Pilates"
+        case .dance: return "Dance"
+        case .soccer: return "Soccer"
+        case .basketball: return "Basketball"
+        case .tennis: return "Tennis"
+        case .golf: return "Golf"
+        case .mixedCardio: return "Mixed Cardio"
+        case .highIntensityIntervalTraining: return "HIIT"
+        case .coreTraining: return "Core Training"
+        case .flexibility: return "Flexibility"
+        case .cooldown: return "Cooldown"
+        case .crossTraining: return "Cross Training"
+        case .mixedMetabolicCardioTraining: return "Mixed Cardio"
+        case .preparationAndRecovery: return "Recovery"
+        default: return "Other"
+        }
     }
 
     // MARK: - Exercise Time Aggregation
