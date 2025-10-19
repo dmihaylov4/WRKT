@@ -2,6 +2,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import HealthKit
 
 // MARK: - Shell types & animation
 private enum AppTab: Int { case home = 0, calendar = 1, runs = 2, profile = 3 }
@@ -16,12 +17,31 @@ struct AppShellView: View {
     // Shared stores
     @StateObject private var repo  = ExerciseRepository.shared
     @StateObject private var store = WorkoutStore()
+    @StateObject private var healthKit = HealthKitManager.shared
 
     // Shell UI state
-    @State private var selectedTab: AppTab = .home
+    @State private var selectedTab: AppTab = .home {
+        didSet {
+            print("📍 selectedTab changed: \(oldValue) → \(selectedTab)")
+        }
+    }
     @State private var grabCollapsed = false
     @State private var showLiveOverlay = false
     @State private var showContent = false
+    
+    //Onboarding needed
+    
+    @Query private var goals: [WeeklyGoal]
+    @State private var showGoalSetupSheet = false {
+        didSet {
+            print("🎯 showGoalSetupSheet changed: \(oldValue) → \(showGoalSetupSheet)")
+        }
+    }
+
+    private var needsGoalSetup: Bool {
+        guard let g = goals.first else { return true }
+        return !g.isSet
+    }
 
     @Namespace private var liveNS
     @Environment(\.scenePhase) private var scenePhase
@@ -42,8 +62,10 @@ struct AppShellView: View {
     }
     
     //Statistics
-    
+
     @State private var stats: StatsAggregator?
+    @State private var repoIsBootstrapped = false
+    @State private var workoutsLoaded = false
 
     var body: some View {
         ZStack {
@@ -64,13 +86,13 @@ struct AppShellView: View {
                 .tabItem { Label("Calendar", systemImage: "calendar") }
                 .tag(AppTab.calendar)
 
-                // RUNS
+                // CARDIO
                 NavigationStack {
-                    RunsView()
+                    CardioView()
                         .background(DS.Semantic.surface)
                         .scrollContentBackground(.hidden)
                 }
-                .tabItem { Label("Run", systemImage: "figure.run") }
+                .tabItem { Label("Cardio", systemImage: "heart.fill") }
                 .tag(AppTab.runs)
 
                 // PROFILE
@@ -80,19 +102,42 @@ struct AppShellView: View {
                         .scrollContentBackground(.hidden)
                         .navigationTitle("Profile")
                         .navigationBarTitleDisplayMode(.inline)
+                        .onAppear {
+                            print("🟢 Profile NavigationStack appeared")
+                            print("   selectedTab = \(selectedTab)")
+                            print("   needsGoalSetup = \(needsGoalSetup)")
+                        }
+                        .onDisappear {
+                            print("🔴 Profile NavigationStack disappeared")
+                            print("   selectedTab = \(selectedTab)")
+                        }
                 }
                 .tabItem { Label("Profile", systemImage: "person.crop.circle") }
                 .tag(AppTab.profile)
             }
+           // .sensoryFeedback(.selection, trigger: selectedTab)
             .tint(DS.Palette.marone)
+
             .overlay(
-                TabBarReselectionDetector { index in
-                    if index == AppTab.home.rawValue {
-                        NotificationCenter.default.post(name: .homeTabReselected, object: nil)
+                TabBarReselectionDetector(
+                    selectedTab: $selectedTab,
+                    onReselect: { index in
+                        print("🔄 Tab reselected: \(index)")
+                        if index == AppTab.home.rawValue {
+                            print("🏠 Posting homeTabReselected notification")
+                            NotificationCenter.default.post(name: .homeTabReselected, object: nil)
+                        } else if index == AppTab.calendar.rawValue {
+                            print("📅 Posting calendarTabReselected notification")
+                            NotificationCenter.default.post(name: .calendarTabReselected, object: nil)
+                        } else if index == AppTab.runs.rawValue {
+                            print("🏃 Posting cardioTabReselected notification")
+                            NotificationCenter.default.post(name: .cardioTabReselected, object: nil)
+                        }
                     }
-                }
+                )
                 .allowsHitTesting(false)
             )
+
 
             // Close overlay if backgrounded
             .onChange(of: scenePhase) { phase in
@@ -103,7 +148,13 @@ struct AppShellView: View {
 
             // Sync shell state with tab selection
             .onChange(of: selectedTab) { newTab in
+                print("🔄 Tab changed to: \(newTab) (rawValue: \(newTab.rawValue))")
+                print("   needsGoalSetup: \(needsGoalSetup)")
+                print("   showGoalSetupSheet: \(showGoalSetupSheet)")
+
                 NotificationCenter.default.post(name: .tabSelectionChanged, object: nil)
+                // Also post tabDidChange to dismiss detail views
+                NotificationCenter.default.post(name: .tabDidChange, object: nil)
 
                 // Keep your current behavior (pill shows only on Home).
                 if newTab != .home {
@@ -115,15 +166,52 @@ struct AppShellView: View {
                 if showLiveOverlay {
                     withAnimation(ShellAnim.spring) { showContent = false; showLiveOverlay = false }
                 }
+
+                // Check if weekly goal setup is needed when navigating to Home or Profile
+                if needsGoalSetup && (newTab == .home || newTab == .profile) {
+                    print("   → Showing goal setup sheet")
+                    showGoalSetupSheet = true
+                }
             }
+            // NEW
+            .onAppear {
+                // present once on first launch if needed
+                if needsGoalSetup && (selectedTab == .home || selectedTab == .profile) {
+                    showGoalSetupSheet = true
+                }
+            }
+
+            .sheet(isPresented: $showGoalSetupSheet) {
+                NavigationStack {
+                    WeeklyGoalSetupView(goal: goals.first)
+                        .interactiveDismissDisabled() // keep your requirement
+                        .onAppear {
+                            print("📋 Goal setup sheet appeared")
+                        }
+                        .onDisappear {
+                            print("📋 Goal setup sheet dismissed")
+                        }
+                }
+            }
+            
+            //
 
             // External overlay close
             .onReceive(NotificationCenter.default.publisher(for: .dismissLiveOverlay)) { _ in
                 withAnimation(ShellAnim.spring) { showLiveOverlay = false; showContent = false }
             }
 
-            // Global “return to Home”
-            .onReceive(NotificationCenter.default.publisher(for: .resetHomeToRoot)) { _ in
+            // Global "return to Home"
+            .onReceive(NotificationCenter.default.publisher(for: .resetHomeToRoot)) { note in
+                let reason = (note.userInfo?["reason"] as? String) ?? (note.object as? String)
+                // Only honor intentional, user-driven resets.
+                guard reason == "user_intent" else {
+                    print("⚠️ Ignoring resetHomeToRoot (reason=\(reason ?? "nil"))")
+                    return
+                }
+
+                print("⚠️ resetHomeToRoot (reason=\(reason!)) - forcing tab to Home")
+                print("   Current tab: \(selectedTab)")
                 NotificationCenter.default.post(name: .openHomeRoot, object: nil)
                 selectedTab = .home
             }
@@ -140,12 +228,43 @@ struct AppShellView: View {
         .task {
             if stats == nil {
                 let agg = StatsAggregator(container: modelContext.container)
-                stats = agg
+                // IMPORTANT: Configure exercise repository BEFORE setting stats
+                // to prevent race condition where reindex is triggered before repo is set
+                await agg.setExerciseRepository(repo)
                 store.installStats(agg)
+                stats = agg  // Only set stats after repo is configured
+                // Don't reindex yet - wait for workouts to load
+            }
+        }
 
+        // Mark workouts as loaded when they're ready
+        .onChange(of: store.completedWorkouts.count) { newCount in
+            if newCount > 0 && !workoutsLoaded {
+                workoutsLoaded = true
+            }
+        }
+
+        // Trigger stats aggregation when BOTH repo and workouts are ready (initial load)
+        .onChange(of: repoIsBootstrapped && workoutsLoaded) { bothReady in
+            guard bothReady, let agg = stats else { return }
+            guard store.completedWorkouts.count > 0 else { return }
+
+            Task {
                 if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
+                    print("🔄 Repo and workouts ready, triggering stats aggregation...")
                     await agg.reindex(all: store.completedWorkouts, cutoff: cutoff)
                 }
+            }
+        }
+
+        // Also reindex when new workouts are completed (after initial load)
+        .onChange(of: store.completedWorkouts) { workouts in
+            guard workoutsLoaded, repoIsBootstrapped, let agg = stats else { return }
+            guard let latest = workouts.last else { return }
+
+            Task {
+                print("🔄 New workout completed, updating stats...")
+                await agg.apply(latest, allWorkouts: store.completedWorkouts)
             }
         }
 
@@ -220,15 +339,43 @@ struct AppShellView: View {
 
         // One-time startup work (do not duplicate)
         .task {
-            repo.bootstrap(useSlimPreload: true) // or false if you don’t want the slim prepaint
+            repo.bootstrap(useSlimPreload: true)
             RewardsEngine.shared.configure(context: modelContext)
             print("⚙️ Rewards configured:", RewardsEngine.shared.debugRulesSummary())
+
+            // Configure HealthKit sync
+            HealthKitManager.shared.modelContext = modelContext
+            HealthKitManager.shared.workoutStore = store
+            HealthKitManager.shared.registerBackgroundTasks()
+
+            // Check authorization status on launch
+            print("🏥 Checking HealthKit authorization status on launch...")
+            let authStatus = HealthKitManager.shared.store.authorizationStatus(for: .workoutType())
+            print("   Authorization status: \(authStatus.rawValue)")
+
+            // Update connection state based on authorization
+            if authStatus == .sharingAuthorized {
+                print("   ✅ HealthKit is authorized, setting connected state")
+                HealthKitManager.shared.connectionState = .connected
+                HealthKitManager.shared.setupBackgroundObservers()
+            } else {
+                print("   ⚠️ HealthKit not authorized (status: \(authStatus.rawValue))")
+            }
+        }
+
+        // Watch for when exercises are ACTUALLY loaded (not just bootstrap called)
+        .onChange(of: repo.exercises.isEmpty) { isEmpty in
+            if !isEmpty && !repoIsBootstrapped {
+                repoIsBootstrapped = true
+                print("✅ Exercise repository ready with \(repo.exercises.count) exercises")
+            }
         }
 
         .background(DS.Semantic.surface.ignoresSafeArea())
         .environmentObject(repo)
         .environmentObject(store)
         .environmentObject(favs)
+        .environmentObject(healthKit)
     }
 
     // MARK: - Helpers
@@ -240,33 +387,103 @@ struct AppShellView: View {
     }
 }
 
+//@main
+//struct WRKTApp: App {
+  //  var body: some Scene {
+    //    WindowGroup {
+      //      AppShellView()
+        //        .modelContainer(Self.makeContainer())
+        //}
+   // }
+
+   // static func makeContainer() -> ModelContainer {
+     //   let schema = Schema([
+       //     RewardProgress.self,
+         //   Achievement.self,
+         //   ChallengeAssignment.self,
+         //   RewardLedgerEntry.self,
+          //  Wallet.self,
+          //  ExercisePR.self,
+          //  DexStamp.self,
+          //  WeeklyTrainingSummary.self,
+          //  ExerciseVolumeSummary.self,
+           // MovingAverage.self,
+           // ExerciseProgressionSummary.self,
+          //  ExerciseTrend.self,
+           // PushPullBalance.self,
+           // MuscleGroupFrequency.self,
+           // MovementPatternBalance.self,
+           // WeeklyGoal.self,
+            // Health sync models
+           // HealthSyncAnchor.self,
+           // RouteFetchTask.self,
+           // MapSnapshotCache.self
+        //])
+
+//  let config = ModelConfiguration(
+  //          schema: schema,
+    //        isStoredInMemoryOnly: false,
+      //      allowsSave: true,
+        //    cloudKitDatabase: .none
+       // )
+
+        //do {
+          //  return try ModelContainer(for: schema, configurations: config)
+        //} catch {
+          //  fatalError("Failed to create ModelContainer: \(error)")
+       // }
+   // }
+//}
+
 @main
 struct WRKTApp: App {
+    // create exactly once
+    private let container: ModelContainer
+
+    init() {
+        self.container = Self.makeContainer()
+    }
+
     var body: some Scene {
         WindowGroup {
             AppShellView()
-                .modelContainer(for: [
-                    RewardProgress.self,
-                      Achievement.self,
-                      ChallengeAssignment.self,
-                      RewardLedgerEntry.self,
-                      Wallet.self,
-                      ExercisePR.self,
-                      DexStamp.self,
-                      WeeklyTrainingSummary.self,
-                      ExerciseVolumeSummary.self
-                ])
+                .modelContainer(container)   // <- reuse the same instance
         }
+    }
+
+    static func makeContainer() -> ModelContainer {
+        let schema = Schema([
+            RewardProgress.self, Achievement.self, ChallengeAssignment.self, RewardLedgerEntry.self,
+            Wallet.self, ExercisePR.self, DexStamp.self, WeeklyTrainingSummary.self, ExerciseVolumeSummary.self,
+            MovingAverage.self, ExerciseProgressionSummary.self, ExerciseTrend.self, PushPullBalance.self,
+            MuscleGroupFrequency.self, MovementPatternBalance.self, WeeklyGoal.self,
+            HealthSyncAnchor.self, RouteFetchTask.self, MapSnapshotCache.self
+        ])
+
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            allowsSave: true,
+            cloudKitDatabase: .none
+        )
+
+        do { return try ModelContainer(for: schema, configurations: config) }
+        catch { fatalError("Failed to create ModelContainer: \(error)") }
     }
 }
 
 // Robust UITabBar re-tap detector
 private struct TabBarReselectionDetector: UIViewRepresentable {
+    @Binding var selectedTab: AppTab
     let onReselect: (_ index: Int) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(onReselect: onReselect) }
+    func makeCoordinator() -> Coordinator {
+        print("🔧 TabBarReselectionDetector: makeCoordinator called")
+        return Coordinator(selectedTab: $selectedTab, onReselect: onReselect)
+    }
 
     func makeUIView(context: Context) -> UIView {
+        print("🔧 TabBarReselectionDetector: makeUIView called")
         let v = DetectorView()
         v.coordinator = context.coordinator
         return v
@@ -278,25 +495,66 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
 
     final class DetectorView: UIView {
         weak var coordinator: Coordinator?
+        private var retryCount = 0
+        private var hasAttached = false
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            print("🔍 DetectorView: didMoveToWindow called")
             attachDelegateIfNeeded()
+
+            // Retry after a delay if not found immediately
+            if !hasAttached {
+                retryWithDelay(0.1)
+            }
         }
+
         override func didMoveToSuperview() {
             super.didMoveToSuperview()
-            attachDelegateIfNeeded()
+            print("🔍 DetectorView: didMoveToSuperview called")
+        }
+
+        private func retryWithDelay(_ delay: TimeInterval) {
+            guard retryCount < 5 else {
+                print("❌ DetectorView: Gave up after \(retryCount) retries")
+                return
+            }
+
+            retryCount += 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                guard let self = self, !self.hasAttached else { return }
+                print("🔄 DetectorView: Retry #\(self.retryCount)")
+                self.attachDelegateIfNeeded()
+
+                if !self.hasAttached {
+                    self.retryWithDelay(delay * 2) // Exponential backoff
+                }
+            }
         }
 
         func attachDelegateIfNeeded() {
-            guard let coord = coordinator else { return }
+            guard !hasAttached else { return }
+
+            guard let coord = coordinator else {
+                print("⚠️ DetectorView: No coordinator")
+                return
+            }
+
+            print("🔍 DetectorView: Looking for UITabBarController...")
 
             // Find the real UITabBarController SwiftUI created
             if let tbc = findTabBarControllerInResponderChain(from: self) ?? findTabBarControllerInActiveWindow() {
-                // Set both delegates; safe to set repeatedly
+                print("✅ DetectorView: Found UITabBarController!")
+                print("   Selected index: \(tbc.selectedIndex)")
+                print("   View controllers: \(tbc.viewControllers?.count ?? 0)")
+
+                // Set only the tab bar controller delegate (NOT tabBar.delegate - UIKit doesn't allow that)
                 tbc.delegate = coord
-                tbc.tabBar.delegate = coord
-                coord.lastIndex = tbc.selectedIndex
+
+                hasAttached = true
+                print("✅ DetectorView: Delegates attached successfully")
+            } else {
+                print("❌ DetectorView: UITabBarController NOT FOUND (will retry)")
             }
         }
 
@@ -331,34 +589,42 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
         }
     }
 
-    final class Coordinator: NSObject, UITabBarControllerDelegate, UITabBarDelegate {
+    final class Coordinator: NSObject, UITabBarControllerDelegate {
+        @Binding var selectedTab: AppTab
         private let onReselect: (_ index: Int) -> Void
-        var lastIndex: Int? = nil
 
-        init(onReselect: @escaping (_ index: Int) -> Void) { self.onReselect = onReselect }
-
-        // Called even when tapping the already-selected tab (pre-selection state)
-        func tabBarController(_ tabBarController: UITabBarController,
-                              shouldSelect viewController: UIViewController) -> Bool {
-            if viewController == tabBarController.selectedViewController {
-                // Definite re-tap
-                onReselect(tabBarController.selectedIndex)
-            }
-            return true
+        init(selectedTab: Binding<AppTab>, onReselect: @escaping (_ index: Int) -> Void) {
+            self._selectedTab = selectedTab
+            self.onReselect = onReselect
+            print("🎯 Coordinator: Initialized")
         }
 
-        // Extra safety: compare against the last index on didSelect
-        func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-            guard
-                let tbc = tabBar.delegate as? UITabBarController ?? (tabBar.next as? UITabBarController),
-                let items = tbc.tabBar.items,
-                let tapped = items.firstIndex(of: item)
-            else { return }
+        // Called when any tab is selected, including re-tapping the current tab
+        func tabBarController(_ tabBarController: UITabBarController,
+                              shouldSelect viewController: UIViewController) -> Bool {
+            print("🎯 Coordinator: tabBarController shouldSelect called")
+            print("   Current index: \(tabBarController.selectedIndex)")
+            print("   Is reselect: \(viewController == tabBarController.selectedViewController)")
 
-            if let last = lastIndex, last == tapped {
-                onReselect(tapped)
+            // Haptic feedback on tab tap
+            Haptics.light()
+
+            if viewController == tabBarController.selectedViewController {
+                // Definite re-tap - stronger haptic
+                Haptics.soft()
+                print("🎯 Coordinator: Calling onReselect(\(tabBarController.selectedIndex))")
+                onReselect(tabBarController.selectedIndex)
+            } else {
+                // Regular tab switch - update SwiftUI state
+                if let newIndex = tabBarController.viewControllers?.firstIndex(of: viewController),
+                   let newTab = AppTab(rawValue: newIndex) {
+                    print("🎯 Coordinator: Updating selectedTab to \(newTab)")
+                    DispatchQueue.main.async {
+                        self.selectedTab = newTab
+                    }
+                }
             }
-            lastIndex = tapped
+            return true
         }
     }
 }

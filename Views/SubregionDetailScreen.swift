@@ -52,21 +52,21 @@ struct SubregionDetailScreen: View {
                         //}
                     //}
             } else {
-                List(filteredExercises) { ex in
+                List(filteredExercises, id: \.id) { ex in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(ex.name).font(.body)
                         Text("\(ex.category.capitalized) • \(ex.equipment ?? "Bodyweight")")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        
+
                         Spacer()
                         FavoriteHeartButton(exerciseID: ex.id)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
                         sheetContext = LogSheetContext(exercise: ex, entryID: nil)
-                        
-        
+
+
                     }
                     .contextMenu {
                         // Open the logging sheet WITHOUT adding yet.
@@ -79,11 +79,14 @@ struct SubregionDetailScreen: View {
                             _ = store.addExerciseToCurrent(ex)
                             UINotificationFeedbackGenerator().notificationOccurred(.success)
                             NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-                            NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)  // ⬅️ show the two big tiles
+                            //NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)  // ⬅️ show the two big tiles
+                            AppBus.postResetHome(reason: .user_intent)
                         }
                     }
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 .listStyle(.insetGrouped)
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: filteredExercises.map { $0.id })
 
                 if filteredExercises.isEmpty {
                     ContentUnavailableView("No exercises found", systemImage: "magnifyingglass")

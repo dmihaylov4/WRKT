@@ -1,4 +1,8 @@
-// RunDetailView.swift
+// CardioDetailView.swift
+//
+// Detailed view for a single cardio workout with map, stats, and heart rate overlay
+//
+
 import SwiftUI
 import MapKit
 
@@ -12,18 +16,10 @@ private enum Theme {
     static let accent    = Color(hex: "#F4E409")
 }
 
-// If you already have Coordinate, keep using it.
-// Add this typed point ONLY if/when you start persisting timestamps + per-point HR.
-struct RoutePoint: Hashable, Codable {
-    let lat: Double
-    let lon: Double
-    let t: Date
-    let hr: Double?
-}
-
-struct RunDetailView: View {
+struct CardioDetailView: View {
     let run: Run
-    @State private var hasActiveWorkoutInset = false   // set externally if needed
+    @State private var hasActiveWorkoutInset = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 12) {
@@ -65,11 +61,20 @@ struct RunDetailView: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .background(Theme.bg.ignoresSafeArea())
-        .navigationTitle("Run")
+        .navigationTitle("Workout")
         .navigationBarTitleDisplayMode(.inline)
         .tint(Theme.accent)
         .safeAreaInset(edge: .bottom) {
             if hasActiveWorkoutInset { Color.clear.frame(height: 65) }
+        }
+        // Listen for tab changes
+        .onReceive(NotificationCenter.default.publisher(for: .tabDidChange)) { _ in
+            dismiss()
+        }
+        // Listen for cardio tab reselection
+        .onReceive(NotificationCenter.default.publisher(for: .cardioTabReselected)) { _ in
+            print("🏃 CardioDetailView received cardio reselection - dismissing")
+            dismiss()
         }
     }
 }
@@ -86,8 +91,25 @@ private struct StatGrid: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(run.date.formatted(date: .abbreviated, time: .shortened))
-                .font(.headline)
+            // Workout Name (if available)
+            if let workoutName = run.workoutName, !workoutName.isEmpty {
+                Text(workoutName)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(Theme.text)
+            }
+
+            // Workout Type and Date
+            HStack(spacing: 4) {
+                if let workoutType = run.workoutType {
+                    Text(workoutType)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                    Text("•").font(.subheadline).foregroundStyle(Theme.secondary)
+                }
+                Text(run.date.formatted(date: .abbreviated, time: .shortened))
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.secondary)
+            }
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
                                 GridItem(.flexible(), spacing: 10)],

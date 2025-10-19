@@ -109,7 +109,8 @@ struct LiveWorkoutOverlayCard: View {
             // Add: go to Home to pick an exercise (your earlier UX)
             Button {
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-                NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)
+                //NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)
+                AppBus.postResetHome(reason: .user_intent)
             } label: {
                 Image(systemName: "plus.circle.fill")
                     .font(.title2)
@@ -158,27 +159,30 @@ struct LiveWorkoutOverlayCard: View {
                 onFinish: {
                     // 1) Finish & get PR count to report
                     let result = store.finishCurrentWorkoutAndReturnPRs()   // (workoutId, prCount)
-                    RewardsEngine.shared.process(event: "workout_completed", payload: ["workoutId": result.workoutId])
-                    
-                    // 2) Rewards events
+
+                    // 2) Calculate new exercises (first time completing them)
                     let seen = Set(store.completedWorkouts.dropFirst().flatMap { $0.entries.map(\.exerciseID) })
                     let thisIDs = Set((store.completedWorkouts.first?.entries ?? []).map(\.exerciseID))
                     let newIDs = thisIDs.subtracting(seen)
-                    for id in newIDs {
-                        RewardsEngine.shared.process(event: "exercise_new", payload: ["exerciseId": id])
-                    }
-                    
+
+                    // 3) Send reward events
                     RewardsEngine.shared.process(event: "workout_completed", payload: [
                         "workoutId": result.workoutId
                     ])
+
+                    if newIDs.count > 0 {
+                        RewardsEngine.shared.process(event: "exercise_new", payload: [
+                            "count": newIDs.count
+                        ])
+                    }
+
                     if result.prCount > 0 {
                         RewardsEngine.shared.process(event: "pr_achieved", payload: [
                             "count": result.prCount
                         ])
                     }
-                    
 
-                    // 3) Close UI
+                    // 4) Close UI
                     UINotificationFeedbackGenerator().notificationOccurred(.success)
                     withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
                 },

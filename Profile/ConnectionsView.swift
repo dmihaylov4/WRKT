@@ -10,6 +10,7 @@ import SwiftUI
 import Combine
 struct ConnectionsView: View {
     @StateObject private var vm = ConnectionsViewModel()
+    @EnvironmentObject var healthKit: HealthKitManager
 
     var body: some View {
         List {
@@ -22,6 +23,9 @@ struct ConnectionsView: View {
                 )
                 Text("Sync workouts, active energy, runs and more.")
                     .font(.caption).foregroundStyle(.secondary)
+            }
+            .onAppear {
+                vm.setHealthKitManager(healthKit)
             }
 
             Section("Strava") {
@@ -57,11 +61,75 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var strava = ConnectionProvider.strava()
     @Published private(set) var icloud = ConnectionProvider.icloud()
 
+    private weak var healthKitManager: HealthKitManager?
+
     enum Kind { case health, strava, icloud }
 
-    func connect(_ kind: Kind) async { await mutate(kind) { await $0.connect() } }
-    func disconnect(_ kind: Kind) async { await mutate(kind) { await $0.disconnect() } }
-    func sync(_ kind: Kind) async { await mutate(kind) { await $0.sync() } }
+    func setHealthKitManager(_ manager: HealthKitManager) {
+        self.healthKitManager = manager
+        // Sync initial state
+        updateHealthProviderState()
+    }
+
+    private func updateHealthProviderState() {
+        guard let hkm = healthKitManager else { return }
+
+        let status: ConnectionProvider.Status
+        switch hkm.connectionState {
+        case .connected:
+            status = .connected(lastSync: hkm.lastSyncDate)
+        case .disconnected, .limited:
+            status = .notConnected
+        }
+
+        health = ConnectionProvider(
+            name: "Apple Health",
+            icon: "heart.fill",
+            status: status,
+            storageKey: "conn_health"
+        )
+    }
+
+    func connect(_ kind: Kind) async {
+        switch kind {
+        case .health:
+            guard let hkm = healthKitManager else { return }
+            do {
+                try await hkm.requestAuthorization()
+                await hkm.setupBackgroundObservers()
+                updateHealthProviderState()
+            } catch {
+                health.status = .error("Authorization failed")
+            }
+        default:
+            await mutate(kind) { await $0.connect() }
+        }
+    }
+
+    func disconnect(_ kind: Kind) async {
+        switch kind {
+        case .health:
+            guard let hkm = healthKitManager else { return }
+            hkm.connectionState = .disconnected
+            hkm.stopBackgroundObservers()
+            updateHealthProviderState()
+        default:
+            await mutate(kind) { await $0.disconnect() }
+        }
+    }
+
+    func sync(_ kind: Kind) async {
+        switch kind {
+        case .health:
+            guard let hkm = healthKitManager else { return }
+            health.status = .syncing
+            await hkm.syncWorkoutsIncremental()
+            await hkm.syncExerciseTimeIncremental()
+            updateHealthProviderState()
+        default:
+            await mutate(kind) { await $0.sync() }
+        }
+    }
 
     // Reassign after mutation so @Published emits
     private func mutate(_ kind: Kind, _ op: (inout ConnectionProvider) async -> Void) async {
@@ -82,6 +150,16 @@ struct ConnectionProvider: Identifiable {
         case connected(lastSync: Date?)
         case syncing
         case error(String)
+
+        static func == (lhs: Status, rhs: Status) -> Bool {
+            switch (lhs, rhs) {
+            case (.notConnected, .notConnected): return true
+            case (.connected(let a), .connected(let b)): return a == b
+            case (.syncing, .syncing): return true
+            case (.error(let a), .error(let b)): return a == b
+            default: return false
+            }
+        }
     }
 
     let id = UUID()
@@ -89,6 +167,14 @@ struct ConnectionProvider: Identifiable {
     let icon: String
     var status: Status
     let storageKey: String  // persisted flag
+
+    // Make initializer public so we can create instances from ViewModel
+    init(name: String, icon: String, status: Status, storageKey: String) {
+        self.name = name
+        self.icon = icon
+        self.status = status
+        self.storageKey = storageKey
+    }
 
     // MARK: lifecycle hooks (swap with real SDKs later)
     mutating func connect() {

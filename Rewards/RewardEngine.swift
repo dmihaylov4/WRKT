@@ -73,9 +73,12 @@ final class RewardsEngine: ObservableObject {
         self.context = context
         self.rules = RewardsRulesLoader.load(bundleFile: "rewards_rules_v1")
         ensureSingletons()
-        backfillDexStampsIfNeeded()   // ← add back
+        normalizeProgressFloorsIfNeeded()     // ✨ add this line
+        backfillDexStampsIfNeeded()
         isConfigured = true
     }
+    
+   
     
     
 }
@@ -130,6 +133,56 @@ extension RewardsEngine {
         default:
             return false
         }
+    }
+}
+
+// MARK: - Streak Freeze
+
+extension RewardsEngine {
+    /// Activate streak freeze to protect against missing one day
+    func activateStreakFreeze() {
+        ensureSingletons()
+        guard let prog = progress else { return }
+
+        // Only allow freeze if:
+        // 1. Streak is at least 3 days
+        // 2. Not already frozen
+        // 3. Haven't used freeze in last 7 days
+        guard prog.currentStreak >= 3 else { return }
+        guard !prog.streakFrozen else { return }
+
+        if let lastUsed = prog.freezeUsedAt {
+            let daysSinceLastUse = Calendar.current.dateComponents([.day], from: lastUsed, to: .now).day ?? 0
+            guard daysSinceLastUse >= 7 else { return }
+        }
+
+        prog.streakFrozen = true
+        prog.freezeUsedAt = .now
+        try? context.save()
+    }
+
+    /// Check if user can activate streak freeze
+    func canActivateStreakFreeze() -> (canActivate: Bool, reason: String?) {
+        ensureSingletons()
+        guard let prog = progress else { return (false, "Progress not available") }
+
+        if prog.currentStreak < 3 {
+            return (false, "Need 3+ day streak to freeze")
+        }
+
+        if prog.streakFrozen {
+            return (false, "Freeze already active")
+        }
+
+        if let lastUsed = prog.freezeUsedAt {
+            let daysSinceLastUse = Calendar.current.dateComponents([.day], from: lastUsed, to: .now).day ?? 0
+            if daysSinceLastUse < 7 {
+                let daysRemaining = 7 - daysSinceLastUse
+                return (false, "Available in \(daysRemaining) day\(daysRemaining == 1 ? "" : "s")")
+            }
+        }
+
+        return (true, nil)
     }
 }
 
@@ -355,42 +408,55 @@ extension RewardsEngine {
 // MARK: - Wallet & Leveling
 
 extension RewardsEngine {
-    func applyWalletAndLevel(deltaXP: Int, deltaCoins: Int) {
-        ensureSingletons()
-        guard let prog = progress, let wal = wallet else { return }
+    // RewardsEngine.swift
+    // RewardsEngine.swift
 
-        // Wallet
-        if deltaCoins != 0 {
-            wal.coins = max(0, wal.coins + deltaCoins)
-        }
-
-        // Level progression curve (gentle early, slower later).
-        if deltaXP != 0 {
-            prog.xp = max(0, prog.xp + deltaXP)
-            let (lvl, nextXP) = levelCurve(for: prog.xp)
-            let didLevelUp = (lvl > prog.level)
-            prog.level = lvl
-            prog.nextLevelXP = nextXP
-
-            if didLevelUp {
-                let entry = RewardLedgerEntry(
-                    event: "level_up",
-                    ruleId: "level_\(lvl)",
-                    deltaXP: 0,
-                    deltaCoins: 0,
-                    metadataJSON: encodeJSON(["level": lvl, "xp": prog.xp])
-                )
-                context.insert(entry)
-            }
+    func levelCurveFloors(for xp: Int) -> (level: Int, curFloor: Int, nextFloor: Int) {
+        // L1→2:100, 2→3:150, 3→4:200, 4→5:250, then +50/level
+        func delta(_ level: Int) -> Int { 100 + 50 * max(0, level - 1) }
+        var lvl = 1, cur = 0
+        while true {
+            let d = delta(lvl)
+            let nxt = cur + d
+            if xp < nxt { return (lvl, cur, nxt) }
+            cur = nxt; lvl += 1
         }
     }
 
-    /// Example curve: level = floor(sqrt(xp / 150)) + 1; nextLevelXP = ((level+1)^2 - 1) * 150
-    func levelCurve(for xp: Int) -> (level: Int, nextLevelXP: Int) {
-        let denom: Double = 150.0
-        let lvl = Int(floor(sqrt(Double(xp) / denom))) + 1
-        let nextTarget = Int(((Double(lvl + 1) * Double(lvl + 1)) - 1.0) * denom)
-        return (max(lvl, 1), nextTarget)
+    func applyWalletAndLevel(deltaXP: Int, deltaCoins: Int) {
+        ensureSingletons()
+        guard let prog = progress, let wal = wallet else { return }
+        if deltaCoins != 0 { wal.coins = max(0, wal.coins + deltaCoins) }
+        if deltaXP == 0 { return }
+
+        prog.xp = max(0, prog.xp + deltaXP)
+
+        let (lvl, cur, nxt) = levelCurveFloors(for: prog.xp)
+        let didLevelUp = (lvl > prog.level)
+
+        prog.level = lvl
+        prog.prevLevelXP = cur       // 👈 store floor
+        prog.nextLevelXP = nxt       // 👈 store next cumulative target
+
+        if didLevelUp {
+            context.insert(RewardLedgerEntry(
+                event: "level_up", ruleId: "level_\(lvl)", deltaXP: 0, deltaCoins: 0,
+                metadataJSON: encodeJSON(["level": lvl, "xp": prog.xp])
+            ))
+        }
+    }
+    
+    func normalizeProgressFloorsIfNeeded() {
+        ensureSingletons()
+        guard let prog = progress else { return }
+
+        // If fields are inconsistent or from old curve, recompute from total XP.
+        let (lvl, curFloor, nextFloor) = levelCurveFloors(for: prog.xp)
+        if prog.level != lvl || prog.prevLevelXP > prog.xp || prog.nextLevelXP <= prog.prevLevelXP {
+            prog.level = lvl
+            prog.prevLevelXP = curFloor
+            prog.nextLevelXP = nextFloor
+        }
     }
 }
 
