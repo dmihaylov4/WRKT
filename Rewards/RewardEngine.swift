@@ -89,6 +89,64 @@ extension RewardsEngine {
     func debugRulesSummary() -> String {
         "v\(rules.version) xp=\(rules.xp.count) ach=\(rules.achievements.count)"
     }
+
+    /// Reset all rewards data (XP, level, dex, achievements)
+    func resetAll() {
+        guard let context = context else { return }
+
+        // Reset progress
+        if let progress = progress {
+            progress.xp = 0
+            progress.level = 1
+            progress.prevLevelXP = 0
+            progress.nextLevelXP = 150
+            progress.longestStreak = 0
+            progress.currentStreak = 0
+            progress.lastActivityAt = nil
+            progress.streakFrozen = false
+            progress.freezeUsedAt = nil
+        }
+
+        // Delete all dex stamps
+        let dexFetch = FetchDescriptor<DexStamp>()
+        if let stamps = try? context.fetch(dexFetch) {
+            for stamp in stamps {
+                context.delete(stamp)
+            }
+        }
+
+        // Delete all exercise PRs
+        let prFetch = FetchDescriptor<ExercisePR>()
+        if let prs = try? context.fetch(prFetch) {
+            for pr in prs {
+                context.delete(pr)
+            }
+        }
+
+        // Delete all achievements (includes milestones)
+        let achievementFetch = FetchDescriptor<Achievement>()
+        if let achievements = try? context.fetch(achievementFetch) {
+            for achievement in achievements {
+                context.delete(achievement)
+            }
+        }
+
+        // Delete all ledger entries
+        let ledgerFetch = FetchDescriptor<RewardLedgerEntry>()
+        if let entries = try? context.fetch(ledgerFetch) {
+            for entry in entries {
+                context.delete(entry)
+            }
+        }
+
+        // Save all changes and report errors if any
+        do {
+            try context.save()
+            print("✅ Rewards data reset complete")
+        } catch {
+            print("❌ Failed to save rewards reset: \(error)")
+        }
+    }
 }
 
 // MARK: - Singletons

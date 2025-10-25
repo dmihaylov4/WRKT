@@ -10,87 +10,110 @@ import SwiftUI
 struct HealthAuthSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var healthKit: HealthKitManager
+    var onDismiss: (() -> Void)? = nil
 
     @State private var isAuthorizing = false
     @State private var error: Error?
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                // Header
-                VStack(spacing: 12) {
-                    Image(systemName: "heart.circle.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(.pink, .white.opacity(0.1))
-                        .symbolRenderingMode(.palette)
+        VStack(spacing: 24) {
+            Spacer()
 
-                    Text("Connect Apple Health")
-                        .font(.title2.bold())
+            // Icon - clean and professional with border
+            Image(systemName: "heart.circle.fill")
+                .font(.system(size: 80, weight: .semibold))
+                .foregroundStyle(Color.pink)
+                .padding(32)
+                .background(
+                    Circle()
+                        .stroke(Color.pink.opacity(0.3), lineWidth: 2)
+                )
+                .padding(.bottom, 40)
 
-                    Text("Sync cardio workouts and MVPA minutes automatically")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.top, 40)
+            // Title
+            Text("Connect Apple Health")
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
 
-                // Features list
-                VStack(alignment: .leading, spacing: 16) {
-                    FeatureRow(icon: "figure.run", title: "Auto-sync workouts", description: "Running, cycling, and other cardio activities")
-                    FeatureRow(icon: "flame.fill", title: "MVPA tracking", description: "Apple Exercise Time for weekly goals")
-                    FeatureRow(icon: "map.fill", title: "Route visualization", description: "Interactive maps with heart rate overlay")
-                    FeatureRow(icon: "chart.line.uptrend.xyaxis", title: "Progress analytics", description: "Track trends and personal records")
-                }
-                .padding(.horizontal)
+            // Description
+            Text("Sync cardio workouts and MVPA minutes automatically")
+                .font(.system(size: 17, weight: .regular, design: .rounded))
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .padding(.horizontal, 40)
 
-                Spacer()
+            // Features list
+            VStack(alignment: .leading, spacing: 16) {
+                FeatureRow(icon: "figure.run", title: "Auto-sync workouts", description: "Running, cycling, and other cardio activities")
+                FeatureRow(icon: "flame.fill", title: "MVPA tracking", description: "Apple Exercise Time for weekly goals")
+                FeatureRow(icon: "map.fill", title: "Route visualization", description: "Interactive maps with heart rate overlay")
+                FeatureRow(icon: "chart.line.uptrend.xyaxis", title: "Progress analytics", description: "Track trends and personal records")
+            }
+            .padding(.horizontal, 40)
+            .padding(.top, 16)
 
-                // Error message
-                if let error {
-                    Text("Error: \(error.localizedDescription)")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .padding(.horizontal)
-                }
+            Spacer()
 
-                // Action button
-                Button {
-                    authorize()
-                } label: {
-                    HStack {
-                        if isAuthorizing {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "heart.fill")
-                            Text("Connect Health")
-                        }
+            // Error message
+            if let error {
+                Text("Error: \(error.localizedDescription)")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 24)
+            }
+
+            // Action button
+            Button {
+                authorize()
+            } label: {
+                HStack {
+                    if isAuthorizing {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Image(systemName: "heart.fill")
+                        Text("Connect Health")
                     }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.pink)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
                 }
-                .disabled(isAuthorizing)
-                .padding(.horizontal)
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .foregroundStyle(.black)
+                .background(
+                    LinearGradient(
+                        colors: [Color.pink, Color.pink.opacity(0.8)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .shadow(color: Color.pink.opacity(0.3), radius: 12, x: 0, y: 6)
+            }
+            .disabled(isAuthorizing)
+            .padding(.horizontal, 24)
 
-                Button("Not Now") {
+            Button("Not Now") {
+                if let onDismiss {
+                    onDismiss()
+                } else {
                     dismiss()
                 }
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 20)
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-            }
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.white.opacity(0.6))
+            .padding(.bottom, 40)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "#0D0D0D"), Color(hex: "#1A1A1A")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+        )
     }
 
     private func authorize() {
@@ -112,7 +135,11 @@ struct HealthAuthSheet: View {
                 healthKit.setupBackgroundObservers()
 
                 await MainActor.run {
-                    dismiss()
+                    if let onDismiss {
+                        onDismiss()
+                    } else {
+                        dismiss()
+                    }
                 }
             } catch {
                 print("❌ Authorization failed: \(error)")
@@ -138,9 +165,10 @@ private struct FeatureRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.9))
                 Text(description)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
         }
     }

@@ -5,6 +5,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Foundation
 
 // MARK: - Theme
@@ -54,11 +55,23 @@ private func hms(_ seconds: Int) -> String {
 
 // MARK: - Calendar View
 struct CalendarMonthView: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @EnvironmentObject var healthKit: HealthKitManager
+    @Environment(\.modelContext) private var context
 
     @State private var monthAnchor: Date = .now
     @State private var selectedDay: Date = .now
+    @State private var plannedWorkouts: [PlannedWorkout] = []
+
+    // Tutorial state
+    @StateObject private var onboardingManager = OnboardingManager.shared
+    @State private var showTutorial = false
+    @State private var currentTutorialStep = 0
+    @State private var headerFrame: CGRect = .zero
+    @State private var calendarGridFrame: CGRect = .zero
+    @State private var dayDetailFrame: CGRect = .zero
+    @State private var plannerButtonFrame: CGRect = .zero
+    @State private var framesReady = false
 
     private let cols = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
     private let cellHeight: CGFloat = 44
@@ -94,10 +107,14 @@ struct CalendarMonthView: View {
                 streak: store.streak()
             )
             .padding(.top, 12)
+            .captureFrame(in: .global) { frame in
+                headerFrame = frame
+                checkFramesReady()
+            }
 
             // Weekday labels
-            WeekdayRow().padding(.horizontal, 16)
-
+            //WeekdayRow().padding(.horizontal, 16)
+            Spacer(minLength: 32)
             // Month grid
             let days = daysInMonth()
             let rows = max(1, days.count / 7)
@@ -120,12 +137,24 @@ struct CalendarMonthView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 16)
+            .padding(.bottom, 24) // Increased from 16 to prevent chip overlap with divider
             .frame(height: gridHeight)
+            .captureFrame(in: .global) { frame in
+                calendarGridFrame = frame
+                checkFramesReady()
+            }
 
             Divider()
                 .overlay(Theme.border)
-                .padding(.top, 8)
+                .padding(.top, 12) // Increased from 8 for more spacing
+                .padding(.bottom, 16)
+
+            // MARK: - Sync Progress
+            if healthKit.isSyncing {
+                HealthKitSyncProgressView(healthKit: healthKit)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
 
             // Day detail — simplified & workout-centric
             ScrollView {
@@ -133,11 +162,30 @@ struct CalendarMonthView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
             }
+            .captureFrame(in: .global) { frame in
+                dayDetailFrame = frame
+                checkFramesReady()
+            }
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Calendar")
         .navigationBarTitleDisplayMode(.inline)
         .tint(Theme.accent)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    PlannerSetupCarouselView()
+                } label: {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+                .captureFrame(in: .global) { frame in
+                    plannerButtonFrame = frame
+                    checkFramesReady()
+                }
+            }
+        }
         .safeAreaInset(edge: .bottom) { if hasActiveWorkout { Color.clear.frame(height: 65) } }
         .task {
             // Auto-sync when calendar appears (throttled to max once per 5 min)
@@ -150,28 +198,54 @@ struct CalendarMonthView: View {
         .onAppear {
             // Reset to today when view appears
             selectedDay = .now
+            loadPlannedWorkouts()
             print("📅 CalendarMonthView appeared - reset selected day to today")
+
+            // Fallback: if frames haven't loaded after 2.5 seconds, show tutorial anyway
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                if !framesReady && !onboardingManager.hasSeenCalendar && !showTutorial {
+                    showTutorial = true
+                }
+            }
+        }
+        .onChange(of: monthAnchor) { _, _ in
+            // Reload planned workouts when month changes
+            loadPlannedWorkouts()
+        }
+        .onChange(of: framesReady) { _, ready in
+            // Show tutorial once frames are captured
+            if ready && !onboardingManager.hasSeenCalendar && !showTutorial {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    showTutorial = true
+                }
+            }
+        }
+        .overlay {
+            // Tutorial overlay
+            if showTutorial {
+                SpotlightOverlay(
+                    currentStep: tutorialSteps[currentTutorialStep],
+                    currentIndex: currentTutorialStep,
+                    totalSteps: tutorialSteps.count,
+                    onNext: advanceTutorial,
+                    onSkip: skipTutorial
+                )
+                .transition(.opacity)
+                .zIndex(1000)
+            }
         }
     }
 
     // MARK: - Navigation helpers
     private var canGoForward: Bool {
-        let cal = Calendar.current
-        if let next = cal.date(byAdding: .month, value: 1, to: monthAnchor) {
-            return next <= startOfCurrentMonth
-        }
-        return false
+        // Allow navigating to future months for planning
+        return true
     }
 
     private func bump(_ delta: Int) {
         let cal = Calendar.current
         guard let next = cal.date(byAdding: .month, value: delta, to: monthAnchor) else { return }
-        if delta > 0 {
-            guard canGoForward else { UIImpactFeedbackGenerator(style: .rigid).impactOccurred(); return }
-            monthAnchor = next
-        } else {
-            monthAnchor = next
-        }
+        monthAnchor = next
         if let first = cal.dateInterval(of: .month, for: monthAnchor)?.start {
             selectedDay = first
         }
@@ -209,11 +283,131 @@ struct CalendarMonthView: View {
     }
 
     private func dayStat(for date: Date) -> DayStat {
-        DayStat(
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let planned = plannedWorkouts.first { Calendar.current.isDate($0.scheduledDate, inSameDayAs: startOfDay) }
+
+        return DayStat(
             date: date,
             workoutCount: store.workouts(on: date).count,
-            runCount: store.runs(on: date).count
+            runCount: store.runs(on: date).count,
+            plannedWorkout: planned
         )
+    }
+
+    /// Load planned workouts for the current month
+    private func loadPlannedWorkouts() {
+        guard let interval = Calendar.current.dateInterval(of: .month, for: monthAnchor) else { return }
+
+        let predicate = #Predicate<PlannedWorkout> { planned in
+            planned.scheduledDate >= interval.start && planned.scheduledDate < interval.end
+        }
+
+        let descriptor = FetchDescriptor(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\PlannedWorkout.scheduledDate)]
+        )
+
+        do {
+            plannedWorkouts = try context.fetch(descriptor)
+        } catch {
+            print("❌ Failed to fetch planned workouts: \(error)")
+            plannedWorkouts = []
+        }
+    }
+
+    // MARK: - Tutorial Logic
+
+    private func checkFramesReady() {
+        // Check if all frames have been captured and are valid
+        let headerReady = headerFrame != .zero && headerFrame.width > 0
+        let gridReady = calendarGridFrame != .zero && calendarGridFrame.width > 0
+        let detailReady = dayDetailFrame != .zero && dayDetailFrame.width > 0
+        let plannerReady = plannerButtonFrame != .zero && plannerButtonFrame.width > 0
+
+        if headerReady && gridReady && detailReady && plannerReady && !framesReady {
+            print("✅ All calendar frames ready for tutorial!")
+            framesReady = true
+        }
+    }
+
+    /// Clamps a frame to stay within screen bounds with safe padding
+    private func clampedFrame(_ frame: CGRect, insetBy insets: UIEdgeInsets) -> CGRect {
+        let screenBounds = UIScreen.main.bounds
+        let padding: CGFloat = 8 // Minimum padding from screen edges
+
+        var expanded = CGRect(
+            x: frame.origin.x - insets.left,
+            y: frame.origin.y - insets.top,
+            width: frame.width + insets.left + insets.right,
+            height: frame.height + insets.top + insets.bottom
+        )
+
+        // Clamp to screen bounds with padding
+        expanded.origin.x = max(padding, expanded.origin.x)
+        expanded.origin.y = max(padding, expanded.origin.y)
+
+        if expanded.maxX > screenBounds.width - padding {
+            expanded.size.width = screenBounds.width - padding - expanded.origin.x
+        }
+        if expanded.maxY > screenBounds.height - padding {
+            expanded.size.height = screenBounds.height - padding - expanded.origin.y
+        }
+
+        return expanded
+    }
+
+    private var tutorialSteps: [TutorialStep] {
+        [
+            TutorialStep(
+                title: "Split Planner",
+                message: "Tap here to create a workout split and schedule your training week. Plan your workouts in advance and track your progress!",
+                spotlightFrame: clampedFrame(plannerButtonFrame, insetBy: UIEdgeInsets(top: 12, left: 1, bottom: 12, right: 25)),
+                tooltipPosition: .center,
+                highlightCornerRadius: 12
+            ),
+            TutorialStep(
+                title: "Streak Tracking",
+                message: "Your current workout streak is shown at the top. Keep training consistently to build and maintain your streak!",
+                spotlightFrame: clampedFrame(headerFrame, insetBy: UIEdgeInsets(top: 6, left: 16, bottom: 6, right: 16)),
+                tooltipPosition: .center,
+                highlightCornerRadius: 16
+            ),
+            TutorialStep(
+                title: "Activity Calendar",
+                message: "Days with workouts are highlighted. Yellow-bordered days are part of your active streak. Tap any day to view its details below.",
+                spotlightFrame: clampedFrame(calendarGridFrame, insetBy: UIEdgeInsets(top: 45, left: 16, bottom: 16, right: 16)),
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 20
+            ),
+            TutorialStep(
+                title: "Day Details",
+                message: "View all workouts and runs for the selected day. Tap any workout to see full details or edit it.",
+                spotlightFrame: clampedFrame(dayDetailFrame, insetBy: UIEdgeInsets(top: 7, left: 16, bottom: 20, right: 20)),
+                tooltipPosition: .top,
+                highlightCornerRadius: 16
+            )
+        ]
+    }
+
+    private func advanceTutorial() {
+        if currentTutorialStep < tutorialSteps.count - 1 {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                currentTutorialStep += 1
+            }
+        } else {
+            completeTutorial()
+        }
+    }
+
+    private func skipTutorial() {
+        completeTutorial()
+    }
+
+    private func completeTutorial() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            showTutorial = false
+        }
+        onboardingManager.complete(.calendar)
     }
 }
 
@@ -350,8 +544,29 @@ private struct DayCellV2: View {
 
             // tiny markers
             HStack(spacing: 4) {
-                if stats.workoutCount > 0 { Capsule().fill(Theme.accent).frame(width: 12, height: 4) }
-                if stats.runCount > 0 { Capsule().fill(.white.opacity(0.75)).frame(width: 12, height: 4) }
+                // Completed workouts: filled accent
+                if stats.workoutCount > 0 {
+                    Capsule().fill(Theme.accent).frame(width: 12, height: 4)
+                }
+                // Completed runs: white
+                if stats.runCount > 0 {
+                    Capsule().fill(.white.opacity(0.75)).frame(width: 12, height: 4)
+                }
+                // Planned workouts: outlined accent (if not already completed)
+                if stats.hasPlannedWorkout && stats.workoutCount == 0 {
+                    if stats.isPlannedScheduled {
+                        // Scheduled: outlined
+                        Capsule()
+                            .stroke(Theme.accent, lineWidth: 1.5)
+                            .frame(width: 12, height: 4)
+                    } else if stats.isPlannedPartial {
+                        // Partial: filled yellow/orange
+                        Capsule().fill(.yellow).frame(width: 12, height: 4)
+                    } else if stats.isPlannedSkipped {
+                        // Skipped: gray
+                        Capsule().fill(.gray.opacity(0.5)).frame(width: 12, height: 4)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity)
@@ -378,11 +593,19 @@ private struct DayCellV2: View {
 
 // MARK: - Day Detail (simplified)
 private struct DayDetail: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
+    @Environment(\.modelContext) private var context
     let date: Date
 
     private var workouts: [CompletedWorkout] { store.workouts(on: date) }
     private var runs: [Run] { store.runs(on: date) }
+
+    // Fetch planned workout for this day
+    private var plannedWorkout: PlannedWorkout? {
+        let startOfDay = Calendar.current.startOfDay(for: date)
+        let predicate = #Predicate<PlannedWorkout> { $0.scheduledDate == startOfDay }
+        return try? context.fetch(FetchDescriptor(predicate: predicate)).first
+    }
 
     // Aggregates (workouts only)
     private var workoutCount: Int { workouts.count }
@@ -403,7 +626,12 @@ private struct DayDetail: View {
             // Daily Summary — workouts only
             DailySummaryCard(date: date, workoutCount: workoutCount, exerciseCount: exerciseCount, setCount: setCount, repCount: repCount)
 
-            if workouts.isEmpty && runs.isEmpty {
+            // Planned workout section (if exists and not completed)
+            if let planned = plannedWorkout, planned.workoutStatus != .completed {
+                PlannedWorkoutCard(planned: planned)
+            }
+
+            if workouts.isEmpty && runs.isEmpty && plannedWorkout == nil {
                 ContentUnavailableView("No activity", systemImage: "calendar")
                     .foregroundStyle(Theme.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
@@ -566,7 +794,7 @@ private struct DayDetail: View {
     }
 
     private struct WorkoutRow: View {
-        @EnvironmentObject var store: WorkoutStore
+        @EnvironmentObject var store: WorkoutStoreV2
         let workout: CompletedWorkout
         @State private var selectedExercise: Exercise?
         @EnvironmentObject var repo: ExerciseRepository
@@ -679,6 +907,140 @@ private struct DayDetail: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    // MARK: - Planned Workout Card
+    private struct PlannedWorkoutCard: View {
+        @EnvironmentObject var store: WorkoutStoreV2
+        let planned: PlannedWorkout
+        @State private var showDateMismatchAlert = false
+
+        private var statusColor: Color {
+            switch planned.workoutStatus {
+            case .scheduled: return Theme.accent
+            case .partial: return .yellow
+            case .skipped: return .gray
+            case .rescheduled: return .orange
+            default: return Theme.accent
+            }
+        }
+
+        private var statusText: String {
+            switch planned.workoutStatus {
+            case .scheduled: return "Planned"
+            case .partial: return "Partially completed"
+            case .skipped: return "Skipped"
+            case .rescheduled: return "Rescheduled"
+            default: return "Planned"
+            }
+        }
+
+        var body: some View {
+            VStack(spacing: 0) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(planned.splitDayName)
+                            .font(.headline)
+                            .foregroundStyle(Theme.text)
+
+                        Text(statusText)
+                            .font(.caption)
+                            .foregroundStyle(statusColor)
+                    }
+
+                    Spacer()
+
+                    // Status badge
+                    Text(statusText.uppercased())
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.black)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(statusColor, in: Capsule())
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                Rectangle().fill(Theme.border).frame(height: 1)
+
+                // Exercise preview
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(planned.exercises.prefix(3)) { exercise in
+                        HStack {
+                            Text(exercise.exerciseName)
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.text)
+
+                            Spacer()
+
+                            Text("\(exercise.ghostSets.count) × \(exercise.ghostSets.first?.reps ?? 0)")
+                                .font(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                    }
+
+                    if planned.exercises.count > 3 {
+                        Text("+\(planned.exercises.count - 3) more exercises")
+                            .font(.caption)
+                            .foregroundStyle(Theme.secondary)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+
+                // Action button (only for scheduled workouts)
+                if planned.workoutStatus == .scheduled {
+                    Rectangle().fill(Theme.border).frame(height: 1)
+
+                    Button {
+                        // Check if this workout is scheduled for today
+                        if isScheduledForToday {
+                            startPlannedWorkout(planned)
+                        } else {
+                            showDateMismatchAlert = true
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "play.circle.fill")
+                                .font(.body)
+                            Text("Start Workout")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(Color.black)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+            }
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(statusColor.opacity(0.5), lineWidth: 2))
+            .alert("Workout Scheduled for Different Day", isPresented: $showDateMismatchAlert) {
+                Button("Start Now (Logs Today)", role: .destructive) {
+                    startPlannedWorkout(planned)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This workout is scheduled for \(formattedScheduledDate). Starting it will log the workout for today instead.")
+            }
+        }
+
+        private var isScheduledForToday: Bool {
+            Calendar.current.isDateInToday(planned.scheduledDate)
+        }
+
+        private var formattedScheduledDate: String {
+            planned.scheduledDate.formatted(date: .abbreviated, time: .omitted)
+        }
+
+        private func startPlannedWorkout(_ planned: PlannedWorkout) {
+            store.startPlannedWorkout(planned)
+            // Navigate to live workout tab
+            NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
         }
     }
 }

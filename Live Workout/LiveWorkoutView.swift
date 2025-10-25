@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct LiveWorkoutView: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @State private var editingEntry: WorkoutEntry? = nil
 
     var body: some View {
@@ -88,7 +88,7 @@ struct LiveWorkoutView: View {
         .sheet(item: $editingEntry) { entry in
             if let ex = store.exerciseForEntry(entry) {
                 NavigationStack {
-                    ExerciseSessionView(exercise: ex, currentEntryID: entry.id)
+                    ExerciseSessionView(exercise: ex, initialEntryID: entry.id)
                         .environmentObject(store)
                 }
             } else {

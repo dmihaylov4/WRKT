@@ -14,7 +14,9 @@ struct AchievementsView: View {
     private var achievements: [Achievement]
 
     @State private var search = ""
+    @State private var debouncedSearch = ""
     @State private var filter: Filter = .all
+    @State private var searchDebounceTask: Task<Void, Never>?
 
     enum Filter: String, CaseIterable, Identifiable {
         case all = "All"
@@ -26,9 +28,9 @@ struct AchievementsView: View {
     private var filtered: [Achievement] {
         achievements
             .filter { a in
-                guard !search.isEmpty else { return true }
-                return a.title.localizedCaseInsensitiveContains(search)
-                    || a.desc.localizedCaseInsensitiveContains(search)
+                guard !debouncedSearch.isEmpty else { return true }
+                return a.title.localizedCaseInsensitiveContains(debouncedSearch)
+                    || a.desc.localizedCaseInsensitiveContains(debouncedSearch)
             }
             .filter { a in
                 switch filter {
@@ -69,6 +71,15 @@ struct AchievementsView: View {
                     ForEach(Filter.allCases) { f in Text(f.rawValue).tag(f) }
                 }
                 .pickerStyle(.menu)
+            }
+        }
+        .onChange(of: search) { _, newSearch in
+            // Debounce search input (300ms delay)
+            searchDebounceTask?.cancel()
+            searchDebounceTask = Task {
+                try? await Task.sleep(nanoseconds: 300_000_000) // 300ms
+                guard !Task.isCancelled else { return }
+                debouncedSearch = newSearch
             }
         }
     }

@@ -13,7 +13,7 @@
 //  Created by Dimitar Mihaylov on 09.10.25.
 //
 
-
+import Combine
 import SwiftUI
 
 struct MusclePictogram: View {

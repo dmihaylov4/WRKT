@@ -21,7 +21,7 @@ private enum Theme {
 struct WorkoutDetailView: View {
     let workout: CompletedWorkout
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
 
     private var hasHealthData: Bool {
         workout.matchedHealthKitUUID != nil
@@ -388,6 +388,7 @@ private struct HRStat: View {
 private struct ExercisesSection: View {
     let entries: [WorkoutEntry]
     @EnvironmentObject var repo: ExerciseRepository
+    @EnvironmentObject var store: WorkoutStoreV2
     @State private var selectedExercise: Exercise?
 
     var body: some View {
@@ -411,7 +412,10 @@ private struct ExercisesSection: View {
         }
         .sheet(item: $selectedExercise) { exercise in
             NavigationStack {
-                ExerciseSessionView(exercise: exercise)
+                ExerciseSessionView(
+                    exercise: exercise,
+                    initialEntryID: store.existingEntry(for: exercise.id)?.id
+                )
             }
         }
     }

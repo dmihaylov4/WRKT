@@ -49,6 +49,91 @@ actor StatsAggregator {
         await recompute(for: slice, replacingWeeks: Set(starts))
     }
 
+    /// Reset all cached stats
+    func resetAll() async {
+        let context = ModelContext(container)
+
+        // Delete all weekly training summaries
+        let weeklyFetch = FetchDescriptor<WeeklyTrainingSummary>()
+        if let summaries = try? context.fetch(weeklyFetch) {
+            for summary in summaries {
+                context.delete(summary)
+            }
+        }
+
+        // Delete all exercise volume summaries
+        let volumeFetch = FetchDescriptor<ExerciseVolumeSummary>()
+        if let volumes = try? context.fetch(volumeFetch) {
+            for volume in volumes {
+                context.delete(volume)
+            }
+        }
+
+        // Delete all PR stamps
+        let prStampFetch = FetchDescriptor<PRStamp>()
+        if let stamps = try? context.fetch(prStampFetch) {
+            for stamp in stamps {
+                context.delete(stamp)
+            }
+        }
+
+        // Delete all moving averages
+        let movingAvgFetch = FetchDescriptor<MovingAverage>()
+        if let averages = try? context.fetch(movingAvgFetch) {
+            for average in averages {
+                context.delete(average)
+            }
+        }
+
+        // Delete all exercise progression summaries
+        let progressionFetch = FetchDescriptor<ExerciseProgressionSummary>()
+        if let progressions = try? context.fetch(progressionFetch) {
+            for progression in progressions {
+                context.delete(progression)
+            }
+        }
+
+        // Delete all exercise trends
+        let trendFetch = FetchDescriptor<ExerciseTrend>()
+        if let trends = try? context.fetch(trendFetch) {
+            for trend in trends {
+                context.delete(trend)
+            }
+        }
+
+        // Delete all push/pull balance data
+        let pushPullFetch = FetchDescriptor<PushPullBalance>()
+        if let balances = try? context.fetch(pushPullFetch) {
+            for balance in balances {
+                context.delete(balance)
+            }
+        }
+
+        // Delete all muscle group frequency data
+        let muscleFreqFetch = FetchDescriptor<MuscleGroupFrequency>()
+        if let frequencies = try? context.fetch(muscleFreqFetch) {
+            for frequency in frequencies {
+                context.delete(frequency)
+            }
+        }
+
+        // Delete all movement pattern balance data
+        let patternFetch = FetchDescriptor<MovementPatternBalance>()
+        if let patterns = try? context.fetch(patternFetch) {
+            for pattern in patterns {
+                context.delete(pattern)
+            }
+        }
+
+        // Save and report errors if any
+        do {
+            try context.save()
+            print("✅ Stats data reset complete")
+        } catch {
+            print("❌ Failed to save stats reset: \(error)")
+        }
+    }
+
     // MARK: Core recompute
 
     /// Recompute summaries for the passed workouts.
@@ -63,6 +148,10 @@ actor StatsAggregator {
         guard !workouts.isEmpty else { return }
         let ctx = ModelContext(container)
         ctx.autosaveEnabled = false
+
+        // Get user's bodyweight from UserDefaults (stored in kg)
+        let userBodyweightKg = UserDefaults.standard.double(forKey: "user_bodyweight_kg")
+        let bodyweight = userBodyweightKg > 0 ? userBodyweightKg : 70.0 // Default to 70kg if not set
 
         // Accumulators
         struct Acc {
@@ -84,8 +173,26 @@ actor StatsAggregator {
             // acc.minutes += Int(w.durationMinutes)
 
             for e in w.entries {
-                for s in e.sets where s.tag == .working && s.reps > 0 && s.weight > 0 {
-                    let vol = Double(s.reps) * s.weight
+                // Get exercise metadata to check if it's bodyweight
+                // Capture repo in actor context before switching to MainActor
+                let repo = exerciseRepo
+                let exercise = await MainActor.run { repo?.exercise(byID: e.exerciseID) }
+
+                for s in e.sets where s.tag == .working && s.reps > 0 {
+                    let vol: Double
+
+                    if s.weight > 0 {
+                        // Weighted exercise: traditional volume calculation
+                        vol = Double(s.reps) * s.weight
+                    } else if let ex = exercise, ExerciseClassifier.isBodyweightExercise(ex) {
+                        // Bodyweight exercise: use bodyweight percentage
+                        let percentage = ExerciseClassifier.bodyweightPercentage(for: ex)
+                        vol = Double(s.reps) * (bodyweight * percentage)
+                    } else {
+                        // Unknown exercise with no weight - skip
+                        continue
+                    }
+
                     acc.volume += vol
                     acc.sets += 1
                     acc.reps += s.reps
@@ -523,7 +630,8 @@ actor StatsAggregator {
                 ppb.horizontalPullVolume = hPullVol
                 ppb.verticalPushVolume = vPushVol
                 ppb.verticalPullVolume = vPullVol
-                ppb.ratio = pushVol > 0 ? pullVol / pushVol : 0
+                // When pushVol = 0: use 999 if there are pull exercises (indicates "all pull"), otherwise 0 (no data)
+                ppb.ratio = pushVol > 0 ? pullVol / pushVol : (pullVol > 0 ? 999.0 : 0.0)
                 print("💾 Saved Push/Pull balance for week \(weekKey): push=\(pushVol), pull=\(pullVol), ratio=\(ppb.ratio)")
             }
 
@@ -552,6 +660,10 @@ actor StatsAggregator {
         let now = Date()
         let sevenDaysAgo = Calendar.current.date(byAdding: .day, value: -7, to: now) ?? now
 
+        // Get user's bodyweight from UserDefaults (stored in kg)
+        let userBodyweightKg = UserDefaults.standard.double(forKey: "user_bodyweight_kg")
+        let bodyweight = userBodyweightKg > 0 ? userBodyweightKg : 70.0 // Default to 70kg if not set
+
         // Filter workouts to last 7 days
         let recentWorkouts = workouts.filter { $0.date >= sevenDaysAgo }
 
@@ -571,8 +683,15 @@ actor StatsAggregator {
                 guard let ex = await MainActor.run(body: { repo.exercise(byID: entry.exerciseID) }) else { continue }
 
                 var entryVolume = 0.0
-                for set in entry.sets where set.tag == .working && set.reps > 0 && set.weight > 0 {
-                    entryVolume += Double(set.reps) * set.weight
+                for set in entry.sets where set.tag == .working && set.reps > 0 {
+                    if set.weight > 0 {
+                        // Weighted exercise: traditional volume calculation
+                        entryVolume += Double(set.reps) * set.weight
+                    } else if ExerciseClassifier.isBodyweightExercise(ex) {
+                        // Bodyweight exercise: use bodyweight percentage
+                        let percentage = ExerciseClassifier.bodyweightPercentage(for: ex)
+                        entryVolume += Double(set.reps) * (bodyweight * percentage)
+                    }
                 }
 
                 let muscleGroups = ExerciseClassifier.primaryMuscleGroups(for: ex)

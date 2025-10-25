@@ -152,7 +152,7 @@ private struct DifficultyBadge: View {
 // MARK: - Flat exercise list for a subregion (legacy browseState flow)
 struct MuscleExerciseListView: View {
     @EnvironmentObject var repo: ExerciseRepository
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @State private var showingSessionFor: SessionSheetContext? = nil
     @Binding var state: BrowseState
     let subregion: String
@@ -160,79 +160,161 @@ struct MuscleExerciseListView: View {
     @AppStorage("equipFilter") private var equip: EquipBucket = .all
     @AppStorage("moveFilter")  private var move:  MoveBucket  = .all
 
+    // Tutorial state
+    @StateObject private var onboardingManager = OnboardingManager.shared
+    @State private var showTutorial = false
+    @State private var currentTutorialStep = 0
+    @State private var equipmentFilterFrame: CGRect = .zero
+    @State private var movementFilterFrame: CGRect = .zero
+    @State private var exerciseListFrame: CGRect = .zero
+    @State private var framesReady = false
+
+    // Debug: Set to true to visualize captured frames
+    private let debugFrames = true
+
     private let stripeWidth: CGFloat = 3
     private let stripeGutter: CGFloat = 10
 
     var body: some View {
-        Group {
-            if rows.isEmpty {
-                ScrollView {
-                    EmptyExercisesView(
-                        title: "No exercises found",
-                        message: "Try loosening the equipment/movement filters or pick a different muscle.",
-                        onClear: { equip = .all; move = .all }
-                    )
-                    .padding(.top, 16)
-                }
-                .background(DS.Semantic.surface)
-            } else {
-                List(rows, id: \.id) { ex in
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(ex.name).font(.body)
-                            HStack(spacing: 6) {
-                                MetaPill(icon: EquipmentIcon.symbol(for: ex.equipment ?? ""),
-                                         label: EquipmentIcon.label(for: ex.equipment ?? ""),
-                                         tint: EquipmentIcon.color(for: ex.equipment ?? ""))
-                                MetaPill(icon: CategoryIcon.symbol(for: ex.category),
-                                         label: ex.category.capitalized,
-                                         tint: CategoryIcon.color(for: ex.category))
+        ZStack {
+            Group {
+                if rows.isEmpty {
+                    ScrollView {
+                        EmptyExercisesView(
+                            title: "No exercises found",
+                            message: "Try loosening the equipment/movement filters or pick a different muscle.",
+                            onClear: { equip = .all; move = .all }
+                        )
+                        .padding(.top, 16)
+                    }
+                    .background(DS.Semantic.surface)
+                } else {
+                    List(rows, id: \.id) { ex in
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(ex.name).font(.body)
+                                HStack(spacing: 6) {
+                                    MetaPill(icon: EquipmentIcon.symbol(for: ex.equipment ?? ""),
+                                             label: EquipmentIcon.label(for: ex.equipment ?? ""),
+                                             tint: EquipmentIcon.color(for: ex.equipment ?? ""))
+                                    MetaPill(icon: CategoryIcon.symbol(for: ex.category),
+                                             label: ex.category.capitalized,
+                                             tint: CategoryIcon.color(for: ex.category))
+                                }
+                            }
+                            Spacer(minLength: 8)
+                            //if let lvl = ex.difficultyLevel { DifficultyBadge(level: lvl) }
+                            FavoriteHeartButton(exerciseID: ex.id)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture { openSession(for: ex) }
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(DS.Semantic.surface)
+                        .padding(.leading, stripeWidth + stripeGutter)
+                        .overlay(alignment: .leading) {
+                            if let lvl = ex.difficultyLevel {
+                                Rectangle()
+                                    .fill(DifficultyTheme.color(for: lvl))
+                                    .frame(width: stripeWidth)
+                                    .allowsHitTesting(false)
                             }
                         }
-                        Spacer(minLength: 8)
-                        //if let lvl = ex.difficultyLevel { DifficultyBadge(level: lvl) }
-                        FavoriteHeartButton(exerciseID: ex.id)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture { openSession(for: ex) }
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(DS.Semantic.surface)
-                    .padding(.leading, stripeWidth + stripeGutter)
-                    .overlay(alignment: .leading) {
-                        if let lvl = ex.difficultyLevel {
-                            Rectangle()
-                                .fill(DifficultyTheme.color(for: lvl))
-                                .frame(width: stripeWidth)
-                                .allowsHitTesting(false)
-                        }
+                    .captureFrame(in: .global) { frame in
+                        exerciseListFrame = frame
+                        print("📍 Exercise list frame captured: \(frame)")
+                        checkFramesReady()
                     }
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .listStyle(.plain)
+                    .background(DS.Semantic.surface)
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: rows.map { $0.id })
                 }
-                .listStyle(.plain)
-                .background(DS.Semantic.surface)
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: rows.map { $0.id })
             }
-        }
-        .safeAreaInset(edge: .top) {
-            FiltersBar(equip: $equip, move: $move)
-                .overlay(Divider().background(DS.Semantic.border), alignment: .bottom)
-        }
-        .sheet(item: $showingSessionFor) { ctx in
-            ExerciseSessionView(exercise: ctx.exercise, currentEntryID: nil, returnToHomeOnSave: true)
+            .safeAreaInset(edge: .top) {
+                FiltersBar(
+                    equip: $equip,
+                    move: $move,
+                    coordinateSpace: .global,
+                    onEquipmentFrameCaptured: { frame in
+                        equipmentFilterFrame = frame
+                        print("📍 Equipment filter frame captured: \(frame)")
+                        checkFramesReady()
+                    },
+                    onMovementFrameCaptured: { frame in
+                        movementFilterFrame = frame
+                        print("📍 Movement filter frame captured: \(frame)")
+                        checkFramesReady()
+                    }
+                )
+            }
+            .sheet(item: $showingSessionFor) { ctx in
+                ExerciseSessionView(
+                    exercise: ctx.exercise,
+                    initialEntryID: store.existingEntry(for: ctx.exercise.id)?.id,
+                    returnToHomeOnSave: true
+                )
                 .environmentObject(store)
+            }
+            .navigationTitle(subregion)
+            .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .background(DS.Semantic.surface.ignoresSafeArea())
+            .onAppear {
+                print("🎬 MuscleExerciseListView appeared")
+
+                // Reset for testing
+               // OnboardingManager.shared.hasSeenBodyBrowse = false
+
+                // Fallback: if frames haven't loaded after 2.5 seconds, show tutorial anyway
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    if !framesReady && !onboardingManager.hasSeenBodyBrowse && !showTutorial {
+                        print("⚠️ Frames not ready after 2.5s, showing tutorial without spotlights")
+                        print("   Equipment: \(equipmentFilterFrame)")
+                        print("   Movement: \(movementFilterFrame)")
+                        print("   List: \(exerciseListFrame)")
+                        showTutorial = true
+                    }
+                }
+            }
+            .onChange(of: framesReady) { _, ready in
+                // Show tutorial once frames are captured
+                if ready && !onboardingManager.hasSeenBodyBrowse && !showTutorial {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        print("🎓 Showing tutorial with frames:")
+                        print("   Equipment: \(equipmentFilterFrame)")
+                        print("   Movement: \(movementFilterFrame)")
+                        print("   List: \(exerciseListFrame)")
+                        showTutorial = true
+                    }
+                }
+            }
+
+            // Tutorial overlay
+            if showTutorial {
+                SpotlightOverlay(
+                    currentStep: tutorialSteps[currentTutorialStep],
+                    currentIndex: currentTutorialStep,
+                    totalSteps: tutorialSteps.count,
+                    onNext: advanceTutorial,
+                    onSkip: skipTutorial
+                )
+                .transition(.opacity)
+                .zIndex(1000)
+            }
+
+           
         }
-        .navigationTitle(subregion)
-        .background(DS.Semantic.surface.ignoresSafeArea())
     }
 
     private var rows: [Exercise] {
-        // 1) by primary muscle (same matching you had)
+        // 1) by primary muscle - use byID index (contains all exercises)
         let keys = MuscleMapper.synonyms(for: subregion)
-        let primary = repo.exercises.filter { ex in
+        let primary = repo.byID.values.filter { ex in
             let prim = ex.primaryMuscles.map { $0.lowercased() }
             return prim.contains { m in keys.contains { key in m.contains(key) } }
         }
- 
+
         // 2) filters via normalized buckets (robust)
         let byEquip = (equip == .all) ? primary : primary.filter { $0.equipBucket == equip }
         let byMove  = (move  == .all) ? byEquip  : byEquip.filter  { $0.moveBucket  == move  }
@@ -246,56 +328,188 @@ struct MuscleExerciseListView: View {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         showingSessionFor = SessionSheetContext(id: UUID(), exercise: ex)
     }
-    
-  
-    
-    
+
+    // MARK: - Tutorial Logic
+
+    private func checkFramesReady() {
+        // Check if all frames have been captured and are valid
+        let equipReady = equipmentFilterFrame != .zero && equipmentFilterFrame.width > 0
+        let moveReady = movementFilterFrame != .zero && movementFilterFrame.width > 0
+        let listReady = exerciseListFrame != .zero && exerciseListFrame.height > 0
+
+        print("🔍 Frame readiness check:")
+        print("   Equipment ready: \(equipReady) - \(equipmentFilterFrame)")
+        print("   Movement ready: \(moveReady) - \(movementFilterFrame)")
+        print("   List ready: \(listReady) - \(exerciseListFrame)")
+
+        if equipReady && moveReady && listReady && !framesReady {
+            print("✅ All frames ready for tutorial!")
+            framesReady = true
+        } else if !framesReady {
+            print("⏳ Still waiting for frames...")
+        }
+    }
+
+    private var tutorialSteps: [TutorialStep] {
+        [
+            TutorialStep(
+                title: "Equipment Filters",
+                message: "Tap any equipment type to filter exercises. Double-tap a chip to reset the filter.",
+                spotlightFrame: CGRect(
+                    x: equipmentFilterFrame.origin.x,
+                    y: equipmentFilterFrame.origin.y,
+                    width: equipmentFilterFrame.width,
+                    height: equipmentFilterFrame.height + 8
+                ),  // Only expand downward to avoid cutoff at top
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 16
+            ),
+            TutorialStep(
+                title: "Movement Filters",
+                message: "Filter exercises by movement pattern. Combine with equipment filters for precise results.",
+                spotlightFrame: CGRect(
+                    x: movementFilterFrame.origin.x,
+                    y: movementFilterFrame.origin.y,
+                    width: movementFilterFrame.width,
+                    height: movementFilterFrame.height + 8
+                ),  // Only expand downward to avoid cutoff
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 16
+            ),
+            TutorialStep(
+                title: "Exercise List",
+                message: "Each exercise shows equipment and category tags. The colored stripe indicates difficulty level. Tap the heart to favorite, tap the exercise to start a workout.",
+                spotlightFrame: CGRect(
+                    x: exerciseListFrame.origin.x,
+                    y: max(0, exerciseListFrame.origin.y - 8),  // Expand upward but not beyond screen bounds
+                    width: exerciseListFrame.width,
+                    height: exerciseListFrame.height + 16  // Expand both up and down
+                ),
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 20
+            )
+        ]
+    }
+
+    private func advanceTutorial() {
+        if currentTutorialStep < tutorialSteps.count - 1 {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                currentTutorialStep += 1
+            }
+        } else {
+            completeTutorial()
+        }
+    }
+
+    private func skipTutorial() {
+        completeTutorial()
+    }
+
+    private func completeTutorial() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            showTutorial = false
+        }
+        onboardingManager.complete(.bodyBrowse)
+    }
 }
 
 struct FiltersBar: View {
     @Binding var equip: EquipBucket
     @Binding var move:  MoveBucket
+    var coordinateSpace: CoordinateSpace = .global
+    var onEquipmentFrameCaptured: ((CGRect) -> Void)? = nil
+    var onMovementFrameCaptured: ((CGRect) -> Void)? = nil
 
     var body: some View {
-        VStack(spacing: 8) {
-            ChipRow(all: EquipBucket.allCases, selected: $equip) { tapped in
-                equip = (tapped == equip ? .all : tapped)
-            } onClear: {
-                equip = .all
+        VStack(spacing: 0) {
+            // Equipment Row
+            VStack(alignment: .leading, spacing: 6) {
+                Text("EQUIPMENT")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
+                    .padding(.horizontal, 16)
+
+                ChipRow(all: EquipBucket.allCases, selected: $equip) { tapped in
+                    equip = (tapped == equip ? .all : tapped)
+                } onClear: {
+                    equip = .all
+                }
+            }
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+            .captureFrame(in: coordinateSpace) { frame in
+                onEquipmentFrameCaptured?(frame)
             }
 
-            ChipRow(all: MoveBucket.allCases, selected: $move) { tapped in
-                move = (tapped == move ? .all : tapped)
-            } onClear: {
-                move = .all
-            }
+            // Subtle divider
+            Rectangle()
+                .fill(DS.Semantic.border.opacity(0.3))
+                .frame(height: 0.5)
+                .padding(.horizontal, 16)
 
-            Divider().background(DS.Semantic.border)
+            // Movement Row
+            VStack(alignment: .leading, spacing: 6) {
+                Text("MOVEMENT")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
+                    .padding(.horizontal, 16)
+
+                ChipRow(all: MoveBucket.allCases, selected: $move) { tapped in
+                    move = (tapped == move ? .all : tapped)
+                } onClear: {
+                    move = .all
+                }
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 12)
+            .captureFrame(in: coordinateSpace) { frame in
+                onMovementFrameCaptured?(frame)
+            }
         }
-        .padding(.vertical, 8)
-        .background(DS.Semantic.surface)
+        .background(
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
+                .fill(DS.Semantic.surface)
+                .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
+        )
     }
 }
 
-private struct ChipRow<T: CaseIterable & Hashable>: View where T.AllCases: RandomAccessCollection {
+private struct ChipRow<T: CaseIterable & Hashable & RawRepresentable>: View where T.AllCases: RandomAccessCollection, T.RawValue == String {
     let all: T.AllCases
     @Binding var selected: T
     let onTap: (T) -> Void
     let onClear: () -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(all), id: \.self) { bucket in
-                    SelectChip(
-                        title: String(describing: bucket),
-                        selected: bucket == selected,
-                        tap: { onTap(bucket) },
-                        clear: onClear
-                    )
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(all), id: \.self) { bucket in
+                        SelectChip(
+                            title: bucket.rawValue,
+                            selected: bucket == selected,
+                            tap: {
+                                onTap(bucket)
+                            },
+                            clear: onClear
+                        )
+                        .id(bucket)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 4)
+            }
+            .scrollClipDisabled()
+            .onAppear {
+                // Scroll to initial selection without animation
+                proxy.scrollTo(selected, anchor: .center)
+            }
+            .onChange(of: selected) { _, newValue in
+                // Smoothly scroll to newly selected chip
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo(newValue, anchor: .center)
                 }
             }
-            .padding(.horizontal, 16)
         }
     }
 }
@@ -306,19 +520,61 @@ private struct SelectChip: View {
     let tap: () -> Void
     let clear: () -> Void
 
+    @State private var isPressed: Bool = false
+
     var body: some View {
-        Button(action: tap) {
+        Button(action: {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                tap()
+            }
+        }) {
             Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(DS.Semantic.textPrimary.opacity(selected ? 0.95 : 0.85))
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(selected ? DS.Semantic.surface50 : DS.Semantic.surface, in: Capsule())
-                .overlay(Capsule().stroke(selected ? DS.Palette.marone : DS.Semantic.border, lineWidth: 1))
+                .font(.subheadline.weight(selected ? .semibold : .medium))
+                .foregroundStyle(selected ? DS.Palette.marone : DS.Semantic.textPrimary.opacity(0.8))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Group {
+                        if selected {
+                            Capsule()
+                                .fill(DS.Palette.marone.opacity(0.15))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(DS.Palette.marone.opacity(0.5), lineWidth: 1.5)
+                                )
+                        } else {
+                            Capsule()
+                                .fill(DS.Semantic.surface50.opacity(0.3))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(DS.Semantic.border.opacity(0.3), lineWidth: 1)
+                                )
+                        }
+                    }
+                )
         }
         .buttonStyle(.plain)
+        .scaleEffect(isPressed ? 0.95 : 1.0)
+        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selected)
         // Double-tap anywhere on the chip clears the current filter row
-        .simultaneousGesture(TapGesture(count: 2).onEnded { clear() })
+        .simultaneousGesture(
+            TapGesture(count: 2).onEnded {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    clear()
+                }
+            }
+        )
+        .onLongPressGesture(minimumDuration: 0.0, maximumDistance: 50) {
+            // On release
+        } onPressingChanged: { pressing in
+            isPressed = pressing
+        }
+        .accessibilityLabel(title)
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityHint(selected ? "Double tap to clear filter" : "Tap to select")
     }
 }
 
@@ -419,6 +675,7 @@ private struct DifficultyChip: View {
                 (isSelected ? c.opacity(0.22) : Color.clear),
                 in: Capsule()
             )
+            
             .overlay(
                 Capsule().stroke(c.opacity(isSelected ? 0.55 : 0.35), lineWidth: 1)
             )

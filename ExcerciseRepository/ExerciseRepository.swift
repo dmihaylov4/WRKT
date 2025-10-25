@@ -15,10 +15,19 @@ final class ExerciseRepository: ObservableObject {
     // MARK: Published data
     @Published private(set) var exercises: [Exercise] = []
 
-    // MARK: Indexes
+    // MARK: Pagination state
+    @Published private(set) var isLoadingPage = false
+    @Published private(set) var currentPage = 0
+    @Published private(set) var hasMorePages = true
+    @Published private(set) var totalExerciseCount = 0
+
+    // MARK: Cache
+    private let cache = ExerciseCache()
+
+    // MARK: Indexes (legacy - kept for backward compatibility)
     private(set) var byID: [String: Exercise] = [:]
-    private(set) var bySlug: [String: Exercise] = [:]            // id == slug in this dataset
-    private(set) var bySubregion: [String: [Exercise]] = [:]     // "Upper Chest" -> [Exercise]
+    private(set) var bySlug: [String: Exercise] = [:]
+    private(set) var bySubregion: [String: [Exercise]] = [:]
 
     // MARK: Media index
     private var mediaById:   [String: ExerciseMedia] = [:]
@@ -28,8 +37,11 @@ final class ExerciseRepository: ObservableObject {
     private var didKickoffExercises = false
     private var didLoadFull = false
     private var didLoadMedia = false
-    
+
     private var isLoadingFull = false
+
+    // MARK: Current filters (for pagination)
+    private var currentFilters: ExerciseFilters = ExerciseFilters()
 
     // MARK: Init
     /// Auto-bootstraps using a *full* load so older code that relied on `init` keeps working.
@@ -40,14 +52,33 @@ final class ExerciseRepository: ObservableObject {
 
     // MARK: Public API
 
-    /// Call once at app launch (e.g., in AppShellView .task{}) if you want slim->full warm start.
+    /// Call once at app launch - loads exercises into cache and first page
     func bootstrap(useSlimPreload: Bool = true) {
         if !didKickoffExercises {
             didKickoffExercises = true
-            if useSlimPreload {
-                preloadCatalogThenFull()
-            } else {
-                loadFromBundle(fileName: "exercises_clean", fileExtension: "json")
+
+            // Load exercises into cache and display first page
+            Task {
+                do {
+                    // Load all exercises into cache (fast, not displayed yet)
+                    try await cache.loadAllExercises()
+
+                    // Build legacy indexes for backward compatibility
+                    let allExercises = await cache.getAllExercises()
+                    self.byID = Dictionary(uniqueKeysWithValues: allExercises.map { ($0.id, $0) })
+                    self.bySlug = self.byID
+                    self.bySubregion = allExercises.reduce(into: [String: [Exercise]]()) { dict, ex in
+                        for tag in ex.subregionTags { dict[tag, default: []].append(ex) }
+                    }
+
+                    // Load first page for display
+                    await loadFirstPage()
+
+                    self.didLoadFull = true
+                    print("✅ ExerciseRepository: Bootstrap complete")
+                } catch {
+                    print("❌ ExerciseRepository: Bootstrap failed: \(error)")
+                }
             }
         }
         if !didLoadMedia {
@@ -55,7 +86,54 @@ final class ExerciseRepository: ObservableObject {
         }
     }
 
-    func exercise(byID id: String) -> Exercise? { byID[id] }
+    /// Load the first page of exercises (resets pagination)
+    func loadFirstPage(with filters: ExerciseFilters = ExerciseFilters()) async {
+        currentFilters = filters
+        currentPage = 0
+
+        let page = await cache.getPage(0, matching: filters)
+        let total = await cache.getTotalCount(matching: filters)
+
+        self.exercises = page
+        self.totalExerciseCount = total
+        self.hasMorePages = page.count >= cache.pageSize
+
+        print("📄 Loaded first page: \(page.count) exercises (total: \(total))")
+    }
+
+    /// Load the next page of exercises
+    func loadNextPage() async {
+        guard !isLoadingPage && hasMorePages else { return }
+
+        isLoadingPage = true
+        currentPage += 1
+
+        let page = await cache.getPage(currentPage, matching: currentFilters)
+
+        // Append new exercises
+        self.exercises.append(contentsOf: page)
+        self.hasMorePages = page.count >= cache.pageSize
+        self.isLoadingPage = false
+
+        print("📄 Loaded page \(currentPage): \(page.count) exercises (total loaded: \(exercises.count)/\(totalExerciseCount))")
+    }
+
+    /// Reset pagination with new filters
+    func resetPagination(with filters: ExerciseFilters) async {
+        print("🔄 Resetting pagination with new filters")
+        await loadFirstPage(with: filters)
+    }
+
+    func exercise(byID id: String) -> Exercise? {
+        // Use legacy index (populated from cache during bootstrap)
+        byID[id]
+    }
+
+    /// Get all exercises (for legacy views that need full list)
+    /// Prefer using pagination or indexes for better performance
+    func getAllExercises() async -> [Exercise] {
+        await cache.getAllExercises()
+    }
 
     /// Media lookup by id (slug) first, then by normalized name.
     func media(for exercise: Exercise) -> ExerciseMedia? {
@@ -195,16 +273,17 @@ final class ExerciseRepository: ObservableObject {
     // MARK: Query helpers
 
     /// Returns exercises for a deep subregion (e.g., parent=Chest, child=Upper Chest).
+    /// Uses indexes for fast lookup, not affected by pagination
     func deepExercises(parent: String, child: String) -> [Exercise] {
         if let arr = bySubregion[child], !arr.isEmpty {
             return arr.sorted { $0.name < $1.name }
         }
-        // Fallback: runtime heuristic using your taxonomy rules
+        // Fallback: runtime heuristic using your taxonomy rules - use byID index
         let (inc, exc) = MuscleTaxonomy.deepRules(parent: parent, child: child)
         let incLC = inc.map { $0.lowercased() }
         let excLC = exc.map { $0.lowercased() }
 
-        return exercises.filter { ex in
+        return byID.values.filter { ex in
             let muscPrimary   = ex.primaryMuscles.joined(separator: " ")
             let muscSecondary = ex.secondaryMuscles.joined(separator: " ")
             let hay           = (ex.name + " " + muscPrimary + " " + muscSecondary).lowercased()
@@ -216,11 +295,12 @@ final class ExerciseRepository: ObservableObject {
     }
 
     /// Returns exercises that match a muscle group (e.g., "Chest", "Upper Chest", "Biceps"...).
+    /// Uses indexes for fast lookup, not affected by pagination
     func exercisesForMuscle(_ group: String) -> [Exercise] {
         let g = group.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !g.isEmpty else { return [] }
 
-        // If we already have an index for this subregion, use it.
+        // If we already have an index for this subregion, use it (contains all exercises)
         if let indexed = bySubregion[g], !indexed.isEmpty {
             return indexed.sorted { $0.name < $1.name }
         }
@@ -230,9 +310,9 @@ final class ExerciseRepository: ObservableObject {
             return deepExercises(parent: parent, child: g)
         }
 
-        // Parent-only filter with synonyms
+        // Parent-only filter with synonyms - use byID index (contains all exercises)
         let keysLC = ExerciseRepository.synonyms(for: g).map { $0.lowercased() }
-        return exercises.filter { ex in
+        return byID.values.filter { ex in
             let muscles = (ex.primaryMuscles + ex.secondaryMuscles).map { $0.lowercased() }
             let nameLC  = ex.name.lowercased()
             let hitMuscle = muscles.contains { m in keysLC.contains(where: { m.contains($0) }) }
@@ -249,6 +329,7 @@ final class ExerciseRepository: ObservableObject {
 
     /// Fuzzy-ish search across exercise name, equipment, category and muscles.
     /// Also proposes muscle-group suggestions.
+    /// Uses indexes for fast lookup, not affected by pagination
     func search(_ raw: String, limit: Int = 60) -> SearchResult {
         let q = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !q.isEmpty else { return .init(exercises: [], muscleGroups: []) }
@@ -277,7 +358,8 @@ final class ExerciseRepository: ObservableObject {
             .sorted()
 
         // Exercise search: require all tokens to appear in a combined haystack
-        let matches: [Exercise] = exercises.filter { ex in
+        // Use byID index (contains all exercises) instead of paginated exercises array
+        let matches: [Exercise] = byID.values.filter { ex in
             let muscP = ex.primaryMuscles.joined(separator: " ")
             let muscS = ex.secondaryMuscles.joined(separator: " ")
             let hay   = (ex.name + " " + (ex.equipment ?? "") + " " + ex.category + " " + muscP + " " + muscS).lowercased()

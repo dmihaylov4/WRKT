@@ -3,6 +3,7 @@ import SwiftUI
 import SwiftData
 import UIKit
 import HealthKit
+import UserNotifications
 
 // MARK: - Shell types & animation
 private enum AppTab: Int { case home = 0, calendar = 1, runs = 2, profile = 3 }
@@ -13,11 +14,17 @@ private enum GrabTabMetrics { static let height: CGFloat = 64; static let bottom
 
 struct AppShellView: View {
     @Environment(\.modelContext) private var modelContext
-    @StateObject private var favs = FavoritesStore()
-    // Shared stores
-    @StateObject private var repo  = ExerciseRepository.shared
-    @StateObject private var store = WorkoutStore()
-    @StateObject private var healthKit = HealthKitManager.shared
+
+    // Centralized dependencies - single source of truth
+    @StateObject private var dependencies = AppDependencies.shared
+
+    // Direct references to ensure proper observation
+    private var repo: ExerciseRepository { dependencies.exerciseRepository }
+    private var healthKit: HealthKitManager { dependencies.healthKitManager }
+    private var favs: FavoritesStore { dependencies.favoritesStore }
+
+    // Observed object to ensure state changes are detected
+    @ObservedObject private var store: WorkoutStoreV2 = AppDependencies.shared.workoutStore
 
     // Shell UI state
     @State private var selectedTab: AppTab = .home {
@@ -28,9 +35,20 @@ struct AppShellView: View {
     @State private var grabCollapsed = false
     @State private var showLiveOverlay = false
     @State private var showContent = false
-    
-    //Onboarding needed
-    
+    @AppStorage("is_browsing_exercises") private var isBrowsingExercises = false
+
+    // Onboarding state
+    @AppStorage("has_completed_onboarding") private var hasCompletedOnboarding = false
+    @State private var onboardingStep: OnboardingStep = .notStarted
+
+    enum OnboardingStep {
+        case notStarted
+        case carousel
+        case healthKit
+        case notifications
+        case completed
+    }
+
     @Query private var goals: [WeeklyGoal]
     @State private var showGoalSetupSheet = false {
         didSet {
@@ -56,16 +74,17 @@ struct AppShellView: View {
         return "\(c.id.uuidString)-\(c.entries.count)"
     }
 
-    /// Centralized “should the pill reserve space” logic
+    /// Centralized "should the pill reserve space" logic
     private var pillShouldReserveSpace: Bool {
-        hasActiveWorkout && !showLiveOverlay && !grabCollapsed
+        hasActiveWorkout && !showLiveOverlay && !grabCollapsed && !isBrowsingExercises
     }
-    
-    //Statistics
 
-    @State private var stats: StatsAggregator?
+    // Statistics tracking
     @State private var repoIsBootstrapped = false
     @State private var workoutsLoaded = false
+
+    // Convenience accessor for stats
+    private var stats: StatsAggregator? { dependencies.statsAggregator }
 
     var body: some View {
         ZStack {
@@ -175,9 +194,43 @@ struct AppShellView: View {
             }
             // NEW
             .onAppear {
-                // present once on first launch if needed
-                if needsGoalSetup && (selectedTab == .home || selectedTab == .profile) {
+                // Check onboarding on first launch
+                if !hasCompletedOnboarding {
+                    onboardingStep = .carousel
+                } else if needsGoalSetup && (selectedTab == .home || selectedTab == .profile) {
+                    // present goal setup if onboarding is done but goal not set
                     showGoalSetupSheet = true
+                }
+            }
+
+            // Onboarding carousel (step 1)
+            .fullScreenCover(isPresented: Binding(
+                get: { onboardingStep == .carousel },
+                set: { _ in }  // Don't reset on dismiss - callbacks handle navigation
+            )) {
+                OnboardingCarouselView {
+                    onboardingStep = .healthKit
+                }
+            }
+
+            // HealthKit permission (step 2)
+            .fullScreenCover(isPresented: Binding(
+                get: { onboardingStep == .healthKit },
+                set: { _ in }  // Don't reset on dismiss - callbacks handle navigation
+            )) {
+                HealthAuthSheet(onDismiss: {
+                    onboardingStep = .notifications
+                })
+                .environmentObject(healthKit)
+            }
+
+            // Notification permission (step 3)
+            .fullScreenCover(isPresented: Binding(
+                get: { onboardingStep == .notifications },
+                set: { _ in }  // Don't reset on dismiss - callbacks handle navigation
+            )) {
+                NotificationPermissionView {
+                    completeOnboarding()
                 }
             }
 
@@ -224,18 +277,13 @@ struct AppShellView: View {
 
             .overlay(WinScreenOverlay())
 
-        } // ZStack
-        .task {
-            if stats == nil {
-                let agg = StatsAggregator(container: modelContext.container)
-                // IMPORTANT: Configure exercise repository BEFORE setting stats
-                // to prevent race condition where reindex is triggered before repo is set
-                await agg.setExerciseRepository(repo)
-                store.installStats(agg)
-                stats = agg  // Only set stats after repo is configured
-                // Don't reindex yet - wait for workouts to load
+            // Global rest timer completion toast
+            .overlay(alignment: .top) {
+                RestTimerCompletionToast()
+                    .zIndex(999)
             }
-        }
+
+        } // ZStack
 
         // Mark workouts as loaded when they're ready
         .onChange(of: store.completedWorkouts.count) { newCount in
@@ -305,21 +353,34 @@ struct AppShellView: View {
         }
 
         // React to workout lifecycle regardless of tab changes
-        .onChange(of: workoutToken) { _ in
+        .onChange(of: workoutToken) { oldValue, newValue in
+            print("🔄 workoutToken changed: '\(oldValue)' → '\(newValue)'")
+            print("   hasActiveWorkout: \(hasActiveWorkout)")
+            print("   grabCollapsed: \(grabCollapsed)")
+            print("   currentTab: \(selectedTab)")
+
             if hasActiveWorkout {
-                withAnimation(ShellAnim.spring) { grabCollapsed = false } // show pill when entries arrive
+                withAnimation(ShellAnim.spring) {
+                    grabCollapsed = false
+                    print("   ✅ Showing grab tab")
+                }
             } else {
                 withAnimation(ShellAnim.spring) {
                     showLiveOverlay = false
                     showContent = false
                     grabCollapsed = true
+                    print("   ❌ Hiding workout UI")
                 }
             }
         }
 
-        // Mini “now playing” pill (global drawing; your policy hides it on non-Home via grabCollapsed)
+        // Mini "now playing" pill (global drawing; your policy hides it on non-Home via grabCollapsed)
         .overlay(alignment: .bottom) {
-            if hasActiveWorkout, !showLiveOverlay, !grabCollapsed, let current {
+            let shouldShow = hasActiveWorkout && !showLiveOverlay && !grabCollapsed && !isBrowsingExercises
+            let _ = print("🎯 Grab tab overlay evaluation: shouldShow=\(shouldShow), hasActiveWorkout=\(hasActiveWorkout), showLiveOverlay=\(showLiveOverlay), grabCollapsed=\(grabCollapsed), isBrowsingExercises=\(isBrowsingExercises)")
+
+            if shouldShow, let current = store.currentWorkout {
+                let _ = print("✅ Rendering LiveWorkoutGrabTab with \(current.entries.count) exercises")
                 LiveWorkoutGrabTab(
                     namespace: liveNS,
                     title: "Live workout",
@@ -337,30 +398,18 @@ struct AppShellView: View {
             }
         }
 
-        // One-time startup work (do not duplicate)
+        // One-time startup work - configure and bootstrap dependencies
         .task {
-            repo.bootstrap(useSlimPreload: true)
-            RewardsEngine.shared.configure(context: modelContext)
-            print("⚙️ Rewards configured:", RewardsEngine.shared.debugRulesSummary())
+            // Configure dependencies with model context
+            dependencies.configure(with: modelContext)
 
-            // Configure HealthKit sync
-            HealthKitManager.shared.modelContext = modelContext
-            HealthKitManager.shared.workoutStore = store
-            HealthKitManager.shared.registerBackgroundTasks()
+            // Bootstrap async services
+            await dependencies.bootstrap()
 
-            // Check authorization status on launch
-            print("🏥 Checking HealthKit authorization status on launch...")
-            let authStatus = HealthKitManager.shared.store.authorizationStatus(for: .workoutType())
-            print("   Authorization status: \(authStatus.rawValue)")
-
-            // Update connection state based on authorization
-            if authStatus == .sharingAuthorized {
-                print("   ✅ HealthKit is authorized, setting connected state")
-                HealthKitManager.shared.connectionState = .connected
-                HealthKitManager.shared.setupBackgroundObservers()
-            } else {
-                print("   ⚠️ HealthKit not authorized (status: \(authStatus.rawValue))")
-            }
+            // Log memory footprint in debug builds
+            #if DEBUG
+            dependencies.logMemoryFootprint()
+            #endif
         }
 
         // Watch for when exercises are ACTUALLY loaded (not just bootstrap called)
@@ -372,18 +421,23 @@ struct AppShellView: View {
         }
 
         .background(DS.Semantic.surface.ignoresSafeArea())
-        .environmentObject(repo)
-        .environmentObject(store)
-        .environmentObject(favs)
-        .environmentObject(healthKit)
+        .withDependencies(dependencies)
     }
 
     // MARK: - Helpers
     private func grabSubtitle(for current: CurrentWorkout) -> String {
-        let c = current.entries.count
-        let count = "\(c) exercise" + (c == 1 ? "" : "s")
         let when = current.startedAt.formatted(date: .abbreviated, time: .shortened)
-        return "\(count) • \(when)"
+        return when
+    }
+
+    private func completeOnboarding() {
+        hasCompletedOnboarding = true
+        onboardingStep = .completed
+
+        // Show goal setup after onboarding if needed
+        if needsGoalSetup {
+            showGoalSetupSheet = true
+        }
     }
 }
 
@@ -442,6 +496,24 @@ struct WRKTApp: App {
 
     init() {
         self.container = Self.makeContainer()
+
+        // Request notification permissions for rest timer
+        requestNotificationPermissions()
+    }
+
+    private func requestNotificationPermissions() {
+        let center = UNUserNotificationCenter.current()
+
+        // Request authorization for alerts, sounds, and badges
+        center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("❌ Notification permission error: \(error)")
+            } else if granted {
+                print("✅ Notification permissions granted")
+            } else {
+                print("⚠️ Notification permissions denied by user")
+            }
+        }
     }
 
     var body: some Scene {
@@ -457,7 +529,8 @@ struct WRKTApp: App {
             Wallet.self, ExercisePR.self, DexStamp.self, WeeklyTrainingSummary.self, ExerciseVolumeSummary.self,
             MovingAverage.self, ExerciseProgressionSummary.self, ExerciseTrend.self, PushPullBalance.self,
             MuscleGroupFrequency.self, MovementPatternBalance.self, WeeklyGoal.self,
-            HealthSyncAnchor.self, RouteFetchTask.self, MapSnapshotCache.self
+            HealthSyncAnchor.self, RouteFetchTask.self, MapSnapshotCache.self,
+            PlannedWorkout.self, PlannedExercise.self, WorkoutSplit.self, PlanBlock.self, PlanBlockExercise.self
         ])
 
         let config = ModelConfiguration(

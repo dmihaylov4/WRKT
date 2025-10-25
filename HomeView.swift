@@ -14,11 +14,11 @@ enum BrowseRoute: Hashable {
 }
 
 struct HomeView: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @State private var path = NavigationPath()
 
     @Query private var goals: [WeeklyGoal]
-    
+
     @Environment(\.modelContext) private var context
     //DELETED BECAUSE ONBOARDING
     //@State private var showGoalSetup = false
@@ -27,6 +27,9 @@ struct HomeView: View {
     @Namespace private var regionNS
     @State private var expandedRegion: BodyRegion? = nil
     @State private var showTiles = false
+
+    // Communicate browse state to app level to hide LiveWorkoutGrabTab
+    @AppStorage("is_browsing_exercises") private var isBrowsingExercises = false
 
     private var hasActiveWorkout: Bool {
         guard let current = store.currentWorkout else { return false }
@@ -125,9 +128,9 @@ struct HomeView: View {
                     showTiles = false
                 }
             }
-            // Reserve room for the grab tab ONLY when a workout is active
+            // Reserve room for the grab tab ONLY when a workout is active AND not browsing
             .safeAreaInset(edge: .bottom) {
-                if hasActiveWorkout { Color.clear.frame(height: 65) }
+                if hasActiveWorkout && !isBrowsingExercises { Color.clear.frame(height: 65) }
             }
             .background(DS.Semantic.surface)                               // ← keep it local
             .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
@@ -143,6 +146,18 @@ struct HomeView: View {
         }
         .onDisappear {            // if TabView swaps away from Home
             collapsePanel(animated: false)
+        }
+        .onChange(of: expandedRegion) { _, newValue in
+            // Update browsing state: browsing if region is selected OR path has content
+            isBrowsingExercises = (newValue != nil) || !path.isEmpty
+        }
+        .onChange(of: path) { _, newValue in
+            // Update browsing state: browsing if region is selected OR path has content
+            isBrowsingExercises = (expandedRegion != nil) || !newValue.isEmpty
+        }
+        .onAppear {
+            // Initialize browsing state on appear
+            isBrowsingExercises = (expandedRegion != nil) || !path.isEmpty
         }
         .onReceive(NotificationCenter.default.publisher(for: .homeTabReselected)) { _ in
             print("🏠 HomeView: Received homeTabReselected notification")

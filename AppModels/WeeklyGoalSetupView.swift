@@ -21,74 +21,213 @@ struct WeeklyGoalSetupView: View {
     @State private var weekStartDay: Int = 2 // Monday
 
     var body: some View {
-        Form {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Set Your Weekly Goal").font(.title2.weight(.bold))
-                    Text("Track your fitness with custom weekly targets")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 8)
-            }
-            .listRowBackground(Color.clear)
+        ZStack {
+            // Premium background gradient
+            LinearGradient(
+                colors: [Color(hex: "#0D0D0D"), Color(hex: "#1A1A1A")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            Section("Active Minutes (MVPA)") {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("\(targetMinutes) minutes")
-                            .font(.title.weight(.semibold))
+            ScrollView {
+                VStack(spacing: 32) {
+                    // Header
+                    VStack(spacing: 12) {
+                        Image(systemName: "target")
+                            .font(.system(size: 60, weight: .semibold))
                             .foregroundStyle(Color(hex: "#F4E409"))
-                        Spacer()
+
+                        Text("Set Your Weekly Goal")
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+
+                        Text("Track your fitness with custom weekly targets")
+                            .font(.system(size: 16, weight: .regular, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
                     }
-                    Slider(value: Binding(
-                        get: { Double(targetMinutes) },
-                        set: { targetMinutes = Int($0) }
-                    ), in: 30...600, step: 15)
-                    .tint(Color(hex: "#F4E409"))
+                    .padding(.top, 40)
 
-                    Text("WHO recommends 150 minutes per week")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
+                    // Active Minutes Card
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "figure.run")
+                                .font(.title3)
+                                .foregroundStyle(Color(hex: "#F4E409"))
+                            Text("Active Minutes (MVPA)")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                        }
 
-            Section("Strength Training Days") {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("\(targetStrengthDays) days")
-                            .font(.title.weight(.semibold))
+                        Text("\(targetMinutes) min")
+                            .font(.system(size: 42, weight: .bold, design: .rounded))
                             .foregroundStyle(Color(hex: "#F4E409"))
-                        Spacer()
-                    }
-                    Stepper("", value: $targetStrengthDays, in: 0...7).labelsHidden()
-                    Text("Aim for 2-3 strength sessions per week")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(.vertical, 4)
-            }
+                            .monospacedDigit()
 
-            Section("Week Start Day") {
-                Picker("Week starts on", selection: $weekStartDay) {
-                    ForEach(1...7, id: \.self) { day in
-                        Text(weekdayName(for: day)).tag(day)
-                    }
-                }
-                .pickerStyle(.menu)
-            }
+                        Slider(value: Binding(
+                            get: { Double(targetMinutes) },
+                            set: { targetMinutes = Int($0) }
+                        ), in: 30...600, step: 15)
+                        .tint(Color(hex: "#F4E409"))
 
-            Section {
-                Button {
-                    saveGoal()
-                } label: {
-                    HStack { Spacer(); Text("Save Goal").font(.headline); Spacer() }
+                        Text("WHO recommends 150 minutes per week")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .stroke(.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 24)
+
+                    // Strength Days Card
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "dumbbell.fill")
+                                .font(.title3)
+                                .foregroundStyle(Color(hex: "#F4E409"))
+                            Text("Strength Training Days")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                        }
+
+                        HStack(spacing: 20) {
+                            Button {
+                                if targetStrengthDays > 0 {
+                                    targetStrengthDays -= 1
+                                }
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(.white.opacity(0.7))
+                            }
+
+                            Text("\(targetStrengthDays)")
+                                .font(.system(size: 42, weight: .bold, design: .rounded))
+                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .monospacedDigit()
+                                .frame(minWidth: 60)
+
+                            Button {
+                                if targetStrengthDays < 7 {
+                                    targetStrengthDays += 1
+                                }
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 44))
+                                    .foregroundStyle(.white.opacity(0.7))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Text("Aim for 2-3 strength sessions per week")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .stroke(.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 24)
+
+                    // Week Start Day Card
+                    VStack(alignment: .leading, spacing: 16) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "calendar")
+                                .font(.title3)
+                                .foregroundStyle(Color(hex: "#F4E409"))
+                            Text("Week Start Day")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                        }
+
+                        Text(weekdayName(for: weekStartDay))
+                            .font(.system(size: 42, weight: .bold, design: .rounded))
+                            .foregroundStyle(Color(hex: "#F4E409"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        // Custom day selector
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 12) {
+                                ForEach(1...7, id: \.self) { day in
+                                    Button {
+                                        weekStartDay = day
+                                    } label: {
+                                        VStack(spacing: 6) {
+                                            Text(weekdayShortName(for: day))
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(weekStartDay == day ? .black : .white)
+
+                                            Circle()
+                                                .fill(weekStartDay == day ? Color(hex: "#F4E409") : .white.opacity(0.2))
+                                                .frame(width: 8, height: 8)
+                                        }
+                                        .frame(width: 60, height: 60)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .fill(weekStartDay == day ? Color(hex: "#F4E409") : .white.opacity(0.06))
+                                        )
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                .stroke(weekStartDay == day ? Color(hex: "#F4E409") : .white.opacity(0.1), lineWidth: 1.5)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        Text("Your week will start on \(weekdayName(for: weekStartDay))")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
+                    }
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(.white.opacity(0.06))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .stroke(.white.opacity(0.1), lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 24)
+
+                    // Save Button
+                    Button {
+                        saveGoal()
+                    } label: {
+                        Text("Save Goal")
+                            .font(.headline)
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 56)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "#F4E409"), Color(hex: "#FFE869")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(color: Color(hex: "#F4E409").opacity(0.3), radius: 12, x: 0, y: 6)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
+                    .padding(.bottom, 40)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(hex: "#F4E409"))
-                .listRowBackground(Color.clear)
             }
         }
-        .navigationTitle("Weekly Goal")
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarHidden(true)
         .onAppear {
             if let g = goal {
                 targetMinutes = g.targetActiveMinutes
@@ -113,6 +252,11 @@ struct WeeklyGoalSetupView: View {
 
     private func weekdayName(for weekday: Int) -> String {
         let symbols = Calendar.current.weekdaySymbols
+        return symbols[(weekday - 1) % 7]
+    }
+
+    private func weekdayShortName(for weekday: Int) -> String {
+        let symbols = Calendar.current.shortWeekdaySymbols
         return symbols[(weekday - 1) % 7]
     }
 }

@@ -47,6 +47,7 @@ final class WorkoutStore: ObservableObject {
         self.repo = repo
 
         Task {
+            // MIGRATION: Load from old disk location first
             loadFromDisk()
             loadRunsFromDisk()
             lastHealthImportEndDate = defaults.object(forKey: lastImportKey) as? Date
@@ -57,8 +58,55 @@ final class WorkoutStore: ObservableObject {
             // Build it if missing or empty
             if prIndex.isEmpty { recomputePRIndexFromHistory() }
 
-            self.completedWorkouts = await Persistence.shared.loadWorkouts()
-            self.currentWorkout = await Persistence.shared.loadCurrentWorkout()
+            // Load from new Persistence location
+            let persistedWorkouts = await Persistence.shared.loadWorkouts()
+            let persistedCurrent = await Persistence.shared.loadCurrentWorkout()
+
+            // MIGRATION: Merge old and new storage (deduplicate by ID)
+            let oldCount = completedWorkouts.count
+            let newCount = persistedWorkouts.count
+
+            if oldCount > 0 && newCount > 0 {
+                // Both have data - merge them
+                print("📦 Merging workouts: \(oldCount) from old storage + \(newCount) from new storage")
+                var merged: [UUID: CompletedWorkout] = [:]
+
+                // Add old workouts
+                for workout in completedWorkouts {
+                    merged[workout.id] = workout
+                }
+
+                // Add/overwrite with new workouts (new takes precedence)
+                for workout in persistedWorkouts {
+                    merged[workout.id] = workout
+                }
+
+                self.completedWorkouts = Array(merged.values).sorted { $0.date > $1.date }
+                print("✅ Merged to \(self.completedWorkouts.count) unique workouts")
+
+                // Save merged data back
+                await Persistence.shared.saveWorkouts(self.completedWorkouts)
+            } else if oldCount > 0 && newCount == 0 {
+                // Only old data exists - migrate it
+                print("📦 Migrating \(oldCount) workouts from old storage to new")
+                await Persistence.shared.saveWorkouts(completedWorkouts)
+                print("✅ Migration complete, using \(completedWorkouts.count) workouts")
+            } else if newCount > 0 {
+                // Only new data exists - use it
+                print("📦 Using \(newCount) workouts from new storage")
+                self.completedWorkouts = persistedWorkouts
+            } else {
+                print("⚠️ No workouts found in either storage location")
+            }
+
+            if currentWorkout != nil && persistedCurrent == nil {
+                // Migrate current workout
+                print("📦 Migrating current workout to new storage")
+                await Persistence.shared.saveCurrentWorkout(currentWorkout)
+            } else if persistedCurrent != nil {
+                self.currentWorkout = persistedCurrent
+            }
+
             // Recompute again if Persistence returned more
             if prIndex.isEmpty { recomputePRIndexFromHistory() }
         }
@@ -77,9 +125,56 @@ final class WorkoutStore: ObservableObject {
         }
     }
 
+    /// Start a workout from a planned workout with ghost sets
+    func startPlannedWorkout(_ planned: PlannedWorkout) {
+        // Create entries from planned exercises with ghost sets
+        let entries = planned.exercises.map { plannedEx -> WorkoutEntry in
+            // Convert ghost sets to SetInput
+            let ghostSets = plannedEx.ghostSets.map { ghost in
+                SetInput(
+                    reps: ghost.reps,
+                    weight: ghost.weight,
+                    tag: ghost.setTag,
+                    autoWeight: false,
+                    isGhost: false  // Make sets editable so users can modify reps/weight and log them
+                )
+            }
+
+            // Look up muscle groups from repository
+            let exercise = repo.exercise(byID: plannedEx.exerciseID)
+            let muscleGroups = exercise?.primaryMuscles ?? []
+
+            return WorkoutEntry(
+                exerciseID: plannedEx.exerciseID,
+                exerciseName: plannedEx.exerciseName,
+                muscleGroups: muscleGroups,
+                sets: ghostSets
+            )
+        }
+
+        currentWorkout = CurrentWorkout(
+            startedAt: .now,
+            entries: entries,
+            plannedWorkoutID: planned.id
+        )
+        saveCurrentWorkout()
+        print("🏋️ Started planned workout: \(planned.splitDayName)")
+    }
+
     func discardCurrentWorkout() {
         currentWorkout = nil
-        Task { await Persistence.shared.deleteCurrentWorkout() }
+        // Cancel any active rest timer
+        RestTimerManager.shared.stopTimer()
+
+        // Delete from both storage locations
+        Task {
+            // Delete from new Persistence
+            await Persistence.shared.deleteCurrentWorkout()
+
+            // Delete from old disk location
+            let url = currentFileURL
+            try? FileManager.default.removeItem(at: url)
+        }
     }
     // finishCurrentWorkout()
     func finishCurrentWorkout() {
@@ -93,12 +188,22 @@ final class WorkoutStore: ObservableObject {
                    await _stats?.apply(completed, allWorkouts: completedWorkouts)
                }
 
+        // Save to both old and new storage locations
+        saveToDisk()  // Old location (Application Support)
         Task {
-            await Persistence.shared.saveWorkouts(self.completedWorkouts)
+            await Persistence.shared.saveWorkouts(self.completedWorkouts)  // New location (Documents)
             await Persistence.shared.deleteCurrentWorkout()
+
+            // Also delete from old disk location
+            let url = currentFileURL
+            try? FileManager.default.removeItem(at: url)
         }
+
+        // Cancel any active rest timer
+        RestTimerManager.shared.stopTimer()
+
         currentWorkout = nil
-        
+
         for e in completed.entries {
             let didWork = e.sets.contains { $0.tag == .working && $0.reps > 0 }
             if didWork {
@@ -120,6 +225,24 @@ final class WorkoutStore: ObservableObject {
         let hasWorking = entry.sets.contains { $0.tag == .working && $0.reps > 0 }
         if hasWorking {
             let key = canonicalExerciseKey(from: entry.exerciseID)   // from DexKeying.swift
+            RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
+        }
+    }
+
+    // Update sets and active set index for an entry
+    func updateEntrySetsAndActiveIndex(entryID: UUID, sets: [SetInput], activeSetIndex: Int) {
+        guard var w = currentWorkout else { return }
+        guard let idx = w.entries.firstIndex(where: { $0.id == entryID }) else { return }
+        w.entries[idx].sets = sets
+        w.entries[idx].activeSetIndex = activeSetIndex
+        currentWorkout = w
+        persistCurrent()
+        updateLastWorkingFromCurrent()
+
+        let entry = w.entries[idx]
+        let hasWorking = entry.sets.contains { $0.tag == .working && $0.reps > 0 }
+        if hasWorking {
+            let key = canonicalExerciseKey(from: entry.exerciseID)
             RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
         }
     }
@@ -246,14 +369,22 @@ final class WorkoutStore: ObservableObject {
         if currentWorkout == nil {
             currentWorkout = CurrentWorkout(startedAt: .now, entries: [])
         }
+
+        // Create a mutable copy to trigger @Published
+        var workout = currentWorkout!
         let entry = WorkoutEntry(
             exerciseID: exercise.id,
             exerciseName: exercise.name, // snapshot name for history stability
             muscleGroups: exercise.primaryMuscles + exercise.secondaryMuscles,
             sets: []
         )
-        currentWorkout!.entries.append(entry)
+        workout.entries.append(entry)
+
+        // Reassign to trigger @Published observer
+        currentWorkout = workout
+
         persistCurrent()
+        print("✅ Added exercise '\(exercise.name)' to current workout (\(workout.entries.count) exercises total)")
         return entry.id
     }
 
@@ -324,14 +455,16 @@ final class WorkoutStore: ObservableObject {
     // MARK: - Completed workouts CRUD
     func addWorkout(_ workout: CompletedWorkout) {
         completedWorkouts.insert(workout, at: 0)
-        saveToDisk()
+        saveToDisk()  // Save to old location
+        Task { await Persistence.shared.saveWorkouts(completedWorkouts) }  // Save to new location
     }
 
     func deleteWorkouts(at offsets: IndexSet) {
         let removed = offsets.map { completedWorkouts[$0] }
 
          completedWorkouts.remove(atOffsets: offsets)
-         saveToDisk()
+         saveToDisk()  // Save to old location
+         Task { await Persistence.shared.saveWorkouts(completedWorkouts) }  // Save to new location
 
          let weeks = Set(removed.map { startOfWeek(for: $0.date) })
          Task.detached(priority: .utility) { [_stats, completedWorkouts] in
@@ -342,14 +475,15 @@ final class WorkoutStore: ObservableObject {
     func updateWorkout(_ workout: CompletedWorkout) {
         if let idx = completedWorkouts.firstIndex(where: { $0.id == workout.id }) {
             completedWorkouts[idx] = workout
-            saveToDisk()
+            saveToDisk()  // Save to old location
+            Task { await Persistence.shared.saveWorkouts(completedWorkouts) }  // Save to new location
             let week = startOfWeek(for: workout.date)
                        Task.detached(priority: .utility) { [_stats, completedWorkouts] in
                            await _stats?.invalidate(weeks: [week], from: completedWorkouts)
                        }
         }
     }
-    
+
     private func startOfWeek(for date: Date) -> Date {
             let cal = Calendar.current
             return cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date))!
@@ -357,7 +491,13 @@ final class WorkoutStore: ObservableObject {
 
     func clearAllWorkouts() {
         completedWorkouts.removeAll()
-        saveToDisk()
+        saveToDisk()  // Save to old location
+        Task { await Persistence.shared.saveWorkouts(completedWorkouts) }  // Save to new location
+    }
+
+    func clearAllRuns() {
+        runs.removeAll()
+        saveRunsToDisk()
     }
 
     func workouts(on date: Date, calendar: Calendar = .current) -> [CompletedWorkout] {
@@ -514,20 +654,24 @@ final class WorkoutStore: ObservableObject {
             completedWorkouts = []
             return
         }
+
         do {
             let data = try Data(contentsOf: url)
-            // Try decode new format first
-            if let decoded = try? JSONDecoder().decode([CompletedWorkout].self, from: data) {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+
+            do {
+                let decoded = try decoder.decode([CompletedWorkout].self, from: data)
                 completedWorkouts = decoded
                 return
+            } catch {
+                // Try without date strategy for legacy data
+                if let decoded = try? JSONDecoder().decode([CompletedWorkout].self, from: data) {
+                    completedWorkouts = decoded
+                    return
+                }
             }
-            // Migration path: legacy format without `date`
-            struct LegacyCompletedWorkoutNoDate: Codable { var entries: [WorkoutEntry] }
-            if let legacy = try? JSONDecoder().decode([LegacyCompletedWorkoutNoDate].self, from: data) {
-                completedWorkouts = legacy.map { CompletedWorkout(entries: $0.entries) }
-                saveToDisk() // write back migrated format
-                return
-            }
+
             completedWorkouts = []
         } catch {
             print("⚠️ Failed to load workouts: \(error)")
@@ -816,10 +960,17 @@ extension WorkoutStore {
           // Normal finish logic
           completedWorkouts.insert(completed, at: 0)
           updatePRIndex(with: completed)
+
+          // Save to both old and new storage locations
+          saveToDisk()  // Old location (Application Support)
           Task {
-              await Persistence.shared.saveWorkouts(self.completedWorkouts)
+              await Persistence.shared.saveWorkouts(self.completedWorkouts)  // New location (Documents)
               await Persistence.shared.deleteCurrentWorkout()
           }
+
+          // Cancel any active rest timer
+          RestTimerManager.shared.stopTimer()
+
           currentWorkout = nil
         Task.detached(priority: .utility) { [_stats, completedWorkouts] in
                    await _stats?.apply(completed, allWorkouts: completedWorkouts)

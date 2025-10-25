@@ -202,4 +202,98 @@ enum ExerciseClassifier {
         // Return capitalized version of unrecognized muscles
         return muscle.capitalized
     }
+
+    // MARK: - Bodyweight Percentage Estimation
+
+    /// Returns the estimated percentage of bodyweight used in a bodyweight exercise
+    /// Based on biomechanical analysis and research
+    static func bodyweightPercentage(for exercise: Exercise) -> Double {
+        let name = exercise.name.lowercased()
+
+        // Push-ups and variations (60-75% bodyweight)
+        if name.contains("push-up") || name.contains("pushup") || name.contains("push up") {
+            if name.contains("decline") { return 0.75 } // Decline = more weight on arms
+            if name.contains("incline") { return 0.50 } // Incline = less weight on arms
+            if name.contains("diamond") || name.contains("close") { return 0.65 }
+            return 0.64 // Standard push-up ~64% bodyweight
+        }
+
+        // Pull-ups and variations (100% bodyweight + slight assist from momentum)
+        if name.contains("pull-up") || name.contains("pullup") || name.contains("pull up") {
+            if name.contains("weighted") { return 1.0 } // User adds weight separately
+            if name.contains("assisted") { return 0.5 } // Assume 50% assistance
+            return 1.0 // Full bodyweight
+        }
+
+        // Chin-ups (100% bodyweight)
+        if name.contains("chin-up") || name.contains("chinup") || name.contains("chin up") {
+            if name.contains("assisted") { return 0.5 }
+            return 1.0
+        }
+
+        // Dips (100% bodyweight)
+        if name.contains("dip") && !name.contains("dumbbell") {
+            if name.contains("assisted") { return 0.5 }
+            return 1.0
+        }
+
+        // Inverted rows (50-70% bodyweight depending on angle)
+        if name.contains("inverted row") || name.contains("body row") {
+            return 0.6
+        }
+
+        // Muscle-ups (100% bodyweight + dynamic component)
+        if name.contains("muscle-up") || name.contains("muscle up") {
+            return 1.0
+        }
+
+        // Handstand push-ups (100% bodyweight)
+        if name.contains("handstand") && (name.contains("push") || name.contains("press")) {
+            return 1.0
+        }
+
+        // Plank and core (assume full bodyweight resistance)
+        if name.contains("plank") || name.contains("l-sit") || name.contains("hollow hold") {
+            return 1.0
+        }
+
+        // Pistol squats (100% bodyweight on one leg)
+        if name.contains("pistol") {
+            return 1.0
+        }
+
+        // Nordic curls (70-100% bodyweight depending on angle)
+        if name.contains("nordic") {
+            return 0.85
+        }
+
+        // Hanging exercises (100% bodyweight)
+        if name.contains("hanging") && (name.contains("leg") || name.contains("knee")) {
+            return 1.0
+        }
+
+        // Default: if it's clearly a bodyweight exercise but not matched above, use 70%
+        return 0.7
+    }
+
+    /// Determines if an exercise is a bodyweight exercise (should use bodyweight for volume calculation)
+    static func isBodyweightExercise(_ exercise: Exercise) -> Bool {
+        let name = exercise.name.lowercased()
+
+        let bodyweightKeywords = [
+            "push-up", "pushup", "push up",
+            "pull-up", "pullup", "pull up",
+            "chin-up", "chinup", "chin up",
+            "dip",
+            "inverted row", "body row",
+            "muscle-up", "muscle up",
+            "handstand",
+            "plank", "l-sit", "hollow hold",
+            "pistol",
+            "nordic",
+            "hanging leg", "hanging knee"
+        ]
+
+        return bodyweightKeywords.contains { name.contains($0) }
+    }
 }

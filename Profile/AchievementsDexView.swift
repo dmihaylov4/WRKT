@@ -41,25 +41,44 @@ struct AchievementsDexView: View {
             VStack(alignment: .leading, spacing: 12) {
                 header
 
-                // Disable implicit animations while filtering for snappier typing
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
-                    ForEach(vm.filtered) { item in
-                        NavigationLink {
-                            DexDetailView(item: item)
-                        } label: {
-                            DexTile(item: item).equatable()     // avoids re-render when unchanged
+                // Show loading spinner during search
+                if vm.isSearching {
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                                .controlSize(.regular)
+                            Text("Searching...")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .buttonStyle(.plain)
+                        .padding(.vertical, 40)
+                        Spacer()
                     }
+                    .transition(.opacity)
+                } else {
+                    // Disable implicit animations while filtering for snappier typing
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
+                        ForEach(vm.filtered) { item in
+                            NavigationLink {
+                                DexDetailView(item: item)
+                            } label: {
+                                DexTile(item: item).equatable()     // avoids re-render when unchanged
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.top, 4)
+                    .transaction { $0.animation = nil }
+                    .transition(.opacity)
                 }
-                .padding(.top, 4)
-                .transaction { $0.animation = nil }
 
                 recordsSection
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        .animation(.easeInOut(duration: 0.2), value: vm.isSearching)
         .navigationTitle("Achievements")
         .searchable(text: $vm.search, placement: .navigationBarDrawer(displayMode: .always))
         .toolbar {
@@ -113,7 +132,8 @@ final class AchievementsDexVM: ObservableObject {
     // UI state
     @Published var search: String = ""
     @Published var scope: Scope = .all
-    
+    @Published private(set) var isSearching: Bool = false
+
     @inline(__always)
     nonisolated static func canonicalExerciseKey(from id: String) -> String { id }
 
@@ -129,13 +149,25 @@ final class AchievementsDexVM: ObservableObject {
     private var bag = Set<AnyCancellable>()
 
     init() {
+        // Track when search/scope changes to show loading state
         Publishers.CombineLatest(
             $search.removeDuplicates(),
             $scope.removeDuplicates()
         )
-        .debounce(for: .milliseconds(180), scheduler: RunLoop.main)
+        .sink { [weak self] _, _ in
+            self?.isSearching = true
+        }
+        .store(in: &bag)
+
+        // Apply filter with 300ms debounce
+        Publishers.CombineLatest(
+            $search.removeDuplicates(),
+            $scope.removeDuplicates()
+        )
+        .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
         .sink { [weak self] q, scope in
             self?.applyFilter(query: q, scope: scope)
+            self?.isSearching = false
         }
         .store(in: &bag)
     }
@@ -323,7 +355,7 @@ private struct RecordRow: View {
 
 struct DexDetailView: View {
     @EnvironmentObject var repo: ExerciseRepository
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @Environment(\.dismiss) private var dismiss
 
     let item: DexItem

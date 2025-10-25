@@ -13,7 +13,7 @@ import SwiftUI
 /// - The list is always rendered and loads from the repository JSON if needed.
 struct SubregionDetailScreen: View {
     @EnvironmentObject var repo: ExerciseRepository
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @EnvironmentObject var favs: FavoritesStore
     let subregion: String
     let preselectedDeep: String?
@@ -98,7 +98,7 @@ struct SubregionDetailScreen: View {
         .sheet(item: $sheetContext) { ctx in
             ExerciseSessionView(
                 exercise: ctx.exercise,
-                currentEntryID: ctx.entryID,          // nil -> new entry on save
+                initialEntryID: ctx.entryID ?? store.existingEntry(for: ctx.exercise.id)?.id,  // Reuse existing entry if available
                 returnToHomeOnSave: true              // after saving, go back to Home root
             )
         }

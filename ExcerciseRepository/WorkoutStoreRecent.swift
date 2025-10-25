@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import HealthKit
 
-extension WorkoutStore {
+extension WorkoutStoreV2 {
     struct ExerciseSummary: Identifiable, Hashable {
         let id: String         // exerciseID
         let name: String
