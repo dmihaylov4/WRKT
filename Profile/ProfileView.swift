@@ -17,10 +17,21 @@ struct ProfileView: View {
     @Query private var goals: [WeeklyGoal]
     @Query private var thisWeek: [WeeklyTrainingSummary]
 
-    @EnvironmentObject private var store: WorkoutStore
+    @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.modelContext) private var context
 
     @State private var healthKitMinutes: Int = 0
+
+    // Tutorial state
+    @StateObject private var onboardingManager = OnboardingManager.shared
+    @State private var showTutorial = false
+    @State private var currentTutorialStep = 0
+    @State private var levelCardFrame: CGRect = .zero
+    @State private var graphsFrame: CGRect = .zero
+    @State private var dexFrame: CGRect = .zero
+    @State private var milestonesFrame: CGRect = .zero
+    @State private var settingsFrame: CGRect = .zero
+    @State private var framesReady = false
 
     init() {
         // compute weekStart once for this view’s init
@@ -112,111 +123,394 @@ struct ProfileView: View {
     }
 
     var body: some View {
-        List {
-            // UNIFIED PROGRESS OVERVIEW
-            if let p = progress.first {
-                Section {
-                    if let goal = goals.first, goal.isSet {
-                        let weekProgress = store.currentWeekProgress(goal: goal, context: context, healthKitMinutes: healthKitMinutes)
+        ScrollViewReader { proxy in
+            List {
+                // UNIFIED PROGRESS OVERVIEW
+                if let p = progress.first {
+                    Section {
+                        if let goal = goals.first, goal.isSet {
+                            let weekProgress = store.currentWeekProgress(goal: goal, context: context, healthKitMinutes: healthKitMinutes)
 
-                        ProgressOverviewCard(
-                            level: p.level,
-                            xp: p.xp,
-                            prevXP: p.prevLevelXP,
-                            nextXP: p.nextLevelXP,
-                            streak: p.currentStreak,
-                            longest: p.longestStreak,
-                            progress: p,
-                            weekProgress: weekProgress,
-                            goal: goal
-                        )
-                        .task {
-                            await syncHealthKitMinutes()
+                            ProgressOverviewCard(
+                                level: p.level,
+                                xp: p.xp,
+                                prevXP: p.prevLevelXP,
+                                nextXP: p.nextLevelXP,
+                                streak: p.currentStreak,
+                                longest: p.longestStreak,
+                                progress: p,
+                                weekProgress: weekProgress,
+                                goal: goal
+                            )
+                            .task {
+                                await syncHealthKitMinutes()
+                            }
+                            .captureFrame(in: .global) { frame in
+                                levelCardFrame = frame
+                                checkFramesReady()
+                            }
+                        } else {
+                            ProgressOverviewCard(
+                                level: p.level,
+                                xp: p.xp,
+                                prevXP: p.prevLevelXP,
+                                nextXP: p.nextLevelXP,
+                                streak: p.currentStreak,
+                                longest: p.longestStreak,
+                                progress: p,
+                                weekProgress: nil,
+                                goal: nil
+                            )
+                            .captureFrame(in: .global) { frame in
+                                levelCardFrame = frame
+                                checkFramesReady()
+                            }
                         }
-                    } else {
-                        ProgressOverviewCard(
-                            level: p.level,
-                            xp: p.xp,
-                            prevXP: p.prevLevelXP,
-                            nextXP: p.nextLevelXP,
-                            streak: p.currentStreak,
-                            longest: p.longestStreak,
-                            progress: p,
-                            weekProgress: nil,
-                            goal: nil
-                        )
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+                    .listRowBackground(Color.clear)
+                    .id("levelCard")
+                } else {
+                    Section {
+                        ContentUnavailableView("No profile yet",
+                                               systemImage: "person.crop.circle.badge.questionmark",
+                                               description: Text("Start a workout to earn XP and level up."))
                     }
                 }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                Section {
+                    VStack(spacing: 16) {
+                        ProfileStatsView()
+                        TrainingBalanceSection(weeks: 12)
+                    }
+                    .captureFrame(in: .global) { frame in
+                        graphsFrame = frame
+                        checkFramesReady()
+                    }
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
                 .listRowBackground(Color.clear)
-            } else {
-                Section {
-                    ContentUnavailableView("No profile yet",
-                                           systemImage: "person.crop.circle.badge.questionmark",
-                                           description: Text("Start a workout to earn XP and level up."))
-                }
-            }
-            Section {
-                ProfileStatsView()
-            }
+                .id("graphs")
 
-            // “DEX” PREVIEW — same tiles as the Dex screen (compact variant)
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("PR Collection").font(.headline)
-                        Spacer()
-                        NavigationLink("Open Dex") { AchievementsDexView() }
-                            .font(.subheadline.weight(.semibold))
-                    }
-
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
-                        ForEach(dexPreview) { item in
-                            DexTile(item: item).equatable()
-
-                        }
-                    }
-                    .padding(.top, 2)
-                    .transaction { $0.animation = nil } // snappy scrolling
-                }
-                .padding(.vertical, 6)
-            }
-
-            // MILESTONES (non-PR achievements)
-            let milestones = achievements.filter { !$0.id.hasPrefix("ach.pr.") }
-            if !milestones.isEmpty {
+                // "DEX" PREVIEW — same tiles as the Dex screen (compact variant)
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Milestones").font(.headline)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) {
-                                ForEach(milestones.prefix(12)) { a in
-                                    MilestoneChip(a: a)
-                                }
-                            }
-                            .padding(.horizontal, 2)
+                        HStack {
+                            Text("PR Collection").font(.headline)
+                            Spacer()
+                            NavigationLink("Open Dex") { AchievementsDexView() }
+                                .font(.subheadline.weight(.semibold))
                         }
 
-                        NavigationLink("See all achievements") { AchievementsView() }
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.top, 4)
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
+                            ForEach(dexPreview) { item in
+                                DexTile(item: item).equatable()
+
+                            }
+                        }
+                        .padding(.top, 2)
+                        .transaction { $0.animation = nil } // snappy scrolling
                     }
                     .padding(.vertical, 6)
+                    .captureFrame(in: .global) { frame in
+                        dexFrame = frame
+                        checkFramesReady()
+                    }
+                }
+                .id("dex")
+
+                // MILESTONES (non-PR achievements)
+                let milestones = achievements
+                    .filter { !$0.id.hasPrefix("ach.pr.") }
+                    .sorted { a, b in
+                        // Sort completed achievements first
+                        if (a.unlockedAt != nil) != (b.unlockedAt != nil) {
+                            return a.unlockedAt != nil
+                        }
+                        // Within same completion status, maintain original order (lastUpdatedAt)
+                        return false
+                    }
+                if !milestones.isEmpty {
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Milestones").font(.headline)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 10) {
+                                    ForEach(milestones.prefix(12)) { a in
+                                        MilestoneChip(a: a)
+                                    }
+                                }
+                                .padding(.horizontal, 2)
+                            }
+
+                            NavigationLink("See all achievements") { AchievementsView() }
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.top, 4)
+                        }
+                        .padding(.vertical, 6)
+                        .captureFrame(in: .global) { frame in
+                            milestonesFrame = frame
+                            checkFramesReady()
+                        }
+                    }
+                    .id("milestones")
+                }
+
+                // SETTINGS
+                Section("Settings & Connections") {
+                    NavigationLink("Preferences") { PreferencesView() }
+                    NavigationLink("Health & Sync") { ConnectionsView() }
+                }
+                .captureFrame(in: .global) { frame in
+                    settingsFrame = frame
+                    checkFramesReady()
+                }
+                .id("settings")
+            }
+            .listStyle(.insetGrouped)
+            .navigationTitle("Profile")
+            .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .onChange(of: currentTutorialStep) { _, newStep in
+                // Auto-scroll to the highlighted section when tutorial step changes
+                scrollToStep(newStep, proxy: proxy)
+            }
+            .onChange(of: showTutorial) { _, isShowing in
+                // Scroll to current step when tutorial appears (but not for step 0)
+                if isShowing && currentTutorialStep > 0 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        scrollToStep(currentTutorialStep, proxy: proxy)
+                    }
                 }
             }
-
-            // SETTINGS
-            Section("Settings & Connections") {
-                NavigationLink("Preferences") { PreferencesView() }
-                NavigationLink("Health & Sync") { ConnectionsView() }
-            }
         }
-        .listStyle(.insetGrouped)
-        .navigationTitle("Profile")
         .onAppear {
             print("👤 ProfileView appeared")
+
+            // Fallback: if frames haven't loaded after 1 second, show tutorial anyway
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if !framesReady && !onboardingManager.hasSeenProfileStats && !showTutorial {
+                    showTutorial = true
+                }
+            }
         }
+        .onChange(of: framesReady) { _, ready in
+            // Show tutorial once frames are captured (reduced delay)
+            if ready && !onboardingManager.hasSeenProfileStats && !showTutorial {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    showTutorial = true
+                }
+            }
+        }
+        .overlay {
+            // Tutorial overlay
+            if showTutorial {
+                SpotlightOverlay(
+                    currentStep: tutorialSteps[currentTutorialStep],
+                    currentIndex: currentTutorialStep,
+                    totalSteps: tutorialSteps.count,
+                    onNext: advanceTutorial,
+                    onSkip: skipTutorial
+                )
+                .transition(.opacity)
+                .zIndex(1000)
+            }
+        }
+    }
+
+    // MARK: - Tutorial Logic
+
+    private func checkFramesReady() {
+        // Check if all frames have been captured and are valid (with minimum size threshold)
+        let minSize: CGFloat = 50 // Minimum frame dimension to be considered valid
+
+        let levelReady = levelCardFrame != .zero && levelCardFrame.width > minSize && levelCardFrame.height > minSize
+        let graphsReady = graphsFrame != .zero && graphsFrame.width > minSize && graphsFrame.height > minSize
+        let dexReady = dexFrame != .zero && dexFrame.width > minSize && dexFrame.height > minSize
+        // Milestones and Settings are optional (might not exist for new users)
+        let milestonesReady = (milestonesFrame != .zero && milestonesFrame.width > minSize) || achievements.filter { !$0.id.hasPrefix("ach.pr.") }.isEmpty
+        let settingsReady = settingsFrame != .zero && settingsFrame.width > minSize && settingsFrame.height > minSize
+
+        if levelReady && graphsReady && dexReady && milestonesReady && settingsReady && !framesReady {
+            print("✅ All profile frames ready for tutorial!")
+            print("   Level: \(levelCardFrame)")
+            print("   Graphs: \(graphsFrame)")
+            print("   Dex: \(dexFrame)")
+            print("   Milestones: \(milestonesFrame)")
+            print("   Settings: \(settingsFrame)")
+
+            // Add a small delay to ensure frames are stable before showing tutorial
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                framesReady = true
+            }
+        }
+    }
+
+    private func scrollToStep(_ step: Int, proxy: ScrollViewProxy) {
+        // Map tutorial steps to section IDs
+        let hasMilestones = !achievements.filter({ !$0.id.hasPrefix("ach.pr.") }).isEmpty
+
+        var sectionIDs: [String] = ["levelCard", "graphs", "dex"]
+        if hasMilestones {
+            sectionIDs.append("milestones")
+        }
+        sectionIDs.append("settings")
+
+        guard step < sectionIDs.count else { return }
+
+        let sectionID = sectionIDs[step]
+
+        // Custom anchor for steps 2+ (Dex, Milestones, Settings): slightly above center
+        let higherAnchor = UnitPoint(x: 0.5, y: 0.35)
+
+        // Determine if we need to scroll based on step
+        // Step 0 (Level Card) - no scroll needed (top of screen)
+        // Step 1 (Training Trends) - check if visible, scroll to top if needed
+        // Step 2+ (Dex, Milestones, Settings) - always scroll to higher position
+
+        if step == 0 {
+            // No scroll for first step (already at top)
+            return
+        } else if step == 1 {
+            // Check if Training Trends is visible
+            let screenBounds = UIScreen.main.bounds
+            let isVisible = graphsFrame.minY >= 0 && graphsFrame.maxY <= screenBounds.height
+
+            if !isVisible {
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    proxy.scrollTo(sectionID, anchor: .top)
+                }
+            }
+        } else {
+            // Always scroll for Dex, Milestones, Settings to ensure they're rendered
+            // Use higher anchor (35% from top) for better visibility
+            withAnimation(.easeInOut(duration: 0.4)) {
+                proxy.scrollTo(sectionID, anchor: higherAnchor)
+            }
+        }
+    }
+
+    /// Clamps a frame to stay within screen bounds with safe padding
+    private func clampedFrame(_ frame: CGRect, insetBy insets: UIEdgeInsets) -> CGRect {
+        let screenBounds = UIScreen.main.bounds
+        let padding: CGFloat = 8 // Minimum padding from screen edges
+
+        var expanded = CGRect(
+            x: frame.origin.x - insets.left,
+            y: frame.origin.y - insets.top,
+            width: frame.width + insets.left + insets.right,
+            height: frame.height + insets.top + insets.bottom
+        )
+
+        // Clamp to screen bounds with padding
+        expanded.origin.x = max(padding, expanded.origin.x)
+        expanded.origin.y = max(padding, expanded.origin.y)
+
+        if expanded.maxX > screenBounds.width - padding {
+            expanded.size.width = screenBounds.width - padding - expanded.origin.x
+        }
+        if expanded.maxY > screenBounds.height - padding {
+            expanded.size.height = screenBounds.height - padding - expanded.origin.y
+        }
+
+        return expanded
+    }
+
+    private var tutorialSteps: [TutorialStep] {
+        let screenHeight = UIScreen.main.bounds.height
+        let screenWidth = UIScreen.main.bounds.width
+        let padding: CGFloat = 8
+
+        // For scrollable sections, calculate position based on scroll anchor (35% from top)
+        let scrolledAnchorY = screenHeight * 0.35
+
+        // Helper to create frame at scrolled position with optional Y offset
+        func scrolledFrame(width: CGFloat, height: CGFloat, padding: CGFloat = 8, yOffset: CGFloat = 0) -> CGRect {
+            return CGRect(
+                x: padding,
+                y: scrolledAnchorY - padding + yOffset,
+                width: screenWidth - (padding * 2),
+                height: height + (padding * 2)
+            )
+        }
+
+        var steps: [TutorialStep] = [
+            TutorialStep(
+                title: "Level & Progress",
+                message: "Track your level, XP, and workout streak. Set weekly goals to stay on track with your fitness journey!",
+                spotlightFrame: clampedFrame(levelCardFrame, insetBy: UIEdgeInsets(top: 16, left: 16, bottom: 16, right: 16)),
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 20
+            ),
+            TutorialStep(
+                title: "Training Trends",
+                message: "View your training trends and muscle group balance. These graphs help you optimize your workout distribution.",
+                spotlightFrame: clampedFrame(graphsFrame, insetBy: UIEdgeInsets(top: 345, left: 16, bottom: 16, right: 16)),
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 16
+            ),
+            TutorialStep(
+                title: "PR Collection",
+                message: "Unlock personal records by achieving new max weights for each exercise. Build your collection!",
+                spotlightFrame: scrolledFrame(
+                    width: dexFrame.width,
+                    height: 550,
+                    padding: padding,
+                    yOffset: -180  // Move up to start earlier on screen
+                ),
+                tooltipPosition: .bottom,
+                highlightCornerRadius: 16
+            ),
+            TutorialStep(
+                title: "Settings",
+                message: "Customize your preferences and connect to Apple Health for seamless workout tracking.",
+                spotlightFrame: CGRect(
+                    x: padding,
+                    y: max(100, screenHeight * 0.65) + 100,  // Position in lower portion of screen + 30pt offset
+                    width: screenWidth - (padding * 2),
+                    height: 100  // Fixed height for settings section
+                ),
+                tooltipPosition: .top,
+                highlightCornerRadius: 16
+            )
+        ]
+
+        return steps
+    }
+
+    private func advanceTutorial() {
+        if currentTutorialStep < tutorialSteps.count - 1 {
+            // Hide spotlight temporarily
+            showTutorial = false
+
+            // Advance to next step
+            currentTutorialStep += 1
+
+            // Different delays based on which step we're moving to
+            // Step 1 (Training Trends) - shorter delay since it's already visible
+            // Step 2+ (Dex, Milestones, Settings) - longer delay for scroll and render
+            let delay: Double = (currentTutorialStep == 1) ? 0.15 : 0.5
+
+            // Wait for scroll and frame updates, then show spotlight
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    showTutorial = true
+                }
+            }
+        } else {
+            completeTutorial()
+        }
+    }
+
+    private func skipTutorial() {
+        completeTutorial()
+    }
+
+    private func completeTutorial() {
+        withAnimation(.easeOut(duration: 0.2)) {
+            showTutorial = false
+        }
+        onboardingManager.complete(.profileStats)
     }
 }
 
@@ -534,7 +828,7 @@ private struct WeeklyGoalDetailView: View {
     let progress: WeeklyProgress
     let goal: WeeklyGoal
 
-    @EnvironmentObject private var store: WorkoutStore
+    @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -706,6 +1000,8 @@ private struct WeeklyGoalDetailView: View {
         }
         .navigationTitle("Weekly Goal")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink {

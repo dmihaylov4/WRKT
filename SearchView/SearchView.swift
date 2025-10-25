@@ -14,7 +14,7 @@ enum SearchDestination: Hashable {
 
 struct SearchView: View {
     @EnvironmentObject var repo: ExerciseRepository
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
 
     @State private var query = ""
     @State private var path: [SearchDestination] = []
@@ -65,7 +65,10 @@ struct SearchView: View {
             .navigationDestination(for: SearchDestination.self) { dest in
                 switch dest {
                 case .exercise(let ex):
-                    ExerciseSessionView(exercise: ex)
+                    ExerciseSessionView(
+                        exercise: ex,
+                        initialEntryID: store.existingEntry(for: ex.id)?.id
+                    )
                 case .muscle(let group):
                     MuscleGroupView(group: group)
                 }
@@ -144,7 +147,7 @@ struct SuggestionList: View {
 }
 
 struct HistoryAndFilters: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @Binding var query: String
 
     // Consider aligning these with the most common values from your Excel dataset.
@@ -188,7 +191,7 @@ struct HistoryAndFilters: View {
         }
     }
 
-    private var recent: [WorkoutStore.ExerciseSummary] {
+    private var recent: [WorkoutStoreV2.ExerciseSummary] {
         store.recentExercises(limit: 10)
     }
 }

@@ -8,10 +8,9 @@
 
 import SwiftUI
 
-import SwiftUI
 
 struct CurrentWorkoutBar: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @State private var showSheet = false
 
     private var showBar: Bool {
@@ -61,7 +60,7 @@ private struct CurrentWorkoutBarLabel: View {
     }
 }
 struct CurrentWorkoutSheet: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @Environment(\.dismiss) var dismiss
 
     var body: some View {

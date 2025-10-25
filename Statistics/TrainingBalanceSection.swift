@@ -19,7 +19,7 @@ private struct InfoButton: View {
         } label: {
             Image(systemName: "info.circle")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.5))
         }
         .buttonStyle(.plain)
         .alert(title, isPresented: $showingAlert) {
@@ -59,48 +59,138 @@ struct TrainingBalanceSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Section header
-            HStack {
-                Label("Training Balance", systemImage: "scale.3d")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 20) {
+            // Premium section header
+            HStack(alignment: .center, spacing: 12) {
+                // Icon with gradient background
+                ZStack {
+                    LinearGradient(
+                        colors: [Color(hex: "#F4E409").opacity(0.3), Color(hex: "#F4E409").opacity(0.15)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    Image(systemName: "scale.3d")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Color(hex: "#F4E409"))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Training Balance")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+
+                    Text("Last \(weeks) weeks")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+
                 Spacer()
+
                 InfoButton(
                     title: "Training Balance",
                     message: "Analytics to help you maintain balanced training across muscle groups, movement patterns, and training styles to reduce injury risk and optimize development."
                 )
             }
+            .padding(.bottom, 4)
 
-        
+            // Content cards with subtle separators
+            VStack(spacing: 16) {
+                // 3A: Push/Pull Balance
+                if !pushPull.isEmpty {
+                    PushPullBalanceCard(data: pushPull)
+                } else {
+                    EmptyDataCard(message: "No push/pull data found")
+                }
 
-            // 3A: Push/Pull Balance
-            if !pushPull.isEmpty {
-                PushPullBalanceCard(data: pushPull)
-            } else {
-                Text("No push/pull data found")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                if !pushPull.isEmpty && !muscleFreq.isEmpty {
+                    Divider()
+                        .background(.white.opacity(0.08))
+                }
 
-            // 3B: Muscle Group Frequency
-            if !muscleFreq.isEmpty {
-                MuscleFrequencyHeatMap(muscles: muscleFreq)
-            }
+                // 3B: Muscle Group Frequency
+                if !muscleFreq.isEmpty {
+                    MuscleFrequencyHeatMap(muscles: muscleFreq)
+                }
 
-            // 3C: Movement Pattern Balance
-            if !movementPatterns.isEmpty {
-                MovementPatternCard(data: movementPatterns)
-            }
+                if !muscleFreq.isEmpty && !movementPatterns.isEmpty {
+                    Divider()
+                        .background(.white.opacity(0.08))
+                }
 
-            // Empty state
-            if pushPull.isEmpty && muscleFreq.isEmpty && movementPatterns.isEmpty {
-                ContentUnavailableView(
-                    "No balance data yet",
-                    systemImage: "scale.3d",
-                    description: Text("Complete workouts to see balance analytics")
-                )
+                // 3C: Movement Pattern Balance
+                if !movementPatterns.isEmpty {
+                    MovementPatternCard(data: movementPatterns)
+                }
+
+                // Empty state
+                if pushPull.isEmpty && muscleFreq.isEmpty && movementPatterns.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "scale.3d")
+                            .font(.system(size: 48, weight: .light))
+                            .foregroundStyle(.white.opacity(0.3))
+
+                        Text("No balance data yet")
+                            .font(.headline)
+                            .foregroundStyle(.white.opacity(0.9))
+
+                        Text("Complete workouts to see balance analytics")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.5))
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 32)
+                }
             }
         }
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "#1A1A1A"), Color(hex: "#0D0D0D")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.white.opacity(0.15), .white.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        )
+        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+    }
+}
+
+// MARK: - Empty Data Card
+private struct EmptyDataCard: View {
+    let message: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.title3)
+                .foregroundStyle(.white.opacity(0.4))
+
+            Text(message)
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.5))
+
+            Spacer()
+        }
+        .padding(16)
+        .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 
@@ -124,6 +214,8 @@ private struct PushPullBalanceCard: View {
             return (.green, "Well balanced", "checkmark.circle.fill")
         case 1.5..<2.0:
             return (.orange, "Slightly pull-heavy", "exclamationmark.triangle")
+        case 10..<Double.infinity:
+            return (.red, "No push exercises", "exclamationmark.triangle.fill")
         default:
             return (.red, "Too much pulling", "exclamationmark.triangle.fill")
         }
@@ -137,6 +229,7 @@ private struct PushPullBalanceCard: View {
                     HStack(spacing: 6) {
                         Label("Push/Pull Balance", systemImage: "arrow.left.arrow.right")
                             .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
                             title: "Push/Pull Balance",
                             message: "Tracks your ratio of pulling exercises (rows, pull-ups) to pushing exercises (bench press, overhead press). Optimal ratio is 1.0-1.5 (pull:push) to maintain shoulder health and posture. The ratio shows horizontal (H) and vertical (V) volume breakdown."
@@ -144,7 +237,7 @@ private struct PushPullBalanceCard: View {
                     }
                     Text("Optimal ratio: 1.0-1.5 (pull:push)")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
                 Spacer()
 
@@ -188,9 +281,6 @@ private struct PushPullBalanceCard: View {
                 }
             }
         }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.quaternary))
     }
 
     private func shortVol(_ v: Double) -> String {
@@ -215,17 +305,18 @@ private struct BalanceBar: View {
             HStack {
                 Text(label)
                     .font(.caption.weight(.medium))
+                    .foregroundStyle(.white.opacity(0.9))
                 Spacer()
                 Text(String(format: "%.0f%%", percentage))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
 
             // Progress bar
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(color.opacity(0.2))
+                        .fill(.white.opacity(0.1))
 
                     RoundedRectangle(cornerRadius: 4)
                         .fill(color)
@@ -236,7 +327,7 @@ private struct BalanceBar: View {
 
             Text(details)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.5))
         }
     }
 }
@@ -255,6 +346,7 @@ private struct MuscleFrequencyHeatMap: View {
                 HStack(spacing: 6) {
                     Label("Muscle Recovery Status", systemImage: "clock.arrow.circlepath")
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.9))
                     InfoButton(
                         title: "Muscle Recovery Status",
                         message: "Shows when each muscle group was last trained (last 7 days) with color-coded recovery status. Green = recently trained (0-2 days), yellow/orange = moderate rest (3-6 days), red = not trained recently (7+ days). Frequency shows how many times trained in the last week."
@@ -262,7 +354,7 @@ private struct MuscleFrequencyHeatMap: View {
                 }
                 Text("Last trained (last 7 days)")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
             }
 
             // Grid of muscle tiles
@@ -272,9 +364,6 @@ private struct MuscleFrequencyHeatMap: View {
                 }
             }
         }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.quaternary))
     }
 }
 
@@ -303,6 +392,7 @@ private struct MuscleTile: View {
         VStack(spacing: 4) {
             Text(muscle.muscleGroup)
                 .font(.caption.weight(.medium))
+                .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
@@ -312,13 +402,13 @@ private struct MuscleTile: View {
 
             Text("\(muscle.weeklyFrequency)×")
                 .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
-        .background(status.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(status.color.opacity(0.3), lineWidth: 1))
+        .background(status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(status.color.opacity(0.4), lineWidth: 1))
     }
 }
 
@@ -334,6 +424,7 @@ private struct MovementPatternCard: View {
                 HStack(spacing: 6) {
                     Label("Movement Patterns", systemImage: "figure.walk")
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.9))
                     InfoButton(
                         title: "Movement Patterns",
                         message: "Analyzes the balance between different exercise types. Compound exercises work multiple joints/muscles (squats, deadlifts), while isolation targets single muscles (bicep curls). Bilateral uses both limbs (barbell bench), unilateral works one side (dumbbell rows). Hinge patterns (deadlifts) vs squat patterns (squats) for lower body."
@@ -341,7 +432,7 @@ private struct MovementPatternCard: View {
                 }
                 Text("Exercise variety breakdown")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
             }
 
             if let latest = latest {
@@ -357,6 +448,7 @@ private struct MovementPatternCard: View {
                     )
 
                     Divider()
+                        .background(.white.opacity(0.08))
 
                     // Bilateral vs Unilateral
                     PatternRow(
@@ -371,6 +463,7 @@ private struct MovementPatternCard: View {
                     // Lower body: Hinge vs Squat (only show if there's data)
                     if latest.hingeVolume > 0 || latest.squatVolume > 0 {
                         Divider()
+                            .background(.white.opacity(0.08))
 
                         PatternRow(
                             left: "Hinge",
@@ -384,9 +477,6 @@ private struct MovementPatternCard: View {
                 }
             }
         }
-        .padding(12)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.quaternary))
     }
 }
 
@@ -410,6 +500,7 @@ private struct PatternRow: View {
                 Label {
                     Text(left)
                         .font(.caption.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.9))
                 } icon: {
                     Circle()
                         .fill(leftColor)
@@ -420,7 +511,7 @@ private struct PatternRow: View {
 
                 Text(String(format: "%.0f%%", leftPercent))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
 
             // Split bar
@@ -441,6 +532,7 @@ private struct PatternRow: View {
                 Label {
                     Text(right)
                         .font(.caption.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.9))
                 } icon: {
                     Circle()
                         .fill(rightColor)
@@ -451,7 +543,7 @@ private struct PatternRow: View {
 
                 Text(String(format: "%.0f%%", rightPercent))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
         }
     }

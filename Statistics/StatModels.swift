@@ -178,7 +178,8 @@ final class PushPullBalance {
         self.horizontalPullVolume = horizontalPullVolume
         self.verticalPushVolume = verticalPushVolume
         self.verticalPullVolume = verticalPullVolume
-        self.ratio = pushVolume > 0 ? pullVolume / pushVolume : 0
+        // When pushVolume = 0: use 999 if there are pull exercises (indicates "all pull"), otherwise 0 (no data)
+        self.ratio = pushVolume > 0 ? pullVolume / pushVolume : (pullVolume > 0 ? 999.0 : 0.0)
     }
 }
 

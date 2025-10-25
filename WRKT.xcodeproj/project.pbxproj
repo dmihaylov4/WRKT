@@ -83,6 +83,31 @@
 		2EC245DE2EA2774D00100333 /* WeeklyGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245DD2EA2774D00100333 /* WeeklyGoal.swift */; };
 		2EC245E02EA277C100100333 /* WeeklyGoalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */; };
 		2EC245E22EA280E700100333 /* WeeklyProgressTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245E12EA280E100100333 /* WeeklyProgressTypes.swift */; };
+		2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6B2EA8D1E9006B875E /* WorkoutStorage.swift */; };
+		2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */; };
+		2EC99E782EAA2794006B875E /* ExerciseSessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */; };
+		2EC99E792EAA2794006B875E /* OverviewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E752EAA2794006B875E /* OverviewComponents.swift */; };
+		2EC99E7B2EAA2794006B875E /* ExerciseSessionComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E722EAA2794006B875E /* ExerciseSessionComponents.swift */; };
+		2EC99E7C2EAA2794006B875E /* MuscleVisualizationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E742EAA2794006B875E /* MuscleVisualizationViews.swift */; };
+		2EC99E7D2EAA2794006B875E /* RestTimerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E762EAA2794006B875E /* RestTimerComponents.swift */; };
+		2EC99E7E2EAA2794006B875E /* ExerciseCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E712EAA2794006B875E /* ExerciseCache.swift */; };
+		2EC99E7F2EAA2794006B875E /* CarouselSteppers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6F2EAA2794006B875E /* CarouselSteppers.swift */; };
+		2EC99E802EAA2794006B875E /* SetRowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E772EAA2794006B875E /* SetRowViews.swift */; };
+		2EC99E822EABF313006B875E /* WeightSuggestionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */; };
+		2ED237862EA51F87009C742E /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237852EA51F87009C742E /* AppDependencies.swift */; };
+		2ED237882EA524C2009C742E /* HealthKitSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237872EA524C2009C742E /* HealthKitSyncProgress.swift */; };
+		2ED2379A2EA60FD5009C742E /* RestTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237992EA60FCF009C742E /* RestTimerView.swift */; };
+		2ED2379C2EA60FE1009C742E /* RestTimerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED2379B2EA60FDD009C742E /* RestTimerState.swift */; };
+		2ED2379E2EA60FEA009C742E /* RestTimerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED2379D2EA60FE5009C742E /* RestTimerPreferences.swift */; };
+		2EE39C632EA65A67000549C3 /* OnboardingCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C622EA65A67000549C3 /* OnboardingCarousel.swift */; };
+		2EE39C672EA65D36000549C3 /* NotificationPermissionView 2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C662EA65D36000549C3 /* NotificationPermissionView 2.swift */; };
+		2EE39C692EA6766B000549C3 /* OnboardingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C682EA6766B000549C3 /* OnboardingManager.swift */; };
+		2EE39C6B2EA67691000549C3 /* SpotlightOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */; };
+		2EE39C6D2EA77A95000549C3 /* PlannerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */; };
+		2EE39C6F2EA77AA6000549C3 /* PlannerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6E2EA77AA6000549C3 /* PlannerStore.swift */; };
+		2EE39C712EA77FE0000549C3 /* PlannerDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C702EA77FE0000549C3 /* PlannerDebugView.swift */; };
+		2EE39C732EA784A4000549C3 /* SplitTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C722EA784A4000549C3 /* SplitTemplates.swift */; };
+		2EE39C752EA784B2000549C3 /* PlannerSetupCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */; };
 		2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */; };
 		2EEEACBE2EA380F300EDD16E /* CardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBD2EA380F300EDD16E /* CardioView.swift */; };
 		2EEEACC02EA3814D00EDD16E /* CardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */; };
@@ -177,6 +202,31 @@
 		2EC245DD2EA2774D00100333 /* WeeklyGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoal.swift; sourceTree = "<group>"; };
 		2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalCard.swift; sourceTree = "<group>"; };
 		2EC245E12EA280E100100333 /* WeeklyProgressTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyProgressTypes.swift; sourceTree = "<group>"; };
+		2EC99E6B2EA8D1E9006B875E /* WorkoutStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStorage.swift; sourceTree = "<group>"; };
+		2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStoreV2.swift; sourceTree = "<group>"; };
+		2EC99E6F2EAA2794006B875E /* CarouselSteppers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarouselSteppers.swift; sourceTree = "<group>"; };
+		2EC99E712EAA2794006B875E /* ExerciseCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCache.swift; sourceTree = "<group>"; };
+		2EC99E722EAA2794006B875E /* ExerciseSessionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionComponents.swift; sourceTree = "<group>"; };
+		2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionModels.swift; sourceTree = "<group>"; };
+		2EC99E742EAA2794006B875E /* MuscleVisualizationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleVisualizationViews.swift; sourceTree = "<group>"; };
+		2EC99E752EAA2794006B875E /* OverviewComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverviewComponents.swift; sourceTree = "<group>"; };
+		2EC99E762EAA2794006B875E /* RestTimerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerComponents.swift; sourceTree = "<group>"; };
+		2EC99E772EAA2794006B875E /* SetRowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetRowViews.swift; sourceTree = "<group>"; };
+		2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightSuggestionHelper.swift; sourceTree = "<group>"; };
+		2ED237852EA51F87009C742E /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
+		2ED237872EA524C2009C742E /* HealthKitSyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncProgress.swift; sourceTree = "<group>"; };
+		2ED237992EA60FCF009C742E /* RestTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerView.swift; sourceTree = "<group>"; };
+		2ED2379B2EA60FDD009C742E /* RestTimerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerState.swift; sourceTree = "<group>"; };
+		2ED2379D2EA60FE5009C742E /* RestTimerPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerPreferences.swift; sourceTree = "<group>"; };
+		2EE39C622EA65A67000549C3 /* OnboardingCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCarousel.swift; sourceTree = "<group>"; };
+		2EE39C662EA65D36000549C3 /* NotificationPermissionView 2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotificationPermissionView 2.swift"; sourceTree = "<group>"; };
+		2EE39C682EA6766B000549C3 /* OnboardingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingManager.swift; sourceTree = "<group>"; };
+		2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightOverlay.swift; sourceTree = "<group>"; };
+		2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerModels.swift; sourceTree = "<group>"; };
+		2EE39C6E2EA77AA6000549C3 /* PlannerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerStore.swift; sourceTree = "<group>"; };
+		2EE39C702EA77FE0000549C3 /* PlannerDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerDebugView.swift; sourceTree = "<group>"; };
+		2EE39C722EA784A4000549C3 /* SplitTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitTemplates.swift; sourceTree = "<group>"; };
+		2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerSetupCarouselView.swift; sourceTree = "<group>"; };
 		2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncAnchor.swift; sourceTree = "<group>"; };
 		2EEEACBD2EA380F300EDD16E /* CardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioView.swift; sourceTree = "<group>"; };
 		2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDetailView.swift; sourceTree = "<group>"; };
@@ -321,6 +371,9 @@
 		2E7461972E93EA7100A71C35 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */,
+				2EE39C682EA6766B000549C3 /* OnboardingManager.swift */,
+				2ED237852EA51F87009C742E /* AppDependencies.swift */,
 				2E7461FB2E95890500A71C35 /* Notifications.swift */,
 				2E7461ED2E950E7200A71C35 /* AppEvents.swift */,
 				2E7461A72E93EDC500A71C35 /* Utilities.swift */,
@@ -331,6 +384,7 @@
 		2E7461982E93EB7A00A71C35 /* Persistence */ = {
 			isa = PBXGroup;
 			children = (
+				2EC99E6B2EA8D1E9006B875E /* WorkoutStorage.swift */,
 				2E7461A82E93EDDC00A71C35 /* Persistence.swift */,
 			);
 			path = Persistence;
@@ -339,6 +393,17 @@
 		2E7461992E93EB8500A71C35 /* ExcerciseRepository */ = {
 			isa = PBXGroup;
 			children = (
+				2EC99E6F2EAA2794006B875E /* CarouselSteppers.swift */,
+				2EC99E712EAA2794006B875E /* ExerciseCache.swift */,
+				2EC99E722EAA2794006B875E /* ExerciseSessionComponents.swift */,
+				2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */,
+				2EC99E742EAA2794006B875E /* MuscleVisualizationViews.swift */,
+				2EC99E752EAA2794006B875E /* OverviewComponents.swift */,
+				2EC99E762EAA2794006B875E /* RestTimerComponents.swift */,
+				2EC99E772EAA2794006B875E /* SetRowViews.swift */,
+				2ED2379D2EA60FE5009C742E /* RestTimerPreferences.swift */,
+				2ED2379B2EA60FDD009C742E /* RestTimerState.swift */,
+				2ED237992EA60FCF009C742E /* RestTimerView.swift */,
 				2EC245D42E9FF0A900100333 /* FavoritesFirst.swift */,
 				2EC245C52E9FB54600100333 /* YouTubeInlinePlayer.swift */,
 				2EC245C32E9FB4F400100333 /* ExerciseMedia.swift */,
@@ -358,6 +423,8 @@
 		2E74619A2E93ECDB00A71C35 /* WorkoutStore */ = {
 			isa = PBXGroup;
 			children = (
+				2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */,
+				2EE39C6E2EA77AA6000549C3 /* PlannerStore.swift */,
 				2EC245D22E9FEB4600100333 /* FavoritesStore.swift */,
 				2E7461AA2E93EDFC00A71C35 /* WorkoutStore.swift */,
 			);
@@ -400,6 +467,12 @@
 		2E7461F42E95180C00A71C35 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */,
+				2EE39C702EA77FE0000549C3 /* PlannerDebugView.swift */,
+				2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */,
+				2EE39C662EA65D36000549C3 /* NotificationPermissionView 2.swift */,
+				2EE39C622EA65A67000549C3 /* OnboardingCarousel.swift */,
+				2ED237872EA524C2009C742E /* HealthKitSyncProgress.swift */,
 				2E7461F52E95181100A71C35 /* SubregionDetailScreen.swift */,
 				2E7461E82E94DC7800A71C35 /* WRKTApp.swift */,
 			);
@@ -435,6 +508,8 @@
 		2EEEACCE2EA38A9100EDD16E /* AppModels */ = {
 			isa = PBXGroup;
 			children = (
+				2EE39C722EA784A4000549C3 /* SplitTemplates.swift */,
+				2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */,
 				2EEEACF42EA3958D00EDD16E /* AppResetReason.swift */,
 				2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */,
 				2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */,
@@ -538,9 +613,12 @@
 			files = (
 				2EEEACD62EA38B2000EDD16E /* Models.swift in Sources */,
 				2EEEACD72EA38B2500EDD16E /* DS.swift in Sources */,
+				2EC99E822EABF313006B875E /* WeightSuggestionHelper.swift in Sources */,
+				2EE39C752EA784B2000549C3 /* PlannerSetupCarouselView.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EEEACDA2EA38B3400EDD16E /* MusclePictogram.swift in Sources */,
+				2EE39C672EA65D36000549C3 /* NotificationPermissionView 2.swift in Sources */,
 				2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */,
 				2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */,
 				2E7461AE2E93EEDE00A71C35 /* Persistence.swift in Sources */,
@@ -558,9 +636,21 @@
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,
 				2E7461CD2E942FC900A71C35 /* MuscleTaxonomy.swift in Sources */,
+				2ED2379E2EA60FEA009C742E /* RestTimerPreferences.swift in Sources */,
+				2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */,
 				2E510B702E99599F0089EE2C /* ExerciseMusclesSection.swift in Sources */,
 				2E2F539F2E9E715200C81656 /* PreferencesView.swift in Sources */,
+				2ED237882EA524C2009C742E /* HealthKitSyncProgress.swift in Sources */,
 				2EC245E02EA277C100100333 /* WeeklyGoalCard.swift in Sources */,
+				2EC99E782EAA2794006B875E /* ExerciseSessionModels.swift in Sources */,
+				2EC99E792EAA2794006B875E /* OverviewComponents.swift in Sources */,
+				2EC99E7B2EAA2794006B875E /* ExerciseSessionComponents.swift in Sources */,
+				2EC99E7C2EAA2794006B875E /* MuscleVisualizationViews.swift in Sources */,
+				2EC99E7D2EAA2794006B875E /* RestTimerComponents.swift in Sources */,
+				2EC99E7E2EAA2794006B875E /* ExerciseCache.swift in Sources */,
+				2EC99E7F2EAA2794006B875E /* CarouselSteppers.swift in Sources */,
+				2EC99E802EAA2794006B875E /* SetRowViews.swift in Sources */,
+				2EE39C692EA6766B000549C3 /* OnboardingManager.swift in Sources */,
 				2E510B6C2E99594C0089EE2C /* MuscleRegion.swift in Sources */,
 				2EEEACC42EA3824A00EDD16E /* RouteModels.swift in Sources */,
 				2E7461FC2E95891100A71C35 /* Notifications.swift in Sources */,
@@ -588,27 +678,37 @@
 				2E2F53A72E9E910F00C81656 /* DexKeying.swift in Sources */,
 				2EC245D02E9FD9A900100333 /* StatsAggregator.swift in Sources */,
 				2E7461AC2E93EED600A71C35 /* WorkoutStore.swift in Sources */,
+				2ED237862EA51F87009C742E /* AppDependencies.swift in Sources */,
 				2EEEACC02EA3814D00EDD16E /* CardioDetailView.swift in Sources */,
 				2E7461AF2E93EEE100A71C35 /* Utilities.swift in Sources */,
 				2E510B752E995BE30089EE2C /* SVGMuscleIDMapper.swift in Sources */,
 				2E7461D62E9439D800A71C35 /* ExerciseTagRepository.swift in Sources */,
 				2EC245DE2EA2774D00100333 /* WeeklyGoal.swift in Sources */,
+				2EE39C6B2EA67691000549C3 /* SpotlightOverlay.swift in Sources */,
 				2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */,
 				2E2F53A32E9E764700C81656 /* AchievementsDexView.swift in Sources */,
 				2EC245C42E9FB4F400100333 /* ExerciseMedia.swift in Sources */,
 				2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */,
+				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,
 				2E7461A32E93ED4E00A71C35 /* CalendarMonthView.swift in Sources */,
 				2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */,
 				2E2F539B2E9E582F00C81656 /* WinScreenCoordinator.swift in Sources */,
 				2EC245CE2E9FD99F00100333 /* ProfileStatsSection.swift in Sources */,
+				2EE39C732EA784A4000549C3 /* SplitTemplates.swift in Sources */,
+				2ED2379A2EA60FD5009C742E /* RestTimerView.swift in Sources */,
+				2EE39C632EA65A67000549C3 /* OnboardingCarousel.swift in Sources */,
+				2EE39C6D2EA77A95000549C3 /* PlannerModels.swift in Sources */,
 				2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */,
 				2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */,
 				2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */,
+				2EE39C712EA77FE0000549C3 /* PlannerDebugView.swift in Sources */,
+				2ED2379C2EA60FE1009C742E /* RestTimerState.swift in Sources */,
 				2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */,
 				2E7461CF2E94356D00A71C35 /* WorkoutDetail.swift in Sources */,
 				2E510B6E2E99597D0089EE2C /* SVGHumanBodyView.swift in Sources */,
 				2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */,
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
+				2EE39C6F2EA77AA6000549C3 /* PlannerStore.swift in Sources */,
 				2EC245D32E9FEB4600100333 /* FavoritesStore.swift in Sources */,
 				2E7461A12E93ED2C00A71C35 /* ExcerciseSessionView.swift in Sources */,
 				2E7461C82E941FBA00A71C35 /* InteractiveRouteMap.swift in Sources */,

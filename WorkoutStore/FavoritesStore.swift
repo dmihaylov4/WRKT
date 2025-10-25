@@ -11,6 +11,8 @@ import Combine
 
 @MainActor
 final class FavoritesStore: ObservableObject {
+    static let shared = FavoritesStore()
+
     @Published private(set) var ids: Set<String> = []
 
     private let key = "favorites.exerciseIDs"
@@ -40,5 +42,10 @@ final class FavoritesStore: ObservableObject {
     func remove(_ id: String) {
         guard ids.contains(id) else { return }
         ids.remove(id); persist()
+    }
+
+    func clearAll() {
+        ids.removeAll()
+        persist()
     }
 }

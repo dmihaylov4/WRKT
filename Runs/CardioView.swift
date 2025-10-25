@@ -19,7 +19,7 @@ private enum Theme {
 }
 
 struct CardioView: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var showingAuthSheet = false
     @State private var isResyncing = false
@@ -88,6 +88,12 @@ struct CardioView: View {
                 ConsistencyCard(allRuns: cardioRuns)
                     .padding(.horizontal, 16)
 
+                // MARK: - Sync Progress
+                if healthKit.isSyncing {
+                    HealthKitSyncProgressView(healthKit: healthKit)
+                        .padding(.horizontal, 16)
+                }
+
                 // MARK: - Recent Runs
                 VStack(spacing: 10) {
                     HStack {
@@ -119,6 +125,8 @@ struct CardioView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Cardio")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Theme.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 healthConnectionButton
@@ -168,18 +176,10 @@ struct CardioView: View {
                 .disabled(healthKit.isSyncing || isResyncing)
 
             } label: {
-                Label {
-                    if healthKit.isSyncing {
-                        Text("Syncing...")
-                    } else {
-                        Text("Sync")
-                    }
-                } icon: {
-                    if healthKit.isSyncing {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                    }
+                if healthKit.isSyncing {
+                    HealthKitSyncProgressCompact(healthKit: healthKit)
+                } else {
+                    Label("Sync", systemImage: "arrow.triangle.2.circlepath")
                 }
             }
             .tint(Theme.accent)
@@ -736,6 +736,8 @@ private struct AllRunsList: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("All Cardio")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(Theme.bg, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
     }
 }
 

@@ -77,7 +77,7 @@ struct WinScreenView: View {
 
     private var subtitle: String? {
         var bits: [String] = []
-        if summary.streakNew > summary.streakOld { bits.append("Streak \(summary.streakNew)🔥") }
+        if summary.streakNew > summary.streakOld { bits.append("Streak \(summary.streakNew)") }
         if summary.unlockedAchievements.count > 0 { bits.append("\(summary.unlockedAchievements.count) new achievement\(summary.unlockedAchievements.count == 1 ? "" : "s")") }
         if summary.newExerciseCount > 0 { bits.append("\(summary.newExerciseCount) new exercise\(summary.newExerciseCount == 1 ? "" : "s")") }
         if summary.prCount > 0 { bits.append("\(summary.prCount) PR\(summary.prCount == 1 ? "" : "s")") }
@@ -128,11 +128,13 @@ struct WinScreenView: View {
                     Text(title)
                         .font(.system(.largeTitle, weight: .bold))
                         .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
 
                     if let sub = subtitle {
                         Text(sub)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.8))
+                            .font(.callout)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .multilineTextAlignment(.center)
                     }
 
                     // Totals row
@@ -172,13 +174,19 @@ struct WinScreenView: View {
                       //  .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.10), lineWidth: 1))
                     //}
 
-                    Button("Continue") { onDismiss() }
-                        .font(.headline)
-                        .frame(maxWidth: .infinity, minHeight: 48)
-                        .background(Color(hex: "#F4E409"))
-                        .foregroundStyle(.black)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .padding(.top, 20)
+                    Button {
+                        Haptics.light()
+                        onDismiss()
+                    } label: {
+                        Text("Continue")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .contentShape(Rectangle())
+                    }
+                    .background(Color(hex: "#F4E409"))
+                    .foregroundStyle(.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .padding(.top, 20)
                 }
                 .padding(22)
             }
@@ -219,24 +227,45 @@ private struct XPGainCard: View {
     let snapshot: XPSnapshot
     let lineItems: [XPLineItem]
 
-    @State private var animatedXP: Int
-    @State private var animatedLevel: Int
-    @State private var currentLevelFloor: Int
-    @State private var currentLevelCeiling: Int
+    @State private var animatedProgress: Double = 0
+    @State private var showFinalValues: Bool = false
 
-    init(snapshot: XPSnapshot, lineItems: [XPLineItem]) {
-        self.snapshot = snapshot
-        self.lineItems = lineItems
-        _animatedXP = State(initialValue: snapshot.beforeXP)
-        _animatedLevel = State(initialValue: snapshot.beforeLevel)
-        _currentLevelFloor = State(initialValue: snapshot.beforeFloor)
-        _currentLevelCeiling = State(initialValue: snapshot.beforeCeiling)
+    private var isLevelUp: Bool {
+        snapshot.afterLevel > snapshot.beforeLevel
+    }
+
+    private var displayLevel: Int {
+        showFinalValues ? snapshot.afterLevel : snapshot.beforeLevel
+    }
+
+    private var displayXP: Int {
+        if !isLevelUp {
+            // No level up: simple interpolation
+            let range = Double(snapshot.afterXP - snapshot.beforeXP)
+            return snapshot.beforeXP + Int(range * animatedProgress)
+        } else if !showFinalValues {
+            // Level up, phase 1: interpolate to old level ceiling
+            let range = Double(snapshot.beforeCeiling - snapshot.beforeXP)
+            return snapshot.beforeXP + Int(range * animatedProgress)
+        } else {
+            // Level up, phase 2: interpolate from new floor to final XP
+            let range = Double(snapshot.afterXP - snapshot.afterFloor)
+            return snapshot.afterFloor + Int(range * animatedProgress)
+        }
+    }
+
+    private var displayFloor: Int {
+        showFinalValues ? snapshot.afterFloor : snapshot.beforeFloor
+    }
+
+    private var displayCeiling: Int {
+        showFinalValues ? snapshot.afterCeiling : snapshot.beforeCeiling
     }
 
     private var progress: Double {
-        let range = Double(currentLevelCeiling - currentLevelFloor)
+        let range = Double(displayCeiling - displayFloor)
         guard range > 0 else { return 0 }
-        let current = Double(animatedXP - currentLevelFloor)
+        let current = Double(displayXP - displayFloor)
         return min(max(current / range, 0), 1)
     }
 
@@ -245,9 +274,11 @@ private struct XPGainCard: View {
             // XP Progress Bar
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Level \(animatedLevel)")
+                    Text("Level \(displayLevel)")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
+                        .transition(.opacity)
+                        .id("level-\(displayLevel)")
                     Spacer()
                     Text("+\(snapshot.xpGained) XP")
                         .font(.subheadline.weight(.semibold))
@@ -262,7 +293,7 @@ private struct XPGainCard: View {
                             .fill(.white.opacity(0.10))
                             .frame(height: 12)
 
-                        // Fill
+                        // Fill - smoothly animated
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(
                                 LinearGradient(
@@ -277,7 +308,7 @@ private struct XPGainCard: View {
                 .frame(height: 12)
 
                 HStack {
-                    Text("\(animatedXP) / \(currentLevelCeiling) XP")
+                    Text("\(displayXP - displayFloor) / \(displayCeiling - displayFloor) XP")
                         .font(.caption.weight(.medium))
                         .foregroundStyle(.white.opacity(0.7))
                     Spacer()
@@ -328,56 +359,33 @@ private struct XPGainCard: View {
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.10), lineWidth: 1))
         .onAppear {
-            animateXPGain()
-        }
-    }
+            // Smooth animation using SwiftUI's native animation system
+            if snapshot.afterLevel > snapshot.beforeLevel {
+                // Level up animation sequence:
+                // 1. Fill bar to 100% in old level
+                withAnimation(.easeOut(duration: 0.9)) {
+                    animatedProgress = 1.0
+                }
+                // 2. Switch to new level (bar disappears/resets)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+                    // Instantly switch to new level with 0 progress
+                    showFinalValues = true
+                    animatedProgress = 0
 
-    private func animateXPGain() {
-        let duration: Double = 1.5
-        let steps = 30
-        let stepDelay = duration / Double(steps)
-
-        let totalGain = snapshot.afterXP - snapshot.beforeXP
-        let xpPerStep = Double(totalGain) / Double(steps)
-
-        var currentStep = 0
-
-        Timer.scheduledTimer(withTimeInterval: stepDelay, repeats: true) { timer in
-            currentStep += 1
-
-            let newXP = snapshot.beforeXP + Int(Double(currentStep) * xpPerStep)
-            animatedXP = min(newXP, snapshot.afterXP)
-
-            // Check for level up
-            if animatedXP >= currentLevelCeiling && animatedLevel < snapshot.afterLevel {
-                animatedLevel += 1
-                let (_, floor, ceiling) = levelCurveFloors(for: animatedXP)
-                currentLevelFloor = floor
-                currentLevelCeiling = ceiling
-            }
-
-            if currentStep >= steps || animatedXP >= snapshot.afterXP {
-                timer.invalidate()
-                animatedXP = snapshot.afterXP
-                animatedLevel = snapshot.afterLevel
-                currentLevelFloor = snapshot.afterFloor
-                currentLevelCeiling = snapshot.afterCeiling
+                    // 3. Fill bar to final position in new level
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeOut(duration: 0.7)) {
+                            animatedProgress = 1.0
+                        }
+                    }
+                }
+            } else {
+                // Simple progress animation without level up
+                withAnimation(.easeOut(duration: 1.2)) {
+                    animatedProgress = 1.0
+                    showFinalValues = true
+                }
             }
         }
-    }
-
-    // Helper to calculate level curve floors
-    private func levelCurveFloors(for xp: Int) -> (level: Int, floor: Int, ceiling: Int) {
-        var level = 1
-        var floor = 0
-        var ceiling = 100
-
-        while xp >= ceiling {
-            level += 1
-            floor = ceiling
-            ceiling = floor + (50 + (level - 1) * 50)
-        }
-
-        return (level, floor, ceiling)
     }
 }

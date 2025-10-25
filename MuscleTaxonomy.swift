@@ -197,7 +197,7 @@ private struct ExerciseRowCompact: View {
 
 struct MuscleExerciseListDeepView: View {
     @EnvironmentObject var repo: ExerciseRepository
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
     @Binding var state: BrowseState
     let parent: String
     let child: String
@@ -230,8 +230,11 @@ struct MuscleExerciseListDeepView: View {
         .navigationTitle(child)
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $showingSessionFor) { ctx in
-            ExerciseSessionView(exercise: ctx.exercise, currentEntryID: ctx.id)
-                .environmentObject(store)
+            ExerciseSessionView(
+                exercise: ctx.exercise,
+                initialEntryID: ctx.id ?? store.existingEntry(for: ctx.exercise.id)?.id
+            )
+            .environmentObject(store)
         }
         // keep content above the live grab tab
         .safeAreaInset(edge: .bottom) {

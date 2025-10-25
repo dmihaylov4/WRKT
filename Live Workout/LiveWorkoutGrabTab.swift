@@ -10,10 +10,13 @@ struct LiveWorkoutGrabTab: View {
     let onOpen: () -> Void
     let onCollapse: () -> Void
 
+    @ObservedObject private var restTimer = RestTimerManager.shared
+
     private let brand = Color(hex: "#F4E409")
     private let pill  = Color(hex: "#333333")
     private let border = Color.white.opacity(0.10)
     let r = RoundedRectangle(cornerRadius: 18, style: .continuous)
+
     var body: some View {
         HStack(spacing: 10) {
             ZStack {
@@ -29,9 +32,15 @@ struct LiveWorkoutGrabTab: View {
                     Text(title)
                         .font(.headline)
                         .foregroundStyle(.white)
-                    WorkoutTimerText(startDate: startDate)
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(brand.opacity(0.9))
+
+                    // Show rest timer OR workout timer, not both
+                    if restTimer.isActive {
+                        RestTimerCompact()
+                    } else {
+                        WorkoutTimerText(startDate: startDate)
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(brand.opacity(0.9))
+                    }
                 }
                 Text(subtitle)
                     .font(.caption)

@@ -20,10 +20,16 @@ actor Persistence {
         currentWorkoutURL = dir.appendingPathComponent("current_workout.json")
     }
     func loadWorkouts() async -> [CompletedWorkout] {
-        (try? Data(contentsOf: workoutsURL)).flatMap { try? JSONDecoder().decode([CompletedWorkout].self, from: $0) } ?? []
+        guard let data = try? Data(contentsOf: workoutsURL) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return (try? decoder.decode([CompletedWorkout].self, from: data)) ?? []
     }
     func saveWorkouts(_ items: [CompletedWorkout]) async {
-        guard let data = try? JSONEncoder().encode(items) else { return }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(items) else { return }
         try? data.write(to: workoutsURL, options: [.atomic])
     }
     func loadRuns() async -> [RunLog] {
@@ -35,7 +41,9 @@ actor Persistence {
     }
     func loadCurrentWorkout() async -> CurrentWorkout? {
         guard let data = try? Data(contentsOf: currentWorkoutURL) else { return nil }
-        return try? JSONDecoder().decode(CurrentWorkout.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(CurrentWorkout.self, from: data)
     }
 
     func saveCurrentWorkout(_ current: CurrentWorkout?) async {
@@ -43,7 +51,10 @@ actor Persistence {
             try? FileManager.default.removeItem(at: currentWorkoutURL)
             return
         }
-        guard let data = try? JSONEncoder().encode(current) else { return }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(current) else { return }
         try? data.write(to: currentWorkoutURL, options: [.atomic])
     }
 
@@ -55,8 +66,19 @@ actor Persistence {
 
 extension Persistence {
     func wipeAllDevOnly() async {
+        // Delete new storage (Documents directory)
         try? FileManager.default.removeItem(at: workoutsURL)
         try? FileManager.default.removeItem(at: runsURL)
         try? FileManager.default.removeItem(at: currentWorkoutURL)
+
+        // Delete old storage (Application Support directory)
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appDir = appSupport.appendingPathComponent("WRKT", isDirectory: true)
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("completed_workouts.json"))
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("current_workout.json"))
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("runs.json"))
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("pr_index.json"))
+
+        print("✅ All persisted JSON files deleted (both old and new storage)")
     }
 }

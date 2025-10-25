@@ -9,7 +9,7 @@ import Charts   // iOS 16+
 
 // MARK: - Public wrapper (easy to embed in ProfileView)
 struct ProfileStatsView: View {
-    @EnvironmentObject private var store: WorkoutStore
+    @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.modelContext) private var modelContext
 
     let weeks: Int
@@ -18,10 +18,33 @@ struct ProfileStatsView: View {
     init(weeks: Int = 12) { self.weeks = weeks }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Training trends")
-                    .font(.headline)
+        VStack(alignment: .leading, spacing: 20) {
+            // Premium section header
+            HStack(alignment: .center, spacing: 12) {
+                // Icon with gradient background
+                ZStack {
+                    LinearGradient(
+                        colors: [Color(hex: "#F4E409").opacity(0.3), Color(hex: "#F4E409").opacity(0.15)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(Color(hex: "#F4E409"))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Training Trends")
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(.white)
+
+                    Text("Last \(weeks) weeks")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.6))
+                }
 
                 Spacer()
 
@@ -40,21 +63,43 @@ struct ProfileStatsView: View {
                     if isReindexing {
                         ProgressView()
                             .controlSize(.small)
+                            .tint(.white.opacity(0.6))
                     } else {
                         Image(systemName: "arrow.clockwise")
                             .font(.caption)
+                            .foregroundStyle(.white.opacity(0.6))
                     }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
                 #endif
             }
+            .padding(.bottom, 4)
 
             ProfileChartsView(weeks: weeks)
-
-            // You can add more cards here later (e.g., Conditioning, Sleep, etc.)
         }
-        .padding(.vertical, 6)
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(hex: "#1A1A1A"), Color(hex: "#0D0D0D")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(
+                            LinearGradient(
+                                colors: [.white.opacity(0.15), .white.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+                )
+        )
+        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
     }
 
     private func getStatsAggregator() async -> StatsAggregator? {
@@ -105,13 +150,24 @@ struct ProfileChartsView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-         
-
-            // ===== SECTION 1: Training Trends =====
+            // ===== SECTION 1: Volume Chart & Totals =====
             if weekly.isEmpty {
-                ContentUnavailableView("No recent training",
-                                       systemImage: "chart.bar.xaxis",
-                                       description: Text("Complete some workouts to see trends."))
+                VStack(spacing: 12) {
+                    Image(systemName: "chart.bar.xaxis")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundStyle(.white.opacity(0.3))
+
+                    Text("No recent training")
+                        .font(.headline)
+                        .foregroundStyle(.white.opacity(0.9))
+
+                    Text("Complete some workouts to see trends")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.5))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
             } else {
                 VolumeWithTrendChart(weekly: weekly, movingAvgs: movingAvgs)
 
@@ -119,13 +175,17 @@ struct ProfileChartsView: View {
                     .padding(.top, 4)
             }
 
-            // ===== SECTION 2: Top Performers =====
-            TopLiftsCard(items: top)
-                .padding(.top, 12)
+            if !weekly.isEmpty && !top.isEmpty {
+                Divider()
+                    .background(.white.opacity(0.08))
+            }
 
-            // ===== SECTION 3: Training Balance =====
-            TrainingBalanceSection(weeks: weeks)
-                .padding(.top, 12)
+            // ===== SECTION 2: Top Performers =====
+            if !top.isEmpty {
+                TopLiftsCard(items: top)
+            }
+
+            // Note: TrainingBalanceSection is now rendered separately in ProfileView
         }
         .onAppear(perform: recomputeTop)
         .onChange(of: exVolumes, perform: { _ in recomputeTop() })
@@ -183,6 +243,7 @@ private struct VolumeWithTrendChart: View {
                     HStack(spacing: 6) {
                         Label("Weekly volume", systemImage: "chart.line.uptrend.xyaxis")
                             .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
                             title: "Weekly Volume",
                             message: "This chart shows your total training volume (reps × weight) per week. The blue line is your 4-week moving average. Bars are colored green when above your personal average and orange when below. The shaded area represents ±1 standard deviation from your trend."
@@ -190,14 +251,14 @@ private struct VolumeWithTrendChart: View {
                     }
                     Text("Total volume (reps × kg)")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.5))
                 }
                 Spacer()
                 if let last = weekly.last, let lastAvg = movingAvgs.last, hasMultipleWeeks {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("Week of " + WeekLabel.format(last.weekStart))
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.6))
                         if abs(lastAvg.percentChange) > 0.1 {
                             HStack(spacing: 2) {
                                 Image(systemName: lastAvg.percentChange > 0 ? "arrow.up.right" : "arrow.down.right")
@@ -221,10 +282,10 @@ private struct VolumeWithTrendChart: View {
                         .annotation(position: .top, alignment: .trailing) {
                             Text("Personal avg")
                                 .font(.caption2)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.white.opacity(0.7))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
-                                .background(.ultraThinMaterial, in: Capsule())
+                                .background(.white.opacity(0.1), in: Capsule())
                         }
                 }
 
@@ -293,8 +354,8 @@ private struct VolumeWithTrendChart: View {
             .padding(.leading, 8)
             .padding(.trailing, 8)
             .padding(.vertical, 12)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.quaternary))
+            .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
 
             // Legend (only show if we have trend analysis)
             if hasMultipleWeeks {
@@ -303,7 +364,7 @@ private struct VolumeWithTrendChart: View {
                     if showTrendLine {
                         LegendItem(color: .blue, label: "4-week trend", isLine: true)
                     }
-                    LegendItem(color: .secondary.opacity(0.5), label: "Personal avg", isDashed: true)
+                    LegendItem(color: .white.opacity(0.5), label: "Personal avg", isDashed: true)
                 }
                 .font(.caption2)
                 .padding(.top, 4)
@@ -311,7 +372,7 @@ private struct VolumeWithTrendChart: View {
                 // Explanation for single week
                 Text("Complete more workouts across different weeks to see trends")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.5))
                     .padding(.top, 4)
             }
         }
@@ -361,7 +422,7 @@ private struct LegendItem: View {
                     .frame(width: 10, height: 10)
             }
             Text(label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.6))
         }
     }
 }
@@ -409,6 +470,7 @@ private struct TopLiftsCard: View {
             HStack(spacing: 6) {
                 Label("Top lifts (by volume)", systemImage: "trophy")
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.9))
                 InfoButton(
                     title: "Top Lifts",
                     message: "Your top 5 exercises ranked by total training volume in the selected period. Arrows indicate trend direction (improving/declining) based on recent 4-week comparison. Percentage shows volume change."
@@ -416,14 +478,20 @@ private struct TopLiftsCard: View {
             }
 
             if items.isEmpty {
-                Text("No data yet.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 6)
-                    .padding(.bottom, 6)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.quaternary))
+                HStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.4))
+
+                    Text("No data yet")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.5))
+
+                    Spacer()
+                }
+                .padding(16)
+                .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
             } else {
                 VStack(spacing: 8) {
                     ForEach(items) { item in
@@ -438,6 +506,7 @@ private struct TopLiftsCard: View {
                             // Exercise name
                             Text(item.name)
                                 .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.9))
                                 .lineLimit(1)
 
                             Spacer()
@@ -446,7 +515,7 @@ private struct TopLiftsCard: View {
                             VStack(alignment: .trailing, spacing: 2) {
                                 Text(pretty(item.totalVolume))
                                     .font(.footnote.monospacedDigit())
-                                    .foregroundStyle(.primary)
+                                    .foregroundStyle(.white.opacity(0.95))
 
                                 if let change = item.volumeChange, abs(change) >= 5 {
                                     Text(String(format: "%+.0f%%", change))
@@ -456,8 +525,8 @@ private struct TopLiftsCard: View {
                             }
                         }
                         .padding(10)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.quaternary))
+                        .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
                     }
                 }
             }
@@ -498,7 +567,7 @@ private struct InfoButton: View {
         } label: {
             Image(systemName: "info.circle")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.5))
         }
         .buttonStyle(.plain)
         .alert(title, isPresented: $showingAlert) {
@@ -516,13 +585,17 @@ private struct StatPill: View {
     let value: String
     var body: some View {
         VStack(spacing: 4) {
-            Text(value).font(.headline.monospacedDigit())
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(value)
+                .font(.headline.monospacedDigit())
+                .foregroundStyle(.white.opacity(0.95))
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.quaternary))
+        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
     }
 }
 

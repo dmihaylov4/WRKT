@@ -11,7 +11,8 @@ private enum Theme {
 }
 
 struct LiveWorkoutOverlayCard: View {
-    @EnvironmentObject var store: WorkoutStore
+    @EnvironmentObject var store: WorkoutStoreV2
+    @ObservedObject private var restTimer = RestTimerManager.shared
 
     let namespace: Namespace.ID
     let title: String
@@ -76,7 +77,7 @@ struct LiveWorkoutOverlayCard: View {
                 NavigationStack {
                     ExerciseSessionView(
                         exercise: ex,
-                        currentEntryID: entry.id,
+                        initialEntryID: entry.id,
                         returnToHomeOnSave: false
                     )
                     .environmentObject(store)
@@ -97,7 +98,13 @@ struct LiveWorkoutOverlayCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     Text(title).font(.headline)
-                    WorkoutTimerText(startDate: startDate)
+
+                    // Show rest timer OR workout timer, not both
+                    if restTimer.isActive {
+                        RestTimerCompact()
+                    } else {
+                        WorkoutTimerText(startDate: startDate)
+                    }
                 }
                 Text(subtitle)
                     .font(.caption)
@@ -105,18 +112,6 @@ struct LiveWorkoutOverlayCard: View {
             }
 
             Spacer()
-
-            // Add: go to Home to pick an exercise (your earlier UX)
-            Button {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-                //NotificationCenter.default.post(name: .resetHomeToRoot, object: nil)
-                AppBus.postResetHome(reason: .user_intent)
-            } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.title2)
-                    .foregroundStyle(Theme.brand)
-            }
-            .accessibilityLabel("Add exercise")
 
             // Close
             Button {
@@ -280,26 +275,15 @@ private struct LiveWorkoutRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            ZStack {
-                Circle().fill(Theme.brand.opacity(0.18))
-                Image(systemName: "dumbbell")
-                    .foregroundStyle(Theme.brand)
-            }
-            .frame(width: 30, height: 30)
-
             VStack(alignment: .leading, spacing: 6) {
                 Text(entry.exerciseName)
-                    .font(.headline)
+                    .font(.subheadline.weight(.medium))
                 Text(summary)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.65))
             }
 
             Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.white.opacity(0.5))
-
             Button(role: .destructive, action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title3)
@@ -308,6 +292,7 @@ private struct LiveWorkoutRow: View {
             .padding(.leading, 4)
             .accessibilityLabel("Remove \(entry.exerciseName)")
         }
+    
         .contentShape(Rectangle())
         .onTapGesture { onOpen() }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {

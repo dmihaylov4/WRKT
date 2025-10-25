@@ -48,7 +48,7 @@ struct WeeklyProgress: Equatable {
 
 
 
-extension WorkoutStore {
+extension WorkoutStoreV2 {
     /// Build this week's progress vs. goal, using your SwiftData summaries for minutes
     /// and your completedWorkouts for strength-day counting.
     func currentWeekProgress(goal: WeeklyGoal,

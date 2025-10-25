@@ -50,15 +50,26 @@ final class HealthKitManager: ObservableObject {
     @Published var lastSyncDate: Date?
     @Published var syncError: Error?
 
+    // Progress tracking for batch sync
+    @Published var syncProgress: Double = 0.0  // 0.0 to 1.0
+    @Published var syncCurrentBatch: Int = 0
+    @Published var syncTotalBatches: Int = 0
+    @Published var syncProcessedCount: Int = 0
+    @Published var syncTotalCount: Int = 0
+
     // Auto-sync throttling (avoid syncing too frequently)
     private var lastAutoSyncDate: Date?
     private let autoSyncThrottleInterval: TimeInterval = 5 * 60  // 5 minutes
+
+    // Batch processing configuration
+    private let batchSize = 100
+    private let batchDelayMs: UInt64 = 50_000_000  // 50ms between batches
 
     // SwiftData context (injected from app)
     var modelContext: ModelContext?
 
     // WorkoutStore reference (injected from app)
-    weak var workoutStore: WorkoutStore?
+    weak var workoutStore: WorkoutStoreV2?
 
     // Observer queries (kept alive)
     private var workoutObserver: HKObserverQuery?
@@ -291,9 +302,9 @@ final class HealthKitManager: ObservableObject {
         }
     }
 
-    /// Force re-import all workouts from HealthKit (resets anchor and updates all runs with new fields)
+    /// Force re-import all workouts from HealthKit with batched, parallel processing
     func forceFullResync() async {
-        print("🚀 forceFullResync() called")
+        print("🚀 forceFullResync() called - batched mode")
 
         guard let context = modelContext else {
             print("⚠️ ModelContext not set")
@@ -310,11 +321,16 @@ final class HealthKitManager: ObservableObject {
         isSyncing = true
         defer {
             isSyncing = false
+            syncProgress = 0.0
+            syncCurrentBatch = 0
+            syncTotalBatches = 0
+            syncProcessedCount = 0
+            syncTotalCount = 0
             print("🏁 isSyncing set to false")
         }
 
         do {
-            print("🔄 Starting full re-sync of all HealthKit workouts...")
+            print("🔄 Starting batched full re-sync of all HealthKit workouts...")
             print("   Current runs count: \(await MainActor.run { store.runs.count })")
 
             // Delete the anchor to force full re-import
@@ -330,77 +346,51 @@ final class HealthKitManager: ObservableObject {
             // Perform full sync (with nil anchor, it fetches everything)
             let (added, deleted, newAnchor) = try await fetchWorkoutsAnchored(anchor: nil)
 
-            print("  → Processing \(added.count) workouts from HealthKit")
+            print("  → Processing \(added.count) workouts in batches of \(batchSize)")
 
-            // Collect all updates in a batch for efficiency
-            var updatedRuns: [Run] = []
-
-            // Process all workouts
-            for (index, workout) in added.enumerated() {
-                if index % 100 == 0 {
-                    print("  → Progress: \(index)/\(added.count)")
-                }
-
-                // Check if run already exists
-                let existingRun = await MainActor.run {
-                    store.runs.first(where: { $0.healthKitUUID == workout.uuid })
-                }
-
-                if let existing = existingRun {
-                    // Update existing run
-                    var updated = existing
-                    updated.date = workout.endDate  // Update to END date for matching
-                    updated.distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
-                    updated.durationSec = Int(workout.duration)
-                    updated.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
-
-                    let newType = workoutActivityTypeName(workout.workoutActivityType)
-                    updated.workoutType = newType
-                    updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
-
-                    if index < 5 {  // Debug first 5
-                        print("    [Debug] Updating: old=\(existing.workoutType ?? "nil") new=\(newType)")
-                        print("             date: \(existing.date.formatted(date: .omitted, time: .shortened)) → \(workout.endDate.formatted(date: .omitted, time: .shortened))")
-                    }
-
-                    // Fetch heart rate if needed
-                    if updated.avgHeartRate == nil {
-                        updated.avgHeartRate = try? await averageHeartRate(for: workout)
-                    }
-
-                    updatedRuns.append(updated)
-                } else {
-                    // Import new workout
-                    let km = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
-                    let sec = Int(workout.duration)
-                    let kcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
-                    let avgHR = try? await averageHeartRate(for: workout)
-                    let workoutType = workoutActivityTypeName(workout.workoutActivityType)
-                    let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
-
-                    let run = Run(
-                        date: workout.endDate,  // Use END date for matching with app workout completion time
-                        distanceKm: km,
-                        durationSec: sec,
-                        notes: nil,
-                        healthKitUUID: workout.uuid,
-                        avgHeartRate: avgHR,
-                        calories: kcal,
-                        route: nil,
-                        workoutType: workoutType,
-                        workoutName: workoutName
-                    )
-
-                    await MainActor.run {
-                        store.addRun(run)
-                    }
-                }
+            // Update progress tracking
+            await MainActor.run {
+                syncTotalCount = added.count
+                syncTotalBatches = (added.count + batchSize - 1) / batchSize
+                syncProcessedCount = 0
+                syncCurrentBatch = 0
+                syncProgress = 0.0
             }
 
-            // Batch update all modified runs
-            if !updatedRuns.isEmpty {
+            // Split workouts into batches
+            let batches = stride(from: 0, to: added.count, by: batchSize).map { startIndex in
+                Array(added[startIndex..<min(startIndex + batchSize, added.count)])
+            }
+
+            // Process each batch with parallel processing
+            for (batchIndex, batch) in batches.enumerated() {
                 await MainActor.run {
-                    store.batchUpdateRuns(updatedRuns)
+                    syncCurrentBatch = batchIndex + 1
+                    print("📦 Processing batch \(batchIndex + 1)/\(batches.count) (\(batch.count) workouts)")
+                }
+
+                // Process batch in parallel using TaskGroup
+                let batchResults = await processBatchInParallel(batch, store: store)
+
+                // Apply results on main actor
+                await MainActor.run {
+                    if !batchResults.updatedRuns.isEmpty {
+                        store.batchUpdateRuns(batchResults.updatedRuns)
+                    }
+
+                    for newRun in batchResults.newRuns {
+                        store.addRun(newRun)
+                    }
+
+                    syncProcessedCount += batch.count
+                    syncProgress = Double(syncProcessedCount) / Double(syncTotalCount)
+
+                    print("  ✓ Batch complete: \(syncProcessedCount)/\(syncTotalCount) (\(Int(syncProgress * 100))%)")
+                }
+
+                // Small delay between batches to keep UI responsive
+                if batchIndex < batches.count - 1 {
+                    try? await Task.sleep(nanoseconds: batchDelayMs)
                 }
             }
 
@@ -417,7 +407,7 @@ final class HealthKitManager: ObservableObject {
             lastSyncDate = .now
             syncError = nil
 
-            print("✅ Full re-sync complete! Updated \(added.count) workouts")
+            print("✅ Batched full re-sync complete! Processed \(added.count) workouts in \(batches.count) batches")
 
             // Queue route fetching for recent workouts
             await queueRouteFetching(for: Array(added.prefix(20)), context: context)
@@ -426,6 +416,80 @@ final class HealthKitManager: ObservableObject {
             print("❌ Full re-sync failed: \(error)")
             syncError = error
         }
+    }
+
+    /// Process a batch of workouts in parallel using TaskGroup
+    private func processBatchInParallel(_ batch: [HKWorkout], store: WorkoutStoreV2) async -> (updatedRuns: [Run], newRuns: [Run]) {
+        var updatedRuns: [Run] = []
+        var newRuns: [Run] = []
+
+        await withTaskGroup(of: (Run?, Bool).self) { group in
+            // Add tasks for each workout in the batch
+            for workout in batch {
+                group.addTask {
+                    // Check if run already exists
+                    let existingRun = await MainActor.run {
+                        store.runs.first(where: { $0.healthKitUUID == workout.uuid })
+                    }
+
+                    if let existing = existingRun {
+                        // Update existing run
+                        var updated = existing
+                        updated.date = workout.endDate
+                        updated.distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+                        updated.durationSec = Int(workout.duration)
+                        updated.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+
+                        let newType = self.workoutActivityTypeName(workout.workoutActivityType)
+                        updated.workoutType = newType
+                        updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+                        // Fetch heart rate if needed (in parallel)
+                        if updated.avgHeartRate == nil {
+                            updated.avgHeartRate = try? await self.averageHeartRate(for: workout)
+                        }
+
+                        return (updated, true)  // true = existing
+                    } else {
+                        // Import new workout
+                        let km = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+                        let sec = Int(workout.duration)
+                        let kcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+                        let avgHR = try? await self.averageHeartRate(for: workout)
+                        let workoutType = self.workoutActivityTypeName(workout.workoutActivityType)
+                        let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+                        let run = Run(
+                            date: workout.endDate,
+                            distanceKm: km,
+                            durationSec: sec,
+                            notes: nil,
+                            healthKitUUID: workout.uuid,
+                            avgHeartRate: avgHR,
+                            calories: kcal,
+                            route: nil,
+                            workoutType: workoutType,
+                            workoutName: workoutName
+                        )
+
+                        return (run, false)  // false = new
+                    }
+                }
+            }
+
+            // Collect results
+            for await (run, isExisting) in group {
+                if let run = run {
+                    if isExisting {
+                        updatedRuns.append(run)
+                    } else {
+                        newRuns.append(run)
+                    }
+                }
+            }
+        }
+
+        return (updatedRuns, newRuns)
     }
 
     func syncExerciseTimeIncremental() async {
@@ -790,7 +854,7 @@ final class HealthKitManager: ObservableObject {
 
     // MARK: - Workout Type Mapping
 
-    private func workoutActivityTypeName(_ type: HKWorkoutActivityType) -> String {
+    private nonisolated func workoutActivityTypeName(_ type: HKWorkoutActivityType) -> String {
         switch type {
         case .running: return "Running"
         case .walking: return "Walking"
