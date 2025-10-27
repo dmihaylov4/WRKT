@@ -1,0 +1,30 @@
+{
+  "configurations" : [
+    {
+      "id" : "5F004AA2-F545-40F2-A439-A6F805226D41",
+      "name" : "Test Scheme Action",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "performanceAntipatternCheckerEnabled" : true,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:WRKT.xcodeproj",
+      "identifier" : "2E7461852E93EA5A00A71C35",
+      "name" : "WRKT"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : true,
+      "target" : {
+        "containerPath" : "container:WRKT.xcodeproj",
+        "identifier" : "2E196EFF2EAE589C00EB4780",
+        "name" : "WRKTTests"
+      }
+    }
+  ],
+  "version" : 1
+}
