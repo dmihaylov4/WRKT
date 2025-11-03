@@ -7,16 +7,18 @@
 
 import SwiftUI
 
-// MARK: - Theme
+// MARK: - Theme (migrated to DS)
+// ExerciseSessionTheme is now a typealias pointing to DS colors
+// Files using ExerciseSessionTheme should gradually migrate to using DS directly
 
 enum ExerciseSessionTheme {
-    static let bg        = Color.black
-    static let surface   = Color(red: 0.07, green: 0.07, blue: 0.07)
-    static let surface2  = Color(red: 0.10, green: 0.10, blue: 0.10)
-    static let border    = Color.white.opacity(0.10)
-    static let text      = Color.white
-    static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#F4E409")
+    static let bg        = DS.Semantic.surface
+    static let surface   = DS.Theme.cardTop
+    static let surface2  = DS.Semantic.surface50
+    static let border    = DS.Semantic.border
+    static let text      = DS.Semantic.textPrimary
+    static let secondary = DS.Semantic.textSecondary
+    static let accent    = DS.Theme.accent
 }
 
 // MARK: - Exercise Guide Metadata

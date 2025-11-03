@@ -30,6 +30,22 @@ struct Exercise: Identifiable, Codable, Hashable {
     var images: [String]?
     var category: String
     var subregionTags: [String] = []
+
+    // Custom exercise flag
+    var isCustom: Bool = false
+
+    // MARK: - Multi-Modal Tracking Support
+    /// Tracking mode: "weighted", "timed", "bodyweight", "distance"
+    var trackingMode: String = "weighted"
+    /// Default duration in seconds for timed exercises (e.g., plank holds)
+    var defaultDurationSeconds: Int?
+    /// Recommended rest time in seconds (context-aware)
+    var recommendedRestSeconds: Int?
+
+    // MARK: - Computed Properties
+    var isTimedExercise: Bool { trackingMode == "timed" }
+    var isBodyweightExercise: Bool { trackingMode == "bodyweight" }
+    var isWeightedExercise: Bool { trackingMode == "weighted" }
 }
 
 // MARK: - Difficulty Level
@@ -112,6 +128,11 @@ struct ExcelExerciseDTO: Decodable, Identifiable, Hashable {
     let mechanics: String?
     let laterality: String?
     let primaryClassification: String?
+
+    // MARK: - Multi-Modal Tracking Support (optional fields for backward compatibility)
+    let trackingMode: String?
+    let defaultDurationSeconds: Int?
+    let recommendedRestSeconds: Int?
 
     // Convenience alias
     var name: String { exercise }

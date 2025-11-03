@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import OSLog
 
 // MARK: - Root picker used by SearchView's browseState flow (kept for compatibility)
 struct BodyBrowseRootView: View {
@@ -113,42 +114,6 @@ struct SessionSheetContext: Identifiable, Hashable {
     let exercise: Exercise
 }
 
-// BodyBrowse.swift — Difficulty palette + badge
-private enum DifficultyTheme {
-    // Dark-mode friendly hues, distinct from your main accent yellow (#F4E409)
-    static let novice       = Color(hex: "#22C55E") // green-500
-    static let beginner     = Color(hex: "#2DD4BF") // teal-400
-    static let intermediate = Color(hex: "#F59E0B") // amber-500 (distinct from your brighter CTA yellow)
-    static let advanced     = Color(hex: "#EF4444") // red-500
-
-    static func color(for level: DifficultyLevel) -> Color {
-        switch level {
-        case .novice:       return novice
-        case .beginner:     return beginner
-        case .intermediate: return intermediate
-        case .advanced:     return advanced
-        }
-    }
-}
-
-private struct DifficultyBadge: View {
-    let level: DifficultyLevel
-    var body: some View {
-        let c = DifficultyTheme.color(for: level)
-        HStack(spacing: 6) {
-            Circle().fill(c).frame(width: 8, height: 8)
-            Text(level.label)
-                .font(.caption2.weight(.semibold))
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .foregroundStyle(.white.opacity(0.9))
-        .background(c.opacity(0.16), in: Capsule())
-        .overlay(Capsule().stroke(c.opacity(0.35), lineWidth: 1))
-        .accessibilityLabel("Difficulty: \(level.label)")
-    }
-}
-
 // MARK: - Flat exercise list for a subregion (legacy browseState flow)
 struct MuscleExerciseListView: View {
     @EnvironmentObject var repo: ExerciseRepository
@@ -156,9 +121,21 @@ struct MuscleExerciseListView: View {
     @State private var showingSessionFor: SessionSheetContext? = nil
     @Binding var state: BrowseState
     let subregion: String
+
+    // Optional navigation path for NavigationStack-based navigation (HomeView)
+    var navigationPath: Binding<NavigationPath>? = nil
+
+    @Environment(\.dismiss) private var dismiss
+
+    // Add identity to force recreation when subregion changes
+    var viewID: String { subregion }
     @EnvironmentObject var favs: FavoritesStore
+    @EnvironmentObject var customStore: CustomExerciseStore
     @AppStorage("equipFilter") private var equip: EquipBucket = .all
     @AppStorage("moveFilter")  private var move:  MoveBucket  = .all
+
+    // Custom exercise creation
+    @State private var showingCreateExercise = false
 
     // Tutorial state
     @StateObject private var onboardingManager = OnboardingManager.shared
@@ -167,7 +144,15 @@ struct MuscleExerciseListView: View {
     @State private var equipmentFilterFrame: CGRect = .zero
     @State private var movementFilterFrame: CGRect = .zero
     @State private var exerciseListFrame: CGRect = .zero
+    @State private var createButtonFrame: CGRect = .zero
     @State private var framesReady = false
+
+    // Search state
+    @State private var isSearching = false
+    @State private var searchText = ""
+    @State private var debouncedSearchText = ""  // Debounced for filtering
+    @FocusState private var searchFocused: Bool
+    @State private var expandedSuggestions: Set<String> = []  // Track which suggestion groups are expanded
 
     // Debug: Set to true to visualize captured frames
     private let debugFrames = true
@@ -177,33 +162,96 @@ struct MuscleExerciseListView: View {
 
     var body: some View {
         ZStack {
-            Group {
+            // Keep List in hierarchy even when empty to prevent keyboard dismissal
+            List {
                 if rows.isEmpty {
-                    ScrollView {
+                    // Empty state as a list row to maintain view hierarchy
+                    Section {
                         EmptyExercisesView(
                             title: "No exercises found",
-                            message: "Try loosening the equipment/movement filters or pick a different muscle.",
-                            onClear: { equip = .all; move = .all }
+                            message: isSearching
+                                ? "No exercises match '\(searchText)' in \(subregion)."
+                                : "Try loosening the equipment/movement filters or pick a different muscle.",
+                            onClear: {
+                                equip = .all
+                                move = .all
+                                // Also clear search if active
+                                if isSearching {
+                                    searchText = ""
+                                    debouncedSearchText = ""
+                                }
+                            }
                         )
-                        .padding(.top, 16)
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
-                    .background(DS.Semantic.surface)
+
+                    // Cross-muscle search suggestions when searching and no results
+                    if isSearching && !debouncedSearchText.isEmpty {
+                        ForEach(crossMuscleSuggestions, id: \.muscle) { suggestion in
+                            CrossMuscleSuggestionSection(
+                                suggestion: suggestion,
+                                isExpanded: expandedSuggestions.contains(suggestion.muscle),
+                                onToggle: {
+                                    if expandedSuggestions.contains(suggestion.muscle) {
+                                        expandedSuggestions.remove(suggestion.muscle)
+                                    } else {
+                                        expandedSuggestions.insert(suggestion.muscle)
+                                    }
+                                },
+                                onSelectExercise: { exercise in
+                                    openSession(for: exercise)
+                                },
+                                onShowAll: {
+                                    // Navigate to the suggested muscle group
+                                    Haptics.light()
+
+                                    // Capture the target muscle name
+                                    let targetMuscle = suggestion.muscle
+
+                                    // Dismiss keyboard
+                                    searchFocused = false
+                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+
+                                    // Clear search state
+                                    searchText = ""
+                                    debouncedSearchText = ""
+                                    isSearching = false
+
+                                    // Wait for keyboard dismissal, then trigger navigation
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                        if let navPath = navigationPath {
+                                            // NavigationStack mode (HomeView): Replace current route
+                                            // Batch both operations in a single transaction to avoid multiple updates per frame
+                                            var transaction = Transaction(animation: .spring(response: 0.35, dampingFraction: 0.8))
+                                            withTransaction(transaction) {
+                                                navPath.wrappedValue.removeLast()
+                                                navPath.wrappedValue.append(BrowseRoute.subregion(targetMuscle))
+                                            }
+                                        } else {
+                                            // State-based navigation (SearchView)
+                                            state = .subregion(targetMuscle)
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 } else {
-                    List(rows, id: \.id) { ex in
+                    ForEach(rows, id: \.id) { ex in
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(ex.name).font(.body)
-                                HStack(spacing: 6) {
-                                    MetaPill(icon: EquipmentIcon.symbol(for: ex.equipment ?? ""),
-                                             label: EquipmentIcon.label(for: ex.equipment ?? ""),
-                                             tint: EquipmentIcon.color(for: ex.equipment ?? ""))
-                                    MetaPill(icon: CategoryIcon.symbol(for: ex.category),
-                                             label: ex.category.capitalized,
-                                             tint: CategoryIcon.color(for: ex.category))
+                                HStack(spacing: 8) {
+                                    Text(ex.name).font(.body)
+                                    if ex.isCustom {
+                                        CustomExerciseBadge()
+                                    }
+                                }
+                                if let mechanic = ex.mechanic {
+                                    MechanicPill(mechanic: mechanic)
                                 }
                             }
                             Spacer(minLength: 8)
-                            //if let lvl = ex.difficultyLevel { DifficultyBadge(level: lvl) }
                             FavoriteHeartButton(exerciseID: ex.id)
                         }
                         .contentShape(Rectangle())
@@ -221,32 +269,61 @@ struct MuscleExerciseListView: View {
                         }
                         .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .captureFrame(in: .global) { frame in
-                        exerciseListFrame = frame
-                        print("📍 Exercise list frame captured: \(frame)")
-                        checkFramesReady()
-                    }
-                    .listStyle(.plain)
-                    .background(DS.Semantic.surface)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: rows.map { $0.id })
                 }
             }
+            .captureFrame(in: .global) { frame in
+                exerciseListFrame = frame
+
+                checkFramesReady()
+            }
+            .listStyle(.plain)
+            .background(DS.Semantic.surface)
             .safeAreaInset(edge: .top) {
-                FiltersBar(
-                    equip: $equip,
-                    move: $move,
-                    coordinateSpace: .global,
-                    onEquipmentFrameCaptured: { frame in
-                        equipmentFilterFrame = frame
-                        print("📍 Equipment filter frame captured: \(frame)")
-                        checkFramesReady()
-                    },
-                    onMovementFrameCaptured: { frame in
-                        movementFilterFrame = frame
-                        print("📍 Movement filter frame captured: \(frame)")
-                        checkFramesReady()
+                VStack(spacing: 0) {
+                    // Search bar (slides in when active)
+                    if isSearching {
+                        ExerciseSearchBar(
+                            text: $searchText,
+                            isFocused: $searchFocused,
+                            onCancel: {
+                                // Dismiss keyboard and clear focus
+                                searchFocused = false
+
+                                // Clear search state immediately
+                                isSearching = false
+                                searchText = ""
+                                debouncedSearchText = ""
+                                Haptics.light()
+                            }
+                        )
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .move(edge: .top).combined(with: .opacity)
+                        ))
+                        .zIndex(1) // Ensure search bar renders on top during transition
+                    } else {
+                        // Filters (hidden when searching)
+                        FiltersBar(
+                            equip: $equip,
+                            move: $move,
+                            coordinateSpace: .global,
+                            onEquipmentFrameCaptured: { frame in
+                                equipmentFilterFrame = frame
+                                checkFramesReady()
+                            },
+                            onMovementFrameCaptured: { frame in
+                                movementFilterFrame = frame
+                                checkFramesReady()
+                            }
+                        )
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .move(edge: .top).combined(with: .opacity)
+                        ))
+                        .zIndex(0)
                     }
-                )
+                }
+                .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isSearching)
             }
             .sheet(item: $showingSessionFor) { ctx in
                 ExerciseSessionView(
@@ -256,12 +333,50 @@ struct MuscleExerciseListView: View {
                 )
                 .environmentObject(store)
             }
+            .sheet(isPresented: $showingCreateExercise) {
+                CreateExerciseView(preselectedMuscle: subregion)
+                    .environmentObject(customStore)
+                    .environmentObject(repo)
+            }
             .navigationTitle(subregion)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: 16) {
+                        // Search icon (hidden when searching)
+                        if !isSearching {
+                            Button {
+                                // Set states immediately for instant response
+                                isSearching = true
+                                // Focus immediately - the keyboard animation will handle itself
+                                searchFocused = true
+                                Haptics.light()
+                            } label: {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.title3)
+                            }
+                            .accessibilityLabel("Search exercises")
+                        }
+
+                        // Create exercise button
+                        Button {
+                            showingCreateExercise = true
+                        } label: {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title3)
+                                .captureFrame(in: .global) { frame in
+                                    createButtonFrame = frame
+                                    checkFramesReady()
+                                }
+                        }
+                        .accessibilityLabel("Create custom exercise")
+                    }
+                    .tint(DS.Palette.marone)  // Apply tint to entire toolbar item group
+                }
+            }
             .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .background(DS.Semantic.surface.ignoresSafeArea())
             .onAppear {
-                print("🎬 MuscleExerciseListView appeared")
 
                 // Reset for testing
                // OnboardingManager.shared.hasSeenBodyBrowse = false
@@ -269,11 +384,23 @@ struct MuscleExerciseListView: View {
                 // Fallback: if frames haven't loaded after 2.5 seconds, show tutorial anyway
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                     if !framesReady && !onboardingManager.hasSeenBodyBrowse && !showTutorial {
-                        print("⚠️ Frames not ready after 2.5s, showing tutorial without spotlights")
-                        print("   Equipment: \(equipmentFilterFrame)")
-                        print("   Movement: \(movementFilterFrame)")
-                        print("   List: \(exerciseListFrame)")
                         showTutorial = true
+                    }
+                }
+            }
+            .onDisappear {
+                // Dismiss keyboard when navigating away to prevent RTI warnings
+                if searchFocused {
+                    searchFocused = false
+                }
+            }
+            .onChange(of: searchText) { oldValue, newValue in
+                // Debounce search to prevent keyboard dismissal when typing fast
+                // The user sees their typed text immediately, but filtering happens after pause
+                Task {
+                    try? await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
+                    if searchText == newValue {
+                        debouncedSearchText = newValue
                     }
                 }
             }
@@ -281,10 +408,6 @@ struct MuscleExerciseListView: View {
                 // Show tutorial once frames are captured
                 if ready && !onboardingManager.hasSeenBodyBrowse && !showTutorial {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        print("🎓 Showing tutorial with frames:")
-                        print("   Equipment: \(equipmentFilterFrame)")
-                        print("   Movement: \(movementFilterFrame)")
-                        print("   List: \(exerciseListFrame)")
                         showTutorial = true
                     }
                 }
@@ -308,20 +431,75 @@ struct MuscleExerciseListView: View {
     }
 
     private var rows: [Exercise] {
-        // 1) by primary muscle - use byID index (contains all exercises)
+        // 1) Primary muscle filter
         let keys = MuscleMapper.synonyms(for: subregion)
         let primary = repo.byID.values.filter { ex in
             let prim = ex.primaryMuscles.map { $0.lowercased() }
             return prim.contains { m in keys.contains { key in m.contains(key) } }
         }
 
-        // 2) filters via normalized buckets (robust)
-        let byEquip = (equip == .all) ? primary : primary.filter { $0.equipBucket == equip }
-        let byMove  = (move  == .all) ? byEquip  : byEquip.filter  { $0.moveBucket  == move  }
+        // 2) Search filter (if searching) - use smart fuzzy search with typo tolerance
+        let searchFiltered = isSearching && !debouncedSearchText.isEmpty
+            ? primary.filter { SmartSearch.matches(query: debouncedSearchText, in: $0.name) }
+                     .sorted { SmartSearch.score(query: debouncedSearchText, in: $0.name) >
+                              SmartSearch.score(query: debouncedSearchText, in: $1.name) }
+            : primary
 
-        // 3) sort
+        // 3) Equipment/Movement filters (only when not searching)
+        let byEquip = (isSearching || equip == .all)
+            ? searchFiltered
+            : searchFiltered.filter { $0.equipBucket == equip }
+
+        let byMove = (isSearching || move == .all)
+            ? byEquip
+            : byEquip.filter { $0.moveBucket == move }
+
+        // 4) Sort
         let base = byMove.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-           return favoritesFirst(base, favIDs: favs.ids)
+        return favoritesFirst(base, favIDs: favs.ids)
+    }
+
+    /// Cross-muscle search suggestions - searches other muscles when current muscle has no results
+    private var crossMuscleSuggestions: [MuscleSuggestion] {
+        // Only compute when searching and no results in current muscle
+        guard isSearching, !debouncedSearchText.isEmpty, rows.isEmpty else { return [] }
+
+        // Get current region
+        let currentRegion: BodyRegion = MuscleTaxonomy.subregions(for: .upper).contains(subregion) ? .upper : .lower
+        let oppositeRegion: BodyRegion = currentRegion == .upper ? .lower : .upper
+
+        // Get all muscles to search (same region first, then opposite)
+        let sameRegionMuscles = MuscleTaxonomy.subregions(for: currentRegion).filter { $0 != subregion }
+        let oppositeRegionMuscles = MuscleTaxonomy.subregions(for: oppositeRegion)
+        let allMuscles = sameRegionMuscles + oppositeRegionMuscles
+
+        // Search each muscle and collect matches
+        var suggestions: [MuscleSuggestion] = []
+        for muscle in allMuscles {
+            let keys = MuscleMapper.synonyms(for: muscle)
+            let muscleExercises = repo.byID.values.filter { ex in
+                let prim = ex.primaryMuscles.map { $0.lowercased() }
+                return prim.contains { m in keys.contains { key in m.contains(key) } }
+            }
+
+            let matches = muscleExercises
+                .filter { SmartSearch.matches(query: debouncedSearchText, in: $0.name) }
+                .sorted { SmartSearch.score(query: debouncedSearchText, in: $0.name) >
+                         SmartSearch.score(query: debouncedSearchText, in: $1.name) }
+
+            if !matches.isEmpty {
+                let region = MuscleTaxonomy.subregions(for: .upper).contains(muscle) ? "Upper Body" : "Lower Body"
+                suggestions.append(MuscleSuggestion(
+                    muscle: muscle,
+                    region: region,
+                    exercises: Array(matches.prefix(5)),  // Limit to 5 per muscle
+                    totalCount: matches.count
+                ))
+            }
+        }
+
+        // Return top 5 muscles with most matches
+        return Array(suggestions.sorted { $0.totalCount > $1.totalCount }.prefix(5))
     }
 
     private func openSession(for ex: Exercise) {
@@ -336,17 +514,12 @@ struct MuscleExerciseListView: View {
         let equipReady = equipmentFilterFrame != .zero && equipmentFilterFrame.width > 0
         let moveReady = movementFilterFrame != .zero && movementFilterFrame.width > 0
         let listReady = exerciseListFrame != .zero && exerciseListFrame.height > 0
+        let createReady = createButtonFrame != .zero && createButtonFrame.width > 0
 
-        print("🔍 Frame readiness check:")
-        print("   Equipment ready: \(equipReady) - \(equipmentFilterFrame)")
-        print("   Movement ready: \(moveReady) - \(movementFilterFrame)")
-        print("   List ready: \(listReady) - \(exerciseListFrame)")
-
-        if equipReady && moveReady && listReady && !framesReady {
-            print("✅ All frames ready for tutorial!")
+        if equipReady && moveReady && listReady && createReady && !framesReady {
             framesReady = true
         } else if !framesReady {
-            print("⏳ Still waiting for frames...")
+            AppLogger.debug("Still waiting for frames...", category: AppLogger.ui)
         }
     }
 
@@ -378,7 +551,7 @@ struct MuscleExerciseListView: View {
             ),
             TutorialStep(
                 title: "Exercise List",
-                message: "Each exercise shows equipment and category tags. The colored stripe indicates difficulty level. Tap the heart to favorite, tap the exercise to start a workout.",
+                message: "Each exercise shows Compound/Isolation type. The colored stripe indicates difficulty. Tap the heart to favorite.",
                 spotlightFrame: CGRect(
                     x: exerciseListFrame.origin.x,
                     y: max(0, exerciseListFrame.origin.y - 8),  // Expand upward but not beyond screen bounds
@@ -387,6 +560,13 @@ struct MuscleExerciseListView: View {
                 ),
                 tooltipPosition: .bottom,
                 highlightCornerRadius: 20
+            ),
+            TutorialStep(
+                title: "Create Custom Exercise",
+                message: "Tap the yellow + button in the top-right corner to create your own custom exercises. They'll be marked with a 'CUSTOM' badge and appear at the top of the list.",
+                spotlightFrame: nil,  // No spotlight to avoid toolbar z-index issues
+                tooltipPosition: .top,
+                highlightCornerRadius: 16
             )
         ]
     }
@@ -413,171 +593,6 @@ struct MuscleExerciseListView: View {
     }
 }
 
-struct FiltersBar: View {
-    @Binding var equip: EquipBucket
-    @Binding var move:  MoveBucket
-    var coordinateSpace: CoordinateSpace = .global
-    var onEquipmentFrameCaptured: ((CGRect) -> Void)? = nil
-    var onMovementFrameCaptured: ((CGRect) -> Void)? = nil
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Equipment Row
-            VStack(alignment: .leading, spacing: 6) {
-                Text("EQUIPMENT")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
-                    .padding(.horizontal, 16)
-
-                ChipRow(all: EquipBucket.allCases, selected: $equip) { tapped in
-                    equip = (tapped == equip ? .all : tapped)
-                } onClear: {
-                    equip = .all
-                }
-            }
-            .padding(.top, 12)
-            .padding(.bottom, 10)
-            .captureFrame(in: coordinateSpace) { frame in
-                onEquipmentFrameCaptured?(frame)
-            }
-
-            // Subtle divider
-            Rectangle()
-                .fill(DS.Semantic.border.opacity(0.3))
-                .frame(height: 0.5)
-                .padding(.horizontal, 16)
-
-            // Movement Row
-            VStack(alignment: .leading, spacing: 6) {
-                Text("MOVEMENT")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
-                    .padding(.horizontal, 16)
-
-                ChipRow(all: MoveBucket.allCases, selected: $move) { tapped in
-                    move = (tapped == move ? .all : tapped)
-                } onClear: {
-                    move = .all
-                }
-            }
-            .padding(.top, 10)
-            .padding(.bottom, 12)
-            .captureFrame(in: coordinateSpace) { frame in
-                onMovementFrameCaptured?(frame)
-            }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 0, style: .continuous)
-                .fill(DS.Semantic.surface)
-                .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
-        )
-    }
-}
-
-private struct ChipRow<T: CaseIterable & Hashable & RawRepresentable>: View where T.AllCases: RandomAccessCollection, T.RawValue == String {
-    let all: T.AllCases
-    @Binding var selected: T
-    let onTap: (T) -> Void
-    let onClear: () -> Void
-
-    var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(all), id: \.self) { bucket in
-                        SelectChip(
-                            title: bucket.rawValue,
-                            selected: bucket == selected,
-                            tap: {
-                                onTap(bucket)
-                            },
-                            clear: onClear
-                        )
-                        .id(bucket)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 4)
-            }
-            .scrollClipDisabled()
-            .onAppear {
-                // Scroll to initial selection without animation
-                proxy.scrollTo(selected, anchor: .center)
-            }
-            .onChange(of: selected) { _, newValue in
-                // Smoothly scroll to newly selected chip
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    proxy.scrollTo(newValue, anchor: .center)
-                }
-            }
-        }
-    }
-}
-
-private struct SelectChip: View {
-    let title: String
-    let selected: Bool
-    let tap: () -> Void
-    let clear: () -> Void
-
-    @State private var isPressed: Bool = false
-
-    var body: some View {
-        Button(action: {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                tap()
-            }
-        }) {
-            Text(title)
-                .font(.subheadline.weight(selected ? .semibold : .medium))
-                .foregroundStyle(selected ? DS.Palette.marone : DS.Semantic.textPrimary.opacity(0.8))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Group {
-                        if selected {
-                            Capsule()
-                                .fill(DS.Palette.marone.opacity(0.15))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(DS.Palette.marone.opacity(0.5), lineWidth: 1.5)
-                                )
-                        } else {
-                            Capsule()
-                                .fill(DS.Semantic.surface50.opacity(0.3))
-                                .overlay(
-                                    Capsule()
-                                        .strokeBorder(DS.Semantic.border.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                    }
-                )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isPressed ? 0.95 : 1.0)
-        .animation(.spring(response: 0.2, dampingFraction: 0.6), value: isPressed)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selected)
-        // Double-tap anywhere on the chip clears the current filter row
-        .simultaneousGesture(
-            TapGesture(count: 2).onEnded {
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    clear()
-                }
-            }
-        )
-        .onLongPressGesture(minimumDuration: 0.0, maximumDistance: 50) {
-            // On release
-        } onPressingChanged: { pressing in
-            isPressed = pressing
-        }
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(selected ? .isSelected : [])
-        .accessibilityHint(selected ? "Double tap to clear filter" : "Tap to select")
-    }
-}
-
 // MARK: - Helpers
 
 enum MuscleMapper {
@@ -599,181 +614,5 @@ enum MuscleMapper {
         case "abductors": return ["abductor","abductors","outer thigh","glute medius","glute minimus"]
         default: return [name.lowercased()]
         }
-    }
-}
-
-
-// BodyBrowse.swift — Difficulty filter model + chip
-
-private enum DifficultyFilter: CaseIterable, Hashable {
-    case all, novice, beginner, intermediate, advanced
-
-    var label: String {
-        switch self {
-        case .all: "All"
-        case .novice: "Novice"
-        case .beginner: "Beginner"
-        case .intermediate: "Intermediate"
-        case .advanced: "Advanced"
-        }
-    }
-
-    var level: DifficultyLevel? {
-        switch self {
-        case .all: nil
-        case .novice: .novice
-        case .beginner: .beginner
-        case .intermediate: .intermediate
-        case .advanced: .advanced
-        }
-    }
-}
-
-private struct MetaPill: View {
-    let icon: String
-    let label: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.caption.weight(.semibold))
-            Text(label)
-                .font(.caption2.weight(.semibold))
-        }
-        .foregroundStyle(.white.opacity(0.92))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(tint.opacity(0.18), in: Capsule())
-        .overlay(Capsule().stroke(tint.opacity(0.35), lineWidth: 1))
-    }
-}
-
-private struct DifficultyChip: View {
-    let filter: DifficultyFilter
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        let c: Color = {
-            if let lvl = filter.level { return DifficultyTheme.color(for: lvl) }
-            return Color.white.opacity(0.75) // neutral for "All"
-        }()
-
-        Button(action: onTap) {
-            HStack(spacing: 8) {
-                if filter != .all {
-                    Circle().fill(c).frame(width: 8, height: 8)
-                }
-                Text(filter.label)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.95))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                (isSelected ? c.opacity(0.22) : Color.clear),
-                in: Capsule()
-            )
-            
-            .overlay(
-                Capsule().stroke(c.opacity(isSelected ? 0.55 : 0.35), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Filter: \(filter.label)")
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-enum EquipmentIcon {
-    static func symbol(for equipment: String) -> String {
-        switch equipment.lowercased() {
-        case "kettlebell":                   return "dumbbell.fill"      // use “kettlebell” if your iOS target has it
-        case "dumbbell":                     return "dumbbell.fill"
-        case "barbell", "ez bar", "trap bar":return "dumbbell.fill"
-        case "cable", "cable machine":       return "cable.connector.horizontal" // generic-ish
-        case "band", "resistance band":      return "bandage.fill"       // closest neutral icon
-        case "machine":                      return "rectangle.compress.vertical"
-        case "smith machine":                return "square.3.layers.3d"
-        case "bodyweight", "none":           return "figure.walk"
-        default:                             return "hammer.fill"         // generic tool fallback
-        }
-    }
-
-    static func label(for equipment: String) -> String {
-        let s = equipment.trimmingCharacters(in: .whitespacesAndNewlines)
-        return s.isEmpty ? "Bodyweight" : s
-    }
-
-    static func color(for equipment: String) -> Color {
-        switch equipment.lowercased() {
-        case "kettlebell": return Color(hex: "#F97316") // orange-ish
-        case "dumbbell":   return Color(hex: "#60A5FA") // blue
-        case "barbell", "ez bar", "trap bar": return Color(hex: "#A3A3A3")
-        case "cable", "cable machine": return Color(hex: "#34D399") // green
-        case "band", "resistance band": return Color(hex: "#F59E0B") // amber
-        case "machine", "smith machine": return Color(hex: "#A78BFA") // violet
-        case "bodyweight", "none": return Color.secondary
-        default: return DS.Palette.marone
-        }
-    }
-}
-
-private enum CategoryIcon {
-    static func symbol(for category: String) -> String {
-        switch category.lowercased() {
-        case "bodybuilding", "hypertrophy":
-            return "figure.strengthtraining.traditional"
-        case "powerlifting", "strength":
-            return "scalemass" // if unavailable, fallback below
-        case "conditioning", "hiit", "metcon":
-            return "flame.fill"
-        case "mobility", "rehab", "prehab":
-            return "figure.mind.and.body" // fallback below if needed
-        case "plyometrics":
-            return "arrow.up.forward.circle.fill"
-        default:
-            return "bolt.heart" // generic training category
-        }
-    }
-
-    static func color(for category: String) -> Color {
-        switch category.lowercased() {
-        case "bodybuilding", "hypertrophy": return Color(hex: "#F472B6") // pink-ish
-        case "powerlifting", "strength":    return Color(hex: "#FB923C") // orange
-        case "conditioning", "hiit":        return Color(hex: "#22D3EE") // cyan
-        case "mobility", "rehab", "prehab": return Color(hex: "#4ADE80") // green
-        case "plyometrics":                 return Color(hex: "#C084FC") // violet
-        default:                            return DS.Palette.marone
-        }
-    }
-}
-
-
-struct FavoriteHeartButton: View {
-    @EnvironmentObject private var favs: FavoritesStore
-    let exerciseID: String
-    var size: CGFloat = 22
-    var filledTint: Color = .red
-
-    var body: some View {
-        let isFav = favs.contains(exerciseID)
-        Button {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                favs.toggle(exerciseID)
-            }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        } label: {
-            Image(systemName: isFav ? "heart.fill" : "heart")
-                .font(.system(size: size, weight: .semibold))
-                .foregroundStyle(isFav ? filledTint : .secondary)
-                .padding(8)
-                .background(.ultraThinMaterial, in: Circle())
-                .symbolEffect(.bounce, value: isFav)
-                .scaleEffect(isFav ? 1.0 : 0.95)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isFav ? "Remove from favorites" : "Add to favorites")
-        .accessibilityAddTraits(isFav ? .isSelected : [])
     }
 }

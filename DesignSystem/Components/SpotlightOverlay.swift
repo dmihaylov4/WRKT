@@ -48,10 +48,18 @@ struct SpotlightOverlay: View {
     @State private var scale: CGFloat = 0.9
     @State private var opacity: Double = 0.0
 
+    // Validate that frame has reasonable dimensions and position
+    private func isValidFrame(_ frame: CGRect) -> Bool {
+        return frame != .zero &&
+               frame.width > 10 && frame.height > 10 &&
+               frame.origin.x >= 0 && frame.origin.y >= 0 &&
+               frame.width < 5000 && frame.height < 5000
+    }
+
     var body: some View {
         ZStack {
             // Semi-transparent background with spotlight cutout
-            if let frame = currentStep.spotlightFrame, frame != .zero, frame.width > 0, frame.height > 0 {
+            if let frame = currentStep.spotlightFrame, isValidFrame(frame) {
                 SpotlightMask(highlightFrame: frame, cornerRadius: currentStep.highlightCornerRadius)
                     .ignoresSafeArea()
             } else {
@@ -213,14 +221,24 @@ struct FramePreferenceKey: PreferenceKey {
 // MARK: - View Extension for Easy Frame Tracking
 
 extension View {
-    func captureFrame(in coordinateSpace: CoordinateSpace = .global, onChange: @escaping (CGRect) -> Void) -> some View {
-        overlay(
+    func captureFrame(in coordinateSpace: CoordinateSpace = .global, debugLabel: String = "", onChange: @escaping (CGRect) -> Void) -> some View {
+        background(
             GeometryReader { geo in
                 Color.clear
                     .task {
-                        // Delay to ensure layout is complete
-                        try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-                        let frame = geo.frame(in: coordinateSpace)
+                        // Short delay to ensure layout is complete
+                        try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+
+                        // Retry logic to handle cases where frame isn't ready yet
+                        var attempts = 0
+                        var frame = geo.frame(in: coordinateSpace)
+
+                        while (frame.width == 0 || frame.height == 0) && attempts < 5 {
+                            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
+                            frame = geo.frame(in: coordinateSpace)
+                            attempts += 1
+                        }
+
                         await MainActor.run {
                             onChange(frame)
                         }

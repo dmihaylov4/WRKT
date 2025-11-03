@@ -22,6 +22,7 @@ struct WorkoutDetailView: View {
     let workout: CompletedWorkout
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: WorkoutStoreV2
+    @State private var showDeleteConfirmation = false
 
     private var hasHealthData: Bool {
         workout.matchedHealthKitUUID != nil
@@ -31,14 +32,42 @@ struct WorkoutDetailView: View {
         workout.matchedHealthKitHeartRateSamples != nil && !(workout.matchedHealthKitHeartRateSamples?.isEmpty ?? true)
     }
 
-    private var totalVolume: Double {
-        workout.entries.reduce(0) { total, entry in
-            total + entry.sets.reduce(0) { $0 + (Double($1.reps) * $1.weight) }
+    private var workoutStats: WorkoutStats {
+        var weightedVolume: Double = 0
+        var timeUnderTension: Int = 0
+        var totalReps: Int = 0
+        var sets: Int = 0
+
+        for entry in workout.entries {
+            sets += entry.sets.count
+            for set in entry.sets {
+                switch set.trackingMode {
+                case .weighted:
+                    weightedVolume += Double(set.reps) * set.weight
+                case .timed:
+                    timeUnderTension += set.durationSeconds
+                case .bodyweight:
+                    totalReps += set.reps
+                case .distance:
+                    break // Future implementation
+                }
+            }
         }
+
+        return WorkoutStats(
+            weightedVolume: weightedVolume,
+            timeUnderTension: timeUnderTension,
+            totalReps: totalReps,
+            totalSets: sets
+        )
+    }
+
+    private var totalVolume: Double {
+        workoutStats.weightedVolume
     }
 
     private var totalSets: Int {
-        workout.entries.reduce(0) { $0 + $1.sets.count }
+        workoutStats.totalSets
     }
 
     var body: some View {
@@ -71,11 +100,23 @@ struct WorkoutDetailView: View {
                         }
                     }
 
-                    // Quick stats
-                    HStack(spacing: 16) {
+                    // Quick stats (adaptive based on workout type)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                         StatPill(icon: "dumbbell.fill", value: "\(workout.entries.count)", label: "Exercises")
                         StatPill(icon: "figure.strengthtraining.traditional", value: "\(totalSets)", label: "Sets")
-                        StatPill(icon: "scalemass.fill", value: String(format: "%.0f kg", totalVolume), label: "Volume")
+
+                        // Show relevant metrics based on workout type
+                        if workoutStats.hasWeightedVolume {
+                            StatPill(icon: "scalemass.fill", value: String(format: "%.0f kg", workoutStats.weightedVolume), label: "Volume")
+                        }
+
+                        if workoutStats.hasTimeUnderTension {
+                            StatPill(icon: "timer", value: workoutStats.formattedDuration, label: "Time")
+                        }
+
+                        if workoutStats.hasTotalReps {
+                            StatPill(icon: "number", value: "\(workoutStats.totalReps)", label: "Reps")
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -88,9 +129,9 @@ struct WorkoutDetailView: View {
                 }
 
                 // MARK: - Heart Rate Graph
-                if hasHeartRateData {
+                if let heartRateSamples = workout.matchedHealthKitHeartRateSamples, !heartRateSamples.isEmpty {
                     HeartRateGraph(
-                        samples: workout.matchedHealthKitHeartRateSamples!,
+                        samples: heartRateSamples,
                         avgHR: workout.matchedHealthKitHeartRate ?? 0,
                         maxHR: workout.matchedHealthKitMaxHeartRate ?? 0,
                         minHR: workout.matchedHealthKitMinHeartRate ?? 0
@@ -107,19 +148,65 @@ struct WorkoutDetailView: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Workout Details")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .confirmationDialog("Delete Workout", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("Delete Workout", role: .destructive) {
+                store.deleteWorkout(workout)
+                dismiss()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this workout? You can undo this action.")
+        }
         // Listen for tab changes
         .onReceive(NotificationCenter.default.publisher(for: .tabDidChange)) { _ in
             dismiss()
         }
         // Listen for calendar tab reselection
         .onReceive(NotificationCenter.default.publisher(for: .calendarTabReselected)) { _ in
-            print("📅 WorkoutDetailView received calendar reselection - dismissing")
+
             dismiss()
         }
         // Listen for cardio tab reselection
         .onReceive(NotificationCenter.default.publisher(for: .cardioTabReselected)) { _ in
-            print("🏃 WorkoutDetailView received cardio reselection - dismissing")
+
             dismiss()
+        }
+    }
+}
+
+// MARK: - Workout Stats Model
+
+struct WorkoutStats {
+    let weightedVolume: Double
+    let timeUnderTension: Int
+    let totalReps: Int
+    let totalSets: Int
+
+    var hasWeightedVolume: Bool { weightedVolume > 0 }
+    var hasTimeUnderTension: Bool { timeUnderTension > 0 }
+    var hasTotalReps: Bool { totalReps > 0 }
+
+    var formattedDuration: String {
+        let hours = timeUnderTension / 3600
+        let minutes = (timeUnderTension % 3600) / 60
+        let seconds = timeUnderTension % 60
+
+        if hours > 0 {
+            return String(format: "%dh %dm %ds", hours, minutes, seconds)
+        } else if minutes > 0 {
+            return String(format: "%dm %ds", minutes, seconds)
+        } else {
+            return String(format: "%ds", seconds)
         }
     }
 }

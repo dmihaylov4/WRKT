@@ -7,6 +7,7 @@
 import Foundation
 import SwiftData
 import Observation
+import OSLog
 
 @Observable
 @MainActor
@@ -79,7 +80,7 @@ final class PlannerStore {
         }
 
         try context.save()
-        print("📅 Generated planned workouts for \(days) days")
+        AppLogger.info("Generated planned workouts for \(days) days", category: AppLogger.app)
     }
 
     /// Create a PlannedExercise from a PlanBlockExercise with last performance context
@@ -97,13 +98,13 @@ final class PlannerStore {
            let lastSet = workoutStore.lastWorkingSet(exercise: exercise) {
             baseWeight = lastSet.weightKg
             baseReps = lastSet.reps
-            print("📋 Using last workout data for '\(blockEx.exerciseName)': \(baseReps) reps @ \(baseWeight)kg")
+           
         }
         // Second priority: Use explicitly set starting weight
         else if let startingWeight = blockEx.startingWeight, startingWeight > 0 {
             baseWeight = startingWeight
             baseReps = blockEx.reps
-            print("📋 Using explicit starting weight for '\(blockEx.exerciseName)': \(baseWeight)kg")
+            
         }
         // Third priority: Suggest based on bodyweight
         else if let exercise = ExerciseRepository.shared.exercise(byID: exerciseID) {
@@ -111,11 +112,7 @@ final class PlannerStore {
             let suggestedReps = WeightSuggestionHelper.suggestInitialReps(for: exercise)
             baseWeight = suggestedWeight
             baseReps = suggestedReps > 0 ? suggestedReps : blockEx.reps
-            if suggestedWeight > 0 {
-                print("📋 Using bodyweight-based suggestion for '\(blockEx.exerciseName)': \(baseWeight)kg")
-            } else {
-                print("📋 No weight data available for '\(blockEx.exerciseName)', starting at 0kg")
-            }
+           
         }
         // Fallback: No weight data available
         else {
@@ -226,7 +223,7 @@ final class PlannerStore {
         }
 
         try context.save()
-        print("✅ Planned workout completed: \(String(format: "%.1f", planned.completionPercentage ?? 0))%")
+ 
     }
 
     /// Fetch a split by ID
@@ -311,6 +308,46 @@ final class PlannerStore {
 
         let predicate = #Predicate<WorkoutSplit> { $0.isActive == true }
         return try context.fetch(FetchDescriptor(predicate: predicate)).first
+    }
+
+    // MARK: - Data Migration Utilities
+
+    /// Migrate exercise IDs in all planned workouts
+    /// Use this when you've updated exercise IDs in SplitTemplates
+    func migrateExerciseIDs(mapping: [String: String]) throws {
+        guard let context = context else { return }
+
+        AppLogger.info("🔄 Starting exercise ID migration for \(mapping.count) mappings", category: AppLogger.storage)
+
+        // Fetch all planned workouts
+        let allWorkouts = try context.fetch(FetchDescriptor<PlannedWorkout>())
+        var updatedCount = 0
+
+        for workout in allWorkouts {
+            for exercise in workout.exercises {
+                if let newID = mapping[exercise.exerciseID] {
+                    AppLogger.debug("   Updating: \(exercise.exerciseID) → \(newID)", category: AppLogger.storage)
+                    exercise.exerciseID = newID
+                    updatedCount += 1
+                }
+            }
+        }
+
+        try context.save()
+        AppLogger.success("✅ Migration complete: Updated \(updatedCount) exercises across \(allWorkouts.count) planned workouts", category: AppLogger.storage)
+    }
+
+    /// Delete all planned workouts (useful for resetting)
+    func deleteAllPlannedWorkouts() throws {
+        guard let context = context else { return }
+
+        let allWorkouts = try context.fetch(FetchDescriptor<PlannedWorkout>())
+        for workout in allWorkouts {
+            context.delete(workout)
+        }
+        try context.save()
+
+        AppLogger.success("✅ Deleted \(allWorkouts.count) planned workouts", category: AppLogger.storage)
     }
 }
 

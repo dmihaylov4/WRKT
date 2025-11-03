@@ -70,8 +70,12 @@ private extension MuscleIndex {
 
         let p1 = #"<g\b[^>]*?\bid="([^"]+)"[^>]*?\bclass="([^"]+)"[^>]*?>"#
         let p2 = #"<g\b[^>]*?\bclass="([^"]+)"[^>]*?\bid="([^"]+)"[^>]*?>"#
-        let re1 = try! NSRegularExpression(pattern: p1, options: [.dotMatchesLineSeparators, .caseInsensitive])
-        let re2 = try! NSRegularExpression(pattern: p2, options: [.dotMatchesLineSeparators, .caseInsensitive])
+
+        guard let re1 = try? NSRegularExpression(pattern: p1, options: [.dotMatchesLineSeparators, .caseInsensitive]),
+              let re2 = try? NSRegularExpression(pattern: p2, options: [.dotMatchesLineSeparators, .caseInsensitive]) else {
+            AppLogger.error("Failed to create regex patterns for SVG parsing", category: AppLogger.app)
+            return [:]
+        }
 
         var map: [String: Set<String>] = [:]
         let ns = raw as NSString

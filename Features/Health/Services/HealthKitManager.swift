@@ -11,6 +11,7 @@ import CoreLocation
 import SwiftData
 import BackgroundTasks
 import Combine
+import OSLog
 // MARK: - Connection State
 
 enum HealthConnectionState: String, Codable {
@@ -31,7 +32,7 @@ final class HealthKitManager: ObservableObject {
         didSet {
             // Persist connection state to UserDefaults
             UserDefaults.standard.set(connectionState.rawValue, forKey: "healthkit.connectionState")
-            print("💾 Saved connectionState: \(connectionState)")
+            AppLogger.debug("Saved connectionState: \(connectionState)", category: AppLogger.health)
         }
     }
 
@@ -40,10 +41,10 @@ final class HealthKitManager: ObservableObject {
         if let savedState = UserDefaults.standard.string(forKey: "healthkit.connectionState"),
            let state = HealthConnectionState(rawValue: savedState) {
             self.connectionState = state
-            print("📂 Restored connectionState: \(state)")
+            AppLogger.debug("Restored connectionState: \(state)", category: AppLogger.health)
         } else {
             self.connectionState = .disconnected
-            print("📂 No saved state, defaulting to .disconnected")
+            AppLogger.debug("No saved state, defaulting to .disconnected", category: AppLogger.health)
         }
     }
     @Published var isSyncing = false
@@ -107,36 +108,34 @@ final class HealthKitManager: ObservableObject {
             }
         }
 
-        print("📝 Requesting authorization for \(toRead.count) data types...")
+        AppLogger.info("Requesting authorization for \(toRead.count) data types...", category: AppLogger.health)
         try await store.requestAuthorization(toShare: [], read: toRead)
-        print("✅ requestAuthorization completed")
+        AppLogger.success("requestAuthorization completed", category: AppLogger.health)
 
         // Check authorization status
         let status = store.authorizationStatus(for: .workoutType())
-        print("🔍 Authorization status after request: \(status.rawValue)")
-        print("   (.notDetermined=0, .sharingDenied=1, .sharingAuthorized=2)")
+        AppLogger.debug("Authorization status after request: \(status.rawValue) (.notDetermined=0, .sharingDenied=1, .sharingAuthorized=2)", category: AppLogger.health)
 
         // HealthKit often returns incorrect status for privacy reasons
         // The ONLY reliable way to know is to try querying data
-        print("   → Testing data access with a sample query...")
+        AppLogger.debug("Testing data access with a sample query...", category: AppLogger.health)
         let canReadData = await testDataAccess()
 
         if canReadData {
-            print("   ✅ Data access confirmed - setting connectionState to .connected")
-            print("   (Note: status said \(status.rawValue) but we can actually read data)")
+            AppLogger.success("Data access confirmed - setting connectionState to .connected (Note: status said \(status.rawValue) but we can actually read data)", category: AppLogger.health)
             connectionState = .connected
         } else {
-            print("   ❌ Cannot read data")
+            AppLogger.warning("Cannot read data", category: AppLogger.health)
             if status == .sharingDenied {
-                print("   → Setting connectionState to .disconnected")
+                AppLogger.debug("Setting connectionState to .disconnected", category: AppLogger.health)
                 connectionState = .disconnected
             } else {
-                print("   → Setting connectionState to .limited")
+                AppLogger.debug("Setting connectionState to .limited", category: AppLogger.health)
                 connectionState = .limited
             }
         }
 
-        print("🏁 Final connectionState: \(connectionState)")
+        AppLogger.info("Final connectionState: \(connectionState)", category: AppLogger.health)
     }
 
     // MARK: - Test Data Access
@@ -145,10 +144,10 @@ final class HealthKitManager: ObservableObject {
         do {
             // Try to fetch just 1 workout to test if we have access
             let (workouts, _, _) = try await fetchWorkoutsAnchored(anchor: nil)
-            print("   📊 Test query returned \(workouts.count) workouts")
+            AppLogger.debug("Test query returned \(workouts.count) workouts", category: AppLogger.health)
             return true
         } catch {
-            print("   ❌ Test query failed: \(error)")
+            AppLogger.error("Test query failed: \(error)", category: AppLogger.health)
             return false
         }
     }
@@ -163,10 +162,10 @@ final class HealthKitManager: ObservableObject {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 if let error {
-                    print("⚠️ Workout observer error: \(error)")
+                    AppLogger.warning("Workout observer error: \(error)", category: AppLogger.health)
                     self.syncError = error
                 } else {
-                    print("🔔 HealthKit workout data changed - triggering sync")
+                    AppLogger.info("HealthKit workout data changed - triggering sync", category: AppLogger.health)
                     await self.syncWorkoutsIncremental()
                 }
                 completionHandler()
@@ -179,9 +178,9 @@ final class HealthKitManager: ObservableObject {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     if let error {
-                        print("⚠️ Exercise time observer error: \(error)")
+                        AppLogger.warning("Exercise time observer error: \(error)", category: AppLogger.health)
                     } else {
-                        print("🔔 HealthKit exercise time changed - triggering sync")
+                        AppLogger.info("HealthKit exercise time changed - triggering sync", category: AppLogger.health)
                         await self.syncExerciseTimeIncremental()
                     }
                     completionHandler()
@@ -194,9 +193,9 @@ final class HealthKitManager: ObservableObject {
             store.execute(workoutObserver)
             store.enableBackgroundDelivery(for: .workoutType(), frequency: .immediate) { success, error in
                 if let error {
-                    print("⚠️ Background delivery setup failed: \(error)")
+                    AppLogger.warning("Background delivery setup failed: \(error)", category: AppLogger.health)
                 } else if success {
-                    print("✅ Background delivery enabled for workouts")
+                    AppLogger.success("Background delivery enabled for workouts", category: AppLogger.health)
                 }
             }
         }
@@ -205,9 +204,9 @@ final class HealthKitManager: ObservableObject {
             store.execute(exerciseTimeObserver)
             store.enableBackgroundDelivery(for: exerciseType, frequency: .hourly) { success, error in
                 if let error {
-                    print("⚠️ Background delivery setup failed for exercise time: \(error)")
+                    AppLogger.warning("Background delivery setup failed for exercise time: \(error)", category: AppLogger.health)
                 } else if success {
-                    print("✅ Background delivery enabled for exercise time")
+                    AppLogger.success("Background delivery enabled for exercise time", category: AppLogger.health)
                 }
             }
         }
@@ -241,12 +240,12 @@ final class HealthKitManager: ObservableObject {
         if let lastSync = lastAutoSyncDate {
             let timeSinceLastSync = now.timeIntervalSince(lastSync)
             if timeSinceLastSync < autoSyncThrottleInterval {
-                print("⏭️ Skipping auto-sync (last sync was \(Int(timeSinceLastSync))s ago)")
+                AppLogger.debug("Skipping auto-sync (last sync was \(Int(timeSinceLastSync))s ago)", category: AppLogger.health)
                 return false
             }
         }
 
-        print("🔄 Auto-syncing HealthKit data...")
+        AppLogger.info("Auto-syncing HealthKit data...", category: AppLogger.health)
         lastAutoSyncDate = now
 
         await syncWorkoutsIncremental()
@@ -257,7 +256,7 @@ final class HealthKitManager: ObservableObject {
 
     func syncWorkoutsIncremental() async {
         guard let context = modelContext else {
-            print("⚠️ ModelContext not set")
+            AppLogger.warning("ModelContext not set", category: AppLogger.health)
             return
         }
 
@@ -269,12 +268,12 @@ final class HealthKitManager: ObservableObject {
             let anchorRecord = try fetchOrCreateAnchor(dataType: "all_workouts", context: context)
             let anchor = anchorRecord.anchor
 
-            print("📊 Syncing workouts (anchor: \(anchor != nil ? "exists" : "nil"))")
+            AppLogger.debug("Syncing workouts (anchor: \(anchor != nil ? "exists" : "nil"))", category: AppLogger.health)
 
             // Anchored query
             let (added, deleted, newAnchor) = try await fetchWorkoutsAnchored(anchor: anchor)
 
-            print("  → Added: \(added.count), Deleted: \(deleted.count)")
+            AppLogger.debug("Added: \(added.count), Deleted: \(deleted.count)", category: AppLogger.health)
 
             // Process additions
             for workout in added {
@@ -297,26 +296,26 @@ final class HealthKitManager: ObservableObject {
             await queueRouteFetching(for: added, context: context)
 
         } catch {
-            print("❌ Workout sync failed: \(error)")
+            AppLogger.error("Workout sync failed: \(error)", category: AppLogger.health)
             syncError = error
         }
     }
 
     /// Force re-import all workouts from HealthKit with batched, parallel processing
     func forceFullResync() async {
-        print("🚀 forceFullResync() called - batched mode")
+        AppLogger.info("forceFullResync() called - batched mode", category: AppLogger.health)
 
         guard let context = modelContext else {
-            print("⚠️ ModelContext not set")
+            AppLogger.warning("ModelContext not set", category: AppLogger.health)
             return
         }
 
         guard let store = workoutStore else {
-            print("⚠️ WorkoutStore not set")
+            AppLogger.warning("WorkoutStore not set", category: AppLogger.health)
             return
         }
 
-        print("✓ ModelContext and WorkoutStore are set")
+        AppLogger.success("ModelContext and WorkoutStore are set", category: AppLogger.health)
 
         isSyncing = true
         defer {
@@ -326,12 +325,12 @@ final class HealthKitManager: ObservableObject {
             syncTotalBatches = 0
             syncProcessedCount = 0
             syncTotalCount = 0
-            print("🏁 isSyncing set to false")
+            AppLogger.debug("isSyncing set to false", category: AppLogger.health)
         }
 
         do {
-            print("🔄 Starting batched full re-sync of all HealthKit workouts...")
-            print("   Current runs count: \(await MainActor.run { store.runs.count })")
+            AppLogger.info("Starting batched full re-sync of all HealthKit workouts...", category: AppLogger.health)
+            AppLogger.debug("Current runs count: \(await MainActor.run { store.runs.count })", category: AppLogger.health)
 
             // Delete the anchor to force full re-import
             let descriptor = FetchDescriptor<HealthSyncAnchor>(
@@ -340,13 +339,13 @@ final class HealthKitManager: ObservableObject {
             if let existingAnchor = try context.fetch(descriptor).first {
                 context.delete(existingAnchor)
                 try context.save()
-                print("  ✓ Reset sync anchor")
+                AppLogger.success("Reset sync anchor", category: AppLogger.health)
             }
 
             // Perform full sync (with nil anchor, it fetches everything)
             let (added, deleted, newAnchor) = try await fetchWorkoutsAnchored(anchor: nil)
 
-            print("  → Processing \(added.count) workouts in batches of \(batchSize)")
+            AppLogger.info("Processing \(added.count) workouts in batches of \(batchSize)", category: AppLogger.health)
 
             // Update progress tracking
             await MainActor.run {
@@ -366,7 +365,7 @@ final class HealthKitManager: ObservableObject {
             for (batchIndex, batch) in batches.enumerated() {
                 await MainActor.run {
                     syncCurrentBatch = batchIndex + 1
-                    print("📦 Processing batch \(batchIndex + 1)/\(batches.count) (\(batch.count) workouts)")
+                    AppLogger.info("Processing batch \(batchIndex + 1)/\(batches.count) (\(batch.count) workouts)", category: AppLogger.health)
                 }
 
                 // Process batch in parallel using TaskGroup
@@ -385,7 +384,7 @@ final class HealthKitManager: ObservableObject {
                     syncProcessedCount += batch.count
                     syncProgress = Double(syncProcessedCount) / Double(syncTotalCount)
 
-                    print("  ✓ Batch complete: \(syncProcessedCount)/\(syncTotalCount) (\(Int(syncProgress * 100))%)")
+                    AppLogger.success("Batch complete: \(syncProcessedCount)/\(syncTotalCount) (\(Int(syncProgress * 100))%)", category: AppLogger.health)
                 }
 
                 // Small delay between batches to keep UI responsive
@@ -407,13 +406,13 @@ final class HealthKitManager: ObservableObject {
             lastSyncDate = .now
             syncError = nil
 
-            print("✅ Batched full re-sync complete! Processed \(added.count) workouts in \(batches.count) batches")
+            AppLogger.success("Batched full re-sync complete! Processed \(added.count) workouts in \(batches.count) batches", category: AppLogger.health)
 
             // Queue route fetching for recent workouts
             await queueRouteFetching(for: Array(added.prefix(20)), context: context)
 
         } catch {
-            print("❌ Full re-sync failed: \(error)")
+            AppLogger.error("Full re-sync failed: \(error)", category: AppLogger.health)
             syncError = error
         }
     }
@@ -444,8 +443,8 @@ final class HealthKitManager: ObservableObject {
                         updated.workoutType = newType
                         updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
 
-                        // Fetch heart rate if needed (in parallel)
-                        if updated.avgHeartRate == nil {
+                        // Fetch heart rate if missing or 0 (Apple Watch data may not be available immediately)
+                        if updated.avgHeartRate == nil || updated.avgHeartRate == 0 {
                             updated.avgHeartRate = try? await self.averageHeartRate(for: workout)
                         }
 
@@ -501,7 +500,7 @@ final class HealthKitManager: ObservableObject {
 
             let (samples, newAnchor) = try await fetchExerciseTimeSamplesAnchored(anchor: anchor)
 
-            print("📊 Syncing exercise time: \(samples.count) samples")
+            AppLogger.info("Syncing exercise time: \(samples.count) samples", category: AppLogger.health)
 
             // Aggregate by week and update WeeklyTrainingSummary
             await aggregateExerciseTimeIntoWeeklySummaries(samples: samples, context: context)
@@ -511,7 +510,7 @@ final class HealthKitManager: ObservableObject {
             try context.save()
 
         } catch {
-            print("❌ Exercise time sync failed: \(error)")
+            AppLogger.error("Exercise time sync failed: \(error)", category: AppLogger.health)
         }
     }
 
@@ -584,7 +583,7 @@ final class HealthKitManager: ObservableObject {
 
     private func importWorkoutIdempotent(_ workout: HKWorkout, context: ModelContext) async throws {
         guard let store = workoutStore else {
-            print("⚠️ WorkoutStore not set")
+            AppLogger.warning("WorkoutStore not set", category: AppLogger.health)
             return
         }
 
@@ -603,7 +602,15 @@ final class HealthKitManager: ObservableObject {
             updated.workoutType = workoutType
             updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
 
-            print("  ↻ Updating: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))")
+            // Refetch heart rate if missing or 0 (Apple Watch data may not be available immediately)
+            if updated.avgHeartRate == nil || updated.avgHeartRate == 0 {
+                updated.avgHeartRate = try? await averageHeartRate(for: workout)
+                if let hr = updated.avgHeartRate {
+                    AppLogger.debug("Refetched heart rate for \(workoutType): \(Int(hr)) bpm", category: AppLogger.health)
+                }
+            }
+
+            AppLogger.debug("Updating: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))", category: AppLogger.health)
 
             await MainActor.run {
                 store.updateRun(updated)
@@ -625,7 +632,7 @@ final class HealthKitManager: ObservableObject {
         // Extract custom workout name from metadata (if user named it in Apple Fitness)
         let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
 
-        print("  + Importing: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))")
+        AppLogger.debug("Importing: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))", category: AppLogger.health)
 
         let run = Run(
             date: workout.endDate,  // Use END date for matching with app workout completion time
@@ -647,14 +654,14 @@ final class HealthKitManager: ObservableObject {
 
     private func deleteWorkoutIfExists(uuid: UUID, context: ModelContext) throws {
         guard let store = workoutStore else {
-            print("⚠️ WorkoutStore not set")
+            AppLogger.warning("WorkoutStore not set", category: AppLogger.health)
             return
         }
 
         Task { @MainActor in
             if let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
                 store.removeRun(withId: existing.id)
-                print("🗑️ Deleted workout: \(uuid)")
+                AppLogger.info("Deleted workout: \(uuid)", category: AppLogger.health)
             }
         }
     }
@@ -699,7 +706,7 @@ final class HealthKitManager: ObservableObject {
 
         guard let tasks = try? context.fetch(descriptor), !tasks.isEmpty else { return }
 
-        print("🗺️ Processing \(tasks.count) route fetch tasks")
+        AppLogger.info("Processing \(tasks.count) route fetch tasks", category: AppLogger.health)
 
         for task in tasks.prefix(10) {  // Process 10 at a time
             task.status = "fetching"
@@ -727,7 +734,7 @@ final class HealthKitManager: ObservableObject {
                         updated.route = coords.isEmpty ? nil : coords
                         store.updateRun(updated)
                         task.status = "completed"
-                        print("  ✅ Fetched route for \(uuid): \(coords.count) points")
+                        AppLogger.success("Fetched route for \(uuid): \(coords.count) points", category: AppLogger.health)
                     } else {
                         task.status = "failed"
                     }
@@ -736,7 +743,7 @@ final class HealthKitManager: ObservableObject {
             } catch {
                 task.attemptCount += 1
                 task.status = task.attemptCount >= 3 ? "failed" : "pending"
-                print("  ⚠️ Route fetch failed: \(error)")
+                AppLogger.warning("Route fetch failed: \(error)", category: AppLogger.health)
             }
 
             try? context.save()
@@ -798,8 +805,8 @@ final class HealthKitManager: ObservableObject {
         }
     }
 
-    private func averageHeartRate(for workout: HKWorkout) async throws -> Double {
-        guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else { return 0 }
+    private func averageHeartRate(for workout: HKWorkout) async throws -> Double? {
+        guard let hrType = HKObjectType.quantityType(forIdentifier: .heartRate) else { return nil }
         let pred = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [])
 
         let samples: [HKQuantitySample] = try await withCheckedThrowingContinuation { cont in
@@ -810,7 +817,7 @@ final class HealthKitManager: ObservableObject {
             store.execute(q)
         }
 
-        guard !samples.isEmpty else { return 0 }
+        guard !samples.isEmpty else { return nil }
         let bpmUnit = HKUnit.count().unitDivided(by: .minute())
         let values = samples.map { $0.quantity.doubleValue(for: bpmUnit) }
         return values.reduce(0, +) / Double(values.count)
@@ -952,12 +959,14 @@ final class HealthKitManager: ObservableObject {
 // MARK: - Background Task Registration
 
 extension HealthKitManager {
-    static let healthSyncTaskID = "com.wrkt.health.sync"
+    static let healthSyncTaskID = "com.dmihaylov.trak.health.sync"
+    private static var hasRegisteredBackgroundTask = false
 
     func registerBackgroundTasks() {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.healthSyncTaskID, using: nil) { task in
-            self.handleHealthSyncTask(task: task as! BGProcessingTask)
-        }
+        // Background task registration now happens in WRKTApp.init() to comply with iOS requirement
+        // that all launch handlers must be registered before application finishes launching.
+        // This method is kept for backward compatibility but does nothing.
+        AppLogger.debug("Background task registration handled in WRKTApp.init()", category: AppLogger.health)
     }
 
     func scheduleHealthSyncTask() {
@@ -969,7 +978,7 @@ extension HealthKitManager {
         try? BGTaskScheduler.shared.submit(request)
     }
 
-    private func handleHealthSyncTask(task: BGProcessingTask) {
+    func handleHealthSyncTask(task: BGProcessingTask) {
         task.expirationHandler = {
             task.setTaskCompleted(success: false)
         }

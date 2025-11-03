@@ -17,14 +17,17 @@ struct WeeklyGoalSetupView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var targetMinutes: Int = 150
+    @State private var targetDailySteps: Int = 10000
     @State private var targetStrengthDays: Int = 2
     @State private var weekStartDay: Int = 2 // Monday
+    @State private var trackingMode: ActivityTrackingMode = .exerciseMinutes
+    @State private var isDetectingDevice: Bool = false
 
     var body: some View {
         ZStack {
             // Premium background gradient
             LinearGradient(
-                colors: [Color(hex: "#0D0D0D"), Color(hex: "#1A1A1A")],
+                colors: [DS.Theme.cardBottom, DS.Theme.cardTop],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -36,7 +39,7 @@ struct WeeklyGoalSetupView: View {
                     VStack(spacing: 12) {
                         Image(systemName: "target")
                             .font(.system(size: 60, weight: .semibold))
-                            .foregroundStyle(Color(hex: "#F4E409"))
+                            .foregroundStyle(DS.Theme.accent)
 
                         Text("Set Your Weekly Goal")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
@@ -49,49 +52,87 @@ struct WeeklyGoalSetupView: View {
                     }
                     .padding(.top, 40)
 
-                    // Active Minutes Card
-                    VStack(alignment: .leading, spacing: 16) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "figure.run")
-                                .font(.title3)
-                                .foregroundStyle(Color(hex: "#F4E409"))
-                            Text("Active Minutes (MVPA)")
-                                .font(.headline)
-                                .foregroundStyle(.white)
+                    // Active Minutes or Steps Card (device-dependent)
+                    if trackingMode == .exerciseMinutes {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "applewatch")
+                                    .font(.title3)
+                                    .foregroundStyle(DS.Theme.accent)
+                                Text("Active Minutes (MVPA)")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                            }
+
+                            Text("\(targetMinutes) min")
+                                .font(.system(size: 42, weight: .bold, design: .rounded))
+                                .foregroundStyle(DS.Theme.accent)
+                                .monospacedDigit()
+
+                            Slider(value: Binding(
+                                get: { Double(targetMinutes) },
+                                set: { targetMinutes = Int($0) }
+                            ), in: 30...600, step: 15)
+                            .tint(DS.Theme.accent)
+
+                            Text("Apple Watch tracks exercise time automatically")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.6))
                         }
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(.white.opacity(0.06))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                                )
+                        )
+                        .padding(.horizontal, 24)
+                    } else {
+                        VStack(alignment: .leading, spacing: 16) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "figure.walk")
+                                    .font(.title3)
+                                    .foregroundStyle(DS.Theme.accent)
+                                Text("Daily Steps")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                            }
 
-                        Text("\(targetMinutes) min")
-                            .font(.system(size: 42, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color(hex: "#F4E409"))
-                            .monospacedDigit()
+                            Text("\(targetDailySteps.formatted())")
+                                .font(.system(size: 42, weight: .bold, design: .rounded))
+                                .foregroundStyle(DS.Theme.accent)
+                                .monospacedDigit()
 
-                        Slider(value: Binding(
-                            get: { Double(targetMinutes) },
-                            set: { targetMinutes = Int($0) }
-                        ), in: 30...600, step: 15)
-                        .tint(Color(hex: "#F4E409"))
+                            Slider(value: Binding(
+                                get: { Double(targetDailySteps) },
+                                set: { targetDailySteps = Int($0) }
+                            ), in: 1000...30000, step: 500)
+                            .tint(DS.Theme.accent)
 
-                        Text("WHO recommends 150 minutes per week")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
+                            Text("Aim for 10,000 steps per day for good health")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.6))
+                        }
+                        .padding(24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(.white.opacity(0.06))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(.white.opacity(0.1), lineWidth: 1)
+                                )
+                        )
+                        .padding(.horizontal, 24)
                     }
-                    .padding(24)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(.white.opacity(0.06))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(.white.opacity(0.1), lineWidth: 1)
-                            )
-                    )
-                    .padding(.horizontal, 24)
 
                     // Strength Days Card
                     VStack(alignment: .leading, spacing: 16) {
                         HStack(spacing: 8) {
                             Image(systemName: "dumbbell.fill")
                                 .font(.title3)
-                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .foregroundStyle(DS.Theme.accent)
                             Text("Strength Training Days")
                                 .font(.headline)
                                 .foregroundStyle(.white)
@@ -101,28 +142,48 @@ struct WeeklyGoalSetupView: View {
                             Button {
                                 if targetStrengthDays > 0 {
                                     targetStrengthDays -= 1
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                             } label: {
-                                Image(systemName: "minus.circle.fill")
-                                    .font(.system(size: 44))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                ZStack {
+                                    Circle()
+                                        .fill(.white.opacity(0.15))
+                                        .frame(width: 50, height: 50)
+                                    Circle()
+                                        .strokeBorder(.white.opacity(0.3), lineWidth: 1)
+                                        .frame(width: 50, height: 50)
+                                    Image(systemName: "minus")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                }
                             }
+                            .buttonStyle(.plain)
 
                             Text("\(targetStrengthDays)")
                                 .font(.system(size: 42, weight: .bold, design: .rounded))
-                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .foregroundStyle(DS.Theme.accent)
                                 .monospacedDigit()
                                 .frame(minWidth: 60)
 
                             Button {
                                 if targetStrengthDays < 7 {
                                     targetStrengthDays += 1
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                                 }
                             } label: {
-                                Image(systemName: "plus.circle.fill")
-                                    .font(.system(size: 44))
-                                    .foregroundStyle(.white.opacity(0.7))
+                                ZStack {
+                                    Circle()
+                                        .fill(.white.opacity(0.15))
+                                        .frame(width: 50, height: 50)
+                                    Circle()
+                                        .strokeBorder(.white.opacity(0.3), lineWidth: 1)
+                                        .frame(width: 50, height: 50)
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
                         .frame(maxWidth: .infinity)
 
@@ -146,7 +207,7 @@ struct WeeklyGoalSetupView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "calendar")
                                 .font(.title3)
-                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .foregroundStyle(DS.Theme.accent)
                             Text("Week Start Day")
                                 .font(.headline)
                                 .foregroundStyle(.white)
@@ -154,7 +215,7 @@ struct WeeklyGoalSetupView: View {
 
                         Text(weekdayName(for: weekStartDay))
                             .font(.system(size: 42, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color(hex: "#F4E409"))
+                            .foregroundStyle(DS.Theme.accent)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         // Custom day selector
@@ -170,17 +231,17 @@ struct WeeklyGoalSetupView: View {
                                                 .foregroundStyle(weekStartDay == day ? .black : .white)
 
                                             Circle()
-                                                .fill(weekStartDay == day ? Color(hex: "#F4E409") : .white.opacity(0.2))
+                                                .fill(weekStartDay == day ? DS.Theme.accent : .white.opacity(0.2))
                                                 .frame(width: 8, height: 8)
                                         }
                                         .frame(width: 60, height: 60)
                                         .background(
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .fill(weekStartDay == day ? Color(hex: "#F4E409") : .white.opacity(0.06))
+                                                .fill(weekStartDay == day ? DS.Theme.accent : .white.opacity(0.06))
                                         )
                                         .overlay(
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke(weekStartDay == day ? Color(hex: "#F4E409") : .white.opacity(0.1), lineWidth: 1.5)
+                                                .stroke(weekStartDay == day ? DS.Theme.accent : .white.opacity(0.1), lineWidth: 1.5)
                                         )
                                     }
                                 }
@@ -211,15 +272,8 @@ struct WeeklyGoalSetupView: View {
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color(hex: "#F4E409"), Color(hex: "#FFE869")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .background(DS.Theme.accent)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: Color(hex: "#F4E409").opacity(0.3), radius: 12, x: 0, y: 6)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 8)
@@ -230,9 +284,19 @@ struct WeeklyGoalSetupView: View {
         .navigationBarHidden(true)
         .onAppear {
             if let g = goal {
+                // Existing goal - load values
                 targetMinutes = g.targetActiveMinutes
+                targetDailySteps = g.targetDailySteps
                 targetStrengthDays = g.targetStrengthDays
                 weekStartDay = g.anchorWeekday
+                trackingMode = g.mode
+            } else {
+                // New goal - detect device capability
+                Task {
+                    isDetectingDevice = true
+                    trackingMode = await DeviceCapability.recommendedTrackingMode()
+                    isDetectingDevice = false
+                }
             }
         }
     }
@@ -241,8 +305,10 @@ struct WeeklyGoalSetupView: View {
         let g = goal ?? WeeklyGoal()
         g.isSet = true
         g.targetActiveMinutes = targetMinutes
+        g.targetDailySteps = targetDailySteps
         g.targetStrengthDays = targetStrengthDays
         g.anchorWeekday = weekStartDay
+        g.mode = trackingMode
         g.updatedAt = .now
 
         if goal == nil { context.insert(g) }
@@ -261,15 +327,4 @@ struct WeeklyGoalSetupView: View {
     }
 }
 
-private extension Color {
-    init(hex: String) {
-        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("#") { s.removeFirst() }
-        var v: UInt64 = 0; Scanner(string: s).scanHexInt64(&v)
-        self = Color(.sRGB,
-                     red: Double((v >> 16) & 0xFF) / 255.0,
-                     green: Double((v >> 8) & 0xFF) / 255.0,
-                     blue: Double(v & 0xFF) / 255.0,
-                     opacity: 1.0)
-    }
-}
+// Color(hex:) is now available from DS.swift, no need to redefine

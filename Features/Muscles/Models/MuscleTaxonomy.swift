@@ -90,8 +90,10 @@ struct MuscleRouterView: View {
     var body: some View {
         if let deep = MuscleTaxonomy.deepSubregions(for: subregion), !deep.isEmpty {
             DeepSubregionGridView(state: $state, parent: subregion, items: deep, useNavigationLinks: useNavigationLinks)
+                .id(subregion)
         } else {
             MuscleExerciseListView(state: $state, subregion: subregion)
+                .id(subregion)  // Force recreation when subregion changes
         }
     }
 }
@@ -153,9 +155,14 @@ private struct ExerciseRowCompact: View {
            
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(ex.name)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Theme.text)
+                HStack(spacing: 8) {
+                    Text(ex.name)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Theme.text)
+                    if ex.isCustom {
+                        CustomExerciseBadge()
+                    }
+                }
                 Text(meta)
                     .font(.caption)
                     .foregroundStyle(Theme.secondary)
@@ -198,13 +205,14 @@ private struct ExerciseRowCompact: View {
 struct MuscleExerciseListDeepView: View {
     @EnvironmentObject var repo: ExerciseRepository
     @EnvironmentObject var store: WorkoutStoreV2
+    @EnvironmentObject var favs: FavoritesStore
     @Binding var state: BrowseState
     let parent: String
     let child: String
 
     @State private var showingSessionFor: SessionSheetContext? = nil
 
-    // Match the grab tab height (you’re using ~65px in AppShellView)
+    // Match the grab tab height (you're using ~65px in AppShellView)
     private let grabTabHeight: CGFloat = 65
 
     private var hasActiveWorkout: Bool {
@@ -246,7 +254,8 @@ struct MuscleExerciseListDeepView: View {
     }
 
     private var filtered: [Exercise] {
-        repo.deepExercises(parent: parent, child: child)
+        let exercises = repo.deepExercises(parent: parent, child: child)
+        return favoritesFirst(exercises, favIDs: favs.ids)
     }
 
     private func addAndLog(_ ex: Exercise) {

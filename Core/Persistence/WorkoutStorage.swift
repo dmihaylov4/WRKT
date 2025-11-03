@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import OSLog
 
 // MARK: - Storage Errors
 
@@ -80,6 +81,8 @@ struct ExercisePRsV2: Codable, Hashable {
     var lastWorking: LastSetV2?
     var allTimeBest: Double?  // Track all-time best weight regardless of reps
     var firstRecorded: Date?  // When this exercise was first performed
+    var bestReps: Int?  // Track best reps for bodyweight exercises
+    var bestDuration: Int?  // Track best duration in seconds for timed exercises
 }
 
 // MARK: - Workout Storage Actor
@@ -116,8 +119,20 @@ actor WorkoutStorage {
         self.decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        // Setup directories
-        let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        // Setup directories with safe fallback
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            // Fallback to temporary directory (should never happen, but prevents crash)
+            AppLogger.warning("Documents directory not available, using temporary directory", category: AppLogger.storage)
+            let tempDir = fileManager.temporaryDirectory
+            self.storageDirectory = tempDir.appendingPathComponent("WRKT_Storage", isDirectory: true)
+            self.backupsDirectory = storageDirectory.appendingPathComponent("Backups", isDirectory: true)
+            self.workoutsFileURL = storageDirectory.appendingPathComponent("workouts_v2.json")
+            self.currentWorkoutFileURL = storageDirectory.appendingPathComponent("current_workout_v2.json")
+            self.runsFileURL = storageDirectory.appendingPathComponent("runs_v2.json")
+            self.migrationFlagURL = storageDirectory.appendingPathComponent(".migrated")
+            return
+        }
+
         self.storageDirectory = documentsDir.appendingPathComponent("WRKT_Storage", isDirectory: true)
         self.backupsDirectory = storageDirectory.appendingPathComponent("Backups", isDirectory: true)
 
@@ -131,8 +146,11 @@ actor WorkoutStorage {
         try? fileManager.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
         try? fileManager.createDirectory(at: backupsDirectory, withIntermediateDirectories: true)
 
-        print("📦 WorkoutStorage initialized")
-        print("   Storage: \(storageDirectory.path)")
+        // Enable file protection for data security (encrypts when device is locked)
+        enableFileProtection(for: storageDirectory)
+        enableFileProtection(for: backupsDirectory)
+
+        AppLogger.info("WorkoutStorage initialized - Storage: \(storageDirectory.path)", category: AppLogger.storage)
     }
 
     // MARK: - Workouts (with PR Index)
@@ -140,7 +158,7 @@ actor WorkoutStorage {
     /// Load workouts and PR index atomically
     func loadWorkouts() async throws -> (workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2]) {
         guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
-            print("📦 No workouts file found, returning empty")
+            AppLogger.debug("No workouts file found, returning empty", category: AppLogger.storage)
             return ([], [:])
         }
 
@@ -153,7 +171,7 @@ actor WorkoutStorage {
                 throw StorageError.validationFailed("Item count mismatch: expected \(container.metadata.itemCount), got \(container.workouts.count)")
             }
 
-            print("📦 Loaded \(container.workouts.count) workouts with \(container.prIndex.count) PR entries")
+            AppLogger.info("Loaded \(container.workouts.count) workouts with \(container.prIndex.count) PR entries", category: AppLogger.storage)
             return (container.workouts, container.prIndex)
 
         } catch let error as DecodingError {
@@ -173,7 +191,11 @@ actor WorkoutStorage {
         do {
             let data = try encoder.encode(container)
             try data.write(to: workoutsFileURL, options: [.atomic])
-            print("✅ Saved \(workouts.count) workouts with \(prIndex.count) PR entries")
+
+            // Ensure file protection is applied after write
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: workoutsFileURL.path)
+
+            AppLogger.success("Saved \(workouts.count) workouts with \(prIndex.count) PR entries", category: AppLogger.storage)
         } catch let error as EncodingError {
             throw StorageError.encodingFailed("WorkoutStorageContainer", underlying: error)
         } catch {
@@ -191,10 +213,10 @@ actor WorkoutStorage {
         do {
             let data = try Data(contentsOf: currentWorkoutFileURL)
             let workout = try decoder.decode(CurrentWorkout.self, from: data)
-            print("📦 Loaded current workout with \(workout.entries.count) entries")
+            AppLogger.info("Loaded current workout with \(workout.entries.count) entries", category: AppLogger.storage)
             return workout
         } catch let error as DecodingError {
-            print("⚠️ Failed to decode current workout: \(error)")
+            AppLogger.warning("Failed to decode current workout: \(error)", category: AppLogger.storage)
             return nil
         }
     }
@@ -203,16 +225,20 @@ actor WorkoutStorage {
         if let workout = workout {
             let data = try encoder.encode(workout)
             try data.write(to: currentWorkoutFileURL, options: [.atomic])
-            print("✅ Saved current workout with \(workout.entries.count) entries")
+
+            // Ensure file protection is applied after write
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: currentWorkoutFileURL.path)
+
+            AppLogger.success("Saved current workout with \(workout.entries.count) entries", category: AppLogger.storage)
         } else {
             try? fileManager.removeItem(at: currentWorkoutFileURL)
-            print("✅ Deleted current workout")
+            AppLogger.success("Deleted current workout", category: AppLogger.storage)
         }
     }
 
     func deleteCurrentWorkout() async throws {
         try? fileManager.removeItem(at: currentWorkoutFileURL)
-        print("✅ Deleted current workout")
+        AppLogger.success("Deleted current workout", category: AppLogger.storage)
     }
 
     // MARK: - Runs (Cardio/HealthKit)
@@ -225,7 +251,7 @@ actor WorkoutStorage {
         do {
             let data = try Data(contentsOf: runsFileURL)
             let runs = try decoder.decode([Run].self, from: data)
-            print("📦 Loaded \(runs.count) runs")
+            AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
             return runs
         } catch let error as DecodingError {
             throw StorageError.decodingFailed("Runs", underlying: error)
@@ -236,7 +262,11 @@ actor WorkoutStorage {
         do {
             let data = try encoder.encode(runs)
             try data.write(to: runsFileURL, options: [.atomic])
-            print("✅ Saved \(runs.count) runs")
+
+            // Ensure file protection is applied after write
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: runsFileURL.path)
+
+            AppLogger.success("Saved \(runs.count) runs", category: AppLogger.storage)
         } catch let error as EncodingError {
             throw StorageError.encodingFailed("Runs", underlying: error)
         } catch {
@@ -257,7 +287,7 @@ actor WorkoutStorage {
 
         do {
             try fileManager.copyItem(at: workoutsFileURL, to: backupURL)
-            print("📦 Created backup: \(backupURL.lastPathComponent)")
+            AppLogger.info("Created backup: \(backupURL.lastPathComponent)", category: AppLogger.storage)
 
             // Rotate old backups
             try await rotateBackups()
@@ -282,7 +312,7 @@ actor WorkoutStorage {
         // Remove old backups (keep only maxBackups)
         for url in backupFiles.dropFirst(maxBackups) {
             try? fileManager.removeItem(at: url)
-            print("🗑️ Removed old backup: \(url.lastPathComponent)")
+            AppLogger.debug("Removed old backup: \(url.lastPathComponent)", category: AppLogger.storage)
         }
     }
 
@@ -313,7 +343,7 @@ actor WorkoutStorage {
 
         // Copy backup to main storage
         try fileManager.copyItem(at: url, to: workoutsFileURL)
-        print("✅ Restored from backup: \(url.lastPathComponent)")
+        AppLogger.success("Restored from backup: \(url.lastPathComponent)", category: AppLogger.storage)
     }
 
     // MARK: - Migration
@@ -323,11 +353,16 @@ actor WorkoutStorage {
     }
 
     func migrateFromLegacyStorage() async throws {
-        print("🔄 Starting migration from legacy storage...")
+        AppLogger.info("Starting migration from legacy storage...", category: AppLogger.storage)
 
-        let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            throw StorageError.migrationFailed("Application Support directory not accessible")
+        }
         let oldAppDir = appSupportDir.appendingPathComponent("WRKT", isDirectory: true)
-        let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw StorageError.migrationFailed("Documents directory not accessible")
+        }
 
         var migratedWorkouts: [CompletedWorkout] = []
         var migratedPRIndex: [String: ExercisePRsV2] = [:]
@@ -340,7 +375,7 @@ actor WorkoutStorage {
             if let data = try? Data(contentsOf: oldWorkoutsURL),
                let workouts = try? decoder.decode([CompletedWorkout].self, from: data) {
                 migratedWorkouts.append(contentsOf: workouts)
-                print("   📦 Found \(workouts.count) workouts in legacy Application Support")
+                AppLogger.info("Found \(workouts.count) workouts in legacy Application Support", category: AppLogger.storage)
             }
         }
 
@@ -350,7 +385,7 @@ actor WorkoutStorage {
                let oldPRIndex = try? decoder.decode([String: ExercisePRs].self, from: data) {
                 // Convert old PR format to new
                 migratedPRIndex = convertOldPRIndex(oldPRIndex)
-                print("   📦 Found \(migratedPRIndex.count) PR entries in legacy storage")
+                AppLogger.info("Found \(migratedPRIndex.count) PR entries in legacy storage", category: AppLogger.storage)
             }
         }
 
@@ -359,7 +394,7 @@ actor WorkoutStorage {
             if let data = try? Data(contentsOf: oldRunsURL),
                let runs = try? decoder.decode([Run].self, from: data) {
                 migratedRuns.append(contentsOf: runs)
-                print("   📦 Found \(runs.count) runs in legacy storage")
+                AppLogger.info("Found \(runs.count) runs in legacy storage", category: AppLogger.storage)
             }
         }
 
@@ -368,7 +403,7 @@ actor WorkoutStorage {
             if let data = try? Data(contentsOf: oldCurrentURL),
                let current = try? decoder.decode(CurrentWorkout.self, from: data) {
                 migratedCurrent = current
-                print("   📦 Found current workout in legacy storage")
+                AppLogger.info("Found current workout in legacy storage", category: AppLogger.storage)
             }
         }
 
@@ -378,7 +413,7 @@ actor WorkoutStorage {
             if let data = try? Data(contentsOf: oldPersistenceWorkoutsURL),
                let workouts = try? decoder.decode([CompletedWorkout].self, from: data) {
                 migratedWorkouts.append(contentsOf: workouts)
-                print("   📦 Found \(workouts.count) workouts in old Persistence location")
+                AppLogger.info("Found \(workouts.count) workouts in old Persistence location", category: AppLogger.storage)
             }
         }
 
@@ -387,7 +422,7 @@ actor WorkoutStorage {
             if let data = try? Data(contentsOf: oldPersistenceRunsURL),
                let runs = try? decoder.decode([Run].self, from: data) {
                 migratedRuns.append(contentsOf: runs)
-                print("   📦 Found \(runs.count) runs in old Persistence location")
+                AppLogger.info("Found \(runs.count) runs in old Persistence location", category: AppLogger.storage)
             }
         }
 
@@ -397,7 +432,7 @@ actor WorkoutStorage {
                let current = try? decoder.decode(CurrentWorkout.self, from: data) {
                 if migratedCurrent == nil {
                     migratedCurrent = current
-                    print("   📦 Found current workout in old Persistence location")
+                    AppLogger.info("Found current workout in old Persistence location", category: AppLogger.storage)
                 }
             }
         }
@@ -426,7 +461,7 @@ actor WorkoutStorage {
 
         // 5. If PR index is empty, recompute from workouts
         if migratedPRIndex.isEmpty && !deduplicatedWorkouts.isEmpty {
-            print("   🔄 Recomputing PR index from migrated workouts...")
+            AppLogger.info("Recomputing PR index from migrated workouts...", category: AppLogger.storage)
             migratedPRIndex = recomputePRIndex(from: deduplicatedWorkouts)
         }
 
@@ -440,14 +475,10 @@ actor WorkoutStorage {
         // 7. Mark migration as complete
         try "migrated".write(to: migrationFlagURL, atomically: true, encoding: .utf8)
 
-        print("✅ Migration complete:")
-        print("   Workouts: \(deduplicatedWorkouts.count)")
-        print("   Runs: \(deduplicatedRuns.count)")
-        print("   PR entries: \(migratedPRIndex.count)")
-        print("   Current workout: \(migratedCurrent != nil ? "Yes" : "No")")
+        AppLogger.success("Migration complete - Workouts: \(deduplicatedWorkouts.count), Runs: \(deduplicatedRuns.count), PR entries: \(migratedPRIndex.count), Current workout: \(migratedCurrent != nil ? "Yes" : "No")", category: AppLogger.storage)
 
         // Note: Don't delete old files yet - let user verify data first
-        print("⚠️ Old storage files retained for safety. You can delete them manually after verification.")
+        AppLogger.warning("Old storage files retained for safety. You can delete them manually after verification.", category: AppLogger.storage)
     }
 
     // MARK: - Migration Helpers
@@ -517,17 +548,24 @@ actor WorkoutStorage {
     // MARK: - Cleanup
 
     func cleanupLegacyStorage() async throws {
-        print("🗑️ Cleaning up legacy storage files...")
+        AppLogger.info("Cleaning up legacy storage files...", category: AppLogger.storage)
 
-        let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            AppLogger.warning("Application Support directory not accessible, skipping cleanup", category: AppLogger.storage)
+            return
+        }
         let oldAppDir = appSupportDir.appendingPathComponent("WRKT", isDirectory: true)
 
         if fileManager.fileExists(atPath: oldAppDir.path) {
             try fileManager.removeItem(at: oldAppDir)
-            print("✅ Removed legacy Application Support directory")
+            AppLogger.success("Removed legacy Application Support directory", category: AppLogger.storage)
         }
 
-        let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            AppLogger.warning("Documents directory not accessible, skipping cleanup", category: AppLogger.storage)
+            return
+        }
+
         let oldFiles = [
             "workouts.json",
             "runs.json",
@@ -538,7 +576,7 @@ actor WorkoutStorage {
             let url = documentsDir.appendingPathComponent(filename)
             if fileManager.fileExists(atPath: url.path) {
                 try fileManager.removeItem(at: url)
-                print("✅ Removed old Persistence file: \(filename)")
+                AppLogger.success("Removed old Persistence file: \(filename)", category: AppLogger.storage)
             }
         }
     }
@@ -546,10 +584,10 @@ actor WorkoutStorage {
     // MARK: - Debug & Maintenance
 
     func validateStorage() async throws -> Bool {
-        print("🔍 Validating storage...")
+        AppLogger.info("Validating storage...", category: AppLogger.storage)
 
         guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
-            print("⚠️ Workouts file not found")
+            AppLogger.warning("Workouts file not found", category: AppLogger.storage)
             return false
         }
 
@@ -558,20 +596,18 @@ actor WorkoutStorage {
         // Check for duplicates
         let uniqueIDs = Set(workouts.map { $0.id })
         guard uniqueIDs.count == workouts.count else {
-            print("❌ Found duplicate workout IDs")
+            AppLogger.error("Found duplicate workout IDs", category: AppLogger.storage)
             return false
         }
 
         // Validate PR index
         for (exerciseID, pr) in prIndex {
             if pr.bestPerReps.isEmpty && pr.bestE1RM == nil {
-                print("⚠️ Empty PR entry for exercise: \(exerciseID)")
+                AppLogger.warning("Empty PR entry for exercise: \(exerciseID)", category: AppLogger.storage)
             }
         }
 
-        print("✅ Storage validation passed")
-        print("   Workouts: \(workouts.count)")
-        print("   PR entries: \(prIndex.count)")
+        AppLogger.success("Storage validation passed - Workouts: \(workouts.count), PR entries: \(prIndex.count)", category: AppLogger.storage)
         return true
     }
 
@@ -605,10 +641,38 @@ actor WorkoutStorage {
         return stats
     }
 
+    // MARK: - Security
+
+    /// Enable file protection for a directory and all its contents
+    /// Encrypts files when device is locked (NSFileProtectionComplete)
+    private func enableFileProtection(for directory: URL) {
+        do {
+            // Set protection for the directory itself
+            try fileManager.setAttributes(
+                [.protectionKey: FileProtectionType.complete],
+                ofItemAtPath: directory.path
+            )
+
+            AppLogger.success("File protection enabled for: \(directory.lastPathComponent)", category: AppLogger.storage)
+
+            // Also protect any existing files in the directory
+            if let files = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
+                for file in files {
+                    try? fileManager.setAttributes(
+                        [.protectionKey: FileProtectionType.complete],
+                        ofItemAtPath: file.path
+                    )
+                }
+            }
+        } catch {
+            AppLogger.error("Failed to enable file protection for \(directory.lastPathComponent)", error: error, category: AppLogger.storage)
+        }
+    }
+
     // MARK: - Development Only
 
     func wipeAllData() async throws {
-        print("⚠️ WIPING ALL DATA...")
+        AppLogger.warning("WIPING ALL DATA...", category: AppLogger.storage)
 
         try? fileManager.removeItem(at: workoutsFileURL)
         try? fileManager.removeItem(at: currentWorkoutFileURL)
@@ -619,7 +683,7 @@ actor WorkoutStorage {
         // Also clean up legacy
         try? await cleanupLegacyStorage()
 
-        print("✅ All data wiped")
+        AppLogger.success("All data wiped", category: AppLogger.storage)
     }
 }
 

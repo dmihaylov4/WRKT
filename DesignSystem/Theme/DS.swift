@@ -33,10 +33,12 @@ public extension Color {
         var n: UInt64 = 0
         Scanner(string: hexString).scanHexInt64(&n)
         if hexString.count == 6 {
-            let r = CGFloat((n & 0xFF0000) >> 16) / 255
-            let g = CGFloat((n & 0x00FF00) >> 8)  / 255
-            let b = CGFloat(n & 0x0000FF) / 255
-            self = Color(.sRGB, red: r, green: g, blue: b, opacity: alpha)
+            let r = Double((n & 0xFF0000) >> 16) / 255.0
+            let g = Double((n & 0x00FF00) >> 8)  / 255.0
+            let b = Double(n & 0x0000FF) / 255.0
+            // Use native SwiftUI Color with RGB color space to prevent adaptation
+            // This ensures consistent vibrant colors across all app states
+            self = Color(red: r, green: g, blue: b, opacity: alpha)
         } else {
             self = .clear
         }
@@ -93,8 +95,10 @@ public enum DS {
         public static let paperLight = Color(hex: "#FBF7FF") // brand-tinted near white
         public static let paperDark  = Color(hex: "#0F0718") // deep indigo
         
-        public static let marone = Color(hex: "#F4E409")
-
+        
+        // MAIN COLOR //
+        public static let marone = Color(hex: "#CCFF00")
+        // END MAIN COLOR //
 
     }
 
@@ -130,6 +134,132 @@ public enum DS {
         public static let card    = Color.dynamic(light: Color.white.opacity(0.96), dark: DS.Palette.paperDark.darken(0.06))
         public static let border  = Color.dynamic(light: Color.white.opacity(0.55), dark: Color.white.opacity(0.12))
         public static let fillSubtle = Color.dynamic(light: Color.white.opacity(0.70), dark: Color.white.opacity(0.06))
+    }
+
+    // MARK: - Colors (Feature-Specific)
+
+    /// Status colors for feedback states (success, warning, error, info)
+    public enum Status {
+        /// Success state color (e.g., workout completed, goal achieved)
+        public static let success     = Color(hex: "#22C55E") // green-500
+        /// Success background tint
+        public static let successBg   = success.opacity(0.12)
+
+        /// Warning state color (e.g., approaching limit, attention needed)
+        public static let warning     = Color(hex: "#F59E0B") // amber-500
+        /// Warning background tint
+        public static let warningBg   = warning.opacity(0.12)
+
+        /// Error state color (e.g., failed validation, broken streak)
+        public static let error       = Color(hex: "#EF4444") // red-500
+        /// Error background tint
+        public static let errorBg     = error.opacity(0.12)
+
+        /// Info state color (e.g., tips, notifications)
+        public static let info        = Color(hex: "#3B82F6") // blue-500
+        /// Info background tint
+        public static let infoBg      = info.opacity(0.12)
+    }
+
+    /// State colors for UI element states (active, inactive, disabled, selected)
+    public enum State {
+        /// Active/selected state (uses brand yellow)
+        public static let active      = Palette.marone // #F4E409
+        /// Inactive state
+        public static let inactive    = Color.gray
+        /// Disabled state (reduced opacity)
+        public static let disabled    = Color.gray.opacity(0.4)
+        /// Selected state (same as active)
+        public static let selected    = Palette.marone
+        /// Hover/pressed state background
+        public static let hover       = Palette.marone.opacity(0.1)
+    }
+
+    /// Chart and data visualization colors
+    public enum Charts {
+        // Training split colors
+        /// Push exercises (chest, shoulders, triceps)
+        public static let push        = Color(hex: "#8B5CF6") // purple
+        /// Pull exercises (back, biceps)
+        public static let pull        = Color(hex: "#F97316") // orange
+        /// Leg exercises
+        public static let legs        = Color(hex: "#3B82F6") // blue
+        /// Core exercises
+        public static let core        = Color(hex: "#22C55E") // green
+
+        // Trend indicators
+        /// Positive trend (increasing, improving)
+        public static let positive    = Color(hex: "#22C55E").opacity(0.7) // green
+        /// Negative trend (decreasing, declining)
+        public static let negative    = Color(hex: "#EF4444").opacity(0.7) // red
+        /// Neutral trend (stable, no change)
+        public static let neutral     = Color.gray.opacity(0.7)
+
+        // Gradients for visualizations
+        /// Primary gradient (purple to blue)
+        public static let gradient1   = [Color(hex: "#8B5CF6"), Color(hex: "#3B82F6")]
+        /// Secondary gradient (orange to yellow)
+        public static let gradient2   = [Color(hex: "#F97316"), Color(hex: "#F4E409")]
+    }
+
+    /// Calendar-specific colors for workout tracking
+    public enum Calendar {
+        /// Workout completion indicator (yellow dot)
+        public static let workout     = Palette.marone // #F4E409
+        /// Cardio activity indicator (white dot)
+        public static let cardio      = Color.white
+        /// Planned workout (dimmed yellow)
+        public static let planned     = Palette.marone.opacity(0.5)
+        /// Streak border/highlight
+        public static let streak      = Palette.marone
+        /// Today indicator
+        public static let today       = Palette.marone
+
+        // Planner workout states
+        /// Completed planned workout
+        public static let completed   = Color(hex: "#22C55E") // green
+        /// Partially completed workout
+        public static let partial     = Color(hex: "#F4E409") // yellow
+        /// Skipped workout
+        public static let skipped     = Color.gray
+        /// Rescheduled workout
+        public static let rescheduled = Color(hex: "#F97316") // orange
+    }
+
+    /// Exercise session and workout colors
+    public enum Exercise {
+        /// Current exercise indicator
+        public static let current     = Palette.marone // #F4E409
+        /// Up next exercise
+        public static let upNext      = Color(hex: "#3B82F6") // blue
+        /// Finished exercise
+        public static let finished    = Color(hex: "#22C55E") // green
+        /// Rest period indicator
+        public static let rest        = Color(hex: "#F97316") // orange
+
+        // Set types
+        /// Warmup set
+        public static let warmup      = Color(hex: "#3B82F6").opacity(0.6) // blue tint
+        /// Working set (main set)
+        public static let working     = Palette.marone // #F4E409
+        /// Backoff/drop set
+        public static let backoff     = Color(hex: "#F97316").opacity(0.6) // orange tint
+    }
+
+    /// Dark mode specific theme colors
+    public enum Theme {
+        /// Card gradient top (darkest)
+        public static let cardTop     = Color(hex: "#121212")
+        /// Card gradient bottom (lighter)
+        public static let cardBottom  = Color(hex: "#333333")
+        /// Progress track background
+        public static let track       = Color(hex: "#151515")
+        /// Overlay backdrop
+        public static let overlay     = Color.black.opacity(0.85)
+        /// Accent color for dark theme (use for small elements: icons, borders, badges)
+        public static let accent      = Palette.marone
+        /// Subtle accent for large surfaces (cards, backgrounds) - very desaturated
+        public static let accentSurface = Palette.marone.opacity(0.75)
     }
 
     // MARK: Spacing / Radii / Elevation

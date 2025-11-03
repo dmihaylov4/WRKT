@@ -39,10 +39,6 @@ struct SetRowUnified: View {
         case weight
     }
 
-    // Tutorial frame capture callbacks (only for first set)
-    var onSetTypeFrameCaptured: ((CGRect) -> Void)? = nil
-    var onCarouselsFrameCaptured: ((CGRect) -> Void)? = nil
-
     var body: some View {
         VStack(spacing: 0) {
             // Header: Set number, status, and type
@@ -75,8 +71,8 @@ struct SetRowUnified: View {
                 // Rest timer (if active for this set)
                 if hasActiveTimer && timerManager.isRunning {
                     Button {
-                        // Skip the rest timer
-                        timerManager.skipTimer()
+                        // Cancel the rest timer
+                        timerManager.stopTimer()
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                     } label: {
                         HStack(spacing: 4) {
@@ -84,14 +80,19 @@ struct SetRowUnified: View {
                                 .font(.caption.weight(.medium))
                             Text(formatTime(timerManager.remainingSeconds))
                                 .font(.caption.monospacedDigit().weight(.semibold))
-                            Image(systemName: "xmark.circle.fill")
+                            Text("•")
                                 .font(.caption2)
+                            Text("Cancel")
+                                .font(.caption.weight(.semibold))
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.caption)
                         }
                         .foregroundStyle(Theme.accent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
                         .background(Theme.accent.opacity(0.15))
                         .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Theme.accent.opacity(0.3), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -102,9 +103,6 @@ struct SetRowUnified: View {
                 TagDotCycler(tag: $set.tag)
                     .disabled(set.isCompleted || isGhost)
                     .opacity(set.isCompleted ? 0.5 : 1.0)
-                    .captureFrame(in: .global) { frame in
-                        onSetTypeFrameCaptured?(frame)
-                    }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -253,9 +251,6 @@ struct SetRowUnified: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .captureFrame(in: .global) { frame in
-                onCarouselsFrameCaptured?(frame)
-            }
 
             // Active set: Show "Log This Set" button
             if isActive && !set.isCompleted && !isGhost {
@@ -433,8 +428,11 @@ struct TagDotCycler: View {
         let all = SetTag.allCases
         if let idx = all.firstIndex(of: tag) {
             let next = all.index(after: idx)
-            tag = next < all.endIndex ? all[next] : all.first!
-        } else { tag = .working }
+            // Safely cycle through tags, fallback to .working if array is empty (should never happen)
+            tag = next < all.endIndex ? all[next] : (all.first ?? .working)
+        } else {
+            tag = .working
+        }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 }

@@ -24,7 +24,7 @@ struct ProfileStatsView: View {
                 // Icon with gradient background
                 ZStack {
                     LinearGradient(
-                        colors: [Color(hex: "#F4E409").opacity(0.3), Color(hex: "#F4E409").opacity(0.15)],
+                        colors: [DS.Theme.accent.opacity(0.3), DS.Theme.accent.opacity(0.15)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -33,7 +33,7 @@ struct ProfileStatsView: View {
 
                     Image(systemName: "chart.line.uptrend.xyaxis")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#F4E409"))
+                        .foregroundStyle(DS.Theme.accent)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -82,7 +82,7 @@ struct ProfileStatsView: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: "#1A1A1A"), Color(hex: "#0D0D0D")],
+                        colors: [DS.Theme.cardTop, DS.Theme.cardBottom],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -193,7 +193,7 @@ struct ProfileChartsView: View {
     }
 
     private func recomputeTop() {
-        print("🏋️ recomputeTop: Processing \(exVolumes.count) exercise volumes, \(trends.count) trends")
+        
 
         // Sum volume per exercise in the window and take top 5
         var byExercise: [String: Double] = [:]
@@ -204,7 +204,7 @@ struct ProfileChartsView: View {
             .sorted { $0.value > $1.value }
             .prefix(5)
 
-        print("🏋️ Found \(byExercise.count) unique exercises, top 5: \(ranked.map { $0.key }.joined(separator: ", "))")
+       
 
         // Build trend lookup
         let trendLookup = Dictionary(uniqueKeysWithValues: trends.map { ($0.exerciseID, $0) })
@@ -221,7 +221,7 @@ struct ProfileChartsView: View {
             )
         }
 
-        print("🏋️ Built \(top.count) top lifts")
+       
     }
 }
 
@@ -266,7 +266,7 @@ private struct VolumeWithTrendChart: View {
                                 Text(String(format: "%.1f%%", abs(lastAvg.percentChange)))
                                     .font(.caption2.monospacedDigit())
                             }
-                            .foregroundStyle(lastAvg.percentChange > 0 ? .green : .red)
+                            .foregroundStyle(lastAvg.percentChange > 0 ? DS.Charts.positive : DS.Charts.negative)
                         }
                     }
                 }
@@ -298,7 +298,7 @@ private struct VolumeWithTrendChart: View {
                             yEnd: .value("Upper", ma.fourWeekAvg + ma.stdDev),
                             width: 5
                         )
-                        .foregroundStyle(.blue.opacity(0.05))
+                        .foregroundStyle(DS.Charts.legs.opacity(0.05))
                     }
                 }
 
@@ -310,7 +310,7 @@ private struct VolumeWithTrendChart: View {
                         y: .value("Volume", w.totalVolume),
                         width: hasMultipleWeeks ? .automatic : .fixed(40)
                     )
-                    .foregroundStyle(hasMultipleWeeks ? barColor(for: w.totalVolume, movingAvg: ma) : Color.blue)
+                    .foregroundStyle(hasMultipleWeeks ? barColor(for: w.totalVolume, movingAvg: ma) : DS.Charts.legs)
                     .opacity(0.85)
                 }
 
@@ -321,7 +321,7 @@ private struct VolumeWithTrendChart: View {
                             x: .value("Week", ma.weekStart, unit: .weekOfYear),
                             y: .value("Trend", ma.fourWeekAvg)
                         )
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(DS.Charts.legs)
                         .lineStyle(StrokeStyle(lineWidth: 2.5))
                         .symbol(.circle)
                         .symbolSize(40)
@@ -360,9 +360,9 @@ private struct VolumeWithTrendChart: View {
             // Legend (only show if we have trend analysis)
             if hasMultipleWeeks {
                 HStack(spacing: 16) {
-                    LegendItem(color: .green.opacity(0.7), label: "Above avg")
+                    LegendItem(color: DS.Charts.positive, label: "Above avg")
                     if showTrendLine {
-                        LegendItem(color: .blue, label: "4-week trend", isLine: true)
+                        LegendItem(color: DS.Charts.legs, label: "4-week trend", isLine: true)
                     }
                     LegendItem(color: .white.opacity(0.5), label: "Personal avg", isDashed: true)
                 }
@@ -381,9 +381,9 @@ private struct VolumeWithTrendChart: View {
     private func barColor(for volume: Double, movingAvg: MovingAverage?) -> Color {
         guard let ma = movingAvg else { return .gray }
         if ma.isAboveAverage {
-            return .green.opacity(0.7)
+            return DS.Charts.positive
         } else {
-            return .orange.opacity(0.7)
+            return DS.Charts.pull.opacity(0.7)
         }
     }
 
@@ -520,7 +520,7 @@ private struct TopLiftsCard: View {
                                 if let change = item.volumeChange, abs(change) >= 5 {
                                     Text(String(format: "%+.0f%%", change))
                                         .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(change > 0 ? .green : .red)
+                                        .foregroundStyle(change > 0 ? DS.Charts.positive : DS.Charts.negative)
                                 }
                             }
                         }
@@ -538,10 +538,10 @@ private struct TopLiftsCard: View {
             switch direction {
             case "improving":
                 Image(systemName: "arrow.up.right")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(DS.Charts.positive)
             case "declining":
                 Image(systemName: "arrow.down.right")
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DS.Charts.negative)
             default:
                 Image(systemName: "arrow.right")
                     .foregroundStyle(.secondary)

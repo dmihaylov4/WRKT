@@ -116,79 +116,78 @@ struct WinScreenView: View {
                            startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Top icon & title
+            VStack(spacing: 0) {
+                // Fixed header section
+                VStack(spacing: 12) {
+                    // Top icon & title - more compact
                     Image(systemName: iconName)
-                        .font(.system(size: 64, weight: .bold))
-                        .foregroundStyle(Color(hex: "#F4E409"))
+                        .font(.system(size: 52, weight: .bold))
+                        .foregroundStyle(DS.Theme.accent)
                         .scaleEffect(animate ? 1 : 0.6)
                         .symbolEffect(.bounce, options: .repeat(1))
+                        .padding(.top, 20)
 
                     Text(title)
-                        .font(.system(.largeTitle, weight: .bold))
+                        .font(.system(.title, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .lineLimit(2)
 
                     if let sub = subtitle {
                         Text(sub)
-                            .font(.callout)
+                            .font(.subheadline)
                             .foregroundStyle(.white.opacity(0.6))
                             .multilineTextAlignment(.center)
+                            .lineLimit(2)
                     }
 
                     // Totals row
-                    HStack(spacing: 10) {
+                    HStack(spacing: 8) {
                         if summary.xp > 0 { Pill("XP +\(summary.xp)") }
                         if summary.coins > 0 { Pill("Coins +\(summary.coins)") }
                         if let lvl = summary.levelUpTo { Pill("Level \(lvl)") }
                     }
-                    .padding(.top, 2)
-
-                    // XP Gain Card with animated progress bar
-                    if let snapshot = summary.xpSnapshot, !summary.xpLineItems.isEmpty {
-                        XPGainCard(snapshot: snapshot, lineItems: summary.xpLineItems)
-                            .transition(.opacity.combined(with: .scale))
-                    }
-
-                    // Highlights card
-                    //if !highlights.isEmpty {
-                        //VStack(alignment: .leading, spacing: 10) {
-                            //ForEach(highlights) { h in
-                                //HStack(spacing: 10) {
-                                    //Image(systemName: h.icon)
-                                       // .font(.subheadline.weight(.bold))
-                                     //   .frame(width: 22, height: 22)
-                                   // Text(h.label)
-                                   //     .font(.subheadline)
-                                 //   Spacer(minLength: 0)
-                               // }
-                               // .foregroundStyle(.white)
-                               // .padding(.vertical, 6)
-                             //   .contentShape(Rectangle())
-                           //     Divider().background(.white.opacity(0.08))
-                         //   }
-                       // }
-                      //  .padding(14)
-                      //  .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                      //  .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.10), lineWidth: 1))
-                    //}
-
-                    Button {
-                        Haptics.light()
-                        onDismiss()
-                    } label: {
-                        Text("Continue")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity, minHeight: 48)
-                            .contentShape(Rectangle())
-                    }
-                    .background(Color(hex: "#F4E409"))
-                    .foregroundStyle(.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .padding(.top, 20)
                 }
-                .padding(22)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+
+                // Scrollable content area (only this part scrolls if needed)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 12) {
+                        // Unified XP & Rewards Card
+                        if let snapshot = summary.xpSnapshot, !summary.xpLineItems.isEmpty {
+                            XPGainCard(
+                                snapshot: snapshot,
+                                lineItems: summary.xpLineItems,
+                                highlights: highlights,
+                                humanize: humanize
+                            )
+                            .transition(.opacity.combined(with: .scale))
+                        } else if !highlights.isEmpty {
+                            // If no XP card, show highlights standalone
+                            HighlightsOnlyCard(highlights: highlights)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+                }
+
+                // Fixed button at bottom
+                Button {
+                    Haptics.light()
+                    onDismiss()
+                } label: {
+                    Text("Continue")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                        .contentShape(Rectangle())
+                }
+                .background(DS.Theme.accent)
+                .foregroundStyle(.black)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
+                .background(.black.opacity(0.3))
             }
         }
         .onAppear {
@@ -198,26 +197,58 @@ struct WinScreenView: View {
 
     private func Pill(_ text: String) -> some View {
         Text(text)
-            .font(.callout.weight(.semibold))
-            .padding(.horizontal, 12).padding(.vertical, 8)
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(.white.opacity(0.10), in: Capsule())
             .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 1))
             .foregroundStyle(.white)
     }
 
     private func humanize(_ raw: String) -> String {
+        // Convert snake_case or kebab-case to Title Case
         raw
-            .replacingOccurrences(of: "-", with: " ")
             .replacingOccurrences(of: "_", with: " ")
+            .replacingOccurrences(of: "-", with: " ")
             .split(separator: " ")
-            .map { $0.capitalized }
+            .map { String($0).capitalized }  // Convert to String and capitalize
             .joined(separator: " ")
     }
 
-    private struct Highlight: Identifiable {
+    fileprivate struct Highlight: Identifiable {
         let id = UUID()
         let icon: String
         let label: String
+    }
+}
+
+// MARK: - Highlights Only Card (fallback when no XP)
+private struct HighlightsOnlyCard: View {
+    let highlights: [WinScreenView.Highlight]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(highlights) { h in
+                HStack(spacing: 8) {
+                    Image(systemName: h.icon)
+                        .font(.caption.weight(.bold))
+                        .frame(width: 18, height: 18)
+                        .foregroundStyle(DS.Theme.accent)
+                    Text(h.label)
+                        .font(.caption.weight(.medium))
+                    Spacer(minLength: 0)
+                }
+                .foregroundStyle(.white)
+                .padding(.vertical, 3)
+
+                if h.id != highlights.last?.id {
+                    Divider().background(.white.opacity(0.08))
+                }
+            }
+        }
+        .padding(14)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.10), lineWidth: 1))
     }
 }
 
@@ -226,165 +257,190 @@ struct WinScreenView: View {
 private struct XPGainCard: View {
     let snapshot: XPSnapshot
     let lineItems: [XPLineItem]
+    let highlights: [WinScreenView.Highlight]
+    let humanize: (String) -> String
 
-    @State private var animatedProgress: Double = 0
-    @State private var showFinalValues: Bool = false
+    @State private var progress: Double = 0
+    @State private var displayLevel: Int
+    @State private var displayXP: Int
+    @State private var displayFloor: Int
+    @State private var displayCeiling: Int
+
+    init(snapshot: XPSnapshot, lineItems: [XPLineItem], highlights: [WinScreenView.Highlight], humanize: @escaping (String) -> String) {
+        self.snapshot = snapshot
+        self.lineItems = lineItems
+        self.highlights = highlights
+        self.humanize = humanize
+
+        // Initialize with "before" values
+        _displayLevel = State(initialValue: snapshot.beforeLevel)
+        _displayXP = State(initialValue: snapshot.beforeXP)
+        _displayFloor = State(initialValue: snapshot.beforeFloor)
+        _displayCeiling = State(initialValue: snapshot.beforeCeiling)
+        _progress = State(initialValue: Double(snapshot.beforeXP - snapshot.beforeFloor) / Double(max(1, snapshot.beforeCeiling - snapshot.beforeFloor)))
+    }
 
     private var isLevelUp: Bool {
         snapshot.afterLevel > snapshot.beforeLevel
     }
 
-    private var displayLevel: Int {
-        showFinalValues ? snapshot.afterLevel : snapshot.beforeLevel
-    }
-
-    private var displayXP: Int {
-        if !isLevelUp {
-            // No level up: simple interpolation
-            let range = Double(snapshot.afterXP - snapshot.beforeXP)
-            return snapshot.beforeXP + Int(range * animatedProgress)
-        } else if !showFinalValues {
-            // Level up, phase 1: interpolate to old level ceiling
-            let range = Double(snapshot.beforeCeiling - snapshot.beforeXP)
-            return snapshot.beforeXP + Int(range * animatedProgress)
-        } else {
-            // Level up, phase 2: interpolate from new floor to final XP
-            let range = Double(snapshot.afterXP - snapshot.afterFloor)
-            return snapshot.afterFloor + Int(range * animatedProgress)
-        }
-    }
-
-    private var displayFloor: Int {
-        showFinalValues ? snapshot.afterFloor : snapshot.beforeFloor
-    }
-
-    private var displayCeiling: Int {
-        showFinalValues ? snapshot.afterCeiling : snapshot.beforeCeiling
-    }
-
-    private var progress: Double {
-        let range = Double(displayCeiling - displayFloor)
-        guard range > 0 else { return 0 }
-        let current = Double(displayXP - displayFloor)
-        return min(max(current / range, 0), 1)
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // XP Progress Bar
-            VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            // XP Progress Bar - Prominent and always visible
+            VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Level \(displayLevel)")
-                        .font(.headline.weight(.bold))
+                        .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white)
                         .transition(.opacity)
                         .id("level-\(displayLevel)")
                     Spacer()
                     Text("+\(snapshot.xpGained) XP")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color(hex: "#F4E409"))
+                        .foregroundStyle(DS.Theme.accent)
                 }
 
-                // Progress bar
+                // Progress bar - GPU accelerated
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         // Background track
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(.white.opacity(0.10))
-                            .frame(height: 12)
+                            .frame(height: 10)
 
-                        // Fill - smoothly animated
+                        // Fill - smoothly animated with GPU acceleration
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color(hex: "#F4E409"), Color(hex: "#FFD700")],
+                                    colors: [DS.Theme.accent, DS.Theme.accent.opacity(0.7)],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
                             )
-                            .frame(width: geo.size.width * progress, height: 12)
+                            .frame(width: geo.size.width * progress, height: 10)
+                            .animation(.easeOut(duration: 1.0), value: progress)
                     }
+                    .drawingGroup() // GPU-accelerated rendering
                 }
-                .frame(height: 12)
+                .frame(height: 10)
 
                 HStack {
                     Text("\(displayXP - displayFloor) / \(displayCeiling - displayFloor) XP")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .contentTransition(.numericText())
+                        .animation(.easeOut(duration: 1.0), value: displayXP)
                     Spacer()
                 }
             }
 
-            // XP Breakdown
+            // XP Breakdown - Compact
             if !lineItems.isEmpty {
                 Divider()
                     .background(.white.opacity(0.15))
 
-                VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("XP Breakdown")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.8))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
 
                     ForEach(lineItems) { item in
-                        HStack(spacing: 10) {
+                        HStack(spacing: 8) {
                             Image(systemName: item.icon)
-                                .font(.subheadline.weight(.bold))
-                                .frame(width: 22, height: 22)
-                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .font(.caption.weight(.bold))
+                                .frame(width: 18, height: 18)
+                                .foregroundStyle(DS.Theme.accent)
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.source)
-                                    .font(.subheadline.weight(.medium))
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(humanize(item.source))
+                                    .font(.caption.weight(.medium))
                                     .foregroundStyle(.white)
 
                                 if let detail = item.detail {
-                                    Text(detail)
-                                        .font(.caption)
-                                        .foregroundStyle(.white.opacity(0.6))
+                                    Text(humanize(detail))
+                                        .font(.caption2)
+                                        .foregroundStyle(.white.opacity(0.5))
                                 }
                             }
 
                             Spacer(minLength: 0)
 
                             Text("+\(item.xp)")
-                                .font(.subheadline.weight(.bold))
-                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(DS.Theme.accent)
                         }
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+
+            // Highlights (achievements, PRs, etc.) - Compact
+            if !highlights.isEmpty {
+                Divider()
+                    .background(.white.opacity(0.15))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Rewards")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+
+                    ForEach(highlights) { h in
+                        HStack(spacing: 8) {
+                            Image(systemName: h.icon)
+                                .font(.caption.weight(.bold))
+                                .frame(width: 18, height: 18)
+                                .foregroundStyle(DS.Theme.accent)
+
+                            Text(h.label)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.white)
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 2)
                     }
                 }
             }
         }
-        .padding(16)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.10), lineWidth: 1))
+        .padding(14)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.10), lineWidth: 1))
         .onAppear {
-            // Smooth animation using SwiftUI's native animation system
-            if snapshot.afterLevel > snapshot.beforeLevel {
-                // Level up animation sequence:
-                // 1. Fill bar to 100% in old level
-                withAnimation(.easeOut(duration: 0.9)) {
-                    animatedProgress = 1.0
-                }
-                // 2. Switch to new level (bar disappears/resets)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                    // Instantly switch to new level with 0 progress
-                    showFinalValues = true
-                    animatedProgress = 0
+            if isLevelUp {
+                // Level up animation sequence
+                // Phase 1: Animate to 100% in old level (0.9s)
+                progress = 1.0
+                displayXP = snapshot.beforeCeiling
 
-                    // 3. Fill bar to final position in new level
+                // Phase 2: Instantly switch to new level at 0 progress (NO animation)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) {
+                    var transaction = Transaction()
+                    transaction.disablesAnimations = true
+                    withTransaction(transaction) {
+                        displayLevel = snapshot.afterLevel
+                        displayFloor = snapshot.afterFloor
+                        displayCeiling = snapshot.afterCeiling
+                        displayXP = snapshot.afterFloor
+                        progress = 0
+                    }
+
+                    // Phase 3: Animate to final position in new level (0.8s)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeOut(duration: 0.7)) {
-                            animatedProgress = 1.0
-                        }
+                        let finalRange = Double(snapshot.afterCeiling - snapshot.afterFloor)
+                        let finalProgress = finalRange > 0 ? Double(snapshot.afterXP - snapshot.afterFloor) / finalRange : 0
+                        progress = min(max(finalProgress, 0), 1)
+                        displayXP = snapshot.afterXP
                     }
                 }
             } else {
                 // Simple progress animation without level up
-                withAnimation(.easeOut(duration: 1.2)) {
-                    animatedProgress = 1.0
-                    showFinalValues = true
-                }
+                let finalRange = Double(snapshot.afterCeiling - snapshot.afterFloor)
+                let finalProgress = finalRange > 0 ? Double(snapshot.afterXP - snapshot.afterFloor) / finalRange : 0
+                progress = min(max(finalProgress, 0), 1)
+                displayXP = snapshot.afterXP
+                displayLevel = snapshot.afterLevel
+                displayFloor = snapshot.afterFloor
+                displayCeiling = snapshot.afterCeiling
             }
         }
     }

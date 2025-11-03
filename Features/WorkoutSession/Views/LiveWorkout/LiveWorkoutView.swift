@@ -8,6 +8,7 @@ import SwiftUI
 struct LiveWorkoutView: View {
     @EnvironmentObject var store: WorkoutStoreV2
     @State private var editingEntry: WorkoutEntry? = nil
+    @State private var showDiscardConfirmation = false
 
     var body: some View {
         VStack {
@@ -62,8 +63,7 @@ struct LiveWorkoutView: View {
                         }
                         .frame(height: 56)
                         Button(role: .destructive) {
-                            store.discardCurrentWorkout()
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            showDiscardConfirmation = true
                         } label: {
                             HStack {
                                 Spacer()
@@ -73,6 +73,15 @@ struct LiveWorkoutView: View {
                             }
                             .padding(.vertical, 14)
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .confirmationDialog("Discard Workout", isPresented: $showDiscardConfirmation, titleVisibility: .visible) {
+                            Button("Discard Workout", role: .destructive) {
+                                store.discardCurrentWorkout()
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        } message: {
+                            Text("Are you sure you want to discard this workout? You can undo this action.")
                         }
                     }
                     .padding(.horizontal, 16)

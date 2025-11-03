@@ -102,7 +102,7 @@ private struct AchievementRow: View {
                 .foregroundStyle(
                     a.unlockedAt == nil
                     ? AnyShapeStyle(.secondary)
-                    : AnyShapeStyle(.yellow)
+                    : AnyShapeStyle(DS.Theme.accent)
                 )
                 .frame(width: 24)
 
@@ -110,7 +110,11 @@ private struct AchievementRow: View {
                 Text(a.title).font(.subheadline.weight(.semibold))
                 Text(a.desc).font(.caption).foregroundStyle(.secondary)
 
-                if a.unlockedAt == nil {
+                if let unlockedDate = a.unlockedAt {
+                    Text(unlockedDate, style: .date)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
                     ProgressView(value: progressFrac) {
                         EmptyView()
                     } currentValueLabel: {
@@ -118,11 +122,7 @@ private struct AchievementRow: View {
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
-                    .tint(.yellow)
-                } else {
-                    Text(a.unlockedAt!, style: .date)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    .tint(DS.Theme.accent)
                 }
             }
             Spacer(minLength: 0)

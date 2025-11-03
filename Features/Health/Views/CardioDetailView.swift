@@ -13,7 +13,7 @@ private enum Theme {
     static let border    = Color.white.opacity(0.10)
     static let text      = Color.white
     static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#F4E409")
+    static let accent    = DS.Theme.accent
 }
 
 struct CardioDetailView: View {
@@ -73,7 +73,7 @@ struct CardioDetailView: View {
         }
         // Listen for cardio tab reselection
         .onReceive(NotificationCenter.default.publisher(for: .cardioTabReselected)) { _ in
-            print("🏃 CardioDetailView received cardio reselection - dismissing")
+           
             dismiss()
         }
     }
@@ -87,6 +87,11 @@ private struct StatGrid: View {
     private var paceSecPerKm: Int? {
         guard run.distanceKm > 0 else { return nil }
         return Int(Double(run.durationSec) / run.distanceKm)
+    }
+
+    // Check if this is a strength-type workout (shows different stats)
+    private var isStrengthWorkout: Bool {
+        run.countsAsStrengthDay
     }
 
     var body: some View {
@@ -115,23 +120,48 @@ private struct StatGrid: View {
                                 GridItem(.flexible(), spacing: 10)],
                       spacing: 10) {
 
-                StatTile(title: "Distance", value: String(format: "%.2f km", run.distanceKm))
-                StatTile(title: "Duration", value: format(sec: run.durationSec))
+                // For strength workouts, show duration prominently
+                // For cardio workouts, show distance and pace
+                if isStrengthWorkout {
+                    // Strength workout stats
+                    StatTile(title: "Duration", value: format(sec: run.durationSec))
 
-                if let pace = paceSecPerKm {
-                    StatTile(title: "Pace", value: paceString(pace))
+                    if let kcal = run.calories, kcal > 0 {
+                        StatTile(title: "Calories", value: "\(Int(kcal)) kcal")
+                    } else {
+                        StatTile(title: "Calories", value: "—")
+                    }
+
+                    if let hr = run.avgHeartRate, hr > 0 {
+                        StatTile(title: "Avg HR", value: "\(Int(hr)) bpm")
+                    } else {
+                        StatTile(title: "Avg HR", value: "—")
+                    }
+
+                    // Show distance only if it's non-zero (some strength workouts might track it)
+                    if run.distanceKm > 0 {
+                        StatTile(title: "Distance", value: String(format: "%.2f km", run.distanceKm))
+                    }
                 } else {
-                    StatTile(title: "Pace", value: "—")
-                }
+                    // Cardio workout stats (original layout)
+                    StatTile(title: "Distance", value: String(format: "%.2f km", run.distanceKm))
+                    StatTile(title: "Duration", value: format(sec: run.durationSec))
 
-                if let hr = run.avgHeartRate, hr > 0 {
-                    StatTile(title: "Avg HR", value: "\(Int(hr)) bpm")
-                } else {
-                    StatTile(title: "Avg HR", value: "—")
-                }
+                    if let pace = paceSecPerKm {
+                        StatTile(title: "Pace", value: paceString(pace))
+                    } else {
+                        StatTile(title: "Pace", value: "—")
+                    }
 
-                if let kcal = run.calories {
-                    StatTile(title: "Calories", value: "\(Int(kcal)) kcal")
+                    if let hr = run.avgHeartRate, hr > 0 {
+                        StatTile(title: "Avg HR", value: "\(Int(hr)) bpm")
+                    } else {
+                        StatTile(title: "Avg HR", value: "—")
+                    }
+
+                    if let kcal = run.calories {
+                        StatTile(title: "Calories", value: "\(Int(kcal)) kcal")
+                    }
                 }
             }
         }

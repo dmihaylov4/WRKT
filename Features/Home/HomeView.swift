@@ -50,13 +50,13 @@ struct HomeView: View {
             ZStack(alignment: .top) {
                 // ROOT: two big, styled cards
                 if expandedRegion == nil {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 10) {
                         RegionSquareLarge(
                             title: "Upper Body",
                             systemImage: "figure.strengthtraining.traditional",
                             matchedID: "region-upper",
                             namespace: regionNS,
-                            tint: DS.Palette.marone
+                            tint: DS.Theme.accent
                         ) {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                                 expandedRegion = .upper
@@ -69,7 +69,7 @@ struct HomeView: View {
                             systemImage: "figure.step.training",
                             matchedID: "region-lower",
                             namespace: regionNS,
-                            tint: DS.Palette.marone
+                            tint: DS.Theme.accent
                         ) {
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                                 expandedRegion = .lower
@@ -77,35 +77,54 @@ struct HomeView: View {
                             }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 10)
                     .transition(.opacity.combined(with: .scale))
                 }
 
                 // EXPANDED: the selected card morphs into a panel with subregion tiles
                 if let region = expandedRegion {
-                    ExpandedRegionPanel(
-                        region: region,
-                        namespace: regionNS,
-                        matchedID: region == .upper ? "region-upper" : "region-lower",
-                        showTiles: showTiles,
-                        onCollapse: {
+                    // Tap-outside-to-close background (fills entire screen)
+                    Color.black.opacity(0.001)  // Nearly invisible but tappable
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Haptics.light()
                             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                                 showTiles = false
                                 expandedRegion = nil
                             }
-                        },
-                        onSelectSubregion: { name in
-                            path.append(BrowseRoute.subregion(name))
                         }
-                    )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                        .transition(.opacity)
+
+                    // Panel on top - centered in available space
+                    VStack {
+                        Spacer()
+                        ExpandedRegionPanel(
+                            region: region,
+                            namespace: regionNS,
+                            matchedID: region == .upper ? "region-upper" : "region-lower",
+                            showTiles: showTiles,
+                            onCollapse: {
+                                withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                    showTiles = false
+                                    expandedRegion = nil
+                                }
+                            },
+                            onSelectSubregion: { name in
+                                path.append(BrowseRoute.subregion(name))
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        Spacer()
+                    }
+                    .allowsHitTesting(true)  // Ensure panel intercepts taps
+                    .transition(.opacity.combined(with: .scale))
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            .navigationTitle("Pick your poison")
+            .navigationTitle("Exercises")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: BrowseRoute.self) { route in
                 switch route {
@@ -114,7 +133,8 @@ struct HomeView: View {
                 case .subregion(let name):
                     MuscleExerciseListView(
                           state: .constant(.subregion(name)),
-                          subregion: name
+                          subregion: name,
+                          navigationPath: $path
                       )
                 case .deep(let parent, let child):
                     SubregionDetailScreen(subregion: parent, preselectedDeep: child)
@@ -128,9 +148,11 @@ struct HomeView: View {
                     showTiles = false
                 }
             }
-            // Reserve room for the grab tab ONLY when a workout is active AND not browsing
+            // Reserve space for grab bar: 16pt spacing + 64pt height + 16pt to tab bar = 96pt
             .safeAreaInset(edge: .bottom) {
-                if hasActiveWorkout && !isBrowsingExercises { Color.clear.frame(height: 65) }
+                if hasActiveWorkout && !isBrowsingExercises {
+                    Color.clear.frame(height: 60)
+                }
             }
             .background(DS.Semantic.surface)                               // ← keep it local
             .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
@@ -160,7 +182,6 @@ struct HomeView: View {
             isBrowsingExercises = (expandedRegion != nil) || !path.isEmpty
         }
         .onReceive(NotificationCenter.default.publisher(for: .homeTabReselected)) { _ in
-            print("🏠 HomeView: Received homeTabReselected notification")
             // Reset to root state when Home tab is re-tapped
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 path = NavigationPath()
@@ -216,7 +237,7 @@ private struct RegionSquareLarge: View {
 
                 VStack(spacing: 8) {
                     Image(systemName: systemImage)
-                        .font(.system(size: 36, weight: .semibold))
+                        .font(.system(size: 48, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(DS.Semantic.surface)
                     Text(title)
@@ -249,7 +270,7 @@ private struct ExpandedRegionPanel: View {
         region == .upper ? "Upper Body" : "Lower Body"
     }
     private var accent: Color {
-        region == .upper ? DS.Palette.marone : DS.Palette.marone
+        DS.Theme.accent
     }
     private var items: [String] {
         MuscleTaxonomy.subregions(for: region)
@@ -272,7 +293,7 @@ private struct ExpandedRegionPanel: View {
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.title3)
-                        .foregroundStyle(DS.Palette.marone)
+                        .foregroundStyle(DS.Theme.accent)
                 }
                 .buttonStyle(.plain)
             }
@@ -348,19 +369,5 @@ private struct SubregionTile: View {
     }
 }
 
-
-
-
-
-private extension Color {
-    init(hex: String) {
-        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("#") { s.removeFirst() }
-        var v: UInt64 = 0; Scanner(string: s).scanHexInt64(&v)
-        let r = Double((v >> 16) & 0xFF) / 255.0
-        let g = Double((v >>  8) & 0xFF) / 255.0
-        let b = Double( v        & 0xFF) / 255.0
-        self = Color(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
-    }
-}
+// Color(hex:) is now available from DS.swift, no need to redefine
 

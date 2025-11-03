@@ -65,7 +65,7 @@ struct TrainingBalanceSection: View {
                 // Icon with gradient background
                 ZStack {
                     LinearGradient(
-                        colors: [Color(hex: "#F4E409").opacity(0.3), Color(hex: "#F4E409").opacity(0.15)],
+                        colors: [DS.Theme.accent.opacity(0.3), DS.Theme.accent.opacity(0.15)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -74,7 +74,7 @@ struct TrainingBalanceSection: View {
 
                     Image(systemName: "scale.3d")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(Color(hex: "#F4E409"))
+                        .foregroundStyle(DS.Theme.accent)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -151,7 +151,7 @@ struct TrainingBalanceSection: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: "#1A1A1A"), Color(hex: "#0D0D0D")],
+                        colors: [DS.Theme.cardTop, DS.Theme.cardBottom],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
@@ -207,17 +207,17 @@ private struct PushPullBalanceCard: View {
         case 0.0:
             return (.secondary, "No pull exercises", "exclamationmark.triangle")
         case 0..<0.8:
-            return (.red, "Too much pushing", "exclamationmark.triangle.fill")
+            return (DS.Status.error, "Too much pushing", "exclamationmark.triangle.fill")
         case 0.8..<1.0:
-            return (.orange, "Slightly push-heavy", "exclamationmark.triangle")
+            return (DS.Status.warning, "Slightly push-heavy", "exclamationmark.triangle")
         case 1.0..<1.5:
-            return (.green, "Well balanced", "checkmark.circle.fill")
+            return (DS.Status.success, "Well balanced", "checkmark.circle.fill")
         case 1.5..<2.0:
-            return (.orange, "Slightly pull-heavy", "exclamationmark.triangle")
+            return (DS.Status.warning, "Slightly pull-heavy", "exclamationmark.triangle")
         case 10..<Double.infinity:
-            return (.red, "No push exercises", "exclamationmark.triangle.fill")
+            return (DS.Status.error, "No push exercises", "exclamationmark.triangle.fill")
         default:
-            return (.red, "Too much pulling", "exclamationmark.triangle.fill")
+            return (DS.Status.error, "Too much pulling", "exclamationmark.triangle.fill")
         }
     }
 
@@ -266,7 +266,7 @@ private struct PushPullBalanceCard: View {
                         label: "Push",
                         value: latest.pushVolume,
                         total: latest.pushVolume + latest.pullVolume,
-                        color: .blue,
+                        color: DS.Charts.push,
                         details: "H: \(shortVol(latest.horizontalPushVolume)) / V: \(shortVol(latest.verticalPushVolume))"
                     )
 
@@ -275,7 +275,7 @@ private struct PushPullBalanceCard: View {
                         label: "Pull",
                         value: latest.pullVolume,
                         total: latest.pushVolume + latest.pullVolume,
-                        color: .green,
+                        color: DS.Charts.pull,
                         details: "H: \(shortVol(latest.horizontalPullVolume)) / V: \(shortVol(latest.verticalPullVolume))"
                     )
                 }
@@ -378,13 +378,13 @@ private struct MuscleTile: View {
     private var status: (color: Color, text: String) {
         switch daysSince {
         case 0...2:
-            return (.green, "Fresh")
+            return (DS.Status.success, "Fresh")
         case 3...4:
-            return (.yellow, "\(daysSince)d ago")
+            return (DS.Calendar.partial, "\(daysSince)d ago")
         case 5...6:
-            return (.orange, "\(daysSince)d ago")
+            return (DS.Status.warning, "\(daysSince)d ago")
         default:
-            return (.red, "\(daysSince)d+ ago")
+            return (DS.Status.error, "\(daysSince)d+ ago")
         }
     }
 
@@ -443,8 +443,8 @@ private struct MovementPatternCard: View {
                         leftValue: latest.compoundVolume,
                         right: "Isolation",
                         rightValue: latest.isolationVolume,
-                        leftColor: .purple,
-                        rightColor: .pink
+                        leftColor: DS.Charts.push,
+                        rightColor: DS.Charts.push.opacity(0.6)
                     )
 
                     Divider()
@@ -456,8 +456,8 @@ private struct MovementPatternCard: View {
                         leftValue: latest.bilateralVolume,
                         right: "Unilateral",
                         rightValue: latest.unilateralVolume,
-                        leftColor: .blue,
-                        rightColor: .cyan
+                        leftColor: DS.Charts.legs,
+                        rightColor: DS.Charts.legs.opacity(0.6)
                     )
 
                     // Lower body: Hinge vs Squat (only show if there's data)
@@ -470,8 +470,8 @@ private struct MovementPatternCard: View {
                             leftValue: latest.hingeVolume,
                             right: "Squat",
                             rightValue: latest.squatVolume,
-                            leftColor: .orange,
-                            rightColor: .yellow
+                            leftColor: DS.Charts.pull,
+                            rightColor: DS.Calendar.partial
                         )
                     }
                 }

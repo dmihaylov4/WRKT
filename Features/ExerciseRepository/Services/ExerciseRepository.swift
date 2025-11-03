@@ -5,6 +5,7 @@
 
 import Foundation
 import Combine
+import OSLog
 
 
 
@@ -24,8 +25,11 @@ final class ExerciseRepository: ObservableObject {
     // MARK: Cache
     private let cache = ExerciseCache()
 
+    // MARK: Custom exercises
+    private let customStore = CustomExerciseStore.shared
+
     // MARK: Indexes (legacy - kept for backward compatibility)
-    private(set) var byID: [String: Exercise] = [:]
+    public private(set) var byID: [String: Exercise] = [:]
     private(set) var bySlug: [String: Exercise] = [:]
     private(set) var bySubregion: [String: [Exercise]] = [:]
 
@@ -63,27 +67,51 @@ final class ExerciseRepository: ObservableObject {
                     // Load all exercises into cache (fast, not displayed yet)
                     try await cache.loadAllExercises()
 
-                    // Build legacy indexes for backward compatibility
-                    let allExercises = await cache.getAllExercises()
-                    self.byID = Dictionary(uniqueKeysWithValues: allExercises.map { ($0.id, $0) })
-                    self.bySlug = self.byID
-                    self.bySubregion = allExercises.reduce(into: [String: [Exercise]]()) { dict, ex in
-                        for tag in ex.subregionTags { dict[tag, default: []].append(ex) }
-                    }
+                    // Merge catalog + custom exercises
+                    await rebuildIndexes()
 
                     // Load first page for display
                     await loadFirstPage()
 
                     self.didLoadFull = true
-                    print("✅ ExerciseRepository: Bootstrap complete")
+                    AppLogger.success("ExerciseRepository: Bootstrap complete", category: AppLogger.app)
                 } catch {
-                    print("❌ ExerciseRepository: Bootstrap failed: \(error)")
+                    AppLogger.error("ExerciseRepository: Bootstrap failed: \(error)", category: AppLogger.app)
                 }
             }
         }
         if !didLoadMedia {
             loadMedia()
         }
+    }
+
+    /// Rebuild indexes with custom exercises merged in
+    func reloadWithCustomExercises() async {
+        await rebuildIndexes()
+        await loadFirstPage(with: currentFilters)
+    }
+
+    /// Build indexes from cache + custom exercises
+    private func rebuildIndexes() async {
+        let catalogExercises = await cache.getAllExercises()
+        let customExercises = customStore.customExercises
+
+        // Merge: custom exercises override catalog if same ID
+        var merged: [String: Exercise] = Dictionary(uniqueKeysWithValues: catalogExercises.map { ($0.id, $0) })
+        for custom in customExercises {
+            merged[custom.id] = custom
+        }
+
+        let allExercises = Array(merged.values)
+
+        // Build indexes
+        self.byID = merged
+        self.bySlug = self.byID
+        self.bySubregion = allExercises.reduce(into: [String: [Exercise]]()) { dict, ex in
+            for tag in ex.subregionTags { dict[tag, default: []].append(ex) }
+        }
+
+        AppLogger.debug("Rebuilt indexes: \(allExercises.count) total (\(customExercises.count) custom)", category: AppLogger.app)
     }
 
     /// Load the first page of exercises (resets pagination)
@@ -98,7 +126,7 @@ final class ExerciseRepository: ObservableObject {
         self.totalExerciseCount = total
         self.hasMorePages = page.count >= cache.pageSize
 
-        print("📄 Loaded first page: \(page.count) exercises (total: \(total))")
+        AppLogger.debug("Loaded first page: \(page.count) exercises (total: \(total))", category: AppLogger.app)
     }
 
     /// Load the next page of exercises
@@ -115,12 +143,12 @@ final class ExerciseRepository: ObservableObject {
         self.hasMorePages = page.count >= cache.pageSize
         self.isLoadingPage = false
 
-        print("📄 Loaded page \(currentPage): \(page.count) exercises (total loaded: \(exercises.count)/\(totalExerciseCount))")
+        AppLogger.debug("Loaded page \(currentPage): \(page.count) exercises (total loaded: \(exercises.count)/\(totalExerciseCount))", category: AppLogger.app)
     }
 
     /// Reset pagination with new filters
     func resetPagination(with filters: ExerciseFilters) async {
-        print("🔄 Resetting pagination with new filters")
+        AppLogger.debug("Resetting pagination with new filters", category: AppLogger.app)
         await loadFirstPage(with: filters)
     }
 
@@ -150,7 +178,7 @@ final class ExerciseRepository: ObservableObject {
         isLoadingFull = true
 
         guard let url = Bundle.main.url(forResource: fileName, withExtension: fileExtension) else {
-            print("❌ Missing \(fileName).\(fileExtension) in bundle.")
+            AppLogger.error("Missing \(fileName).\(fileExtension) in bundle.", category: AppLogger.app)
             isLoadingFull = false
             return
         }
@@ -177,10 +205,10 @@ final class ExerciseRepository: ObservableObject {
                     self.didLoadFull = true
                     self.isLoadingFull = false
                 }
-                print("✅ Loaded \(sorted.count) exercises from \(fileName).\(fileExtension)")
+                AppLogger.success("Loaded \(sorted.count) exercises from \(fileName).\(fileExtension)", category: AppLogger.app)
             } catch {
                 await MainActor.run { self.isLoadingFull = false }
-                print("❌ Failed to decode \(fileName).\(fileExtension): \(error)")
+                AppLogger.error("Failed to decode \(fileName).\(fileExtension): \(error)", category: AppLogger.app)
             }
         }
     }
@@ -231,9 +259,9 @@ final class ExerciseRepository: ObservableObject {
                     self.byID.removeAll()
                     self.bySlug.removeAll()
                     self.bySubregion.removeAll()
-                    print("⚡️ Preloaded slim catalog (\(self.exercises.count))")
+                    AppLogger.debug("Preloaded slim catalog (\(self.exercises.count))", category: AppLogger.app)
                 }
-                
+
             }
 
             // 2) Upgrade to full dataset
@@ -245,7 +273,7 @@ final class ExerciseRepository: ObservableObject {
 
     private func loadMedia() {
         guard let url = Bundle.main.url(forResource: "exercise_media_final", withExtension: "json") else {
-            print("⚠️ exercise_media_final.json not found in bundle")
+            AppLogger.warning("exercise_media_final.json not found in bundle", category: AppLogger.app)
             return
         }
         Task.detached(priority: .userInitiated) { [weak self] in
@@ -262,10 +290,10 @@ final class ExerciseRepository: ObservableObject {
                     self.mediaByName = byName
                     self.didLoadMedia = true
                 }
-                print("🎬 Loaded \(items.count) media items")
+                AppLogger.success("Loaded \(items.count) media items", category: AppLogger.app)
             } catch {
                 await MainActor.run { self.didLoadMedia = false }
-                print("❌ Failed to load media: \(error)")
+                AppLogger.error("Failed to load media: \(error)", category: AppLogger.app)
             }
         }
     }
@@ -296,11 +324,12 @@ final class ExerciseRepository: ObservableObject {
 
     /// Returns exercises that match a muscle group (e.g., "Chest", "Upper Chest", "Biceps"...).
     /// Uses indexes for fast lookup, not affected by pagination
+    /// Includes both catalog and custom exercises
     func exercisesForMuscle(_ group: String) -> [Exercise] {
         let g = group.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !g.isEmpty else { return [] }
 
-        // If we already have an index for this subregion, use it (contains all exercises)
+        // If we already have an index for this subregion, use it (contains catalog + custom exercises)
         if let indexed = bySubregion[g], !indexed.isEmpty {
             return indexed.sorted { $0.name < $1.name }
         }
@@ -310,7 +339,7 @@ final class ExerciseRepository: ObservableObject {
             return deepExercises(parent: parent, child: g)
         }
 
-        // Parent-only filter with synonyms - use byID index (contains all exercises)
+        // Parent-only filter with synonyms - use byID index (contains catalog + custom exercises)
         let keysLC = ExerciseRepository.synonyms(for: g).map { $0.lowercased() }
         return byID.values.filter { ex in
             let muscles = (ex.primaryMuscles + ex.secondaryMuscles).map { $0.lowercased() }
@@ -357,22 +386,28 @@ final class ExerciseRepository: ObservableObject {
             }
             .sorted()
 
-        // Exercise search: require all tokens to appear in a combined haystack
+        // Exercise search: smart fuzzy search with typo tolerance
         // Use byID index (contains all exercises) instead of paginated exercises array
         let matches: [Exercise] = byID.values.filter { ex in
             let muscP = ex.primaryMuscles.joined(separator: " ")
             let muscS = ex.secondaryMuscles.joined(separator: " ")
-            let hay   = (ex.name + " " + (ex.equipment ?? "") + " " + ex.category + " " + muscP + " " + muscS).lowercased()
-            return tokens.allSatisfy { hay.contains($0) }
+            let searchableText = (ex.name + " " + (ex.equipment ?? "") + " " + ex.category + " " + muscP + " " + muscS)
+
+            // Use smart search for typo tolerance and fuzzy matching
+            return SmartSearch.matches(query: qlc, in: searchableText)
         }
 
-        // Ranking: name prefix > name contains > alpha
+        // Ranking: custom exercises > relevance score > alphabetical
         let ranked = matches.sorted { a, b in
-            let al = a.name.lowercased(), bl = b.name.lowercased()
-            let ap = al.hasPrefix(qlc),    bp = bl.hasPrefix(qlc)
-            if ap != bp { return ap && !bp }
-            let ac = al.contains(qlc),     bc = bl.contains(qlc)
-            if ac != bc { return ac && !bc }
+            // 1. Prioritize custom exercises
+            if a.isCustom != b.isCustom { return a.isCustom && !b.isCustom }
+
+            // 2. Sort by relevance score (typo tolerance + proximity)
+            let scoreA = SmartSearch.score(query: qlc, in: a.name)
+            let scoreB = SmartSearch.score(query: qlc, in: b.name)
+            if scoreA != scoreB { return scoreA > scoreB }
+
+            // 3. Alphabetical fallback
             return a.name < b.name
         }
 

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import OSLog
 
 struct HealthAuthSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -36,13 +37,7 @@ struct HealthAuthSheet: View {
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
-            // Description
-            Text("Sync cardio workouts and MVPA minutes automatically")
-                .font(.system(size: 17, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 40)
+      
 
             // Features list
             VStack(alignment: .leading, spacing: 16) {
@@ -81,15 +76,8 @@ struct HealthAuthSheet: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
                 .foregroundStyle(.black)
-                .background(
-                    LinearGradient(
-                        colors: [Color.pink, Color.pink.opacity(0.8)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .background(Color.pink)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: Color.pink.opacity(0.3), radius: 12, x: 0, y: 6)
             }
             .disabled(isAuthorizing)
             .padding(.horizontal, 24)
@@ -108,7 +96,7 @@ struct HealthAuthSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             LinearGradient(
-                colors: [Color(hex: "#0D0D0D"), Color(hex: "#1A1A1A")],
+                colors: [DS.Theme.cardBottom, DS.Theme.cardTop],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -122,14 +110,14 @@ struct HealthAuthSheet: View {
 
         Task {
             do {
-                print("🔐 Requesting HealthKit authorization...")
+                AppLogger.info("Requesting HealthKit authorization...", category: AppLogger.health)
                 try await healthKit.requestAuthorization()
-                print("✅ Authorization granted, connection state: \(healthKit.connectionState)")
+                AppLogger.success("Authorization granted, connection state: \(healthKit.connectionState)", category: AppLogger.health)
 
                 // Do a FULL sync on first authorization to populate all workout types
-                print("🔄 Starting full initial sync...")
+                AppLogger.info("Starting full initial sync...", category: AppLogger.health)
                 await healthKit.forceFullResync()
-                print("✅ Full sync complete")
+                AppLogger.success("Full sync complete", category: AppLogger.health)
 
                 await healthKit.syncExerciseTimeIncremental()
                 healthKit.setupBackgroundObservers()
@@ -142,7 +130,7 @@ struct HealthAuthSheet: View {
                     }
                 }
             } catch {
-                print("❌ Authorization failed: \(error)")
+                AppLogger.error("Authorization failed: \(error)", category: AppLogger.health)
                 self.error = error
                 isAuthorizing = false
             }
@@ -166,10 +154,13 @@ private struct FeatureRow: View {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

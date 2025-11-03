@@ -12,17 +12,19 @@ struct LiveWorkoutGrabTab: View {
 
     @ObservedObject private var restTimer = RestTimerManager.shared
 
-    private let brand = Color(hex: "#F4E409")
-    private let pill  = Color(hex: "#333333")
-    private let border = Color.white.opacity(0.10)
+    private let brand = DS.Theme.accent
+    private let pill  = DS.Theme.cardBottom
+    private let border = DS.Semantic.border
     let r = RoundedRectangle(cornerRadius: 18, style: .continuous)
 
     var body: some View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(brand)
-                Image(systemName: "bolt.heart.fill")
-                    .font(.subheadline.weight(.bold))
+                Image("symbol")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
                     .foregroundStyle(.black)
             }
             .frame(width: 24, height: 24)
@@ -53,11 +55,11 @@ struct LiveWorkoutGrabTab: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(r.fill(Color(hex: "#333333")))                // pill
-        .overlay(r.stroke(Color.white.opacity(0.10), lineWidth: 1))// border
+        .background(r.fill(pill))                // pill
+        .overlay(r.stroke(border, lineWidth: 1))// border
         .overlay(alignment: .leading) {
           Capsule()
-            .fill(Color(hex: "#F4E409"))
+            .fill(brand)
             .frame(width: 4)
             .padding(.leading, 0.5) // tiny inset so it’s clearly inside
         }

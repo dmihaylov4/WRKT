@@ -7,13 +7,14 @@
 
 import SwiftUI
 import Combine
+import OSLog
 
 @MainActor
 class ExerciseSessionViewModel: ObservableObject {
 
     // MARK: - Dependencies (Injected for testability)
 
-    private var workoutStore: WorkoutStoreV2
+    internal var workoutStore: WorkoutStoreV2?  // Internal to allow injection from view's onAppear, optional to avoid creating new instances
     private let exerciseRepo: ExerciseRepository
     private let onboardingManager: OnboardingManager
 
@@ -27,21 +28,13 @@ class ExerciseSessionViewModel: ObservableObject {
 
     // Alert states
     @Published var showEmptyAlert = false
-    @Published var showUnsavedSetsAlert = false
     @Published var showInfo = false
     @Published var showDemo = false
+    @Published var showLastSetDeletionAlert = false
 
     // Tutorial states
     @Published var showTutorial = false
     @Published var currentTutorialStep = 0
-    @Published var setsSectionFrame: CGRect = .zero
-    @Published var setTypeFrame: CGRect = .zero
-    @Published var carouselsFrame: CGRect = .zero
-    @Published var presetsFrame: CGRect = .zero
-    @Published var addSetButtonFrame: CGRect = .zero
-    @Published var infoButtonFrame: CGRect = .zero
-    @Published var saveButtonFrame: CGRect = .zero
-    @Published var framesReady = false
 
     // MARK: - Input Properties
 
@@ -60,11 +53,8 @@ class ExerciseSessionViewModel: ObservableObject {
     }
 
     var saveButtonTitle: String {
-        if currentEntryID != nil {
-            return "Update Exercise"
-        } else {
-            return "Save Exercise"
-        }
+        // All sets are auto-saved when logged, so this button just closes the view
+        return "Done"
     }
 
     // MARK: - Initialization
@@ -73,7 +63,7 @@ class ExerciseSessionViewModel: ObservableObject {
         exercise: Exercise,
         initialEntryID: UUID? = nil,
         returnToHomeOnSave: Bool = false,
-        workoutStore: WorkoutStoreV2,
+        workoutStore: WorkoutStoreV2? = nil,  // Optional to avoid creating new instances in view init
         exerciseRepo: ExerciseRepository = .shared,
         onboardingManager: OnboardingManager = .shared
     ) {
@@ -103,6 +93,7 @@ class ExerciseSessionViewModel: ObservableObject {
 
     func loadExistingEntry() {
         guard !didPreloadExisting else { return }
+        guard let workoutStore = workoutStore else { return }
         didPreloadExisting = true
 
         if let entryID = initialEntryID,
@@ -115,6 +106,7 @@ class ExerciseSessionViewModel: ObservableObject {
 
     func prefillFromHistory() {
         guard !didPrefillFromHistory, currentEntryID == nil else { return }
+        guard let workoutStore = workoutStore else { return }
         didPrefillFromHistory = true
 
         // Find most recent completed workout with this exercise
@@ -141,26 +133,19 @@ class ExerciseSessionViewModel: ObservableObject {
     }
 
     func handleSave(dismiss: DismissAction) {
-        // Validate sets
-        let validSets = sets.filter { $0.reps > 0 && $0.weight >= 0 }
+        // Proceed with cleanup and dismiss
+        // Note: Swipe-to-complete functionality now prevents completing sets with unsaved changes
+        cleanupAndDismiss(dismiss: dismiss)
+    }
 
-        guard !validSets.isEmpty else {
-            showEmptyAlert = true
-            return
-        }
+    func cleanupAndDismiss(dismiss: DismissAction) {
 
-        // Update or create entry
-        if let entryID = currentEntryID {
-            // Update existing entry
-            workoutStore.updateEntrySetsAndActiveIndex(
-                entryID: entryID,
-                sets: validSets,
-                activeSetIndex: activeSetIndex
-            )
-        } else {
-            // Add new entry
-            let entryID = workoutStore.addExerciseToCurrent(exercise)
-            workoutStore.updateEntrySets(entryID: entryID, sets: validSets)
+
+        // Save all sets (both completed and incomplete) when dismissing
+        // This preserves planned sets so users can come back and complete them later
+        if let entryID = currentEntryID, let workoutStore = workoutStore {
+            AppLogger.debug("Saving all sets: \(sets.count) total, \(sets.filter { $0.isCompleted }.count) completed", category: AppLogger.workout)
+            workoutStore.updateEntrySets(entryID: entryID, sets: sets)
         }
 
         // Mark tutorial as complete
@@ -168,7 +153,18 @@ class ExerciseSessionViewModel: ObservableObject {
             onboardingManager.complete(.exerciseSession)
         }
 
+       
         dismiss()
+
+        // Handle navigation based on returnToHomeOnSave
+        if returnToHomeOnSave {
+           
+            NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
+            AppBus.postResetHome(reason: .user_intent)
+        } else {
+            
+            NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
+        }
     }
 
     func addSet() {
@@ -183,7 +179,15 @@ class ExerciseSessionViewModel: ObservableObject {
     }
 
     func deleteSet(at index: Int) {
-        guard sets.count > 1 else { return }
+        guard sets.indices.contains(index) else { return }
+
+        // If this is the last set, show alert to confirm exercise deletion
+        if sets.count == 1 {
+            showLastSetDeletionAlert = true
+            Haptics.warning()
+            return
+        }
+
         sets.remove(at: index)
 
         if activeSetIndex >= sets.count {
@@ -191,29 +195,69 @@ class ExerciseSessionViewModel: ObservableObject {
         }
     }
 
+    /// Handles deletion of the entire exercise from the workout
+    func deleteExerciseFromWorkout(dismiss: DismissAction) {
+        guard let entryID = currentEntryID, let workoutStore = workoutStore else {
+            // No entry ID or workout store means the exercise hasn't been added to the workout yet
+            // Just dismiss the view
+            dismiss()
+            return
+        }
+
+        // Check if this is the only exercise in the workout BEFORE removing it
+        let wasLastExercise = workoutStore.currentWorkout?.entries.count == 1
+
+        if wasLastExercise {
+            // If this is the only exercise, discard the entire workout
+            // This preserves the full workout for undo functionality
+            workoutStore.discardCurrentWorkout()
+
+            // Dismiss the view first
+            dismiss()
+
+            // Navigate back to HomeView after a brief delay
+            // This ensures the user can see the undo toast in HomeView where the grab tab will work properly
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                AppBus.postResetHome(reason: .user_intent)
+            }
+        } else {
+            // Multiple exercises exist, just remove this one
+            workoutStore.removeEntry(entryID: entryID)
+
+            // Just dismiss the view - stay in current location
+            dismiss()
+        }
+
+        // Haptic feedback
+        Haptics.soft()
+    }
+
+    /// Marks the last set as uncompleted so the user can edit it
+    func makeLastSetEditable() {
+        guard sets.count == 1 else { return }
+        sets[0].isCompleted = false
+        activeSetIndex = 0
+        Haptics.light()
+    }
+
     func updateSet(at index: Int, _ updatedSet: SetInput) {
         guard sets.indices.contains(index) else { return }
         sets[index] = updatedSet
     }
 
-    func checkFramesReady() {
-        framesReady = setsSectionFrame != .zero &&
-                     setTypeFrame != .zero &&
-                     carouselsFrame != .zero &&
-                     saveButtonFrame != .zero
-    }
 
     func advanceTutorial() {
-        if currentTutorialStep < 5 {
-            currentTutorialStep += 1
-        } else {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+            // Only 1 step, so always dismiss
             showTutorial = false
             onboardingManager.complete(.exerciseSession)
         }
     }
 
     func skipTutorial() {
-        showTutorial = false
-        onboardingManager.complete(.exerciseSession)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            showTutorial = false
+            onboardingManager.complete(.exerciseSession)
+        }
     }
 }

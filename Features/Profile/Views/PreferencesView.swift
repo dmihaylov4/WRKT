@@ -10,6 +10,7 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 import UserNotifications
+import OSLog
 
 struct PreferencesView: View {
     // Stored app settings (use your existing keys where possible)
@@ -23,8 +24,8 @@ struct PreferencesView: View {
     @State private var showClearWorkoutsAlert = false
     @State private var showExportSheet = false
     @State private var showResetTimersAlert = false
-    @State private var csvFileURL: URL?
-    @State private var showShareSheet = false
+    @State private var csvDocument: CSVDocument?
+    @State private var showFileExporter = false
 
     @Query private var goals: [WeeklyGoal]
     @Environment(\.modelContext) private var context
@@ -32,6 +33,12 @@ struct PreferencesView: View {
 
     // Rest timer preferences
     @ObservedObject private var timerPrefs = RestTimerPreferences.shared
+
+    // Custom exercises
+    @EnvironmentObject private var customStore: CustomExerciseStore
+    @EnvironmentObject private var repo: ExerciseRepository
+    @State private var editingExercise: Exercise?
+    @State private var showingEditSheet = false
 
     private var appVersion: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -110,6 +117,69 @@ struct PreferencesView: View {
                 }
             }
 
+            Section {
+                if customStore.customExercises.isEmpty {
+                    Text("No custom exercises yet")
+                        .foregroundStyle(.secondary)
+                        .font(.subheadline)
+                } else {
+                    ForEach(customStore.customExercises, id: \.id) { exercise in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(exercise.name)
+                                    .font(.body)
+                                HStack(spacing: 8) {
+                                    Text(exercise.primaryMuscles.first ?? "Unknown")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    if let mechanic = exercise.mechanic {
+                                        Text("•")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(mechanic.capitalized)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if let equipment = exercise.equipment {
+                                        Text("•")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(equipment)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            Spacer()
+                            Button {
+                                editingExercise = exercise
+                                showingEditSheet = true
+                            } label: {
+                                Image(systemName: "pencil.circle.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(DS.Palette.marone)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                customStore.delete(exercise.id)
+                                Task {
+                                    await repo.reloadWithCustomExercises()
+                                }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Custom Exercises")
+            } footer: {
+                Text("Create custom exercises from the exercise browser by tapping the + button. Swipe left to delete.")
+                    .font(.caption)
+            }
+
             Section("Streak reminders") {
                 Toggle("Daily reminder", isOn: $streakReminderEnabled)
                 if streakReminderEnabled {
@@ -129,12 +199,6 @@ struct PreferencesView: View {
                     Label("Export workouts as CSV", systemImage: "square.and.arrow.up")
                 }
 
-                Button(role: .destructive) {
-                    showClearWorkoutsAlert = true
-                } label: {
-                    Label("Clear all workout data", systemImage: "trash")
-                }
-                .disabled(store.completedWorkouts.isEmpty)
 
                 Button(role: .destructive) {
                     showResetAlert = true
@@ -182,8 +246,10 @@ struct PreferencesView: View {
                     Spacer()
                     Text(appVersion).foregroundStyle(.secondary)
                 }
-                Link(destination: URL(string: "https://example.com/privacy")!) {
-                    Label("Privacy policy", systemImage: "lock.shield")
+                if let privacyURL = URL(string: "https://dmihaylov4.github.io/trak-privacy/") {
+                    Link(destination: privacyURL) {
+                        Label("Privacy policy", systemImage: "lock.shield")
+                    }
                 }
             }
         }
@@ -212,10 +278,30 @@ struct PreferencesView: View {
         } message: {
             Text("All custom rest timers for individual exercises will be reset to defaults.")
         }
-        .sheet(isPresented: $showShareSheet) {
-            if let url = csvFileURL {
-                ShareSheet(items: [url])
+        .fileExporter(
+            isPresented: $showFileExporter,
+            document: csvDocument,
+            contentType: .commaSeparatedText,
+            defaultFilename: "WRKT_Workouts_\(Date().formatted(date: .numeric, time: .omitted).replacingOccurrences(of: "/", with: "-"))"
+        ) { result in
+            switch result {
+            case .success(let url):
+                AppLogger.info("CSV exported to: \(url)", category: AppLogger.storage)
+            case .failure(let error):
+                AppLogger.error("Failed to export CSV: \(error)", category: AppLogger.storage)
             }
+            csvDocument = nil
+        }
+        .sheet(isPresented: $showingEditSheet) {
+            if let exercise = editingExercise {
+                CreateExerciseView(
+                    preselectedMuscle: exercise.primaryMuscles.first ?? "Unknown",
+                    editingExercise: exercise
+                )
+                .environmentObject(customStore)
+                .environmentObject(repo)
+            }
+            
         }
     }
 
@@ -233,18 +319,8 @@ struct PreferencesView: View {
 
     private func exportWorkoutsToCSV() {
         let csv = generateCSV()
-
-        // Save to temporary file
-        let fileName = "WRKT_Workouts_\(Date().formatted(date: .numeric, time: .omitted).replacingOccurrences(of: "/", with: "-")).csv"
-        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
-
-        do {
-            try csv.write(to: tempURL, atomically: true, encoding: .utf8)
-            csvFileURL = tempURL
-            showShareSheet = true
-        } catch {
-            print("❌ Failed to export CSV: \(error)")
-        }
+        csvDocument = CSVDocument(csv: csv)
+        showFileExporter = true
     }
 
     private func generateCSV() -> String {
@@ -279,6 +355,11 @@ struct PreferencesView: View {
             // Clear favorites
             FavoritesStore.shared.clearAll()
 
+            // Clear custom exercises
+            for exercise in customStore.customExercises {
+                customStore.delete(exercise.id)
+            }
+
             // Reset custom timers
             timerPrefs.resetAllOverrides()
 
@@ -289,11 +370,11 @@ struct PreferencesView: View {
 
             // Delete persisted JSON files (old storage) to prevent reload on next launch
             await Persistence.shared.wipeAllDevOnly()
-            print("✅ Legacy persisted JSON files deleted")
+            AppLogger.success("Legacy persisted JSON files deleted", category: AppLogger.storage)
 
             // Wipe all data from new unified storage (including PR index)
             try? await WorkoutStorage.shared.wipeAllData()
-            print("✅ New storage wiped (workouts, PRs, runs)")
+            AppLogger.success("New storage wiped (workouts, PRs, runs)", category: AppLogger.storage)
 
             // Clear all notifications
             await clearAllNotifications()
@@ -304,14 +385,14 @@ struct PreferencesView: View {
             // Reset onboarding flags
             UserDefaults.standard.set(false, forKey: "has_completed_onboarding")
             OnboardingManager.shared.resetAllTutorials()
-            print("✅ Onboarding flags reset")
+            AppLogger.success("Onboarding flags reset", category: AppLogger.app)
 
             // Force save the view's context as well
             do {
                 try context.save()
-                print("✅ All data reset complete - changes saved to disk")
+                AppLogger.success("All data reset complete - changes saved to disk", category: AppLogger.storage)
             } catch {
-                print("❌ Failed to save reset changes: \(error)")
+                AppLogger.error("Failed to save reset changes: \(error)", category: AppLogger.storage)
             }
         }
     }
@@ -325,7 +406,7 @@ struct PreferencesView: View {
         // Remove all delivered notifications
         center.removeAllDeliveredNotifications()
 
-        print("✅ All notifications cleared")
+        AppLogger.success("All notifications cleared", category: AppLogger.app)
     }
 
     private func resetHealthKitState() async {
@@ -340,19 +421,34 @@ struct PreferencesView: View {
             // Clear any cached health data
             store.clearAllRuns()
 
-            print("✅ HealthKit state reset (user must manually revoke permissions in Settings)")
+            AppLogger.success("HealthKit state reset (user must manually revoke permissions in Settings)", category: AppLogger.health)
         }
     }
 }
 
-// MARK: - ShareSheet
+// MARK: - CSV Document
 
-struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
+struct CSVDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
 
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    var csv: String
+
+    init(csv: String = "") {
+        self.csv = csv
     }
 
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents,
+              let string = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        csv = string
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        guard let data = csv.data(using: .utf8) else {
+            throw CocoaError(.fileWriteUnknown)
+        }
+        return FileWrapper(regularFileWithContents: data)
+    }
 }

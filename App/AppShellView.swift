@@ -2,11 +2,12 @@ import SwiftUI
 import SwiftData
 import HealthKit
 import UserNotifications
+import OSLog
 
 // MARK: - Shell types & animation
 private enum AppTab: Int { case home = 0, calendar = 1, runs = 2, profile = 3 }
 private enum ShellAnim { static let spring = Animation.spring(response: 0.42, dampingFraction: 0.85) }
-private enum GrabTabMetrics { static let height: CGFloat = 64; static let bottomMargin: CGFloat = 53 }
+private enum GrabTabMetrics { static let height: CGFloat = 55; static let bottomMargin: CGFloat = 57 }
 
 struct AppShellView: View {
     @Environment(\.modelContext) private var modelContext
@@ -25,7 +26,7 @@ struct AppShellView: View {
     // Shell UI state
     @State private var selectedTab: AppTab = .home {
         didSet {
-            print("📍 selectedTab changed: \(oldValue) → \(selectedTab)")
+            AppLogger.debug("selectedTab changed: \(oldValue) → \(selectedTab)", category: AppLogger.ui)
         }
     }
     @State private var grabCollapsed = false
@@ -48,7 +49,7 @@ struct AppShellView: View {
     @Query private var goals: [WeeklyGoal]
     @State private var showGoalSetupSheet = false {
         didSet {
-            print("🎯 showGoalSetupSheet changed: \(oldValue) → \(showGoalSetupSheet)")
+            AppLogger.debug("showGoalSetupSheet changed: \(oldValue) → \(showGoalSetupSheet)", category: AppLogger.ui)
         }
     }
 
@@ -118,13 +119,10 @@ struct AppShellView: View {
                         .navigationTitle("Profile")
                         .navigationBarTitleDisplayMode(.inline)
                         .onAppear {
-                            print("🟢 Profile NavigationStack appeared")
-                            print("   selectedTab = \(selectedTab)")
-                            print("   needsGoalSetup = \(needsGoalSetup)")
+                            AppLogger.debug("Profile NavigationStack appeared - selectedTab: \(selectedTab), needsGoalSetup: \(needsGoalSetup)", category: AppLogger.ui)
                         }
                         .onDisappear {
-                            print("🔴 Profile NavigationStack disappeared")
-                            print("   selectedTab = \(selectedTab)")
+                            AppLogger.debug("Profile NavigationStack disappeared - selectedTab: \(selectedTab)", category: AppLogger.ui)
                         }
                 }
                 .tabItem { Label("Profile", systemImage: "person.crop.circle") }
@@ -137,15 +135,15 @@ struct AppShellView: View {
                 TabBarReselectionDetector(
                     selectedTab: $selectedTab,
                     onReselect: { index in
-                        print("🔄 Tab reselected: \(index)")
+                        AppLogger.debug("Tab reselected: \(index)", category: AppLogger.ui)
                         if index == AppTab.home.rawValue {
-                            print("🏠 Posting homeTabReselected notification")
+                            AppLogger.debug("Posting homeTabReselected notification", category: AppLogger.ui)
                             NotificationCenter.default.post(name: .homeTabReselected, object: nil)
                         } else if index == AppTab.calendar.rawValue {
-                            print("📅 Posting calendarTabReselected notification")
+                            AppLogger.debug("Posting calendarTabReselected notification", category: AppLogger.ui)
                             NotificationCenter.default.post(name: .calendarTabReselected, object: nil)
                         } else if index == AppTab.runs.rawValue {
-                            print("🏃 Posting cardioTabReselected notification")
+                            AppLogger.debug("Posting cardioTabReselected notification", category: AppLogger.ui)
                             NotificationCenter.default.post(name: .cardioTabReselected, object: nil)
                         }
                     }
@@ -154,18 +152,36 @@ struct AppShellView: View {
             )
 
 
-            // Close overlay if backgrounded
-            .onChange(of: scenePhase) { phase in
-                if phase != .active, showLiveOverlay {
+            // Close overlay if backgrounded & track clean shutdown
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                // Close live overlay when app backgrounds
+                if newPhase != .active, showLiveOverlay {
                     withAnimation(ShellAnim.spring) { showLiveOverlay = false; showContent = false }
+                }
+
+                // Track app lifecycle for force quit detection
+                if newPhase == .background {
+                    // Only mark clean shutdown if there's NO active workout
+                    // This prevents the app switcher force quit from preserving the workout
+                    if !hasActiveWorkout {
+                        UserDefaults.standard.didExitCleanly = true
+                        AppLogger.debug("App backgrounded (no active workout) - marked clean shutdown", category: AppLogger.app)
+                    } else {
+                        // Keep didExitCleanly = false so force quit will discard the workout
+                        AppLogger.debug("App backgrounded (WITH active workout) - keeping didExitCleanly = false", category: AppLogger.app)
+                    }
+                } else if newPhase == .active {
+                    // App became active - mark as running only if there's an active workout
+                    if hasActiveWorkout {
+                        UserDefaults.standard.didExitCleanly = false
+                        AppLogger.debug("App became active (with active workout) - marked as running", category: AppLogger.app)
+                    }
                 }
             }
 
             // Sync shell state with tab selection
             .onChange(of: selectedTab) { newTab in
-                print("🔄 Tab changed to: \(newTab) (rawValue: \(newTab.rawValue))")
-                print("   needsGoalSetup: \(needsGoalSetup)")
-                print("   showGoalSetupSheet: \(showGoalSetupSheet)")
+                AppLogger.debug("Tab changed to: \(newTab) (rawValue: \(newTab.rawValue)) - needsGoalSetup: \(needsGoalSetup), showGoalSetupSheet: \(showGoalSetupSheet)", category: AppLogger.ui)
 
                 NotificationCenter.default.post(name: .tabSelectionChanged, object: nil)
                 // Also post tabDidChange to dismiss detail views
@@ -184,7 +200,7 @@ struct AppShellView: View {
 
                 // Check if weekly goal setup is needed when navigating to Home or Profile
                 if needsGoalSetup && (newTab == .home || newTab == .profile) {
-                    print("   → Showing goal setup sheet")
+                    AppLogger.debug("Showing goal setup sheet", category: AppLogger.ui)
                     showGoalSetupSheet = true
                 }
             }
@@ -235,10 +251,10 @@ struct AppShellView: View {
                     WeeklyGoalSetupView(goal: goals.first)
                         .interactiveDismissDisabled() // keep your requirement
                         .onAppear {
-                            print("📋 Goal setup sheet appeared")
+                            AppLogger.debug("Goal setup sheet appeared", category: AppLogger.ui)
                         }
                         .onDisappear {
-                            print("📋 Goal setup sheet dismissed")
+                            AppLogger.debug("Goal setup sheet dismissed", category: AppLogger.ui)
                         }
                 }
             }
@@ -255,12 +271,11 @@ struct AppShellView: View {
                 let reason = (note.userInfo?["reason"] as? String) ?? (note.object as? String)
                 // Only honor intentional, user-driven resets.
                 guard reason == "user_intent" else {
-                    print("⚠️ Ignoring resetHomeToRoot (reason=\(reason ?? "nil"))")
+                    AppLogger.debug("Ignoring resetHomeToRoot (reason=\(reason ?? "nil"))", category: AppLogger.ui)
                     return
                 }
 
-                print("⚠️ resetHomeToRoot (reason=\(reason!)) - forcing tab to Home")
-                print("   Current tab: \(selectedTab)")
+                AppLogger.info("resetHomeToRoot (reason=\(reason ?? "unknown")) - forcing tab to Home (current tab: \(selectedTab))", category: AppLogger.ui)
                 NotificationCenter.default.post(name: .openHomeRoot, object: nil)
                 selectedTab = .home
             }
@@ -279,6 +294,11 @@ struct AppShellView: View {
                     .zIndex(999)
             }
 
+            // Global undo toast for destructive actions
+            .overlay {
+                UndoToastOverlay()
+            }
+
         } // ZStack
 
         // Mark workouts as loaded when they're ready
@@ -295,7 +315,7 @@ struct AppShellView: View {
 
             Task {
                 if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
-                    print("🔄 Repo and workouts ready, triggering stats aggregation...")
+                    AppLogger.info("Repo and workouts ready, triggering stats aggregation", category: AppLogger.performance)
                     await agg.reindex(all: store.completedWorkouts, cutoff: cutoff)
                 }
             }
@@ -307,15 +327,8 @@ struct AppShellView: View {
             guard let latest = workouts.last else { return }
 
             Task {
-                print("🔄 New workout completed, updating stats...")
+                AppLogger.info("New workout completed, updating stats", category: AppLogger.workout)
                 await agg.apply(latest, allWorkouts: store.completedWorkouts)
-            }
-        }
-
-        // Reserve space for the GrabTab in ONE place (shell)
-        .safeAreaInset(edge: .bottom) {
-            if pillShouldReserveSpace {
-                Color.clear.frame(height: GrabTabMetrics.height + GrabTabMetrics.bottomMargin)
             }
         }
 
@@ -342,7 +355,7 @@ struct AppShellView: View {
                 )
                 .id("overlay-\(workoutToken)") // 🔐 force refresh on workout change
                 .padding(.horizontal, 12)
-                .padding(.bottom, 60)
+                .padding(.bottom, 62)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .zIndex(11)
             }
@@ -350,33 +363,27 @@ struct AppShellView: View {
 
         // React to workout lifecycle regardless of tab changes
         .onChange(of: workoutToken) { oldValue, newValue in
-            print("🔄 workoutToken changed: '\(oldValue)' → '\(newValue)'")
-            print("   hasActiveWorkout: \(hasActiveWorkout)")
-            print("   grabCollapsed: \(grabCollapsed)")
-            print("   currentTab: \(selectedTab)")
+            AppLogger.debug("workoutToken changed: '\(oldValue)' → '\(newValue)' - hasActiveWorkout: \(hasActiveWorkout), grabCollapsed: \(grabCollapsed), currentTab: \(selectedTab)", category: AppLogger.workout)
 
             if hasActiveWorkout {
                 withAnimation(ShellAnim.spring) {
                     grabCollapsed = false
-                    print("   ✅ Showing grab tab")
+                    AppLogger.debug("Showing grab tab", category: AppLogger.ui)
                 }
             } else {
                 withAnimation(ShellAnim.spring) {
                     showLiveOverlay = false
                     showContent = false
                     grabCollapsed = true
-                    print("   ❌ Hiding workout UI")
+                    AppLogger.debug("Hiding workout UI", category: AppLogger.ui)
                 }
             }
         }
 
         // Mini "now playing" pill (global drawing; your policy hides it on non-Home via grabCollapsed)
         .overlay(alignment: .bottom) {
-            let shouldShow = hasActiveWorkout && !showLiveOverlay && !grabCollapsed && !isBrowsingExercises
-            let _ = print("🎯 Grab tab overlay evaluation: shouldShow=\(shouldShow), hasActiveWorkout=\(hasActiveWorkout), showLiveOverlay=\(showLiveOverlay), grabCollapsed=\(grabCollapsed), isBrowsingExercises=\(isBrowsingExercises)")
-
-            if shouldShow, let current = store.currentWorkout {
-                let _ = print("✅ Rendering LiveWorkoutGrabTab with \(current.entries.count) exercises")
+            if hasActiveWorkout && !showLiveOverlay && !grabCollapsed && !isBrowsingExercises,
+               let current = store.currentWorkout {
                 LiveWorkoutGrabTab(
                     namespace: liveNS,
                     title: "Live workout",
@@ -388,7 +395,7 @@ struct AppShellView: View {
                     onCollapse: { grabCollapsed = true }
                 )
                 .id("pill-\(workoutToken)") // 🔐 force refresh on workout change
-                .padding(.horizontal, 22)
+                .padding(.horizontal, 25)
                 .padding(.bottom, GrabTabMetrics.bottomMargin)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -412,7 +419,7 @@ struct AppShellView: View {
         .onChange(of: repo.exercises.isEmpty) { isEmpty in
             if !isEmpty && !repoIsBootstrapped {
                 repoIsBootstrapped = true
-                print("✅ Exercise repository ready with \(repo.exercises.count) exercises")
+                AppLogger.success("Exercise repository ready with \(repo.exercises.count) exercises", category: AppLogger.app)
             }
         }
 
@@ -445,12 +452,12 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
     let onReselect: (_ index: Int) -> Void
 
     func makeCoordinator() -> Coordinator {
-        print("🔧 TabBarReselectionDetector: makeCoordinator called")
+        AppLogger.debug("TabBarReselectionDetector: makeCoordinator called", category: AppLogger.ui)
         return Coordinator(selectedTab: $selectedTab, onReselect: onReselect)
     }
 
     func makeUIView(context: Context) -> UIView {
-        print("🔧 TabBarReselectionDetector: makeUIView called")
+        AppLogger.debug("TabBarReselectionDetector: makeUIView called", category: AppLogger.ui)
         let v = DetectorView()
         v.coordinator = context.coordinator
         return v
@@ -467,30 +474,34 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            print("🔍 DetectorView: didMoveToWindow called")
-            attachDelegateIfNeeded()
+            AppLogger.debug("DetectorView: didMoveToWindow called", category: AppLogger.ui)
 
-            // Retry after a delay if not found immediately
-            if !hasAttached {
-                retryWithDelay(0.1)
+            // Give SwiftUI time to set up the UITabBarController
+            // Initial attempt after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                self?.attachDelegateIfNeeded()
+
+                if !(self?.hasAttached ?? true) {
+                    self?.retryWithDelay(0.2)
+                }
             }
         }
 
         override func didMoveToSuperview() {
             super.didMoveToSuperview()
-            print("🔍 DetectorView: didMoveToSuperview called")
+            AppLogger.debug("DetectorView: didMoveToSuperview called", category: AppLogger.ui)
         }
 
         private func retryWithDelay(_ delay: TimeInterval) {
-            guard retryCount < 5 else {
-                print("❌ DetectorView: Gave up after \(retryCount) retries")
+            guard retryCount < 10 else {
+                AppLogger.warning("DetectorView: Gave up after \(retryCount) retries", category: AppLogger.ui)
                 return
             }
 
             retryCount += 1
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
                 guard let self = self, !self.hasAttached else { return }
-                print("🔄 DetectorView: Retry #\(self.retryCount)")
+                AppLogger.debug("DetectorView: Retry #\(self.retryCount)", category: AppLogger.ui)
                 self.attachDelegateIfNeeded()
 
                 if !self.hasAttached {
@@ -503,25 +514,23 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
             guard !hasAttached else { return }
 
             guard let coord = coordinator else {
-                print("⚠️ DetectorView: No coordinator")
+                AppLogger.warning("DetectorView: No coordinator", category: AppLogger.ui)
                 return
             }
 
-            print("🔍 DetectorView: Looking for UITabBarController...")
+            AppLogger.debug("DetectorView: Looking for UITabBarController...", category: AppLogger.ui)
 
             // Find the real UITabBarController SwiftUI created
             if let tbc = findTabBarControllerInResponderChain(from: self) ?? findTabBarControllerInActiveWindow() {
-                print("✅ DetectorView: Found UITabBarController!")
-                print("   Selected index: \(tbc.selectedIndex)")
-                print("   View controllers: \(tbc.viewControllers?.count ?? 0)")
+                AppLogger.success("DetectorView: Found UITabBarController - Selected index: \(tbc.selectedIndex), View controllers: \(tbc.viewControllers?.count ?? 0)", category: AppLogger.ui)
 
                 // Set only the tab bar controller delegate (NOT tabBar.delegate - UIKit doesn't allow that)
                 tbc.delegate = coord
 
                 hasAttached = true
-                print("✅ DetectorView: Delegates attached successfully")
+                AppLogger.success("DetectorView: Delegates attached successfully", category: AppLogger.ui)
             } else {
-                print("❌ DetectorView: UITabBarController NOT FOUND (will retry)")
+                AppLogger.debug("DetectorView: UITabBarController NOT FOUND (will retry)", category: AppLogger.ui)
             }
         }
 
@@ -539,12 +548,27 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
         }
 
         private func findTabBarControllerInActiveWindow() -> UITabBarController? {
-            guard
-                let scene = UIApplication.shared.connectedScenes
-                    .compactMap({ $0 as? UIWindowScene })
-                    .first(where: { $0.activationState == .foregroundActive }),
-                let root = (scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first)?.rootViewController
-            else { return nil }
+            // Try all connected scenes, not just foregroundActive
+            let scenes = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+
+            // First try foreground active scene
+            if let scene = scenes.first(where: { $0.activationState == .foregroundActive }),
+               let root = (scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first)?.rootViewController {
+                if let tbc = dfs(root) { return tbc }
+            }
+
+            // Fallback: try all scenes
+            for scene in scenes {
+                for window in scene.windows {
+                    if let root = window.rootViewController,
+                       let tbc = dfs(root) {
+                        return tbc
+                    }
+                }
+            }
+
+            return nil
 
             func dfs(_ vc: UIViewController) -> UITabBarController? {
                 if let tbc = vc as? UITabBarController { return tbc }
@@ -552,7 +576,6 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
                 if let presented = vc.presentedViewController { return dfs(presented) }
                 return nil
             }
-            return dfs(root)
         }
     }
 
@@ -563,29 +586,28 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
         init(selectedTab: Binding<AppTab>, onReselect: @escaping (_ index: Int) -> Void) {
             self._selectedTab = selectedTab
             self.onReselect = onReselect
-            print("🎯 Coordinator: Initialized")
+            AppLogger.debug("Coordinator: Initialized", category: AppLogger.ui)
         }
 
         // Called when any tab is selected, including re-tapping the current tab
         func tabBarController(_ tabBarController: UITabBarController,
                               shouldSelect viewController: UIViewController) -> Bool {
-            print("🎯 Coordinator: tabBarController shouldSelect called")
-            print("   Current index: \(tabBarController.selectedIndex)")
-            print("   Is reselect: \(viewController == tabBarController.selectedViewController)")
+            let isReselect = viewController == tabBarController.selectedViewController
+            AppLogger.debug("Coordinator: tabBarController shouldSelect - Current index: \(tabBarController.selectedIndex), Is reselect: \(isReselect)", category: AppLogger.ui)
 
             // Haptic feedback on tab tap
             Haptics.light()
 
-            if viewController == tabBarController.selectedViewController {
+            if isReselect {
                 // Definite re-tap - stronger haptic
                 Haptics.soft()
-                print("🎯 Coordinator: Calling onReselect(\(tabBarController.selectedIndex))")
+                AppLogger.debug("Coordinator: Calling onReselect(\(tabBarController.selectedIndex))", category: AppLogger.ui)
                 onReselect(tabBarController.selectedIndex)
             } else {
                 // Regular tab switch - update SwiftUI state
                 if let newIndex = tabBarController.viewControllers?.firstIndex(of: viewController),
                    let newTab = AppTab(rawValue: newIndex) {
-                    print("🎯 Coordinator: Updating selectedTab to \(newTab)")
+                    AppLogger.debug("Coordinator: Updating selectedTab to \(newTab)", category: AppLogger.ui)
                     DispatchQueue.main.async {
                         self.selectedTab = newTab
                     }

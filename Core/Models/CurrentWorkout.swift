@@ -12,4 +12,5 @@ struct CurrentWorkout: Identifiable, Codable, Hashable {
     var startedAt: Date = .now
     var entries: [WorkoutEntry] = []
     var plannedWorkoutID: UUID? = nil  // Link to PlannedWorkout if started from one
+    var activeEntryID: UUID? = nil  // Track which exercise user is currently focused on
 }

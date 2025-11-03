@@ -6,6 +6,7 @@
 
 import SwiftUI
 import Foundation
+import Combine
 
 enum SearchDestination: Hashable {
     case exercise(Exercise)
@@ -17,6 +18,7 @@ struct SearchView: View {
     @EnvironmentObject var store: WorkoutStoreV2
 
     @State private var query = ""
+    @State private var debouncedQuery = ""  // Debounced search query
     @State private var path: [SearchDestination] = []
     @State private var browseState: BrowseState = .root
     @FocusState private var isSearchFocused: Bool
@@ -53,13 +55,17 @@ struct SearchView: View {
                         BodyBrowseRootView(state: $browseState)
                     case .region(let region):
                         SubregionGridView(state: $browseState, region: region)
+                            .id(region)
                     case .subregion(let name):
                         MuscleExerciseListView(state: $browseState, subregion: name)
+                            .id(name)  // Force SwiftUI to recreate view when subregion changes
                     case .deep(let parent, let child):
                         MuscleExerciseListDeepView(state: $browseState, parent: parent, child: child)
+                            .id("\(parent)-\(child)")
                     }
                 } else {
-                    SuggestionList(query: query)
+                    // Use debounced query for search to prevent keyboard dismissal
+                    SuggestionList(query: debouncedQuery.isEmpty ? query : debouncedQuery)
                 }
             }
             .navigationDestination(for: SearchDestination.self) { dest in
@@ -80,6 +86,16 @@ struct SearchView: View {
                 }
             }
             .scrollDismissesKeyboard(.interactively)
+            .onChange(of: query) { oldValue, newValue in
+                // Debounce search to prevent keyboard dismissal when typing fast
+                // Update debounced query after 0.3 seconds of no typing
+                Task {
+                    try? await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+                    if query == newValue {
+                        debouncedQuery = newValue
+                    }
+                }
+            }
         }
         .overlay(alignment: .bottom) {
             CurrentWorkoutBar().environmentObject(store)
@@ -115,7 +131,12 @@ struct SuggestionList: View {
                     ForEach(result.exercises) { ex in
                         NavigationLink(value: SearchDestination.exercise(ex)) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(ex.name).font(.body)
+                                HStack(spacing: 8) {
+                                    Text(ex.name).font(.body)
+                                    if ex.isCustom {
+                                        CustomExerciseBadge()
+                                    }
+                                }
                                 HStack(spacing: 8) {
                                     Text(ex.category.capitalized)
                                     if let equip = ex.equipment { Text(equip) }

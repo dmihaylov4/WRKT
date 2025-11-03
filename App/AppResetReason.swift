@@ -17,7 +17,7 @@ enum AppBus {
     static func postResetHome(reason: AppResetReason,
                               file: String = #fileID,
                               line: Int = #line) {
-        print("📣 postResetHome(reason=\(reason.rawValue)) @\(file):\(line)")
+       
         NotificationCenter.default.post(
             name: .resetHomeToRoot,
             object: reason.rawValue,

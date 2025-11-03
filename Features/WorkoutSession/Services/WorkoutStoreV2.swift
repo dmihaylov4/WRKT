@@ -5,6 +5,7 @@ import Foundation
 import Combine
 import SwiftUI
 import HealthKit
+import OSLog
 
 @MainActor
 final class WorkoutStoreV2: ObservableObject {
@@ -13,6 +14,59 @@ final class WorkoutStoreV2: ObservableObject {
     @Published var completedWorkouts: [CompletedWorkout] = []
     @Published private(set) var lastHealthImportEndDate: Date? = nil
     @Published private(set) var runs: [Run] = []
+
+    // Store last discarded workout for undo functionality
+    private var lastDiscardedWorkout: CurrentWorkout?
+
+    /// Returns only valid cardio activities (filters out strength training and invalid data)
+    var validRuns: [Run] {
+        runs.filter { run in
+            // Filter out invalid runs:
+            // 1. Runs with 0 distance (likely misclassified strength training)
+            //    Exception: Allow 0 distance if it's a valid cardio type with duration (e.g., stationary bike, elliptical)
+            if run.distanceKm <= 0 {
+                // If no workout type specified and 0 distance, filter it out
+                guard let workoutType = run.workoutType else { return false }
+
+                // Valid cardio types that might have 0 distance
+                let validZeroDistanceTypes = [
+                    "Elliptical",
+                    "Stair Climbing",
+                    "Rowing",
+                    "High Intensity Interval Training",
+                    "Dance",
+                    "Kickboxing",
+                    "Boxing"
+                ]
+
+                // If it's not a valid zero-distance type, filter it out
+                if !validZeroDistanceTypes.contains(workoutType) {
+                    return false
+                }
+            }
+
+            // 2. Exclude traditional strength training and other non-cardio activities
+            let excludedWorkoutTypes = [
+                "Traditional Strength Training",
+                "Functional Strength Training",
+                "Core Training",
+                "Flexibility",
+                "Mind and Body",
+                "Yoga"
+            ]
+
+            if let workoutType = run.workoutType, excludedWorkoutTypes.contains(workoutType) {
+                return false
+            }
+
+            // 3. Filter out activities with 0 duration (invalid data)
+            if run.durationSec <= 0 {
+                return false
+            }
+
+            return true
+        }
+    }
 
     private var prIndex: [String: ExercisePRsV2] = [:]
 
@@ -40,9 +94,28 @@ final class WorkoutStoreV2: ObservableObject {
             do {
                 // Check if migration is needed
                 if await storage.needsMigration() {
-                    print("🔄 Migration needed, performing one-time migration...")
+                    AppLogger.info("Migration needed, performing one-time migration...", category: AppLogger.storage)
                     try await storage.migrateFromLegacyStorage()
                 }
+
+                // Check if app was force quit - discard any active workout
+                let wasCleanExit = defaults.didExitCleanly
+                AppLogger.info("App launch - didExitCleanly: \(wasCleanExit)", category: AppLogger.storage)
+
+                if !wasCleanExit {
+                    AppLogger.warning("App was force quit or crashed - discarding active workout", category: AppLogger.storage)
+                    try? await storage.deleteCurrentWorkout()
+                    // Clean up rest timer notifications and haptics
+                    await MainActor.run {
+                        RestTimerManager.shared.stopTimer()
+                    }
+                } else {
+                    AppLogger.info("App exited cleanly last time - preserving active workout if exists", category: AppLogger.storage)
+                }
+
+                // Mark that app has launched and is now running
+                defaults.markAppLaunched()
+                defaults.didExitCleanly = false
 
                 // Load all data from unified storage
                 let (workouts, prIndex) = try await storage.loadWorkouts()
@@ -55,17 +128,13 @@ final class WorkoutStoreV2: ObservableObject {
                 self.currentWorkout = currentWorkout
                 self.lastHealthImportEndDate = defaults.object(forKey: lastImportKey) as? Date
 
-                print("✅ Loaded from unified storage:")
-                print("   Workouts: \(workouts.count)")
-                print("   Runs: \(runs.count)")
-                print("   PR entries: \(prIndex.count)")
-                print("   Current workout: \(currentWorkout != nil ? "Yes" : "No")")
+                AppLogger.success("Loaded from unified storage - Workouts: \(workouts.count), Runs: \(runs.count), PR entries: \(prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
 
                 // Match workouts with HealthKit data if available
                 matchAllWorkoutsWithHealthKit()
 
             } catch {
-                print("❌ Failed to load from storage: \(error)")
+                AppLogger.error("Failed to load from storage: \(error)", category: AppLogger.storage)
                 // Initialize with empty state
                 self.completedWorkouts = []
                 self.prIndex = [:]
@@ -78,6 +147,18 @@ final class WorkoutStoreV2: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in self?.refreshCurrentWorkoutEntryNames() }
             .store(in: &cancellables)
+
+        // Listen for set generation requests from widget (even when ExerciseSessionView is not open)
+        NotificationCenter.default.publisher(for: NSNotification.Name("GeneratePendingSetBeforeTimer"))
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                guard let self = self else { return }
+                if let exerciseID = notification.userInfo?["exerciseID"] as? String,
+                   let shouldLogSet = notification.userInfo?["shouldLogSet"] as? Bool {
+                    self.handleGeneratePendingSet(exerciseID: exerciseID, shouldLogSet: shouldLogSet)
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Current Workout lifecycle
@@ -85,7 +166,10 @@ final class WorkoutStoreV2: ObservableObject {
     func startWorkoutIfNeeded() {
         if currentWorkout == nil {
             currentWorkout = CurrentWorkout()
+            // Mark app as having active state (force quit detection)
+            defaults.didExitCleanly = false
             persistCurrentWorkout()
+            AppLogger.debug("Started new workout - marked didExitCleanly = false", category: AppLogger.workout)
         }
     }
 
@@ -115,19 +199,48 @@ final class WorkoutStoreV2: ObservableObject {
         currentWorkout = CurrentWorkout(
             startedAt: .now,
             entries: entries,
-            plannedWorkoutID: planned.id
+            plannedWorkoutID: planned.id,
+            activeEntryID: entries.first?.id  // Set first exercise as active
         )
+        // Mark app as having active state (force quit detection)
+        defaults.didExitCleanly = false
         persistCurrentWorkout()
-        print("🏋️ Started planned workout: \(planned.splitDayName)")
+        AppLogger.info("Started planned workout: \(planned.splitDayName) - marked didExitCleanly = false", category: AppLogger.workout)
     }
 
     func discardCurrentWorkout() {
+        // Save workout for undo
+        lastDiscardedWorkout = currentWorkout
+
         currentWorkout = nil
         RestTimerManager.shared.stopTimer()
 
         Task {
             try? await storage.deleteCurrentWorkout()
         }
+
+        // Show undo toast
+        Task { @MainActor in
+            UndoToastManager.shared.show(message: "Workout discarded") {
+                Task { @MainActor in
+                    self.undoDiscardWorkout()
+                }
+            }
+        }
+    }
+
+    /// Restore discarded workout (undo operation)
+    private func undoDiscardWorkout() {
+        guard let workout = lastDiscardedWorkout else { return }
+
+        currentWorkout = workout
+        lastDiscardedWorkout = nil
+
+        Task {
+            try? await storage.saveCurrentWorkout(workout)
+        }
+
+        Haptics.soft()
     }
 
     func finishCurrentWorkout() {
@@ -155,24 +268,67 @@ final class WorkoutStoreV2: ObservableObject {
 
         // Unlock dex entries
         for e in completed.entries {
-            let didWork = e.sets.contains { $0.tag == .working && $0.reps > 0 }
+            let didWork = e.sets.contains { set in
+                guard set.tag == .working && set.isCompleted else { return false }
+                return isValidSetForDex(set)
+            }
             if didWork {
                 RewardsEngine.shared.ensureDexUnlocked(exerciseKey: canonicalExerciseKey(from: e.exerciseID))
             }
         }
     }
 
+    /// Check if a set is valid for unlocking dex based on tracking mode
+    private func isValidSetForDex(_ set: SetInput) -> Bool {
+        switch set.trackingMode {
+        case .weighted, .bodyweight:
+            return set.reps > 0
+        case .timed:
+            return set.durationSeconds > 0
+        case .distance:
+            return false // Future implementation
+        }
+    }
+
     func updateEntrySets(entryID: UUID, sets: [SetInput]) {
         guard var w = currentWorkout else { return }
         guard let idx = w.entries.firstIndex(where: { $0.id == entryID }) else { return }
+
+        // Check if this is the first completed set
+        let hadCompletedSets = w.entries[idx].sets.contains { $0.isCompleted }
+        let willHaveCompletedSets = sets.contains { $0.isCompleted }
+
         w.entries[idx].sets = sets
+
+        // Auto-set as active when logging first completed set
+        if !hadCompletedSets && willHaveCompletedSets {
+            w.activeEntryID = entryID
+        }
+
+        // Auto-advance: if this is the active exercise and all sets are now completed,
+        // advance to the next "up next" exercise (one with no completed sets)
+        if w.activeEntryID == entryID && !sets.isEmpty {
+            let allCompleted = sets.allSatisfy { $0.isCompleted }
+            if allCompleted {
+                // Find first exercise with no completed sets
+                if let nextEntry = w.entries.first(where: { entry in
+                    entry.id != entryID && !entry.sets.contains(where: { $0.isCompleted })
+                }) {
+                    w.activeEntryID = nextEntry.id
+                }
+            }
+        }
+
         currentWorkout = w
         persistCurrentWorkout()
         updateLastWorkingFromCurrent()
 
         let entry = w.entries[idx]
-        let hasWorking = entry.sets.contains { $0.tag == .working && $0.reps > 0 }
-        if hasWorking {
+        let hasCompletedWorking = entry.sets.contains { set in
+            guard set.tag == .working && set.isCompleted else { return false }
+            return isValidSetForDex(set)
+        }
+        if hasCompletedWorking {
             let key = canonicalExerciseKey(from: entry.exerciseID)
             RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
         }
@@ -181,15 +337,43 @@ final class WorkoutStoreV2: ObservableObject {
     func updateEntrySetsAndActiveIndex(entryID: UUID, sets: [SetInput], activeSetIndex: Int) {
         guard var w = currentWorkout else { return }
         guard let idx = w.entries.firstIndex(where: { $0.id == entryID }) else { return }
+
+        // Check if this is the first completed set
+        let hadCompletedSets = w.entries[idx].sets.contains { $0.isCompleted }
+        let willHaveCompletedSets = sets.contains { $0.isCompleted }
+
         w.entries[idx].sets = sets
         w.entries[idx].activeSetIndex = activeSetIndex
+
+        // Auto-set as active when logging first completed set
+        if !hadCompletedSets && willHaveCompletedSets {
+            w.activeEntryID = entryID
+        }
+
+        // Auto-advance: if this is the active exercise and all sets are now completed,
+        // advance to the next "up next" exercise (one with no completed sets)
+        if w.activeEntryID == entryID && !sets.isEmpty {
+            let allCompleted = sets.allSatisfy { $0.isCompleted }
+            if allCompleted {
+                // Find first exercise with no completed sets
+                if let nextEntry = w.entries.first(where: { entry in
+                    entry.id != entryID && !entry.sets.contains(where: { $0.isCompleted })
+                }) {
+                    w.activeEntryID = nextEntry.id
+                }
+            }
+        }
+
         currentWorkout = w
         persistCurrentWorkout()
         updateLastWorkingFromCurrent()
 
         let entry = w.entries[idx]
-        let hasWorking = entry.sets.contains { $0.tag == .working && $0.reps > 0 }
-        if hasWorking {
+        let hasCompletedWorking = entry.sets.contains { set in
+            guard set.tag == .working && set.isCompleted else { return false }
+            return isValidSetForDex(set)
+        }
+        if hasCompletedWorking {
             let key = canonicalExerciseKey(from: entry.exerciseID)
             RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
         }
@@ -211,9 +395,10 @@ final class WorkoutStoreV2: ObservableObject {
             sets: []
         )
         workout.entries.append(entry)
+        workout.activeEntryID = entry.id  // Set newly added exercise as active
         currentWorkout = workout
         persistCurrentWorkout()
-        print("✅ Added exercise '\(exercise.name)' to current workout (\(workout.entries.count) exercises total)")
+        AppLogger.debug("Added exercise '\(exercise.name)' to current workout (\(workout.entries.count) exercises total)", category: AppLogger.workout)
         return entry.id
     }
 
@@ -231,7 +416,22 @@ final class WorkoutStoreV2: ObservableObject {
     func removeEntry(entryID: UUID) {
         guard var w = currentWorkout else { return }
         w.entries.removeAll { $0.id == entryID }
+
+        // If we removed the active entry, update activeEntryID
+        if w.activeEntryID == entryID {
+            // Set to first remaining entry, or nil if none
+            w.activeEntryID = w.entries.first?.id
+        }
+
         currentWorkout = w.entries.isEmpty ? w : w
+        persistCurrentWorkout()
+    }
+
+    func setActiveEntry(_ entryID: UUID) {
+        guard var w = currentWorkout else { return }
+        guard w.entries.contains(where: { $0.id == entryID }) else { return }
+        w.activeEntryID = entryID
+        currentWorkout = w
         persistCurrentWorkout()
     }
 
@@ -247,12 +447,111 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     func exerciseForEntry(_ e: WorkoutEntry) -> Exercise? {
-        repo.exercise(byID: e.exerciseID)
+        let result = repo.exercise(byID: e.exerciseID)
+        if result == nil {
+            AppLogger.error("❌ Exercise not found for ID: '\(e.exerciseID)' (name: '\(e.exerciseName)')", category: AppLogger.app)
+            AppLogger.debug("🔍 Total exercises in byID: \(repo.byID.count)", category: AppLogger.app)
+
+            // Check for similar IDs (case-insensitive or substring matches)
+            let similarIDs = repo.byID.keys.filter { $0.lowercased().contains(e.exerciseID.lowercased()) || e.exerciseID.lowercased().contains($0.lowercased()) }
+            if !similarIDs.isEmpty {
+                AppLogger.debug("🔍 Found similar IDs: \(similarIDs.joined(separator: ", "))", category: AppLogger.app)
+            }
+
+            // Check if the exact ID exists (debugging any whitespace/encoding issues)
+            AppLogger.debug("🔍 Looking for ID: [\(e.exerciseID)] (length: \(e.exerciseID.count))", category: AppLogger.app)
+        }
+        return result
     }
 
     // Find existing entry for an exercise in current workout (to prevent duplicates)
     func existingEntry(for exerciseID: String) -> WorkoutEntry? {
         currentWorkout?.entries.first(where: { $0.exerciseID == exerciseID })
+    }
+
+    /// Handle set generation request from widget (works even when ExerciseSessionView is not open)
+    /// - Parameters:
+    ///   - exerciseID: The exercise to generate a set for
+    ///   - shouldLogSet: If true, marks the generated set as completed
+    private func handleGeneratePendingSet(exerciseID: String, shouldLogSet: Bool) {
+        // Only generate if there's a pending flag for this exercise
+        let manager = RestTimerManager.shared
+        guard manager.hasPendingSetGeneration(for: exerciseID) else {
+            AppLogger.debug("No pending set for exercise \(exerciseID), skipping generation", category: AppLogger.workout)
+            return
+        }
+
+        // Find the entry for this exercise
+        guard let entry = existingEntry(for: exerciseID) else {
+            AppLogger.warning("Cannot generate set - exercise not in workout: \(exerciseID)", category: AppLogger.workout)
+            manager.clearPendingSetGeneration(for: exerciseID)
+            return
+        }
+
+        var sets = entry.sets
+        var activeSetIndex = entry.activeSetIndex
+
+        // Find last completed set to use as template (or last set if none completed)
+        let templateSet = sets.last(where: { $0.isCompleted }) ?? sets.last
+
+        // Find the next incomplete set to log, respecting activeSetIndex for prefilled workouts
+        // First, try to find the first incomplete set starting from activeSetIndex
+        let nextIncompleteIndex = sets.indices.first { index in
+            index >= activeSetIndex && !sets[index].isCompleted
+        } ?? sets.firstIndex { !$0.isCompleted }
+
+        // If we have an incomplete set, mark it as completed (if shouldLogSet)
+        if let index = nextIncompleteIndex {
+            if shouldLogSet {
+                sets[index].isCompleted = true
+                // Update activeSetIndex to the next set (or stay at current if it's the last one)
+                activeSetIndex = min(index + 1, sets.count - 1)
+                updateEntrySetsAndActiveIndex(entryID: entry.id, sets: sets, activeSetIndex: activeSetIndex)
+                AppLogger.info("Logged existing incomplete set #\(index + 1) from widget for \(entry.exerciseName)", category: AppLogger.workout)
+            } else {
+                AppLogger.debug("Set already exists and not logging, skipping generation", category: AppLogger.workout)
+            }
+            manager.clearPendingSetGeneration(for: exerciseID)
+            return
+        }
+
+        // Generate a new set based on template
+        let newSet: SetInput
+        if let template = templateSet {
+            newSet = SetInput(
+                reps: template.reps,
+                weight: template.weight,
+                tag: template.tag,
+                autoWeight: false,
+                didSeedFromMemory: false,
+                isCompleted: shouldLogSet,  // Mark as completed if requested
+                isGhost: false,
+                isAutoGeneratedPlaceholder: !shouldLogSet  // Mark as auto-generated if not logging
+            )
+        } else {
+            // No template - create default set
+            newSet = SetInput(
+                reps: 10,
+                weight: 0,
+                tag: .working,
+                autoWeight: true,
+                didSeedFromMemory: false,
+                isCompleted: shouldLogSet,
+                isGhost: false,
+                isAutoGeneratedPlaceholder: !shouldLogSet
+            )
+        }
+
+        sets.append(newSet)
+
+        // Update the workout with new sets
+        updateEntrySets(entryID: entry.id, sets: sets)
+
+        let action = shouldLogSet ? "Logged" : "Generated"
+        AppLogger.info("\(action) set from widget for \(entry.exerciseName)", category: AppLogger.workout)
+
+        // Clear the pending flag
+        manager.clearPendingSetGeneration(for: exerciseID)
     }
 
     private func refreshCurrentWorkoutEntryNames() {
@@ -293,6 +592,42 @@ final class WorkoutStoreV2: ObservableObject {
         Task.detached(priority: .utility) { [_stats, completedWorkouts] in
             await _stats?.invalidate(weeks: weeks, from: completedWorkouts)
         }
+
+        // Show undo toast
+        Task { @MainActor in
+            UndoToastManager.shared.show(message: "Workout\(removed.count > 1 ? "s" : "") deleted") {
+                Task { @MainActor in
+                    self.undoDeleteWorkouts(removed, at: offsets)
+                }
+            }
+        }
+    }
+
+    /// Restore deleted workouts (undo operation)
+    private func undoDeleteWorkouts(_ workouts: [CompletedWorkout], at offsets: IndexSet) {
+        // Insert workouts back at their original positions
+        for (offset, workout) in zip(offsets, workouts) {
+            if offset <= completedWorkouts.count {
+                completedWorkouts.insert(workout, at: offset)
+            } else {
+                completedWorkouts.append(workout)
+            }
+        }
+        persistWorkouts()
+
+        // Re-aggregate stats for affected weeks
+        let weeks = Set(workouts.map { startOfWeek(for: $0.date) })
+        Task.detached(priority: .utility) { [_stats, completedWorkouts] in
+            await _stats?.invalidate(weeks: weeks, from: completedWorkouts)
+        }
+
+        Haptics.soft()
+    }
+
+    /// Delete a single workout by ID
+    func deleteWorkout(_ workout: CompletedWorkout) {
+        guard let index = completedWorkouts.firstIndex(where: { $0.id == workout.id }) else { return }
+        deleteWorkouts(at: IndexSet(integer: index))
     }
 
     func updateWorkout(_ workout: CompletedWorkout) {
@@ -357,7 +692,7 @@ final class WorkoutStoreV2: ObservableObject {
         }
 
         runs = runsCopy
-        print("📦 Batch updated \(updateCount)/\(updatedRuns.count) runs")
+        AppLogger.debug("Batch updated \(updateCount)/\(updatedRuns.count) runs", category: AppLogger.health)
         persistRuns()
     }
 
@@ -378,6 +713,7 @@ final class WorkoutStoreV2: ObservableObject {
 
     func runs(on date: Date, calendar: Calendar = .current) -> [Run] {
         let day = calendar.startOfDay(for: date)
+        // Return ALL runs (including strength workouts) - let callers filter as needed
         return runs.filter { calendar.isDate($0.date, inSameDayAs: day) }
     }
 
@@ -402,7 +738,7 @@ final class WorkoutStoreV2: ObservableObject {
 
             matchAllWorkoutsWithHealthKit()
         } catch {
-            print("⚠️ Health import failed: \(error)")
+            AppLogger.warning("Health import failed: \(error)", category: AppLogger.health)
         }
     }
 
@@ -411,7 +747,7 @@ final class WorkoutStoreV2: ObservableObject {
     @discardableResult
     func matchWithHealthKit(_ workout: CompletedWorkout) -> Bool {
         guard workout.matchedHealthKitUUID == nil else {
-            print("⏭️ Workout already matched, skipping")
+            AppLogger.debug("Workout already matched, skipping", category: AppLogger.health)
             return false
         }
 
@@ -469,7 +805,7 @@ final class WorkoutStoreV2: ObservableObject {
                 }
             }
         } catch {
-            print("   ❌ Failed to fetch heart rate samples: \(error)")
+            AppLogger.warning("Failed to fetch heart rate samples: \(error)", category: AppLogger.health)
         }
     }
 
@@ -481,7 +817,7 @@ final class WorkoutStoreV2: ObservableObject {
             }
         }
         if matchCount > 0 {
-            print("✅ Matched \(matchCount) workouts with HealthKit data")
+            AppLogger.success("Matched \(matchCount) workouts with HealthKit data", category: AppLogger.health)
         }
     }
 
@@ -494,7 +830,7 @@ final class WorkoutStoreV2: ObservableObject {
             do {
                 try await WorkoutStorage.shared.saveWorkouts(workouts, prIndex: prIndex)
             } catch {
-                print("❌ Failed to persist workouts: \(error)")
+                AppLogger.error("Failed to persist workouts: \(error)", category: AppLogger.storage)
             }
         }
     }
@@ -528,7 +864,7 @@ extension WorkoutStoreV2 {
 
         for w in completedWorkouts {
             if let entry = w.entries.first(where: { $0.exerciseID == exerciseID }) {
-                for s in entry.sets where s.tag == .working && s.weight > 0 && s.reps > 0 {
+                for s in entry.sets where s.tag == .working && s.reps > 0 {
                     out.append((w.date, s))
                 }
             }
@@ -537,7 +873,7 @@ extension WorkoutStoreV2 {
         if let w = currentWorkout,
            let entry = w.entries.first(where: { $0.exerciseID == exerciseID })
         {
-            for s in entry.sets where s.tag == .working && s.weight > 0 && s.reps > 0 {
+            for s in entry.sets where s.tag == .working && s.reps > 0 {
                 out.append((Date(), s))
             }
         }
@@ -567,7 +903,11 @@ extension WorkoutStoreV2 {
             for (r, w) in dict {
                 let d = abs(r - targetReps)
                 guard d <= window else { continue }
-                if best == nil || d < best!.d || (d == best!.d && w > best!.w) {
+                if let currentBest = best {
+                    if d < currentBest.d || (d == currentBest.d && w > currentBest.w) {
+                        best = (r, w, d)
+                    }
+                } else {
                     best = (r, w, d)
                 }
             }
@@ -578,7 +918,11 @@ extension WorkoutStoreV2 {
         for s in candidates {
             let d = abs(s.reps - targetReps)
             guard d <= window else { continue }
-            if best == nil || d < best!.delta || (d == best!.delta && s.weight > best!.weight) {
+            if let currentBest = best {
+                if d < currentBest.delta || (d == currentBest.delta && s.weight > currentBest.weight) {
+                    best = (s.reps, s.weight, d)
+                }
+            } else {
                 best = (s.reps, s.weight, d)
             }
         }
@@ -610,6 +954,15 @@ extension WorkoutStoreV2 {
         if let e1rm = bestE1RM(exercise: exercise) { return weight(forE1RM: e1rm, reps: targetReps) }
         return nil
     }
+
+    /// Personal best reps for bodyweight exercises (max reps achieved)
+    func personalBestReps(for exercise: Exercise) -> Int? {
+        if let pr = prIndex[exercise.id]?.bestReps {
+            return pr
+        }
+        let sets = allWorkingSets(for: exercise.id).map { $0.set }
+        return sets.map { $0.reps }.max()
+    }
 }
 
 // MARK: - PR Index Management
@@ -620,19 +973,48 @@ extension WorkoutStoreV2 {
         for e in completed.entries {
             var pr = prIndex[e.exerciseID, default: ExercisePRsV2()]
 
-            for s in e.sets where s.tag == .working && s.reps > 0 && s.weight > 0 {
-                // Best per reps
-                pr.bestPerReps[s.reps] = max(pr.bestPerReps[s.reps] ?? 0, s.weight)
+            for s in e.sets where s.tag == .working {
+                // Determine tracking mode
+                let trackingMode = s.trackingMode
 
-                // Best E1RM (Epley formula)
-                let e1rm = s.weight * (1.0 + Double(s.reps) / 30.0)
-                pr.bestE1RM = max(pr.bestE1RM ?? 0, e1rm)
+                switch trackingMode {
+                case .weighted:
+                    // Weighted exercises: track weight-based PRs
+                    guard s.reps > 0 && s.weight > 0 else { continue }
 
-                // All-time best
-                pr.allTimeBest = max(pr.allTimeBest ?? 0, s.weight)
+                    // Best per reps
+                    pr.bestPerReps[s.reps] = max(pr.bestPerReps[s.reps] ?? 0, s.weight)
 
-                // Last working set
-                pr.lastWorking = LastSetV2(date: completed.date, reps: s.reps, weightKg: s.weight)
+                    // Best E1RM (Epley formula)
+                    let e1rm = s.weight * (1.0 + Double(s.reps) / 30.0)
+                    pr.bestE1RM = max(pr.bestE1RM ?? 0, e1rm)
+
+                    // All-time best
+                    pr.allTimeBest = max(pr.allTimeBest ?? 0, s.weight)
+
+                    // Last working set
+                    pr.lastWorking = LastSetV2(date: completed.date, reps: s.reps, weightKg: s.weight)
+
+                case .bodyweight:
+                    // Bodyweight exercises: track best reps
+                    guard s.reps > 0 else { continue }
+                    pr.bestReps = max(pr.bestReps ?? 0, s.reps)
+
+                    // Last working set (weight is always 0)
+                    pr.lastWorking = LastSetV2(date: completed.date, reps: s.reps, weightKg: 0)
+
+                case .timed:
+                    // Timed exercises: track best duration
+                    guard s.durationSeconds > 0 else { continue }
+                    pr.bestDuration = max(pr.bestDuration ?? 0, s.durationSeconds)
+
+                    // Last working set (store duration in reps field for now, weight is 0)
+                    pr.lastWorking = LastSetV2(date: completed.date, reps: s.durationSeconds, weightKg: 0)
+
+                case .distance:
+                    // Future: distance-based tracking
+                    break
+                }
 
                 // First recorded (don't overwrite if already set)
                 if pr.firstRecorded == nil {
@@ -647,10 +1029,35 @@ extension WorkoutStoreV2 {
     private func updateLastWorkingFromCurrent() {
         guard let w = currentWorkout else { return }
         for e in w.entries {
-            let workingSets = e.sets.filter { $0.tag == .working && $0.reps > 0 && $0.weight > 0 }
+            let workingSets = e.sets.filter { $0.tag == .working }
             guard let last = workingSets.last else { continue }
+
+            // Skip empty sets based on tracking mode
+            switch last.trackingMode {
+            case .weighted:
+                guard last.reps > 0 && last.weight > 0 else { continue }
+            case .bodyweight:
+                guard last.reps > 0 else { continue }
+            case .timed:
+                guard last.durationSeconds > 0 else { continue }
+            case .distance:
+                continue // Future implementation
+            }
+
             var pr = prIndex[e.exerciseID, default: ExercisePRsV2()]
-            pr.lastWorking = LastSetV2(date: Date(), reps: last.reps, weightKg: last.weight)
+
+            // Update last working set based on tracking mode
+            switch last.trackingMode {
+            case .weighted:
+                pr.lastWorking = LastSetV2(date: Date(), reps: last.reps, weightKg: last.weight)
+            case .bodyweight:
+                pr.lastWorking = LastSetV2(date: Date(), reps: last.reps, weightKg: 0)
+            case .timed:
+                pr.lastWorking = LastSetV2(date: Date(), reps: last.durationSeconds, weightKg: 0)
+            case .distance:
+                break
+            }
+
             prIndex[e.exerciseID] = pr
         }
     }
@@ -662,7 +1069,10 @@ extension WorkoutStoreV2 {
 
         // Unlock dex entries
         for e in completed.entries {
-            let didWork = e.sets.contains { $0.tag == .working && $0.reps > 0 }
+            let didWork = e.sets.contains { set in
+                guard set.tag == .working && set.isCompleted else { return false }
+                return isValidSetForDex(set)
+            }
             if didWork {
                 let key = canonicalExerciseKey(from: e.exerciseID)
                 RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key, date: completed.date)

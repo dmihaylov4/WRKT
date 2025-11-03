@@ -7,7 +7,7 @@
 import Foundation
 
 /// Predefined split template for user selection
-struct SplitTemplate: Identifiable, Hashable {
+struct SplitTemplate: Identifiable, Hashable, Codable {
     let id: String
     let name: String
     let shortName: String
@@ -18,15 +18,49 @@ struct SplitTemplate: Identifiable, Hashable {
     let focus: String
     let icon: String
 
-    enum Difficulty: String {
+    // Custom split metadata
+    let isCustom: Bool
+    let createdBy: String? // "user" or future trainer ID
+    let createdAt: Date?
+    let lastModified: Date?
+
+    // Future: Import/export
+    let shareableID: String? // UUID for sharing
+    let version: Int // Schema version for compatibility
+
+    enum Difficulty: String, Codable {
         case beginner = "Beginner"
         case intermediate = "Intermediate"
         case advanced = "Advanced"
     }
+
+    // Default initializer for predefined splits
+    init(id: String, name: String, shortName: String, description: String,
+         days: [DayTemplate], recommendedFrequency: Int, difficulty: Difficulty,
+         focus: String, icon: String,
+         isCustom: Bool = false, createdBy: String? = nil,
+         createdAt: Date? = nil, lastModified: Date? = nil,
+         shareableID: String? = nil, version: Int = 1) {
+        self.id = id
+        self.name = name
+        self.shortName = shortName
+        self.description = description
+        self.days = days
+        self.recommendedFrequency = recommendedFrequency
+        self.difficulty = difficulty
+        self.focus = focus
+        self.icon = icon
+        self.isCustom = isCustom
+        self.createdBy = createdBy
+        self.createdAt = createdAt
+        self.lastModified = lastModified
+        self.shareableID = shareableID
+        self.version = version
+    }
 }
 
 /// A single day in a split template
-struct DayTemplate: Identifiable, Hashable {
+struct DayTemplate: Identifiable, Hashable, Codable {
     let id: String
     let name: String // "Push", "Pull", "Legs", "Upper", "Lower", etc.
     let exercises: [ExerciseTemplate]
@@ -34,7 +68,7 @@ struct DayTemplate: Identifiable, Hashable {
 }
 
 /// Exercise template with default sets/reps/weight
-struct ExerciseTemplate: Identifiable, Hashable {
+struct ExerciseTemplate: Identifiable, Hashable, Codable {
     let id: String
     let exerciseID: String // ID to look up in ExerciseRepository
     let exerciseName: String
@@ -127,10 +161,9 @@ enum SplitTemplates {
         exercises: [
             ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Barbell Bench Press", sets: 4, reps: 6, startingWeight: 60),
             ExerciseTemplate(exerciseID: "barbell-incline-bench-press", exerciseName: "Barbell Incline Bench Press", sets: 4 , reps: 8, startingWeight: 30 ),
-            ExerciseTemplate(exerciseID: "barbell-staggered-stance-overhead-press", exerciseName: "Barbell Overhead Press", sets: 4 , reps: 6, startingWeight: 30 ),
+            ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 4 , reps: 6, startingWeight: 30 ),
             ExerciseTemplate(exerciseID: "bodyweight-dips", exerciseName: "Bodyweights Dips", sets: 3 , reps: 10, startingWeight: 0 ),
             ExerciseTemplate(exerciseID: "double-dumbbell-lateral-raise", exerciseName: "Double Dumbbell Lateral Raise", sets: 4, reps: 15, startingWeight: 10),
-            ExerciseTemplate(exerciseID: "shoulder-press", exerciseName: "Overhead Press", sets: 3, reps: 8, startingWeight: 40),
             ExerciseTemplate(exerciseID: "cable-rope-tricep-pushdown", exerciseName: "Cable Rope Tricep Pushdown", sets: 3, reps: 12, startingWeight: 10),
             ExerciseTemplate(exerciseID: "cable-rope-overhead-tricep-extension", exerciseName: "Cable Rope Overhead Tricep Extension", sets: 3, reps: 15, startingWeight: 10)
           
@@ -158,7 +191,7 @@ enum SplitTemplates {
             ExerciseTemplate(exerciseID: "barbell-back-squat", exerciseName: "Squat", sets: 4, reps: 6, startingWeight: 20, progressionStrategy: .linear(increment: 5)),
             ExerciseTemplate(exerciseID: "barbell-romanian-deadlift", exerciseName: "Romanian Deadlift", sets: 3, reps: 10, startingWeight: 60),
             ExerciseTemplate(exerciseID: "machine-seated-leg-curl", exerciseName: "Machine Seated Leg Curl", sets: 3, reps: 12, startingWeight: 100),
-            ExerciseTemplate(exerciseID: "machine-45-degree-leg-press", exerciseName: "Leg Press", sets: 3, reps: 12, startingWeight: 100),
+            ExerciseTemplate(exerciseID: "machine-45-degree-leg-press", exerciseName: "Machine Leg Press", sets: 3, reps: 12, startingWeight: 100),
             ExerciseTemplate(exerciseID: "barbell-overhead-bulgarian-split-squat", exerciseName: "Bulgarian Split Squat", sets: 3, reps: 10, startingWeight: 35),
             ExerciseTemplate(exerciseID: "double-dumbbell-suitcase-calf-raise", exerciseName: "Dumbbell Calf Raise", sets: 4, reps: 15, startingWeight: 40)
         ],
@@ -169,12 +202,12 @@ enum SplitTemplates {
         id: "upper",
         name: "Upper Body",
         exercises: [
-            ExerciseTemplate(exerciseID: "bench-press", exerciseName: "Bench Press", sets: 4, reps: 6, startingWeight: 60),
-            ExerciseTemplate(exerciseID: "barbell-row", exerciseName: "Barbell Row", sets: 4, reps: 6, startingWeight: 50),
-            ExerciseTemplate(exerciseID: "shoulder-press", exerciseName: "Overhead Press", sets: 3, reps: 8, startingWeight: 40),
-            ExerciseTemplate(exerciseID: "pull-up", exerciseName: "Pull-ups", sets: 3, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated),
-            ExerciseTemplate(exerciseID: "dumbbell-curl", exerciseName: "Dumbbell Curl", sets: 2, reps: 12, startingWeight: 12),
-            ExerciseTemplate(exerciseID: "tricep-extension", exerciseName: "Tricep Extension", sets: 2, reps: 12, startingWeight: 15)
+            ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Barbell Bench Press", sets: 4, reps: 6, startingWeight: 60),
+            ExerciseTemplate(exerciseID: "dumbbell-chest-supported-row", exerciseName: "Dumbbell Chest Supported Row", sets: 4, reps: 6, startingWeight: 50),
+            ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 3, reps: 8, startingWeight: 40),
+            ExerciseTemplate(exerciseID: "bar-eccentric-pull-up", exerciseName: "Pull-ups", sets: 4, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated),
+            ExerciseTemplate(exerciseID: "alternating-double-dumbbell-bicep-curl", exerciseName: "Alternating Dumbbell Curl", sets: 2, reps: 12, startingWeight: 12),
+            ExerciseTemplate(exerciseID: "dumbbell-seated-overhead-tricep-extension", exerciseName: "Tricep Extension", sets: 2, reps: 12, startingWeight: 15)
         ],
         isRestDay: false
     )
@@ -183,11 +216,11 @@ enum SplitTemplates {
         id: "lower",
         name: "Lower Body",
         exercises: [
-            ExerciseTemplate(exerciseID: "squat", exerciseName: "Squat", sets: 4, reps: 6, startingWeight: 80, progressionStrategy: .linear(increment: 5)),
-            ExerciseTemplate(exerciseID: "romanian-deadlift", exerciseName: "Romanian Deadlift", sets: 3, reps: 8, startingWeight: 60),
-            ExerciseTemplate(exerciseID: "leg-press", exerciseName: "Leg Press", sets: 3, reps: 10, startingWeight: 100),
-            ExerciseTemplate(exerciseID: "leg-curl", exerciseName: "Leg Curl", sets: 3, reps: 12, startingWeight: 35),
-            ExerciseTemplate(exerciseID: "calf-raise", exerciseName: "Calf Raise", sets: 3, reps: 15, startingWeight: 40)
+            ExerciseTemplate(exerciseID: "barbell-back-squat", exerciseName: "Barbell Squat", sets: 4, reps: 6, startingWeight: 80, progressionStrategy: .linear(increment: 5)),
+            ExerciseTemplate(exerciseID: "barbell-romanian-deadlift", exerciseName: "Romanian Deadlift", sets: 3, reps: 8, startingWeight: 60),
+            ExerciseTemplate(exerciseID: "machine-45-degree-leg-press", exerciseName: " Machine Leg Press", sets: 3, reps: 10, startingWeight: 100),
+            ExerciseTemplate(exerciseID: "machine-seated-leg-curl", exerciseName: "Machine Leg Curl", sets: 3, reps: 12, startingWeight: 35),
+            ExerciseTemplate(exerciseID: "double-dumbbell-suitcase-calf-raise", exerciseName: "Dumbbell Calf Raise", sets: 3, reps: 15, startingWeight: 40)
         ],
         isRestDay: false
     )
@@ -196,12 +229,12 @@ enum SplitTemplates {
         id: "full-body",
         name: "Full Body",
         exercises: [
-            ExerciseTemplate(exerciseID: "squat", exerciseName: "Squat", sets: 3, reps: 8, startingWeight: 70, progressionStrategy: .linear(increment: 5)),
-            ExerciseTemplate(exerciseID: "bench-press", exerciseName: "Bench Press", sets: 3, reps: 8, startingWeight: 50),
-            ExerciseTemplate(exerciseID: "barbell-row", exerciseName: "Barbell Row", sets: 3, reps: 8, startingWeight: 45),
-            ExerciseTemplate(exerciseID: "shoulder-press", exerciseName: "Overhead Press", sets: 3, reps: 8, startingWeight: 35),
-            ExerciseTemplate(exerciseID: "romanian-deadlift", exerciseName: "Romanian Deadlift", sets: 2, reps: 10, startingWeight: 50),
-            ExerciseTemplate(exerciseID: "pull-up", exerciseName: "Pull-ups", sets: 2, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated)
+            ExerciseTemplate(exerciseID: "barbell-back-squat", exerciseName: "Barbell Back Squat", sets: 3, reps: 8, startingWeight: 70, progressionStrategy: .linear(increment: 5)),
+            ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Bench Press", sets: 3, reps: 8, startingWeight: 50),
+            ExerciseTemplate(exerciseID: "dumbbell-chest-supported-row", exerciseName: "Dumbbell Chest Supported Row", sets: 3, reps: 8, startingWeight: 45),
+            ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 3, reps: 8, startingWeight: 35),
+            ExerciseTemplate(exerciseID: "barbell-romanian-deadlift", exerciseName: "Barbell Romanian Deadlift", sets: 2, reps: 10, startingWeight: 50),
+            ExerciseTemplate(exerciseID: "bar-eccentric-pull-up", exerciseName: "Pull-ups", sets: 2, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated)
         ],
         isRestDay: false
     )
@@ -211,10 +244,10 @@ enum SplitTemplates {
         id: "chest",
         name: "Chest",
         exercises: [
-            ExerciseTemplate(exerciseID: "bench-press", exerciseName: "Bench Press", sets: 4, reps: 8, startingWeight: 60),
-            ExerciseTemplate(exerciseID: "incline-dumbbell-press", exerciseName: "Incline Dumbbell Press", sets: 3, reps: 10, startingWeight: 20),
-            ExerciseTemplate(exerciseID: "cable-fly", exerciseName: "Cable Fly", sets: 3, reps: 12, startingWeight: 15),
-            ExerciseTemplate(exerciseID: "dips", exerciseName: "Dips", sets: 3, reps: 10, startingWeight: 0, progressionStrategy: .autoregulated)
+            ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Bench Press", sets: 4, reps: 8, startingWeight: 60),
+            ExerciseTemplate(exerciseID: "double-dumbbell-incline-bench-press", exerciseName: "Incline Dumbbell Press", sets: 3, reps: 10, startingWeight: 20),
+            ExerciseTemplate(exerciseID: "double-cable-chest-fly", exerciseName: "Cable Fly", sets: 3, reps: 12, startingWeight: 15),
+            ExerciseTemplate(exerciseID: "bodyweight-dips", exerciseName: "Dips", sets: 3, reps: 10, startingWeight: 0, progressionStrategy: .autoregulated)
         ],
         isRestDay: false
     )
@@ -223,10 +256,10 @@ enum SplitTemplates {
         id: "back",
         name: "Back",
         exercises: [
-            ExerciseTemplate(exerciseID: "deadlift", exerciseName: "Deadlift", sets: 3, reps: 5, startingWeight: 100, progressionStrategy: .linear(increment: 5)),
-            ExerciseTemplate(exerciseID: "pull-up", exerciseName: "Pull-ups", sets: 3, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated),
-            ExerciseTemplate(exerciseID: "barbell-row", exerciseName: "Barbell Row", sets: 4, reps: 8, startingWeight: 50),
-            ExerciseTemplate(exerciseID: "lat-pulldown", exerciseName: "Lat Pulldown", sets: 3, reps: 10, startingWeight: 45)
+            ExerciseTemplate(exerciseID: "barbell-romanian-deadlift", exerciseName: "Deadlift", sets: 3, reps: 5, startingWeight: 100, progressionStrategy: .linear(increment: 5)),
+            ExerciseTemplate(exerciseID: "bar-eccentric-pull-up", exerciseName: "Pull-ups", sets: 3, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated),
+            ExerciseTemplate(exerciseID: "dumbbell-chest-supported-row", exerciseName: "Dumbbell Chest Supported Row", sets: 4, reps: 8, startingWeight: 50),
+            ExerciseTemplate(exerciseID: "cable-wide-grip-lat-pulldown", exerciseName: "Lat Pulldown", sets: 3, reps: 10, startingWeight: 45)
         ],
         isRestDay: false
     )
@@ -235,10 +268,10 @@ enum SplitTemplates {
         id: "shoulders",
         name: "Shoulders",
         exercises: [
-            ExerciseTemplate(exerciseID: "shoulder-press", exerciseName: "Overhead Press", sets: 4, reps: 8, startingWeight: 40),
-            ExerciseTemplate(exerciseID: "lateral-raise", exerciseName: "Lateral Raise", sets: 4, reps: 12, startingWeight: 10),
-            ExerciseTemplate(exerciseID: "front-raise", exerciseName: "Front Raise", sets: 3, reps: 12, startingWeight: 10),
-            ExerciseTemplate(exerciseID: "face-pull", exerciseName: "Face Pull", sets: 3, reps: 15, startingWeight: 20)
+            ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 4, reps: 8, startingWeight: 40),
+            ExerciseTemplate(exerciseID: "double-dumbbell-lateral-raise", exerciseName: "Lateral Raise", sets: 4, reps: 12, startingWeight: 10),
+            ExerciseTemplate(exerciseID: "alternating-double-dumbbell-front-raise", exerciseName: "Front Raise", sets: 3, reps: 12, startingWeight: 10),
+            ExerciseTemplate(exerciseID: "cable-face-pull", exerciseName: "Face Pull", sets: 3, reps: 15, startingWeight: 20)
         ],
         isRestDay: false
     )
@@ -247,10 +280,10 @@ enum SplitTemplates {
         id: "arms",
         name: "Arms",
         exercises: [
-            ExerciseTemplate(exerciseID: "barbell-curl", exerciseName: "Barbell Curl", sets: 3, reps: 10, startingWeight: 25),
-            ExerciseTemplate(exerciseID: "tricep-pushdown", exerciseName: "Tricep Pushdown", sets: 3, reps: 12, startingWeight: 25),
-            ExerciseTemplate(exerciseID: "hammer-curl", exerciseName: "Hammer Curl", sets: 3, reps: 10, startingWeight: 15),
-            ExerciseTemplate(exerciseID: "overhead-tricep-extension", exerciseName: "Overhead Tricep Extension", sets: 3, reps: 12, startingWeight: 20)
+            ExerciseTemplate(exerciseID: "barbell-bicep-curl", exerciseName: "Barbell Curl", sets: 3, reps: 10, startingWeight: 25),
+            ExerciseTemplate(exerciseID: "cable-rope-tricep-pushdown", exerciseName: "Tricep Pushdown", sets: 3, reps: 12, startingWeight: 25),
+            ExerciseTemplate(exerciseID: "double-dumbbell-hammer-curl", exerciseName: "Hammer Curl", sets: 3, reps: 10, startingWeight: 15),
+            ExerciseTemplate(exerciseID: "ez-bar-overhead-tricep-extension", exerciseName: "EZ Bar Overhead Tricep Extension", sets: 3, reps: 12, startingWeight: 20)
         ],
         isRestDay: false
     )
@@ -259,11 +292,11 @@ enum SplitTemplates {
         id: "legs-bro",
         name: "Legs",
         exercises: [
-            ExerciseTemplate(exerciseID: "squat", exerciseName: "Squat", sets: 4, reps: 8, startingWeight: 80, progressionStrategy: .linear(increment: 5)),
-            ExerciseTemplate(exerciseID: "leg-press", exerciseName: "Leg Press", sets: 4, reps: 12, startingWeight: 100),
+            ExerciseTemplate(exerciseID: "barbell-back-squat", exerciseName: "Barbell Squat", sets: 4, reps: 8, startingWeight: 80, progressionStrategy: .linear(increment: 5)),
+            ExerciseTemplate(exerciseID: "machine-45-degree-leg-press", exerciseName: "Leg Press", sets: 4, reps: 12, startingWeight: 100),
             ExerciseTemplate(exerciseID: "leg-extension", exerciseName: "Leg Extension", sets: 3, reps: 12, startingWeight: 40),
-            ExerciseTemplate(exerciseID: "leg-curl", exerciseName: "Leg Curl", sets: 3, reps: 12, startingWeight: 35),
-            ExerciseTemplate(exerciseID: "calf-raise", exerciseName: "Calf Raise", sets: 4, reps: 15, startingWeight: 40)
+            ExerciseTemplate(exerciseID: "machine-seated-leg-curl", exerciseName: "Leg Curl", sets: 3, reps: 12, startingWeight: 35),
+            ExerciseTemplate(exerciseID: "double-dumbbell-suitcase-calf-raise", exerciseName: "Calf Raise", sets: 4, reps: 15, startingWeight: 40)
         ],
         isRestDay: false
     )

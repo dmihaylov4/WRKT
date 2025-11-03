@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import OSLog
 
 /// Thread-safe cache for exercise data with pagination support
 actor ExerciseCache {
@@ -72,10 +73,11 @@ actor ExerciseCache {
             self.didLoadAll = true
             self.isLoadingAll = false
 
-            print("✅ ExerciseCache: Loaded \(sorted.count) exercises")
+
+
         } catch {
             isLoadingAll = false
-            print("❌ ExerciseCache: Failed to load exercises: \(error)")
+            AppLogger.error("ExerciseCache: Failed to load exercises: \(error)", category: AppLogger.app)
             throw error
         }
     }
@@ -104,6 +106,11 @@ actor ExerciseCache {
                 // Move type filter
                 if filters.moveType != .all {
                     guard ex.moveBucket == filters.moveType else { return false }
+                }
+
+                // Category filter
+                if filters.category != .all {
+                    guard filters.category.matches(ex.category) else { return false }
                 }
 
                 // Search query filter
@@ -141,6 +148,9 @@ actor ExerciseCache {
             }
             if filters.moveType != .all {
                 guard ex.moveBucket == filters.moveType else { return false }
+            }
+            if filters.category != .all {
+                guard filters.category.matches(ex.category) else { return false }
             }
             if !filters.searchQuery.isEmpty {
                 guard ex.matches(filters.searchQuery) else { return false }
@@ -198,10 +208,25 @@ actor ExerciseCache {
 
 // MARK: - Filter Model
 
+enum CategoryBucket: String, CaseIterable {
+    case all = "All"
+    case strength = "Strength"
+    case pilates = "Pilates"
+    case yoga = "Yoga"
+    case mobility = "Mobility"
+    case cardio = "Cardio"
+
+    func matches(_ category: String) -> Bool {
+        guard self != .all else { return true }
+        return category.lowercased().contains(rawValue.lowercased())
+    }
+}
+
 struct ExerciseFilters: Equatable {
     var muscleGroup: String?
     var equipment: EquipBucket = .all
     var moveType: MoveBucket = .all
+    var category: CategoryBucket = .all
     var searchQuery: String = ""
 }
 

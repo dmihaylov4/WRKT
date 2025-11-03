@@ -19,6 +19,7 @@ struct ExerciseBrowserView: View {
     @State private var debouncedSearch = ""
     @AppStorage("equipFilter") private var equip: EquipBucket = .all
     @AppStorage("moveFilter")  private var move: MoveBucket  = .all
+    @AppStorage("categoryFilter") private var category: CategoryBucket = .all
 
     // Track when filters change to reset pagination
     @State private var lastFilters: ExerciseFilters?
@@ -29,6 +30,7 @@ struct ExerciseBrowserView: View {
             muscleGroup: muscleGroup,
             equipment: equip,
             moveType: move,
+            category: category,
             searchQuery: debouncedSearch  // Use debounced search
         )
     }
@@ -75,7 +77,7 @@ struct ExerciseBrowserView: View {
         .listStyle(.plain)
         .navigationTitle(muscleGroup ?? "Exercises")
         .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
-        .safeAreaInset(edge: .top) { FiltersBar(equip: $equip, move: $move) }
+        .safeAreaInset(edge: .top) { FiltersBar(equip: $equip, move: $move, category: $category) }
         .task {
             // Load first page on appear
             if lastFilters == nil {
@@ -111,7 +113,7 @@ struct ExerciseBrowserView: View {
     }
 }
 
-// Simple row
+// Simple row (adaptive metadata based on tracking mode)
 private struct ExerciseRow: View {
     let ex: Exercise
     var body: some View {
@@ -121,16 +123,31 @@ private struct ExerciseRow: View {
                 .foregroundStyle(.white)
 
             HStack(spacing: 8) {
+                // Show category for Pilates/Yoga, equipment for others
+                if ex.isTimedExercise || ex.isBodyweightExercise {
+                    PremiumChip(
+                        title: ex.category.capitalized,
+                        icon: iconForCategory(ex.category),
+                        color: colorForCategory(ex.category)
+                    )
+                } else {
+                    PremiumChip(
+                        title: ex.equipBucket.rawValue,
+                        icon: "dumbbell.fill",
+                        color: .blue
+                    )
+                }
+
+                // Show tracking mode indicator
                 PremiumChip(
-                    title: ex.equipBucket.rawValue,
-                    icon: "dumbbell.fill",
-                    color: .blue
-                )
-                PremiumChip(
-                    title: ex.moveBucket.rawValue,
-                    icon: ex.moveBucket == .pull ? "arrow.down.backward" :
+                    title: ex.isTimedExercise ? "Timed" : ex.isBodyweightExercise ? "Bodyweight" : ex.moveBucket.rawValue,
+                    icon: ex.isTimedExercise ? "timer" :
+                          ex.isBodyweightExercise ? "figure.arms.open" :
+                          ex.moveBucket == .pull ? "arrow.down.backward" :
                           ex.moveBucket == .push ? "arrow.up.forward" : "arrow.right",
-                    color: chipColor(for: ex.moveBucket)
+                    color: ex.isTimedExercise ? .orange :
+                           ex.isBodyweightExercise ? .purple :
+                           chipColor(for: ex.moveBucket)
                 )
             }
         }
@@ -144,54 +161,24 @@ private struct ExerciseRow: View {
         default: return .purple
         }
     }
-}
 
-// MARK: - Premium Chip Component
-private struct PremiumChip: View {
-    let title: String
-    let icon: String
-    let color: Color
+    private func iconForCategory(_ category: String) -> String {
+        let cat = category.lowercased()
+        if cat.contains("pilates") { return "figure.pilates" }
+        if cat.contains("yoga") { return "figure.yoga" }
+        if cat.contains("mobility") { return "figure.flexibility" }
+        if cat.contains("cardio") { return "figure.run" }
+        return "figure.strengthtraining.traditional"
+    }
 
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(color)
-
-            Text(title)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.9))
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            ZStack {
-                // Base dark background
-                Capsule()
-                    .fill(Color(hex: "#1A1A1A"))
-
-                // Subtle color glow
-                Capsule()
-                    .fill(
-                        LinearGradient(
-                            colors: [color.opacity(0.15), color.opacity(0.05)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-            }
-        )
-        .overlay(
-            Capsule()
-                .stroke(
-                    LinearGradient(
-                        colors: [color.opacity(0.4), color.opacity(0.2)],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 1
-                )
-        )
+    private func colorForCategory(_ category: String) -> Color {
+        let cat = category.lowercased()
+        if cat.contains("pilates") { return .purple }
+        if cat.contains("yoga") { return .mint }
+        if cat.contains("mobility") { return .cyan }
+        if cat.contains("cardio") { return .red }
+        return .blue
     }
 }
+
 

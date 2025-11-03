@@ -21,11 +21,11 @@ private enum DexTileColors {
     static let cardFill: Material = .ultraThinMaterial
     static var cardStroke: some ShapeStyle { .quaternary }   // ← computed
     static let lockedFill = Color(.tertiarySystemFill)
-    static let unlockedIcon = Color.yellow
+    static let unlockedIcon = DS.Theme.accent
     static let lockedIcon = Color.secondary
     static let title = Color.primary
     static let meta = Color.secondary
-    static let progressTint = Color.yellow
+    static let progressTint = DS.Theme.accent
 }
 
 // MARK: - Tile
@@ -94,7 +94,7 @@ private struct TrophyBadge: View {
         let locked = Color(.tertiarySystemFill)
         return LinearGradient(
             colors: unlocked
-                ? [Color.yellow.opacity(0.65), Color.orange.opacity(0.55)]
+                ? [DS.Theme.accent.opacity(0.65), DS.Charts.pull.opacity(0.55)]
                 : [locked, locked],
             startPoint: .topLeading,
             endPoint: .bottomTrailing

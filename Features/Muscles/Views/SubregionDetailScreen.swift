@@ -53,12 +53,18 @@ struct SubregionDetailScreen: View {
                     //}
             } else {
                 List(filteredExercises, id: \.id) { ex in
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(ex.name).font(.body)
-                        Text("\(ex.category.capitalized) • \(ex.equipment ?? "Bodyweight")")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 8) {
+                                Text(ex.name).font(.body)
+                                if ex.isCustom {
+                                    CustomExerciseBadge()
+                                }
+                            }
+                            Text("\(ex.category.capitalized) • \(ex.equipment ?? "Bodyweight")")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
                         FavoriteHeartButton(exerciseID: ex.id)
                     }

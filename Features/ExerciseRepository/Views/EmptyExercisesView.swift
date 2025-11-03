@@ -15,41 +15,42 @@ struct EmptyExercisesView: View {
     let onClear: () -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Image(systemName: "questionmark.circle")
-                .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.secondary.opacity(0.6))
 
             Text(title)
-                .font(.headline)
-                .foregroundStyle(.primary)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .font(.caption)
+                .foregroundStyle(.secondary.opacity(0.8))
                 .multilineTextAlignment(.center)
 
             Button {
                 onClear()
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal.decrease.circle")
+                        .font(.caption)
                     Text("Clear filters")
-                        .fontWeight(.semibold)
+                        .font(.caption.weight(.semibold))
                 }
                 .foregroundStyle(Color.black)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(DS.Palette.marone, in: Capsule())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(DS.Palette.marone.opacity(0.9), in: Capsule())
             }
             .buttonStyle(.plain)
-            .padding(.top, 6)
+            .padding(.top, 4)
         }
-        .padding(20)
+        .padding(16)
         .frame(maxWidth: .infinity)
-        .background(DS.Semantic.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Semantic.surface.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.Semantic.border.opacity(0.3), lineWidth: 0.5))
         .padding(.horizontal, 16)
-        .padding(.vertical, 24)
+        .padding(.vertical, 12)
     }
 }

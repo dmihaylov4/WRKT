@@ -131,6 +131,11 @@ extension Exercise {
         self.images = nil
         self.category = category
         self.subregionTags = []
+
+        // MARK: - Multi-Modal Tracking Support
+        self.trackingMode = dto.trackingMode?.trimmedOrNil ?? "weighted"
+        self.defaultDurationSeconds = dto.defaultDurationSeconds
+        self.recommendedRestSeconds = dto.recommendedRestSeconds
     }
 
     /// Canonical difficulty from `level`

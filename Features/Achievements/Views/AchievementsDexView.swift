@@ -5,19 +5,22 @@ import Combine
 import Foundation
 
 
-private let DexParenRegex: NSRegularExpression = try! NSRegularExpression(
-    pattern: #"\s*\(.*\)"#, options: []
-)
+private let DexParenRegex: NSRegularExpression? = {
+    try? NSRegularExpression(pattern: #"\s*\(.*\)"#, options: [])
+}()
 
 
 
 enum DexText {
-    static let paren = try! NSRegularExpression(pattern: #"\s*\(.*\)"#, options: [])
+    static let paren: NSRegularExpression? = {
+        try? NSRegularExpression(pattern: #"\s*\(.*\)"#, options: [])
+    }()
 
     // Pure helper – not on a @MainActor type
     static func shortName(_ s: String) -> String {
         var x = s
-        if let m = paren.firstMatch(in: x, options: [], range: NSRange(x.startIndex..., in: x)),
+        if let regex = paren,
+           let m = regex.firstMatch(in: x, options: [], range: NSRange(x.startIndex..., in: x)),
            let r = Range(m.range, in: x) { x.removeSubrange(r) }
         for (k,v) in [("Barbell","BB"),("Dumbbell","DB"),("Kettlebell","KB"),
                       ("Machine","Mch"),("Cable","Cbl"),("Smith Machine","Smith"),
@@ -93,13 +96,23 @@ struct AchievementsDexView: View {
             DexDetailView(item: item)
         }
         .task {
-            vm.rebuild(exercises: repo.exercises, stamps: stamps)
+            // Load ALL exercises for the dex, not just the paginated list
+            let allExercises = await repo.getAllExercises()
+            vm.rebuild(exercises: allExercises, stamps: stamps)
         }
-        .onChange(of: repo.exercises) { ex in
-            vm.rebuild(exercises: ex, stamps: stamps)
+        .onChange(of: repo.exercises) { _ in
+            // When exercises update (e.g., custom exercises added), reload all
+            Task {
+                let allExercises = await repo.getAllExercises()
+                vm.rebuild(exercises: allExercises, stamps: stamps)
+            }
         }
         .onChange(of: stamps) { s in
-            vm.rebuild(exercises: repo.exercises, stamps: s)
+            // When stamps update, reload with all exercises
+            Task {
+                let allExercises = await repo.getAllExercises()
+                vm.rebuild(exercises: allExercises, stamps: s)
+            }
         }
     }
 
@@ -110,7 +123,7 @@ struct AchievementsDexView: View {
             Text("\(vm.unlockedCount)/\(vm.totalCount)")
                 .font(.caption2.weight(.semibold))
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(Color.yellow, in: Capsule())
+                .background(DS.Theme.accent, in: Capsule())
                 .foregroundColor(.black)
         }
         .accessibilityLabel("Unlocked \(vm.unlockedCount) of \(vm.totalCount)")
@@ -240,7 +253,8 @@ final class AchievementsDexVM: ObservableObject {
     nonisolated static func shortName(_ s: String) -> String {
         // strip parentheticals quickly
         var x = s
-        if let m = DexParenRegex.firstMatch(in: x, options: [], range: NSRange(x.startIndex..., in: x)),
+        if let regex = DexParenRegex,
+           let m = regex.firstMatch(in: x, options: [], range: NSRange(x.startIndex..., in: x)),
            let r = Range(m.range, in: x) { x.removeSubrange(r) }
         // lightweight abbrevs
         let map: [(String,String)] = [
@@ -318,7 +332,7 @@ private struct TinyProgressBar: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [Color.yellow.opacity(0.95), Color.orange.opacity(0.90)],
+                            colors: [DS.Theme.accent.opacity(0.95), DS.Charts.pull.opacity(0.90)],
                             startPoint: .leading, endPoint: .trailing
                         )
                     )
@@ -455,7 +469,7 @@ struct DexDetailView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Image(systemName: item.isUnlocked ? "trophy.fill" : "trophy")
-                .foregroundStyle(item.isUnlocked ? .yellow : .secondary)
+                .foregroundStyle(item.isUnlocked ? DS.Theme.accent : .secondary)
             VStack(alignment: .leading) {
                 Text(item.name).font(.headline)
                 if let when = item.unlockedAt {

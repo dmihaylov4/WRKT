@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UserNotifications
+import OSLog
 
 struct NotificationPermissionView: View {
     @Environment(\.dismiss) private var dismiss
@@ -21,7 +22,7 @@ struct NotificationPermissionView: View {
             // Icon - clean and professional with border
             Image(systemName: "bell.badge.fill")
                 .font(.system(size: 80, weight: .semibold))
-                .foregroundStyle(Color(hex: "#F4E409"))
+                .foregroundStyle(DS.Theme.accent)
                 .padding(32)
                 .background(
                     Circle()
@@ -35,13 +36,7 @@ struct NotificationPermissionView: View {
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
-            // Description
-            Text("Get notified when your rest timer completes so you never miss your next set.")
-                .font(.system(size: 17, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-                .padding(.horizontal, 40)
+          
 
             // Features list
             VStack(alignment: .leading, spacing: 16) {
@@ -71,15 +66,8 @@ struct NotificationPermissionView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
                 .foregroundStyle(.black)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "#F4E409"), Color(hex: "#FFE869")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .background(DS.Theme.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .shadow(color: Color(hex: "#F4E409").opacity(0.3), radius: 12, x: 0, y: 6)
             }
             .disabled(isRequesting)
             .padding(.horizontal, 24)
@@ -94,7 +82,7 @@ struct NotificationPermissionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             LinearGradient(
-                colors: [Color(hex: "#0D0D0D"), Color(hex: "#1A1A1A")],
+                colors: [DS.Theme.cardBottom, DS.Theme.cardTop],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -111,11 +99,11 @@ struct NotificationPermissionView: View {
                 isRequesting = false
 
                 if let error = error {
-                    print("❌ Notification permission error: \(error)")
+                    AppLogger.error("Notification permission error: \(error)", category: AppLogger.app)
                 } else if granted {
-                    print("✅ Notification permissions granted")
+                    AppLogger.success("Notification permissions granted", category: AppLogger.app)
                 } else {
-                    print("⚠️ Notification permissions denied by user")
+                    AppLogger.warning("Notification permissions denied by user", category: AppLogger.app)
                 }
 
                 // Complete onboarding regardless of permission result
@@ -134,17 +122,20 @@ private struct FeatureRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
-                .foregroundStyle(Color(hex: "#F4E409"))
+                .foregroundStyle(DS.Theme.accent)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.9))
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }

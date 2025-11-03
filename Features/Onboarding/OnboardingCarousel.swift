@@ -18,25 +18,25 @@ struct OnboardingCarouselView: View {
             icon: "chart.line.uptrend.xyaxis",
             title: "Track Your Progress",
             description: "Set personal records, monitor volume trends, and watch your strength grow with detailed analytics.",
-            accentColor: Color(hex: "#F4E409")
+            accentColor: DS.Theme.accent
         ),
         OnboardingPage(
             icon: "flame.fill",
             title: "Stay Motivated",
             description: "Build streaks, earn achievements, level up your profile, and unlock rewards as you train consistently.",
-            accentColor: Color(hex: "#F4E409")
+            accentColor: DS.Theme.accent
         ),
         OnboardingPage(
             icon: "scale.3d",
             title: "Train Smart",
             description: "Balance your training with muscle recovery insights, push-pull analysis, and movement pattern tracking.",
-            accentColor: Color(hex: "#F4E409")
+            accentColor: DS.Theme.accent
         ),
         OnboardingPage(
             icon: "figure.strengthtraining.traditional",
             title: "Your Starting Point",
             description: "Enter your bodyweight to get personalized weight suggestions for exercises.",
-            accentColor: Color(hex: "#F4E409"),
+            accentColor: DS.Theme.accent,
             isBodyweightInput: true
         )
     ]
@@ -45,7 +45,7 @@ struct OnboardingCarouselView: View {
         ZStack {
             // Background
             LinearGradient(
-                colors: [Color(hex: "#0D0D0D"), Color(hex: "#1A1A1A")],
+                colors: [DS.Theme.cardBottom, DS.Theme.cardTop],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -87,7 +87,7 @@ struct OnboardingCarouselView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<pages.count, id: \.self) { index in
                         Circle()
-                            .fill(currentPage == index ? Color(hex: "#F4E409") : .white.opacity(0.3))
+                            .fill(currentPage == index ? DS.Theme.accent : .white.opacity(0.3))
                             .frame(width: currentPage == index ? 24 : 8, height: 8)
                             .animation(.spring(response: 0.3), value: currentPage)
                     }
@@ -109,15 +109,8 @@ struct OnboardingCarouselView: View {
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(
-                            LinearGradient(
-                                colors: [Color(hex: "#F4E409"), Color(hex: "#FFE869")],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .background(DS.Theme.accent)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .shadow(color: Color(hex: "#F4E409").opacity(0.3), radius: 12, x: 0, y: 6)
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -193,11 +186,11 @@ private struct BodyweightInputPageView: View {
             // Icon - clean and professional with border
             Image(systemName: "figure.strengthtraining.traditional")
                 .font(.system(size: 80, weight: .semibold))
-                .foregroundStyle(Color(hex: "#F4E409"))
+                .foregroundStyle(DS.Theme.accent)
                 .padding(32)
                 .background(
                     Circle()
-                        .stroke(Color(hex: "#F4E409").opacity(0.3), lineWidth: 2)
+                        .stroke(DS.Theme.accent.opacity(0.3), lineWidth: 2)
                 )
                 .padding(.bottom, 40)
 
@@ -209,7 +202,7 @@ private struct BodyweightInputPageView: View {
                 .padding(.horizontal, 32)
 
             // Description
-            Text("Enter your bodyweight to get personalized weight suggestions for exercises.")
+            Text("Your bodyweight is required to calculate 1RM.")
                 .font(.system(size: 17, weight: .regular, design: .rounded))
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -220,33 +213,53 @@ private struct BodyweightInputPageView: View {
             VStack(spacing: 12) {
                 Text(String(format: "%.1f kg", bodyweight))
                     .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color(hex: "#F4E409"))
+                    .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
 
                 HStack(spacing: 16) {
                     Button {
                         if bodyweight > 30 {
-                            bodyweight = max(30, bodyweight - 0.5)
+                            bodyweight = max(30, bodyweight - 0.1)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                     } label: {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundStyle(.white.opacity(0.7))
+                        ZStack {
+                            Circle()
+                                .fill(.white.opacity(0.15))
+                                .frame(width: 50, height: 50)
+                            Circle()
+                                .strokeBorder(.white.opacity(0.3), lineWidth: 1)
+                                .frame(width: 50, height: 50)
+                            Image(systemName: "minus")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
                     }
+                    .buttonStyle(.plain)
 
-                    Slider(value: $bodyweight, in: 30...200, step: 0.5)
-                        .tint(Color(hex: "#F4E409"))
+                    Slider(value: $bodyweight, in: 30...200, step: 0.1)
+                        .tint(DS.Theme.accent)
                         .frame(maxWidth: 200)
 
                     Button {
                         if bodyweight < 200 {
-                            bodyweight = min(200, bodyweight + 0.5)
+                            bodyweight = min(200, bodyweight + 0.1)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                     } label: {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundStyle(.white.opacity(0.7))
+                        ZStack {
+                            Circle()
+                                .fill(.white.opacity(0.15))
+                                .frame(width: 50, height: 50)
+                            Circle()
+                                .strokeBorder(.white.opacity(0.3), lineWidth: 1)
+                                .frame(width: 50, height: 50)
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 32)
             }

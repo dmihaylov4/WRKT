@@ -10,6 +10,7 @@ import SwiftUI
 import SwiftData
 import Combine
 import HealthKit
+import OSLog
 /// Main dependency container holding all app services
 /// Created once at app launch and shared throughout the app lifecycle
 @MainActor
@@ -31,6 +32,9 @@ final class AppDependencies: ObservableObject {
     /// Favorites store - manages user's favorite exercises
     let favoritesStore: FavoritesStore
 
+    /// Custom exercise store - manages user-created exercises
+    let customExerciseStore: CustomExerciseStore
+
     /// Rewards engine - manages achievements and rewards
     let rewardsEngine: RewardsEngine
 
@@ -39,6 +43,9 @@ final class AppDependencies: ObservableObject {
 
     /// Planner store - manages workout planning and splits
     let plannerStore: PlannerStore
+
+    /// Custom split store - manages user-created workout splits
+    let customSplitStore: CustomSplitStore
 
     // MARK: - Computed Services
 
@@ -49,18 +56,20 @@ final class AppDependencies: ObservableObject {
     // MARK: - Initialization
 
     private init() {
-        print("🏗️ Initializing AppDependencies...")
+        AppLogger.info("Initializing AppDependencies...", category: AppLogger.app)
 
         // Initialize services in correct order
         self.exerciseRepository = ExerciseRepository.shared
         self.workoutStore = WorkoutStoreV2()
         self.healthKitManager = HealthKitManager.shared
         self.favoritesStore = FavoritesStore()
+        self.customExerciseStore = CustomExerciseStore.shared
         self.rewardsEngine = RewardsEngine.shared
         self.winScreenCoordinator = WinScreenCoordinator.shared
         self.plannerStore = PlannerStore.shared
+        self.customSplitStore = CustomSplitStore.shared
 
-        print("✅ AppDependencies initialized")
+        AppLogger.success("AppDependencies initialized", category: AppLogger.app)
     }
 
     // MARK: - Configuration
@@ -68,16 +77,16 @@ final class AppDependencies: ObservableObject {
     /// Configure services that require ModelContext
     /// Call this once after app launch with the main model context
     func configure(with modelContext: ModelContext) {
-        print("⚙️ Configuring AppDependencies with ModelContext...")
+        AppLogger.info("Configuring AppDependencies with ModelContext...", category: AppLogger.app)
 
         // Configure HealthKit with required dependencies
         healthKitManager.modelContext = modelContext
         healthKitManager.workoutStore = workoutStore
-        healthKitManager.registerBackgroundTasks()
+        // Note: Background tasks are registered in WRKTApp.init() before app finishes launching
 
         // Configure RewardsEngine
         rewardsEngine.configure(context: modelContext)
-        print("⚙️ Rewards configured:", rewardsEngine.debugRulesSummary())
+        AppLogger.info("Rewards configured: \(rewardsEngine.debugRulesSummary())", category: AppLogger.rewards)
 
         // Create and configure stats aggregator
         let aggregator = StatsAggregator(container: modelContext.container)
@@ -85,47 +94,80 @@ final class AppDependencies: ObservableObject {
             await aggregator.setExerciseRepository(exerciseRepository)
             workoutStore.installStats(aggregator)
             self.statsAggregator = aggregator
-            print("✅ Stats aggregator configured")
+            AppLogger.success("Stats aggregator configured", category: AppLogger.app)
         }
 
         // Configure planner store
         plannerStore.configure(container: modelContext.container, context: modelContext, workoutStore: workoutStore)
-        print("✅ Planner store configured")
+        AppLogger.success("Planner store configured", category: AppLogger.app)
 
-        print("✅ AppDependencies configuration complete")
+        AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
     }
 
     /// Bootstrap services that have async initialization
     func bootstrap() async {
-        print("🚀 Bootstrapping AppDependencies...")
+        AppLogger.info("Bootstrapping AppDependencies...", category: AppLogger.app)
 
         // Bootstrap exercise repository
         exerciseRepository.bootstrap(useSlimPreload: true)
 
-        // Check HealthKit authorization
-        let authStatus = healthKitManager.store.authorizationStatus(for: .workoutType())
-        print("🏥 HealthKit authorization status: \(authStatus.rawValue)")
+        // Migrate exercise IDs in planned workouts (if needed)
+        migrateExerciseIDsIfNeeded()
 
-        if authStatus == .sharingAuthorized {
-            print("✅ HealthKit authorized - setting connected state")
-            healthKitManager.connectionState = .connected
+        // Check HealthKit connection state
+        // Note: We check connectionState instead of authorizationStatus because
+        // HealthKit's authorizationStatus is intentionally unreliable for privacy reasons.
+        // The HealthKitManager uses testDataAccess() to verify actual access.
+        let connectionState = healthKitManager.connectionState
+        AppLogger.info("HealthKit connection state: \(connectionState)", category: AppLogger.health)
+
+        if connectionState == .connected {
+            AppLogger.success("HealthKit connected - setting up background observers", category: AppLogger.health)
             healthKitManager.setupBackgroundObservers()
+        } else if connectionState == .disconnected {
+            AppLogger.warning("HealthKit not authorized or access denied", category: AppLogger.health)
         } else {
-            print("⚠️ HealthKit not authorized")
+            AppLogger.info("HealthKit authorization not yet determined", category: AppLogger.health)
         }
 
-        print("✅ AppDependencies bootstrap complete")
+        AppLogger.success("AppDependencies bootstrap complete", category: AppLogger.app)
+    }
+
+    /// Migrate exercise IDs in planned workouts (one-time migration)
+    private func migrateExerciseIDsIfNeeded() {
+        let migrationKey = "exerciseIDMigration_v1_completed"
+
+        // Check if migration already completed
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else {
+            AppLogger.debug("Exercise ID migration already completed", category: AppLogger.storage)
+            return
+        }
+
+        // Map of old IDs → new IDs
+        let idMapping: [String: String] = [
+            "shoulder-press": "barbell-overhead-press",
+            // Add any other mismatched IDs below if you find them in the logs
+            // For example, if logs show generic IDs that should be specific:
+            // "leg-press": "machine-45-degree-leg-press",
+            // "leg-curl": "machine-seated-leg-curl",
+        ]
+
+        do {
+            try plannerStore.migrateExerciseIDs(mapping: idMapping)
+
+            // Mark migration as complete
+            UserDefaults.standard.set(true, forKey: migrationKey)
+            AppLogger.success("✅ Exercise ID migration completed successfully", category: AppLogger.storage)
+        } catch {
+            AppLogger.error("Failed to migrate exercise IDs", error: error, category: AppLogger.storage)
+        }
     }
 
     // MARK: - Memory Management
 
     /// Log current memory footprint of services
     func logMemoryFootprint() {
-        print("💾 AppDependencies Memory Footprint:")
-        print("   - ExerciseRepository: \(exerciseRepository.exercises.count) exercises")
-        print("   - WorkoutStore: \(workoutStore.completedWorkouts.count) completed workouts")
-        print("   - HealthKitManager: \(workoutStore.runs.count) runs")
-        print("   - FavoritesStore: \(favoritesStore.ids.count) favorites")
+        AppLogger.info("AppDependencies Memory Footprint - ExerciseRepository: \(exerciseRepository.exercises.count) exercises, WorkoutStore: \(workoutStore.completedWorkouts.count) completed workouts, HealthKitManager: \(workoutStore.runs.count) runs, FavoritesStore: \(favoritesStore.ids.count) favorites, CustomExerciseStore: \(customExerciseStore.customExercises.count) custom exercises", category: AppLogger.performance)
     }
 }
 
@@ -153,6 +195,8 @@ extension View {
             .environmentObject(dependencies.workoutStore)
             .environmentObject(dependencies.healthKitManager)
             .environmentObject(dependencies.favoritesStore)
+            .environmentObject(dependencies.customExerciseStore)
+            .environmentObject(dependencies.customSplitStore)
             .environment(\.dependencies, dependencies)
     }
 }

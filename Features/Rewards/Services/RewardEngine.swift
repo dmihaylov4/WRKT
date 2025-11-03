@@ -2,6 +2,7 @@
 import Foundation
 import SwiftData
 import Combine
+import OSLog
 
 // MARK: - Public signal for toasts/banners
 extension Notification.Name {
@@ -19,7 +20,7 @@ extension RewardsEngine {
         guard existing.isEmpty else { return }
 
         context.insert(DexStamp(key: exerciseKey, unlockedAt: date))
-        do { try context.save() } catch { print("⚠️ Dex save failed: \(error)") }
+        do { try context.save() } catch { AppLogger.warning("Dex save failed: \(error)", category: AppLogger.rewards) }
     }
 
     private func backfillDexStampsIfNeeded() {
@@ -142,9 +143,9 @@ extension RewardsEngine {
         // Save all changes and report errors if any
         do {
             try context.save()
-            print("✅ Rewards data reset complete")
+            AppLogger.success("Rewards data reset complete", category: AppLogger.rewards)
         } catch {
-            print("❌ Failed to save rewards reset: \(error)")
+            AppLogger.error("Failed to save rewards reset: \(error)", category: AppLogger.rewards)
         }
     }
 }
@@ -241,6 +242,118 @@ extension RewardsEngine {
         }
 
         return (true, nil)
+    }
+
+    /// Activate weekly goal streak freeze (1 week grace period)
+    func activateWeeklyStreakFreeze() {
+        ensureSingletons()
+        guard let prog = progress else { return }
+
+        // Only allow freeze if:
+        // 1. Streak is at least 3 weeks
+        // 2. Not already frozen
+        // 3. Haven't used freeze in last 4 weeks
+        guard prog.weeklyGoalStreakCurrent >= 3 else { return }
+        guard !prog.streakFrozen else { return }
+
+        if let lastUsed = prog.freezeUsedAt {
+            let weeksSinceLastUse = Calendar.current.dateComponents([.weekOfYear], from: lastUsed, to: .now).weekOfYear ?? 0
+            guard weeksSinceLastUse >= 4 else { return }
+        }
+
+        prog.streakFrozen = true
+        prog.freezeUsedAt = .now
+        try? context.save()
+    }
+
+    /// Check if user can activate weekly goal streak freeze
+    func canActivateWeeklyStreakFreeze() -> (canActivate: Bool, reason: String?) {
+        ensureSingletons()
+        guard let prog = progress else { return (false, "Progress not available") }
+
+        if prog.weeklyGoalStreakCurrent < 3 {
+            return (false, "Need 3+ week streak to freeze")
+        }
+
+        if prog.streakFrozen {
+            return (false, "Freeze already active")
+        }
+
+        if let lastUsed = prog.freezeUsedAt {
+            let weeksSinceLastUse = Calendar.current.dateComponents([.weekOfYear], from: lastUsed, to: .now).weekOfYear ?? 0
+            if weeksSinceLastUse < 4 {
+                let weeksRemaining = 4 - weeksSinceLastUse
+                return (false, "Available in \(weeksRemaining) week\(weeksRemaining == 1 ? "" : "s")")
+            }
+        }
+
+        return (true, nil)
+    }
+}
+
+// MARK: - Weekly Goal Streaks
+
+extension RewardsEngine {
+    /// Check and update weekly goal streaks
+    /// Call this after a workout completes to see if the week's goal is now met
+    /// Returns a tuple of (didUpdateStreak, newStreak, xpAwarded)
+    @discardableResult
+    func checkWeeklyGoalStreak(
+        weekStart: Date,
+        strengthDaysDone: Int,
+        strengthTarget: Int,
+        mvpaMinutesDone: Int,
+        mvpaTarget: Int
+    ) -> (updated: Bool, newStreak: Int, xpAwarded: Int) {
+        ensureSingletons()
+
+        let streakResult = updateWeeklyGoalStreaks(
+            weekStart: weekStart,
+            strengthDaysDone: strengthDaysDone,
+            strengthTarget: strengthTarget,
+            mvpaMinutesDone: mvpaMinutesDone,
+            mvpaTarget: mvpaTarget
+        )
+
+        // If streak was updated, save and award XP
+        if streakResult.didIncrease || streakResult.hitMilestone {
+            // Add ledger entries
+            for entry in streakResult.ledger {
+                context.insert(entry)
+            }
+
+            // Apply XP
+            if streakResult.milestoneXP > 0 {
+                applyWalletAndLevel(deltaXP: streakResult.milestoneXP, deltaCoins: 0)
+            }
+
+            // Save
+            try? context.save()
+
+            // Post notification if milestone hit
+            if streakResult.hitMilestone {
+                NotificationCenter.default.post(
+                    name: .rewardDidGrant,
+                    object: streakResult.milestoneXP
+                )
+            }
+
+            return (true, streakResult.new, streakResult.milestoneXP)
+        }
+
+        return (false, streakResult.new, 0)
+    }
+
+    /// Get current weekly goal streak count
+    func weeklyGoalStreak() -> Int {
+        ensureSingletons()
+        return progress?.weeklyGoalStreakCurrent ?? 0
+    }
+
+    /// Get longest weekly goal streak count
+    func longestWeeklyGoalStreak() -> Int {
+        ensureSingletons()
+        return progress?.weeklyGoalStreakLongest ?? 0
     }
 }
 

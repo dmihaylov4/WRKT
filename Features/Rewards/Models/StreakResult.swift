@@ -140,13 +140,7 @@ extension RewardsEngine {
             afterFloor: afterFloor, afterCeiling: afterCeiling
         )
 
-        // Debug logging for XP line items
-        print("🎯 PROCESS event:", name, "payload:", payload)
-        print("📣 SUMMARY xp:", totalXP, "coins:", totalCoins, "PRs:", prCount, "New exercises:", newExerciseCount)
-        print("📊 XP Line Items (\(xpLineItems.count)):")
-        for (idx, item) in xpLineItems.enumerated() {
-            print("  [\(idx)] \(item.source) +\(item.xp) (detail: \(item.detail ?? "none"))")
-        }
+   
 
         NotificationCenter.default.post(
             name: .rewardsDidSummarize,
@@ -261,6 +255,168 @@ extension RewardsEngine {
                      ledger: ledger)
     }
 
+    /// Update weekly goal streaks based on week completion
+    /// Call this when a week ends or when a workout is completed that might complete the week
+    func updateWeeklyGoalStreaks(
+        weekStart: Date,
+        strengthDaysDone: Int,
+        strengthTarget: Int,
+        mvpaMinutesDone: Int,
+        mvpaTarget: Int,
+        calendar: Calendar = .current
+    ) -> StreakResult {
+        ensureSingletons()
+        guard let prog = progress else {
+            return .init(old: 0, new: 0, milestoneXP: 0, didIncrease: false, hitMilestone: false, ledger: [])
+        }
+
+        // Check if this week met the goal
+        // MVPA is optional - only check if target > 0 (user has set MVPA goal)
+        let strengthGoalMet = strengthDaysDone >= strengthTarget
+        let mvpaGoalMet = mvpaTarget > 0 ? (mvpaMinutesDone >= mvpaTarget) : true
+
+        // Regular streak: Complete EITHER goal
+        let weekGoalMet = strengthGoalMet || mvpaGoalMet
+
+        // Super streak: Complete BOTH goals
+        let isSuperStreak = strengthGoalMet && mvpaGoalMet
+
+        guard weekGoalMet else {
+            // Week not complete yet, return current streak without changes
+            return .init(
+                old: prog.weeklyGoalStreakCurrent,
+                new: prog.weeklyGoalStreakCurrent,
+                milestoneXP: 0,
+                didIncrease: false,
+                hitMilestone: false,
+                ledger: []
+            )
+        }
+
+        // If we've already counted this week, don't count it again
+        if let lastWeek = prog.lastWeekGoalMet,
+           calendar.isDate(lastWeek, equalTo: weekStart, toGranularity: .weekOfYear) {
+            return .init(
+                old: prog.weeklyGoalStreakCurrent,
+                new: prog.weeklyGoalStreakCurrent,
+                milestoneXP: 0,
+                didIncrease: false,
+                hitMilestone: false,
+                ledger: []
+            )
+        }
+
+        // Calculate if this is consecutive with the last completed week
+        let newCurrent: Int
+        if let lastWeek = prog.lastWeekGoalMet {
+            // Get the week that should come after lastWeek
+            guard let expectedNextWeek = calendar.date(byAdding: .weekOfYear, value: 1, to: lastWeek) else {
+                newCurrent = 1
+                prog.weeklyGoalStreakCurrent = newCurrent
+                prog.weeklyGoalStreakLongest = max(prog.weeklyGoalStreakLongest, newCurrent)
+                prog.lastWeekGoalMet = weekStart
+                return .init(old: 0, new: 1, milestoneXP: 0, didIncrease: true, hitMilestone: false, ledger: [])
+            }
+
+            // Check if this week is consecutive (allowing for freeze)
+            let weeksGap = calendar.dateComponents([.weekOfYear], from: lastWeek, to: weekStart).weekOfYear ?? 999
+
+            switch (weeksGap, prog.streakFrozen) {
+            case (1, _):         // Consecutive week
+                newCurrent = prog.weeklyGoalStreakCurrent + 1
+            case (2, true):      // 1-week gap with freeze active
+                newCurrent = prog.weeklyGoalStreakCurrent + 1
+            default:             // Streak broken
+                newCurrent = 1
+            }
+        } else {
+            // First week ever
+            newCurrent = 1
+        }
+
+        // Weekly goal streak milestones: 2, 4, 8, 12, 26, 52 weeks
+        let milestones = [2, 4, 8, 12, 26, 52]
+        let milestoneXP = [2: 50, 4: 100, 8: 200, 12: 400, 26: 800, 52: 2000][newCurrent] ?? 0
+        let hit = milestones.contains(newCurrent)
+
+        let oldStreak = prog.weeklyGoalStreakCurrent
+        prog.weeklyGoalStreakCurrent = newCurrent
+        prog.weeklyGoalStreakLongest = max(prog.weeklyGoalStreakLongest, newCurrent)
+        prog.lastWeekGoalMet = weekStart
+
+        var ledger: [RewardLedgerEntry] = []
+        var totalMilestoneXP = milestoneXP
+        if hit && milestoneXP > 0 {
+            ledger.append(RewardLedgerEntry(
+                event: "weekly_goal_streak_milestone",
+                ruleId: "weekly_streak_\(newCurrent)",
+                deltaXP: milestoneXP,
+                deltaCoins: 0,
+                metadataJSON: encodeJSON(["streak": newCurrent, "weekStart": Int(weekStart.timeIntervalSince1970)])
+            ))
+        }
+
+        // Handle super streak (both goals met)
+        if isSuperStreak {
+            // Check if we already counted this week for super streak
+            let alreadyCountedSuper = prog.lastWeekSuperStreakMet.map { calendar.isDate($0, equalTo: weekStart, toGranularity: .weekOfYear) } ?? false
+
+            if !alreadyCountedSuper {
+                // Calculate super streak
+                let newSuperStreak: Int
+                if let lastSuperWeek = prog.lastWeekSuperStreakMet {
+                    let weeksGap = calendar.dateComponents([.weekOfYear], from: lastSuperWeek, to: weekStart).weekOfYear ?? 999
+                    // Super streaks need consecutive weeks (no freeze for premium tier)
+                    newSuperStreak = (weeksGap == 1) ? prog.weeklySuperStreakCurrent + 1 : 1
+                } else {
+                    newSuperStreak = 1
+                }
+
+                prog.weeklySuperStreakCurrent = newSuperStreak
+                prog.weeklySuperStreakLongest = max(prog.weeklySuperStreakLongest, newSuperStreak)
+                prog.lastWeekSuperStreakMet = weekStart
+
+                // Super streak milestones with premium XP bonuses
+                let superMilestones = [2, 4, 8, 12, 26, 52]
+                let superMilestoneXP = [2: 100, 4: 200, 8: 400, 12: 800, 26: 1600, 52: 4000][newSuperStreak] ?? 0
+                let hitSuperMilestone = superMilestones.contains(newSuperStreak)
+
+                if hitSuperMilestone && superMilestoneXP > 0 {
+                    ledger.append(RewardLedgerEntry(
+                        event: "super_weekly_streak_milestone",
+                        ruleId: "super_streak_\(newSuperStreak)",
+                        deltaXP: superMilestoneXP,
+                        deltaCoins: 0,
+                        metadataJSON: encodeJSON(["superStreak": newSuperStreak, "weekStart": Int(weekStart.timeIntervalSince1970)])
+                    ))
+                    totalMilestoneXP += superMilestoneXP
+                }
+
+                // Always give bonus XP for super streak week (even without milestone)
+                if superMilestoneXP == 0 {
+                    let superBonus = 30  // Bonus XP for any super week
+                    ledger.append(RewardLedgerEntry(
+                        event: "super_weekly_bonus",
+                        ruleId: "super_week_bonus",
+                        deltaXP: superBonus,
+                        deltaCoins: 0,
+                        metadataJSON: encodeJSON(["superStreak": newSuperStreak, "weekStart": Int(weekStart.timeIntervalSince1970)])
+                    ))
+                    totalMilestoneXP += superBonus
+                }
+            }
+        }
+
+        return .init(
+            old: oldStreak,
+            new: newCurrent,
+            milestoneXP: totalMilestoneXP,
+            didIncrease: newCurrent > oldStreak,
+            hitMilestone: hit,
+            ledger: ledger
+        )
+    }
+
     // Richer summary notification
-  
+
 }

@@ -7,6 +7,7 @@
 import SwiftUI
 import Combine
 import Foundation
+import OSLog
 
 actor Persistence {
     static let shared = Persistence()
@@ -14,7 +15,15 @@ actor Persistence {
     private let runsURL: URL
     private let currentWorkoutURL: URL
     private init() {
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        // Safely get documents directory with fallback to temporary directory
+        guard let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            AppLogger.warning("Documents directory not available, using temporary directory", category: AppLogger.storage)
+            let tempDir = FileManager.default.temporaryDirectory
+            workoutsURL = tempDir.appendingPathComponent("workouts.json")
+            runsURL = tempDir.appendingPathComponent("runs.json")
+            currentWorkoutURL = tempDir.appendingPathComponent("current_workout.json")
+            return
+        }
         workoutsURL = dir.appendingPathComponent("workouts.json")
         runsURL = dir.appendingPathComponent("runs.json")
         currentWorkoutURL = dir.appendingPathComponent("current_workout.json")
@@ -72,13 +81,14 @@ extension Persistence {
         try? FileManager.default.removeItem(at: currentWorkoutURL)
 
         // Delete old storage (Application Support directory)
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            AppLogger.warning("Application Support directory not available, skipping old storage cleanup", category: AppLogger.storage)
+            return
+        }
         let appDir = appSupport.appendingPathComponent("WRKT", isDirectory: true)
         try? FileManager.default.removeItem(at: appDir.appendingPathComponent("completed_workouts.json"))
         try? FileManager.default.removeItem(at: appDir.appendingPathComponent("current_workout.json"))
         try? FileManager.default.removeItem(at: appDir.appendingPathComponent("runs.json"))
         try? FileManager.default.removeItem(at: appDir.appendingPathComponent("pr_index.json"))
-
-        print("✅ All persisted JSON files deleted (both old and new storage)")
     }
 }

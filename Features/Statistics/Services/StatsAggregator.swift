@@ -9,10 +9,7 @@
 // StatsAggregator.swift
 import Foundation
 import SwiftData
-
-// StatsAggregator.swift
-import Foundation
-import SwiftData
+import OSLog
 
 actor StatsAggregator {
     private let container: ModelContainer
@@ -32,7 +29,6 @@ actor StatsAggregator {
     /// One-time (or startup) reindex over a rolling window.
     func reindex(all workouts: [CompletedWorkout], cutoff: Date) async {
         let slice = workouts.filter { $0.date >= cutoff }
-        print("📊 StatsAggregator: Indexing \(slice.count) of \(workouts.count) workouts (cutoff: \(cutoff.formatted(date: .abbreviated, time: .omitted)))")
         await recompute(for: slice, allWorkouts: workouts)
     }
 
@@ -128,9 +124,9 @@ actor StatsAggregator {
         // Save and report errors if any
         do {
             try context.save()
-            print("✅ Stats data reset complete")
+
         } catch {
-            print("❌ Failed to save stats reset: \(error)")
+            AppLogger.error("Failed to save stats reset: \(error)", category: AppLogger.persistence)
         }
     }
 
@@ -242,7 +238,7 @@ actor StatsAggregator {
 
         try? ctx.save()
 
-        print("📊 Computed \(byWeek.count) weeks of data")
+        AppLogger.info("Computed \(byWeek.count) weeks of data", category: AppLogger.statistics)
 
         // After computing weekly summaries, update all analytics
         await computeMovingAverages()
@@ -380,7 +376,7 @@ actor StatsAggregator {
 
         try? ctx.save()
 
-        print("📈 Moving averages: \(allWeeks.count) weeks, avg \(Int(personalAvg)) volume")
+        AppLogger.info("Moving averages: \(allWeeks.count) weeks, avg \(Int(personalAvg)) volume", category: AppLogger.statistics)
     }
 
     private func fetchOrCreateMovingAverage(key: String, weekStart: Date, in ctx: ModelContext) throws -> MovingAverage {
@@ -416,7 +412,7 @@ actor StatsAggregator {
             sortBy: [SortDescriptor(\.weekStart, order: .forward)]
         )
         guard let allExVolumes = try? ctx.fetch(req), !allExVolumes.isEmpty else {
-            print("📊 No exercise volumes to process for progressions")
+            AppLogger.warning("No exercise volumes to process for progressions", category: AppLogger.statistics)
             return
         }
 
@@ -440,7 +436,7 @@ actor StatsAggregator {
             )
         }
 
-        print("📊 Exercise progressions: processed \(byExerciseWeek.count) exercise-week combinations")
+        AppLogger.info("Exercise progressions: processed \(byExerciseWeek.count) exercise-week combinations", category: AppLogger.statistics)
 
         // Note: Full implementation would require access to raw workout data
         // For now, we'll mark this as a structure that can be enhanced
@@ -456,7 +452,7 @@ actor StatsAggregator {
             sortBy: [SortDescriptor(\.weekStart, order: .forward)]
         )
         guard let allVolumes = try? ctx.fetch(req), !allVolumes.isEmpty else {
-            print("📊 No exercise volumes to compute trends")
+            AppLogger.warning("No exercise volumes to compute trends", category: AppLogger.statistics)
             return
         }
 
@@ -499,7 +495,7 @@ actor StatsAggregator {
         }
 
         try? ctx.save()
-        print("📈 Exercise trends: computed \(byExercise.count) exercise trends")
+        AppLogger.info("Exercise trends: computed \(byExercise.count) exercise trends", category: AppLogger.statistics)
     }
 
     private func fetchOrCreateExerciseTrend(exerciseID: String, in ctx: ModelContext) throws -> ExerciseTrend {
@@ -517,7 +513,7 @@ actor StatsAggregator {
     /// Note: Muscle frequency always uses ALL workouts from last 7 days for accuracy
     func computeBalanceMetrics(for workouts: [CompletedWorkout], allWorkouts: [CompletedWorkout]? = nil) async {
         guard let repo = exerciseRepo else {
-            print("⚠️ ExerciseRepository not set, skipping balance metrics")
+            AppLogger.warning("ExerciseRepository not set, skipping balance metrics", category: AppLogger.statistics)
             return
         }
 
@@ -540,7 +536,7 @@ actor StatsAggregator {
             )
             guard let exerciseVolumes = try? ctx.fetch(req) else { continue }
 
-            print("📊 Found \(exerciseVolumes.count) exercise volumes for week \(weekKey)")
+            AppLogger.debug("Found \(exerciseVolumes.count) exercise volumes for week \(weekKey)", category: AppLogger.statistics)
 
             var pushVol = 0.0, pullVol = 0.0
             var hPushVol = 0.0, hPullVol = 0.0, vPushVol = 0.0, vPullVol = 0.0
@@ -549,40 +545,40 @@ actor StatsAggregator {
             var hingeVol = 0.0, squatVol = 0.0
 
             // Process each exercise's volume
-            print("📊 About to process exercises, checking if repo has exercises...")
+            AppLogger.debug("About to process exercises, checking if repo has exercises...", category: AppLogger.statistics)
             let repoExerciseCount = await MainActor.run { repo.exercises.count }
-            print("📊 Repo has \(repoExerciseCount) exercises")
+            AppLogger.debug("Repo has \(repoExerciseCount) exercises", category: AppLogger.statistics)
 
             for evs in exerciseVolumes {
-                print("🔍 Looking up exercise ID: '\(evs.exerciseID)'")
+                AppLogger.debug("Looking up exercise ID: '\(evs.exerciseID)'", category: AppLogger.statistics)
 
                 // Fetch exercise from MainActor context with detailed debugging
                 let ex = await MainActor.run {
                     let result = repo.exercise(byID: evs.exerciseID)
-                    if result != nil {
-                        print("   ✅ Found in repo: \(result!.name)")
+                    if let exercise = result {
+                        AppLogger.debug("Found in repo: \(exercise.name)", category: AppLogger.statistics)
                     } else {
-                        print("   ❌ NOT found in repo")
+                        AppLogger.debug("NOT found in repo", category: AppLogger.statistics)
                         // Let's see what exercises start with similar names
                         let similar = repo.exercises.filter { $0.id.contains(evs.exerciseID.prefix(min(10, evs.exerciseID.count))) }
                         if !similar.isEmpty {
-                            print("   💡 Similar IDs found: \(similar.prefix(3).map { $0.id })")
+                            AppLogger.debug("Similar IDs found: \(similar.prefix(3).map { $0.id })", category: AppLogger.statistics)
                         }
                     }
                     return result
                 }
 
                 guard let ex = ex else {
-                    print("⚠️ Could not find exercise: \(evs.exerciseID)")
+                    AppLogger.warning("Could not find exercise: \(evs.exerciseID)", category: AppLogger.statistics)
                     continue
                 }
                 let volume = evs.volume
-                print("📊 Processing exercise: \(ex.name) with volume: \(volume)")
+                AppLogger.debug("Processing exercise: \(ex.name) with volume: \(volume)", category: AppLogger.statistics)
 
                 // Push/Pull classification
                 if ExerciseClassifier.isPush(exercise: ex) {
                     pushVol += volume
-                    print("   ✅ Classified as PUSH (total push now: \(pushVol))")
+                    AppLogger.debug("Classified as PUSH (total push now: \(pushVol))", category: AppLogger.statistics)
                     if ExerciseClassifier.isHorizontalPush(exercise: ex) {
                         hPushVol += volume
                     } else if ExerciseClassifier.isVerticalPush(exercise: ex) {
@@ -590,14 +586,14 @@ actor StatsAggregator {
                     }
                 } else if ExerciseClassifier.isPull(exercise: ex) {
                     pullVol += volume
-                    print("   ✅ Classified as PULL (total pull now: \(pullVol))")
+                    AppLogger.debug("Classified as PULL (total pull now: \(pullVol))", category: AppLogger.statistics)
                     if ExerciseClassifier.isHorizontalPull(exercise: ex) {
                         hPullVol += volume
                     } else if ExerciseClassifier.isVerticalPull(exercise: ex) {
                         vPullVol += volume
                     }
                 } else {
-                    print("   ⚠️ Not classified as push or pull")
+                    AppLogger.debug("Not classified as push or pull", category: AppLogger.statistics)
                 }
 
                 // Compound/Isolation
@@ -632,7 +628,7 @@ actor StatsAggregator {
                 ppb.verticalPullVolume = vPullVol
                 // When pushVol = 0: use 999 if there are pull exercises (indicates "all pull"), otherwise 0 (no data)
                 ppb.ratio = pushVol > 0 ? pullVol / pushVol : (pullVol > 0 ? 999.0 : 0.0)
-                print("💾 Saved Push/Pull balance for week \(weekKey): push=\(pushVol), pull=\(pullVol), ratio=\(ppb.ratio)")
+                AppLogger.debug("Saved Push/Pull balance for week \(weekKey): push=\(pushVol), pull=\(pullVol), ratio=\(ppb.ratio)", category: AppLogger.statistics)
             }
 
             // Save Movement Pattern balance
@@ -651,7 +647,7 @@ actor StatsAggregator {
         await computeMuscleFrequency(repo: repo, workouts: workoutsForFrequency, in: ctx)
 
         try? ctx.save()
-        print("⚖️ Balance metrics: \(affectedWeeks.count) weeks computed")
+        AppLogger.info("Balance metrics: \(affectedWeeks.count) weeks computed", category: AppLogger.statistics)
     }
 
     /// Compute muscle frequency from workouts in the last 7 days
@@ -668,7 +664,7 @@ actor StatsAggregator {
         let recentWorkouts = workouts.filter { $0.date >= sevenDaysAgo }
 
         guard !recentWorkouts.isEmpty else {
-            print("⚖️ No workouts found in last 7 days for muscle frequency")
+            AppLogger.warning("No workouts found in last 7 days for muscle frequency", category: AppLogger.statistics)
             return
         }
 

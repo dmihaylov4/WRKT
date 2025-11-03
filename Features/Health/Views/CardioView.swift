@@ -15,7 +15,49 @@ private enum Theme {
     static let border    = Color.white.opacity(0.10)
     static let text      = Color.white
     static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#F4E409")
+    static let accent    = DS.Theme.accent
+}
+
+// MARK: - Cardio Type Enum
+
+enum CardioType: String, CaseIterable, Identifiable {
+    case running = "Running"
+    case walking = "Walking"
+    case cycling = "Cycling"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .running: return "figure.run"
+        case .walking: return "figure.walk"
+        case .cycling: return "bicycle"
+        }
+    }
+
+    var displayName: String { rawValue }
+
+    var activityName: String {
+        switch self {
+        case .running: return "Runs"
+        case .walking: return "Walks"
+        case .cycling: return "Rides"
+        }
+    }
+
+    var metricLabel: String {
+        switch self {
+        case .running, .walking: return "Pace"
+        case .cycling: return "Speed"
+        }
+    }
+
+    var metricUnit: String {
+        switch self {
+        case .running, .walking: return "min/km"
+        case .cycling: return "km/h"
+        }
+    }
 }
 
 struct CardioView: View {
@@ -23,21 +65,16 @@ struct CardioView: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var showingAuthSheet = false
     @State private var isResyncing = false
+    @State private var selectedType: CardioType = .running
 
-    // Cardio workout types
-    private static let cardioTypes: Set<String> = [
-        "Running", "Walking", "Cycling", "Hiking", "Swimming",
-        "Rowing", "Elliptical", "Stair Climbing", "Mixed Cardio",
-        "HIIT", "Dance", "Soccer", "Basketball", "Tennis", "Cross Training"
-    ]
-
-    // Filter to cardio workouts
+    // Filter to cardio workouts by selected type
     private var cardioRuns: [Run] {
         store.runs.filter { run in
             guard let type = run.workoutType else {
-                return run.distanceKm > 0.1
+                // Default unknown workouts with distance to running
+                return selectedType == .running && run.distanceKm > 0.1
             }
-            return Self.cardioTypes.contains(type)
+            return type == selectedType.rawValue
         }
     }
 
@@ -76,17 +113,28 @@ struct CardioView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                // MARK: - Weekly Summary
-                WeeklySummaryCard(thisWeek: thisWeekRuns, lastWeek: lastWeekRuns)
+                // MARK: - Activity Type Carousel
+                CardioTypeCarousel(selectedType: $selectedType)
                     .padding(.horizontal, 16)
+
+                // MARK: - Weekly Summary
+                WeeklySummaryCard(
+                    thisWeek: thisWeekRuns,
+                    lastWeek: lastWeekRuns,
+                    activityType: selectedType
+                )
+                .padding(.horizontal, 16)
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedType)
 
                 // MARK: - Pace Insights
-                PaceInsightsCard(runs: last30DaysRuns)
+                PaceInsightsCard(runs: last30DaysRuns, activityType: selectedType)
                     .padding(.horizontal, 16)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedType)
 
                 // MARK: - Training Consistency
-                ConsistencyCard(allRuns: cardioRuns)
+                ConsistencyCard(allRuns: cardioRuns, activityType: selectedType)
                     .padding(.horizontal, 16)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedType)
 
                 // MARK: - Sync Progress
                 if healthKit.isSyncing {
@@ -94,30 +142,34 @@ struct CardioView: View {
                         .padding(.horizontal, 16)
                 }
 
-                // MARK: - Recent Runs
+                // MARK: - Recent Activities
                 VStack(spacing: 10) {
                     HStack {
-                        Text("Recent Runs").font(.headline).foregroundStyle(Theme.text)
+                        Text("Recent \(selectedType.activityName)")
+                            .font(.headline)
+                            .foregroundStyle(Theme.text)
                         Spacer()
                         if runsSorted.count > 10 {
-                            NavigationLink("See all", destination: AllRunsList(runs: runsSorted))
+                            NavigationLink("See all", destination: AllRunsList(runs: runsSorted, activityType: selectedType))
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(Theme.accent)
                         }
                     }
                     .padding(.horizontal, 16)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedType)
 
                     VStack(spacing: 10) {
                         ForEach(Array(runsSorted.prefix(10))) { r in
                             NavigationLink {
                                 CardioDetailView(run: r)
                             } label: {
-                                RunRowCard(run: r)
+                                RunRowCard(run: r, activityType: selectedType)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 16)
+                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedType)
                 }
             }
             .padding(.top, 12)
@@ -196,11 +248,92 @@ struct CardioView: View {
     }
 }
 
+// MARK: - Cardio Type Carousel
+
+private struct CardioTypeCarousel: View {
+    @Binding var selectedType: CardioType
+    @State private var dragOffset: CGFloat = 0
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Tab content with smooth swipe
+            TabView(selection: $selectedType) {
+                ForEach(CardioType.allCases) { type in
+                    VStack(spacing: 12) {
+                        Image(systemName: type.icon)
+                            .font(.system(size: 42, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Theme.accent, Theme.accent.opacity(0.8)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .symbolRenderingMode(.hierarchical)
+
+                        Text(type.displayName)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Theme.text)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 28)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(Theme.surface)
+                            .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Theme.border, Theme.border.opacity(0.3)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .padding(.horizontal, 4)
+                    .tag(type)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 140)
+            .animation(.spring(response: 0.4, dampingFraction: 0.75, blendDuration: 0), value: selectedType)
+
+            // Custom page indicators
+            CustomPageIndicator(
+                numberOfPages: CardioType.allCases.count,
+                currentPage: CardioType.allCases.firstIndex(of: selectedType) ?? 0
+            )
+        }
+    }
+}
+
+// MARK: - Custom Page Indicator
+
+private struct CustomPageIndicator: View {
+    let numberOfPages: Int
+    let currentPage: Int
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(0..<numberOfPages, id: \.self) { index in
+                Capsule()
+                    .fill(index == currentPage ? Theme.accent : Theme.secondary.opacity(0.3))
+                    .frame(width: index == currentPage ? 24 : 8, height: 8)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: currentPage)
+            }
+        }
+    }
+}
+
 // MARK: - Weekly Summary Card
 
 private struct WeeklySummaryCard: View {
     let thisWeek: [Run]
     let lastWeek: [Run]
+    let activityType: CardioType
 
     private var thisWeekDistance: Double {
         thisWeek.reduce(0) { $0 + $1.distanceKm }
@@ -255,8 +388,8 @@ private struct WeeklySummaryCard: View {
                 GridItem(.flexible(), spacing: 10)
             ], spacing: 10) {
                 StatTile(
-                    icon: "figure.run",
-                    title: "Runs",
+                    icon: activityType.icon,
+                    title: activityType.activityName,
                     value: "\(thisWeek.count)",
                     iconColor: Theme.accent
                 )
@@ -278,14 +411,14 @@ private struct WeeklySummaryCard: View {
                 if let avgPace = thisWeekAvgPace {
                     StatTile(
                         icon: "speedometer",
-                        title: "Avg Pace",
-                        value: paceString(avgPace),
+                        title: "Avg \(activityType.metricLabel)",
+                        value: activityType == .cycling ? speedString(avgPace) : paceString(avgPace),
                         iconColor: .green
                     )
                 } else {
                     StatTile(
                         icon: "speedometer",
-                        title: "Avg Pace",
+                        title: "Avg \(activityType.metricLabel)",
                         value: "—",
                         iconColor: .green
                     )
@@ -312,12 +445,19 @@ private struct WeeklySummaryCard: View {
         let s = Int(secPerKm) % 60
         return String(format: "%d:%02d", m, s)
     }
+
+    private func speedString(_ secPerKm: Double) -> String {
+        // Convert sec/km to km/h
+        let kmh = 3600.0 / secPerKm
+        return String(format: "%.1f km/h", kmh)
+    }
 }
 
 // MARK: - Pace Insights Card
 
 private struct PaceInsightsCard: View {
     let runs: [Run]
+    let activityType: CardioType
 
     private var avgPace: Double? {
         let paces = runs
@@ -364,7 +504,7 @@ private struct PaceInsightsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Pace Insights")
+                Text("\(activityType.metricLabel) Insights")
                     .font(.headline)
                     .foregroundStyle(Theme.text)
 
@@ -376,7 +516,7 @@ private struct PaceInsightsCard: View {
             }
 
             HStack(spacing: 12) {
-                // Average pace
+                // Average pace/speed
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
                         Image(systemName: "gauge.medium")
@@ -388,10 +528,10 @@ private struct PaceInsightsCard: View {
                     }
 
                     if let pace = avgPace {
-                        Text(paceString(pace))
+                        Text(activityType == .cycling ? speedString(pace) : paceString(pace))
                             .font(.title2.weight(.bold).monospacedDigit())
                             .foregroundStyle(Theme.text)
-                        Text("min/km")
+                        Text(activityType.metricUnit)
                             .font(.caption2)
                             .foregroundStyle(Theme.secondary)
                     } else {
@@ -404,7 +544,7 @@ private struct PaceInsightsCard: View {
                 .padding(12)
                 .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                // Best pace
+                // Best pace/speed
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
                         Image(systemName: "bolt.fill")
@@ -416,10 +556,10 @@ private struct PaceInsightsCard: View {
                     }
 
                     if let pace = bestPace {
-                        Text(paceString(pace))
+                        Text(activityType == .cycling ? speedString(pace) : paceString(pace))
                             .font(.title2.weight(.bold).monospacedDigit())
                             .foregroundStyle(Theme.text)
-                        Text("min/km")
+                        Text(activityType.metricUnit)
                             .font(.caption2)
                             .foregroundStyle(Theme.secondary)
                     } else {
@@ -458,12 +598,19 @@ private struct PaceInsightsCard: View {
         let s = Int(secPerKm) % 60
         return String(format: "%d:%02d", m, s)
     }
+
+    private func speedString(_ secPerKm: Double) -> String {
+        // Convert sec/km to km/h
+        let kmh = 3600.0 / secPerKm
+        return String(format: "%.1f km/h", kmh)
+    }
 }
 
 // MARK: - Consistency Card
 
 private struct ConsistencyCard: View {
     let allRuns: [Run]
+    let activityType: CardioType
 
     private var runsPerWeek: Double {
         guard let oldestRun = allRuns.min(by: { $0.date < $1.date }) else { return 0 }
@@ -506,7 +653,7 @@ private struct ConsistencyCard: View {
                     Text(String(format: "%.1f", runsPerWeek))
                         .font(.title2.weight(.bold))
                         .foregroundStyle(Theme.text)
-                    Text("runs")
+                    Text(activityType.activityName.lowercased())
                         .font(.caption2)
                         .foregroundStyle(Theme.secondary)
                 }
@@ -597,6 +744,7 @@ private struct StatTile: View {
 
 private struct RunRowCard: View {
     let run: Run
+    let activityType: CardioType
 
     private var pace: String {
         guard run.distanceKm > 0.2 else { return "—" }
@@ -604,6 +752,13 @@ private struct RunRowCard: View {
         let m = Int(secPerKm) / 60
         let s = Int(secPerKm) % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    private var speed: String {
+        guard run.distanceKm > 0.2 else { return "—" }
+        let secPerKm = Double(run.durationSec) / run.distanceKm
+        let kmh = 3600.0 / secPerKm
+        return String(format: "%.1f", kmh)
     }
 
     private var hasHeartRate: Bool {
@@ -644,14 +799,23 @@ private struct RunRowCard: View {
 
                 Spacer()
 
-                // Pace - PROMINENT
+                // Pace/Speed - PROMINENT
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(pace)
-                        .font(.title3.weight(.bold).monospacedDigit())
-                        .foregroundStyle(Theme.accent)
-                    Text("min/km")
-                        .font(.caption2)
-                        .foregroundStyle(Theme.secondary)
+                    if activityType == .cycling {
+                        Text(speed)
+                            .font(.title3.weight(.bold).monospacedDigit())
+                            .foregroundStyle(Theme.accent)
+                        Text("km/h")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.secondary)
+                    } else {
+                        Text(pace)
+                            .font(.title3.weight(.bold).monospacedDigit())
+                            .foregroundStyle(Theme.accent)
+                        Text("min/km")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.secondary)
+                    }
                 }
             }
 
@@ -717,6 +881,7 @@ private struct RunRowCard: View {
 
 private struct AllRunsList: View {
     let runs: [Run]
+    let activityType: CardioType
 
     var body: some View {
         ScrollView {
@@ -725,7 +890,7 @@ private struct AllRunsList: View {
                     NavigationLink {
                         CardioDetailView(run: r)
                     } label: {
-                        RunRowCard(run: r)
+                        RunRowCard(run: r, activityType: activityType)
                     }
                     .buttonStyle(.plain)
                 }
@@ -734,7 +899,7 @@ private struct AllRunsList: View {
             .padding(.vertical, 12)
         }
         .background(Theme.bg.ignoresSafeArea())
-        .navigationTitle("All Cardio")
+        .navigationTitle("All \(activityType.activityName)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(Theme.bg, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)

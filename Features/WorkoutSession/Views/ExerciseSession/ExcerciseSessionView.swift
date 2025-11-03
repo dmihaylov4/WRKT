@@ -20,161 +20,211 @@ struct ExerciseSessionView: View {
     let exercise: Exercise
     let initialEntryID: UUID?
     var returnToHomeOnSave: Bool = false
+
+    // ✅ ViewModel (will be initialized in custom init)
     @StateObject private var viewModel: ExerciseSessionViewModel
-    
+
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var currentEntryID: UUID? = nil
-    @State private var sets: [SetInput] = [SetInput(reps: 10, weight: 0)]
-    @State private var activeSetIndex: Int = 0
-    @State private var didPreloadExisting = false
-    @State private var didPrefillFromHistory = false
-    @State private var showEmptyAlert = false
-    @State private var showUnsavedSetsAlert = false
-    @State private var showInfo = false
-    @State private var showDemo = false
-
-    private var totalReps: Int { sets.reduce(0) { $0 + max(0, $1.reps) } }
-    private var workingSets: Int { sets.filter { $0.reps > 0 }.count }
-
-    // Tutorial state
+    // Tutorial state (only non-ViewModel state remains)
     @StateObject private var onboardingManager = OnboardingManager.shared
-    @State private var showTutorial = false
-    @State private var currentTutorialStep = 0
-    @State private var setsSectionFrame: CGRect = .zero
-    @State private var setTypeFrame: CGRect = .zero
-    @State private var carouselsFrame: CGRect = .zero
-    @State private var presetsFrame: CGRect = .zero
-    @State private var addSetButtonFrame: CGRect = .zero
-    @State private var infoButtonFrame: CGRect = .zero
-    @State private var saveButtonFrame: CGRect = .zero
-    @State private var framesReady = false
     @State private var yOffset: CGFloat = 0
+    @State private var showWorkoutCreatedBanner = false
+    @State private var workoutBannerMessage = ""
 
     private let debugFrames = true
-    private let frameUpwardAdjustment: CGFloat = 70  // Move all frames up by this amount
+    private let contentCoordinateSpace = "ExerciseSessionContent"
+
+    // MARK: - Initialization
+
+    /// Custom initializer to support ViewModel while maintaining backward compatibility
+    /// with all existing call sites (8 locations in the codebase)
+    init(exercise: Exercise, initialEntryID: UUID? = nil, returnToHomeOnSave: Bool = false) {
+        self.exercise = exercise
+        self.initialEntryID = initialEntryID
+        self.returnToHomeOnSave = returnToHomeOnSave
+
+        // Initialize ViewModel without a WorkoutStoreV2 to avoid creating new instances
+        // The actual store from @EnvironmentObject will be passed in onAppear
+        _viewModel = StateObject(wrappedValue: ExerciseSessionViewModel(
+            exercise: exercise,
+            initialEntryID: initialEntryID,
+            returnToHomeOnSave: returnToHomeOnSave,
+            workoutStore: nil  // Don't create new instance - will be set from environment in onAppear
+        ))
+    }
 
     // MARK: - Body
 
-    var body: some View { 
+    var body: some View {
         GeometryReader { geometry in
             ZStack {
-                VStack(spacing: 0) {
-                    modernHeader
-                    contentList
-                        .listStyle(.plain)
-                        .scrollContentBackground(.hidden)
-                        .background(Theme.bg)
-                        .scrollDismissesKeyboard(.immediately)
-                        .simultaneousGesture(TapGesture().onEnded { hideKeyboard() })
-                        .simultaneousGesture(DragGesture().onChanged { _ in hideKeyboard() })
-                }
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    VStack(spacing: 10) {
-                        PrimaryCTA(title: saveButtonTitle) {
-                            handleSave()
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 12)
-                    .padding(.bottom, 12)
-                    .background(Theme.bg)
-                    .overlay(Divider().background(Theme.border), alignment: .top)
-                    .captureFrame(in: .global) { frame in
-                        saveButtonFrame = frame
-                        checkFramesReady()
-                    }
-                }
-                .navigationBarHidden(true)
-                .background(Theme.bg.ignoresSafeArea())
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") {
-                            hideKeyboard()
-                        }
-                        .fontWeight(.bold)
-                        .foregroundStyle(Theme.accent)
-                    }
-                }
-                .alert("Empty workout", isPresented: $showEmptyAlert) {
-                    Button("OK", role: .cancel) { }
-                } message: {
-                    Text("Add at least one set with reps to save.")
-                }
-                .alert("Unsaved Sets", isPresented: $showUnsavedSetsAlert) {
-                    Button("Go Back", role: .cancel) { }
-                    Button("Discard", role: .destructive) {
-                        cleanupAndDismiss()
-                    }
-                } message: {
-                    let count = countUnloggedModifiedSets()
-                    Text("You have \(count) unlogged set\(count > 1 ? "s" : "") with changes that will be discarded.")
-                }
-                .onAppear {
-                    // Initialize current entry ID from the initial value
-                    currentEntryID = initialEntryID
-                    preloadExistingIfNeeded()
-
-                    // If no existing entry, try to prefill from workout history
-                    if initialEntryID == nil && !didPrefillFromHistory {
-                        prefillFromWorkoutHistory()
-                    }
-
-                    autoSelectFirstIncompleteSet()
-
-                    // Check if timer completed while view was dismissed and generate set if needed
-                    checkForCompletedTimerAndGenerateSet()
-
-                    DispatchQueue.main.async {
-                        yOffset = geometry.safeAreaInsets.top
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                        if !framesReady && !onboardingManager.hasSeenExerciseSession && !showTutorial {
-                            showTutorial = true
-                        }
-                    }
-                }
-                .onChange(of: initialEntryID) { _, newID in
-                    currentEntryID = newID
-                    preloadExistingIfNeeded(force: true)
-                    autoSelectFirstIncompleteSet()
-                }
-                .onChange(of: framesReady) { _, ready in
-                    if ready && !onboardingManager.hasSeenExerciseSession && !showTutorial {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showTutorial = true
-                        }
-                    }
-                }
-                .onReceive(RestTimerManager.shared.$state) { newState in
-                    handleTimerStateChange(newState: newState)
-                }
-                .onChange(of: scenePhase) { oldPhase, newPhase in
-                    // Check for completed timer when app becomes active (e.g., unlocking phone)
-                    if newPhase == .active {
-                        checkForCompletedTimerAndGenerateSet()
-                    }
-                }
+                mainContentStack(geometry: geometry)
 
                 // Tutorial overlay
-                if showTutorial {
+                if viewModel.showTutorial {
                     SpotlightOverlay(
-                        currentStep: tutorialSteps[currentTutorialStep],
-                        currentIndex: currentTutorialStep,
+                        currentStep: tutorialSteps[viewModel.currentTutorialStep],
+                        currentIndex: viewModel.currentTutorialStep,
                         totalSteps: tutorialSteps.count,
-                        onNext: advanceTutorial,
-                        onSkip: skipTutorial
+                        onNext: viewModel.advanceTutorial,
+                        onSkip: viewModel.skipTutorial
                     )
                     .transition(.opacity)
                     .zIndex(1000)
                 }
+
+                // Workout created/added banner
+                if showWorkoutCreatedBanner {
+                    VStack {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.body.weight(.semibold))
+                            Text(workoutBannerMessage)
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Theme.accent)
+                                .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+                        )
+                        .padding(.top, geometry.safeAreaInsets.top + 16)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+
+                        Spacer()
+                    }
+                    .zIndex(999)
+                }
             }
         }
+    }
+
+    // MARK: - Main Content Stack
+
+    @ViewBuilder
+    private func mainContentStack(geometry: GeometryProxy) -> some View {
+        baseContentView
+            .modifier(NavigationAndAlertsModifier(
+                viewModel: viewModel,
+                dismiss: dismiss
+            ))
+            .modifier(LifecycleModifier(
+                geometry: geometry,
+                initialEntryID: initialEntryID,
+                scenePhase: scenePhase,
+                onAppear: { handleOnAppear(geometry: geometry) },
+                onEntryIDChange: handleEntryIDChange,
+                onScenePhaseChange: handleScenePhaseChange,
+                onTimerStateChange: handleTimerStateChange
+            ))
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("GeneratePendingSetBeforeTimer"))) { notification in
+                // WorkoutStoreV2 handles the actual set generation/logging
+                // ExerciseSessionView just needs to reload the sets to show the update
+                if let exerciseID = notification.userInfo?["exerciseID"] as? String,
+                   exerciseID == exercise.id {
+                    // Small delay to let WorkoutStoreV2 finish updating
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        reloadSetsFromStore()
+                    }
+                }
+            }
+    }
+
+    // MARK: - Base Content View
+
+    private var baseContentView: some View {
+        VStack(spacing: 0) {
+            modernHeader
+            contentList
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .background(Theme.bg)
+                .scrollDismissesKeyboard(.immediately)
+                .simultaneousGesture(TapGesture().onEnded { hideKeyboard() })
+                .simultaneousGesture(DragGesture().onChanged { _ in hideKeyboard() })
+        }
+        .coordinateSpace(name: contentCoordinateSpace)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            saveButtonSection
+        }
+    }
+
+    // MARK: - Lifecycle Handlers
+
+    private func handleOnAppear(geometry: GeometryProxy) {
+        // Connect real store from environment to ViewModel
+        viewModel.workoutStore = store
+
+        // Initialize current entry ID - check both initialEntryID and existing entry in workout
+        if initialEntryID != nil {
+            viewModel.currentEntryID = initialEntryID
+        } else if let existingEntry = store.existingEntry(for: exercise.id) {
+            // Exercise was added to workout while view was closed (e.g., from widget)
+            viewModel.currentEntryID = existingEntry.id
+            AppLogger.debug("Found existing entry for \(exercise.name) - loading \(existingEntry.sets.count) sets", category: AppLogger.workout)
+        }
+
+        preloadExistingIfNeeded()
+
+        // If no existing entry, try to prefill from workout history
+        if viewModel.currentEntryID == nil && !viewModel.didPrefillFromHistory {
+            prefillFromWorkoutHistory()
+        }
+
+        autoSelectFirstIncompleteSet()
+
+        // Check if timer completed while view was dismissed and generate set if needed
+        checkForCompletedTimerAndGenerateSet()
+
+        DispatchQueue.main.async {
+            yOffset = geometry.safeAreaInsets.top
+        }
+
+        // Show tutorial if needed (simplified - no frame waiting)
+        if !onboardingManager.hasSeenExerciseSession && !viewModel.showTutorial {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                self.viewModel.showTutorial = true
+            }
+        }
+    }
+
+    private func handleEntryIDChange(_ newID: UUID?) {
+        viewModel.currentEntryID = newID
+        preloadExistingIfNeeded(force: true)
+        autoSelectFirstIncompleteSet()
+    }
+
+    private func handleFramesReadyChange(_ ready: Bool) {
+        // No longer needed - tutorial doesn't require frame validation
+    }
+
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        // Check for completed timer when app becomes active (e.g., unlocking phone)
+        if newPhase == .active {
+            checkForCompletedTimerAndGenerateSet()
+        }
+    }
+
+    // MARK: - Save Button Section
+
+    private var saveButtonSection: some View {
+        VStack(spacing: 10) {
+            PrimaryCTA(title: viewModel.saveButtonTitle) {
+                viewModel.handleSave(dismiss: dismiss)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 12)
+        .background(Theme.bg)
+        .overlay(Divider().background(Theme.border), alignment: .top)
     }
 
     // MARK: - Compact Header (Focus on Sets)
@@ -193,7 +243,7 @@ struct ExerciseSessionView: View {
                     // Inline stats
                     HStack(spacing: 8) {
                         // Current set progress
-                        Text("Set \(activeSetIndex + 1)/\(sets.count)")
+                        Text("Set \(viewModel.activeSetIndex + 1)/\(viewModel.sets.count)")
                             .font(.caption.weight(.medium))
                             .foregroundStyle(Theme.secondary)
 
@@ -219,7 +269,7 @@ struct ExerciseSessionView: View {
 
                 // Info button - prominent and attention-grabbing
                 Button {
-                    showInfo.toggle()
+                    viewModel.showInfo.toggle()
                 } label: {
                     Image(systemName: "info.circle.fill")
                         .font(.title2.weight(.semibold))
@@ -231,10 +281,6 @@ struct ExerciseSessionView: View {
                         )
                 }
                 .accessibilityLabel("Exercise info")
-                .captureFrame(in: .global) { frame in
-                    infoButtonFrame = frame
-                    checkFramesReady()
-                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -243,7 +289,7 @@ struct ExerciseSessionView: View {
         }
         .background(Theme.bg)
         .overlay(Divider().background(Theme.border.opacity(0.5)), alignment: .bottom)
-        .sheet(isPresented: $showInfo) {
+        .sheet(isPresented: $viewModel.showInfo) {
             exerciseInfoSheet
         }
     }
@@ -276,7 +322,7 @@ struct ExerciseSessionView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
-                        showInfo = false
+                        viewModel.showInfo = false
                     }
                 }
             }
@@ -292,46 +338,22 @@ struct ExerciseSessionView: View {
     private var contentList: some View {
         List {
             SetsSection(
-                sets: $sets,
-                activeSetIndex: $activeSetIndex,
+                sets: $viewModel.sets,
+                activeSetIndex: $viewModel.activeSetIndex,
                 unit: unit,
                 exercise: exercise,
                 onDelete: { idx in
-                    deleteSet(at: idx)
+                    viewModel.deleteSet(at: idx)
                 },
                 onDuplicate: { idx in duplicateSet(at: idx) },
                 onLogSet: { idx in logSet(at: idx) },
                 onAdd: {
-                    let last = sets.last ?? SetInput(reps: 10, weight: 0)
-                    sets.append(SetInput(
-                        reps: last.reps,
-                        weight: last.weight,
-                        tag: last.tag,
-                        autoWeight: last.autoWeight,
-                        didSeedFromMemory: false
-                    ))
+                    viewModel.addSet()
                     // Select the newly added set
-                    activeSetIndex = sets.count - 1
+                    viewModel.activeSetIndex = viewModel.sets.count - 1
                 },
-                onSetsSectionFrameCaptured: { frame in
-                    setsSectionFrame = frame
-                    checkFramesReady()
-                },
-                onSetTypeFrameCaptured: { frame in
-                    setTypeFrame = frame
-                    checkFramesReady()
-                },
-                onCarouselsFrameCaptured: { frame in
-                    carouselsFrame = frame
-                    checkFramesReady()
-                },
-                onPresetsFrameCaptured: { frame in
-                    presetsFrame = frame
-                    checkFramesReady()
-                },
-                onAddSetButtonFrameCaptured: { frame in
-                    addSetButtonFrame = frame
-                    checkFramesReady()
+                onTimerStart: {
+                    ensureExerciseInWorkout()
                 }
             )
         }
@@ -354,12 +376,7 @@ struct ExerciseSessionView: View {
         let onDuplicate: (Int) -> Void
         let onLogSet: (Int) -> Void
         let onAdd: () -> Void
-
-        var onSetsSectionFrameCaptured: ((CGRect) -> Void)? = nil
-        var onSetTypeFrameCaptured: ((CGRect) -> Void)? = nil
-        var onCarouselsFrameCaptured: ((CGRect) -> Void)? = nil
-        var onPresetsFrameCaptured: ((CGRect) -> Void)? = nil
-        var onAddSetButtonFrameCaptured: ((CGRect) -> Void)? = nil
+        let onTimerStart: () -> Void
 
         var body: some View {
             Section {
@@ -373,17 +390,24 @@ struct ExerciseSessionView: View {
 
                     // Determine if this set has the active timer
                     let hasActiveTimer: Bool = {
-                        // Must be completed
+                        let manager = RestTimerManager.shared
+
+                        // Must have a timer running for this exercise
+                        guard manager.isTimerFor(exerciseID: exercise.id) && manager.isRunning else { return false }
+
+                        // If timer was manually started from widget (not from logging a set), don't show badge
+                        // This handles the case where user skips timer and presses "Log Next Set" from widget
+                        guard !manager.isManuallyStartedTimer else { return false }
+
+                        // Timer was started from logging a set - show on last completed set
                         guard isCompleted else { return false }
-                        // Must be the most recently completed set
                         guard let lastCompletedIndex = sets.lastIndex(where: { $0.isCompleted }),
                               lastCompletedIndex == i else { return false }
-                        // Must have a timer running for this exercise
-                        let manager = RestTimerManager.shared
-                        return manager.isTimerFor(exerciseID: exercise.id) && manager.isRunning
+
+                        return true
                     }()
 
-                    SetRowUnified(
+                    AdaptiveSetRow(
                         index: i + 1,
                         set: $sets[i],
                         unit: unit,
@@ -398,15 +422,8 @@ struct ExerciseSessionView: View {
                         onLogSet: {
                             onLogSet(i)
                         },
-                        onSetTypeFrameCaptured: i == 0 ? onSetTypeFrameCaptured : nil,
-                        onCarouselsFrameCaptured: i == 0 ? onCarouselsFrameCaptured : nil
+                        onTimerStart: onTimerStart
                     )
-                    .captureFrame(in: .global) { frame in
-                        // Capture the frame of the first set to represent the sets section
-                        if i == 0 {
-                            onSetsSectionFrameCaptured?(frame)
-                        }
-                    }
                     .listRowInsets(.init(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -415,21 +432,46 @@ struct ExerciseSessionView: View {
                             Button {
                                 sets[i].isCompleted = false
                             } label: {
-                                Label("Mark Incomplete", systemImage: "arrow.uturn.backward.circle")
+                                VStack(spacing: 4) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(.black)
+                                    Text("Incomplete")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.black)
+                                }
                             }
-                            .tint(.orange)
+                            .tint(DS.Palette.marone)
                         } else {
                             Button {
                                 sets[i].isCompleted = true
                             } label: {
-                                Label("Mark Complete", systemImage: "checkmark.circle")
+                                VStack(spacing: 4) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.title2)
+                                        .foregroundStyle(.black)
+                                    Text("Complete")
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundStyle(.black)
+                                }
                             }
-                            .tint(.green)
+                            .tint(DS.Palette.marone)
                         }
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("Delete", role: .destructive) { onDelete(i) }
-                        Button("Duplicate") { onDuplicate(i) }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button {
+                            onDelete(i)
+                        } label: {
+                            VStack(spacing: 4) {
+                                Image(systemName: "trash.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(DS.Palette.marone)
+                                Text("Delete")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(DS.Palette.marone)
+                            }
+                        }
+                        .tint(.black)
                     }
                 }
 
@@ -448,9 +490,6 @@ struct ExerciseSessionView: View {
                                 tryOneRM()
                             }
                         }
-                    }
-                    .captureFrame(in: .global) { frame in
-                        onPresetsFrameCaptured?(frame)
                     }
 
                     Button(action: onAdd) {
@@ -471,9 +510,6 @@ struct ExerciseSessionView: View {
                         )
                     }
                     .buttonStyle(.plain)
-                    .captureFrame(in: .global) { frame in
-                        onAddSetButtonFrameCaptured?(frame)
-                    }
                 }
                 .listRowInsets(.init(top: 12, leading: 16, bottom: 8, trailing: 16))
                 .listRowSeparator(.hidden)
@@ -586,23 +622,23 @@ struct ExerciseSessionView: View {
     }
 
     private func duplicateSet(at index: Int) {
-        guard sets.indices.contains(index) else { return }
-        let s = sets[index]
-        sets.append(s)
+        guard viewModel.sets.indices.contains(index) else { return }
+        let s = viewModel.sets[index]
+        viewModel.sets.append(s)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     private func deleteSet(at index: Int) {
-        guard sets.indices.contains(index) else { return }
+        guard viewModel.sets.indices.contains(index) else { return }
 
-        let deletedSet = sets[index]
+        let deletedSet = viewModel.sets[index]
 
         // Check if this was the most recently completed set
-        let lastCompletedIndex = sets.lastIndex(where: { $0.isCompleted })
+        let lastCompletedIndex = viewModel.sets.lastIndex(where: { $0.isCompleted })
         let wasLastCompletedSet = deletedSet.isCompleted && lastCompletedIndex == index
 
         // Remove the set
-        sets.remove(at: index)
+        viewModel.sets.remove(at: index)
 
         // If we deleted the most recently completed set, stop the timer
         if wasLastCompletedSet {
@@ -613,13 +649,13 @@ struct ExerciseSessionView: View {
         }
 
         // Adjust active index if needed
-        if activeSetIndex >= sets.count {
-            activeSetIndex = max(0, sets.count - 1)
+        if viewModel.activeSetIndex >= viewModel.sets.count {
+            viewModel.activeSetIndex = max(0, viewModel.sets.count - 1)
         }
     }
 
     private func generateNextSet() {
-        if let lastSet = sets.last {
+        if let lastSet = viewModel.sets.last {
             let newSet = SetInput(
                 reps: lastSet.reps,
                 weight: lastSet.weight,
@@ -629,90 +665,88 @@ struct ExerciseSessionView: View {
                 isCompleted: false,
                 isGhost: false
             )
-            sets.append(newSet)
+            viewModel.sets.append(newSet)
         } else {
-            sets.append(SetInput(reps: 10, weight: 0, tag: .working, autoWeight: true))
+            viewModel.sets.append(SetInput(reps: 10, weight: 0, tag: .working, autoWeight: true))
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     private func preloadExistingIfNeeded(force: Bool = false) {
-        guard let id = currentEntryID else { return }
-        guard force || !didPreloadExisting else { return }
+        guard let id = viewModel.currentEntryID else { return }
+        guard force || !viewModel.didPreloadExisting else { return }
         if let entry = store.currentWorkout?.entries.first(where: { $0.id == id }),
            !entry.sets.isEmpty {
-            sets = entry.sets
-            activeSetIndex = entry.activeSetIndex
+            viewModel.sets = entry.sets
+            viewModel.activeSetIndex = entry.activeSetIndex
         }
-        didPreloadExisting = true
+        viewModel.didPreloadExisting = true
     }
 
     private func prefillFromWorkoutHistory() {
-        guard !didPrefillFromHistory else { return }
+        guard !viewModel.didPrefillFromHistory else { return }
 
         // Check if user has completed this exercise before
         if let lastSet = store.lastWorkingSet(exercise: exercise) {
             // User has history - prefill with their last performance
-            sets = [SetInput(
+            viewModel.sets = [SetInput(
                 reps: lastSet.reps,
                 weight: lastSet.weightKg,
                 tag: .working,
                 autoWeight: false,
                 didSeedFromMemory: true
             )]
-            print("✅ Prefilled exercise '\(exercise.name)' with last performance: \(lastSet.reps) reps @ \(lastSet.weightKg)kg")
+           
         } else {
             // No history - use weight suggestion helper
             let suggestedWeight = WeightSuggestionHelper.suggestInitialWeight(for: exercise)
             let suggestedReps = WeightSuggestionHelper.suggestInitialReps(for: exercise)
-            sets = [SetInput(
+            viewModel.sets = [SetInput(
                 reps: suggestedReps,
                 weight: suggestedWeight,
                 tag: .working,
                 autoWeight: true,
                 didSeedFromMemory: false
             )]
-            if suggestedWeight > 0 {
-                print("✅ Suggested initial weight for '\(exercise.name)': \(suggestedWeight)kg @ \(suggestedReps) reps")
-            }
+           
         }
 
-        didPrefillFromHistory = true
+        viewModel.didPrefillFromHistory = true
     }
 
     private func autoSelectFirstIncompleteSet() {
         // Find the first set that is not completed
-        if let firstIncomplete = sets.firstIndex(where: { !$0.isCompleted && !$0.isGhost }) {
-            activeSetIndex = firstIncomplete
+        if let firstIncomplete = viewModel.sets.firstIndex(where: { !$0.isCompleted && !$0.isGhost }) {
+            viewModel.activeSetIndex = firstIncomplete
         } else {
             // If all sets are completed, select the last one
-            activeSetIndex = max(0, sets.count - 1)
+            viewModel.activeSetIndex = max(0, viewModel.sets.count - 1)
         }
     }
 
     // MARK: - Set Logging Logic (Auto-Save)
 
     private func logSet(at index: Int) {
-        guard index < sets.count else { return }
+        guard index < viewModel.sets.count else { return }
 
         // 1. Mark set as completed
-        sets[index].isCompleted = true
+        viewModel.sets[index].isCompleted = true
 
         // 2. Auto-save to workout (best practice: immediate save)
-        if let entryID = currentEntryID {
+        if let entryID = viewModel.currentEntryID {
             // Existing entry - update sets
-            store.updateEntrySetsAndActiveIndex(entryID: entryID, sets: sets, activeSetIndex: activeSetIndex)
+            store.updateEntrySetsAndActiveIndex(entryID: entryID, sets: viewModel.sets, activeSetIndex: viewModel.activeSetIndex)
         } else {
             // First logged set - automatically add exercise to workout
             let entryID = store.addExerciseToCurrent(exercise)
             store.updateEntrySets(entryID: entryID, sets: cleanSets())
-            currentEntryID = entryID  // Track this entry for future updates
+            viewModel.currentEntryID = entryID  // Track this entry for future updates
         }
 
         // 3. Advance to next set if available (but don't generate a new one yet)
-        if index < sets.count - 1 {
+        if index < viewModel.sets.count - 1 {
             // Move to next existing set
-            activeSetIndex = index + 1
+            viewModel.activeSetIndex = index + 1
         }
         // Note: New set will be generated when rest timer completes
 
@@ -764,11 +798,11 @@ struct ExerciseSessionView: View {
 
     private func generateNewSetAfterRest() {
         // Find the last completed set to use as a template
-        guard let lastCompletedSet = sets.last(where: { $0.isCompleted }) else { return }
+        guard let lastCompletedSet = viewModel.sets.last(where: { $0.isCompleted }) else { return }
 
         // Check if we already have an incomplete set at the end - if so, just activate it
-        if let lastSet = sets.last, !lastSet.isCompleted {
-            activeSetIndex = sets.count - 1
+        if let lastSet = viewModel.sets.last, !lastSet.isCompleted {
+            viewModel.activeSetIndex = viewModel.sets.count - 1
             return
         }
 
@@ -785,20 +819,39 @@ struct ExerciseSessionView: View {
             isAutoGeneratedPlaceholder: true  // Mark as auto-generated
         )
 
-        sets.append(newSet)
-        activeSetIndex = sets.count - 1
+        viewModel.sets.append(newSet)
+        viewModel.activeSetIndex = viewModel.sets.count - 1
 
         // Auto-save the new set to the workout
-        if let entryID = currentEntryID {
-            store.updateEntrySetsAndActiveIndex(entryID: entryID, sets: sets, activeSetIndex: activeSetIndex)
+        if let entryID = viewModel.currentEntryID {
+            store.updateEntrySetsAndActiveIndex(entryID: entryID, sets: viewModel.sets, activeSetIndex: viewModel.activeSetIndex)
         }
 
         // Haptic feedback
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
+    /// Reload sets from workout store (called after WorkoutStoreV2 updates the workout from widget)
+    private func reloadSetsFromStore() {
+        // Find the entry for this exercise in the workout
+        guard let entry = store.existingEntry(for: exercise.id) else {
+            AppLogger.debug("No entry found for \(exercise.name) when reloading sets", category: AppLogger.workout)
+            return
+        }
+
+        // Update the view model with the latest sets from the store
+        viewModel.sets = entry.sets
+        viewModel.activeSetIndex = entry.activeSetIndex
+        viewModel.currentEntryID = entry.id
+
+        AppLogger.debug("Reloaded sets from store for \(exercise.name) - \(entry.sets.count) sets", category: AppLogger.workout)
+
+        // Auto-select the newly added incomplete set (if any)
+        autoSelectFirstIncompleteSet()
+    }
+
     private func cleanSets() -> [SetInput] {
-        sets.map {
+        viewModel.sets.map {
             var s = $0
             s.reps = max(0, s.reps)
             s.weight = max(0, s.weight)
@@ -807,226 +860,69 @@ struct ExerciseSessionView: View {
     }
 
     // MARK: - Tutorial Logic
-
-    private func checkFramesReady() {
-        let setsReady = setsSectionFrame != .zero && setsSectionFrame.height > 0
-        let setTypeReady = setTypeFrame != .zero && setTypeFrame.width > 0
-        let carouselsReady = carouselsFrame != .zero && carouselsFrame.width > 0
-        let presetsReady = presetsFrame != .zero && presetsFrame.width > 0
-        let addSetReady = addSetButtonFrame != .zero && addSetButtonFrame.width > 0
-        let infoReady = infoButtonFrame != .zero && infoButtonFrame.width > 0
-        let saveReady = saveButtonFrame != .zero && saveButtonFrame.width > 0
-
-        if setsReady && setTypeReady && carouselsReady && presetsReady && addSetReady && infoReady && saveReady && !framesReady {
-            framesReady = true
-        }
-    }
+    // Tutorial logic is now in ViewModel
 
     private var tutorialSteps: [TutorialStep] {
-        // Move all frames up to align with UI elements
-        func adjustFrame(_ frame: CGRect) -> CGRect {
-            return CGRect(
-                x: frame.origin.x,
-                y: frame.origin.y - frameUpwardAdjustment,
-                width: frame.width,
-                height: frame.height
-            )
-        }
-
         return [
             TutorialStep(
-                title: "Sets Section",
-                message: "This is where you track your sets. Each row represents one set with reps and weight.",
-                spotlightFrame: adjustFrame(setsSectionFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
-                highlightCornerRadius: 16
-            ),
-            TutorialStep(
-                title: "Set Type",
-                message: "Tap the colored dot to cycle through set types: Working, Warmup, Drop set, or Failure set.",
-                spotlightFrame: adjustFrame(setTypeFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
-                highlightCornerRadius: 12
-            ),
-            TutorialStep(
-                title: "Reps & Weight",
-                message: "Use the scroll wheels to adjust reps and weight. Swipe up or down to change values quickly.",
-                spotlightFrame: adjustFrame(carouselsFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
-                highlightCornerRadius: 14
-            ),
-            TutorialStep(
-                title: "Quick Presets",
-                message: "Use Last copies your previous workout. 5×5 creates five sets of five reps. Try 1RM appears when you have a personal record.",
-                spotlightFrame: adjustFrame(presetsFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
-                highlightCornerRadius: 12
-            ),
-            TutorialStep(
-                title: "Add Set",
-                message: "Tap here to add more sets to your workout. New sets copy the values from your last set.",
-                spotlightFrame: adjustFrame(addSetButtonFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
-                highlightCornerRadius: 14
-            ),
-            TutorialStep(
-                title: "Exercise Info",
-                message: "Tap the info button to see exercise details, watch tutorial videos, and adjust rest timer settings.",
-                spotlightFrame: adjustFrame(infoButtonFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
-                highlightCornerRadius: 24
-            ),
-            TutorialStep(
-                title: "Save Workout",
-                message: "When you're done, tap here to save all your sets to your current workout session.",
-                spotlightFrame: adjustFrame(saveButtonFrame).insetBy(dx: -8, dy: -8),
-                tooltipPosition: .bottom,
+                title: "Track Your Exercise",
+                message: "Use +/- buttons to adjust reps and weight. Tap the colored badge to change set type. Swipe right on a set to log it, left to delete. Tap the info button for exercise details and rest timer settings. When done, tap the button at the bottom to save.",
+                spotlightFrame: nil,  // No spotlight, just overlay
+                tooltipPosition: .center,
                 highlightCornerRadius: 16
             )
         ]
     }
 
-    private func advanceTutorial() {
-        if currentTutorialStep < tutorialSteps.count - 1 {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                currentTutorialStep += 1
-            }
+    // MARK: - Workout Management
+
+    /// Ensures the exercise is added to the current workout (or creates a new workout if needed)
+    /// Called when user starts a timer on a timed exercise
+    private func ensureExerciseInWorkout() {
+        var createdNewWorkout = false
+
+        // If there's no current workout, create one
+        if store.currentWorkout == nil {
+            store.startWorkoutIfNeeded()
+            createdNewWorkout = true
+            AppLogger.info("Auto-created workout for timed exercise: \(exercise.name)", category: AppLogger.workout)
+        }
+
+        // Check if this exercise already exists in the current workout
+        if let existingEntry = store.existingEntry(for: exercise.id) {
+            // Exercise already in workout - just make sure we're using it
+            viewModel.currentEntryID = existingEntry.id
+            AppLogger.debug("Exercise already in workout, using existing entry", category: AppLogger.workout)
         } else {
-            completeTutorial()
-        }
-    }
+            // Exercise not in workout yet - create entry now so it shows in LiveWorkoutGrabTab
+            let newEntryID = store.addExerciseToCurrent(exercise)
+            viewModel.currentEntryID = newEntryID
 
-    private func skipTutorial() {
-        completeTutorial()
-    }
+            // Initialize the entry with current sets (even if empty/incomplete)
+            store.updateEntrySets(entryID: newEntryID, sets: viewModel.sets)
 
-    private func completeTutorial() {
-        withAnimation(.easeOut(duration: 0.2)) {
-            showTutorial = false
+            AppLogger.info("Added exercise to workout: \(exercise.name)", category: AppLogger.workout)
         }
-        onboardingManager.complete(.exerciseSession)
+
+        // Show banner feedback
+        workoutBannerMessage = createdNewWorkout ? "Workout started with \(exercise.name)" : "Added to current workout"
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            showWorkoutCreatedBanner = true
+        }
+
+        // Auto-hide banner after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                showWorkoutCreatedBanner = false
+            }
+        }
+
+        // Haptic feedback to confirm action
+        Haptics.soft()
     }
 
     // MARK: - Save Logic
-
-    private var saveButtonTitle: String {
-        // All sets are auto-saved when logged, so this button just closes the view
-        return "Done"
-    }
-
-    private func handleSave() {
-        // Check if there are unlogged sets that appear to be modified
-        if hasUnloggedModifiedSets() {
-            showUnsavedSetsAlert = true
-            return
-        }
-
-        // No modified sets, proceed with cleanup and dismiss
-        cleanupAndDismiss()
-    }
-
-    private func cleanupAndDismiss() {
-        // Silently remove any unlogged sets before dismissing
-        if let entryID = currentEntryID {
-            let loggedSets = sets.filter { $0.isCompleted }
-            if !loggedSets.isEmpty {
-                store.updateEntrySets(entryID: entryID, sets: loggedSets)
-            }
-        }
-
-        dismiss()
-
-        if returnToHomeOnSave {
-            NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-            AppBus.postResetHome(reason: .user_intent)
-        } else {
-            NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-        }
-    }
-
-    // MARK: - Unlogged Sets Detection
-
-    private func hasUnloggedModifiedSets() -> Bool {
-        sets.contains { set in
-            !set.isCompleted && isSetModified(set)
-        }
-    }
-
-    private func countUnloggedModifiedSets() -> Int {
-        sets.filter { set in
-            !set.isCompleted && isSetModified(set)
-        }.count
-    }
-
-    private func isSetModified(_ set: SetInput) -> Bool {
-        // A set is considered "modified" (should warn before deleting) if:
-        // 1. It has meaningful values (reps > 0 or weight > 0)
-        // 2. AND it's NOT an untouched auto-generated placeholder that matches the last completed set
-
-        let hasValues = set.reps > 0 || set.weight > 0
-
-        // If it's an auto-generated placeholder, check if it matches the last completed set
-        if set.isAutoGeneratedPlaceholder {
-            guard let lastCompletedSet = sets.last(where: { $0.isCompleted }) else {
-                // No completed sets to compare against - treat as unmodified placeholder
-                return false
-            }
-
-            // Compare with last completed set - if values match exactly, it's unmodified
-            let matchesLastSet = (
-                set.reps == lastCompletedSet.reps &&
-                abs(set.weight - lastCompletedSet.weight) < 0.01 && // Float comparison
-                set.tag == lastCompletedSet.tag
-            )
-
-            if matchesLastSet {
-                // Auto-generated and unchanged from template → safe to silently delete
-                return false
-            } else {
-                // Auto-generated but user modified it → warn before deleting
-                return hasValues
-            }
-        }
-
-        // Not an auto-generated placeholder, so consider it modified if it has values
-        return hasValues
-    }
-
-    private func saveAsNewEntry() {
-        let clean = cleanSets()
-
-        guard clean.contains(where: { $0.reps > 0 || $0.weight > 0 }) else {
-            showEmptyAlert = true
-            return
-        }
-
-        let entryID = store.addExerciseToCurrent(exercise)
-        store.updateEntrySets(entryID: entryID, sets: clean)
-
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-
-        dismiss()
-
-        if returnToHomeOnSave {
-            NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-            AppBus.postResetHome(reason: .user_intent)
-        } else {
-            NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
-        }
-    }
-
-    private func saveToCurrentWithoutDismiss() {
-        guard let entryID = currentEntryID else { return }
-        let clean = cleanSets()
-
-        guard clean.contains(where: { $0.reps > 0 || $0.weight > 0 }) else {
-            showEmptyAlert = true
-            return
-        }
-
-        store.updateEntrySetsAndActiveIndex(entryID: entryID, sets: clean, activeSetIndex: activeSetIndex)
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-    }
+    // All save logic is now in ViewModel
 
     private func startRestTimerIfEnabled() {
         let prefs = RestTimerPreferences.shared
@@ -1043,3 +939,71 @@ struct ExerciseSessionView: View {
         }
     }
 }
+
+// MARK: - View Modifiers
+
+/// Handles navigation bar, background, toolbar, and alerts
+private struct NavigationAndAlertsModifier: ViewModifier {
+    @ObservedObject var viewModel: ExerciseSessionViewModel
+    let dismiss: DismissAction
+
+    func body(content: Content) -> some View {
+        content
+            .navigationBarHidden(true)
+            .background(ExerciseSessionTheme.bg.ignoresSafeArea())
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .fontWeight(.bold)
+                    .foregroundStyle(ExerciseSessionTheme.accent)
+                }
+            }
+            .alert("Empty workout", isPresented: $viewModel.showEmptyAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Add at least one set with reps to save.")
+            }
+            .alert("Last Set", isPresented: $viewModel.showLastSetDeletionAlert) {
+                Button("Delete Exercise", role: .destructive) {
+                    viewModel.deleteExerciseFromWorkout(dismiss: dismiss)
+                }
+                Button("Edit Set", role: .cancel) {
+                    viewModel.makeLastSetEditable()
+                }
+            } message: {
+                Text("This is the last set from this exercise. Do you wish to delete the whole exercise or edit the set instead?")
+            }
+    }
+}
+
+/// Handles all lifecycle events (onAppear, onChange, onReceive)
+private struct LifecycleModifier: ViewModifier {
+    let geometry: GeometryProxy
+    let initialEntryID: UUID?
+    let scenePhase: ScenePhase
+    let onAppear: () -> Void
+    let onEntryIDChange: (UUID?) -> Void
+    let onScenePhaseChange: (ScenePhase) -> Void
+    let onTimerStateChange: (RestTimerState) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                onAppear()
+            }
+            .onChange(of: initialEntryID) { _, newID in
+                onEntryIDChange(newID)
+            }
+            .onReceive(RestTimerManager.shared.$state) { newState in
+                onTimerStateChange(newState)
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                onScenePhaseChange(newPhase)
+            }
+    }
+}
+
+// Sync modifiers removed - ViewModel is now the single source of truth

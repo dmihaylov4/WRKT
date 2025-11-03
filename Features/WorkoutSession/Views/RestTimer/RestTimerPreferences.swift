@@ -68,14 +68,29 @@ class RestTimerPreferences: ObservableObject {
 
     // MARK: - Public API
 
-    /// Get rest duration for an exercise (checks overrides first, then defaults based on mechanics)
+    /// Get rest duration for an exercise (context-aware based on tracking mode)
     func restDuration(for exercise: Exercise) -> TimeInterval {
         // Check for per-exercise override first
         if let override = perExerciseOverrides[exercise.id] {
             return TimeInterval(override)
         }
 
-        // Use default based on mechanics
+        // Check if exercise has a recommended rest time (for Pilates/Yoga/Timed exercises)
+        if let recommendedRest = exercise.recommendedRestSeconds {
+            return TimeInterval(recommendedRest)
+        }
+
+        // For timed exercises (planks, holds), use shorter rest by default
+        if exercise.isTimedExercise {
+            return TimeInterval(30) // 30 seconds for timed exercises
+        }
+
+        // For bodyweight exercises (Pilates roll-ups, etc.), use moderate rest
+        if exercise.isBodyweightExercise {
+            return TimeInterval(45) // 45 seconds for bodyweight
+        }
+
+        // For weighted strength training, use mechanics-based defaults
         let isCompound = exercise.mechanic?.lowercased() == "compound"
         let defaultSeconds = isCompound ? defaultCompoundSeconds : defaultIsolationSeconds
         return TimeInterval(defaultSeconds)

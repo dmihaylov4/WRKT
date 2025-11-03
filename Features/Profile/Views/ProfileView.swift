@@ -20,8 +20,6 @@ struct ProfileView: View {
     @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.modelContext) private var context
 
-    @State private var healthKitMinutes: Int = 0
-
     // Tutorial state
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var showTutorial = false
@@ -32,6 +30,8 @@ struct ProfileView: View {
     @State private var milestonesFrame: CGRect = .zero
     @State private var settingsFrame: CGRect = .zero
     @State private var framesReady = false
+    @State private var allExercises: [Exercise] = []
+    @State private var dexPreviewCache: [DexItem] = []
 
     init() {
         // compute weekStart once for this view’s init
@@ -68,20 +68,36 @@ struct ProfileView: View {
             // Trigger incremental sync (will update WeeklyTrainingSummary models)
             await HealthKitManager.shared.syncExerciseTimeIncremental()
 
-            // Update local state from SwiftData query
+            // Check weekly goal streak after syncing
             await MainActor.run {
-                healthKitMinutes = thisWeek.first?.appleExerciseMinutes ?? 0
+                checkWeeklyGoalStreak()
             }
         } catch {
             // Silently fail - authorization may not be granted yet
             await MainActor.run {
-                healthKitMinutes = thisWeek.first?.appleExerciseMinutes ?? 0
+                checkWeeklyGoalStreak()
             }
         }
+    }
+
+    private func checkWeeklyGoalStreak() {
+        guard let goal = goals.first else { return }
+        let weekProgress = store.currentWeekProgress(goal: goal, context: context)
+        RewardsEngine.shared.checkWeeklyGoalStreak(
+            weekStart: weekProgress.weekStart,
+            strengthDaysDone: weekProgress.strengthDaysDone,
+            strengthTarget: goal.targetStrengthDays,
+            mvpaMinutesDone: weekProgress.mvpaDone,
+            mvpaTarget: goal.targetActiveMinutes
+        )
     }
     
     // MARK: - PR Dex preview items (unlocked first, then alpha; first 8)
     private var dexPreview: [DexItem] {
+        Array(dexPreviewCache.prefix(8))
+    }
+
+    private func rebuildDexPreview() {
         let unlockedDates: [String: Date] = Dictionary(
             uniqueKeysWithValues: stamps.compactMap { s in
                 guard let d = s.unlockedAt else { return nil }
@@ -90,14 +106,14 @@ struct ProfileView: View {
         )
         let unlockedSet = Set(unlockedDates.keys)
 
-        // Split → sort → merge → take first 8 (avoids sorting all together twice)
+        // Split → sort → merge (using ALL exercises)
         var unlocked: [DexItem] = []
         var locked:   [DexItem] = []
 
-        unlocked.reserveCapacity(16)
-        locked.reserveCapacity(16)
+        unlocked.reserveCapacity(allExercises.count / 2)
+        locked.reserveCapacity(allExercises.count / 2)
 
-        for ex in repo.exercises {
+        for ex in allExercises {
             let key = canonicalExerciseKey(from: ex.id)
             let unlockedAt = unlockedDates[key]
             let short = DexText.shortName(ex.name)
@@ -119,7 +135,7 @@ struct ProfileView: View {
         unlocked.sort { $0.short < $1.short }
         locked.sort { $0.short < $1.short }
 
-        return Array((unlocked + locked).prefix(8))
+        dexPreviewCache = unlocked + locked
     }
 
     var body: some View {
@@ -129,7 +145,7 @@ struct ProfileView: View {
                 if let p = progress.first {
                     Section {
                         if let goal = goals.first, goal.isSet {
-                            let weekProgress = store.currentWeekProgress(goal: goal, context: context, healthKitMinutes: healthKitMinutes)
+                            let weekProgress = store.currentWeekProgress(goal: goal, context: context)
 
                             ProgressOverviewCard(
                                 level: p.level,
@@ -177,6 +193,23 @@ struct ProfileView: View {
                                                description: Text("Start a workout to earn XP and level up."))
                     }
                 }
+
+                // Weekly Goal Streak Card
+                if let p = progress.first, let goal = goals.first, goal.isSet {
+                    Section {
+                        let weekProgress = store.currentWeekProgress(goal: goal, context: context)
+                        WeeklyStreakCard(
+                            currentStreak: p.weeklyGoalStreakCurrent,
+                            longestStreak: p.weeklyGoalStreakLongest,
+                            progress: weekProgress,
+                            isFrozen: p.streakFrozen
+                        )
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 4, bottom: 4, trailing: 4))
+                    .listRowBackground(Color.clear)
+                    .id("weeklyStreak")
+                }
+
                 Section {
                     VStack(spacing: 16) {
                         ProfileStatsView()
@@ -284,8 +317,24 @@ struct ProfileView: View {
                 }
             }
         }
+        .task {
+            // Load ALL exercises for the dex preview
+            allExercises = await repo.getAllExercises()
+            rebuildDexPreview()
+        }
+        .onChange(of: stamps) { _ in
+            // Rebuild when stamps change (new PRs unlocked)
+            rebuildDexPreview()
+        }
+        .onChange(of: repo.exercises) { _ in
+            // Reload all exercises when exercises update
+            Task {
+                allExercises = await repo.getAllExercises()
+                rebuildDexPreview()
+            }
+        }
         .onAppear {
-            print("👤 ProfileView appeared")
+
 
             // Fallback: if frames haven't loaded after 1 second, show tutorial anyway
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -332,13 +381,6 @@ struct ProfileView: View {
         let settingsReady = settingsFrame != .zero && settingsFrame.width > minSize && settingsFrame.height > minSize
 
         if levelReady && graphsReady && dexReady && milestonesReady && settingsReady && !framesReady {
-            print("✅ All profile frames ready for tutorial!")
-            print("   Level: \(levelCardFrame)")
-            print("   Graphs: \(graphsFrame)")
-            print("   Dex: \(dexFrame)")
-            print("   Milestones: \(milestonesFrame)")
-            print("   Settings: \(settingsFrame)")
-
             // Add a small delay to ensure frames are stable before showing tutorial
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 framesReady = true
@@ -445,19 +487,28 @@ struct ProfileView: View {
             TutorialStep(
                 title: "Training Trends",
                 message: "View your training trends and muscle group balance. These graphs help you optimize your workout distribution.",
-                spotlightFrame: clampedFrame(graphsFrame, insetBy: UIEdgeInsets(top: 345, left: 16, bottom: 16, right: 16)),
+                spotlightFrame: {
+                    var frame = clampedFrame(graphsFrame, insetBy: UIEdgeInsets(top: 345, left: 16, bottom: 16, right: 16))
+                    frame.origin.y += 5  // Move upper border down by 5
+                    return frame
+                }(),
                 tooltipPosition: .bottom,
                 highlightCornerRadius: 16
             ),
             TutorialStep(
                 title: "PR Collection",
                 message: "Unlock personal records by achieving new max weights for each exercise. Build your collection!",
-                spotlightFrame: scrolledFrame(
-                    width: dexFrame.width,
-                    height: 550,
-                    padding: padding,
-                    yOffset: -180  // Move up to start earlier on screen
-                ),
+                spotlightFrame: {
+                    var frame = scrolledFrame(
+                        width: dexFrame.width,
+                        height: 550,
+                        padding: padding,
+                        yOffset: -180  // Move up to start earlier on screen
+                    )
+                    frame.origin.y += 5  // Move upper border down by 5
+                    frame.size.height += 20  // Extend lower border by 20
+                    return frame
+                }(),
                 tooltipPosition: .bottom,
                 highlightCornerRadius: 16
             ),
@@ -466,7 +517,7 @@ struct ProfileView: View {
                 message: "Customize your preferences and connect to Apple Health for seamless workout tracking.",
                 spotlightFrame: CGRect(
                     x: padding,
-                    y: max(100, screenHeight * 0.65) + 100,  // Position in lower portion of screen + 30pt offset
+                    y: max(100, screenHeight * 0.65) + 100 - 5,  // Position in lower portion of screen + move up by 5
                     width: screenWidth - (padding * 2),
                     height: 100  // Fixed height for settings section
                 ),
@@ -562,14 +613,18 @@ private struct ProgressOverviewCard: View {
 
                     Spacer()
 
-                    // Streak chip
-                    Label {
-                        Text("\(streak)")
-                            .font(.subheadline.weight(.semibold))
-                    } icon: {
-                        Image(systemName: "flame.fill")
+                    // Streak chip - shows weekly goal streak if goal is set, otherwise daily streak
+                    VStack(spacing: 2) {
+                        Label {
+                            Text("\(goal != nil ? progress.weeklyGoalStreakCurrent : streak)")
+                                .font(.subheadline.weight(.semibold))
+                        } icon: {
+                            Image(systemName: "flame.fill")
+                        }
+                        .labelStyle(.titleAndIcon)
+
+                    
                     }
-                    .labelStyle(.titleAndIcon)
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(.black.opacity(0.15), in: Capsule())
                     .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
@@ -584,7 +639,7 @@ private struct ProgressOverviewCard: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(
                                 LinearGradient(
-                                    colors: [Color(hex: "#F4E409"), Color(hex: "#FFE869")],
+                                    colors: [DS.Theme.accent, DS.Theme.accent.opacity(0.7)],
                                     startPoint: .leading, endPoint: .trailing
                                 )
                             )
@@ -600,7 +655,14 @@ private struct ProgressOverviewCard: View {
 
                     Spacer()
 
-                    Text("Longest: \(longest) days")
+                    Text({
+                        if let goal = goal {
+                            let weeks = progress.weeklyGoalStreakLongest
+                            return "Longest: \(weeks) week\(weeks == 1 ? "" : "s")"
+                        } else {
+                            return "Longest: \(longest) day\(longest == 1 ? "" : "s")"
+                        }
+                    }())
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                 }
@@ -652,7 +714,7 @@ private struct ProgressOverviewCard: View {
                             .foregroundStyle(.white)
 
                             ProgressView(value: min(Double(weekProgress.mvpaDone), Double(weekProgress.mvpaTarget)), total: Double(max(weekProgress.mvpaTarget, 1)))
-                                .tint(Color(hex: "#F4E409"))
+                                .tint(DS.Theme.accent)
                                 .scaleEffect(y: 0.8)
                         }
 
@@ -679,7 +741,7 @@ private struct ProgressOverviewCard: View {
                             .foregroundStyle(.white)
 
                             ProgressView(value: min(Double(weekProgress.strengthDaysDone), Double(weekProgress.strengthTarget)), total: Double(max(weekProgress.strengthTarget, 1)))
-                                .tint(Color(hex: "#F4E409"))
+                                .tint(DS.Theme.accent)
                                 .scaleEffect(y: 0.8)
                         }
                     }
@@ -695,7 +757,7 @@ private struct ProgressOverviewCard: View {
                     HStack(spacing: 10) {
                         Image(systemName: "target")
                             .font(.body)
-                            .foregroundStyle(Color(hex: "#F4E409"))
+                            .foregroundStyle(DS.Theme.accent)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Set Weekly Goals")
@@ -709,7 +771,7 @@ private struct ProgressOverviewCard: View {
                         Spacer()
 
                         Image(systemName: "arrow.right.circle.fill")
-                            .foregroundStyle(Color(hex: "#F4E409"))
+                            .foregroundStyle(DS.Theme.accent)
                     }
                     .padding(12)
                     .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
@@ -722,7 +784,7 @@ private struct ProgressOverviewCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color(hex: "#232323"), Color(hex: "#353535")],
+                        colors: [DS.Theme.cardTop, DS.Theme.cardBottom],
                         startPoint: .topLeading, endPoint: .bottomTrailing
                     )
                 )
@@ -756,12 +818,12 @@ private struct DexBadge: View {
         VStack(spacing: 8) {
             ZStack {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(item.isUnlocked ? Color.yellow.opacity(0.18) : Color.gray.opacity(0.12))
+                    .fill(item.isUnlocked ? DS.Theme.accent.opacity(0.18) : Color.gray.opacity(0.12))
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(.quaternary)
                 Image(systemName: item.isUnlocked ? "trophy.fill" : "trophy")
                     .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(item.isUnlocked ? Color.yellow : .secondary)
+                    .foregroundStyle(item.isUnlocked ? DS.Theme.accent : .secondary)
                     .font(.title2.weight(.bold))
             }
             .frame(height: 62)
@@ -790,7 +852,7 @@ private struct MilestoneChip: View {
         HStack(spacing: 8) {
             Image(systemName: a.unlockedAt == nil ? "trophy" : "trophy.fill")
                 .symbolRenderingMode(.monochrome)
-                .foregroundStyle(a.unlockedAt == nil ? .secondary : Color.yellow)
+                .foregroundStyle(a.unlockedAt == nil ? .secondary : DS.Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(a.title).font(.subheadline.weight(.semibold))
                 if let when = a.unlockedAt {
@@ -809,18 +871,7 @@ private struct MilestoneChip: View {
     }
 }
 
-// MARK: - Tiny hex helper (if you don't already have a shared one)
-private extension Color {
-    init(hex: String) {
-        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("#") { s.removeFirst() }
-        var v: UInt64 = 0; Scanner(string: s).scanHexInt64(&v)
-        let r = Double((v >> 16) & 0xFF) / 255.0
-        let g = Double((v >>  8) & 0xFF) / 255.0
-        let b = Double( v        & 0xFF) / 255.0
-        self = Color(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
-    }
-}
+// Color(hex:) is now available from DS.swift, no need to redefine
 
 // MARK: - Weekly Goal Detail View
 
@@ -853,7 +904,7 @@ private struct WeeklyGoalDetailView: View {
                                     .foregroundStyle(.secondary)
                             }
                             ProgressView(value: min(Double(progress.mvpaDone), Double(progress.mvpaTarget)), total: Double(max(progress.mvpaTarget, 1)))
-                                .tint(Color(hex: "#F4E409"))
+                                .tint(DS.Theme.accent)
                         }
 
                         Divider()
@@ -871,7 +922,7 @@ private struct WeeklyGoalDetailView: View {
                                     .foregroundStyle(.secondary)
                             }
                             ProgressView(value: min(Double(progress.strengthDaysDone), Double(progress.strengthTarget)), total: Double(max(progress.strengthTarget, 1)))
-                                .tint(Color(hex: "#F4E409"))
+                                .tint(DS.Theme.accent)
                         }
                     }
 
@@ -903,7 +954,7 @@ private struct WeeklyGoalDetailView: View {
                     } label: {
                         HStack {
                             Image(systemName: "dumbbell.fill")
-                                .foregroundStyle(Color(hex: "#F4E409"))
+                                .foregroundStyle(DS.Theme.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Start Strength Workout")
                                     .font(.headline)

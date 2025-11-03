@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import Combine
 import UserNotifications
-
+import ActivityKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -29,11 +29,19 @@ class RestTimerManager: ObservableObject {
     // MARK: - Published State
     @Published private(set) var state: RestTimerState = .idle
     @Published private(set) var remainingSeconds: TimeInterval = 0
+    @Published private(set) var timerStartDate: Date? = nil  // Track when current timer was started
+    @Published private(set) var isManuallyStartedTimer: Bool = false  // True if started from widget without logging a set
 
     // MARK: - Private Properties
     private var timer: AnyCancellable?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var hasTriggeredTenSecondWarning = false
+    private var commandObserverTimer: AnyCancellable?
+    private var lastCommandTimestamp: TimeInterval
+
+    // Store last exercise info for widget commands
+    private var lastExerciseID: String?
+    private var lastExerciseName: String?
 
     // UserDefaults keys for background persistence
     private enum Keys {
@@ -44,8 +52,40 @@ class RestTimerManager: ObservableObject {
         static let pendingSetGeneration = "pending_set_generation_exercises"
     }
 
+    // App Group for sharing data with Widget Extension
+    private let appGroupIdentifier = "group.com.dmihaylov.trak.shared"
+
+    // Command keys (must match RestTimerAppIntents.swift)
+    private enum CommandKey {
+        static let adjustTime = "restTimer.command.adjustTime"
+        static let pause = "restTimer.command.pause"
+        static let resume = "restTimer.command.resume"
+        static let skip = "restTimer.command.skip"
+        static let stop = "restTimer.command.stop"
+        static let startNextSet = "restTimer.command.startNextSet"
+        static let timestamp = "restTimer.command.timestamp"
+    }
+
     // MARK: - Initialization
     private init() {
+        // Initialize lastCommandTimestamp from UserDefaults to avoid processing stale commands
+        if let sharedDefaults = UserDefaults(suiteName: appGroupIdentifier) {
+            self.lastCommandTimestamp = sharedDefaults.double(forKey: CommandKey.timestamp)
+
+            // Clean up any leftover command flags from previous session
+            sharedDefaults.removeObject(forKey: CommandKey.stop)
+            sharedDefaults.removeObject(forKey: CommandKey.skip)
+            sharedDefaults.removeObject(forKey: CommandKey.pause)
+            sharedDefaults.removeObject(forKey: CommandKey.resume)
+            sharedDefaults.removeObject(forKey: CommandKey.adjustTime)
+            sharedDefaults.removeObject(forKey: CommandKey.startNextSet)
+
+            print("📱 [App] RestTimerManager initialized. Last command timestamp: \(self.lastCommandTimestamp)")
+        } else {
+            self.lastCommandTimestamp = 0
+            print("⚠️ [App] RestTimerManager: Failed to access shared UserDefaults on init")
+        }
+
         // Restore timer if app was backgrounded
         restoreTimerIfNeeded()
 
@@ -62,20 +102,31 @@ class RestTimerManager: ObservableObject {
             name: UIApplication.willEnterForegroundNotification,
             object: nil
         )
+
+        // Start observing commands from Widget Extension
+        startObservingWidgetCommands()
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        commandObserverTimer?.cancel()
     }
 
     // MARK: - Public API
 
     /// Start a new rest timer
-    func startTimer(duration: TimeInterval, exerciseID: String, exerciseName: String) {
+    /// - Parameters:
+    ///   - isManualStart: True if started from widget without logging a set, false if started after logging a set in-app
+    func startTimer(duration: TimeInterval, exerciseID: String, exerciseName: String, isManualStart: Bool = false) {
         // Cancel any existing timer
         stopTimer()
 
+        // Store exercise info for widget commands
+        lastExerciseID = exerciseID
+        lastExerciseName = exerciseName
+
         let endDate = Date().addingTimeInterval(duration)
+        let startDate = Date()
 
         // Save to UserDefaults for background persistence
         UserDefaults.standard.set(endDate, forKey: Keys.timerEndDate)
@@ -86,6 +137,8 @@ class RestTimerManager: ObservableObject {
         // Update state
         state = .running(endDate: endDate, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: duration, wasAdjusted: false)
         remainingSeconds = duration
+        timerStartDate = startDate  // Track when this timer was started
+        isManuallyStartedTimer = isManualStart  // Track if this was started from widget
         hasTriggeredTenSecondWarning = false
 
         // Schedule completion notification
@@ -94,6 +147,16 @@ class RestTimerManager: ObservableObject {
         // Schedule 10-second warning notification
         if duration > 10 {
             scheduleTenSecondWarning(endDate: endDate, exerciseName: exerciseName)
+        }
+
+        // Start Live Activity
+        Task { @MainActor in
+            LiveActivityManager.shared.startRestTimerActivity(
+                exerciseName: exerciseName,
+                exerciseID: exerciseID,
+                duration: duration,
+                endDate: endDate
+            )
         }
 
         // Start the timer
@@ -116,32 +179,143 @@ class RestTimerManager: ObservableObject {
         clearBackgroundTask()
         clearUserDefaults()
 
+        // End Live Activity
+        Task { @MainActor in
+            LiveActivityManager.shared.endRestTimerActivity(dismissalPolicy: .immediate)
+        }
+
         state = .idle
         remainingSeconds = 0
+        timerStartDate = nil  // Clear timer start timestamp
+        isManuallyStartedTimer = false  // Clear manual start flag
         hasTriggeredTenSecondWarning = false
     }
 
-    /// Skip the remaining time and cancel (without generating next set)
+    /// Skip the remaining time and mark as completed (generates next set)
     func skipTimer() {
-        guard case .running(_, let exerciseID, _, _, _) = state else { return }
+        guard case .running(_, let exerciseID, let exerciseName, _, _) = state else { return }
 
-        // Don't complete - just cancel and go to idle
-        // This prevents the ExerciseSessionView observer from generating a new set
+        // Store exercise info before clearing state
+        lastExerciseID = exerciseID
+        lastExerciseName = exerciseName
+
+        // Complete the timer early - this will generate the next set
         timer?.cancel()
         timer = nil
         cancelAllNotifications()
         clearBackgroundTask()
         clearUserDefaults()
 
-        // Clear any pending set generation flag for this exercise
-        clearPendingSetGeneration(for: exerciseID)
-
-        state = .idle
+        // Mark as completed so new set gets generated
+        state = .completed(exerciseID: exerciseID, exerciseName: exerciseName)
         remainingSeconds = 0
         hasTriggeredTenSecondWarning = false
 
-        // Haptic feedback for cancellation
+        // Mark that this exercise needs a new set generated
+        markPendingSetGeneration(for: exerciseID)
+
+        // IMPORTANT: Stop LiveActivityManager's auto-update loop BEFORE updating to "Ready" state
+        // Otherwise the loop will recalculate remaining time and overwrite our update
+        Task { @MainActor in
+            LiveActivityManager.shared.stopUpdateLoop()
+
+            // Update Live Activity to show "Ready" state (0 time remaining, not paused)
+            LiveActivityManager.shared.updateRestTimer(
+                remainingSeconds: 0,
+                endDate: Date(),
+                isPaused: false,
+                wasAdjusted: false
+            )
+        }
+
+        // Auto-dismiss completed state after 2 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self = self else { return }
+            if case .completed = self.state {
+                self.state = .idle
+            }
+        }
+
+        // Haptic feedback for completion
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    /// Start a new rest timer for the next set (called from widget)
+    func startNextSetTimer() {
+        // Get exercise info from current state
+        let exerciseInfo: (id: String, name: String)?
+
+        switch state {
+        case .completed(let exerciseID, let exerciseName):
+            exerciseInfo = (exerciseID, exerciseName)
+        case .running(_, let exerciseID, let exerciseName, _, _):
+            // If timer is running, skip it first
+            skipTimer()
+            exerciseInfo = (exerciseID, exerciseName)
+        case .paused(_, let exerciseID, let exerciseName, _, _):
+            exerciseInfo = (exerciseID, exerciseName)
+        case .idle:
+            // Use last stored exercise info as fallback
+            if let lastExerciseID = lastExerciseID, let lastExerciseName = lastExerciseName {
+                exerciseInfo = (lastExerciseID, lastExerciseName)
+                print("📱 [App] Using last exercise info from storage: \(lastExerciseName)")
+            } else {
+                exerciseInfo = nil
+            }
+        }
+
+        // If we don't have exercise info, can't start timer
+        guard let (exerciseID, exerciseName) = exerciseInfo else {
+            print("⚠️ [App] Cannot start next set timer - no exercise info available")
+            return
+        }
+
+        print("📱 [App] Starting next set timer for: \(exerciseName)")
+
+        // Post notification to trigger immediate set generation AND log it as completed
+        // This ensures the set is created and logged BEFORE the timer starts showing in UI
+        NotificationCenter.default.post(
+            name: NSNotification.Name("GeneratePendingSetBeforeTimer"),
+            object: nil,
+            userInfo: [
+                "exerciseID": exerciseID,
+                "shouldLogSet": true  // Mark the generated set as completed immediately
+            ]
+        )
+
+        // Small delay to allow set generation to complete
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            guard let self = self else { return }
+
+            // Get rest duration from preferences
+            let restDuration = self.getRestDuration()
+
+            // Start new rest timer (NOT marked as manual - this is like logging a set from the app)
+            // The widget "Start Next Set" button logs a set AND starts a timer, just like in-app
+            self.startTimer(duration: restDuration, exerciseID: exerciseID, exerciseName: exerciseName, isManualStart: false)
+
+            print("📱 [App] Started new rest timer for next set: \(exerciseName) (\(Int(restDuration))s)")
+
+            // Haptic feedback
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        }
+    }
+
+    /// Get rest duration from user preferences
+    /// Reads the last used timer duration for the current exercise from UserDefaults
+    private func getRestDuration() -> TimeInterval {
+        // Try to read the last used timer duration (stored when timer was started)
+        // This will be the exercise-specific duration that was used
+        let defaults = UserDefaults.standard
+        let storedDuration = defaults.double(forKey: Keys.timerDuration)
+
+        // If we have a stored duration, use it (this preserves exercise-specific settings)
+        if storedDuration > 0 {
+            return storedDuration
+        }
+
+        // Fall back to default if no stored duration
+        return 90 // Default 90 seconds
     }
 
     /// Pause the timer
@@ -153,6 +327,16 @@ class RestTimerManager: ObservableObject {
         cancelAllNotifications()
 
         state = .paused(remainingSeconds: remainingSeconds, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: originalDuration, wasAdjusted: wasAdjusted)
+
+        // Update Live Activity to paused state
+        Task { @MainActor in
+            LiveActivityManager.shared.updateRestTimer(
+                remainingSeconds: Int(remainingSeconds),
+                endDate: Date().addingTimeInterval(remainingSeconds),
+                isPaused: true,
+                wasAdjusted: wasAdjusted
+            )
+        }
     }
 
     /// Resume from paused state
@@ -177,6 +361,16 @@ class RestTimerManager: ObservableObject {
         if remaining > 10 {
             scheduleTenSecondWarning(endDate: endDate, exerciseName: exerciseName)
             hasTriggeredTenSecondWarning = false
+        }
+
+        // Update Live Activity to running state
+        Task { @MainActor in
+            LiveActivityManager.shared.updateRestTimer(
+                remainingSeconds: Int(remaining),
+                endDate: endDate,
+                isPaused: false,
+                wasAdjusted: wasAdjusted
+            )
         }
 
         startTimerLoop()
@@ -206,6 +400,16 @@ class RestTimerManager: ObservableObject {
         // Update UserDefaults
         UserDefaults.standard.set(newEndDate, forKey: Keys.timerEndDate)
         UserDefaults.standard.set(newRemaining, forKey: Keys.timerDuration)
+
+        // Update Live Activity
+        Task { @MainActor in
+            LiveActivityManager.shared.updateRestTimer(
+                remainingSeconds: Int(newRemaining),
+                endDate: newEndDate,
+                isPaused: false,
+                wasAdjusted: true
+            )
+        }
 
         // Haptic feedback
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -257,6 +461,10 @@ class RestTimerManager: ObservableObject {
     }
 
     private func completeTimer(exerciseID: String, exerciseName: String, vibrate: Bool) {
+        // Store exercise info before clearing state
+        lastExerciseID = exerciseID
+        lastExerciseName = exerciseName
+
         timer?.cancel()
         timer = nil
         clearBackgroundTask()
@@ -269,6 +477,9 @@ class RestTimerManager: ObservableObject {
 
         // Mark that this exercise needs a new set generated
         markPendingSetGeneration(for: exerciseID)
+
+        // Note: LiveActivityManager's auto-update loop will stop itself when remaining <= 0
+        // See LiveActivityManager.startUpdateLoop() - it checks and stops when timer reaches 0
 
         if vibrate {
             // Strong haptic pattern for completion - triple pulse
@@ -306,6 +517,10 @@ class RestTimerManager: ObservableObject {
             return
         }
 
+        // Restore last exercise info
+        lastExerciseID = exerciseID
+        lastExerciseName = exerciseName
+
         let remaining = endDate.timeIntervalSinceNow
 
         if remaining > 0 {
@@ -330,7 +545,11 @@ class RestTimerManager: ObservableObject {
     }
 
     @objc private func appWillEnterForeground() {
-        // Restore timer state
+        // IMPORTANT: Check for pending widget commands BEFORE restoring timer
+        // This prevents race condition where timer gets restored before skip command is processed
+        checkForWidgetCommands()
+
+        // Restore timer state (if not already cleared by widget command)
         restoreTimerIfNeeded()
         clearBackgroundTask()
     }
@@ -402,7 +621,8 @@ class RestTimerManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Keys.timerEndDate)
         UserDefaults.standard.removeObject(forKey: Keys.timerExerciseID)
         UserDefaults.standard.removeObject(forKey: Keys.timerExerciseName)
-        UserDefaults.standard.removeObject(forKey: Keys.timerDuration)
+        // Don't clear Keys.timerDuration - keep it so the next timer can reuse the exercise-specific duration
+        // This allows "Log Next Set" from widget to use the correct rest time for the exercise
     }
 }
 
@@ -499,5 +719,79 @@ extension RestTimerManager {
         var pending = UserDefaults.standard.stringArray(forKey: Keys.pendingSetGeneration) ?? []
         pending.removeAll { $0 == exerciseID }
         UserDefaults.standard.set(pending, forKey: Keys.pendingSetGeneration)
+    }
+
+    // MARK: - Widget Extension Command Observation
+
+    /// Start observing commands from Widget Extension
+    private func startObservingWidgetCommands() {
+        // Check for commands every 0.5 seconds
+        commandObserverTimer = Timer.publish(every: 0.5, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.checkForWidgetCommands()
+            }
+    }
+
+    /// Check for and process commands from Widget Extension
+    private func checkForWidgetCommands() {
+        guard let sharedDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
+            print("⚠️ [App] Failed to access shared UserDefaults with suite: \(appGroupIdentifier)")
+            return
+        }
+
+        // Check if there's a new command based on timestamp
+        let currentTimestamp = sharedDefaults.double(forKey: CommandKey.timestamp)
+        guard currentTimestamp > lastCommandTimestamp else {
+            return // No new commands
+        }
+
+        print("📱 [App] New command detected! Timestamp: \(currentTimestamp), previous: \(lastCommandTimestamp)")
+        lastCommandTimestamp = currentTimestamp
+
+        // Process commands in priority order
+        if sharedDefaults.bool(forKey: CommandKey.stop) {
+            print("📱 [App] Processing STOP command")
+            sharedDefaults.removeObject(forKey: CommandKey.stop)
+            stopTimer()
+            return
+        }
+
+        if sharedDefaults.bool(forKey: CommandKey.skip) {
+            print("📱 [App] Processing SKIP command")
+            sharedDefaults.removeObject(forKey: CommandKey.skip)
+            skipTimer()
+            return
+        }
+
+        if sharedDefaults.bool(forKey: CommandKey.startNextSet) {
+            print("📱 [App] Processing START NEXT SET command")
+            sharedDefaults.removeObject(forKey: CommandKey.startNextSet)
+            startNextSetTimer()
+            return
+        }
+
+        if sharedDefaults.bool(forKey: CommandKey.pause) {
+            print("📱 [App] Processing PAUSE command")
+            sharedDefaults.removeObject(forKey: CommandKey.pause)
+            pauseTimer()
+            return
+        }
+
+        if sharedDefaults.bool(forKey: CommandKey.resume) {
+            print("📱 [App] Processing RESUME command")
+            sharedDefaults.removeObject(forKey: CommandKey.resume)
+            resumeTimer()
+            return
+        }
+
+        if let seconds = sharedDefaults.object(forKey: CommandKey.adjustTime) as? Int {
+            print("📱 [App] Processing ADJUST TIME command: \(seconds) seconds")
+            sharedDefaults.removeObject(forKey: CommandKey.adjustTime)
+            adjustTime(by: TimeInterval(seconds))
+            return
+        }
+
+        print("⚠️ [App] Command timestamp updated but no command found in defaults")
     }
 }

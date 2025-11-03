@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 /// Main dependency container holding all app services
 /// Created once at app launch and shared throughout the app lifecycle
@@ -45,7 +46,7 @@ final class AppDependencies: ObservableObject {
     // MARK: - Initialization
 
     private init() {
-        print("🏗️ Initializing AppDependencies...")
+        AppLogger.info("Initializing AppDependencies...", category: AppLogger.app)
 
         // Initialize services in correct order
         self.exerciseRepository = ExerciseRepository.shared
@@ -55,7 +56,7 @@ final class AppDependencies: ObservableObject {
         self.rewardsEngine = RewardsEngine.shared
         self.winScreenCoordinator = WinScreenCoordinator.shared
 
-        print("✅ AppDependencies initialized")
+        AppLogger.success("AppDependencies initialized", category: AppLogger.app)
     }
 
     // MARK: - Configuration
@@ -63,7 +64,7 @@ final class AppDependencies: ObservableObject {
     /// Configure services that require ModelContext
     /// Call this once after app launch with the main model context
     func configure(with modelContext: ModelContext) {
-        print("⚙️ Configuring AppDependencies with ModelContext...")
+        AppLogger.info("Configuring AppDependencies with ModelContext...", category: AppLogger.app)
 
         // Configure HealthKit with required dependencies
         healthKitManager.modelContext = modelContext
@@ -72,7 +73,7 @@ final class AppDependencies: ObservableObject {
 
         // Configure RewardsEngine
         rewardsEngine.configure(context: modelContext)
-        print("⚙️ Rewards configured:", rewardsEngine.debugRulesSummary())
+        AppLogger.info("Rewards configured: \(rewardsEngine.debugRulesSummary())", category: AppLogger.rewards)
 
         // Create and configure stats aggregator
         let aggregator = StatsAggregator(container: modelContext.container)
@@ -80,43 +81,43 @@ final class AppDependencies: ObservableObject {
             await aggregator.setExerciseRepository(exerciseRepository)
             workoutStore.installStats(aggregator)
             self.statsAggregator = aggregator
-            print("✅ Stats aggregator configured")
+            AppLogger.success("Stats aggregator configured", category: AppLogger.app)
         }
 
-        print("✅ AppDependencies configuration complete")
+        AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
     }
 
     /// Bootstrap services that have async initialization
     func bootstrap() async {
-        print("🚀 Bootstrapping AppDependencies...")
+        AppLogger.info("Bootstrapping AppDependencies...", category: AppLogger.app)
 
         // Bootstrap exercise repository
         exerciseRepository.bootstrap(useSlimPreload: true)
 
-        // Check HealthKit authorization
-        let authStatus = healthKitManager.store.authorizationStatus(for: .workoutType())
-        print("🏥 HealthKit authorization status: \(authStatus.rawValue)")
+        // Check HealthKit connection state
+        // Note: We check connectionState instead of authorizationStatus because
+        // HealthKit's authorizationStatus is intentionally unreliable for privacy reasons.
+        // The HealthKitManager uses testDataAccess() to verify actual access.
+        let connectionState = healthKitManager.connectionState
+        AppLogger.info("HealthKit connection state: \(connectionState)", category: AppLogger.health)
 
-        if authStatus == .sharingAuthorized {
-            print("✅ HealthKit authorized - setting connected state")
-            healthKitManager.connectionState = .connected
+        if connectionState == .connected {
+            AppLogger.success("HealthKit connected - setting up background observers", category: AppLogger.health)
             healthKitManager.setupBackgroundObservers()
+        } else if connectionState == .disconnected {
+            AppLogger.warning("HealthKit not authorized or access denied", category: AppLogger.health)
         } else {
-            print("⚠️ HealthKit not authorized")
+            AppLogger.info("HealthKit authorization not yet determined", category: AppLogger.health)
         }
 
-        print("✅ AppDependencies bootstrap complete")
+        AppLogger.success("AppDependencies bootstrap complete", category: AppLogger.app)
     }
 
     // MARK: - Memory Management
 
     /// Log current memory footprint of services
     func logMemoryFootprint() {
-        print("💾 AppDependencies Memory Footprint:")
-        print("   - ExerciseRepository: \(exerciseRepository.exercises.count) exercises")
-        print("   - WorkoutStore: \(workoutStore.completedWorkouts.count) completed workouts")
-        print("   - HealthKitManager: \(workoutStore.runs.count) runs")
-        print("   - FavoritesStore: \(favoritesStore.favoriteIDs.count) favorites")
+        AppLogger.info("AppDependencies Memory Footprint - ExerciseRepository: \(exerciseRepository.exercises.count) exercises, WorkoutStore: \(workoutStore.completedWorkouts.count) completed workouts, HealthKitManager: \(workoutStore.runs.count) runs, FavoritesStore: \(favoritesStore.favoriteIDs.count) favorites", category: AppLogger.performance)
     }
 }
 

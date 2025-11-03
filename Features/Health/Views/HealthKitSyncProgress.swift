@@ -14,7 +14,7 @@ private enum Theme {
     static let border    = Color.white.opacity(0.10)
     static let text      = Color.white
     static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#F4E409")
+    static let accent    = DS.Theme.accent
 }
 
 struct HealthKitSyncProgressView: View {

@@ -53,7 +53,7 @@ extension WorkoutStoreV2 {
     /// and your completedWorkouts for strength-day counting.
     func currentWeekProgress(goal: WeeklyGoal,
                              context: ModelContext,
-                             healthKitMinutes: Int = 0,
+                             healthKitMinutes: Int = 0, // DEPRECATED: Now fetched from WeeklyTrainingSummary internally
                              now: Date = .now,
                              calendar: Calendar = .current) -> WeeklyProgress
     {
@@ -74,16 +74,23 @@ extension WorkoutStoreV2 {
         let weeklyRows = (try? context.fetch(fdMinutes)) ?? []
         let minutesFromSummaries = weeklyRows.reduce(0) { $0 + $1.minutes }
 
-        // Add HealthKit runs/walks that fall within this week
-        let mvpaFromRuns = runs
+        // Add Apple Watch exercise minutes (MVPA) from WeeklyTrainingSummary for this week
+        let appleExerciseMinutes = weeklyRows.reduce(0) { $0 + ($1.appleExerciseMinutes ?? 0) }
+
+        // Add HealthKit runs/walks that fall within this week (using validRuns to exclude strength training)
+        let mvpaFromRuns = validRuns
             .filter { $0.date >= start && $0.date < end }
             .reduce(0) { $0 + ($1.durationSec / 60) }  // convert seconds to minutes
 
-        // Add Apple Watch exercise minutes (MVPA) if provided
-        let mvpaDone = minutesFromSummaries + mvpaFromRuns + healthKitMinutes
+        // Total MVPA: strength minutes + Apple Watch exercise minutes + cardio runs
+        // NOTE: healthKitMinutes parameter is deprecated and ignored to prevent double-counting
+        let mvpaDone = minutesFromSummaries + appleExerciseMinutes + mvpaFromRuns
 
         // 3) Strength days done so far this week (distinct calendar days with any working set)
-        let strengthDaysSet: Set<Date> = Set(
+        //    Now includes BOTH in-app workouts AND HealthKit strength workouts
+
+        // In-app strength workout days
+        let inAppStrengthDays: Set<Date> = Set(
             completedWorkouts
                 .filter { $0.date >= start && $0.date < end }
                 .compactMap { w in
@@ -93,6 +100,23 @@ extension WorkoutStoreV2 {
                     return didStrength ? calendar.startOfDay(for: w.date) : nil
                 }
         )
+
+        // HealthKit strength workout days (Functional Training, HIIT, Traditional Strength, Core Training)
+        let healthKitStrengthDays: Set<Date> = Set(
+            runs
+                .filter { run in
+                    // Must be within the week
+                    guard run.date >= start && run.date < end else { return false }
+                    // Must be from HealthKit
+                    guard run.healthKitUUID != nil else { return false }
+                    // Must be a strength-type workout
+                    return run.countsAsStrengthDay
+                }
+                .map { calendar.startOfDay(for: $0.date) }
+        )
+
+        // Combine both sources (union prevents double-counting same day)
+        let strengthDaysSet = inAppStrengthDays.union(healthKitStrengthDays)
         let strengthDone = strengthDaysSet.count
 
         // 4) Targets

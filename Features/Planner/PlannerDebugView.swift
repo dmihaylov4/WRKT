@@ -19,39 +19,16 @@ struct PlannerDebugView: View {
 
     var body: some View {
         Form {
-            Section("Sample Splits") {
-                Button("Create PPL Split (Push/Pull/Legs)") {
-                    createPPLSplit()
-                }
-
-                Button("Create Upper/Lower Split") {
-                    createUpperLowerSplit()
-                }
-
-                Button("Create Full Body Split") {
-                    createFullBodySplit()
-                }
-            }
+      
 
             Section("Generate Workouts") {
-                Button("Generate 30 Days of Planned Workouts") {
-                    generateWorkouts()
-                }
-
+        
                 Button("Clear All Plans & Workouts") {
                     clearPlannedWorkouts()
                 }
             }
 
-            Section("View Data") {
-                NavigationLink("View Planned Workouts") {
-                    PlannedWorkoutsListView()
-                }
-
-                NavigationLink("View Splits") {
-                    SplitsListView()
-                }
-            }
+          
 
             if showMessage {
                 Section {
@@ -286,13 +263,13 @@ struct PlannerDebugView: View {
     private func showSuccess(_ msg: String) {
         message = msg
         showMessage = true
-        print(msg)
+       
     }
 
     private func showError(_ msg: String) {
         message = msg
         showMessage = true
-        print(msg)
+       
     }
 }
 

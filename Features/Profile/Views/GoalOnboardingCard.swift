@@ -24,12 +24,12 @@ struct GoalOnboardingCard: View {
 
             Image(systemName: "arrow.right.circle.fill")
                 .font(.title2)
-                .foregroundStyle(Color(hex: "#F4E409"))
+                .foregroundStyle(DS.Theme.accent)
         }
         .padding(16)
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex:"#232323"), Color(hex:"#353535")],
+                .fill(LinearGradient(colors: [DS.Theme.cardTop, DS.Theme.cardBottom],
                                      startPoint: .topLeading, endPoint: .bottomTrailing))
                 .overlay(RoundedRectangle(cornerRadius: 20).stroke(.white.opacity(0.08), lineWidth: 1))
         )
@@ -37,14 +37,4 @@ struct GoalOnboardingCard: View {
     }
 }
 
-private extension Color {
-    init(hex: String) {
-        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if s.hasPrefix("#") { s.removeFirst() }
-        var v: UInt64 = 0; Scanner(string: s).scanHexInt64(&v)
-        let r = Double((v >> 16) & 0xFF) / 255.0
-        let g = Double((v >>  8) & 0xFF) / 255.0
-        let b = Double( v        & 0xFF) / 255.0
-        self = Color(.sRGB, red: r, green: g, blue: b, opacity: 1.0)
-    }
-}
+// Color(hex:) is now available from DS.swift, no need to redefine

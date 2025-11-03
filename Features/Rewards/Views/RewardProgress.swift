@@ -17,22 +17,40 @@ import SwiftData
     var level: Int = 1
     var prevLevelXP: Int = 0      // ✅ default value for migration
     var nextLevelXP: Int = 150
+
+    // Daily activity streaks (legacy system)
     var longestStreak: Int = 0
     var currentStreak: Int = 0
     var lastActivityAt: Date? = nil
     var streakFrozen: Bool = false  // Streak freeze active
     var freezeUsedAt: Date? = nil   // When freeze was last used
 
+    // Weekly goal streaks
+    var weeklyGoalStreakCurrent: Int = 0
+    var weeklyGoalStreakLongest: Int = 0
+    var lastWeekGoalMet: Date? = nil  // Week start date of last completed week
+
+    // Super streak tracking (both strength + MVPA in same week)
+    var weeklySuperStreakCurrent: Int = 0
+    var weeklySuperStreakLongest: Int = 0
+    var lastWeekSuperStreakMet: Date? = nil  // Week start date of last super week
+
     init(xp: Int = 0, level: Int = 1,
          prevLevelXP: Int = 0, nextLevelXP: Int = 150,
          longestStreak: Int = 0, currentStreak: Int = 0,
-         lastActivityAt: Date? = nil) {
+         lastActivityAt: Date? = nil,
+         weeklyGoalStreakCurrent: Int = 0,
+         weeklyGoalStreakLongest: Int = 0,
+         lastWeekGoalMet: Date? = nil) {
         self.xp = xp; self.level = level
         self.prevLevelXP = prevLevelXP
         self.nextLevelXP = nextLevelXP
         self.longestStreak = longestStreak
         self.currentStreak = currentStreak
         self.lastActivityAt = lastActivityAt
+        self.weeklyGoalStreakCurrent = weeklyGoalStreakCurrent
+        self.weeklyGoalStreakLongest = weeklyGoalStreakLongest
+        self.lastWeekGoalMet = lastWeekGoalMet
     }
 }
 
@@ -69,7 +87,9 @@ enum ChallengeKind: String, Codable { case daily, weekly, seasonal }
     var completedAt: Date?
     var claimedAt: Date?
 
-    var kind: ChallengeKind { ChallengeKind(rawValue: kindRaw)! }
+    var kind: ChallengeKind {
+        ChallengeKind(rawValue: kindRaw) ?? .daily  // Fallback to daily if invalid
+    }
 
     init(ruleId: String, kind: ChallengeKind, startedAt: Date, expiresAt: Date) {
         self.id = "\(ruleId)_\(Int(startedAt.timeIntervalSince1970))"

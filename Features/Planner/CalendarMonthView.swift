@@ -1,57 +1,14 @@
-//  CalendarMonthView.swift (revised)
+//  CalendarMonthView.swift (refactored)
 //  WRKT
 //
 //  A brighter, streak-first calendar with a simple, workout-centric day detail.
+//  Main calendar view coordination and state management.
 //
 
 import SwiftUI
 import SwiftData
 import Foundation
-
-// MARK: - Theme
-private enum Theme {
-    static let bg        = Color.black
-    static let surface   = Color(red: 0.07, green: 0.07, blue: 0.07)
-    static let surface2  = Color(red: 0.10, green: 0.10, blue: 0.10)
-    static let border    = Color.white.opacity(0.10)
-    static let text      = Color.white
-    static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#F4E409")
-}
-
-// MARK: - Tiny helpers
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:(a, r, g, b) = (255, 244, 228, 9)
-        }
-        self.init(.sRGB,
-                  red: Double(r) / 255,
-                  green: Double(g) / 255,
-                  blue: Double(b) / 255,
-                  opacity: Double(a) / 255)
-    }
-}
-
-private extension Array {
-    subscript(safe idx: Int) -> Element? { indices.contains(idx) ? self[idx] : nil }
-}
-
-private func timeOnly(_ date: Date) -> String {
-    date.formatted(date: .omitted, time: .shortened)
-}
-
-private func hms(_ seconds: Int) -> String {
-    String(format: "%02d:%02d:%02d", seconds/3600, (seconds%3600)/60, seconds%60)
-}
-
+import OSLog
 
 // MARK: - Calendar View
 struct CalendarMonthView: View {
@@ -77,10 +34,16 @@ struct CalendarMonthView: View {
     private let cellHeight: CGFloat = 44
 
     // Convenience
-    private var startOfCurrentMonth: Date { Calendar.current.dateInterval(of: .month, for: .now)!.start }
+    private var startOfCurrentMonth: Date {
+        guard let interval = Calendar.current.dateInterval(of: .month, for: .now) else {
+            // Fallback to first day of current month if dateInterval fails (should never happen)
+            return Calendar.current.startOfDay(for: .now)
+        }
+        return interval.start
+    }
     private var hasActiveWorkout: Bool { (store.currentWorkout?.entries.isEmpty == false) }
 
-    // Streak
+    // Daily streak (legacy)
     private var streakLength: Int { max(store.streak(), 0) }
     private func hasActivity(on d: Date) -> Bool {
         !store.workouts(on: d).isEmpty || !store.runs(on: d).isEmpty
@@ -95,82 +58,170 @@ struct CalendarMonthView: View {
         return inWindow && hasActivity(on: d)
     }
 
+    // Weekly goal streak
+    private var weeklyGoalStreak: Int {
+        RewardsEngine.shared.weeklyGoalStreak()
+    }
+
+    private func weeklyGoal() -> WeeklyGoal? {
+        let fd = FetchDescriptor<WeeklyGoal>(predicate: #Predicate { $0.isSet })
+        return try? context.fetch(fd).first
+    }
+
+    // Cache week progress by week start date for efficient lookups
+    // Pre-calculated in updateWeekProgressCache() to avoid state modification during rendering
+    @State private var weekProgressCache: [Date: WeeklyProgress] = [:]
+
+    /// Pre-calculate week progress for all weeks visible in the current month
+    /// This prevents state modification during view rendering
+    private func updateWeekProgressCache() {
+        guard let goal = weeklyGoal() else {
+            weekProgressCache = [:]
+            return
+        }
+
+        let cal = Calendar.current
+        let days = daysInMonth()
+
+        // Get unique week start dates for all visible days
+        let weekStarts = Set(days.map { cal.startOfWeek(for: $0, anchorWeekday: goal.anchorWeekday) })
+
+        // Pre-calculate progress for each week
+        var newCache: [Date: WeeklyProgress] = [:]
+        for weekStart in weekStarts {
+            let progress = store.currentWeekProgress(goal: goal, context: context, now: weekStart)
+            newCache[weekStart] = progress
+        }
+
+        weekProgressCache = newCache
+    }
+
+    private func progressForWeek(containing date: Date) -> WeeklyProgress? {
+        guard let goal = weeklyGoal() else { return nil }
+        let cal = Calendar.current
+        let weekStart = cal.startOfWeek(for: date, anchorWeekday: goal.anchorWeekday)
+        return weekProgressCache[weekStart]
+    }
+
+    private func isPartOfCompletedWeek(_ date: Date) -> Bool {
+        guard let goal = weeklyGoal() else { return false }
+        guard let progress = progressForWeek(containing: date) else { return false }
+
+        // Check if this week met the goal (EITHER strength OR MVPA)
+        let strengthGoalMet = progress.strengthDaysDone >= goal.targetStrengthDays
+        let mvpaGoalMet = goal.targetActiveMinutes > 0 ? (progress.mvpaDone >= goal.targetActiveMinutes) : true
+        return strengthGoalMet || mvpaGoalMet
+    }
+
+    private func isPartOfSuperWeek(_ date: Date) -> Bool {
+        guard let goal = weeklyGoal() else { return false }
+        guard let progress = progressForWeek(containing: date) else { return false }
+
+        // Super week: BOTH goals met
+        let strengthGoalMet = progress.strengthDaysDone >= goal.targetStrengthDays
+        let mvpaGoalMet = goal.targetActiveMinutes > 0 ? (progress.mvpaDone >= goal.targetActiveMinutes) : true
+        return strengthGoalMet && mvpaGoalMet
+    }
+
+    // Cached weekly progress to avoid recalculating for every day cell
+    private var cachedWeeklyProgress: WeeklyProgress? {
+        guard let goal = weeklyGoal() else { return nil }
+        return store.currentWeekProgress(goal: goal, context: context)
+    }
+
+    private func currentWeekProgress() -> WeeklyProgress? {
+        return cachedWeeklyProgress
+    }
+
+    private func isInCurrentWeek(_ date: Date) -> Bool {
+        guard let goal = weeklyGoal() else { return false }
+        let cal = Calendar.current
+        let nowWeekStart = cal.startOfWeek(for: .now, anchorWeekday: goal.anchorWeekday)
+        guard let nowWeekEnd = cal.date(byAdding: .day, value: 7, to: nowWeekStart) else { return false }
+        let dateDay = cal.startOfDay(for: date)
+        return dateDay >= nowWeekStart && dateDay < nowWeekEnd
+    }
+
     var body: some View {
-        VStack(spacing: 14) {
-            // Header
-            MonthHeader(
-                monthAnchor: $monthAnchor,
-                canGoForward: canGoForward,
-                onBack: { bump(-1) },
-                onForward: { bump(+1) },
-                onToday: { jumpToToday() },
-                streak: store.streak()
-            )
-            .padding(.top, 12)
-            .captureFrame(in: .global) { frame in
-                headerFrame = frame
-                checkFramesReady()
-            }
-
-            // Weekday labels
-            //WeekdayRow().padding(.horizontal, 16)
-            Spacer(minLength: 32)
-            // Month grid
-            let days = daysInMonth()
-            let rows = max(1, days.count / 7)
-            let gridHeight = CGFloat(rows) * cellHeight + CGFloat((rows - 1)) * 6
-
-            LazyVGrid(columns: cols, spacing: 6) {
-                ForEach(days, id: \.self) { day in
-                    let stats = dayStat(for: day)
-                    let inMonth = Calendar.current.isDate(day, equalTo: monthAnchor, toGranularity: .month)
-                    DayCellV2(
-                        date: day,
-                        stats: stats,
-                        isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDay),
-                        inMonth: inMonth,
-                        inActiveStreak: isInActiveStreak(day),
-                        cellHeight: cellHeight
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture { selectedDay = day }
+        ScrollView {
+            VStack(spacing: 14) {
+                // Header
+                MonthHeader(
+                    monthAnchor: $monthAnchor,
+                    canGoForward: canGoForward,
+                    onBack: { bump(-1) },
+                    onForward: { bump(+1) },
+                    onToday: { jumpToToday() },
+                    weeklyStreak: weeklyGoalStreak,
+                    currentWeekProgress: currentWeekProgress()
+                )
+                .padding(.top, 12)
+                .captureFrame(in: .global) { frame in
+                    headerFrame = frame
+                    checkFramesReady()
                 }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24) // Increased from 16 to prevent chip overlap with divider
-            .frame(height: gridHeight)
-            .captureFrame(in: .global) { frame in
-                calendarGridFrame = frame
-                checkFramesReady()
-            }
 
-            Divider()
-                .overlay(Theme.border)
-                .padding(.top, 12) // Increased from 8 for more spacing
-                .padding(.bottom, 16)
+                // Weekday labels
+                //WeekdayRow().padding(.horizontal, 16)
+                Spacer(minLength: 32)
+                // Month grid
+                let days = daysInMonth()
+                let rows = max(1, days.count / 7)
+                let gridHeight = CGFloat(rows) * cellHeight + CGFloat((rows - 1)) * 6
 
-            // MARK: - Sync Progress
-            if healthKit.isSyncing {
-                HealthKitSyncProgressView(healthKit: healthKit)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
+                LazyVGrid(columns: cols, spacing: 6) {
+                    ForEach(days, id: \.self) { day in
+                        let stats = dayStat(for: day)
+                        let inMonth = Calendar.current.isDate(day, equalTo: monthAnchor, toGranularity: .month)
+                        DayCellV2(
+                            date: day,
+                            stats: stats,
+                            isSelected: Calendar.current.isDate(day, inSameDayAs: selectedDay),
+                            inMonth: inMonth,
+                            inActiveStreak: isInActiveStreak(day),
+                            inCompletedWeek: isPartOfCompletedWeek(day),
+                            inSuperWeek: isPartOfSuperWeek(day),
+                            inCurrentWeek: isInCurrentWeek(day),
+                            cellHeight: cellHeight
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedDay = day }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24) // Increased from 16 to prevent chip overlap with divider
+                .frame(height: gridHeight)
+                .captureFrame(in: .global) { frame in
+                    calendarGridFrame = frame
+                    checkFramesReady()
+                }
+                Spacer(minLength: 5)
+                Divider()
+                    .overlay(DS.Semantic.border)
+                    .padding(.top, 12) // Increased from 8 for more spacing
+                    .padding(.bottom, 16)
 
-            // Day detail — simplified & workout-centric
-            ScrollView {
+                // MARK: - Sync Progress
+                if healthKit.isSyncing {
+                    HealthKitSyncProgressView(healthKit: healthKit)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                }
+
+                // Day detail — simplified & workout-centric
                 DayDetail(date: selectedDay)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 8)
-            }
-            .captureFrame(in: .global) { frame in
-                dayDetailFrame = frame
-                checkFramesReady()
+                    .captureFrame(in: .global) { frame in
+                        dayDetailFrame = frame
+                        checkFramesReady()
+                    }
             }
         }
-        .background(Theme.bg.ignoresSafeArea())
+        .background(DS.Semantic.surface.ignoresSafeArea())
         .navigationTitle("Calendar")
         .navigationBarTitleDisplayMode(.inline)
-        .tint(Theme.accent)
+        .tint(DS.Theme.accent)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
@@ -178,7 +229,7 @@ struct CalendarMonthView: View {
                 } label: {
                     Image(systemName: "calendar.badge.plus")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(DS.Theme.accent)
                 }
                 .captureFrame(in: .global) { frame in
                     plannerButtonFrame = frame
@@ -199,7 +250,7 @@ struct CalendarMonthView: View {
             // Reset to today when view appears
             selectedDay = .now
             loadPlannedWorkouts()
-            print("📅 CalendarMonthView appeared - reset selected day to today")
+            updateWeekProgressCache()
 
             // Fallback: if frames haven't loaded after 2.5 seconds, show tutorial anyway
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
@@ -211,6 +262,8 @@ struct CalendarMonthView: View {
         .onChange(of: monthAnchor) { _, _ in
             // Reload planned workouts when month changes
             loadPlannedWorkouts()
+            // Recalculate week progress cache when month changes
+            updateWeekProgressCache()
         }
         .onChange(of: framesReady) { _, ready in
             // Show tutorial once frames are captured
@@ -277,7 +330,11 @@ struct CalendarMonthView: View {
         }
         // pad last row
         while days.count % 7 != 0 {
-            days.append(days.last!.addingTimeInterval(86_400))
+            guard let lastDay = days.last else {
+                // Should never happen, but prevents crash if days array is unexpectedly empty
+                break
+            }
+            days.append(lastDay.addingTimeInterval(86_400))
         }
         return days
     }
@@ -286,20 +343,47 @@ struct CalendarMonthView: View {
         let startOfDay = Calendar.current.startOfDay(for: date)
         let planned = plannedWorkouts.first { Calendar.current.isDate($0.scheduledDate, inSameDayAs: startOfDay) }
 
+        // Get all HealthKit activities for this day
+        let runs = store.runs(on: date)
+
+        // Get matched HealthKit UUIDs from app workouts (to avoid counting duplicates)
+        let workouts = store.workouts(on: date)
+        let matchedHealthKitUUIDs = Set(workouts.compactMap { $0.matchedHealthKitUUID })
+
+        // Separate strength workouts from cardio
+        // Exclude strength workouts that are already matched to app workouts
+        let strengthWorkouts = runs.filter { run in
+            guard run.countsAsStrengthDay else { return false }
+            guard let uuid = run.healthKitUUID else { return false }
+            return !matchedHealthKitUUIDs.contains(uuid)
+        }
+        let cardioRuns = runs.filter { !$0.countsAsStrengthDay }
+
+        // Get cardio activity types (excluding strength)
+        let cardioActivities = cardioRuns.map { CardioActivityType(from: $0.workoutType) }
+
         return DayStat(
             date: date,
-            workoutCount: store.workouts(on: date).count,
-            runCount: store.runs(on: date).count,
+            workoutCount: workouts.count,
+            runCount: cardioRuns.count, // Only cardio runs
+            cardioActivities: cardioActivities,
+            healthKitStrengthWorkouts: strengthWorkouts, // Only unmatched Apple Watch strength workouts
             plannedWorkout: planned
         )
     }
 
-    /// Load planned workouts for the current month
+    /// Load planned workouts for all visible days (including padding from adjacent months)
     private func loadPlannedWorkouts() {
-        guard let interval = Calendar.current.dateInterval(of: .month, for: monthAnchor) else { return }
+        let visibleDays = daysInMonth()
+        guard let firstDay = visibleDays.first,
+              let lastDay = visibleDays.last else { return }
+
+        let startOfFirstDay = Calendar.current.startOfDay(for: firstDay)
+        let startOfLastDay = Calendar.current.startOfDay(for: lastDay)
+        guard let endOfLastDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfLastDay) else { return }
 
         let predicate = #Predicate<PlannedWorkout> { planned in
-            planned.scheduledDate >= interval.start && planned.scheduledDate < interval.end
+            planned.scheduledDate >= startOfFirstDay && planned.scheduledDate < endOfLastDay
         }
 
         let descriptor = FetchDescriptor(
@@ -310,7 +394,7 @@ struct CalendarMonthView: View {
         do {
             plannedWorkouts = try context.fetch(descriptor)
         } catch {
-            print("❌ Failed to fetch planned workouts: \(error)")
+            AppLogger.error("Failed to fetch planned workouts: \(error)", category: AppLogger.app)
             plannedWorkouts = []
         }
     }
@@ -325,7 +409,7 @@ struct CalendarMonthView: View {
         let plannerReady = plannerButtonFrame != .zero && plannerButtonFrame.width > 0
 
         if headerReady && gridReady && detailReady && plannerReady && !framesReady {
-            print("✅ All calendar frames ready for tutorial!")
+
             framesReady = true
         }
     }
@@ -361,7 +445,12 @@ struct CalendarMonthView: View {
             TutorialStep(
                 title: "Split Planner",
                 message: "Tap here to create a workout split and schedule your training week. Plan your workouts in advance and track your progress!",
-                spotlightFrame: clampedFrame(plannerButtonFrame, insetBy: UIEdgeInsets(top: 12, left: 1, bottom: 12, right: 25)),
+                spotlightFrame: {
+                    var frame = clampedFrame(plannerButtonFrame, insetBy: UIEdgeInsets(top: 12, left: 1, bottom: 12, right: 25))
+                    frame.origin.x -= 12  // Move whole container to the left by 8
+                    frame.size.width += 15  // Increase width to compensate
+                    return frame
+                }(),
                 tooltipPosition: .center,
                 highlightCornerRadius: 12
             ),
@@ -408,639 +497,5 @@ struct CalendarMonthView: View {
             showTutorial = false
         }
         onboardingManager.complete(.calendar)
-    }
-}
-
-// MARK: - Header (no forward into the future)
-private struct MonthHeader: View {
-    @Binding var monthAnchor: Date
-    let canGoForward: Bool
-    let onBack: () -> Void
-    let onForward: () -> Void
-    let onToday: () -> Void
-    let streak: Int
-
-    private var showingCurrentMonth: Bool {
-        Calendar.current.isDate(monthAnchor, equalTo: .now, toGranularity: .month)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                Text(monthAnchor.formatted(.dateTime.year().month(.wide)))
-                    .font(.title3.bold())
-                    .foregroundStyle(Theme.text)
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Button { onBack() } label: { Image(systemName: "chevron.left") }
-                    Button { onForward() } label: { Image(systemName: "chevron.right") }
-                        .opacity(canGoForward ? 1.0 : 0.35)
-                        .disabled(!canGoForward)
-                }
-                .buttonStyle(.plain)
-                .font(.headline)
-                .foregroundStyle(Theme.text)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(Theme.surface2, in: Capsule())
-                .overlay(Capsule().stroke(Theme.border, lineWidth: 1))
-
-                if !showingCurrentMonth {
-                    Button("Today", action: onToday)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.black)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Theme.accent, in: Capsule())
-                }
-            }
-            .padding(.horizontal, 16)
-
-            if streak > 0 {
-                StreakBanner(streak: streak)
-                    .padding(.horizontal, 16)
-            }
-        }
-    }
-}
-
-private struct StreakBanner: View {
-    let streak: Int
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "flame.fill")
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(Color.black, Theme.accent)
-                .padding(8)
-                .background(Theme.accent, in: Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(streak)-day streak")
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(Theme.text)
-                Text("Don’t break the chain.")
-                    .font(.caption)
-                    .foregroundStyle(Theme.secondary)
-            }
-
-            Spacer()
-
-            ProgressView(value: min(Double(streak)/30.0, 1.0))
-                .tint(Theme.accent)
-                .frame(width: 80)
-        }
-        .padding(12)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
-    }
-}
-
-// MARK: - Weekday labels
-private struct WeekdayRow: View {
-    var body: some View {
-        let sym = Calendar.current.shortStandaloneWeekdaySymbols
-        let first = Calendar.current.firstWeekday - 1
-        let days = Array(sym[first..<sym.count] + sym[0..<first])
-
-        HStack {
-            ForEach(days, id: \.self) { d in
-                Text(d.uppercased())
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Theme.secondary)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
-}
-
-// MARK: - Day cell
-private struct DayCellV2: View {
-    let date: Date
-    let stats: DayStat
-    let isSelected: Bool
-    let inMonth: Bool
-    let inActiveStreak: Bool
-    let cellHeight: CGFloat
-
-    private var isToday: Bool { Calendar.current.isDateInToday(date) }
-
-    var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(inActiveStreak ? Theme.accent.opacity(0.22) : Theme.surface)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .stroke(borderColor, lineWidth: isSelected || inActiveStreak ? 2 : 1)
-                    )
-
-                Text("\(Calendar.current.component(.day, from: date))")
-                    .font(.footnote.weight(isToday ? .bold : .regular))
-                    .foregroundStyle(.white)
-            }
-            .frame(height: cellHeight)
-
-            // tiny markers
-            HStack(spacing: 4) {
-                // Completed workouts: filled accent
-                if stats.workoutCount > 0 {
-                    Capsule().fill(Theme.accent).frame(width: 12, height: 4)
-                }
-                // Completed runs: white
-                if stats.runCount > 0 {
-                    Capsule().fill(.white.opacity(0.75)).frame(width: 12, height: 4)
-                }
-                // Planned workouts: outlined accent (if not already completed)
-                if stats.hasPlannedWorkout && stats.workoutCount == 0 {
-                    if stats.isPlannedScheduled {
-                        // Scheduled: outlined
-                        Capsule()
-                            .stroke(Theme.accent, lineWidth: 1.5)
-                            .frame(width: 12, height: 4)
-                    } else if stats.isPlannedPartial {
-                        // Partial: filled yellow/orange
-                        Capsule().fill(.yellow).frame(width: 12, height: 4)
-                    } else if stats.isPlannedSkipped {
-                        // Skipped: gray
-                        Capsule().fill(.gray.opacity(0.5)).frame(width: 12, height: 4)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 2)
-        .opacity(inMonth ? 1.0 : 0.45)
-        .overlay(alignment: .topTrailing) {
-            if inActiveStreak && isToday {
-                Image(systemName: "flame.fill")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.black)
-                    .padding(4)
-                    .background(Theme.accent, in: Circle())
-                    .offset(x: 4, y: -4)
-            }
-        }
-    }
-
-    private var borderColor: Color {
-        if isSelected { return Theme.accent }
-        if isToday { return Theme.border }
-        return Theme.border.opacity(0.6)
-    }
-}
-
-// MARK: - Day Detail (simplified)
-private struct DayDetail: View {
-    @EnvironmentObject var store: WorkoutStoreV2
-    @Environment(\.modelContext) private var context
-    let date: Date
-
-    private var workouts: [CompletedWorkout] { store.workouts(on: date) }
-    private var runs: [Run] { store.runs(on: date) }
-
-    // Fetch planned workout for this day
-    private var plannedWorkout: PlannedWorkout? {
-        let startOfDay = Calendar.current.startOfDay(for: date)
-        let predicate = #Predicate<PlannedWorkout> { $0.scheduledDate == startOfDay }
-        return try? context.fetch(FetchDescriptor(predicate: predicate)).first
-    }
-
-    // Aggregates (workouts only)
-    private var workoutCount: Int { workouts.count }
-    private var exerciseCount: Int {
-        workouts.reduce(0) { $0 + $1.entries.count }
-    }
-    private var setCount: Int {
-        workouts.reduce(0) { sum, w in sum + w.entries.reduce(0) { $0 + $1.sets.count } }
-    }
-    private var repCount: Int {
-        workouts.reduce(0) { sum, w in
-            sum + w.entries.reduce(0) { $0 + $1.sets.reduce(0) { $0 + max(0, $1.reps) } }
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Daily Summary — workouts only
-            DailySummaryCard(date: date, workoutCount: workoutCount, exerciseCount: exerciseCount, setCount: setCount, repCount: repCount)
-
-            // Planned workout section (if exists and not completed)
-            if let planned = plannedWorkout, planned.workoutStatus != .completed {
-                PlannedWorkoutCard(planned: planned)
-            }
-
-            if workouts.isEmpty && runs.isEmpty && plannedWorkout == nil {
-                ContentUnavailableView("No activity", systemImage: "calendar")
-                    .foregroundStyle(Theme.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 120)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
-            } else {
-                // Workouts list — EACH ROW = start time (compact, zero clutter)
-                if !workouts.isEmpty {
-                    VStack(spacing: 0) {
-                        SectionHeader(title: "Workouts", count: workouts.count)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                        Rectangle().fill(Theme.border).frame(height: 1)
-
-                        ForEach(workouts, id: \.id) { w in
-                            WorkoutRow(workout: w)
-                            if w.id != workouts.last?.id {
-                                Rectangle().fill(Theme.border.opacity(0.6)).frame(height: 1)
-                            }
-                        }
-                    }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
-                }
-
-                // Runs (kept minimal)
-                if !runs.isEmpty {
-                    VStack(spacing: 0) {
-                        SectionHeader(title: "Runs", count: runs.count)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-                        Rectangle().fill(Theme.border).frame(height: 1)
-
-                        ForEach(runs) { r in
-                            HStack {
-                                Text(timeOnly(r.date))
-                                    .foregroundStyle(Theme.text)
-                                Spacer()
-                                Text(String(format: "%.2f km", max(0, r.distanceKm)))
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(Theme.text)
-                                Text("•")
-                                    .foregroundStyle(Theme.secondary)
-                                Text(hms(max(0, r.durationSec)))
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(Theme.text)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
-
-                            if r.id != runs.last?.id {
-                                Rectangle().fill(Theme.border.opacity(0.6)).frame(height: 1)
-                            }
-                        }
-                    }
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
-                }
-            }
-        }
-    }
-
-    // MARK: - Subviews
-    private struct DailySummaryCard: View {
-        let date: Date
-        let workoutCount: Int
-        let exerciseCount: Int
-        let setCount: Int
-        let repCount: Int
-
-        private struct Tile: Identifiable, Equatable {
-            let id = UUID()
-            let title: String
-            let value: String
-        }
-
-        private var tiles: [Tile] {
-            [
-                .init(title: "Workouts",  value: "\(workoutCount)"),
-                .init(title: "Exercises", value: "\(exerciseCount)"),
-                .init(title: "Sets",      value: "\(setCount)"),
-                .init(title: "Reps",      value: "\(repCount)")
-            ]
-        }
-
-        var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(date.formatted(.dateTime.weekday(.wide).day().month()))
-                        .font(.headline).foregroundStyle(Theme.text)
-                    Spacer()
-                    if workoutCount > 0 {
-                        Text("Daily summary")
-                            .font(.caption).foregroundStyle(Theme.secondary)
-                    }
-                }
-
-                SummaryGrid(tiles: tiles)
-                    .frame(height: 108)
-            }
-            .padding(12)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
-        }
-
-        private struct SummaryGrid: View {
-            let tiles: [Tile] // expects 4
-
-            var body: some View {
-                ZStack {
-                    VStack(spacing: 0) { Spacer(); HLine(); Spacer() }
-                    HStack(spacing: 0) { Spacer(); VLine(); Spacer() }
-
-                    VStack(spacing: 0) {
-                        HStack(spacing: 0) { cell(tiles[safe: 0]); VLine(); cell(tiles[safe: 1]) }
-                        HLine()
-                        HStack(spacing: 0) { cell(tiles[safe: 2]); VLine(); cell(tiles[safe: 3]) }
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .background(Theme.surface2.opacity(0.0))
-            }
-
-            private func cell(_ t: Tile?) -> some View {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(t?.title ?? "—")
-                        .font(.caption2).foregroundStyle(Theme.secondary)
-                    Text(t?.value ?? "—")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.text)
-                        .lineLimit(1).minimumScaleFactor(0.8)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .background(Color.clear)
-            }
-
-            private struct VLine: View { var body: some View { Rectangle().fill(Theme.border).frame(width: 1) } }
-            private struct HLine: View { var body: some View { Rectangle().fill(Theme.border).frame(height: 1) } }
-        }
-    }
-
-    private struct SectionHeader: View {
-        let title: String
-        let count: Int
-        var body: some View {
-            HStack {
-                Text(title).font(.headline).foregroundStyle(Theme.text)
-                Spacer()
-                Text("\(count)")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.black)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Theme.accent, in: Capsule())
-            }
-            .padding(.top, 2)
-            .padding(.bottom, 2)
-        }
-    }
-
-    private struct WorkoutRow: View {
-        @EnvironmentObject var store: WorkoutStoreV2
-        let workout: CompletedWorkout
-        @State private var selectedExercise: Exercise?
-        @EnvironmentObject var repo: ExerciseRepository
-
-        private var hasHealthData: Bool {
-            workout.matchedHealthKitUUID != nil
-        }
-
-        // Determine workout type from matched HealthKit data
-        private var workoutType: String {
-            // Try to find the matched run to get the workout type
-            if let hkUUID = workout.matchedHealthKitUUID,
-               let matchedRun = store.runs.first(where: { $0.healthKitUUID == hkUUID }),
-               let type = matchedRun.workoutType {
-                return type
-            }
-            // Default to "Strength Workout" for app-logged workouts
-            return "Strength Workout"
-        }
-
-        // Calculate start time based on duration
-        private var startTime: Date {
-            if let duration = workout.matchedHealthKitDuration {
-                return workout.date.addingTimeInterval(-TimeInterval(duration))
-            }
-            // Estimate 1 hour workout if no duration data
-            return workout.date.addingTimeInterval(-3600)
-        }
-
-        private var timeRange: String {
-            let start = startTime.formatted(date: .omitted, time: .shortened)
-            let end = workout.date.formatted(date: .omitted, time: .shortened)
-            return "\(start) - \(end)"
-        }
-
-        var body: some View {
-            NavigationLink {
-                WorkoutDetailView(workout: workout)
-            } label: {
-                VStack(spacing: 6) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(workoutType)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Theme.text)
-
-                            Text(timeRange)
-                                .font(.caption)
-                                .foregroundStyle(Theme.secondary)
-                        }
-
-                        Spacer()
-
-                        // Show Apple Health badge if matched
-                        if hasHealthData {
-                            Image(systemName: "heart.circle.fill")
-                                .font(.caption)
-                                .foregroundStyle(.pink)
-                        }
-
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(Theme.secondary)
-                            .opacity(0.6)
-                    }
-
-                    // Show matched HealthKit data
-                    if hasHealthData {
-                        HStack(spacing: 12) {
-                            if let duration = workout.matchedHealthKitDuration, duration > 0 {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "timer")
-                                        .font(.caption2)
-                                        .foregroundStyle(Theme.secondary)
-                                    Text(hms(duration))
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(Theme.secondary)
-                                }
-                            }
-
-                            if let calories = workout.matchedHealthKitCalories, calories > 0 {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "flame.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.orange)
-                                    Text("\(Int(calories)) cal")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(Theme.secondary)
-                                }
-                            }
-
-                            if let hr = workout.matchedHealthKitHeartRate, hr > 0 {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "heart.fill")
-                                        .font(.caption2)
-                                        .foregroundStyle(.pink)
-                                    Text("\(Int(hr)) bpm")
-                                        .font(.caption2.monospacedDigit())
-                                        .foregroundStyle(Theme.secondary)
-                                }
-                            }
-
-                            Spacer()
-                        }
-                        .padding(.top, 2)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Planned Workout Card
-    private struct PlannedWorkoutCard: View {
-        @EnvironmentObject var store: WorkoutStoreV2
-        let planned: PlannedWorkout
-        @State private var showDateMismatchAlert = false
-
-        private var statusColor: Color {
-            switch planned.workoutStatus {
-            case .scheduled: return Theme.accent
-            case .partial: return .yellow
-            case .skipped: return .gray
-            case .rescheduled: return .orange
-            default: return Theme.accent
-            }
-        }
-
-        private var statusText: String {
-            switch planned.workoutStatus {
-            case .scheduled: return "Planned"
-            case .partial: return "Partially completed"
-            case .skipped: return "Skipped"
-            case .rescheduled: return "Rescheduled"
-            default: return "Planned"
-            }
-        }
-
-        var body: some View {
-            VStack(spacing: 0) {
-                // Header
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(planned.splitDayName)
-                            .font(.headline)
-                            .foregroundStyle(Theme.text)
-
-                        Text(statusText)
-                            .font(.caption)
-                            .foregroundStyle(statusColor)
-                    }
-
-                    Spacer()
-
-                    // Status badge
-                    Text(statusText.uppercased())
-                        .font(.caption2.weight(.bold))
-                        .foregroundStyle(Color.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(statusColor, in: Capsule())
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-
-                Rectangle().fill(Theme.border).frame(height: 1)
-
-                // Exercise preview
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(planned.exercises.prefix(3)) { exercise in
-                        HStack {
-                            Text(exercise.exerciseName)
-                                .font(.subheadline)
-                                .foregroundStyle(Theme.text)
-
-                            Spacer()
-
-                            Text("\(exercise.ghostSets.count) × \(exercise.ghostSets.first?.reps ?? 0)")
-                                .font(.caption)
-                                .foregroundStyle(Theme.secondary)
-                        }
-                    }
-
-                    if planned.exercises.count > 3 {
-                        Text("+\(planned.exercises.count - 3) more exercises")
-                            .font(.caption)
-                            .foregroundStyle(Theme.secondary)
-                    }
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-
-                // Action button (only for scheduled workouts)
-                if planned.workoutStatus == .scheduled {
-                    Rectangle().fill(Theme.border).frame(height: 1)
-
-                    Button {
-                        // Check if this workout is scheduled for today
-                        if isScheduledForToday {
-                            startPlannedWorkout(planned)
-                        } else {
-                            showDateMismatchAlert = true
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "play.circle.fill")
-                                .font(.body)
-                            Text("Start Workout")
-                                .font(.subheadline.weight(.semibold))
-                        }
-                        .foregroundStyle(Color.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                }
-            }
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(statusColor.opacity(0.5), lineWidth: 2))
-            .alert("Workout Scheduled for Different Day", isPresented: $showDateMismatchAlert) {
-                Button("Start Now (Logs Today)", role: .destructive) {
-                    startPlannedWorkout(planned)
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This workout is scheduled for \(formattedScheduledDate). Starting it will log the workout for today instead.")
-            }
-        }
-
-        private var isScheduledForToday: Bool {
-            Calendar.current.isDateInToday(planned.scheduledDate)
-        }
-
-        private var formattedScheduledDate: String {
-            planned.scheduledDate.formatted(date: .abbreviated, time: .omitted)
-        }
-
-        private func startPlannedWorkout(_ planned: PlannedWorkout) {
-            store.startPlannedWorkout(planned)
-            // Navigate to live workout tab
-            NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
-        }
     }
 }
