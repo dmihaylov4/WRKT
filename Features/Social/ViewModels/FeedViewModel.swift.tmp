@@ -1,0 +1,372 @@
+
+@MainActor
+@Observable
+final class FeedViewModel {
+    var posts: [PostWithAuthor] = []
+    var isLoading = false
+    var isRefreshing = false
+    var isLoadingMore = false
+    var hasMorePages = true
+    var error: UserFriendlyError?
+    var newPostsAvailable = 0 // Count of new posts available to load
+
+    private let postRepository: PostRepository
+    private let authService: SupabaseAuthService
+    private let realtimeService: RealtimeService
+    private let networkMonitor = NetworkMonitor.shared
+    private let offlineQueue = OfflineQueueManager.shared
+    private let retryManager = RetryManager.shared
+    private let errorHandler = ErrorHandler.shared
+    private var cursor: String? = nil // Cursor for pagination (ISO8601 timestamp)
+    private let pageSize = 20
+    private var realtimeChannelId: String?
+
+    var isOnline: Bool {
+        networkMonitor.isConnected
+    }
+
+    var queuedActionCount: Int {
+        offlineQueue.queueCount
+    }
+
+    init(postRepository: PostRepository, authService: SupabaseAuthService, realtimeService: RealtimeService) {
+        self.postRepository = postRepository
+        self.authService = authService
+        self.realtimeService = realtimeService
+    }
+
+    deinit {
+        Task { @MainActor in
+            await cleanup()
+        }
+    }
+
+    func loadInitialFeed() async {
+        guard !isLoading, !isRefreshing else {
+            print("⏭️ [Feed] Skipping initial load - already loading")
+            return
+        }
+        guard let currentUserId = authService.currentUser?.id else {
+            print("⚠️ [Feed] No current user")
+            return
+        }
+
+        print("🔄 [Feed] Loading initial feed for user: \(currentUserId)")
+        isLoading = true
+        error = nil
+        cursor = nil
+
+        // Use retry manager for automatic retry
+        let result = await retryManager.fetchWithRetry {
+            try await self.postRepository.fetchFeed(userId: currentUserId, limit: self.pageSize, cursor: nil)
+        }
+
+        switch result {
+        case .success(let feedResult):
+            print("✅ [Feed] Loaded \(feedResult.posts.count) posts into feed")
+            posts = feedResult.posts
+            hasMorePages = feedResult.hasMore
+
+            // Update cursor to the last post's timestamp
+            if let lastPost = feedResult.posts.last {
+                cursor = lastPost.post.createdAt.ISO8601Format()
+            }
+
+            error = nil
+            isLoading = false
+
+        case .failure(let err, let attempts):
+            print("❌ [Feed] Error loading feed after \(attempts) attempts: \(err)")
+            let userError = errorHandler.handleError(err, context: .feed)
+            errorHandler.logError(userError, context: .feed)
+            self.error = userError
+            isLoading = false
+            Haptics.error()
+        }
+    }
+
+    func refresh() async {
+        guard !isRefreshing else {
+            print("⏭️ [Feed] Already refreshing")
+            return
+        }
+        guard let currentUserId = authService.currentUser?.id else {
+            print("⚠️ [Feed] No current user for refresh")
+            return
+        }
+
+        print("🔄 [Feed] Refreshing feed...")
+        isRefreshing = true
+        error = nil
+        cursor = nil
+        newPostsAvailable = 0 // Reset new posts counter
+
+        // Use quick retry for manual refresh (user initiated)
+        let result = await retryManager.fetchWithRetry(config: .quick) {
+            try await self.postRepository.fetchFeed(userId: currentUserId, limit: self.pageSize, cursor: nil)
+        }
+
+        switch result {
+        case .success(let feedResult):
+            print("✅ [Feed] Refresh complete - \(feedResult.posts.count) posts")
+            posts = feedResult.posts
+            hasMorePages = feedResult.hasMore
+
+            // Update cursor to the last post's timestamp
+            if let lastPost = feedResult.posts.last {
+                cursor = lastPost.post.createdAt.ISO8601Format()
+            }
+
+            error = nil
+            isRefreshing = false
+            Haptics.success()
+
+        case .failure(let err, let attempts):
+            print("❌ [Feed] Refresh error after \(attempts) attempts: \(err)")
+            let userError = errorHandler.handleError(err, context: .feed)
+            errorHandler.logError(userError, context: .feed)
+            self.error = userError
+            isRefreshing = false
+            Haptics.error()
+        }
+    }
+
+    /// Prefetch next page when user scrolls to 80% of current content
+    func loadMoreIfNeeded(currentPost: PostWithAuthor) async {
+        guard !isLoadingMore, !isLoading, hasMorePages else { return }
+
+        // Calculate threshold index (80% of posts)
+        let thresholdIndex = Int(Double(posts.count) * 0.8)
+
+        if let currentIndex = posts.firstIndex(where: { $0.id == currentPost.id }),
+           currentIndex >= thresholdIndex {
+            print("📍 [Feed] Reached 80% threshold (index \(currentIndex)/\(posts.count)), prefetching next page...")
+            await loadMore()
+        }
+    }
+
+    private func loadMore() async {
+        guard let currentUserId = authService.currentUser?.id else { return }
+        guard let cursor = cursor else {
+            print("⚠️ [Feed] No cursor available for pagination")
+            return
+        }
+
+        isLoadingMore = true
+
+        do {
+            print("📥 [Feed] Fetching next page with cursor: \(cursor)")
+            let result = try await postRepository.fetchFeed(
+                userId: currentUserId,
+                limit: pageSize,
+                cursor: cursor
+            )
+
+            print("✅ [Feed] Loaded \(result.posts.count) more posts")
+            posts.append(contentsOf: result.posts)
+            hasMorePages = result.hasMore
+
+            // Update cursor to the last post's timestamp
+            if let lastPost = result.posts.last {
+                self.cursor = lastPost.post.createdAt.ISO8601Format()
+            }
+
+            isLoadingMore = false
+        } catch {
+            print("❌ [Feed] Error loading more: \(error)")
+            self.error = errorHandler.handleError(error, context: .feed)
+            isLoadingMore = false
+        }
+    }
+
+    func toggleLike(for post: PostWithAuthor) async {
+        guard let currentUserId = authService.currentUser?.id else { return }
+
+        // Optimistic update
+        if let index = posts.firstIndex(where: { $0.id == post.id }) {
+            let currentPost = posts[index]
+            let newLikesCount = currentPost.isLikedByCurrentUser
+                ? max(0, currentPost.post.likesCount - 1)
+                : currentPost.post.likesCount + 1
+
+            var updatedWorkoutPost = currentPost.post
+            updatedWorkoutPost.likesCount = newLikesCount
+
+            var updatedPost = currentPost
+            updatedPost = PostWithAuthor(
+                id: currentPost.id,
+                post: updatedWorkoutPost,
+                author: currentPost.author,
+                isLikedByCurrentUser: !currentPost.isLikedByCurrentUser
+            )
+
+            posts[index] = updatedPost
+
+            // Perform actual API call (or queue if offline)
+            do {
+                if updatedPost.isLikedByCurrentUser {
+                    try await postRepository.likePost(post.post.id)
+                    Haptics.success()
+                } else {
+                    try await postRepository.unlikePost(post.post.id)
+                    Haptics.light()
+                }
+            } catch {
+                // Revert on error
+                let revertedPost = posts[index]
+                let revertedLikesCount = revertedPost.isLikedByCurrentUser
+                    ? max(0, revertedPost.post.likesCount - 1)
+                    : revertedPost.post.likesCount + 1
+
+                var revertedWorkoutPost = revertedPost.post
+                revertedWorkoutPost.likesCount = revertedLikesCount
+
+                posts[index] = PostWithAuthor(
+                    id: revertedPost.id,
+                    post: revertedWorkoutPost,
+                    author: revertedPost.author,
+                    isLikedByCurrentUser: !revertedPost.isLikedByCurrentUser
+                )
+
+                self.error = UserFriendlyError(
+                    title: "Like Failed",
+                    message: "Failed to update like",
+                    suggestion: "Try again",
+                    isRetryable: true
+                )
+                Haptics.error()
+            }
+        }
+    }
+
+    func deletePost(_ post: PostWithAuthor) async {
+        do {
+            try await postRepository.deletePost(post.post.id)
+            posts.removeAll { $0.id == post.id }
+            Haptics.success()
+        } catch {
+            self.error = UserFriendlyError(
+                title: "Delete Failed",
+                message: "Failed to delete post",
+                suggestion: "Try again",
+                isRetryable: true,
+                originalError: error
+            )
+            Haptics.error()
+        }
+    }
+
+    func updatePost(_ post: PostWithAuthor, caption: String?, visibility: PostVisibility) async {
+        // Capture the values we need before the async call
+        let postId = post.post.id
+        let originalPostId = post.id
+        let captionValue = caption
+        let visibilityValue = visibility
+
+        do {
+            try await postRepository.updatePost(postId, caption: captionValue, visibility: visibilityValue)
+
+            // Update the post in the local feed using the index we find
+            if let index = posts.firstIndex(where: { $0.id == originalPostId }) {
+                var updatedWorkoutPost = posts[index].post
+                updatedWorkoutPost.caption = captionValue
+                updatedWorkoutPost.visibility = visibilityValue
+                updatedWorkoutPost.updatedAt = Date()
+
+                posts[index] = PostWithAuthor(
+                    id: posts[index].id,
+                    post: updatedWorkoutPost,
+                    author: posts[index].author,
+                    isLikedByCurrentUser: posts[index].isLikedByCurrentUser
+                )
+            }
+
+            Haptics.success()
+        } catch {
+            self.error = UserFriendlyError(
+                title: "Update Failed",
+                message: "Failed to update post",
+                suggestion: "Try again",
+                isRetryable: true,
+                originalError: error
+            )
+            Haptics.error()
+        }
+    }
+
+    // MARK: - Offline Support
+
+    /// Sync queued actions when back online
+    func syncQueuedActions() async {
+        guard let currentUserId = authService.currentUser?.id else { return }
+        print("🔄 [Feed] Syncing queued actions...")
+
+        let dependencies = AppDependencies.shared
+        await offlineQueue.syncQueue(dependencies: dependencies)
+
+        // Refresh feed after sync
+        if offlineQueue.queueCount == 0 {
+            print("✅ [Feed] Sync complete - refreshing feed")
+            await refresh()
+        }
+    }
+
+    // MARK: - Realtime Updates
+
+    /// Subscribe to realtime updates for new posts
+    func subscribeToRealtimeUpdates() async {
+        guard let currentUserId = authService.currentUser?.id else {
+            print("⚠️ [Feed] Cannot subscribe to realtime - no user")
+            return
+        }
+
+        do {
+            // Subscribe to new posts
+            let channelId = try await realtimeService.subscribeToNewPosts(userId: currentUserId) { [weak self] newPost in
+                guard let self = self else { return }
+                Task { @MainActor in
+                    await self.handleNewPost(newPost)
+                }
+            }
+
+            realtimeChannelId = channelId
+            print("✅ [Feed] Subscribed to realtime updates")
+        } catch {
+            print("❌ [Feed] Failed to subscribe to realtime: \(error)")
+        }
+    }
+
+    /// Handle a new post received via realtime
+    private func handleNewPost(_ newPost: WorkoutPost) async {
+        // Don't show our own posts as new (they're already in the feed)
+        guard newPost.userId != authService.currentUser?.id else {
+            print("⏭️ [Feed] Skipping own post")
+            return
+        }
+
+        // Increment counter for banner
+        newPostsAvailable += 1
+        print("📬 [Feed] New post available - total: \(newPostsAvailable)")
+
+        Haptics.light()
+    }
+
+    /// Load the new posts that are available
+    func loadNewPosts() async {
+        guard newPostsAvailable > 0 else { return }
+
+        print("🔄 [Feed] Loading \(newPostsAvailable) new posts")
+        newPostsAvailable = 0
+
+        // Simply refresh the feed
+        await refresh()
+    }
+
+    /// Cleanup realtime subscriptions
+    func cleanup() async {
+        if let channelId = realtimeChannelId {
+            await realtimeService.unsubscribe(channelId: channelId)
+            realtimeChannelId = nil
+            print("🔵 [Feed] Cleaned up realtime subscriptions")
+        }
+    }

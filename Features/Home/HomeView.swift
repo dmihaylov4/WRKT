@@ -1,0 +1,391 @@
+//
+//  HomeView.swift
+//  WRKT
+//
+
+import SwiftUI
+import SwiftData
+
+// MARK: - Routes the Home stack can push to
+enum BrowseRoute: Hashable {
+    case region(BodyRegion)
+    case regionAll(BodyRegion)                // Show all exercises for region with filters
+    case allExercises                         // Show all exercises (no region filter)
+    case subregion(String)                    // e.g. "Chest"
+    case deep(parent: String, child: String)  // e.g. ("Chest","Upper Chest")
+}
+
+struct HomeView: View {
+    @EnvironmentObject var store: WorkoutStoreV2
+    @State private var path = NavigationPath()
+
+    @Query private var goals: [WeeklyGoal]
+
+    @Environment(\.modelContext) private var context
+    //DELETED BECAUSE ONBOARDING
+    //@State private var showGoalSetup = false
+
+    // Split animation state
+    @Namespace private var regionNS
+    @State private var expandedRegion: BodyRegion? = nil
+    @State private var showTiles = false
+
+    // Communicate browse state to app level to hide LiveWorkoutGrabTab
+    @AppStorage("is_browsing_exercises") private var isBrowsingExercises = false
+
+    private var hasActiveWorkout: Bool {
+        guard let current = store.currentWorkout else { return false }
+        return !current.entries.isEmpty
+    }
+    
+    
+    private func collapsePanel(animated: Bool = true) {
+        let anim = Animation.spring(response: 0.45, dampingFraction: 0.85)
+        if animated {
+            withAnimation(anim) { showTiles = false; expandedRegion = nil }
+        } else {
+            showTiles = false; expandedRegion = nil
+        }
+    }
+    var body: some View {
+        NavigationStack(path: $path) {
+            ZStack(alignment: .top) {
+                // ROOT: two big, styled cards
+                if expandedRegion == nil {
+                    VStack(spacing: 10) {
+                        RegionSquareLarge(
+                            title: "Upper Body",
+                            systemImage: "figure.strengthtraining.traditional",
+                            matchedID: "region-upper",
+                            namespace: regionNS,
+                            tint: DS.Theme.accent
+                        ) {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                expandedRegion = .upper
+                                showTiles = true
+                            }
+                        }
+
+                        RegionSquareLarge(
+                            title: "Lower Body",
+                            systemImage: "figure.step.training",
+                            matchedID: "region-lower",
+                            namespace: regionNS,
+                            tint: DS.Theme.accent
+                        ) {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                expandedRegion = .lower
+                                showTiles = true
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.top, 10)
+                    .padding(.bottom, 10)
+                    .transition(.opacity.combined(with: .scale))
+                }
+
+                // EXPANDED: the selected card morphs into a panel with subregion tiles
+                if let region = expandedRegion {
+                    // Tap-outside-to-close background (fills entire screen)
+                    Color.black.opacity(0.001)  // Nearly invisible but tappable
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Haptics.light()
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                showTiles = false
+                                expandedRegion = nil
+                            }
+                        }
+                        .transition(.opacity)
+
+                    // Panel on top - centered in available space
+                    VStack {
+                        Spacer()
+                        ExpandedRegionPanel(
+                            region: region,
+                            namespace: regionNS,
+                            matchedID: region == .upper ? "region-upper" : "region-lower",
+                            showTiles: showTiles,
+                            onCollapse: {
+                                withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                    showTiles = false
+                                    expandedRegion = nil
+                                }
+                            },
+                            onSelectSubregion: { name in
+                                path.append(BrowseRoute.subregion(name))
+                            }
+                        )
+                        .padding(.horizontal, 16)
+                        Spacer()
+                    }
+                    .allowsHitTesting(true)  // Ensure panel intercepts taps
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .navigationTitle("Exercises")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(for: BrowseRoute.self) { route in
+                switch route {
+                case .region(let r):
+                    SubregionGridView(state: .constant(.region(r)), region: r, useNavigationLinks: true)
+                case .regionAll(let region):
+                    // Show all exercises for a specific region (upper/lower body)
+                    MuscleExerciseListView(
+                        state: .constant(.region(region)),
+                        subregion: nil,
+                        muscleFilter: region == .upper ? .upperBody : .lowerBody,
+                        navigationPath: $path
+                    )
+                case .allExercises:
+                    // Show all exercises (no region filter)
+                    MuscleExerciseListView(
+                        state: .constant(.root),
+                        subregion: nil,
+                        muscleFilter: .fullBody,
+                        navigationPath: $path
+                    )
+                case .subregion(let name):
+                    MuscleExerciseListView(
+                          state: .constant(.subregion(name)),
+                          subregion: name,
+                          navigationPath: $path
+                      )
+                case .deep(let parent, let child):
+                    SubregionDetailScreen(subregion: parent, preselectedDeep: child)
+                }
+            }
+    
+            .onReceive(NotificationCenter.default.publisher(for: .resetHomeToRoot)) { _ in
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                    path = NavigationPath()
+                    expandedRegion = nil
+                    showTiles = false
+                }
+            }
+            // Reserve space for grab bar: 16pt spacing + 64pt height + 16pt to tab bar = 96pt
+            .safeAreaInset(edge: .bottom) {
+                if hasActiveWorkout && !isBrowsingExercises {
+                    Color.clear.frame(height: 60)
+                }
+            }
+            .background(DS.Semantic.surface)                               // ← keep it local
+            .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openHomeRoot)) { _ in
+            expandedRegion = nil
+            showTiles = false
+            path = .init()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .tabSelectionChanged)) { _ in
+            collapsePanel()
+        }
+        .onDisappear {            // if TabView swaps away from Home
+            collapsePanel(animated: false)
+        }
+        .onChange(of: expandedRegion) { _, newValue in
+            // Update browsing state: browsing if region is selected OR path has content
+            isBrowsingExercises = (newValue != nil) || !path.isEmpty
+        }
+        .onChange(of: path) { _, newValue in
+            // Update browsing state: browsing if region is selected OR path has content
+            isBrowsingExercises = (expandedRegion != nil) || !newValue.isEmpty
+        }
+        .onAppear {
+            // Initialize browsing state on appear
+            isBrowsingExercises = (expandedRegion != nil) || !path.isEmpty
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .homeTabReselected)) { _ in
+            // Reset to root state when Home tab is re-tapped
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                path = NavigationPath()
+                expandedRegion = nil
+                showTiles = false
+            }
+        }
+       // .onAppear {
+            // Check if weekly goal is set, show setup if not
+            //if let goal = goals.first, !goal.isSet {
+              //  showGoalSetup = true
+            //} else if goals.isEmpty {
+            //    showGoalSetup = true
+          //  }
+        //}
+       // .sheet(isPresented: $showGoalSetup) {
+         //   NavigationStack {
+           //     WeeklyGoalSetupView(goal: goals.first)
+             //       .interactiveDismissDisabled() // Require user to set goal
+           // }
+       // }
+        //.tint(DS.Semantic.brand)
+
+    }
+}
+
+// MARK: - Big tappable “region” cards
+
+private struct RegionSquareLarge: View {
+    let title: String
+    let systemImage: String
+    let matchedID: String
+    let namespace: Namespace.ID
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            Haptics.light()
+            action()
+        } label: {
+            ZStack {
+                let bg = RoundedRectangle(cornerRadius: 20, style: .continuous)
+                bg
+                    .fill(
+                        LinearGradient(
+                            colors: [tint.lighten(0.10), tint.darken(0.06)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                    .matchedGeometryEffect(id: matchedID, in: namespace)
+                    .overlay(bg.stroke(tint.darken(0.12).opacity(0.25), lineWidth: 1))
+
+                VStack(spacing: 8) {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 48, weight: .semibold))
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(DS.Semantic.surface)
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(DS.Semantic.surface)
+                }
+                .padding(.vertical, 18)
+                .padding(.horizontal, 12)
+            }
+            .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
+        }
+        .buttonStyle(PressCardStyle()) // ← feedback
+        .frame(maxWidth: .infinity, minHeight: 140)
+        .contentShape(Rectangle())
+        .accessibilityLabel(title)
+    }
+}
+
+// MARK: - Expanded panel + tiles
+
+private struct ExpandedRegionPanel: View {
+    let region: BodyRegion
+    let namespace: Namespace.ID
+    let matchedID: String
+    let showTiles: Bool
+    let onCollapse: () -> Void
+    let onSelectSubregion: (String) -> Void
+
+    private var title: String {
+        region == .upper ? "Upper Body" : "Lower Body"
+    }
+    private var accent: Color {
+        DS.Theme.accent
+    }
+    private var items: [String] {
+        MuscleTaxonomy.subregions(for: region)
+    }
+
+    private let cols = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: region == .upper ? "figure.strengthtraining.traditional" : "figure.step.training")
+                    .font(.headline)
+                    .foregroundStyle(accent)
+                Text(title)
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Haptics.soft()
+                    onCollapse()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(DS.Theme.accent)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.top, 12)
+            .padding(.horizontal, 14)
+
+            LazyVGrid(columns: cols, spacing: 10) {
+                ForEach(items, id: \.self) { name in
+                    Button {
+                        Haptics.light()
+                        onSelectSubregion(name)
+                    } label: {
+                        SubregionTile(title: name, accent: accent)
+                    }
+                    .buttonStyle(PressTileStyle()) // ← feedback
+                    .transition(.opacity.combined(with: .scale))
+                }
+            }
+            
+            .padding(.horizontal, 14)
+            .padding(.bottom, 12)
+            .opacity(showTiles ? 1 : 0)
+            .scaleEffect(showTiles ? 1 : 0.98, anchor: .top)
+            .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showTiles)
+        }
+        .background(
+            // Use your card surface for consistency (not .thinMaterial)
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(DS.Semantic.surface)
+                .matchedGeometryEffect(id: matchedID, in: namespace)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
+    }
+}
+
+
+
+private struct SubregionTile: View {
+    let title: String
+    let accent: Color
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // tiny accent dot for hierarchy
+            Circle()
+                .fill(accent)
+                .frame(width: 6, height: 6)
+
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .foregroundStyle(.secondary)
+                .font(.footnote)
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 56)
+        .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+        .foregroundStyle(DS.Semantic.textPrimary)
+        .contentShape(Rectangle())
+    }
+}
+
+// Color(hex:) is now available from DS.swift, no need to redefine
+

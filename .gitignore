@@ -1,0 +1,94 @@
+# ============================================================
+# Xcode
+# ============================================================
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+*.xcworkspace/*
+!*.xcworkspace/contents.xcworkspacedata
+
+# User settings
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+# Build artifacts
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Crash data
+*.xccrashpoint/
+
+# ============================================================
+# Credentials & Secrets — NEVER commit
+# ============================================================
+WRKT-Info.plist
+*.p8
+*.p12
+*.pem
+*.key
+.env
+.env.*
+
+# ============================================================
+# Swift Package Manager
+# ============================================================
+.swiftpm/
+.build/
+Package.resolved
+
+# ============================================================
+# CocoaPods
+# ============================================================
+Pods/
+
+# ============================================================
+# Python (utility scripts tooling)
+# ============================================================
+.venv/
+__pycache__/
+*.pyc
+
+# ============================================================
+# Supabase CLI
+# ============================================================
+supabase/.temp/
+supabase/.branches/
+
+# ============================================================
+# Fastlane
+# ============================================================
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# ============================================================
+# Scratch / notes / personal files
+# ============================================================
+*.rtf
+*.backup
+*.ipynb
+Untitled-*
+ANALYSIS_SUMMARY.txt
+DEPLOYMENT_ANALYSIS_SUMMARY.txt
+build_output.txt
+wrkt_diagnostics*.txt
+warnings.txt
+
+# ============================================================
+# OS / editor
+# ============================================================
+.DS_Store
+*.swp
+*~.nib
+Thumbs.db

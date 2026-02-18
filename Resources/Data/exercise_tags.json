@@ -1,0 +1,8 @@
+{
+  "upper-chest": ["incline-barbell-bench", "incline-dumbbell-press", "incline-pushup"],
+  "mid-chest":   ["flat-bench-barbell", "flat-bench-dumbbell", "pushup-standard"],
+  "lower-chest": ["decline-bench-press", "chest-dip"],
+  "lats":        ["lat-pulldown", "pullup", "straight-arm-pulldown"],
+  "mid-back":    ["seated-cable-row", "barbell-row"],
+  "lower-back":  ["back-extension", "good-morning", "roman-chair"]
+}

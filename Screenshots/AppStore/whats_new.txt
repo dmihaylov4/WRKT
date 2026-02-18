@@ -1,0 +1,87 @@
+WHAT'S NEW IN THIS VERSION
+============================
+
+🎉 MAJOR UPDATE: SOCIAL & COMPETITIVE FEATURES 🎉
+
+WRKT is now a fully social fitness platform! Train with friends, compete in battles, and stay accountable together.
+
+🏆 HEAD-TO-HEAD BATTLES
+Challenge friends to 1v1 competitions:
+• 22+ battle types (volume, reps, consistency, cardio, and more)
+• Real-time score updates
+• Custom battle durations (3 days, 1 week, 2 weeks)
+• Push notifications when you're ahead or behind
+• Battle history and win/loss records
+
+🎯 COMMUNITY CHALLENGES
+Join challenges with friends or the entire community:
+• Preset challenges like "30-Day Warrior" and "100K Club"
+• Track progress with live leaderboards
+• Celebrate milestones together
+• Challenge activity feed
+• Achievement badges for completions
+
+📱 SOCIAL WORKOUT FEED
+Share your training journey:
+• Post workouts with photos and captions
+• Like and comment on friends' posts
+• See complete workout breakdowns
+• Choose post visibility (Public, Friends, Private)
+• Beautiful workout cards with stats
+
+👥 CONNECT WITH FRIENDS
+Build your fitness community:
+• Add friends and see their activity
+• Friend activity feed
+• Tag friends in workouts (coming soon)
+• Team challenges (coming soon)
+
+📊 ENHANCED PROFILE
+Level up your fitness game:
+• XP and level progression system
+• Weekly goal tracking with streaks
+• Training balance analytics
+• Push/pull ratio monitoring
+• Muscle recovery visualization
+• PR collection showcase
+
+🗓️ IMPROVED CALENDAR
+Better workout planning:
+• Goal streak tracking
+• Weekly progress summary
+• Visual workout history
+• Click days to see workout details
+
+💪 TRAINING INSIGHTS
+New analytics to optimize your training:
+• Training balance dashboard
+• Muscle recovery status (16 muscle groups)
+• Push/pull imbalance detection
+• Weekly volume trends
+• Exercise statistics
+
+🏃 HEALTHKIT UPGRADES
+Better cardio integration:
+• Interactive route maps with heart rate overlay
+• Heart rate zone analysis
+• Kilometer splits view
+• Workout detail improvements
+• Import HealthKit strength workouts
+
+🎨 DESIGN IMPROVEMENTS
+• Refined UI across the entire app
+• Smoother animations
+• Better dark mode support
+• Improved navigation
+• Performance optimizations
+
+🐛 BUG FIXES & IMPROVEMENTS
+• Fixed workout save issues
+• Improved exercise search
+• Better rest timer reliability
+• Faster app startup
+• Numerous stability improvements
+
+---
+
+Ready to compete? Download the update and challenge your friends! 💪

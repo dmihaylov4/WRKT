@@ -1,0 +1,1550 @@
+{
+  "front": {
+    "elements": [
+      {
+        "id": "erector-spinae",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "subscapularis",
+        "classes": [
+          "muscle",
+          "anterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "tibialis-anterior",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "soleus",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "gastrocnemius",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "quadriceps-1",
+        "classes": [
+          "muscle-group",
+          "vastus-lateralis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "quadriceps-2",
+        "classes": [
+          "muscle-group",
+          "vastus-medialis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "hip-adductors",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "sartorius",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "hip-adductors",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "hip-flexors",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "quadriceps-3",
+        "classes": [
+          "muscle-group",
+          "rectus-femoris"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "quadriceps-4",
+        "classes": [
+          "muscle-group",
+          "vastus-literalis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "abductors",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "forearm-flexors",
+        "classes": [
+          "muscle",
+          "forearm-flexors"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "forearm-extensors",
+        "classes": [
+          "muscle",
+          "forearm-extensors"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "forearm-flexors",
+        "classes": [
+          "muscle",
+          "forearm-flexors"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "forearm-flexors",
+        "classes": [
+          "muscle",
+          "forearm-flexors",
+          "pronator"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "brachialis",
+        "classes": [
+          "muscle",
+          "deep",
+          "elbow-flexor"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "triceps-long",
+        "classes": [
+          "muscle",
+          "triceps",
+          "long-head",
+          "medial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "brachioradialis",
+        "classes": [
+          "muscle",
+          "brachioradialis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "triceps-lateral",
+        "classes": [
+          "muscle",
+          "triceps",
+          "lateral-head",
+          "lateral"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "biceps-brachii-long",
+        "classes": [
+          "muscle",
+          "biceps",
+          "long-head",
+          "lateral"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "biceps-brachii-short",
+        "classes": [
+          "muscle",
+          "biceps",
+          "short-head",
+          "medial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "obliques",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "latissimus-dorsi",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "rectus-abdominis",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "deltoid-anterior-L",
+        "classes": [
+          "muscle",
+          "deltoid",
+          "anterior",
+          "left",
+          "right"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "pectoralis-major-clavicular-L",
+        "classes": [
+          "muscle",
+          "pectoralis-major",
+          "clavicular",
+          "left",
+          "right"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "trapezius-upper",
+        "classes": [
+          "muscle",
+          "anterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "sternocleidomastoid",
+        "classes": [
+          "muscle",
+          "neck",
+          "anterior",
+          "sternocleidomastoid",
+          "scm"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "serratus-anterior",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "pectoralis-minor",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "quadratus-lumborum",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      {
+        "id": "deep-external-rotators",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      }
+    ],
+    "byId": {
+      "erector-spinae": {
+        "id": "erector-spinae",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "subscapularis": {
+        "id": "subscapularis",
+        "classes": [
+          "muscle",
+          "anterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "tibialis-anterior": {
+        "id": "tibialis-anterior",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "soleus": {
+        "id": "soleus",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "gastrocnemius": {
+        "id": "gastrocnemius",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "quadriceps-1": {
+        "id": "quadriceps-1",
+        "classes": [
+          "muscle-group",
+          "vastus-lateralis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "quadriceps-2": {
+        "id": "quadriceps-2",
+        "classes": [
+          "muscle-group",
+          "vastus-medialis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "hip-adductors": {
+        "id": "hip-adductors",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "sartorius": {
+        "id": "sartorius",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "hip-flexors": {
+        "id": "hip-flexors",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "quadriceps-3": {
+        "id": "quadriceps-3",
+        "classes": [
+          "muscle-group",
+          "rectus-femoris"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "quadriceps-4": {
+        "id": "quadriceps-4",
+        "classes": [
+          "muscle-group",
+          "vastus-literalis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "abductors": {
+        "id": "abductors",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "forearm-flexors": {
+        "id": "forearm-flexors",
+        "classes": [
+          "muscle",
+          "forearm-flexors",
+          "pronator"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "forearm-extensors": {
+        "id": "forearm-extensors",
+        "classes": [
+          "muscle",
+          "forearm-extensors"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "brachialis": {
+        "id": "brachialis",
+        "classes": [
+          "muscle",
+          "deep",
+          "elbow-flexor"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "triceps-long": {
+        "id": "triceps-long",
+        "classes": [
+          "muscle",
+          "triceps",
+          "long-head",
+          "medial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "brachioradialis": {
+        "id": "brachioradialis",
+        "classes": [
+          "muscle",
+          "brachioradialis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "triceps-lateral": {
+        "id": "triceps-lateral",
+        "classes": [
+          "muscle",
+          "triceps",
+          "lateral-head",
+          "lateral"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "biceps-brachii-long": {
+        "id": "biceps-brachii-long",
+        "classes": [
+          "muscle",
+          "biceps",
+          "long-head",
+          "lateral"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "biceps-brachii-short": {
+        "id": "biceps-brachii-short",
+        "classes": [
+          "muscle",
+          "biceps",
+          "short-head",
+          "medial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "obliques": {
+        "id": "obliques",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "latissimus-dorsi": {
+        "id": "latissimus-dorsi",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "rectus-abdominis": {
+        "id": "rectus-abdominis",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "deltoid-anterior-L": {
+        "id": "deltoid-anterior-L",
+        "classes": [
+          "muscle",
+          "deltoid",
+          "anterior",
+          "left",
+          "right"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "pectoralis-major-clavicular-L": {
+        "id": "pectoralis-major-clavicular-L",
+        "classes": [
+          "muscle",
+          "pectoralis-major",
+          "clavicular",
+          "left",
+          "right"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "trapezius-upper": {
+        "id": "trapezius-upper",
+        "classes": [
+          "muscle",
+          "anterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "sternocleidomastoid": {
+        "id": "sternocleidomastoid",
+        "classes": [
+          "muscle",
+          "neck",
+          "anterior",
+          "sternocleidomastoid",
+          "scm"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "serratus-anterior": {
+        "id": "serratus-anterior",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "pectoralis-minor": {
+        "id": "pectoralis-minor",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "quadratus-lumborum": {
+        "id": "quadratus-lumborum",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      },
+      "deep-external-rotators": {
+        "id": "deep-external-rotators",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "front"
+      }
+    },
+    "classToIds": {
+      "anterior": [
+        "deltoid-anterior-L",
+        "sternocleidomastoid",
+        "subscapularis",
+        "trapezius-upper"
+      ],
+      "biceps": [
+        "biceps-brachii-long",
+        "biceps-brachii-short"
+      ],
+      "brachioradialis": [
+        "brachioradialis"
+      ],
+      "clavicular": [
+        "pectoralis-major-clavicular-L"
+      ],
+      "deep": [
+        "brachialis"
+      ],
+      "deltoid": [
+        "deltoid-anterior-L"
+      ],
+      "elbow-flexor": [
+        "brachialis"
+      ],
+      "forearm-extensors": [
+        "forearm-extensors"
+      ],
+      "forearm-flexors": [
+        "forearm-flexors"
+      ],
+      "lateral": [
+        "biceps-brachii-long",
+        "triceps-lateral"
+      ],
+      "lateral-head": [
+        "triceps-lateral"
+      ],
+      "left": [
+        "deltoid-anterior-L",
+        "pectoralis-major-clavicular-L"
+      ],
+      "long-head": [
+        "biceps-brachii-long",
+        "triceps-long"
+      ],
+      "medial": [
+        "biceps-brachii-short",
+        "triceps-long"
+      ],
+      "muscle": [
+        "abductors",
+        "biceps-brachii-long",
+        "biceps-brachii-short",
+        "brachialis",
+        "brachioradialis",
+        "deep-external-rotators",
+        "deltoid-anterior-L",
+        "erector-spinae",
+        "forearm-extensors",
+        "forearm-flexors",
+        "gastrocnemius",
+        "hip-flexors",
+        "latissimus-dorsi",
+        "obliques",
+        "pectoralis-major-clavicular-L",
+        "pectoralis-minor",
+        "quadratus-lumborum",
+        "rectus-abdominis",
+        "sartorius",
+        "serratus-anterior",
+        "soleus",
+        "sternocleidomastoid",
+        "subscapularis",
+        "tibialis-anterior",
+        "trapezius-upper",
+        "triceps-lateral",
+        "triceps-long"
+      ],
+      "muscle-group": [
+        "hip-adductors",
+        "quadriceps-1",
+        "quadriceps-2",
+        "quadriceps-3",
+        "quadriceps-4"
+      ],
+      "neck": [
+        "sternocleidomastoid"
+      ],
+      "pectoralis-major": [
+        "pectoralis-major-clavicular-L"
+      ],
+      "posterior": [
+        "latissimus-dorsi"
+      ],
+      "pronator": [
+        "forearm-flexors"
+      ],
+      "rectus-femoris": [
+        "quadriceps-3"
+      ],
+      "right": [
+        "deltoid-anterior-L",
+        "pectoralis-major-clavicular-L"
+      ],
+      "scm": [
+        "sternocleidomastoid"
+      ],
+      "short-head": [
+        "biceps-brachii-short"
+      ],
+      "sternocleidomastoid": [
+        "sternocleidomastoid"
+      ],
+      "triceps": [
+        "triceps-lateral",
+        "triceps-long"
+      ],
+      "vastus-lateralis": [
+        "quadriceps-1"
+      ],
+      "vastus-literalis": [
+        "quadriceps-4"
+      ],
+      "vastus-medialis": [
+        "quadriceps-2"
+      ]
+    },
+    "counts": {
+      "total": 35,
+      "groups": 35,
+      "with_id": 35,
+      "with_class": 35
+    }
+  },
+  "back": {
+    "elements": [
+      {
+        "id": null,
+        "classes": [],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "soleus",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "quadriceps-1",
+        "classes": [
+          "muscle-group",
+          "vastus-medialis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "hip-adductors",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "hamstrings",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "quadriceps-2",
+        "classes": [
+          "muscle-group",
+          "vastus-literalis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "gastrocnemius",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "gluteus-maximus",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "abductors",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "obliques",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "forearm-extensors-1",
+        "classes": [
+          "muscle",
+          "forearm-extensors",
+          "digital"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "forearm-extensors-2",
+        "classes": [
+          "muscle",
+          "forearm-extensors",
+          "radial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "forearm-extensors-3",
+        "classes": [
+          "muscle",
+          "forearm-extensors",
+          "ulnar"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "supinator",
+        "classes": [
+          "muscle",
+          "supinator",
+          "forearm-extensors",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "forearm-flexors",
+        "classes": [
+          "muscle",
+          "forearm-flexors"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "triceps-lateral-R",
+        "classes": [
+          "muscle",
+          "triceps",
+          "lateral-head",
+          "lateral"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "triceps-long",
+        "classes": [
+          "muscle",
+          "triceps",
+          "long-head",
+          "medial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "triceps-medial",
+        "classes": [
+          "muscle",
+          "triceps",
+          "medial-head",
+          "deep",
+          "distal"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "levator-scapulae",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "teres-major",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "deltoid-posterior",
+        "classes": [
+          "muscle",
+          "deltoid",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "trapezius-middle",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "trapezius-lower",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "trapezius-upper",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "quadratus-lumborum",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "erector-spinae",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "supraspinatus",
+        "classes": [
+          "muscle",
+          "rotator-cuff",
+          "supraspinatus"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "infraspinatus teres-minor",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "rhomboid",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      {
+        "id": "splenius",
+        "classes": [
+          "muscle",
+          "neck",
+          "posterior",
+          "splenius"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      }
+    ],
+    "byId": {
+      "soleus": {
+        "id": "soleus",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "quadriceps-1": {
+        "id": "quadriceps-1",
+        "classes": [
+          "muscle-group",
+          "vastus-medialis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "hip-adductors": {
+        "id": "hip-adductors",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "hamstrings": {
+        "id": "hamstrings",
+        "classes": [
+          "muscle-group"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "quadriceps-2": {
+        "id": "quadriceps-2",
+        "classes": [
+          "muscle-group",
+          "vastus-literalis"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "gastrocnemius": {
+        "id": "gastrocnemius",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "gluteus-maximus": {
+        "id": "gluteus-maximus",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "abductors": {
+        "id": "abductors",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "obliques": {
+        "id": "obliques",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "forearm-extensors-1": {
+        "id": "forearm-extensors-1",
+        "classes": [
+          "muscle",
+          "forearm-extensors",
+          "digital"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "forearm-extensors-2": {
+        "id": "forearm-extensors-2",
+        "classes": [
+          "muscle",
+          "forearm-extensors",
+          "radial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "forearm-extensors-3": {
+        "id": "forearm-extensors-3",
+        "classes": [
+          "muscle",
+          "forearm-extensors",
+          "ulnar"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "supinator": {
+        "id": "supinator",
+        "classes": [
+          "muscle",
+          "supinator",
+          "forearm-extensors",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "forearm-flexors": {
+        "id": "forearm-flexors",
+        "classes": [
+          "muscle",
+          "forearm-flexors"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "triceps-lateral-R": {
+        "id": "triceps-lateral-R",
+        "classes": [
+          "muscle",
+          "triceps",
+          "lateral-head",
+          "lateral"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "triceps-long": {
+        "id": "triceps-long",
+        "classes": [
+          "muscle",
+          "triceps",
+          "long-head",
+          "medial"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "triceps-medial": {
+        "id": "triceps-medial",
+        "classes": [
+          "muscle",
+          "triceps",
+          "medial-head",
+          "deep",
+          "distal"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "levator-scapulae": {
+        "id": "levator-scapulae",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "teres-major": {
+        "id": "teres-major",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "deltoid-posterior": {
+        "id": "deltoid-posterior",
+        "classes": [
+          "muscle",
+          "deltoid",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "trapezius-middle": {
+        "id": "trapezius-middle",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "trapezius-lower": {
+        "id": "trapezius-lower",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "trapezius-upper": {
+        "id": "trapezius-upper",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "quadratus-lumborum": {
+        "id": "quadratus-lumborum",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "erector-spinae": {
+        "id": "erector-spinae",
+        "classes": [
+          "muscle"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "supraspinatus": {
+        "id": "supraspinatus",
+        "classes": [
+          "muscle",
+          "rotator-cuff",
+          "supraspinatus"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "infraspinatus teres-minor": {
+        "id": "infraspinatus teres-minor",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "rhomboid": {
+        "id": "rhomboid",
+        "classes": [
+          "muscle",
+          "posterior"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      },
+      "splenius": {
+        "id": "splenius",
+        "classes": [
+          "muscle",
+          "neck",
+          "posterior",
+          "splenius"
+        ],
+        "tag": "g",
+        "parentId": null,
+        "side": "back"
+      }
+    },
+    "classToIds": {
+      "deep": [
+        "triceps-medial"
+      ],
+      "deltoid": [
+        "deltoid-posterior"
+      ],
+      "digital": [
+        "forearm-extensors-1"
+      ],
+      "distal": [
+        "triceps-medial"
+      ],
+      "forearm-extensors": [
+        "forearm-extensors-1",
+        "forearm-extensors-2",
+        "forearm-extensors-3",
+        "supinator"
+      ],
+      "forearm-flexors": [
+        "forearm-flexors"
+      ],
+      "lateral": [
+        "triceps-lateral-R"
+      ],
+      "lateral-head": [
+        "triceps-lateral-R"
+      ],
+      "long-head": [
+        "triceps-long"
+      ],
+      "medial": [
+        "triceps-long"
+      ],
+      "medial-head": [
+        "triceps-medial"
+      ],
+      "muscle": [
+        "abductors",
+        "deltoid-posterior",
+        "erector-spinae",
+        "forearm-extensors-1",
+        "forearm-extensors-2",
+        "forearm-extensors-3",
+        "forearm-flexors",
+        "gastrocnemius",
+        "gluteus-maximus",
+        "infraspinatus teres-minor",
+        "levator-scapulae",
+        "obliques",
+        "quadratus-lumborum",
+        "rhomboid",
+        "soleus",
+        "splenius",
+        "supinator",
+        "supraspinatus",
+        "teres-major",
+        "trapezius-lower",
+        "trapezius-middle",
+        "trapezius-upper",
+        "triceps-lateral-R",
+        "triceps-long",
+        "triceps-medial"
+      ],
+      "muscle-group": [
+        "hamstrings",
+        "hip-adductors",
+        "quadriceps-1",
+        "quadriceps-2"
+      ],
+      "neck": [
+        "splenius"
+      ],
+      "posterior": [
+        "deltoid-posterior",
+        "infraspinatus teres-minor",
+        "levator-scapulae",
+        "rhomboid",
+        "splenius",
+        "supinator",
+        "teres-major",
+        "trapezius-lower",
+        "trapezius-middle",
+        "trapezius-upper"
+      ],
+      "radial": [
+        "forearm-extensors-2"
+      ],
+      "rotator-cuff": [
+        "supraspinatus"
+      ],
+      "splenius": [
+        "splenius"
+      ],
+      "supinator": [
+        "supinator"
+      ],
+      "supraspinatus": [
+        "supraspinatus"
+      ],
+      "triceps": [
+        "triceps-lateral-R",
+        "triceps-long",
+        "triceps-medial"
+      ],
+      "ulnar": [
+        "forearm-extensors-3"
+      ],
+      "vastus-literalis": [
+        "quadriceps-2"
+      ],
+      "vastus-medialis": [
+        "quadriceps-1"
+      ]
+    },
+    "counts": {
+      "total": 30,
+      "groups": 30,
+      "with_id": 29,
+      "with_class": 29
+    }
+  }
+}

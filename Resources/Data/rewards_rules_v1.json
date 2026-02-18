@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "xp": {
+    "workout_completed": { "amount": 50, "once_per_workout": true },
+    "set_logged":        { "amount": 5,  "cap_per_workout": 40, "max_per_day": 200 },
+    "pr_achieved":       { "amount": 25, "max_per_day": 100 },
+    "exercise_new":      { "amount": 25, "max_per_day": 100, "max_per_exercise_daily": 1 }
+  },
+  "achievements": [
+    { "id": "first_workout", "title": "First Workout!", "desc": "Finish your first workout",
+      "trigger": "workout_completed", "threshold": 1, "tier": null, "reward": { "xp": 100, "coins": 0 } },
+
+    { "id": "explorer_5", "title": "Explorer I", "desc": "Try 5 different exercises",
+      "trigger": "exercise_new", "threshold": 5, "tier": "bronze", "reward": { "xp": 100, "coins": 0 } },
+
+    { "id": "explorer_15", "title": "Explorer II", "desc": "Try 15 different exercises",
+      "trigger": "exercise_new", "threshold": 15, "tier": "silver", "reward": { "xp": 250, "coins": 0 } },
+
+    { "id": "explorer_30", "title": "Explorer III", "desc": "Try 30 different exercises",
+      "trigger": "exercise_new", "threshold": 30, "tier": "gold", "reward": { "xp": 500, "coins": 0 } },
+
+    { "id": "workout_streak_5", "title": "Consistent I", "desc": "Complete 5 workouts",
+      "trigger": "workout_completed", "threshold": 5, "tier": "bronze", "reward": { "xp": 150, "coins": 0 } },
+
+    { "id": "workout_streak_10", "title": "Consistent II", "desc": "Complete 10 workouts",
+      "trigger": "workout_completed", "threshold": 10, "tier": "silver", "reward": { "xp": 300, "coins": 0 } },
+
+    { "id": "workout_streak_25", "title": "Consistent III", "desc": "Complete 25 workouts",
+      "trigger": "workout_completed", "threshold": 25, "tier": "gold", "reward": { "xp": 750, "coins": 0 } },
+
+    { "id": "pr_collector_5", "title": "PR Hunter I", "desc": "Set 5 personal records",
+      "trigger": "pr_achieved", "threshold": 5, "tier": "bronze", "reward": { "xp": 200, "coins": 0 } },
+
+    { "id": "pr_collector_15", "title": "PR Hunter II", "desc": "Set 15 personal records",
+      "trigger": "pr_achieved", "threshold": 15, "tier": "silver", "reward": { "xp": 400, "coins": 0 } },
+
+    { "id": "pr_collector_30", "title": "PR Hunter III", "desc": "Set 30 personal records",
+      "trigger": "pr_achieved", "threshold": 30, "tier": "gold", "reward": { "xp": 800, "coins": 0 } }
+  ]
+}

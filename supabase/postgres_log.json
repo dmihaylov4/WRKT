@@ -1,0 +1,44 @@
+{
+  "event_message": "new row violates row-level security policy for table \"notifications\"",
+  "id": "8fd5589d-23af-44e0-9b17-e1ed81b61308",
+  "metadata": [
+    {
+      "file": null,
+      "host": "db-wjkokxhdpuoacazaohsa",
+      "metadata": [],
+      "parsed": [
+        {
+          "application_name": "postgrest",
+          "backend_type": "client backend",
+          "command_tag": "SELECT",
+          "connection_from": "::1:34481",
+          "context": null,
+          "database_name": "postgres",
+          "detail": null,
+          "error_severity": "ERROR",
+          "hint": null,
+          "internal_query": null,
+          "internal_query_pos": null,
+          "leader_pid": null,
+          "location": null,
+          "process_id": 408707,
+          "query": "WITH pgrst_source AS (INSERT INTO \"public\".\"notifications\"(\"actor_id\", \"read\", \"target_id\", \"type\", \"user_id\") SELECT \"pgrst_body\".\"actor_id\", \"pgrst_body\".\"read\", \"pgrst_body\".\"target_id\", \"pgrst_body\".\"type\", \"pgrst_body\".\"user_id\" FROM (SELECT $1 AS json_data) pgrst_payload, LATERAL (SELECT \"actor_id\", \"read\", \"target_id\", \"type\", \"user_id\" FROM json_to_record(pgrst_payload.json_data) AS _(\"actor_id\" uuid, \"read\" boolean, \"target_id\" uuid, \"type\" text, \"user_id\" uuid) ) pgrst_body  RETURNING \"public\".\"notifications\".*) SELECT '' AS total_result_set, pg_catalog.count(_postgrest_t) AS page_total, array[]::text[] AS header, coalesce(json_agg(_postgrest_t)->0, 'null') AS body, nullif(current_setting('response.headers', true), '') AS response_headers, nullif(current_setting('response.status', true), '') AS response_status, '' AS response_inserted FROM (SELECT \"notifications\".* FROM \"pgrst_source\" AS \"notifications\"   ) _postgrest_t",
+          "query_id": 8822059542094963000,
+          "query_pos": null,
+          "session_id": "6945df6f.63c83",
+          "session_line_num": 4,
+          "session_start_time": "2025-12-19 23:27:43 UTC",
+          "sql_state_code": "42501",
+          "timestamp": "2025-12-19 23:29:00.191 UTC",
+          "transaction_id": 0,
+          "user_name": "authenticator",
+          "virtual_transaction_id": "27/13301"
+        }
+      ],
+      "parsed_from": null,
+      "project": null,
+      "source_type": null
+    }
+  ],
+  "timestamp": 1766186940191000
+}

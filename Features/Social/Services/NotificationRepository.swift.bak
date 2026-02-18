@@ -1,0 +1,207 @@
+import Foundation
+import Supabase
+
+/// Repository for managing notifications with query optimization
+@MainActor
+final class NotificationRepository: BaseRepository<AppNotification>, NotificationRepositoryProtocol {
+
+    init(client: SupabaseClient = SupabaseClientWrapper.shared.client) {
+        super.init(
+            tableName: "notifications",
+            logPrefix: "Notifications",
+            client: client
+        )
+    }
+
+    // MARK: - Fetch Notifications
+
+    /// Fetch notifications for a user with actor profiles and caching
+    func fetchNotifications(userId: UUID, limit: Int = 50, offset: Int = 0) async throws -> [NotificationWithActor] {
+        // Try cache first (only for initial page)
+        let cacheKey = QueryCache.notificationsKey(userId: userId.uuidString)
+        if offset == 0, let cached: [NotificationWithActor] = cache.get(cacheKey) {
+            logSuccess("Cache hit")
+            return cached
+        }
+
+        // Fetch notifications
+        let notifications: [AppNotification] = try await client
+            .from("notifications")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .range(from: offset, to: offset + limit - 1)
+            .execute()
+            .value
+
+        guard !notifications.isEmpty else {
+            if offset == 0 {
+                cache.set(cacheKey, value: [], ttl: .notifications)
+            }
+            return []
+        }
+
+        // Fetch actor profiles with individual caching
+        let actorIds = Array(Set(notifications.map { $0.actorId }))
+        let actors = try await fetchProfilesBatched(actorIds)
+
+        // Create lookup dictionary
+        let actorMap = Dictionary(uniqueKeysWithValues: actors.map { ($0.id, $0) })
+
+        // Combine notifications with actors
+        let result: [NotificationWithActor] = notifications.compactMap { notification in
+            guard let actor = actorMap[notification.actorId] else {
+                return nil
+            }
+            return NotificationWithActor(
+                id: notification.id,
+                notification: notification,
+                actor: actor
+            )
+        }
+
+        // Cache the result (only for initial page)
+        if offset == 0 {
+            cache.set(cacheKey, value: result, ttl: .notifications)
+        }
+
+        return result
+    }
+
+    /// Fetch unread notification count with caching
+    func fetchUnreadCount(userId: UUID) async throws -> Int {
+        // Try cache first
+        let cacheKey = "notifications:unread:\(userId.uuidString)"
+        if let cached: Int = cache.get(cacheKey) {
+            logSuccess("Cache hit for unread count")
+            return cached
+        }
+
+        let response: [AppNotification] = try await client
+            .from("notifications")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .eq("read", value: false)
+            .execute()
+            .value
+
+        let count = response.count
+
+        // Cache with short TTL (2 minutes)
+        cache.set(cacheKey, value: count, ttl: .notifications)
+
+        return count
+    }
+
+    // MARK: - Mark as Read
+
+    /// Mark a notification as read
+    func markAsRead(notificationId: UUID) async throws {
+        struct UpdateRead: Encodable {
+            let read: Bool
+        }
+
+        let _: AppNotification = try await client
+            .from("notifications")
+            .update(UpdateRead(read: true))
+            .eq("id", value: notificationId.uuidString)
+            .single()
+            .execute()
+            .value
+
+        // Invalidate notification caches
+        cache.invalidateAllNotifications()
+    }
+
+    /// Mark all notifications as read for a user
+    func markAllAsRead(userId: UUID) async throws {
+        struct UpdateRead: Encodable {
+            let read: Bool
+        }
+
+        let _: [AppNotification] = try await client
+            .from("notifications")
+            .update(UpdateRead(read: true))
+            .eq("user_id", value: userId.uuidString)
+            .eq("read", value: false)
+            .execute()
+            .value
+
+        // Invalidate notification caches
+        cache.invalidateAllNotifications()
+    }
+
+    // MARK: - Delete
+
+    /// Delete a notification
+    func deleteNotification(notificationId: UUID) async throws {
+        try await client
+            .from("notifications")
+            .delete()
+            .eq("id", value: notificationId.uuidString)
+            .execute()
+
+        // Invalidate notification caches
+        cache.invalidateAllNotifications()
+    }
+
+    /// Delete all notifications for a user
+    func deleteAllNotifications(userId: UUID) async throws {
+        try await client
+            .from("notifications")
+            .delete()
+            .eq("user_id", value: userId.uuidString)
+            .execute()
+
+        // Invalidate notification caches
+        cache.invalidateAllNotifications()
+    }
+
+    // MARK: - Helper Methods
+
+    /// Fetch multiple user profiles in a single batched query with individual caching
+    private func fetchProfilesBatched(_ userIds: [UUID]) async throws -> [UserProfile] {
+        guard !userIds.isEmpty else { return [] }
+
+        // Check cache for each profile
+        var profiles: [UserProfile] = []
+        var uncachedIds: [UUID] = []
+
+        for userId in userIds {
+            let cacheKey = QueryCache.profileKey(userId: userId.uuidString)
+            if let cached: UserProfile = cache.get(cacheKey) {
+                profiles.append(cached)
+            } else {
+                uncachedIds.append(userId)
+            }
+        }
+
+        // Fetch uncached profiles in a single batch query
+        if !uncachedIds.isEmpty {
+            let fetchedProfiles: [UserProfile] = try await client
+                .from("profiles")
+                .select()
+                .in("id", values: uncachedIds.map { $0.uuidString })
+                .execute()
+                .value
+
+            // Cache each fetched profile individually
+            for profile in fetchedProfiles {
+                let cacheKey = QueryCache.profileKey(userId: profile.id.uuidString)
+                cache.set(cacheKey, value: profile, ttl: .userProfiles)
+            }
+
+            profiles.append(contentsOf: fetchedProfiles)
+        }
+
+        print("💾 [Notifications] Fetched \(profiles.count) profiles (\(profiles.count - uncachedIds.count) from cache)")
+        return profiles
+    }
+}
+
+extension Array {
+    var empty: Bool {
+        isEmpty
+    }
+}
