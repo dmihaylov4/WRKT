@@ -29,6 +29,11 @@ final class HealthKitManager: ObservableObject {
 
     let store = HKHealthStore()
 
+    /// Increment this any time `toRead` or `toShare` gains a new type.
+    /// On app launch, if the stored version is lower, requestAuthorization() will fire
+    /// and iOS will prompt the user for only the new, ungranted types.
+    private static let authScopeVersion = 2  // bumped when workoutRoute was added to toRead
+
     @Published var connectionState: HealthConnectionState {
         didSet {
             // Persist connection state to UserDefaults
@@ -47,6 +52,16 @@ final class HealthKitManager: ObservableObject {
             self.connectionState = .disconnected
             AppLogger.debug("No saved state, defaulting to .disconnected", category: AppLogger.health)
         }
+    }
+
+    /// True when the stored auth-scope version is behind the current one,
+    /// meaning new HealthKit types were added since the user last saw the permission dialog.
+    var needsAuthScopeUpdate: Bool {
+        UserDefaults.standard.integer(forKey: "healthkit.authScopeVersion") < Self.authScopeVersion
+    }
+
+    private func markAuthScopeUpToDate() {
+        UserDefaults.standard.set(Self.authScopeVersion, forKey: "healthkit.authScopeVersion")
     }
     @Published var isSyncing = false
     @Published var lastSyncDate: Date?
@@ -151,6 +166,8 @@ final class HealthKitManager: ObservableObject {
                 AppLogger.warning("Data access test failed after 3 attempts, assuming .connected", category: AppLogger.health)
                 connectionState = .connected
             }
+            // Stamp the version so we don't re-prompt until the scope changes again
+            markAuthScopeUpToDate()
         } catch {
             AppLogger.error("HealthKit authorization failed", error: error, category: AppLogger.health)
             connectionState = .disconnected
@@ -213,29 +230,19 @@ final class HealthKitManager: ObservableObject {
 
         // Observe workout changes
         workoutObserver = HKObserverQuery(sampleType: .workoutType(), predicate: nil) { [weak self] _, completionHandler, error in
+            // Acknowledge immediately — HealthKit background budget is ~30s
+            completionHandler()
+            guard let self else { return }
             Task { @MainActor [weak self] in
-                guard let self else {
-                    completionHandler()
-                    return
-                }
+                guard let self else { return }
                 if let error {
-                    // Only log as warning if we're supposed to be connected
-                    // (Authorization errors on startup are normal and expected)
                     if self.connectionState == .connected {
                         AppLogger.debug("Workout observer error: \(error)", category: AppLogger.health)
                     }
                     self.syncError = error
-                    completionHandler()
                 } else {
                     AppLogger.info("HealthKit workout data changed - triggering sync", category: AppLogger.health)
-
-                    // Run sync with timeout to prevent hanging
-                    // Use 60 seconds for initial/large syncs
-                    await self.withTimeout(seconds: 60) {
-                        await self.syncWorkoutsIncremental()
-                    }
-
-                    completionHandler()
+                    await self.syncWorkoutsIncremental()
                 }
             }
         }
@@ -243,28 +250,18 @@ final class HealthKitManager: ObservableObject {
         // Observe Apple Exercise Time changes
         if let exerciseType = HKObjectType.quantityType(forIdentifier: .appleExerciseTime) {
             exerciseTimeObserver = HKObserverQuery(sampleType: exerciseType, predicate: nil) { [weak self] _, completionHandler, error in
+                // Acknowledge immediately — HealthKit background budget is ~30s
+                completionHandler()
+                guard let self else { return }
                 Task { @MainActor [weak self] in
-                    guard let self else {
-                        completionHandler()
-                        return
-                    }
+                    guard let self else { return }
                     if let error {
-                        // Only log as warning if we're supposed to be connected
-                        // (Authorization errors on startup are normal and expected)
                         if self.connectionState == .connected {
                             AppLogger.debug("Exercise time observer error: \(error)", category: AppLogger.health)
                         }
-                        completionHandler()
                     } else {
                         AppLogger.info("HealthKit exercise time changed - triggering sync", category: AppLogger.health)
-
-                        // Run sync with timeout to prevent hanging
-                        // Use 60 seconds for initial/large syncs
-                        await self.withTimeout(seconds: 60) {
-                            await self.syncExerciseTimeIncremental()
-                        }
-
-                        completionHandler()
+                        await self.syncExerciseTimeIncremental()
                     }
                 }
             }
@@ -341,11 +338,18 @@ final class HealthKitManager: ObservableObject {
             AppLogger.warning("ModelContext not set", category: AppLogger.health)
             return
         }
+        guard !isSyncing else { return }
 
-        // Check HealthKit authorization before syncing
-        guard connectionState == .connected else {
-            AppLogger.debug("Skipping sync - HealthKit not authorized (connectionState: \(connectionState))", category: AppLogger.health)
-            return
+        // Re-request auth when the scope has been extended since the user last saw the dialog
+        // (HealthKit is idempotent — it only prompts for genuinely new types)
+        if connectionState != .connected || needsAuthScopeUpdate {
+            AppLogger.info("Requesting HealthKit authorization (connected: \(connectionState == .connected), scopeStale: \(needsAuthScopeUpdate))", category: AppLogger.health)
+            do {
+                try await requestAuthorization()
+            } catch {
+                AppLogger.error("HealthKit authorization failed: \(error.localizedDescription)", category: AppLogger.health)
+                return
+            }
         }
 
         isSyncing = true
@@ -419,9 +423,9 @@ final class HealthKitManager: ObservableObject {
 
         AppLogger.info("📊 Syncing recent workouts (resetting anchor)", category: AppLogger.health)
 
-        // Ensure authorization before syncing
-        if connectionState != .connected {
-            AppLogger.info("📊 Requesting HealthKit authorization...", category: AppLogger.health)
+        // Ensure authorization before syncing (also re-prompts when scope has been extended)
+        if connectionState != .connected || needsAuthScopeUpdate {
+            AppLogger.info("📊 Requesting HealthKit authorization (scopeStale: \(needsAuthScopeUpdate))...", category: AppLogger.health)
             do {
                 try await requestAuthorization()
             } catch {
@@ -928,11 +932,12 @@ final class HealthKitManager: ObservableObject {
             return
         }
 
-        Task { @MainActor in
-            if let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
-                store.removeRun(withId: existing.id)
-                AppLogger.info("Deleted workout: \(uuid)", category: AppLogger.health)
-            }
+        // HealthKitManager is @MainActor, so this method is already on the main actor.
+        // Call store directly — no Task wrapper needed (and a Task would defer the
+        // deletion past context.save(), causing the save to miss it).
+        if let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
+            store.removeRun(withId: existing.id)
+            AppLogger.info("Deleted workout: \(uuid)", category: AppLogger.health)
         }
     }
 
@@ -1010,8 +1015,42 @@ final class HealthKitManager: ObservableObject {
         }
     }
 
+    /// Resets a "failed" route task for the given workout UUID back to "pending" so the
+    /// next `processRouteFetchQueue` run will retry it.  Called when the user manually
+    /// opens the share sheet for a run whose background fetch was exhausted.
+    func retryFailedRouteTaskIfNeeded(for workoutUUID: UUID) async {
+        guard let context = modelContext else { return }
+        let uuidString = workoutUUID.uuidString
+        let descriptor = FetchDescriptor<RouteFetchTask>(
+            predicate: #Predicate { $0.workoutUUID == uuidString && $0.status == "failed" }
+        )
+        guard let task = try? context.fetch(descriptor).first else { return }
+        task.status = "pending"
+        task.attemptCount = 0
+        try? context.save()
+        AppLogger.info("Reset failed route task to pending for retry: \(uuidString)", category: AppLogger.health)
+        Task.detached { [weak self] in
+            await self?.processRouteFetchQueue(limit: 1)
+        }
+    }
+
     func processRouteFetchQueue(limit: Int = 10) async {
         guard let context = modelContext else { return }
+
+        // Reset any tasks that got stuck in "fetching" state (e.g., app killed mid-processing).
+        // Use a 2-minute staleness window — legitimate fetches complete well within that.
+        let staleThreshold = Date.now.addingTimeInterval(-120)
+        let fetchingDescriptor = FetchDescriptor<RouteFetchTask>(
+            predicate: #Predicate { $0.status == "fetching" }
+        )
+        if let stuckTasks = try? context.fetch(fetchingDescriptor) {
+            let stale = stuckTasks.filter { ($0.lastAttemptDate ?? .distantPast) < staleThreshold }
+            for task in stale {
+                task.status = "pending"
+                AppLogger.warning("Reset stale 'fetching' route task to 'pending': \(task.workoutUUID)", category: AppLogger.health)
+            }
+            if !stale.isEmpty { try? context.save() }
+        }
 
         // Fetch pending tasks (prioritized)
         let descriptor = FetchDescriptor<RouteFetchTask>(
@@ -1063,23 +1102,36 @@ final class HealthKitManager: ObservableObject {
                         updated.avgGroundContactTime = runningMetrics.avgGroundContactTime
                         updated.avgVerticalOscillation = runningMetrics.avgVerticalOscillation
                         store.updateRun(updated)
-                        task.status = "completed"
 
                         if coords.isEmpty {
-                            AppLogger.warning("Route fetch completed but no coordinates found for \(uuid)", category: AppLogger.health)
-                        } else {
-                            AppLogger.success("Fetched route for \(uuid): \(coords.count) points, HR: \(routeWithHR != nil), \(splits?.count ?? 0) splits", category: AppLogger.health)
-                        }
+                            // Route not yet available in HealthKit — retry up to 3 times
+                            task.attemptCount += 1
+                            task.status = task.attemptCount >= 3 ? "failed" : "pending"
+                            AppLogger.warning("Route fetch returned no coordinates for \(uuid), attempt \(task.attemptCount)/3 → \(task.status)", category: AppLogger.health)
 
-                        // Trigger auto-post for cardio workouts (route data optional)
-                        let workoutType = updated.workoutType?.lowercased() ?? ""
-                        if workoutType.contains("run") && updated.distanceKm >= 1.0 {
-                            Task {
-                                await CardioAutoPostService.shared.handleRunIfNeeded(
-                                    run: updated,
-                                    route: coords.isEmpty ? nil : coords,
-                                    routeWithHR: routeWithHR
-                                )
+                            // After exhausting retries, still trigger auto-post without route
+                            if task.status == "failed" {
+                                let workoutType = updated.workoutType?.lowercased() ?? ""
+                                if workoutType.contains("run") && updated.distanceKm >= 1.0 {
+                                    Task {
+                                        await CardioAutoPostService.shared.handleRunIfNeeded(run: updated)
+                                    }
+                                }
+                            }
+                        } else {
+                            task.status = "completed"
+                            AppLogger.success("Fetched route for \(uuid): \(coords.count) points, HR: \(routeWithHR != nil), \(splits?.count ?? 0) splits", category: AppLogger.health)
+
+                            // Trigger auto-post for cardio workouts with route data
+                            let workoutType = updated.workoutType?.lowercased() ?? ""
+                            if workoutType.contains("run") && updated.distanceKm >= 1.0 {
+                                Task {
+                                    await CardioAutoPostService.shared.handleRunIfNeeded(
+                                        run: updated,
+                                        route: coords,
+                                        routeWithHR: routeWithHR
+                                    )
+                                }
                             }
                         }
                     } else {
@@ -1117,13 +1169,38 @@ final class HealthKitManager: ObservableObject {
     // MARK: - Route Fetching
 
     func fetchRoute(for workout: HKWorkout) async throws -> [CLLocation] {
+        // Pass 1: workout-association predicate (most precise — links directly to this HKWorkout)
+        let associated = try await fetchRouteLocations(predicate: HKQuery.predicateForObjects(from: workout))
+        if !associated.isEmpty {
+            AppLogger.debug("Route via association predicate: \(associated.count) pts", category: AppLogger.health)
+            return associated
+        }
+
+        // Pass 2: time-window fallback — catches cases where association link is missing
+        // (e.g. Watch sync completed but metadata association dropped)
+        AppLogger.warning("No route via association for \(workout.uuid) — trying time-window fallback", category: AppLogger.health)
+        let timePredicate = HKQuery.predicateForSamples(
+            withStart: workout.startDate,
+            end: workout.endDate,
+            options: .strictStartDate
+        )
+        let timeBased = try await fetchRouteLocations(predicate: timePredicate, limit: 1)
+        if !timeBased.isEmpty {
+            AppLogger.debug("Route via time-window fallback: \(timeBased.count) pts", category: AppLogger.health)
+        } else {
+            AppLogger.warning("No route found via either predicate for \(workout.uuid) — check HealthKit route read permission in Settings > Health > Apps > WRKT", category: AppLogger.health)
+        }
+        return timeBased
+    }
+
+    /// Shared helper: runs HKSampleQuery for a route then streams it via HKWorkoutRouteQuery.
+    private func fetchRouteLocations(predicate: NSPredicate, limit: Int = HKObjectQueryNoLimit) async throws -> [CLLocation] {
         let routeType = HKSeriesType.workoutRoute()
         return try await withCheckedThrowingContinuation { cont in
-            let routePredicate = HKQuery.predicateForObjects(from: workout)
             let routeQuery = HKSampleQuery(
                 sampleType: routeType,
-                predicate: routePredicate,
-                limit: HKObjectQueryNoLimit,
+                predicate: predicate,
+                limit: limit,
                 sortDescriptors: nil
             ) { [weak self] _, samples, error in
                 guard let self else {
@@ -1137,10 +1214,19 @@ final class HealthKitManager: ObservableObject {
                 }
 
                 var points: [CLLocation] = []
+                var didResume = false
                 let q = HKWorkoutRouteQuery(route: route) { _, locations, done, err in
-                    if let err { cont.resume(throwing: err); return }
+                    guard !didResume else { return }
+                    if let err {
+                        didResume = true
+                        cont.resume(throwing: err)
+                        return
+                    }
                     if let locations { points.append(contentsOf: locations) }
-                    if done { cont.resume(returning: points) }
+                    if done {
+                        didResume = true
+                        cont.resume(returning: points)
+                    }
                 }
                 self.store.execute(q)
             }

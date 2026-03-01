@@ -35,8 +35,32 @@ final class MapSnapshotService {
         let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
         let mapRect = polyline.boundingMapRect
 
-        // Add padding to the map rect
-        let paddedRect = mapRect.insetBy(dx: -mapRect.size.width * 0.15, dy: -mapRect.size.height * 0.15)
+        // Add padding — 30% on each axis so the route never touches the edges.
+        // Then equalise the axes so the route is centred in the 600×400 frame
+        // without being stretched: pad the short axis to match the long one.
+        let paddedW = mapRect.size.width  * 1.60   // 30% each side → ×1.6 total
+        let paddedH = mapRect.size.height * 1.60
+        let aspectTarget = size.width / size.height  // e.g. 1.5 for 600×400
+        let rectAspect   = paddedW / paddedH
+
+        let finalW: Double
+        let finalH: Double
+        if rectAspect > aspectTarget {
+            // Route is wider than the output frame — expand height to match
+            finalW = paddedW
+            finalH = paddedW / aspectTarget
+        } else {
+            // Route is taller — expand width to match
+            finalH = paddedH
+            finalW = paddedH * aspectTarget
+        }
+
+        let paddedRect = MKMapRect(
+            x: mapRect.midX - finalW / 2,
+            y: mapRect.midY - finalH / 2,
+            width: finalW,
+            height: finalH
+        )
 
         // Configure snapshot options
         let options = MKMapSnapshotter.Options()

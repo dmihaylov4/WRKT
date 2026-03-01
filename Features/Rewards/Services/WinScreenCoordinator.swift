@@ -11,6 +11,7 @@ import SwiftUI
 import Combine
 import OSLog
 
+@MainActor
 final class WinScreenCoordinator: ObservableObject {
     static let shared = WinScreenCoordinator()
 
@@ -50,11 +51,11 @@ final class WinScreenCoordinator: ObservableObject {
     }
 
     /// Call this from AppShell when you receive `rewardsDidSummarize`
-    @MainActor func enqueue(_ s: RewardSummary) {
+    func enqueue(_ s: RewardSummary) {
         incoming.send(s)
     }
 
-    @MainActor private func enqueueMerged(_ s: RewardSummary) {
+    private func enqueueMerged(_ s: RewardSummary) {
         guard s.shouldPresent else { return }
 
         // Apply lucky bonus check (12% chance of bonus XP)
@@ -72,7 +73,7 @@ final class WinScreenCoordinator: ObservableObject {
     }
 
     /// Store the completed workout to enable social sharing
-    @MainActor func setCompletedWorkout(_ workout: CompletedWorkout?) {
+    func setCompletedWorkout(_ workout: CompletedWorkout?) {
         if summary == nil {
             currentWorkout = workout
         } else {
@@ -80,7 +81,7 @@ final class WinScreenCoordinator: ObservableObject {
         }
     }
 
-    @MainActor func dismissCurrent() {
+    func dismissCurrent() {
         summary = queue.isEmpty ? nil : queue.removeFirst()
         currentWorkout = workoutQueue.isEmpty ? nil : workoutQueue.removeFirst()
     }

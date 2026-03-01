@@ -72,14 +72,26 @@ struct PostCreationView: View {
                         authService: deps.authService
                     )
                     viewModel = vm
-                    vm.selectedWorkout = initialWorkout
 
-                    // Add initial map image if provided (for cardio workouts)
+                    // Suppress didSet map generation during initial setup
+                    vm.suppressMapGeneration = true
+                    vm.selectedWorkout = initialWorkout
+                    vm.suppressMapGeneration = false
+
+                    // Add initial map image if provided (from CardioDetailView)
                     if let mapImage = initialMapImage {
                         vm.addInitialImage(mapImage)
                     }
 
+                    // Load recent workouts (populates cachedRuns for map generation)
                     await vm.loadRecentWorkouts()
+
+                    // If cardio workout with no map provided, generate one now
+                    // (cachedRuns is populated so route lookup will succeed)
+                    if initialMapImage == nil,
+                       let workout = initialWorkout, workout.isCardioWorkout {
+                        await vm.generateMapSnapshotForWorkout(workout)
+                    }
                 }
             }
         }

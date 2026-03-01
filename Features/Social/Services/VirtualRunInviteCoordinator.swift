@@ -4,7 +4,19 @@
 //
 //  Manages Realtime subscription for pending virtual run invites and
 //  coordinating the accept/decline flow with Watch and Supabase.
-//  Uses Realtime as primary mechanism with a 30s fallback poll as safety net.
+//
+//  Reliability architecture:
+//  - Invite delivery:  Supabase Realtime CDC (primary) + 30s fallback poll
+//  - Acceptance detection: Broadcast "ready" signal (primary, ~50ms) + Realtime CDC + 30s poll
+//
+//  How the "ready" signal works:
+//  1. Inviter sends invite → immediately subscribes to the broadcast channel (trackSentInvite)
+//  2. Invitee accepts REST API → subscribes to broadcast channel → publishes "ready" event
+//  3. Inviter receives "ready" on the already-open channel → enterActiveRun() immediately
+//
+//  This removes the dependency on Supabase CDC for the critical "both phones enter the run"
+//  coordination step, eliminating the 0-30s startup gap where the invitee's snapshots
+//  were silently dropped because the inviter hadn't subscribed yet.
 //
 
 import Foundation
@@ -39,7 +51,9 @@ final class VirtualRunInviteCoordinator {
 
     // MARK: - Realtime + Fallback Poll
 
-    /// Start listening for invites via Realtime with a 30s fallback poll
+    /// Start listening for invites via Realtime with a 30s fallback poll.
+    /// Also re-subscribes to the broadcast channel if waiting for acceptance
+    /// (the channel is killed when iOS suspends WebSockets on background).
     func startListening() {
         guard !isListening else { return }
         guard let userId = SupabaseAuthService.shared.currentUser?.id else { return }
@@ -47,37 +61,65 @@ final class VirtualRunInviteCoordinator {
 
         let repo = AppDependencies.shared.virtualRunRepository
 
-        // Subscribe to Realtime changes on virtual_runs
+        // Subscribe to Realtime CDC changes on virtual_runs
         Task {
             let _ = await repo.subscribeToVirtualRunChanges(
                 userId: userId,
                 onInviteReceived: { [weak self] run in
-                    Task { @MainActor in
+                    Task { @MainActor [weak self] in
                         self?.handleInviteReceived(run)
                     }
                 },
                 onRunStatusChanged: { [weak self] run in
-                    Task { @MainActor in
+                    Task { @MainActor [weak self] in
                         self?.handleRunStatusChanged(run, userId: userId)
                     }
                 }
             )
         }
 
+        // Re-subscribe to broadcast channel if we were waiting for acceptance.
+        // iOS terminates WebSockets ~5s after the app suspends, so after a background
+        // + foreground cycle the broadcast channel must be re-established.
+        if isWaitingForAcceptance,
+           let runId = sentInviteId,
+           let partnerId = sentInvitePartnerId,
+           let partnerName = sentInvitePartnerName {
+            subscribeEarlyAsInviter(runId: runId, partnerId: partnerId, partnerName: partnerName, myUserId: userId)
+        } else if isInActiveRun, let runId = activeRunId {
+            // Re-subscribe live partner snapshot channel for an active run.
+            // The snapshot channel is NOT unsubscribed on background (stopListening keeps it),
+            // but the underlying WebSocket is killed ~5s after suspend. Force-resubscribe to
+            // get a fresh connection with the same onUpdate handler.
+            let myId = userId
+            Task {
+                let repo = AppDependencies.shared.virtualRunRepository
+                let _ = await repo.subscribeToSnapshots(runId: runId, onUpdate: { snapshot in
+                    guard snapshot.userId != myId else { return }
+                    Task { @MainActor in
+                        WatchConnectivityManager.shared.sendVirtualRunPartnerUpdate(snapshot)
+                    }
+                })
+                AppLogger.info("[VR] Re-subscribed to live partner data after app foreground (runId: \(runId))", category: AppLogger.app)
+            }
+        }
+
         // Poll immediately to catch anything missed while offline
         pollOnce()
 
-        // Start 30s fallback poll as safety net (e.g. after app background/foreground)
+        // 30s fallback poll — safety net for all edge cases.
+        // tolerance: 3.0 lets the OS batch this with other 30-second timers.
         let timer = Timer(timeInterval: 30.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.pollOnce()
             }
         }
+        timer.tolerance = 3.0
         RunLoop.main.add(timer, forMode: .common)
         fallbackTimer = timer
     }
 
-    /// Stop listening (Realtime + fallback timer)
+    /// Stop listening (Realtime + fallback timer + broadcast channel if waiting).
     func stopListening() {
         isListening = false
         fallbackTimer?.invalidate()
@@ -85,6 +127,11 @@ final class VirtualRunInviteCoordinator {
 
         Task {
             await AppDependencies.shared.virtualRunRepository.unsubscribeFromVirtualRunChanges()
+            // Unsubscribe broadcast channel if waiting for acceptance (not during an active run).
+            // Will be re-subscribed when app foregrounds via startListening().
+            if !isInActiveRun {
+                await AppDependencies.shared.virtualRunRepository.unsubscribeFromSnapshots()
+            }
         }
     }
 
@@ -93,6 +140,9 @@ final class VirtualRunInviteCoordinator {
     private func handleInviteReceived(_ run: VirtualRun) {
         guard !isInActiveRun else { return }
         guard run.id != pendingInvite?.id else { return }
+
+        // Skip expired invites
+        if let expiresAt = run.expiresAt, expiresAt < Date() { return }
 
         pendingInvite = run
         Haptics.success()
@@ -106,10 +156,13 @@ final class VirtualRunInviteCoordinator {
     private func handleRunStatusChanged(_ run: VirtualRun, userId: UUID) {
         switch run.status {
         case .active:
-            // If we're waiting for acceptance as inviter, start the run
+            // CDC fallback: if the Broadcast "ready" signal was missed, CDC still triggers here.
+            // enterActiveRun() is idempotent — if already in the run, it returns immediately.
             if isWaitingForAcceptance, run.id == sentInviteId {
+                let partnerId = sentInvitePartnerId ?? run.inviteeId
+                let partnerName = sentInvitePartnerName ?? "Partner"
                 Task {
-                    await startRunAsInviter(run: run, userId: userId)
+                    await enterActiveRun(run: run, partnerId: partnerId, partnerName: partnerName, myUserId: userId)
                 }
             }
 
@@ -173,11 +226,26 @@ final class VirtualRunInviteCoordinator {
         }
     }
 
+    /// Clear pending invite if it has expired (called from poll cycle)
+    private func clearExpiredPendingInvite() {
+        guard let invite = pendingInvite,
+              let expiresAt = invite.expiresAt,
+              expiresAt < Date() else { return }
+        pendingInvite = nil
+        inviterProfile = nil
+    }
+
     // MARK: - Fallback Poll
 
     private func pollOnce() {
         guard !isPolling else { return }
         guard let userId = SupabaseAuthService.shared.currentUser?.id else { return }
+
+        // Clear any expired pending invite before polling
+        clearExpiredPendingInvite()
+
+        // Skip the network round-trip if neither branch has work to do.
+        guard !isInActiveRun || isWaitingForAcceptance else { return }
 
         isPolling = true
         Task {
@@ -189,7 +257,11 @@ final class VirtualRunInviteCoordinator {
             if !isInActiveRun {
                 do {
                     let invites = try await repo.fetchPendingInvites(for: userId)
-                    if let invite = invites.first {
+                    let validInvite = invites.first(where: { invite in
+                        guard let expiresAt = invite.expiresAt else { return true }
+                        return expiresAt > Date()
+                    })
+                    if let invite = validInvite {
                         if invite.id != pendingInvite?.id {
                             pendingInvite = invite
                             inviterProfile = try? await SupabaseAuthService.shared.fetchProfile(userId: invite.inviterId)
@@ -204,22 +276,22 @@ final class VirtualRunInviteCoordinator {
                 }
             }
 
-            // 2. Check if a sent invite was accepted (inviter side)
+            // 2. Check if a sent invite was accepted (inviter side — CDC/Broadcast fallback)
             if isWaitingForAcceptance, let inviteId = sentInviteId {
                 do {
                     if let run = try await repo.fetchRun(byId: inviteId) {
                         switch run.status {
                         case .active:
-                            // Invite was accepted — start the run on inviter side
-                            await startRunAsInviter(run: run, userId: userId)
+                            let partnerId = sentInvitePartnerId ?? run.inviteeId
+                            let partnerName = sentInvitePartnerName ?? "Partner"
+                            await enterActiveRun(run: run, partnerId: partnerId, partnerName: partnerName, myUserId: userId)
                         case .cancelled, .completed:
-                            // Invite was declined or already ended — stop waiting
                             isWaitingForAcceptance = false
                             sentInviteId = nil
                             sentInvitePartnerId = nil
                             sentInvitePartnerName = nil
                         case .pending:
-                            break // Still waiting
+                            break
                         }
                     }
                 } catch {
@@ -231,34 +303,86 @@ final class VirtualRunInviteCoordinator {
 
     // MARK: - Inviter: Track Sent Invites
 
-    /// Called after successfully sending an invite — starts polling for acceptance
+    /// Called after successfully sending an invite.
+    /// Immediately subscribes to the broadcast channel so the inviter is ready to
+    /// receive the invitee's "ready" signal and snapshots without any startup gap.
     func trackSentInvite(runId: UUID, partnerId: UUID, partnerName: String) {
         sentInviteId = runId
         sentInvitePartnerId = partnerId
         sentInvitePartnerName = partnerName
         isWaitingForAcceptance = true
+
+        guard let userId = SupabaseAuthService.shared.currentUser?.id else { return }
+        subscribeEarlyAsInviter(runId: runId, partnerId: partnerId, partnerName: partnerName, myUserId: userId)
     }
 
-    private func startRunAsInviter(run: VirtualRun, userId: UUID) async {
+    /// Subscribes to the broadcast channel immediately after the invite is sent.
+    /// Sets up handlers for both the "ready" signal and live snapshots so there is
+    /// zero gap between acceptance and data flowing to the inviter's Watch.
+    private func subscribeEarlyAsInviter(runId: UUID, partnerId: UUID, partnerName: String, myUserId: UUID) {
+        let myId = myUserId
+        let capturedPartnerId = partnerId
+        let capturedPartnerName = partnerName
+
+        Task {
+            let repo = AppDependencies.shared.virtualRunRepository
+            let _ = await repo.subscribeToSnapshots(
+                runId: runId,
+                onReady: { [weak self] in
+                    // Invitee published "ready" — enter the run immediately via Broadcast
+                    Task { @MainActor [weak self] in
+                        guard let self, self.isWaitingForAcceptance else { return }
+                        if let run = try? await AppDependencies.shared.virtualRunRepository.fetchRun(byId: runId) {
+                            await self.enterActiveRun(
+                                run: run,
+                                partnerId: capturedPartnerId,
+                                partnerName: capturedPartnerName,
+                                myUserId: myId
+                            )
+                        }
+                    }
+                },
+                onUpdate: { snapshot in
+                    // Forward invitee's snapshots to inviter's Watch
+                    guard snapshot.userId != myId else { return }
+                    Task { @MainActor in
+                        WatchConnectivityManager.shared.sendVirtualRunPartnerUpdate(snapshot)
+                    }
+                }
+            )
+        }
+    }
+
+    // MARK: - Shared: Enter Active Run
+
+    /// Unified entry point for both inviter and invitee to enter an active virtual run.
+    /// Idempotent — safe to call from the "ready" signal, Realtime CDC, and 30s poll simultaneously.
+    private func enterActiveRun(run: VirtualRun, partnerId: UUID, partnerName: String, myUserId: UUID) async {
+        // Idempotency guard — Broadcast "ready", Realtime CDC, and 30s poll may all fire.
+        // First caller wins; subsequent calls are no-ops.
+        guard !isInActiveRun else { return }
+
         isWaitingForAcceptance = false
         isInActiveRun = true
         activeRunId = run.id
         didSendPartnerFinished = false
 
         let repo = AppDependencies.shared.virtualRunRepository
-        let partnerId = sentInvitePartnerId ?? run.inviteeId
-        let partnerName = sentInvitePartnerName ?? "Partner"
+        let myId = myUserId
 
-        // Subscribe to Realtime snapshots — only forward partner's, not our own
-        let myId = userId
-        let _ = await repo.subscribeToSnapshots(runId: run.id) { snapshot in
-            guard snapshot.userId != myId else { return }
-            Task { @MainActor in
-                WatchConnectivityManager.shared.sendVirtualRunPartnerUpdate(snapshot)
-            }
+        // Subscribe to snapshots only if not already done.
+        // Inviter subscribes early in subscribeEarlyAsInviter() so the snapshot
+        // handler is already in place. Invitee always subscribes here (in acceptInvite).
+        if !repo.isSubscribedToSnapshots {
+            let _ = await repo.subscribeToSnapshots(runId: run.id, onUpdate: { snapshot in
+                guard snapshot.userId != myId else { return }
+                Task { @MainActor in
+                    WatchConnectivityManager.shared.sendVirtualRunPartnerUpdate(snapshot)
+                }
+            })
         }
 
-        // Fetch partner profile for maxHR
+        // Fetch partner's maxHR for Watch HR zone display
         var partnerMaxHR = 190
         if let partnerProfile = try? await SupabaseAuthService.shared.fetchProfile(userId: partnerId) {
             partnerMaxHR = partnerProfile.maxHR
@@ -269,14 +393,14 @@ final class VirtualRunInviteCoordinator {
             runId: run.id,
             partnerId: partnerId,
             partnerName: partnerName,
-            myUserId: userId,
+            myUserId: myUserId,
             partnerMaxHR: partnerMaxHR
         )
 
-        AppLogger.success("Inviter run started — notified Watch", category: AppLogger.app)
+        AppLogger.success("Entered active run (id: \(run.id))", category: AppLogger.app)
         Haptics.success()
 
-        // Clear sent invite tracking
+        // Clear inviter tracking
         sentInviteId = nil
         sentInvitePartnerId = nil
         sentInvitePartnerName = nil
@@ -295,38 +419,34 @@ final class VirtualRunInviteCoordinator {
                 let repo = AppDependencies.shared.virtualRunRepository
                 let run = try await repo.acceptInvite(invite.id)
 
-                isInActiveRun = true
-                activeRunId = run.id
-                didSendPartnerFinished = false
-
-                // Subscribe to Realtime snapshots — only forward partner's, not our own
-                let _ = await repo.subscribeToSnapshots(runId: run.id) { snapshot in
-                    guard snapshot.userId != myUserId else { return }
+                // Subscribe to snapshots so we receive the inviter's data once their Watch starts
+                let myId = myUserId
+                let _ = await repo.subscribeToSnapshots(runId: run.id, onUpdate: { snapshot in
+                    guard snapshot.userId != myId else { return }
                     Task { @MainActor in
                         WatchConnectivityManager.shared.sendVirtualRunPartnerUpdate(snapshot)
                     }
-                }
+                })
 
-                // Fetch inviter's profile for maxHR
-                var partnerMaxHR = 190
-                if let partnerProfile = try? await SupabaseAuthService.shared.fetchProfile(userId: invite.inviterId) {
-                    partnerMaxHR = partnerProfile.maxHR
-                }
+                // Publish "ready" on the broadcast channel.
+                // The inviter is already subscribed (did so when they sent the invite), so
+                // they receive this signal in ~50ms and enter the run immediately —
+                // no waiting for Supabase CDC or the 30s fallback poll.
+                await repo.publishReadySignal(runId: run.id)
 
-                // Notify Watch to start the virtual run
-                WatchConnectivityManager.shared.sendVirtualRunStarted(
-                    runId: run.id,
+                // Enter the run (Watch start, partner profile fetch, etc.)
+                let partnerName = inviterProfile?.displayName ?? inviterProfile?.username ?? "Partner"
+                await enterActiveRun(
+                    run: run,
                     partnerId: invite.inviterId,
-                    partnerName: inviterProfile?.displayName ?? inviterProfile?.username ?? "Partner",
-                    myUserId: myUserId,
-                    partnerMaxHR: partnerMaxHR
+                    partnerName: partnerName,
+                    myUserId: myUserId
                 )
 
                 // Clear the banner
                 pendingInvite = nil
                 inviterProfile = nil
 
-                AppLogger.success("Invitee accepted — notified Watch", category: AppLogger.app)
             } catch {
                 AppLogger.error("Failed to accept virtual run invite: \(error.localizedDescription)", category: AppLogger.app)
             }

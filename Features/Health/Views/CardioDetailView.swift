@@ -221,9 +221,12 @@ struct CardioDetailView: View {
         print("🗺️ [CardioDetail] healthKitUUID: \(currentRun.healthKitUUID?.uuidString ?? "nil")")
         print("🗺️ [CardioDetail] latestRun from store matched: \(latestRun.id == run.id)")
 
-        // If no route data, try to fetch on-demand from HealthKit
+        // If no route data, try to fetch on-demand from HealthKit.
+        // Also reset any exhausted ("failed") background route task so the queue
+        // retries it — previous attempts may have failed due to a now-fixed HK query bug.
         if currentRun.routeWithHR == nil && currentRun.route == nil,
            let hkUUID = currentRun.healthKitUUID {
+            await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
             print("🗺️ [CardioDetail] No route data on run, fetching from HealthKit UUID: \(hkUUID)...")
             isGeneratingSnapshot = true
             do {
@@ -237,6 +240,15 @@ struct CardioDetailView: View {
                         if routeWithHR.count > 1 {
                             currentRun.routeWithHR = routeWithHR
                             AppDependencies.shared.workoutStore.updateRun(currentRun)
+                        } else {
+                            // fetchRouteWithHeartRate returned empty (not a throw) — try plain route
+                            print("🗺️ [CardioDetail] fetchRouteWithHeartRate returned empty, falling back to plain route...")
+                            let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
+                            print("🗺️ [CardioDetail] fetchRoute returned \(locations.count) locations")
+                            if locations.count > 1 {
+                                currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+                                AppDependencies.shared.workoutStore.updateRun(currentRun)
+                            }
                         }
                     } catch {
                         print("🗺️ [CardioDetail] fetchRouteWithHeartRate FAILED: \(error), trying plain route...")

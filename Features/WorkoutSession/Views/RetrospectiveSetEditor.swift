@@ -314,6 +314,7 @@ private struct StepperButton: View {
                     stopLongPress()
                 }
             }
+            .onDisappear { stopLongPress() }
     }
 
     private func startLongPress() {

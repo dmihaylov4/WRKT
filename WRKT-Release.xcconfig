@@ -1,0 +1,5 @@
+// WRKT Release build configuration
+// These values are injected into Info.plist at build time.
+// The Supabase anon key is public by design — Supabase security relies on RLS policies.
+
+SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indqa29reGhkcHVvYWNhemFvaHNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0MDkyNjYsImV4cCI6MjA3OTk4NTI2Nn0.DCtANaviEeUEzCpht6PlFiKR2oc7QZlA1tbWCrYeHxE

@@ -208,7 +208,33 @@ struct AppShellView: View {
         ZStack {
             mainTabView
                 .overlay(tabBarDetector)
+                .overlay(tabBarIconConfigurator)
         }
+    }
+
+    /// Zero-size overlay that sets tab bar icons via UIKit in updateUIView,
+    /// which runs after SwiftUI's tabItem pass each render cycle.
+    /// tabItem supplies the inactive (white) images, so setting item.image to
+    /// the same white value is a no-op visually — no flash. We then set
+    /// selectedImage to the colored version so the active tab shows correctly.
+    private var tabBarIconConfigurator: some View {
+        let config: [(inactive: String, active: String)] = settings.isLocalMode
+            ? [
+                ("tab-train-inactive",   "tab-train"),
+                ("tab-plan-inactive",    "tab-plan"),
+                ("tab-cardio-inactive",  "tab-cardio"),
+                ("tab-profile-inactive", "tab-profile"),
+            ]
+            : [
+                ("tab-train-inactive",   "tab-train"),
+                ("tab-plan-inactive",    "tab-plan"),
+                ("tab-social-inactive",  "tab-social"),
+                ("tab-cardio-inactive",  "tab-cardio"),
+                ("tab-profile-inactive", "tab-profile"),
+            ]
+        return TabBarIconConfigurator(config: config)
+            .frame(width: 0, height: 0)
+            .allowsHitTesting(false)
     }
 
     // MARK: - Main Tab View
@@ -219,13 +245,13 @@ struct AppShellView: View {
             // TRAIN (was Home)
             HomeViewNew()
                 .background(DS.Semantic.surface.ignoresSafeArea())
-                .tabItem { Label("Train", systemImage: "dumbbell.fill") }
+                .tabItem { Label("Train", image: "tab-train-inactive") }
                 .tag(AppTab.train)
 
             // PLAN (was Calendar)
             PlanView()
                 .background(DS.Semantic.surface.ignoresSafeArea())
-                .tabItem { Label("Plan", systemImage: "calendar") }
+                .tabItem { Label("Plan", image: "tab-plan-inactive") }
                 .tag(AppTab.plan)
 
             // SOCIAL (new - combines Feed, Compete, Friends)
@@ -233,7 +259,7 @@ struct AppShellView: View {
             if !settings.isLocalMode {
                 SocialView(pendingNotification: $pendingNotificationNavigation)
                     .background(DS.Semantic.surface.ignoresSafeArea())
-                    .tabItem { Label("Social", systemImage: "person.2.fill") }
+                    .tabItem { Label("Social", image: "tab-social-inactive") }
                     .tag(AppTab.social)
             }
 
@@ -243,7 +269,7 @@ struct AppShellView: View {
                     .background(DS.Semantic.surface)
                     .scrollContentBackground(.hidden)
             }
-            .tabItem { Label("Cardio", systemImage: "heart.fill") }
+            .tabItem { Label("Cardio", image: "tab-cardio-inactive") }
             .tag(AppTab.cardio)
 
             // PROFILE (simplified - settings and account)
@@ -253,7 +279,7 @@ struct AppShellView: View {
                     .scrollContentBackground(.hidden)
                     .navigationBarHidden(true)
             }
-            .tabItem { Label("Profile", systemImage: "person.crop.circle") }
+            .tabItem { Label("Profile", image: "tab-profile-inactive") }
             .tag(AppTab.profile)
         }
         .tint(DS.Palette.marone)
@@ -276,7 +302,7 @@ struct AppShellView: View {
                 case .plan:
                     NotificationCenter.default.post(name: .calendarTabReselected, object: nil)
                 case .social:
-                    break // TODO: Add social tab reselection notification if needed
+                    NotificationCenter.default.post(name: .socialTabReselected, object: nil)
                 case .cardio:
                     NotificationCenter.default.post(name: .cardioTabReselected, object: nil)
                 case .profile:
@@ -318,13 +344,17 @@ struct AppShellView: View {
             UserDefaults.standard.markBackgrounded(hasActiveWorkout: hasActiveWorkout)
             AppLogger.debug("App backgrounded - hasActiveWorkout: \(hasActiveWorkout)", category: AppLogger.app)
 
-            // Keep real-time subscriptions alive in background for notifications
-            // iOS will manage WebSocket suspension automatically after a few minutes
-            // For true push when app is terminated, we'll need APNs server-side push
-            AppLogger.info("📱 App backgrounded - keeping realtime subscriptions alive for notifications", category: AppLogger.app)
+            // Stop invite coordinator polling and Realtime subscription.
+            // iOS kills WebSockets ~5s after suspension anyway — keeping them alive wastes resources.
+            // Push notifications handle invite delivery while truly backgrounded.
+            inviteCoordinator.stopListening()
+            AppLogger.info("📱 App backgrounded - stopped invite coordinator, keeping badge subscriptions", category: AppLogger.app)
         } else if newPhase == .active {
             UserDefaults.standard.markActive()
             AppLogger.debug("App activated - marked as running", category: AppLogger.app)
+
+            // Restart invite coordinator (re-subscribes Realtime, starts poll timer, polls immediately)
+            inviteCoordinator.startListening()
 
             // Ensure real-time subscriptions are active (will skip if already subscribed)
             Task {
@@ -851,6 +881,49 @@ private struct TabBarReselectionDetector: UIViewRepresentable {
                 }
             }
             return true
+        }
+    }
+}
+
+// MARK: - TabBarIconConfigurator
+
+/// A zero-size UIViewRepresentable that overrides tab bar icons in `updateUIView`.
+/// `updateUIView` is called by SwiftUI AFTER it finishes rendering all tabItem
+/// modifiers, so setting images here always wins over SwiftUI's own tabItem pass.
+private struct TabBarIconConfigurator: UIViewRepresentable {
+    let config: [(inactive: String, active: String)]
+
+    func makeUIView(context: Context) -> UIView { UIView() }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        // Runs after SwiftUI's tabItem pass each cycle.
+        // item.image = inactive (white) — same as what tabItem just set, so no visual change.
+        // item.selectedImage = active (colored) — overrides the white SwiftUI set for selected state.
+        guard let tbc = findTabBarController(),
+              let items = tbc.tabBar.items else { return }
+
+        for (index, item) in items.enumerated() {
+            guard index < config.count else { break }
+            item.image         = UIImage(named: config[index].inactive)?.withRenderingMode(.alwaysOriginal)
+            item.selectedImage = UIImage(named: config[index].active)?.withRenderingMode(.alwaysOriginal)
+        }
+    }
+
+    private func findTabBarController() -> UITabBarController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        for scene in scenes {
+            for window in scene.windows {
+                guard let root = window.rootViewController else { continue }
+                if let tbc = dfs(root) { return tbc }
+            }
+        }
+        return nil
+
+        func dfs(_ vc: UIViewController) -> UITabBarController? {
+            if let tbc = vc as? UITabBarController { return tbc }
+            for child in vc.children { if let t = dfs(child) { return t } }
+            if let presented = vc.presentedViewController { return dfs(presented) }
+            return nil
         }
     }
 }

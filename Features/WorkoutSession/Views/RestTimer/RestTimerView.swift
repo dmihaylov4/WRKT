@@ -178,7 +178,7 @@ private struct RunningTimerBanner: View {
                     Rectangle()
                         .fill(Theme.accent)
                         .frame(width: geo.size.width * progressFraction)
-                        .animation(.linear(duration: 0.1), value: progressFraction)
+                        .animation(.linear(duration: 1.0), value: progressFraction)
                 }
             }
             .frame(height: 2)

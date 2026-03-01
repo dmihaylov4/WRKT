@@ -7,6 +7,8 @@
 
 import SwiftUI
 import Kingfisher
+import HealthKit
+import CoreLocation
 
 struct PostCard: View {
     let post: PostWithAuthor
@@ -112,6 +114,14 @@ struct PostCard: View {
         }
         .task {
             await loadImageURLs()
+
+            // Lazy map backfill: own cardio post with HealthKit UUID but no map image
+            if post.post.userId == currentUserId,
+               post.post.workoutData.isCardioWorkout,
+               displayImageURLs.isEmpty,
+               let hkUUID = post.post.workoutData.matchedHealthKitUUID {
+                await backfillMapIfNeeded(hkUUID: hkUUID)
+            }
         }
     }
 
@@ -144,6 +154,69 @@ struct PostCard: View {
         } catch {
             print("❌ [PostCard] Failed to load image URLs: \(error)")
         }
+    }
+
+    // MARK: - Lazy Map Backfill
+
+    /// Fetches route + HR from HealthKit, generates a map snapshot, uploads it,
+    /// and patches the post record. Fails silently — retries on next feed load.
+    private func backfillMapIfNeeded(hkUUID: UUID) async {
+        guard let userId = currentUserId else { return }
+
+        // 1. Fetch workout from HealthKit
+        guard let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first else {
+            print("ℹ️ [PostCard] Backfill: workout not found in HealthKit for \(hkUUID)")
+            return
+        }
+
+        // 2. Fetch route with HR data, falling back to plain route if needed
+        let routePoints = try? await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
+        let coordinates: [CLLocationCoordinate2D]
+        let hrValues: [Double]?
+
+        if let points = routePoints, points.count > 1 {
+            coordinates = points.map { $0.coordinate }
+            hrValues = points.compactMap { $0.hr }.isEmpty ? nil : points.map { $0.hr ?? .nan }
+        } else {
+            // fetchRouteWithHeartRate returned empty — try plain route
+            guard let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
+                  locations.count > 1 else {
+                print("ℹ️ [PostCard] Backfill: no route data yet for \(hkUUID)")
+                return
+            }
+            coordinates = locations.map { $0.coordinate }
+            hrValues = nil
+        }
+
+        guard let snapshot = try? await MapSnapshotService.shared.generateRouteSnapshot(
+            coordinates: coordinates,
+            hrValues: hrValues
+        ) else {
+            print("⚠️ [PostCard] Backfill: failed to generate map snapshot")
+            return
+        }
+
+        // 4. Upload to Supabase
+        guard let uploadedImages = try? await imageUploadService.uploadWorkoutImages(
+            images: [snapshot],
+            userId: userId,
+            isPublic: [true]
+        ), !uploadedImages.isEmpty else {
+            print("⚠️ [PostCard] Backfill: failed to upload map image")
+            return
+        }
+
+        // 5. Update post record with new images
+        let postRepo = PostRepository()
+        let allImages = (post.post.images ?? []) + uploadedImages
+        guard let _ = try? await postRepo.updatePostImages(post.post.id, images: allImages) else {
+            print("⚠️ [PostCard] Backfill: failed to update post images")
+            return
+        }
+
+        // 6. Reload displayed image URLs
+        print("✅ [PostCard] Backfill: map image added to post \(post.post.id)")
+        await loadImageURLs()
     }
 
     // MARK: - Header
@@ -265,7 +338,10 @@ struct PostCard: View {
         .clipShape(ChamferedRectangle(.medium))
         .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
         .onTapGesture {
-            if !post.post.workoutData.isCardioWorkout {
+            if post.post.workoutData.isCardioWorkout {
+                Haptics.light()
+                onPostTap()
+            } else {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
                     isExpanded.toggle()
                 }

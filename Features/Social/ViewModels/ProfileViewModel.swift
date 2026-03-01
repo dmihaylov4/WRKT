@@ -30,8 +30,8 @@ final class ProfileViewModel {
     private let friendshipRepository: FriendshipRepository
     private let imageUploadService: ImageUploadService
     private let authService: SupabaseAuthService
-    nonisolated(unsafe) private var friendshipObserver: NSObjectProtocol?
-    nonisolated(unsafe) private var pendingRemovalTask: Task<Void, Never>?
+    @ObservationIgnored private var friendshipObserver: NSObjectProtocol?
+    @ObservationIgnored private var pendingRemovalTask: Task<Void, Never>?
 
     var isOwnProfile: Bool {
         profile.id == authService.currentUser?.id

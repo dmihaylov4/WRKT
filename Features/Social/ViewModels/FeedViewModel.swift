@@ -244,12 +244,8 @@ final class FeedViewModel {
             try await postRepository.deletePost(post.post.id)
 
             // Show undo notification
-            Task { @MainActor in
-                AppNotificationManager.shared.showPostDeleted {
-                    Task { @MainActor in
-                        self.undoDeletePost(deletedPost, at: index)
-                    }
-                }
+            AppNotificationManager.shared.showPostDeleted {
+                self.undoDeletePost(deletedPost, at: index)
             }
         } catch {
             // Revert on error - put the post back
@@ -276,7 +272,8 @@ final class FeedViewModel {
         }
 
         // Restore to backend
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             do {
                 // We need to re-create the post since it was deleted
                 // This requires posting the workout again

@@ -77,9 +77,10 @@ struct UnifiedWeeklyStatsCard: View {
             // Strength Section
             VStack(spacing: 6) {
                 HStack {
-                    Image(systemName: "dumbbell.fill")
-                        .font(.caption)
-                        .foregroundStyle(DS.tint)
+                    Image("tab-train")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
 
                     Text("Strength")
                         .font(.caption.weight(.medium))
@@ -116,9 +117,10 @@ struct UnifiedWeeklyStatsCard: View {
             // Cardio Section
             VStack(spacing: 6) {
                 HStack {
-                    Image(systemName: "figure.walk")
-                        .font(.caption)
-                        .foregroundStyle(DS.tint)
+                    Image("tab-cardio")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 14, height: 14)
 
                     Text("Cardio")
                         .font(.caption.weight(.medium))
@@ -218,9 +220,10 @@ struct UnifiedWeeklyStatsCard: View {
     private var streakSection: some View {
         VStack(spacing: 8) {
             HStack {
-                Image(systemName: "flame.fill")
-                    .font(.caption)
-                    .foregroundStyle(DS.Palette.marone)
+                Image("streak-icon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 14, height: 14)
 
                 Text("Weekly Streak")
                     .font(.caption.weight(.medium))

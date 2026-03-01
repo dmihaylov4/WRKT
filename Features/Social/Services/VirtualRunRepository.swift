@@ -28,10 +28,14 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
     // Broadcast channel for low-latency live sync
     private var broadcastChannel: RealtimeChannelV2?
     private var broadcastObservationToken: Any?
+    private var readyObservationToken: Any?
 
-    // Periodic DB persist timer (every 30s for crash recovery)
-    private var dbPersistTimer: Timer?
-    private var latestSnapshotForPersist: VirtualRunSnapshot?
+    /// True once subscribeToSnapshots has established the broadcast channel.
+    /// Used by VirtualRunInviteCoordinator to skip re-subscribing when already set up.
+    var isSubscribedToSnapshots: Bool { broadcastChannel != nil }
+
+    // Timestamp-throttled DB persist (no timer — piggybacks on publishSnapshot cadence)
+    private var lastDBPersistDate: Date = .distantPast
 
     init(client: SupabaseClient = SupabaseClientWrapper.shared.client) {
         super.init(
@@ -200,7 +204,8 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
 
     // MARK: - Run Lifecycle
 
-    /// End a virtual run and record the summary
+    #if DEBUG
+    /// End a virtual run and record the summary (debug only — production uses completeRun RPC)
     func endRun(_ runId: UUID, summary: RunSummary) async throws {
         logInfo("Ending virtual run: \(runId)")
 
@@ -240,6 +245,7 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
 
         logSuccess("Ended virtual run: \(runId)")
     }
+    #endif
 
     /// Fetch completed virtual runs for history
     func fetchCompletedRuns(for userId: UUID, limit: Int = 20) async throws -> [VirtualRun] {
@@ -259,9 +265,12 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         return runs
     }
 
-    // MARK: - Live Sync (Hybrid: Broadcast + periodic DB persist)
+    // MARK: - Live Sync
 
-    /// Publish a snapshot via Broadcast (low-latency) + periodic DB UPSERT (crash recovery)
+    /// Publish a snapshot via Broadcast (~50ms latency).
+    /// Also persists to DB at most every 30s — no timer needed, piggybacks on the
+    /// existing 2s publish cadence. The DB write feeds the partner's CDC channel
+    /// during brief disconnects and the Gap-5 reconnection catch-up path.
     func publishSnapshot(_ snapshot: VirtualRunSnapshot) async throws {
         var snapshotToSend = snapshot
         snapshotToSend.serverReceivedAt = Date()
@@ -273,10 +282,25 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
             let compactDict = snapshotToSend.toCompactDict()
             let jsonObject = Self.toJSONObject(compactDict)
             await channel.broadcast(event: "snapshot", message: jsonObject)
+        } else {
+            logWarning("publishSnapshot: broadcastChannel is nil — seq \(snapshot.seq) not broadcast to partner")
         }
 
-        // Store latest for periodic DB persist
-        latestSnapshotForPersist = snapshotToSend
+        // Secondary: DB upsert at most every 30s for CDC fallback + crash recovery.
+        // No Timer object — fires only when we're already publishing a snapshot.
+        if Date().timeIntervalSince(lastDBPersistDate) >= 30 {
+            lastDBPersistDate = Date()
+            Task {
+                do {
+                    try await client
+                        .from("virtual_run_snapshots")
+                        .upsert(snapshotToSend, onConflict: "virtual_run_id,user_id")
+                        .execute()
+                } catch {
+                    logError("Failed to persist snapshot to DB: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     /// Convert [String: Any] to JSONObject ([String: AnyJSON]) for Supabase broadcast
@@ -309,25 +333,18 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         return result
     }
 
-    /// Persist the latest snapshot to DB (called every ~30s by timer for crash recovery)
-    private func persistSnapshotToDB() {
-        guard let snapshot = latestSnapshotForPersist else { return }
-
-        Task {
-            do {
-                try await client
-                    .from("virtual_run_snapshots")
-                    .upsert(snapshot, onConflict: "virtual_run_id,user_id")
-                    .execute()
-            } catch {
-                logError("Failed to persist snapshot to DB: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    /// Subscribe to snapshot updates via Broadcast (primary) with CDC fallback
+    /// Subscribe to snapshot updates via Broadcast (primary) with CDC fallback.
+    /// CDC fires when the partner writes their periodic DB persist, covering brief
+    /// disconnects and app relaunch catch-up via fetchLatestSnapshot.
+    ///
+    /// - Parameters:
+    ///   - onReady: Optional — inviter passes this to detect the invitee's "ready" signal
+    ///              (published via publishReadySignal after accepting). Replaces Supabase CDC
+    ///              for the critical "acceptance detected" event.
+    ///   - onUpdate: Called for every partner snapshot received on the broadcast channel.
     func subscribeToSnapshots(
         runId: UUID,
+        onReady: (() -> Void)? = nil,
         onUpdate: @escaping (VirtualRunSnapshot) -> Void
     ) async -> String {
         let channelId = "virtual_run_\(runId.uuidString)"
@@ -344,11 +361,20 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
             broadcastChannel = nil
             broadcastObservationToken = nil
         }
-        dbPersistTimer?.invalidate()
-        dbPersistTimer = nil
+        readyObservationToken = nil
+        lastDBPersistDate = .distantPast
 
-        // --- Broadcast channel (primary, low-latency) ---
+        // --- Broadcast channel (primary, ~50ms) ---
         let bChannel = await client.channel("\(channelId)_broadcast")
+
+        // "ready" signal: invitee publishes this immediately after accepting.
+        // Inviter listens here so it detects acceptance via fast Broadcast (~50ms)
+        // instead of waiting for Supabase CDC (unreliable, 0-30s).
+        if let onReady {
+            readyObservationToken = await bChannel.onBroadcast(event: "ready") { _ in
+                onReady()
+            }
+        }
 
         let bToken = await bChannel.onBroadcast(event: "snapshot") { jsonMessage in
             // jsonMessage is JSONObject ([String: AnyJSON]) — convert to [String: Any] for compact dict
@@ -362,7 +388,7 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         await bChannel.subscribe()
         broadcastChannel = bChannel
 
-        // --- CDC channel (fallback for reconnection / crash recovery) ---
+        // --- CDC channel (fallback: fires on partner's periodic DB writes) ---
         let cdcChannel = await client.channel("\(channelId)_cdc")
 
         let decoder = JSONDecoder()
@@ -399,13 +425,6 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         await cdcChannel.subscribe()
         realtimeChannel = cdcChannel
 
-        // --- Periodic DB persist (every 30s for crash recovery) ---
-        let timer = Timer(timeInterval: 30.0, repeats: true) { [weak self] _ in
-            self?.persistSnapshotToDB()
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        dbPersistTimer = timer
-
         logSuccess("Subscribed to snapshots (broadcast + CDC): \(channelId)")
         return channelId
     }
@@ -431,6 +450,7 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
             await channel.unsubscribe()
             broadcastChannel = nil
             broadcastObservationToken = nil
+            readyObservationToken = nil
         }
         if let channel = realtimeChannel {
             logInfo("Unsubscribing from CDC channel")
@@ -438,9 +458,20 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
             realtimeChannel = nil
             observationToken = nil
         }
-        dbPersistTimer?.invalidate()
-        dbPersistTimer = nil
-        latestSnapshotForPersist = nil
+        lastDBPersistDate = .distantPast
+    }
+
+    /// Publish a "ready" signal on the broadcast channel.
+    /// Invitee calls this immediately after accepting so the inviter detects acceptance
+    /// via fast Broadcast (~50ms) rather than Supabase CDC (unreliable, 0-30s delay).
+    /// Requires subscribeToSnapshots to have been called first to establish broadcastChannel.
+    func publishReadySignal(runId: UUID) async {
+        guard let channel = broadcastChannel else {
+            logWarning("publishReadySignal: broadcastChannel is nil — inviter may not detect acceptance immediately")
+            return
+        }
+        await channel.broadcast(event: "ready", message: ["v": AnyJSON.integer(1)])
+        logSuccess("Published ready signal for run: \(runId)")
     }
 
     // MARK: - Server-Side Run Completion

@@ -314,18 +314,13 @@ struct ProgressTabView: View {
 
         guard store.completedWorkouts.count > 0 else { return }
 
-        Task.detached(priority: .utility) {
+        Task(priority: .utility) {
             try? await Task.sleep(nanoseconds: 200_000_000)
 
-            let (statsAggregator, workouts) = await MainActor.run {
-                (store.stats, store.completedWorkouts)
-            }
-
-            if let stats = statsAggregator {
-                if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
-                    await stats.reindex(all: workouts, cutoff: cutoff)
-                    AppLogger.info("Stats refreshed from ProgressView", category: AppLogger.statistics)
-                }
+            guard let stats = store.stats else { return }
+            if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
+                await stats.reindex(all: store.completedWorkouts, cutoff: cutoff)
+                AppLogger.info("Stats refreshed from ProgressView", category: AppLogger.statistics)
             }
         }
     }

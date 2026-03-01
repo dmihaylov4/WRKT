@@ -229,11 +229,14 @@ final class BattleRepository: Sendable {
 
         // Show a simple success toast to the creator
         // The actual battle invite toast will be shown to the opponent via realtime notifications
-        Task { @MainActor in
-            AppNotificationManager.shared.showSuccess(
-                "Battle challenge sent to \(try? await authService.fetchProfile(userId: opponentId).displayName ?? "opponent")",
-                title: "Challenge Sent!"
-            )
+        Task {
+            let displayName = (try? await authService.fetchProfile(userId: opponentId).displayName) ?? "opponent"
+            await MainActor.run {
+                AppNotificationManager.shared.showSuccess(
+                    "Battle challenge sent to \(displayName)",
+                    title: "Challenge Sent!"
+                )
+            }
         }
 
         AppLogger.success("Battle created: \(battle.id)", category: AppLogger.battles)

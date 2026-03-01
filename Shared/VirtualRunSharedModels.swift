@@ -12,7 +12,7 @@ import Foundation
 
 enum VirtualRunConstants {
     // Sync intervals
-    static let snapshotPublishInterval: TimeInterval = 2.0
+    static let snapshotPublishInterval: TimeInterval = 3.0
     static let uiInterpolationInterval: TimeInterval = 0.1
     static let watchForwardInterval: TimeInterval = 0.5
 
@@ -36,7 +36,7 @@ enum VirtualRunConstants {
 
     // GPS smoothing
     static let gpsKalmanProcessNoise: Double = 0.008
-    static let gpsMinAccuracyMeters: Double = 20.0
+    static let gpsMinAccuracyMeters: Double = 50.0
 
     // Battery optimization
     static let lowBatteryThreshold: Float = 0.20

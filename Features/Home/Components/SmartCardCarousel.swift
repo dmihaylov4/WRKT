@@ -56,13 +56,7 @@ struct SmartCardCarousel: View {
 
         if shouldAddArrowAndTap, let handler = onCardTap {
             cardContent(for: card)
-                .overlay(alignment: .topLeading) {
-                    // Visual indicator that card is tappable
-                    Image(systemName: "arrow.up.left")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(DS.Palette.marone)
-                        .padding(6)
-                }
+               
                 .contentShape(Rectangle())
                 .onTapGesture {
                     Haptics.light()

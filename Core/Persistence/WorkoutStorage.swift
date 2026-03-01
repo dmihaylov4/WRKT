@@ -181,6 +181,12 @@ actor WorkoutStorage {
 
     // MARK: - Workouts (with PR Index)
 
+    /// Returns true if the main workouts file exists on disk (i.e. user is not brand-new).
+    /// Used to distinguish "never saved workouts" from "workouts were wiped to empty".
+    func hasWorkoutsFile() -> Bool {
+        fileManager.fileExists(atPath: workoutsFileURL.path)
+    }
+
     /// Load workouts and PR index atomically
     func loadWorkouts() async throws -> (workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2]) {
         guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
@@ -219,7 +225,7 @@ actor WorkoutStorage {
             try data.write(to: workoutsFileURL, options: [.atomic])
 
             // Ensure file protection is applied after write
-            try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: workoutsFileURL.path)
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: workoutsFileURL.path)
 
             AppLogger.success("Saved \(workouts.count) workouts with \(prIndex.count) PR entries", category: AppLogger.storage)
         } catch let error as EncodingError {
@@ -253,7 +259,7 @@ actor WorkoutStorage {
             try data.write(to: currentWorkoutFileURL, options: [.atomic])
 
             // Ensure file protection is applied after write
-            try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: currentWorkoutFileURL.path)
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: currentWorkoutFileURL.path)
 
             AppLogger.success("Saved current workout with \(workout.entries.count) entries", category: AppLogger.storage)
         } else {
@@ -290,7 +296,7 @@ actor WorkoutStorage {
             try data.write(to: runsFileURL, options: [.atomic])
 
             // Ensure file protection is applied after write
-            try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: runsFileURL.path)
+            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: runsFileURL.path)
 
             AppLogger.success("Saved \(runs.count) runs", category: AppLogger.storage)
         } catch let error as EncodingError {
@@ -416,6 +422,27 @@ actor WorkoutStorage {
             try? fileManager.removeItem(at: url)
             AppLogger.debug("Removed old backup: \(url.lastPathComponent)", category: AppLogger.storage)
         }
+    }
+
+    /// Find and load the most recent backup that contains at least one workout.
+    /// Used for auto-recovery when the main storage file was overwritten with
+    /// empty data (e.g. after a failed background load with .complete protection).
+    func loadMostRecentNonEmptyBackup() async throws -> (workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2])? {
+        let backups = try await listBackups()
+        for backupURL in backups {
+            do {
+                let data = try Data(contentsOf: backupURL)
+                let container = try decoder.decode(WorkoutStorageContainer.self, from: data)
+                if !container.workouts.isEmpty {
+                    AppLogger.info("Found non-empty backup: \(backupURL.lastPathComponent) with \(container.workouts.count) workouts", category: AppLogger.storage)
+                    return (container.workouts, container.prIndex)
+                }
+            } catch {
+                // Corrupt backup — try next
+                continue
+            }
+        }
+        return nil
     }
 
     func listBackups() async throws -> [URL] {
@@ -745,13 +772,15 @@ actor WorkoutStorage {
 
     // MARK: - Security
 
-    /// Enable file protection for a directory and all its contents
-    /// Encrypts files when device is locked (NSFileProtectionComplete)
+    /// Enable file protection for a directory and all its contents.
+    /// Uses .completeUntilFirstUserAuthentication so files remain accessible
+    /// during background tasks (e.g. HealthKit sync) after the first device
+    /// unlock — preventing data loss from a failed load overwriting good data.
     private func enableFileProtection(for directory: URL) {
         do {
             // Set protection for the directory itself
             try fileManager.setAttributes(
-                [.protectionKey: FileProtectionType.complete],
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
                 ofItemAtPath: directory.path
             )
 
@@ -761,7 +790,7 @@ actor WorkoutStorage {
             if let files = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) {
                 for file in files {
                     try? fileManager.setAttributes(
-                        [.protectionKey: FileProtectionType.complete],
+                        [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
                         ofItemAtPath: file.path
                     )
                 }

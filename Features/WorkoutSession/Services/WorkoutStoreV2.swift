@@ -74,6 +74,12 @@ final class WorkoutStoreV2: ObservableObject {
 
     private var prIndex: [String: ExercisePRsV2] = [:]
 
+    /// Guard flag: true only after storage has been successfully loaded.
+    /// persistWorkouts/persistRuns/persistCurrentWorkout refuse to write while false,
+    /// preventing a failed load (e.g. device locked during background task) from
+    /// overwriting good data with an empty array.
+    private var isStorageLoaded = false
+
     // MARK: - Dependencies
     private let storage = WorkoutStorage.shared
     private let repo: ExerciseRepository
@@ -142,13 +148,35 @@ final class WorkoutStoreV2: ObservableObject {
                 let discardWindows = try await storage.loadDiscardedWorkoutWindows()
 
                 // IMPORTANT: Sort workouts by date to ensure proper ordering
-                self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
-                self.prIndex = prIndex
                 self.runs = runs
                 self.currentWorkout = currentWorkout
                 self.ignoredHealthKitUUIDs = ignoredUUIDs
                 self.discardedWorkoutWindows = discardWindows
                 self.lastHealthImportEndDate = defaults.object(forKey: lastImportKey) as? Date
+
+                // Auto-recovery: if the main file exists but loaded empty, try to restore
+                // from the most recent backup that has workouts. This recovers from the
+                // bug where .complete file protection + background HealthKit sync caused
+                // an empty-array write over good data.
+                if workouts.isEmpty, await storage.hasWorkoutsFile() {
+                    if let backup = try? await storage.loadMostRecentNonEmptyBackup() {
+                        AppLogger.warning("Main storage empty but backup has \(backup.workouts.count) workouts — auto-restoring", category: AppLogger.storage)
+                        self.completedWorkouts = backup.workouts.sorted(by: { $0.date < $1.date })
+                        self.prIndex = backup.prIndex
+                        // Persist recovered data back to main storage
+                        self.isStorageLoaded = true
+                        self.persistWorkouts()
+                    } else {
+                        self.completedWorkouts = []
+                        self.prIndex = prIndex
+                    }
+                } else {
+                    self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
+                    self.prIndex = prIndex
+                }
+
+                // Storage is confirmed loaded — allow writes from this point
+                self.isStorageLoaded = true
 
                 // One-time deduplication of runs (fix for duplicate HealthKit imports)
                 let deduplicationFlag = "runs.deduplication.v1"
@@ -158,18 +186,15 @@ final class WorkoutStoreV2: ObservableObject {
                     AppLogger.info("Completed one-time run deduplication", category: AppLogger.health)
                 }
 
-                AppLogger.success("Loaded from unified storage - Workouts: \(workouts.count), Runs: \(runs.count), PR entries: \(prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
+                AppLogger.success("Loaded from unified storage - Workouts: \(self.completedWorkouts.count), Runs: \(runs.count), PR entries: \(self.prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
 
                 // Match workouts with HealthKit data if available
                 matchAllWorkoutsWithHealthKit()
 
             } catch {
                 AppLogger.error("Failed to load from storage: \(error)", category: AppLogger.storage)
-                // Initialize with empty state
-                self.completedWorkouts = []
-                self.prIndex = [:]
-                self.runs = []
-                self.currentWorkout = nil
+                // Leave isStorageLoaded = false so persistWorkouts() won't overwrite good data.
+                // State stays as empty defaults; HealthKit sync will add data once storage is accessible.
             }
         }
 
@@ -264,12 +289,8 @@ final class WorkoutStoreV2: ObservableObject {
         }
 
         // Show undo notification
-        Task { @MainActor in
-            AppNotificationManager.shared.showWorkoutDiscarded {
-                Task { @MainActor in
-                    self.undoDiscardWorkout()
-                }
-            }
+        AppNotificationManager.shared.showWorkoutDiscarded {
+            self.undoDiscardWorkout()
         }
     }
 
@@ -955,12 +976,8 @@ final class WorkoutStoreV2: ObservableObject {
         }
 
         // Show undo notification
-        Task { @MainActor in
-            AppNotificationManager.shared.showWorkoutDeleted(count: removed.count) {
-                Task { @MainActor in
-                    self.undoDeleteWorkouts(removed, at: offsets)
-                }
-            }
+        AppNotificationManager.shared.showWorkoutDeleted(count: removed.count) {
+            self.undoDeleteWorkouts(removed, at: offsets)
         }
     }
 
@@ -1268,6 +1285,10 @@ final class WorkoutStoreV2: ObservableObject {
     // MARK: - Persistence Helpers
 
     private func persistWorkouts() {
+        guard isStorageLoaded else {
+            AppLogger.warning("persistWorkouts() skipped — storage not yet loaded", category: AppLogger.storage)
+            return
+        }
         let workouts = completedWorkouts
         let prIndex = prIndex
         Task.detached(priority: .utility) {
@@ -1280,6 +1301,7 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     private func persistCurrentWorkout() {
+        guard isStorageLoaded else { return }
         let current = currentWorkout
         Task.detached(priority: .utility) {
             try? await WorkoutStorage.shared.saveCurrentWorkout(current)
@@ -1287,6 +1309,7 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     private func persistRuns() {
+        guard isStorageLoaded else { return }
         let runs = runs
         Task.detached(priority: .utility) {
             try? await WorkoutStorage.shared.saveRuns(runs)

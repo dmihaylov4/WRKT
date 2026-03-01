@@ -107,6 +107,12 @@ struct SocialView: View {
             guard let notification = newValue else { return }
             handleNotificationNavigation(notification)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .socialTabReselected)) { _ in
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                selectedSection = .feed
+            }
+            navigationPath = NavigationPath()
+        }
     }
 
     private func handleNotificationNavigation(_ notification: AppNotification) {

@@ -39,6 +39,10 @@ class ExerciseSessionViewModel: ObservableObject {
     // Progressive overload
     @Published var appliedProgression: ProgressionSuggestion? = nil
 
+    // MARK: - Private State
+
+    private var watchNotificationToken: NSObjectProtocol?
+
     // MARK: - Input Properties
 
     let exercise: Exercise
@@ -88,7 +92,12 @@ class ExerciseSessionViewModel: ObservableObject {
     }
 
     private func setupWatchNotificationListener() {
-        NotificationCenter.default.addObserver(
+        // Guard: only register once — this is called from onAppear which fires on
+        // every navigation push/pop, and the block-based addObserver accumulates a
+        // new registration each time if the token is not stored and guarded.
+        guard watchNotificationToken == nil else { return }
+
+        watchNotificationToken = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("WorkoutUpdatedFromWatch"),
             object: nil,
             queue: .main
@@ -101,6 +110,12 @@ class ExerciseSessionViewModel: ObservableObject {
                 AppLogger.info("♻️ Reloading exercise session from watch update", category: AppLogger.app)
                 self.reloadFromStore()
             }
+        }
+    }
+
+    deinit {
+        if let token = watchNotificationToken {
+            NotificationCenter.default.removeObserver(token)
         }
     }
 

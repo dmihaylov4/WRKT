@@ -16,7 +16,6 @@ struct HeroStartWorkoutButton: View {
     var extendRest: (() -> Void)? = nil
 
     @State private var isPressed = false
-    @State private var pulseOffset: CGFloat = 0
 
     var body: some View {
         Button {
@@ -87,33 +86,6 @@ struct HeroStartWorkoutButton: View {
         .buttonStyle(HeroButtonStyle(isPressed: $isPressed))
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .task(id: stateIdentifier) {
-            // This task runs whenever stateIdentifier changes
-            // Simple rule: if not in default state, animate. Otherwise stop.
-            if !isDefaultState {
-                // IMPORTANT: Always reset to 0 first, otherwise animation from 1->1 does nothing
-                pulseOffset = 0
-
-                // Small delay to ensure state is reset before starting animation
-                try? await Task.sleep(nanoseconds: 10_000_000) // 0.01 seconds
-
-                withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
-                    pulseOffset = 1
-                }
-            } else {
-                // Stop animation
-                withAnimation(.linear(duration: 0)) {
-                    pulseOffset = 0
-                }
-            }
-        }
-    }
-
-    private var isDefaultState: Bool {
-        if case .noWorkout = content.workoutState {
-            return true
-        }
-        return false
     }
 
     // Simple state identifier that doesn't include changing values
@@ -184,39 +156,41 @@ struct HeroStartWorkoutButton: View {
         if case .noWorkout = content.workoutState {
             EmptyView()
         } else {
-            // Traveling border segment using dash pattern for consistent visual length.
-            // Uses the full closed path so the segment wraps smoothly around corners.
-            // The left edge is masked out so the segment appears to pass behind
-            // the yellow accent stripe.
+            // Traveling border segment capped at 30 fps via TimelineView.
+            // Wall-clock time drives the offset so SwiftUI's interpolation engine
+            // never runs at the full display refresh rate (up to 120 Hz).
+            // The TimelineView is only in the hierarchy when a workout is active,
+            // so no paused: flag is needed.
             GeometryReader { geo in
                 let w = geo.size.width
                 let h = geo.size.height
                 let chamferSize: CGFloat = 28
                 let segmentLength: CGFloat = 40
-
-                // Full closed perimeter
                 let chamferDiag = sqrt(2 * chamferSize * chamferSize)
                 let perimeter = 2 * (w + h) - 4 * chamferSize + 2 * chamferDiag
-
                 let gap = perimeter - segmentLength
 
-                BroadcastBorderShape(chamferSize: chamferSize)
-                    .stroke(
-                        DS.Theme.accent,
-                        style: StrokeStyle(
-                            lineWidth: 4,
-                            lineCap: .round,
-                            dash: [segmentLength, gap],
-                            dashPhase: -pulseOffset * perimeter
+                TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                    let elapsed = context.date.timeIntervalSinceReferenceDate
+                    let pulseOffset = CGFloat(elapsed.truncatingRemainder(dividingBy: 8.0) / 8.0)
+
+                    BroadcastBorderShape(chamferSize: chamferSize)
+                        .stroke(
+                            DS.Theme.accent,
+                            style: StrokeStyle(
+                                lineWidth: 4,
+                                lineCap: .round,
+                                dash: [segmentLength, gap],
+                                dashPhase: -pulseOffset * perimeter
+                            )
                         )
-                    )
-                    // Mask hides the left edge so the segment disappears behind the accent stripe
-                    .mask {
-                        HStack(spacing: 0) {
-                            Color.clear.frame(width: 6) // Hide left edge area
-                            Color.white
+                        .mask {
+                            HStack(spacing: 0) {
+                                Color.clear.frame(width: 6)
+                                Color.white
+                            }
                         }
-                    }
+                }
             }
         }
     }

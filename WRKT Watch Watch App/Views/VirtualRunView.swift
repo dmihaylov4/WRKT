@@ -169,7 +169,7 @@ struct VirtualRunView: View {
                     .tracking(1.5)
 
                 if let start = manager.runStartTime {
-                    let elapsed = context.date.timeIntervalSince(start) - manager.pausedElapsedBeforePause
+                    let elapsed = context.date.timeIntervalSince(start) - manager.totalPausedDuration
                     let duration = max(0, Int(elapsed))
                     let h = duration / 3600
                     let m = (duration % 3600) / 60

@@ -168,11 +168,17 @@ actor StatsAggregator {
             // If you have workout duration, use it; else leave minutes at 0
             // acc.minutes += Int(w.durationMinutes)
 
+            // Batch fetch exercise metadata for all entries in one MainActor hop
+            let repo = exerciseRepo
+            let entryIDs = w.entries.map { $0.exerciseID }
+            let exerciseMap: [String: Exercise] = await MainActor.run {
+                entryIDs.reduce(into: [String: Exercise]()) { dict, id in
+                    if let ex = repo?.exercise(byID: id) { dict[id] = ex }
+                }
+            }
+
             for e in w.entries {
-                // Get exercise metadata to check if it's bodyweight
-                // Capture repo in actor context before switching to MainActor
-                let repo = exerciseRepo
-                let exercise = await MainActor.run { repo?.exercise(byID: e.exerciseID) }
+                let exercise = exerciseMap[e.exerciseID]
 
                 for s in e.sets where s.tag == .working && s.reps > 0 {
                     let vol: Double
@@ -677,9 +683,16 @@ actor StatsAggregator {
         for workout in recentWorkouts {
             var musclesInWorkout = Set<String>()
 
+            // Batch fetch exercise metadata for all entries in one MainActor hop
+            let workoutEntryIDs = workout.entries.map { $0.exerciseID }
+            let workoutExerciseMap: [String: Exercise] = await MainActor.run {
+                workoutEntryIDs.reduce(into: [String: Exercise]()) { dict, id in
+                    if let ex = repo.exercise(byID: id) { dict[id] = ex }
+                }
+            }
+
             for entry in workout.entries {
-                // Fetch exercise from MainActor context
-                guard let ex = await MainActor.run(body: { repo.exercise(byID: entry.exerciseID) }) else { continue }
+                guard let ex = workoutExerciseMap[entry.exerciseID] else { continue }
 
                 var entryVolume = 0.0
                 for set in entry.sets where set.tag == .working && set.reps > 0 {

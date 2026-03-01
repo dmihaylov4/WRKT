@@ -16,7 +16,7 @@ struct PreferencesView: View {
     // Stored app settings (use your existing keys where possible)
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
     @AppStorage("user_bodyweight_kg") private var userBodyweightKg: Double = 70.0
-    @AppStorage("user_age") private var userAge: Int = 0
+    @EnvironmentObject private var authService: SupabaseAuthService
     @AppStorage("haptics_enabled") private var hapticsEnabled: Bool = true
     @AppStorage("streak_reminder_enabled") private var streakReminderEnabled: Bool = false
     @AppStorage("streak_reminder_hour") private var streakReminderHour: Int = 20
@@ -55,327 +55,15 @@ struct PreferencesView: View {
 
     var body: some View {
         Form {
-            // SECTION 1: Profile & Units
-            Section {
-                // Age
-                Button {
-                    showAgePicker = true
-                } label: {
-                    HStack {
-                        Text("Age")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if userAge > 0 {
-                            Text("\(userAge) years")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("Not set")
-                                .foregroundStyle(.secondary)
-                        }
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
-                // Bodyweight
-                Button {
-                    showWeightPicker = true
-                } label: {
-                    HStack {
-                        Text("Bodyweight")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text(String(format: "%.1f kg", userBodyweightKg))
-                            .foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            } header: {
-                Text("Profile")
-            } footer: {
-                Text("Age is used for heart rate zones (Max HR = 220 - age). Bodyweight is used for bodyweight exercise volume.")
-                    .font(.caption)
-            }
-
-            // SECTION 2: Workout Preferences
-            Section {
-                // Haptics
-                Toggle(isOn: $hapticsEnabled) {
-                    Label("Haptic feedback", systemImage: "hand.tap.fill")
-                }
-
-                // Rest Timer
-                Toggle(isOn: $timerPrefs.isEnabled) {
-                    Label("Rest timer", systemImage: "timer")
-                }
-
-                if timerPrefs.isEnabled {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Compound exercises", systemImage: "dumbbell.fill")
-                            .font(.subheadline)
-
-                        TimeStepper(
-                            seconds: $timerPrefs.defaultCompoundSeconds,
-                            lowerBound: 30,
-                            upperBound: 600,
-                            step: 30
-                        )
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("Isolation exercises", systemImage: "figure.strengthtraining.traditional")
-                            .font(.subheadline)
-
-                        TimeStepper(
-                            seconds: $timerPrefs.defaultIsolationSeconds,
-                            lowerBound: 30,
-                            upperBound: 600,
-                            step: 30
-                        )
-                    }
-
-                    Button(role: .destructive) {
-                        showResetTimersAlert = true
-                    } label: {
-                        Label("Reset all custom timers", systemImage: "arrow.counterclockwise")
-                    }
-                }
-            } header: {
-                Text("Workout Preferences")
-            } footer: {
-                if timerPrefs.isEnabled {
-                    Text("Rest timer starts automatically after saving sets. Custom timers for specific exercises override these defaults.")
-                        .font(.caption)
-                } else {
-                    Text("Control haptic feedback and rest timer behavior during workouts.")
-                        .font(.caption)
-                }
-            }
-
-            // SECTION 3: Heart Rate Zones
+            profileSection
+            workoutPrefsSection
             HeartRateZonesSection()
-
-            // SECTION 4: Custom Exercises
-            Section {
-                if customStore.customExercises.isEmpty {
-                    Text("No custom exercises yet")
-                        .foregroundStyle(.secondary)
-                        .font(.subheadline)
-                } else {
-                    ForEach(customStore.customExercises, id: \.id) { exercise in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(exercise.name)
-                                    .font(.body)
-                                HStack(spacing: 8) {
-                                    Text(exercise.primaryMuscles.first ?? "Unknown")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    if let mechanic = exercise.mechanic {
-                                        Text("•")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text(mechanic.capitalized)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    if let equipment = exercise.equipment {
-                                        Text("•")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text(equipment)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                            Spacer()
-                            Button {
-                                editingExercise = exercise
-                            } label: {
-                                Image(systemName: "pencil.circle.fill")
-                                    .font(.title3)
-                                    .foregroundStyle(DS.Palette.marone)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                customStore.delete(exercise.id)
-                                Task {
-                                    await repo.reloadWithCustomExercises()
-                                }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    }
-                }
-            } header: {
-                Text("Custom Exercises")
-            } footer: {
-                Text("Create custom exercises from the exercise browser by tapping the + button. Swipe left to delete.")
-                    .font(.caption)
-            }
-
-            // SECTION 5: Social Features
-            if let authService = SupabaseAuthService.shared.currentUser {
-                Section {
-                    Toggle(isOn: Binding(
-                        get: { authService.profile?.autoPostPRs ?? true },
-                        set: { newValue in
-                            Task {
-                                try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue)
-                            }
-                        }
-                    )) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Auto-post PRs")
-                                    .font(.body)
-                                Text("Automatically share Personal Records to your social feed")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "trophy.fill")
-                        }
-                    }
-
-                    Toggle(isOn: Binding(
-                        get: { authService.profile?.autoPostCardio ?? true },
-                        set: { newValue in
-                            Task {
-                                try? await SupabaseAuthService.shared.updateProfile(autoPostCardio: newValue)
-                            }
-                        }
-                    )) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Auto-post runs")
-                                    .font(.body)
-                                Text("Automatically share runs over 1km with map, heart rate, and stats")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "figure.run")
-                        }
-                    }
-                } header: {
-                    Text("Social Features")
-                } footer: {
-                    Text("When enabled, workouts will be automatically posted to your social feed for friends to see.")
-                        .font(.caption)
-                }
-            }
-
-            // SECTION 6: Notifications & Reminders
-            Section {
-                Toggle(isOn: $smartNudgesEnabled) {
-                    Label {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Smart nudges")
-                                .font(.body)
-                            Text("Get notifications when friends work out")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "bell.badge.fill")
-                    }
-                }
-                .onChange(of: smartNudgesEnabled) { _, newValue in
-                    handleSmartNudgesToggle(newValue)
-                }
-
-                // Show permission status if needed
-                if smartNudgesEnabled && notificationStatus != .authorized {
-                    Button {
-                        openNotificationSettings()
-                    } label: {
-                        Label("Enable in Settings", systemImage: "gear")
-                            .foregroundStyle(.orange)
-                    }
-                }
-            } header: {
-                Text("Notifications & Reminders")
-            } footer: {
-                if smartNudgesEnabled {
-                    Text("You'll receive notifications when friends complete workouts to help keep you motivated and accountable.")
-                        .font(.caption)
-                } else {
-                    Text("Enable smart nudges to receive motivational notifications based on friend activity.")
-                        .font(.caption)
-                }
-            }
-
-            // SECTION 7: Data Management
-            Section {
-                Button {
-                    exportWorkoutsToCSV()
-                } label: {
-                    Label("Export workouts as CSV", systemImage: "square.and.arrow.up")
-                }
-            } header: {
-                Text("Data Management")
-            } footer: {
-                Text("Export your workout history to CSV for analysis in other apps.")
-                    .font(.caption)
-            }
-
-            // SECTION 8: About
-            Section {
-                HStack {
-                    Text("Version")
-                    Spacer()
-                    Text(appVersion)
-                        .foregroundStyle(.secondary)
-                        .font(.subheadline.monospacedDigit())
-                }
-
-                if let privacyURL = URL(string: "https://dmihaylov4.github.io/trak-privacy/") {
-                    Link(destination: privacyURL) {
-                        Label("Privacy policy", systemImage: "lock.shield")
-                    }
-                }
-            } header: {
-                Text("About")
-            }
-
-            // SECTION 9: App Settings
-            Section {
-                Button {
-                    showClearPlansAlert = true
-                } label: {
-                    Label("Clear all plans and workouts", systemImage: "calendar.badge.minus")
-                        .foregroundStyle(.orange)
-                }
-
-                if let goal = goals.first, goal.isSet {
-                    Button {
-                        goal.isSet = false
-                        try? context.save()
-                    } label: {
-                        Label("Reset weekly goal", systemImage: "arrow.counterclockwise.circle")
-                            .foregroundStyle(.orange)
-                    }
-                }
-
-                Button(role: .destructive) {
-                    showResetAlert = true
-                } label: {
-                    Label("Reset all data", systemImage: "exclamationmark.triangle.fill")
-                }
-            } header: {
-                Text("App Settings")
-            } footer: {
-                Text("⚠️ Reset all data will permanently delete workouts, stats, XP, level, PR dex, favorites, and custom timers. Runs/cardio from HealthKit will be preserved.")
-                    .font(.caption)
-            }
+            customExercisesSection
+            socialFeaturesSection
+            notificationsSection
+            dataManagementSection
+            aboutSection
+            appSettingsSection
         }
         .navigationTitle("Preferences")
         .alert("Clear all workout data?", isPresented: $showClearWorkoutsAlert) {
@@ -434,14 +122,17 @@ struct PreferencesView: View {
         }
         .sheet(isPresented: $showAgePicker) {
             AgePickerSheet(age: Binding(
-                get: { userAge > 0 ? userAge : 30 },
+                get: {
+                    if let birthYear = authService.currentUser?.profile?.birthYear {
+                        return Calendar.current.component(.year, from: Date()) - birthYear
+                    }
+                    return 30
+                },
                 set: { newAge in
-                    userAge = newAge
                     HRZoneCalculator.shared.userAge = newAge
-                    // Sync birth year to Supabase for partner HR zone calculation
                     let birthYear = Calendar.current.component(.year, from: Date()) - newAge
                     Task {
-                        try? await SupabaseAuthService.shared.updateProfile(birthYear: birthYear)
+                        try? await authService.updateProfile(birthYear: birthYear)
                     }
                 }
             ))
@@ -452,9 +143,251 @@ struct PreferencesView: View {
                 .presentationDetents([.height(280)])
         }
         .task {
-            // Check notification permission status on appear
             await NotificationManager.shared.checkAuthorizationStatus()
             notificationStatus = NotificationManager.shared.authorizationStatus
+        }
+    }
+
+    // MARK: - Sections
+
+    private var profileSection: some View {
+        Section {
+            Button { showAgePicker = true } label: {
+                HStack {
+                    Text("Age").foregroundStyle(.primary)
+                    Spacer()
+                    if let birthYear = authService.currentUser?.profile?.birthYear {
+                        Text("\(Calendar.current.component(.year, from: Date()) - birthYear) years")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Not set").foregroundStyle(.secondary)
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Button { showWeightPicker = true } label: {
+                HStack {
+                    Text("Bodyweight").foregroundStyle(.primary)
+                    Spacer()
+                    Text(String(format: "%.1f kg", userBodyweightKg)).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        } header: {
+            Text("Profile")
+        } footer: {
+            Text("Age is used for heart rate zones (Max HR = 220 - age). Bodyweight is used for bodyweight exercise volume.")
+                .font(.caption)
+        }
+    }
+
+    private var workoutPrefsSection: some View {
+        Section {
+            Toggle(isOn: $hapticsEnabled) {
+                Label("Haptic feedback", systemImage: "hand.tap.fill")
+            }
+            Toggle(isOn: $timerPrefs.isEnabled) {
+                Label("Rest timer", systemImage: "timer")
+            }
+            if timerPrefs.isEnabled {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Compound exercises", systemImage: "dumbbell.fill").font(.subheadline)
+                    TimeStepper(seconds: $timerPrefs.defaultCompoundSeconds, lowerBound: 30, upperBound: 600, step: 30)
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Isolation exercises", systemImage: "figure.strengthtraining.traditional").font(.subheadline)
+                    TimeStepper(seconds: $timerPrefs.defaultIsolationSeconds, lowerBound: 30, upperBound: 600, step: 30)
+                }
+                Button(role: .destructive) { showResetTimersAlert = true } label: {
+                    Label("Reset all custom timers", systemImage: "arrow.counterclockwise")
+                }
+            }
+        } header: {
+            Text("Workout Preferences")
+        } footer: {
+            if timerPrefs.isEnabled {
+                Text("Rest timer starts automatically after saving sets. Custom timers for specific exercises override these defaults.")
+                    .font(.caption)
+            } else {
+                Text("Control haptic feedback and rest timer behavior during workouts.")
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var customExercisesSection: some View {
+        Section {
+            if customStore.customExercises.isEmpty {
+                Text("No custom exercises yet")
+                    .foregroundStyle(.secondary)
+                    .font(.subheadline)
+            } else {
+                ForEach(customStore.customExercises, id: \.id) { exercise in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(exercise.name).font(.body)
+                            HStack(spacing: 8) {
+                                Text(exercise.primaryMuscles.first ?? "Unknown")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                if let mechanic = exercise.mechanic {
+                                    Text("•").font(.caption).foregroundStyle(.secondary)
+                                    Text(mechanic.capitalized).font(.caption).foregroundStyle(.secondary)
+                                }
+                                if let equipment = exercise.equipment {
+                                    Text("•").font(.caption).foregroundStyle(.secondary)
+                                    Text(equipment).font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Spacer()
+                        Button { editingExercise = exercise } label: {
+                            Image(systemName: "pencil.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(DS.Palette.marone)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            customStore.delete(exercise.id)
+                            Task { await repo.reloadWithCustomExercises() }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Custom Exercises")
+        } footer: {
+            Text("Create custom exercises from the exercise browser by tapping the + button. Swipe left to delete.")
+                .font(.caption)
+        }
+    }
+
+    @ViewBuilder
+    private var socialFeaturesSection: some View {
+        if let user = SupabaseAuthService.shared.currentUser {
+            Section {
+                Toggle(isOn: Binding(
+                    get: { user.profile?.autoPostPRs ?? true },
+                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue) } }
+                )) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Auto-post PRs").font(.body)
+                            Text("Automatically share Personal Records to your social feed")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } icon: { Image(systemName: "trophy.fill") }
+                }
+                Toggle(isOn: Binding(
+                    get: { user.profile?.autoPostCardio ?? true },
+                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostCardio: newValue) } }
+                )) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Auto-post runs").font(.body)
+                            Text("Automatically share runs over 1km with map, heart rate, and stats")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } icon: { Image(systemName: "figure.run") }
+                }
+            } header: {
+                Text("Social Features")
+            } footer: {
+                Text("When enabled, workouts will be automatically posted to your social feed for friends to see.")
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var notificationsSection: some View {
+        Section {
+            Toggle(isOn: $smartNudgesEnabled) {
+                Label {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Smart nudges").font(.body)
+                        Text("Get notifications when friends work out")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                } icon: { Image(systemName: "bell.badge.fill") }
+            }
+            .onChange(of: smartNudgesEnabled) { _, newValue in handleSmartNudgesToggle(newValue) }
+            if smartNudgesEnabled && notificationStatus != .authorized {
+                Button { openNotificationSettings() } label: {
+                    Label("Enable in Settings", systemImage: "gear").foregroundStyle(.orange)
+                }
+            }
+        } header: {
+            Text("Notifications & Reminders")
+        } footer: {
+            if smartNudgesEnabled {
+                Text("You'll receive notifications when friends complete workouts to help keep you motivated and accountable.")
+                    .font(.caption)
+            } else {
+                Text("Enable smart nudges to receive motivational notifications based on friend activity.")
+                    .font(.caption)
+            }
+        }
+    }
+
+    private var dataManagementSection: some View {
+        Section {
+            Button { exportWorkoutsToCSV() } label: {
+                Label("Export workouts as CSV", systemImage: "square.and.arrow.up")
+            }
+        } header: {
+            Text("Data Management")
+        } footer: {
+            Text("Export your workout history to CSV for analysis in other apps.").font(.caption)
+        }
+    }
+
+    private var aboutSection: some View {
+        Section {
+            HStack {
+                Text("Version")
+                Spacer()
+                Text(appVersion).foregroundStyle(.secondary).font(.subheadline.monospacedDigit())
+            }
+            if let privacyURL = URL(string: "https://dmihaylov4.github.io/trak-privacy/") {
+                Link(destination: privacyURL) {
+                    Label("Privacy policy", systemImage: "lock.shield")
+                }
+            }
+        } header: {
+            Text("About")
+        }
+    }
+
+    private var appSettingsSection: some View {
+        Section {
+            Button { showClearPlansAlert = true } label: {
+                Label("Clear all plans and workouts", systemImage: "calendar.badge.minus")
+                    .foregroundStyle(.orange)
+            }
+            if let goal = goals.first, goal.isSet {
+                Button {
+                    goal.isSet = false
+                    try? context.save()
+                } label: {
+                    Label("Reset weekly goal", systemImage: "arrow.counterclockwise.circle")
+                        .foregroundStyle(.orange)
+                }
+            }
+            Button(role: .destructive) { showResetAlert = true } label: {
+                Label("Reset all data", systemImage: "exclamationmark.triangle.fill")
+            }
+        } header: {
+            Text("App Settings")
+        } footer: {
+            Text("⚠️ Reset all data will permanently delete workouts, stats, XP, level, PR dex, favorites, and custom timers. Runs/cardio from HealthKit will be preserved.")
+                .font(.caption)
         }
     }
 

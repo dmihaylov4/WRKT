@@ -246,6 +246,7 @@ struct TimedSetRow: View {
             elapsedSeconds += 1
             set.durationSeconds = elapsedSeconds
         }
+        exerciseTimer?.tolerance = 0.1  // 10% tolerance reduces CPU wakeups
 
         Haptics.light()
     }

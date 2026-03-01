@@ -54,6 +54,21 @@ enum ExerciseMapping {
                 }
             }
         }
+
+        // For top-level muscles without deep subregions (e.g. Abs, Obliques, Forearms,
+        // Biceps, Triceps, Glutes, Hamstrings, Calves, Adductors, Abductors), add the
+        // canonical taxonomy name as a tag so bySubregion["Abs"] etc. work correctly.
+        let allTopLevel = MuscleTaxonomy.subregions(for: .upper) + MuscleTaxonomy.subregions(for: .lower)
+        for parent in allTopLevel {
+            guard MuscleTaxonomy.deepSubregions(for: parent) == nil else { continue }
+            let keysLC = ExerciseRepository.synonyms(for: parent).map { $0.lowercased() }
+            let hitMuscle = (ex.primaryMuscles + ex.secondaryMuscles)
+                .map { $0.lowercased() }
+                .contains { m in keysLC.contains(where: { m.contains($0) }) }
+            let hitName = keysLC.contains { hay.contains($0) }
+            if hitMuscle || hitName { out.insert(parent) }
+        }
+
         return Array(out)
     }
 }

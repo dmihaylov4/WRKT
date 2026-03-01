@@ -32,7 +32,8 @@ extension RewardsEngine {
         let rulesSnapshot = rules  // Capture rules for background thread
 
         // Offload heavy work to background
-        Task.detached(priority: .userInitiated) {
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self else { return }
             // Create background context for all SwiftData operations
             let backgroundContext = ModelContext(container)
 

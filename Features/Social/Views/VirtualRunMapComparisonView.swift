@@ -401,7 +401,7 @@ struct VirtualRunMapComparisonView: View {
 
             // Upload to Supabase so partner can see it
             let runId = data.runId
-            Task.detached {
+            Task {
                 do {
                     let routeData = VirtualRunRouteData.from(
                         routePoints: routePoints,

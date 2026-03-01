@@ -52,7 +52,10 @@ final class WatchHealthKitManager: NSObject {
 
         let typesToShare: Set<HKSampleType> = [
             HKObjectType.workoutType(),
-            HKSeriesType.workoutRoute()
+            HKSeriesType.workoutRoute(),
+            HKObjectType.quantityType(forIdentifier: .heartRate)!,
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
+            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
         ]
 
         let typesToRead: Set<HKObjectType> = [
@@ -151,26 +154,38 @@ final class WatchHealthKitManager: NSObject {
             return
         }
 
-        // Mark as inactive immediately to prevent duplicate calls
-        isWorkoutActive = false
+        // Capture references locally and clear self's properties immediately.
+        // This prevents a concurrent startWorkout() (e.g. strength after VR) from
+        // having its new session/builder wiped when our async cleanup (especially
+        // routeBuilder.finishRoute) eventually completes and would call resetState().
+        let sessionToEnd = session
+        let builderToEnd = builder
+        let routeBuilderToEnd = routeBuilder
 
-        // Stop elapsed timer
+        isWorkoutActive = false
+        self.session = nil
+        self.builder = nil
         stopElapsedTimer()
+        stopLocationUpdates()   // also nils self.routeBuilder and self.locationManager
 
         // Check session state before ending
-        guard session.state != .ended else {
+        guard sessionToEnd.state != .ended else {
             logger.info("Session already ended, just cleaning up")
-            resetState()
+            startDate = nil
+            elapsedTime = 0
+            activeCalories = 0
+            heartRate = 0
+            distance = 0
             return
         }
 
         // End session
-        session.end()
+        sessionToEnd.end()
 
         if discard {
             // Discard the workout - don't save to HealthKit
             do {
-                try await builder.discardWorkout()
+                try await builderToEnd.discardWorkout()
                 logger.info("🗑️ Workout discarded - not saved to HealthKit")
                 VirtualRunFileLogger.shared.log(category: .healthkit, message: "Workout discarded")
             } catch {
@@ -179,13 +194,13 @@ final class WatchHealthKitManager: NSObject {
         } else {
             // Save the workout to HealthKit
             do {
-                try await builder.endCollection(at: Date())
-                let workout = try await builder.finishWorkout()
+                try await builderToEnd.endCollection(at: Date())
+                let workout = try await builderToEnd.finishWorkout()
 
                 // Attach GPS route if we recorded one
-                if let routeBuilder = routeBuilder, let workout = workout {
+                if let rb = routeBuilderToEnd, let workout = workout {
                     do {
-                        try await routeBuilder.finishRoute(with: workout, metadata: nil)
+                        try await rb.finishRoute(with: workout, metadata: nil)
                         logger.info("✅ Route saved to workout")
                     } catch {
                         logger.error("Failed to save route: \(error.localizedDescription)")
@@ -203,7 +218,14 @@ final class WatchHealthKitManager: NSObject {
             }
         }
 
-        resetState()
+        // Only reset display metrics if no new workout started during async cleanup
+        if !isWorkoutActive {
+            startDate = nil
+            elapsedTime = 0
+            activeCalories = 0
+            heartRate = 0
+            distance = 0
+        }
     }
 
     /// Pause the workout session

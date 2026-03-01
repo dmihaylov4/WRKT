@@ -54,6 +54,7 @@ struct VirtualRunDebugView: View {
         .navigationTitle("Virtual Run Debug")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { refreshWatchLogs() }
+        .onDisappear { stopSimulation() }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("WatchVRLogReceived"))) { _ in
             refreshWatchLogs()
         }

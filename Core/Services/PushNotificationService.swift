@@ -12,16 +12,8 @@ final class PushNotificationService: NSObject, ObservableObject {
     @Published private(set) var deviceToken: String?
     @Published private(set) var isRegistered = false
 
-    private let tokenKey = "apns_device_token"
-    private let environmentKey = "apns_environment"
-
     private override init() {
         super.init()
-
-        // Load cached token
-        if let cachedToken = UserDefaults.standard.string(forKey: tokenKey) {
-            self.deviceToken = cachedToken
-        }
     }
 
     // MARK: - Registration
@@ -75,18 +67,13 @@ final class PushNotificationService: NSObject, ObservableObject {
         self.deviceToken = tokenString
         self.isRegistered = true
 
-        // Cache token locally
-        UserDefaults.standard.set(tokenString, forKey: tokenKey)
-
-        // Determine environment (sandbox vs production)
         #if DEBUG
         let environment = "sandbox"
         #else
         let environment = "production"
         #endif
-        UserDefaults.standard.set(environment, forKey: environmentKey)
 
-        AppLogger.success("Registered for remote notifications. Token: \(tokenString.prefix(20))... Environment: \(environment)", category: AppLogger.app)
+        AppLogger.success("Registered for remote notifications. Environment: \(environment)", category: AppLogger.app)
 
         // Upload token to Supabase if user is logged in
         Task {
@@ -158,11 +145,8 @@ final class PushNotificationService: NSObject, ObservableObject {
             AppLogger.error("Failed to remove device token", error: error, category: AppLogger.app)
         }
 
-        // Clear local cache
         deviceToken = nil
         isRegistered = false
-        UserDefaults.standard.removeObject(forKey: tokenKey)
-        UserDefaults.standard.removeObject(forKey: environmentKey)
     }
 
     // MARK: - Notification Handling

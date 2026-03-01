@@ -29,7 +29,8 @@ enum MuscleFilter: Hashable, Identifiable {
     var allowedMuscles: Set<String> {
         switch self {
         case .upperBody:
-            return ["chest", "back", "shoulder", "bicep", "tricep", "forearm", "trap", "lat", "pec", "delt"]
+            return ["chest", "back", "shoulder", "bicep", "tricep", "forearm", "trap", "lat", "pec", "delt",
+                    "abs", "oblique", "abdom", "rectus", "core"]
         case .lowerBody:
             return ["quad", "hamstring", "glute", "calf", "adductor", "abductor", "hip", "leg"]
         case .fullBody:
@@ -177,8 +178,8 @@ struct MuscleExerciseListView: View {
     var viewID: String { subregion ?? "all_\(muscleFilter?.rawValue ?? "all")" }
     @EnvironmentObject var favs: FavoritesStore
     @EnvironmentObject var customStore: CustomExerciseStore
-    @AppStorage("equipFilter") private var equip: EquipBucket = .all
-    @AppStorage("moveFilter")  private var move:  MoveBucket  = .all
+    @State private var equip: EquipBucket = .all
+    @State private var move:  MoveBucket  = .all
 
     // Custom exercise creation
     @State private var showingCreateExercise = false
@@ -541,6 +542,13 @@ struct MuscleExerciseListView: View {
             .onChange(of: selectedMuscleGroup) { _, _ in
                 updateFilteredRows()
             }
+            .onChange(of: repo.didLoadFull) { _, loaded in
+                if loaded { updateFilteredRows() }
+            }
+            .onChange(of: repo.totalExerciseCount) { _, _ in
+                // Re-filter when exercises reload (e.g. after a custom exercise is created)
+                updateFilteredRows()
+            }
             .onChange(of: framesReady) { _, ready in
                 // Show tutorial once frames are captured
                 if ready && !onboardingManager.hasSeenBodyBrowse && !showTutorial {
@@ -572,85 +580,62 @@ struct MuscleExerciseListView: View {
         return filteredRows
     }
 
-    // Perform heavy filtering asynchronously
+    // Perform filtering synchronously on the main thread
     private func updateFilteredRows() {
-        // Cancel previous filter task
         filterTask?.cancel()
+        filterTask = nil
 
-        filterTask = Task {
-            // 1) Primary muscle filter (only if subregion specified)
-            let primary: [Exercise]
-            if let subregion = subregion {
-                let keys = MuscleMapper.synonyms(for: subregion)
-                primary = repo.byID.values.filter { ex in
-                    let prim = ex.primaryMuscles.map { $0.lowercased() }
-                    return prim.contains { m in keys.contains { key in m.contains(key) } }
-                }
-            } else {
-                // No subregion - show all exercises
-                primary = Array(repo.byID.values)
-            }
-
-            guard !Task.isCancelled else { return }
-
-            // 1.5) Muscle filter for quick workout selection (Upper/Lower/Full body)
-            let muscleFiltered = if let filter = muscleFilter {
-                primary.filter { filter.matches($0) }
-            } else {
-                primary
-            }
-
-            guard !Task.isCancelled else { return }
-
-            // 1.75) Apply muscle group filter (if selected)
-            let muscleGroupFiltered: [Exercise]
-            if let muscleGroup = selectedMuscleGroup {
-                let keys = MuscleMapper.synonyms(for: muscleGroup)
-                muscleGroupFiltered = muscleFiltered.filter { ex in
-                    let prim = ex.primaryMuscles.map { $0.lowercased() }
-                    return prim.contains { m in keys.contains { key in m.contains(key) } }
-                }
-            } else {
-                muscleGroupFiltered = muscleFiltered
-            }
-
-            guard !Task.isCancelled else { return }
-
-            // 2) Search filter (if searching) - use smart fuzzy search with typo tolerance
-            let searchFiltered = isSearching && !debouncedSearchText.isEmpty
-                ? muscleGroupFiltered.filter { SmartSearch.matches(query: debouncedSearchText, in: $0.name) }
-                         .sorted { SmartSearch.score(query: debouncedSearchText, in: $0.name) >
-                                  SmartSearch.score(query: debouncedSearchText, in: $1.name) }
-                : muscleGroupFiltered
-
-            guard !Task.isCancelled else { return }
-
-            // 3) Equipment/Movement filters (only when not searching)
-            let byEquip = (isSearching || equip == .all)
-                ? searchFiltered
-                : searchFiltered.filter { $0.equipBucket == equip }
-
-            let byMove = (isSearching || move == .all)
-                ? byEquip
-                : byEquip.filter { $0.moveBucket == move }
-
-            guard !Task.isCancelled else { return }
-
-            // 4) Sort
-            let base = byMove.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-            let result = favoritesFirst(base, favIDs: favs.ids)
-
-            guard !Task.isCancelled else { return }
-
-            // Update UI on main thread with smooth animation
-            await MainActor.run {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                    filteredRows = result
-                }
-                // Update cross-muscle suggestions after filtering completes
-                updateCrossMuscleSuggestions()
-            }
+        // 1) Primary muscle filter — use repo.exercisesForMuscle() which checks
+        //    primaryMuscles + secondaryMuscles + exercise name, with full synonym expansion.
+        //    This is more robust than a manual filter and handles all edge cases in the data.
+        let primary: [Exercise]
+        if let subregion = subregion {
+            primary = repo.exercisesForMuscle(subregion)
+        } else {
+            primary = Array(repo.byID.values)
         }
+
+        // 1.5) Muscle filter for quick workout selection (Upper/Lower/Full body)
+        let muscleFiltered: [Exercise]
+        if let filter = muscleFilter {
+            muscleFiltered = primary.filter { filter.matches($0) }
+        } else {
+            muscleFiltered = primary
+        }
+
+        // 1.75) Apply muscle group filter (if selected)
+        let muscleGroupFiltered: [Exercise]
+        if let muscleGroup = selectedMuscleGroup {
+            let groupIDs = Set(repo.exercisesForMuscle(muscleGroup).map { $0.id })
+            muscleGroupFiltered = muscleFiltered.filter { groupIDs.contains($0.id) }
+        } else {
+            muscleGroupFiltered = muscleFiltered
+        }
+
+        // 2) Search filter (if searching)
+        let searchFiltered = isSearching && !debouncedSearchText.isEmpty
+            ? muscleGroupFiltered.filter { SmartSearch.matches(query: debouncedSearchText, in: $0.name) }
+                     .sorted { SmartSearch.score(query: debouncedSearchText, in: $0.name) >
+                              SmartSearch.score(query: debouncedSearchText, in: $1.name) }
+            : muscleGroupFiltered
+
+        // 3) Equipment/Movement filters (only when not searching)
+        let byEquip = (isSearching || equip == .all)
+            ? searchFiltered
+            : searchFiltered.filter { $0.equipBucket == equip }
+
+        let byMove = (isSearching || move == .all)
+            ? byEquip
+            : byEquip.filter { $0.moveBucket == move }
+
+        // 4) Sort: favorites first, then alphabetical
+        let base = byMove.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let result = favoritesFirst(base, favIDs: favs.ids)
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            filteredRows = result
+        }
+        updateCrossMuscleSuggestions()
     }
 
     /// Cross-muscle search suggestions - cached version
@@ -922,9 +907,9 @@ enum MuscleMapper {
         case "biceps": return ["bicep","biceps"]
         case "triceps": return ["tricep","triceps"]
         case "forearms": return ["forearm","brachioradialis","flexor","extensor"]
-        case "abs": return ["abs","abdominals","rectus abdominis"]
-        case "obliques": return ["oblique"]
-        case "glutes": return ["glute","gluteus","butt"]
+        case "abs": return ["abs","abdominals","rectus abdominis","core"]
+        case "obliques": return ["oblique","external oblique","internal oblique"]
+        case "glutes": return ["glute","gluteus","butt","glute max","glute med","glute minimus"]
         case "quads": return ["quad","quadriceps","vastus","rectus femoris"]
         case "hamstrings": return ["hamstring","biceps femoris","semitendinosus","semimembranosus"]
         case "calves": return ["calf","gastrocnemius","soleus"]

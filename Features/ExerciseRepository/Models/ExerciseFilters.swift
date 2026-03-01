@@ -77,7 +77,7 @@ enum MoveBucket: String, CaseIterable {
                    name.contains("split squat") || name.contains("bulgarian")
         case .core:
             // Core stability and anti-rotation
-            return prim.contains(where: { $0.contains("abs") || $0.contains("oblique") || $0.contains("abdominal") }) ||
+            return prim.contains(where: { $0.contains("abs") || $0.contains("oblique") || $0.contains("abdomin") }) ||
                    name.contains("plank") || name.contains("crunch") ||
                    name.contains("sit-up") || name.contains("ab") ||
                    name.contains("pallof") || name.contains("dead bug")
@@ -227,7 +227,7 @@ extension Exercise {
         }
 
         // Check core
-        if prim.contains(where: { $0.contains("abs") || $0.contains("oblique") || $0.contains("abdominal") }) ||
+        if prim.contains(where: { $0.contains("abs") || $0.contains("oblique") || $0.contains("abdomin") }) ||
            nameLC.contains("plank") || nameLC.contains("crunch") ||
            nameLC.contains("sit-up") || nameLC.contains("ab") {
             return .core
@@ -262,6 +262,7 @@ extension Exercise {
     func contains(muscleGroup: String?) -> Bool {
         guard let g = muscleGroup?.lowercased(), !g.isEmpty else { return true }
         let all = (primaryMuscles + secondaryMuscles + tertiaryMuscles).map { $0.lowercased() }
-        return all.contains { $0.contains(g) }
+        let keys = ExerciseRepository.synonyms(for: g)
+        return all.contains { m in keys.contains { key in m.contains(key) } }
     }
 }

@@ -59,7 +59,7 @@ class VirtualRunManager {
     private(set) var runStartTime: Date?
 
     // Pause tracking
-    private(set) var pausedElapsedBeforePause: TimeInterval = 0
+    private(set) var totalPausedDuration: TimeInterval = 0
     private var pauseStartTime: Date?
 
     // Extended disconnect tracking
@@ -68,6 +68,7 @@ class VirtualRunManager {
 
     // Partner finished state
     private(set) var showPartnerFinished = false
+    private(set) var partnerHasFinished = false   // stays true even after overlay dismissed
     private(set) var partnerFinalDistance: Double = 0
     private(set) var partnerFinalDuration: Int = 0
     private(set) var partnerFinalPace: Int?
@@ -88,6 +89,11 @@ class VirtualRunManager {
 
     // Battery optimization
     private var isLowBatteryMode = false
+
+    // HealthKit data staleness detection (H4)
+    private(set) var showHealthDataWarning = false
+    private var lastNonZeroDistance: Double = 0
+    private var distanceStaleCheckCount: Int = 0
 
     // Reconnection
     let reconnectionManager = ReconnectionManager()
@@ -227,11 +233,15 @@ class VirtualRunManager {
         partnerStats = nil
         runStartTime = nil
         lastKmMilestone = 0
-        pausedElapsedBeforePause = 0
+        totalPausedDuration = 0
         pauseStartTime = nil
         disconnectStartTime = nil
         showDisconnectPrompt = false
         showPartnerFinished = false
+        partnerHasFinished = false
+        showHealthDataWarning = false
+        lastNonZeroDistance = 0
+        distanceStaleCheckCount = 0
         kalmanFilter.reset()
         clearPersistedState()
 
@@ -253,10 +263,23 @@ class VirtualRunManager {
             if let pace = stats.currentPaceSecPerKm { payload["pace"] = pace }
             if let hr = stats.heartRate { payload["heartRate"] = hr }
         }
+        if let runId = currentRunId {
+            payload["runId"] = runId.uuidString
+        }
+
+        // Persist final stats before ending (crash recovery for the summary screen)
+        persistState()
+
+        // 1. Instant delivery (if iPhone is reachable)
         WatchConnectivityManager.shared.sendMessage(
             type: .runEnded,
             payload: payload
         )
+
+        // 2. Guaranteed delivery via transferUserInfo (survives app termination)
+        //    iPhone deduplicates via lastProcessedVREndRunId
+        WatchConnectivityManager.shared.sendRunEndedGuaranteed(payload: payload)
+
         endVirtualRun()
 
         // Save HealthKit running workout
@@ -299,6 +322,7 @@ class VirtualRunManager {
             payload: [String: String]()
         )
 
+        persistState()
         VirtualRunFileLogger.shared.log(category: .phase, message: "Run paused")
         WKInterfaceDevice.current().play(.click)
     }
@@ -309,7 +333,7 @@ class VirtualRunManager {
 
         // Track accumulated paused time
         if let pauseStart = pauseStartTime {
-            pausedElapsedBeforePause += Date().timeIntervalSince(pauseStart)
+            totalPausedDuration += Date().timeIntervalSince(pauseStart)
         }
         pauseStartTime = nil
 
@@ -351,9 +375,13 @@ class VirtualRunManager {
     // MARK: - Partner Finished
 
     func handlePartnerFinished(distance: Double, duration: Int, pace: Int?) {
+        // Dedup: both sendMessage and transferUserInfo may deliver this
+        guard !partnerHasFinished else { return }
+
         partnerFinalDistance = distance
         partnerFinalDuration = duration
         partnerFinalPace = pace
+        partnerHasFinished = true
         showPartnerFinished = true
         showDisconnectPrompt = false
         disconnectStartTime = nil
@@ -417,7 +445,7 @@ class VirtualRunManager {
 
         // Get duration from run start time, subtracting paused time
         let totalElapsed = runStartTime.map { Date().timeIntervalSince($0) } ?? 0
-        let duration = Int(totalElapsed - pausedElapsedBeforePause)
+        let duration = Int(totalElapsed - totalPausedDuration)
 
         // Heart rate from HealthKit (already in bpm)
         let heartRate = healthManager.heartRate > 0 ? Int(healthManager.heartRate) : nil
@@ -450,6 +478,24 @@ class VirtualRunManager {
             lon: loc?.coordinate.longitude
         )
 
+        // Check for HealthKit data staleness (H4: detect permission revocation or sensor failure)
+        // If distance and HR both stay at zero/frozen for 15+ consecutive publishes (~30s), show warning
+        if heartRate == nil && currentDistance == lastNonZeroDistance && currentDistance > 0 {
+            distanceStaleCheckCount += 1
+            if distanceStaleCheckCount >= 15 && !showHealthDataWarning {
+                showHealthDataWarning = true
+                VirtualRunFileLogger.shared.log(category: .error, message: "HealthKit data appears stale — distance frozen, no HR")
+            }
+        } else {
+            distanceStaleCheckCount = 0
+            if currentDistance > lastNonZeroDistance {
+                lastNonZeroDistance = currentDistance
+            }
+            if showHealthDataWarning {
+                showHealthDataWarning = false
+            }
+        }
+
         // Check for km milestones and play haptic
         let currentKm = Int(currentDistance / 1000)
         if currentKm > lastKmMilestone {
@@ -471,10 +517,15 @@ class VirtualRunManager {
     private func checkBatteryLevel() {
         let level = WKInterfaceDevice.current().batteryLevel
         isLowBatteryMode = level < VirtualRunConstants.lowBatteryThreshold && level > 0
+        // Persist state every 60s as crash recovery safety net
+        persistState()
     }
 
     /// Monitor partner connection for extended disconnect (3+ minutes)
     private func checkExtendedDisconnect() {
+        // Partner finished their run — silence is expected, not a disconnect.
+        // Use the permanent flag (not showPartnerFinished which resets when overlay is dismissed).
+        guard !partnerHasFinished else { return }
         guard let partner = partnerStats else { return }
 
         if partner.connectionStatus == .disconnected {
@@ -511,9 +562,13 @@ class VirtualRunManager {
     ) {
         guard let runId = currentRunId, let userId = myUserId else { return }
 
-        // Apply GPS smoothing
+        // Apply GPS smoothing via Kalman filter
+        var smoothedLat = lat
+        var smoothedLon = lon
         if let lat = lat, let lon = lon {
-            _ = kalmanFilter.process(lat: lat, lon: lon, accuracy: 10)
+            let filtered = kalmanFilter.process(lat: lat, lon: lon, accuracy: 10)
+            smoothedLat = filtered.lat
+            smoothedLon = filtered.lon
         }
 
         localSeq += 1
@@ -526,8 +581,8 @@ class VirtualRunManager {
             currentPaceSecPerKm: pace,
             heartRate: heartRate,
             calories: nil,
-            latitude: lat,
-            longitude: lon,
+            latitude: smoothedLat,
+            longitude: smoothedLon,
             seq: localSeq,
             clientRecordedAt: Date(),
             serverReceivedAt: nil,
@@ -543,8 +598,6 @@ class VirtualRunManager {
             )
         }
 
-        // Persist state for crash recovery
-        persistState()
     }
 
     func receivePartnerUpdate(_ snapshot: VirtualRunSnapshot) {
@@ -648,7 +701,7 @@ class VirtualRunManager {
             partnerName: partner.displayName,
             myLastDistance: myStats.distanceM,
             myLastDuration: myStats.durationS,
-            startedAt: Date(),
+            startedAt: runStartTime ?? Date(),
             lastSeq: localSeq
         )
 

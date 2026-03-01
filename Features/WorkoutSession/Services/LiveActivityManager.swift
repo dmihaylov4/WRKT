@@ -94,7 +94,7 @@ class LiveActivityManager: ObservableObject {
     }
 
     /// Create a new Live Activity
-    private nonisolated func createNewActivity(
+    private func createNewActivity(
         exerciseName: String,
         exerciseID: String,
         duration: TimeInterval,
@@ -125,14 +125,12 @@ class LiveActivityManager: ObservableObject {
                 pushType: nil
             )
 
-            await MainActor.run {
-                self.currentRestTimerActivity = activity
-                self.isActivityActive = true
-                self.activityID = activity.id
+            currentRestTimerActivity = activity
+            isActivityActive = true
+            activityID = activity.id
 
-                // Start auto-update loop
-                self.startUpdateLoop()
-            }
+            // Start auto-update loop
+            startUpdateLoop()
 
             AppLogger.success("Live Activity started for \(exerciseName)", category: AppLogger.app)
         } catch {
@@ -209,8 +207,10 @@ class LiveActivityManager: ObservableObject {
     private func startUpdateLoop() {
         stopUpdateLoop()
 
-        // Update every second while timer is running
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        // Use Timer(timeInterval:) + RunLoop.main.add rather than Timer.scheduledTimer.
+        // scheduledTimer auto-adds to .default mode; adding the same instance to .common
+        // would then fire it twice per tick because .common includes .default.
+        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self,
                   let activity = self.currentRestTimerActivity else { return }
 
@@ -235,13 +235,10 @@ class LiveActivityManager: ObservableObject {
                 AppLogger.debug("Rest timer completed - keeping Live Activity alive in 'Ready' state", category: AppLogger.app)
             }
         }
-
-        // Ensure timer runs even when app is in background
-        if let timer = updateTimer {
-            RunLoop.main.add(timer, forMode: .common)
-        } else {
-            AppLogger.error("Update timer is nil, cannot add to runloop", category: AppLogger.app)
-        }
+        // 10% tolerance lets the OS batch this with other 1-second timers.
+        timer.tolerance = 0.1
+        RunLoop.main.add(timer, forMode: .common)
+        updateTimer = timer
     }
 
     /// Stops the auto-update timer

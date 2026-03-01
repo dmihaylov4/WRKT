@@ -23,6 +23,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     private let session: WCSession? = WCSession.isSupported() ? WCSession.default : nil
     private let logger = Logger(subsystem: "com.wrkt.watch", category: "connectivity")
+    private var becomeActiveToken: NSObjectProtocol?
 
     // Debouncing for navigation events
     private var navigationDebounceTask: Task<Void, Never>?
@@ -48,8 +49,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         super.init()
         setupSession()
 
+        
         // Automatically request state when app becomes active
-        NotificationCenter.default.addObserver(
+        becomeActiveToken = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("NSExtensionHostDidBecomeActiveNotification"),
             object: nil,
             queue: .main
@@ -57,6 +59,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             Task { @MainActor in
                 self?.requestState()
             }
+        }
+    }
+
+    deinit {
+        if let token = becomeActiveToken {
+            NotificationCenter.default.removeObserver(token)
         }
     }
 
@@ -174,10 +182,25 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Message Queue Management
 
+    /// Critical message types that must never be evicted from the queue
+    private static let criticalMessageTypes: Set<String> = [
+        WatchMessage.vrRunEnded.rawValue,
+        WatchMessage.vrPause.rawValue,
+        WatchMessage.vrResume.rawValue,
+        WatchMessage.vrWatchConfirmed.rawValue
+    ]
+
     private func queueMessage(type: WatchMessage, payload: Data?) {
         if messageQueue.count >= maxQueueSize {
-            logger.warning("Message queue full, dropping oldest message")
-            messageQueue.removeFirst()
+            // Find the first non-critical message to evict
+            if let evictIndex = messageQueue.firstIndex(where: { !Self.criticalMessageTypes.contains($0.type.rawValue) }) {
+                logger.warning("Message queue full, dropping non-critical message: \(self.messageQueue[evictIndex].type.rawValue)")
+                messageQueue.remove(at: evictIndex)
+            } else {
+                // All messages are critical — drop oldest anyway to prevent unbounded growth
+                logger.warning("Message queue full of critical messages, dropping oldest")
+                messageQueue.removeFirst()
+            }
         }
         messageQueue.append((type, payload))
     }
@@ -267,12 +290,14 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
-        Task { @MainActor in
-            logger.info("Reachability changed: \(session.isReachable)")
+        let isReachable = session.isReachable
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            logger.info("Reachability changed: \(isReachable)")
             VirtualRunFileLogger.shared.log(category: .connectivity, message: "Reachability changed", data: [
-                "isReachable": session.isReachable
+                "isReachable": isReachable
             ])
-            isConnected = session.isReachable
+            isConnected = isReachable
 
             if isConnected {
                 connectionError = nil
@@ -285,8 +310,9 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
-        Task { @MainActor in
-            handleIncomingMessage(message)
+        let copy = message
+        Task { @MainActor [weak self] in
+            self?.handleIncomingMessage(copy)
         }
     }
 
@@ -295,17 +321,21 @@ extension WatchConnectivityManager: WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
-        logger.info("Received message from iPhone with reply handler")
-        Task { @MainActor in
-            handleIncomingMessage(message)
+        let copy = message
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            logger.info("Received message from iPhone with reply handler")
+            handleIncomingMessage(copy)
             replyHandler(["status": "received"])
         }
     }
 
     nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        Task { @MainActor in
-            logger.info("📨 Received application context with keys: \(applicationContext.keys.joined(separator: ", "))")
-            handleIncomingMessage(applicationContext)
+        let copy = applicationContext
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            logger.info("📨 Received application context with keys: \(copy.keys.joined(separator: ", "))")
+            handleIncomingMessage(copy)
         }
     }
 
@@ -332,8 +362,11 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 connectionError = nil
                 logger.info("✅ Received workout state: \(state.exercises.count) exercises, active: \(state.isActive)")
 
-                // Auto-start HKWorkoutSession if iPhone has active workout but Watch doesn't
-                if state.isActive && !WatchHealthKitManager.shared.isWorkoutActive {
+                // Auto-start HKWorkoutSession if iPhone has active workout but Watch doesn't.
+                // Skip if a virtual run is pending or active — VR manages its own HK session
+                // and auto-starting an indoor strength workout here would block startRunningWorkout().
+                if state.isActive && !WatchHealthKitManager.shared.isWorkoutActive
+                    && VirtualRunManager.shared.phase == .idle {
                     logger.info("📲 iPhone has active workout, auto-starting Watch HKWorkoutSession")
                     Task {
                         do {
@@ -343,10 +376,14 @@ extension WatchConnectivityManager: WCSessionDelegate {
                             logger.error("Failed to auto-start workout: \(error.localizedDescription)")
                         }
                     }
+                } else if state.isActive && VirtualRunManager.shared.phase != .idle {
+                    logger.info("⏸ Skipping auto-start: virtual run is in progress")
                 }
 
-                // Auto-end HKWorkoutSession if iPhone workout ended but Watch still active
-                if !state.isActive && WatchHealthKitManager.shared.isWorkoutActive {
+                // Auto-end HKWorkoutSession if iPhone workout ended but Watch still active.
+                // Skip during VR — the VR's own end flow handles HK cleanup.
+                if !state.isActive && WatchHealthKitManager.shared.isWorkoutActive
+                    && VirtualRunManager.shared.phase == .idle {
                     logger.info("📲 iPhone workout ended, auto-ending Watch HKWorkoutSession")
                     Task {
                         do {
@@ -356,6 +393,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                             logger.error("Failed to auto-end workout: \(error.localizedDescription)")
                         }
                     }
+                } else if !state.isActive && VirtualRunManager.shared.phase != .idle {
+                    logger.info("⏸ Skipping auto-end: virtual run is in progress")
                 }
             } catch {
                 logger.error("Failed to decode workout state: \(error.localizedDescription)")
@@ -364,6 +403,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
         case "startWatchWorkout":
             logger.info("📲 Received startWatchWorkout from iPhone")
+            guard VirtualRunManager.shared.phase == .idle else {
+                logger.info("⏸ Skipping startWatchWorkout: virtual run is in progress")
+                break
+            }
             Task {
                 do {
                     try await WatchHealthKitManager.shared.startWorkout()
@@ -375,6 +418,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
         case "endWatchWorkout":
             logger.info("📲 Received endWatchWorkout from iPhone")
+            guard VirtualRunManager.shared.phase == .idle else {
+                logger.info("⏸ Skipping endWatchWorkout: virtual run is in progress")
+                break
+            }
             Task {
                 do {
                     try await WatchHealthKitManager.shared.endWorkout(discard: false)
@@ -386,6 +433,10 @@ extension WatchConnectivityManager: WCSessionDelegate {
 
         case "discardWatchWorkout":
             logger.info("📲 Received discardWatchWorkout from iPhone")
+            guard VirtualRunManager.shared.phase == .idle else {
+                logger.info("⏸ Skipping discardWatchWorkout: virtual run is in progress")
+                break
+            }
             Task {
                 do {
                     try await WatchHealthKitManager.shared.endWorkout(discard: true)
@@ -561,11 +612,13 @@ extension WatchConnectivityManager: WCSessionDelegate {
         // Set ourselves as delegate to handle notification taps
         UNUserNotificationCenter.current().delegate = self
 
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-            if let error = error {
-                self.logger.error("Watch notification permission error: \(error.localizedDescription)")
-            } else {
-                self.logger.info("Watch notification permission granted: \(granted)")
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { [weak self] granted, error in
+            Task { @MainActor [weak self] in
+                if let error = error {
+                    self?.logger.error("Watch notification permission error: \(error.localizedDescription)")
+                } else {
+                    self?.logger.info("Watch notification permission granted: \(granted)")
+                }
             }
         }
     }
@@ -586,11 +639,13 @@ extension WatchConnectivityManager: WCSessionDelegate {
             trigger: trigger
         )
 
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                self.logger.error("Failed to schedule VR notification: \(error.localizedDescription)")
-            } else {
-                self.logger.info("Scheduled time-sensitive VR invite notification for \(partnerName)")
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
+            Task { @MainActor [weak self] in
+                if let error = error {
+                    self?.logger.error("Failed to schedule VR notification: \(error.localizedDescription)")
+                } else {
+                    self?.logger.info("Scheduled time-sensitive VR invite notification for \(partnerName)")
+                }
             }
         }
     }
@@ -624,6 +679,22 @@ extension WatchConnectivityManager: WCSessionDelegate {
             "payloadKeys": Array(payload.keys).joined(separator: ",")
         ])
         send(type: messageType, payload: payload)
+    }
+
+    // MARK: - Guaranteed Delivery (transferUserInfo)
+
+    /// Send runEnded via transferUserInfo for guaranteed delivery (survives Watch app termination)
+    func sendRunEndedGuaranteed(payload: [String: Any]) {
+        guard let session = session else { return }
+
+        var message: [String: Any] = ["messageType": WatchMessage.vrRunEnded.rawValue]
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            message["payload"] = data
+        }
+
+        session.transferUserInfo(message)
+        logger.info("📨 Queued runEnded via transferUserInfo (guaranteed delivery)")
+        VirtualRunFileLogger.shared.log(category: .connectivity, message: "Sent runEnded via transferUserInfo")
     }
 
     // MARK: - Log File Transfer

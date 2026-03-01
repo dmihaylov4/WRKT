@@ -15,6 +15,7 @@ extension Notification.Name {
        static let homeTabReselected = Notification.Name("homeTabReselected")
        static let calendarTabReselected = Notification.Name("calendarTabReselected")
        static let cardioTabReselected = Notification.Name("cardioTabReselected")
+       static let socialTabReselected = Notification.Name("socialTabReselected")
        static let tabSelectionChanged = Notification.Name("tabSelectionChanged")
        static let tabDidChange = Notification.Name("tabDidChange")
        static let openLiveOverlay = Notification.Name("openLiveOverlay")

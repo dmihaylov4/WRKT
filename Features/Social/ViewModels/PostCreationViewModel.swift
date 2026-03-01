@@ -27,14 +27,17 @@ final class PostCreationViewModel {
     var recentWorkouts: [CompletedWorkout] = []
     var selectedWorkout: CompletedWorkout? {
         didSet {
-            // When a workout is selected, generate map if it's cardio
-            if let workout = selectedWorkout, workout.isCardioWorkout {
+            // When a workout is selected via picker (not initial setup), generate map if it's cardio
+            if !suppressMapGeneration, let workout = selectedWorkout, workout.isCardioWorkout {
                 Task {
                     await generateMapSnapshotForWorkout(workout)
                 }
             }
         }
     }
+
+    /// Temporarily suppress map generation in didSet (used during initial setup when map is provided externally)
+    var suppressMapGeneration = false
 
     // Store runs to access route data for map generation
     private var cachedRuns: [Run] = []
@@ -237,8 +240,11 @@ final class PostCreationViewModel {
     // MARK: - Map Snapshot Generation
 
     /// Generate map snapshot for a cardio workout
-    private func generateMapSnapshotForWorkout(_ workout: CompletedWorkout) async {
+    func generateMapSnapshotForWorkout(_ workout: CompletedWorkout) async {
         guard workout.isCardioWorkout else { return }
+
+        // Skip if a map image is already present (e.g., provided by CardioDetailView)
+        if !photoImages.isEmpty { return }
 
         // Find the corresponding Run using the HealthKit UUID or workout ID
         // Check both cachedRuns and the workout store for the latest data
@@ -262,7 +268,10 @@ final class PostCreationViewModel {
             print("🗺️ [MapSnapshot] Using route with \(route.count) points")
             coordinates = route.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
         } else if let hkUUID = workout.matchedHealthKitUUID {
-            // No route data on run — fetch on-demand from HealthKit
+            // No route data on run — fetch on-demand from HealthKit.
+            // Reset any exhausted background route task so the queue retries it in case
+            // previous failures were due to a now-fixed HK query bug.
+            await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
             print("🗺️ [MapSnapshot] No route on run (run found: \(run != nil)), fetching from HealthKit UUID: \(hkUUID)...")
             isGeneratingMap = true
             do {
@@ -276,6 +285,14 @@ final class PostCreationViewModel {
                         if routeWithHR.count > 1 {
                             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
                             hrValues = routeWithHR.map { $0.hr ?? .nan }
+                        } else {
+                            // fetchRouteWithHeartRate returned empty (not a throw) — try plain route
+                            print("🗺️ [MapSnapshot] fetchRouteWithHeartRate returned empty, falling back to plain route")
+                            let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
+                            print("🗺️ [MapSnapshot] fetchRoute returned \(locations.count) locations")
+                            if locations.count > 1 {
+                                coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
+                            }
                         }
                     } catch {
                         print("🗺️ [MapSnapshot] fetchRouteWithHeartRate FAILED: \(error)")

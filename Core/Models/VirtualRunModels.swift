@@ -36,6 +36,9 @@ struct VirtualRun: Codable, Identifiable, Sendable {
     var inviterRouteUploaded: Bool?
     var inviteeRouteUploaded: Bool?
 
+    // Invite expiration (pending invites auto-cancel after this time)
+    var expiresAt: Date?
+
     enum CodingKeys: String, CodingKey {
         case id
         case inviterId = "inviter_id"
@@ -55,6 +58,7 @@ struct VirtualRun: Codable, Identifiable, Sendable {
         case winnerId = "winner_id"
         case inviterRouteUploaded = "inviter_route_uploaded"
         case inviteeRouteUploaded = "invitee_route_uploaded"
+        case expiresAt = "expires_at"
     }
 
     init(from decoder: Decoder) throws {
@@ -77,6 +81,7 @@ struct VirtualRun: Codable, Identifiable, Sendable {
         winnerId = try container.decodeIfPresent(UUID.self, forKey: .winnerId)
         inviterRouteUploaded = try container.decodeIfPresent(Bool.self, forKey: .inviterRouteUploaded)
         inviteeRouteUploaded = try container.decodeIfPresent(Bool.self, forKey: .inviteeRouteUploaded)
+        expiresAt = try container.decodeIfPresent(Date.self, forKey: .expiresAt)
     }
 }
 

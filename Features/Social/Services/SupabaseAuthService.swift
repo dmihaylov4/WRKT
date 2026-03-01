@@ -70,6 +70,12 @@ final class SupabaseAuthService: ObservableObject {
                 profile: profile
             )
 
+            // Sync birth year from Supabase profile into HR zone calculator
+            if let birthYear = profile.birthYear {
+                let age = Calendar.current.component(.year, from: Date()) - birthYear
+                HRZoneCalculator.shared.userAge = age
+            }
+
             // Upload push notification token now that user is logged in
             await PushNotificationService.shared.uploadTokenToServer()
 
@@ -281,6 +287,12 @@ final class SupabaseAuthService: ObservableObject {
             AppLogger.error("Failed to handle password recovery", error: error, category: AppLogger.app)
             self.error = .networkError(error)
         }
+    }
+
+    /// Clear signup state (call on verification success or cancellation)
+    func clearSignupState() {
+        signupEmail = nil
+        needsEmailVerification = false
     }
 
     /// Resend verification email

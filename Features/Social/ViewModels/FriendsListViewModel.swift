@@ -24,8 +24,8 @@ final class FriendsListViewModel {
         let friend: Friend
         let task: Task<Void, Never>
     }
-    nonisolated(unsafe) private var pendingRemovals: [UUID: PendingRemoval] = [:]
-    nonisolated(unsafe) private var friendshipObserver: NSObjectProtocol?
+    @ObservationIgnored private var pendingRemovals: [UUID: PendingRemoval] = [:]
+    @ObservationIgnored private var friendshipObserver: NSObjectProtocol?
 
     init(friendshipRepository: FriendshipRepository, authService: SupabaseAuthService) {
         self.friendshipRepository = friendshipRepository

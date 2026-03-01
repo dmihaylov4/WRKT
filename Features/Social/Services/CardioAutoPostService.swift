@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import CoreLocation
 
 @MainActor
 final class CardioAutoPostService {
@@ -106,6 +107,13 @@ final class CardioAutoPostService {
                             if let routeWithHR = routeWithHR, routeWithHR.count > 1 {
                                 enrichedRun.routeWithHR = routeWithHR
                                 AppLogger.debug("Fetched route on-demand: \(routeWithHR.count) points", category: AppLogger.social)
+                            } else {
+                                // fetchRouteWithHeartRate returned empty — try plain route as fallback
+                                if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
+                                   locations.count > 1 {
+                                    enrichedRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+                                    AppLogger.debug("Fetched plain route on-demand: \(locations.count) points", category: AppLogger.social)
+                                }
                             }
                         }
                     }

@@ -72,6 +72,7 @@
 		2E3D8EEE2EB0AB1B00AC8A53 /* CustomExerciseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EED2EB0AB1B00AC8A53 /* CustomExerciseStore.swift */; };
 		2E3D8EF02EB0ACFA00AC8A53 /* CreateExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */; };
 		2E46E0192F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E46E0182F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift */; };
+		2E46E7AB2F4C687300F57EE7 /* KeychainAuthStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E46E7A92F4C687300F57EE7 /* KeychainAuthStorage.swift */; };
 		2E510B532E96B3920089EE2C /* InteractiveRouteMapHeat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B522E96B3920089EE2C /* InteractiveRouteMapHeat.swift */; };
 		2E510B562E9793720089EE2C /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B552E97936A0089EE2C /* Haptics.swift */; };
 		2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E510B5F2E97BAFA0089EE2C /* exercises_clean.json */; };
@@ -113,7 +114,6 @@
 		2E7461AD2E93EED900A71C35 /* ExerciseRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A92E93EDEC00A71C35 /* ExerciseRepository.swift */; };
 		2E7461AE2E93EEDE00A71C35 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A82E93EDDC00A71C35 /* Persistence.swift */; };
 		2E7461AF2E93EEE100A71C35 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A72E93EDC500A71C35 /* Utilities.swift */; };
-		2E7461B22E93EF4E00A71C35 /* exercises.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E7461B12E93EF4200A71C35 /* exercises.json */; };
 		2E7461BE2E9409AD00A71C35 /* WorkoutStoreRecent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BD2E9409A000A71C35 /* WorkoutStoreRecent.swift */; };
 		2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */; };
 		2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */; };
@@ -346,6 +346,7 @@
 		2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */; };
 		2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */; };
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
+		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -479,6 +480,7 @@
 		2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateExerciseView.swift; sourceTree = "<group>"; };
 		2E3E75F88BF3D8FBC377C8E7 /* VirtualRunRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunRoute.swift; sourceTree = "<group>"; };
 		2E46E0182F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunTelemetry.swift; sourceTree = "<group>"; };
+		2E46E7A92F4C687300F57EE7 /* KeychainAuthStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAuthStorage.swift; sourceTree = "<group>"; };
 		2E46FCB02EAF7B2E006756AE /* WRKT-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "WRKT-Info.plist"; sourceTree = "<group>"; };
 		2E510B522E96B3920089EE2C /* InteractiveRouteMapHeat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveRouteMapHeat.swift; sourceTree = "<group>"; };
 		2E510B552E97936A0089EE2C /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
@@ -522,7 +524,6 @@
 		2E7461A72E93EDC500A71C35 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
 		2E7461A82E93EDDC00A71C35 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		2E7461A92E93EDEC00A71C35 /* ExerciseRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseRepository.swift; sourceTree = "<group>"; };
-		2E7461B12E93EF4200A71C35 /* exercises.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = exercises.json; sourceTree = "<group>"; };
 		2E7461BD2E9409A000A71C35 /* WorkoutStoreRecent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStoreRecent.swift; sourceTree = "<group>"; };
 		2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyBrowse.swift; sourceTree = "<group>"; };
 		2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentWorkoutBar.swift; sourceTree = "<group>"; };
@@ -749,6 +750,9 @@
 		2EEEACD42EA38AF700EDD16E /* MusclePictogram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusclePictogram.swift; sourceTree = "<group>"; };
 		2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToConfirm.swift; sourceTree = "<group>"; };
 		2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalSetupView.swift; sourceTree = "<group>"; };
+		66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		89046F50535848139D95D2AE /* WRKT-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Debug.xcconfig"; sourceTree = "<group>"; };
+		9045D7549B884EEA9A17C4BC /* WRKT-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -882,6 +886,7 @@
 		2E196EAE2EAD3BB900EB4780 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				2E46E7AA2F4C687300F57EE7 /* Security */,
 				2EE8A0942EE99ED900A74A3C /* Configuration */,
 				2E61413A2ECE284200B50FDE /* Services */,
 				2E196EB32EAD3C0400EB4780 /* Extensions */,
@@ -1487,6 +1492,14 @@
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
+		2E46E7AA2F4C687300F57EE7 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				2E46E7A92F4C687300F57EE7 /* KeychainAuthStorage.swift */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
 		2E61412E2ECE266100B50FDE /* Shared */ = {
 			isa = PBXGroup;
 			children = (
@@ -1525,6 +1538,9 @@
 				2E61412E2ECE266100B50FDE /* Shared */,
 				2EBE3FEB2EB8E00C00A26355 /* WRKTWidgetsExtension.entitlements */,
 				2E46FCB02EAF7B2E006756AE /* WRKT-Info.plist */,
+				66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */,
+				89046F50535848139D95D2AE /* WRKT-Debug.xcconfig */,
+				9045D7549B884EEA9A17C4BC /* WRKT-Release.xcconfig */,
 				2E196F2D2EAE5B4B00EB4780 /* WRKT.xctestplan */,
 				2E196EC32EAD3E0D00EB4780 /* Documentation */,
 				2E196EC22EAD3DF400EB4780 /* Resources */,
@@ -1534,7 +1550,6 @@
 				2E196EAB2EAD39EF00EB4780 /* App */,
 				2EEEACCE2EA38A9100EDD16E /* AppModels */,
 				2E510B892E9AEEA60089EE2C /* muscles_index.json */,
-				2E7461B12E93EF4200A71C35 /* exercises.json */,
 				2E7461982E93EB7A00A71C35 /* Persistence */,
 				2E196F012EAE589C00EB4780 /* WRKTTests */,
 				2EBE3FC52EB8BCA300A26355 /* WRKTWidgets */,
@@ -2241,11 +2256,11 @@
 				2E510B612E97BAFA0089EE2C /* exercises_catalog.json in Resources */,
 				2E510B8A2E9AEEA60089EE2C /* muscles_index.json in Resources */,
 				2E7461D82E9439F100A71C35 /* exercise_tags.json in Resources */,
-				2E7461B22E93EF4E00A71C35 /* exercises.json in Resources */,
 				2E510B882E9AE2F00089EE2C /* muscle_id_map.json in Resources */,
 				2EA7DA392EEC471F0017683B /* FeedViewModel.swift.tmp in Resources */,
 				2E510B7E2E9987CE0089EE2C /* torso.svg in Resources */,
 				2E510B7F2E9987CE0089EE2C /* torso_back.svg in Resources */,
+				93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2523,6 +2538,7 @@
 				2EA7DABA2EEDCF910017683B /* ChallengeDetailView.swift in Sources */,
 				2EA7DABB2EEDCF910017683B /* ChallengesBrowseView.swift in Sources */,
 				2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */,
+				2E46E7AB2F4C687300F57EE7 /* KeychainAuthStorage.swift in Sources */,
 				2EC201D52EEF22FD00D6BAEF /* SocialView.swift in Sources */,
 				2EC201D72EEF230400D6BAEF /* FriendsHubView.swift in Sources */,
 				2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */,
@@ -2983,6 +2999,7 @@
 		};
 		2E7461942E93EA5C00A71C35 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 89046F50535848139D95D2AE /* WRKT-Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -3010,7 +3027,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.1.0;
+				MARKETING_VERSION = 3.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3030,6 +3047,7 @@
 		};
 		2E7461952E93EA5C00A71C35 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9045D7549B884EEA9A17C4BC /* WRKT-Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -3057,7 +3075,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.1.0;
+				MARKETING_VERSION = 3.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

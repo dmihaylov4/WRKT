@@ -91,6 +91,7 @@ struct EmailVerificationView: View {
                 .disabled(isResending)
 
                 Button {
+                    authService.clearSignupState()
                     dismiss()
                 } label: {
                     Text("Back to Login")

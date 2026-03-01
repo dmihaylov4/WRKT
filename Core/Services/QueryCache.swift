@@ -52,10 +52,15 @@ final class QueryCache {
 
     private var cache: [String: Any] = [:]
     private let lock = NSLock()
+    private var cleanupTimer: Timer?
 
     private init() {
         // Start cleanup timer
         startCleanupTimer()
+    }
+
+    deinit {
+        cleanupTimer?.invalidate()
     }
 
     // MARK: - Public API
@@ -199,12 +204,22 @@ final class QueryCache {
     // MARK: - Cleanup
 
     private func startCleanupTimer() {
-        // Clean up expired entries every 5 minutes
-        Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+        // Invalidate any existing timer before creating a new one so calling this
+        // method twice never leaves an orphaned timer on the RunLoop.
+        cleanupTimer?.invalidate()
+        cleanupTimer = nil
+
+        // Use Timer(timeInterval:) + RunLoop.main.add so we can store the reference
+        // and invalidate on deinit. [weak self] on both the timer closure and the
+        // inner Task avoids capturing a strong reference across actor boundaries.
+        let timer = Timer(timeInterval: 5 * 60, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
                 self?.cleanupExpired()
             }
         }
+        timer.tolerance = 60 // Allow up to 60s drift so the OS can coalesce timer fires
+        RunLoop.main.add(timer, forMode: .common)
+        cleanupTimer = timer
     }
 
     private func cleanupExpired() {

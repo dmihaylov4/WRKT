@@ -38,15 +38,52 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private var hasPendingDiscard: Bool = false
 
     // Virtual run active state (for cleanup when Watch ends)
-    private(set) var activeVirtualRunId: UUID?
-    private(set) var activeVirtualRunUserId: UUID?
+    // Persisted to UserDefaults for crash recovery — if the iOS app is killed mid-run,
+    // the state can be restored on relaunch so incoming vrRunEnded messages still work.
+    private(set) var activeVirtualRunId: UUID? {
+        didSet {
+            if let id = activeVirtualRunId {
+                UserDefaults.standard.set(id.uuidString, forKey: "activeVirtualRunId")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "activeVirtualRunId")
+            }
+        }
+    }
+    private(set) var activeVirtualRunUserId: UUID? {
+        didSet {
+            if let id = activeVirtualRunUserId {
+                UserDefaults.standard.set(id.uuidString, forKey: "activeVirtualRunUserId")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "activeVirtualRunUserId")
+            }
+        }
+    }
 
-    // Virtual run partner context (for summary screen)
-    private(set) var activeVirtualRunPartnerName: String?
+    // Virtual run partner context (for summary screen + reconnect catch-up)
+    private(set) var activeVirtualRunPartnerId: UUID?
+    private(set) var activeVirtualRunPartnerName: String? {
+        didSet {
+            if let name = activeVirtualRunPartnerName {
+                UserDefaults.standard.set(name, forKey: "activeVirtualRunPartnerName")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "activeVirtualRunPartnerName")
+            }
+        }
+    }
     private(set) var lastPartnerSnapshot: VirtualRunSnapshot?
+
+    // Latest partner snapshot queued when Watch was not reachable during a VR.
+    // Flushed immediately when sessionReachabilityDidChange fires true.
+    private var pendingPartnerSnapshot: VirtualRunSnapshot?
 
     // Pending virtual run start (queued when Watch is unreachable)
     private var pendingVirtualRunStart: [String: Any]?
+
+    // Dedup for runEnded (both sendMessage and transferUserInfo may deliver)
+    private var lastProcessedVREndRunId: UUID? {
+        get { UserDefaults.standard.string(forKey: "lastProcessedVREndRunId").flatMap(UUID.init) }
+        set { UserDefaults.standard.set(newValue?.uuidString, forKey: "lastProcessedVREndRunId") }
+    }
 
     // MARK: - Initialization
     private override init() {
@@ -56,6 +93,15 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Setup
     private func setupSession() {
+        // Restore active virtual run state from UserDefaults (crash recovery)
+        if let savedId = UserDefaults.standard.string(forKey: "activeVirtualRunId"),
+           let runId = UUID(uuidString: savedId) {
+            activeVirtualRunId = runId
+            activeVirtualRunUserId = UserDefaults.standard.string(forKey: "activeVirtualRunUserId").flatMap(UUID.init)
+            activeVirtualRunPartnerName = UserDefaults.standard.string(forKey: "activeVirtualRunPartnerName")
+            AppLogger.info("Restored active virtual run from crash recovery: \(runId.uuidString)", category: AppLogger.virtualRun)
+        }
+
         guard let session = session else {
             AppLogger.warning("WatchConnectivity not supported on this device", category: AppLogger.app)
             return
@@ -150,6 +196,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Build WatchWorkoutState from current app state
     private func buildWatchWorkoutState() -> WatchWorkoutState {
+        // A virtual run is an active workout from the Watch's perspective.
+        // Return isActive: true so the Watch's auto-end guard doesn't kill
+        // the Watch's HKWorkoutSession mid-run (the Watch owns HK during VR).
+        if VirtualRunInviteCoordinator.shared.isInActiveRun {
+            return WatchWorkoutState(isActive: true)
+        }
+
         guard let workout = workoutStore?.currentWorkout else {
             return WatchWorkoutState(isActive: false)
         }
@@ -238,7 +291,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Send workout state to watch
     /// Uses efficient JSON encoding and error handling
-    private func sendWorkoutState(_ state: WatchWorkoutState) {
+    private func sendWorkoutState(_ state: WatchWorkoutState, retryCount: Int = 0) {
         guard let session = session, session.isReachable else {
             AppLogger.debug("Watch not reachable, skipping state update", category: AppLogger.app)
             return
@@ -263,10 +316,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             }) { error in
                 AppLogger.error("Failed to send workout state to watch: \(error.localizedDescription)", category: AppLogger.app)
 
-                // Retry logic for critical state updates
+                guard retryCount < 3 else {
+                    AppLogger.error("Giving up on workout state send after 3 retries", category: AppLogger.app)
+                    return
+                }
+
                 Task { @MainActor [weak self] in
-                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                    self?.sendWorkoutState(state)
+                    try? await Task.sleep(nanoseconds: UInt64((retryCount + 1)) * 1_000_000_000)
+                    self?.sendWorkoutState(state, retryCount: retryCount + 1)
                 }
             }
         } catch {
@@ -854,13 +911,12 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private func handleVirtualRunEnded(_ message: [String: Any]) {
         AppLogger.info("🏁 Watch reported virtual run ended", category: AppLogger.virtualRun)
 
-        Haptics.success()
-
         // Parse final stats from Watch payload
         var finalDistance: Double = 0
         var finalDuration: Int = 0
         var finalPace: Int?
         var finalHR: Int?
+        var runIdFromPayload: UUID?
 
         if let payload = message["payload"] as? Data,
            let dict = try? JSONSerialization.jsonObject(with: payload) as? [String: Any] {
@@ -868,22 +924,28 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             finalDuration = dict["duration"] as? Int ?? 0
             finalPace = dict["pace"] as? Int
             finalHR = dict["heartRate"] as? Int
+            if let runIdStr = dict["runId"] as? String {
+                runIdFromPayload = UUID(uuidString: runIdStr)
+            }
             AppLogger.info("Watch final stats: \(String(format: "%.0f", finalDistance))m, \(finalDuration)s", category: AppLogger.app)
         }
 
-        // Telemetry: log run completed
-        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
-            let durationMin = finalDuration / 60
-            let winnerIsMe = finalDistance > (lastPartnerSnapshot?.distanceM ?? 0)
-            VirtualRunTelemetry.shared.log(
-                .runCompleted(durationMinutes: durationMin, winnerIsMe: winnerIsMe),
-                runId: runId,
-                userId: userId
-            )
+        // Dedup: both sendMessage and transferUserInfo may deliver this message
+        let dedupId = runIdFromPayload ?? activeVirtualRunId
+        if let dedupId, lastProcessedVREndRunId == dedupId {
+            AppLogger.info("⏭️ Already processed VR end for run \(dedupId.uuidString), skipping duplicate", category: AppLogger.virtualRun)
+            return
         }
+        if let dedupId {
+            lastProcessedVREndRunId = dedupId
+        }
+
+        Haptics.success()
 
         // Complete run via server-side RPC (submit our stats to server)
         if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
+            let durationMin = finalDuration / 60
+            let partnerDistance = lastPartnerSnapshot?.distanceM ?? 0
             Task {
                 do {
                     try await virtualRunRepository?.completeRun(
@@ -898,6 +960,14 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 } catch {
                     AppLogger.error("Failed to complete virtual run: \(error.localizedDescription)", category: AppLogger.app)
                 }
+
+                // Telemetry: log after RPC attempt (winner is estimated from last partner snapshot)
+                let winnerIsMe = finalDistance > partnerDistance
+                VirtualRunTelemetry.shared.log(
+                    .runCompleted(durationMinutes: durationMin, winnerIsMe: winnerIsMe),
+                    runId: runId,
+                    userId: userId
+                )
             }
         }
 
@@ -933,6 +1003,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Clear active run state
         activeVirtualRunId = nil
         activeVirtualRunUserId = nil
+        activeVirtualRunPartnerId = nil
         activeVirtualRunPartnerName = nil
         lastPartnerSnapshot = nil
 
@@ -1075,19 +1146,27 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Send partner snapshot update to Watch
     func sendVirtualRunPartnerUpdate(_ snapshot: VirtualRunSnapshot) {
-        // Store for summary screen when run ends
+        // Store for summary screen when run ends (always, regardless of reachability)
         lastPartnerSnapshot = snapshot
 
         let dict = snapshot.toCompactDict()
         guard let data = try? JSONSerialization.data(withJSONObject: dict) else { return }
 
-        guard let session = session, session.isReachable else { return }
+        guard let session = session, session.isReachable else {
+            AppLogger.warning("[VR] Watch not reachable — queuing partner snapshot (seq: \(snapshot.seq), dist: \(Int(snapshot.distanceM))m)", category: AppLogger.virtualRun)
+            pendingPartnerSnapshot = snapshot
+            return
+        }
+
+        // We're about to send the latest — clear any stale queue
+        pendingPartnerSnapshot = nil
 
         let message: [String: Any] = [
             "type": WatchMessage.vrPartnerUpdate.rawValue,
             "data": data
         ]
 
+        AppLogger.debug("[VR] Sending partner snapshot to Watch (seq: \(snapshot.seq))", category: AppLogger.virtualRun)
         session.sendMessage(message, replyHandler: nil) { error in
             AppLogger.error("Failed to send VR partner update: \(error.localizedDescription)", category: AppLogger.app)
         }
@@ -1098,8 +1177,10 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         // Track active run for cleanup when Watch ends
         activeVirtualRunId = runId
         activeVirtualRunUserId = myUserId
+        activeVirtualRunPartnerId = partnerId
         activeVirtualRunPartnerName = partnerName
         lastPartnerSnapshot = nil
+        pendingPartnerSnapshot = nil
 
         // Telemetry
         VirtualRunTelemetry.shared.log(.runStarted, runId: runId, userId: myUserId)
@@ -1191,7 +1272,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Notify Watch that the partner finished their run
     func sendVirtualRunPartnerFinished(partnerDistance: Double, partnerDuration: Int = 0, partnerPace: Int? = nil) {
-        guard let session = session, session.isReachable else { return }
+        guard let session = session else { return }
 
         var info: [String: Any] = [
             "type": WatchMessage.vrPartnerFinished.rawValue,
@@ -1202,9 +1283,22 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             info["partnerPace"] = pace
         }
 
-        session.sendMessage(info, replyHandler: nil) { error in
-            AppLogger.error("Failed to send VR partner finished: \(error.localizedDescription)", category: AppLogger.app)
+        // 1. Instant delivery (if Watch is reachable)
+        if session.isReachable {
+            session.sendMessage(info, replyHandler: nil) { error in
+                AppLogger.error("Failed to send VR partner finished: \(error.localizedDescription)", category: AppLogger.app)
+            }
         }
+
+        // 2. Guaranteed delivery via transferUserInfo (Watch may have screen off)
+        var userInfoMsg: [String: Any] = ["messageType": WatchMessage.vrPartnerFinished.rawValue]
+        userInfoMsg["partnerDistance"] = partnerDistance
+        userInfoMsg["partnerDuration"] = partnerDuration
+        if let pace = partnerPace {
+            userInfoMsg["partnerPace"] = pace
+        }
+        session.transferUserInfo(userInfoMsg)
+        AppLogger.info("📨 Queued partner-finished via transferUserInfo (guaranteed delivery)", category: AppLogger.app)
     }
 
     /// Handle open app request from watch
@@ -1325,6 +1419,27 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     }
                 }
 
+                // Flush in-memory queued partner snapshot (instant, no DB round-trip)
+                if let queued = pendingPartnerSnapshot {
+                    AppLogger.info("📲 Watch reachable — flushing queued partner snapshot (seq: \(queued.seq))", category: AppLogger.virtualRun)
+                    sendVirtualRunPartnerUpdate(queued)
+                }
+
+                // Catch up on missed partner data during disconnect (Gap 5)
+                if let runId = activeVirtualRunId, let partnerId = lastPartnerSnapshot?.userId ?? activeVirtualRunPartnerId {
+                    Task {
+                        do {
+                            if let latestSnapshot = try await virtualRunRepository?.fetchLatestSnapshot(runId: runId, partnerUserId: partnerId) {
+                                AppLogger.info("📡 Fetched catch-up snapshot after reconnect (seq: \(latestSnapshot.seq))", category: AppLogger.virtualRun)
+                                // Forward to Watch so partner stats update
+                                self.sendVirtualRunPartnerUpdate(latestSnapshot)
+                            }
+                        } catch {
+                            AppLogger.warning("Failed to fetch catch-up snapshot: \(error.localizedDescription)", category: AppLogger.virtualRun)
+                        }
+                    }
+                }
+
                 // Watch became reachable, send current state
                 sendWorkoutStateToWatch()
             }
@@ -1346,6 +1461,13 @@ extension WatchConnectivityManager: WCSessionDelegate {
         Task { @MainActor in
             handleWatchMessage(message)
             replyHandler(["status": "ok"])
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        AppLogger.info("📨 Received transferUserInfo from Watch with keys: \(userInfo.keys.joined(separator: ", "))", category: AppLogger.app)
+        Task { @MainActor in
+            self.handleWatchMessage(userInfo)
         }
     }
 

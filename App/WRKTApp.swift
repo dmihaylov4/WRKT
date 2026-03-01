@@ -230,8 +230,7 @@ struct WRKTApp: App {
             AppLogger.success("Email verified successfully, restoring session", category: AppLogger.app)
             // Restore session (will fetch profile and log them in)
             await authService.restoreSession()
-            authService.needsEmailVerification = false
-            authService.signupEmail = nil
+            authService.clearSignupState()
         } else {
             AppLogger.warning("Email not yet verified", category: AppLogger.app)
         }

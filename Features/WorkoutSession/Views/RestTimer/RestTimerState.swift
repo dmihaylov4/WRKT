@@ -35,7 +35,6 @@ class RestTimerManager: ObservableObject {
     private var timer: AnyCancellable?
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var hasTriggeredTenSecondWarning = false
-    private var commandObserverTimer: AnyCancellable?
     private var lastCommandTimestamp: TimeInterval
 
     // Store last exercise info for widget commands
@@ -63,6 +62,8 @@ class RestTimerManager: ObservableObject {
         static let stop = "restTimer.command.stop"
         static let startNextSet = "restTimer.command.startNextSet"
         static let timestamp = "restTimer.command.timestamp"
+        // Darwin notification name — must match RestTimerAppIntents.swift
+        static let darwinNotification = "group.com.dmihaylov.trak.restTimer.commandReady"
     }
 
     // MARK: - Initialization
@@ -108,7 +109,12 @@ class RestTimerManager: ObservableObject {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        commandObserverTimer?.cancel()
+        CFNotificationCenterRemoveObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            CFNotificationName(CommandKey.darwinNotification as CFString),
+            nil
+        )
     }
 
     // MARK: - Public API
@@ -400,8 +406,10 @@ class RestTimerManager: ObservableObject {
     // MARK: - Private Methods
 
     private func startTimerLoop() {
-        // Update every 0.1 seconds for smooth countdown
-        timer = Timer.publish(every: 0.1, on: .main, in: .common)
+        // Update every 1 second — display is whole seconds; progress bar uses
+        // .animation(.linear(duration: 1.0)) to interpolate smoothly between ticks.
+        // tolerance: 0.1 lets the OS batch this with other 1-second timers.
+        timer = Timer.publish(every: 1.0, tolerance: 0.1, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 self?.updateTimer()
@@ -422,8 +430,10 @@ class RestTimerManager: ObservableObject {
         } else {
             remainingSeconds = remaining
 
-            // Trigger 10-second warning vibration (only once)
-            if remaining <= 10 && remaining > 9.5 && !hasTriggeredTenSecondWarning {
+            // Trigger 10-second warning vibration (only once).
+            // At 1 Hz the tick lands anywhere in the current second, so we fire on the
+            // first tick at or below 10 s rather than requiring a precise window.
+            if remaining <= 10 && !hasTriggeredTenSecondWarning {
                 hasTriggeredTenSecondWarning = true
                 let generator = UIImpactFeedbackGenerator(style: .heavy)
                 generator.impactOccurred()
@@ -663,14 +673,22 @@ extension RestTimerManager {
 
     // MARK: - Widget Extension Command Observation
 
-    /// Start observing commands from Widget Extension
+    /// Start observing commands from Widget Extension via Darwin notification (zero-cost cross-process signal).
+    /// The widget posts a Darwin notification after writing to shared UserDefaults;
+    /// this callback fires once per tap instead of polling at 2 Hz.
     private func startObservingWidgetCommands() {
-        // Check for commands every 0.5 seconds
-        commandObserverTimer = Timer.publish(every: 0.5, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.checkForWidgetCommands()
-            }
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque(),
+            { _, observer, _, _, _ in
+                guard let ptr = observer else { return }
+                // Darwin notifications are delivered on the main thread.
+                Unmanaged<RestTimerManager>.fromOpaque(ptr).takeUnretainedValue().checkForWidgetCommands()
+            },
+            CommandKey.darwinNotification as CFString,
+            nil,
+            .deliverImmediately
+        )
     }
 
     /// Check for and process commands from Widget Extension

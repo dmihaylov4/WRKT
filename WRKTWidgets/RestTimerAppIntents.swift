@@ -51,8 +51,16 @@ private func postCommand(_ key: String, value: Any? = nil) {
     let timestamp = Date().timeIntervalSince1970
     sharedDefaults.set(timestamp, forKey: CommandKey.timestamp)
 
-    // UserDefaults handles persistence automatically in iOS 12+
-
+    // Darwin notification: zero-cost cross-process signal. The main app receives this
+    // immediately and reads UserDefaults once — replaces 0.5 s polling in the host app.
+    // Name must match CommandKey.darwinNotification in RestTimerState.swift.
+    CFNotificationCenterPostNotification(
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        CFNotificationName("group.com.dmihaylov.trak.restTimer.commandReady" as CFString),
+        nil,
+        nil,
+        true
+    )
 }
 
 // MARK: - Adjust Time Intent

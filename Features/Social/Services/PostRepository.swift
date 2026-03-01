@@ -319,6 +319,27 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         logSuccess("Post updated")
     }
 
+    // MARK: - Update Post Images
+
+    /// Update a post's images (e.g., after lazy map backfill)
+    func updatePostImages(_ postId: UUID, images: [PostImage]) async throws {
+        struct UpdateImages: Encodable {
+            let images: [PostImage]
+            let updated_at: String
+        }
+        try await client
+            .from(tableName)
+            .update(UpdateImages(images: images, updated_at: Date().ISO8601Format()))
+            .eq("id", value: postId.uuidString)
+            .execute()
+
+        // Invalidate caches so feed reflects the new images
+        cache.invalidatePost(postId.uuidString)
+        cache.invalidateAllFeeds()
+
+        logSuccess("Post images updated: \(postId)")
+    }
+
     // MARK: - Like Post
 
     /// Like a post (with offline queue support)
