@@ -143,6 +143,18 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
         // Check if iPhone is reachable
         guard session.isReachable else {
+            // VR snapshots: use applicationContext as a background-safe fallback.
+            // updateApplicationContext delivers only the latest value — no queue buildup,
+            // no stale data. Works even when the iPhone screen is locked (isReachable is
+            // false from watchOS when iPhone is backgrounded, regardless of audio session).
+            if type == .vrSnapshot {
+                var context: [String: Any] = ["messageType": type.rawValue]
+                if let payload = payload { context["payload"] = payload }
+                try? session.updateApplicationContext(context)
+                logger.debug("VR snapshot sent via applicationContext (phone not reachable)")
+                VirtualRunFileLogger.shared.log(category: .connectivity, message: "VR snapshot via applicationContext (not reachable)")
+                return
+            }
             logger.warning("iPhone not reachable, queuing message: \(type.rawValue)")
             queueMessage(type: type, payload: payload)
             connectionError = "iPhone not reachable"
@@ -530,13 +542,15 @@ extension WatchConnectivityManager: WCSessionDelegate {
             lastProcessedVRRunId = runId
 
             let myMaxHR = info["myMaxHR"] as? Int ?? 190
+            let myRestingHR = info["myRestingHR"] as? Int ?? 0
             let partnerMaxHR = info["partnerMaxHR"] as? Int ?? 190
 
-            logger.info("🏃 Virtual run started with \(partnerName), myMaxHR=\(myMaxHR), partnerMaxHR=\(partnerMaxHR)")
+            logger.info("🏃 Virtual run started with \(partnerName), myMaxHR=\(myMaxHR), myRestingHR=\(myRestingHR), partnerMaxHR=\(partnerMaxHR)")
             VirtualRunFileLogger.shared.log(category: .connectivity, message: "VR started received", data: [
                 "runId": runIdStr,
                 "partner": partnerName,
                 "myMaxHR": myMaxHR,
+                "myRestingHR": myRestingHR,
                 "partnerMaxHR": partnerMaxHR
             ])
 
@@ -548,7 +562,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     runId: runId,
                     myUserId: myUserId,
                     partner: partner,
-                    myMaxHR: myMaxHR
+                    myMaxHR: myMaxHR,
+                    myRestingHR: myRestingHR
                 )
 
                 // Schedule a time-sensitive notification to bring the app to foreground

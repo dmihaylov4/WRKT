@@ -24,12 +24,20 @@ enum HRZoneHelper {
         (5, "Max",       0.90, .red)
     ]
 
-    static func zone(for hr: Int, maxHR: Int) -> HRZone {
+    /// Returns the HR zone for a given heart rate.
+    /// When restingHR > 0, uses the Karvonen method (HRR-based) to match iOS HRZoneCalculator.
+    static func zone(for hr: Int, maxHR: Int, restingHR: Int = 0) -> HRZone {
         guard hr > 0, maxHR > 0 else {
             return HRZone(number: 0, name: "", color: .clear)
         }
 
-        let fraction = Double(hr) / Double(maxHR)
+        let fraction: Double
+        if restingHR > 0, maxHR > restingHR {
+            // Karvonen: fraction of heart rate reserve
+            fraction = Double(hr - restingHR) / Double(maxHR - restingHR)
+        } else {
+            fraction = Double(hr) / Double(maxHR)
+        }
 
         // Walk backwards to find the highest matching zone
         for z in zones.reversed() {
@@ -38,11 +46,11 @@ enum HRZoneHelper {
             }
         }
 
-        // Below zone 1 (< 50% maxHR)
+        // Below zone 1
         return HRZone(number: 0, name: "", color: .clear)
     }
 
-    static func zoneColor(for hr: Int, maxHR: Int) -> Color {
-        zone(for: hr, maxHR: maxHR).color
+    static func zoneColor(for hr: Int, maxHR: Int, restingHR: Int = 0) -> Color {
+        zone(for: hr, maxHR: maxHR, restingHR: restingHR).color
     }
 }

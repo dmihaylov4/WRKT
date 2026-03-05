@@ -261,64 +261,64 @@ final class PostCreationViewModel {
         var hrValues: [Double]?
 
         if let routeWithHR = run?.routeWithHR, routeWithHR.count > 1 {
-            print("🗺️ [MapSnapshot] Using routeWithHR with \(routeWithHR.count) points")
+           
             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = routeWithHR.map { $0.hr ?? .nan }
         } else if let route = run?.route, route.count > 1 {
-            print("🗺️ [MapSnapshot] Using route with \(route.count) points")
+           
             coordinates = route.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
         } else if let hkUUID = workout.matchedHealthKitUUID {
             // No route data on run — fetch on-demand from HealthKit.
             // Reset any exhausted background route task so the queue retries it in case
             // previous failures were due to a now-fixed HK query bug.
             await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
-            print("🗺️ [MapSnapshot] No route on run (run found: \(run != nil)), fetching from HealthKit UUID: \(hkUUID)...")
+            
             isGeneratingMap = true
             do {
                 let workouts = try await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID)
-                print("🗺️ [MapSnapshot] fetchWorkoutByUUID returned \(workouts.count) workouts")
+               
                 if let hkWorkout = workouts.first {
-                    print("🗺️ [MapSnapshot] Fetching route with HR for workout: \(hkWorkout.workoutActivityType.rawValue)")
+                    
                     do {
                         let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-                        print("🗺️ [MapSnapshot] fetchRouteWithHeartRate returned \(routeWithHR.count) points")
+                        
                         if routeWithHR.count > 1 {
                             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
                             hrValues = routeWithHR.map { $0.hr ?? .nan }
                         } else {
                             // fetchRouteWithHeartRate returned empty (not a throw) — try plain route
-                            print("🗺️ [MapSnapshot] fetchRouteWithHeartRate returned empty, falling back to plain route")
+                           
                             let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                            print("🗺️ [MapSnapshot] fetchRoute returned \(locations.count) locations")
+                            
                             if locations.count > 1 {
                                 coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
                             }
                         }
                     } catch {
-                        print("🗺️ [MapSnapshot] fetchRouteWithHeartRate FAILED: \(error)")
+                        
                         // Try plain route as fallback
                         do {
                             let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                            print("🗺️ [MapSnapshot] fetchRoute returned \(locations.count) locations")
+                            
                             if locations.count > 1 {
                                 coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
                             }
                         } catch {
-                            print("🗺️ [MapSnapshot] fetchRoute also FAILED: \(error)")
+                            print(" [MapSnapshot] fetchRoute also FAILED: \(error)")
                         }
                     }
                 } else {
-                    print("🗺️ [MapSnapshot] No HKWorkout found for UUID \(hkUUID)")
+                    print("[MapSnapshot] No HKWorkout found for UUID \(hkUUID)")
                 }
             } catch {
-                print("🗺️ [MapSnapshot] fetchWorkoutByUUID FAILED: \(error)")
+                print("[MapSnapshot] fetchWorkoutByUUID FAILED: \(error)")
             }
         } else {
-            print("🗺️ [MapSnapshot] No run found and no HealthKit UUID to fetch route")
+            print(" [MapSnapshot] No run found and no HealthKit UUID to fetch route")
         }
 
         guard let coordinates = coordinates, coordinates.count > 1 else {
-            print("🗺️ [MapSnapshot] No route data available for run")
+            print("[MapSnapshot] No route data available for run")
             isGeneratingMap = false
             return
         }
@@ -326,7 +326,7 @@ final class PostCreationViewModel {
         isGeneratingMap = true
 
         do {
-            print("🗺️ [MapSnapshot] Generating snapshot...")
+            print(" [MapSnapshot] Generating snapshot...")
             let snapshot = try await MapSnapshotService.shared.generateRouteSnapshot(
                 coordinates: coordinates,
                 hrValues: hrValues,
@@ -334,9 +334,9 @@ final class PostCreationViewModel {
             )
 
             addInitialImage(snapshot)
-            print("🗺️ [MapSnapshot] Snapshot added to images!")
+            print("[MapSnapshot] Snapshot added to images!")
         } catch {
-            print("🗺️ [MapSnapshot] Failed to generate snapshot: \(error)")
+            print("[MapSnapshot] Failed to generate snapshot: \(error)")
         }
 
         isGeneratingMap = false

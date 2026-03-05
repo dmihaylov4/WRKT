@@ -139,6 +139,28 @@ enum VirtualRunError: LocalizedError {
     }
 }
 
+// MARK: - Flow Phase (UI lifecycle tracking)
+
+/// Tracks the full invite → accept → watch-sync lifecycle for both users.
+/// Used by VirtualRunFlowStatusCard to show status at every phase.
+enum VirtualRunFlowPhase: Equatable {
+    case idle                                       // No active flow; card hidden
+    case sendingInvite                              // REST call in flight (inviter)
+    case waitingForPartner(partnerName: String)     // Invite sent, awaiting acceptance
+    case connecting                                 // Invitee accepted, setting up
+    case syncingWithWatch(partnerName: String)      // sendVirtualRunStarted called, awaiting Watch
+    case watchReady                                 // vr_watch_confirmed received — "Get ready!" for 2s
+    case activeRun(partnerName: String)             // Run in progress; card shows live stats
+    case failed(VirtualRunFlowError)
+}
+
+enum VirtualRunFlowError: Equatable {
+    case sendFailed                 // REST call to create invite failed
+    case watchUnreachable           // WCSession not reachable after entering active run
+    case acceptFailed               // REST call to accept invite failed
+    case generic(String)            // Catch-all with description
+}
+
 // MARK: - Analytics Events
 
 enum VirtualRunEvent {

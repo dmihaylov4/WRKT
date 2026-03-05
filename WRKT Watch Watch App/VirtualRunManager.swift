@@ -25,6 +25,7 @@ struct PendingRunInfo {
     let myUserId: UUID
     let partner: PartnerStats
     let myMaxHR: Int
+    let myRestingHR: Int
 }
 
 @Observable
@@ -42,6 +43,7 @@ class VirtualRunManager {
     private(set) var myStats: VirtualRunSnapshot?
     private(set) var partnerStats: PartnerStats?
     private(set) var myMaxHR: Int = 190
+    private(set) var myRestingHR: Int = 0
 
     /// Whether the Watch should show virtual run UI (confirmation, countdown, active, or paused run)
     var showVirtualRunUI: Bool {
@@ -65,6 +67,7 @@ class VirtualRunManager {
     // Extended disconnect tracking
     private(set) var disconnectStartTime: Date?
     private(set) var showDisconnectPrompt = false
+    private(set) var suppressDisconnectPrompt = false  // user chose "Never Remind" for this run
 
     // Partner finished state
     private(set) var showPartnerFinished = false
@@ -101,8 +104,8 @@ class VirtualRunManager {
     // MARK: - Confirmation & Countdown
 
     /// Called when iPhone sends a virtual run invite — shows confirmation screen on Watch
-    func setPendingRun(runId: UUID, myUserId: UUID, partner: PartnerStats, myMaxHR: Int) {
-        pendingRunInfo = PendingRunInfo(runId: runId, myUserId: myUserId, partner: partner, myMaxHR: myMaxHR)
+    func setPendingRun(runId: UUID, myUserId: UUID, partner: PartnerStats, myMaxHR: Int, myRestingHR: Int = 0) {
+        pendingRunInfo = PendingRunInfo(runId: runId, myUserId: myUserId, partner: partner, myMaxHR: myMaxHR, myRestingHR: myRestingHR)
         partnerStats = partner
         phase = .pendingConfirmation
         WKInterfaceDevice.current().play(.notification)
@@ -178,9 +181,16 @@ class VirtualRunManager {
         guard let info = pendingRunInfo else { return }
         pendingRunInfo = nil
 
-        // Start HealthKit running workout
+        // Start HealthKit running workout.
+        // Discard any existing Watch session first (e.g. a strength session mirroring an
+        // active iPhone workout). The iPhone holds the authoritative strength record, so
+        // discarding the Watch mirror is safe and prevents the VR from being saved as a
+        // strength workout when it ends.
         Task {
             do {
+                if WatchHealthKitManager.shared.isWorkoutActive {
+                    try? await WatchHealthKitManager.shared.endWorkout(discard: true)
+                }
                 try await WatchHealthKitManager.shared.startRunningWorkout()
                 logger.info("Started running workout for virtual run")
             } catch {
@@ -188,16 +198,17 @@ class VirtualRunManager {
             }
         }
 
-        startVirtualRun(runId: info.runId, myUserId: info.myUserId, partner: info.partner, myMaxHR: info.myMaxHR)
+        startVirtualRun(runId: info.runId, myUserId: info.myUserId, partner: info.partner, myMaxHR: info.myMaxHR, myRestingHR: info.myRestingHR)
     }
 
     // MARK: - Lifecycle
 
-    func startVirtualRun(runId: UUID, myUserId: UUID, partner: PartnerStats, myMaxHR: Int = 190) {
+    func startVirtualRun(runId: UUID, myUserId: UUID, partner: PartnerStats, myMaxHR: Int = 190, myRestingHR: Int = 0) {
         self.currentRunId = runId
         self.myUserId = myUserId
         self.partnerStats = partner
         self.myMaxHR = myMaxHR
+        self.myRestingHR = myRestingHR
         self.isInVirtualRun = true
         self.phase = .active
         self.localSeq = 0
@@ -237,6 +248,7 @@ class VirtualRunManager {
         pauseStartTime = nil
         disconnectStartTime = nil
         showDisconnectPrompt = false
+        suppressDisconnectPrompt = false
         showPartnerFinished = false
         partnerHasFinished = false
         showHealthDataWarning = false
@@ -260,7 +272,12 @@ class VirtualRunManager {
         if let stats = myStats {
             payload["distance"] = stats.distanceM
             payload["duration"] = stats.durationS
-            if let pace = stats.currentPaceSecPerKm { payload["pace"] = pace }
+            // Compute average pace from total distance/duration — no cap here since this
+            // is the final summary value, not a real-time display. currentPaceSecPerKm is
+            // nil for slow/short runs due to the 1800 sec/km real-time cap.
+            if stats.distanceM > 0 && stats.durationS > 0 {
+                payload["pace"] = Int(Double(stats.durationS) / stats.distanceM * 1000)
+            }
             if let hr = stats.heartRate { payload["heartRate"] = hr }
         }
         if let runId = currentRunId {
@@ -370,6 +387,13 @@ class VirtualRunManager {
     func dismissDisconnectPrompt() {
         showDisconnectPrompt = false
         disconnectStartTime = nil
+    }
+
+    /// Dismiss and suppress the prompt for the rest of this run (user chose "Never Remind")
+    func suppressDisconnectPromptForRun() {
+        showDisconnectPrompt = false
+        disconnectStartTime = nil
+        suppressDisconnectPrompt = true
     }
 
     // MARK: - Partner Finished
@@ -526,6 +550,7 @@ class VirtualRunManager {
         // Partner finished their run — silence is expected, not a disconnect.
         // Use the permanent flag (not showPartnerFinished which resets when overlay is dismissed).
         guard !partnerHasFinished else { return }
+        guard !suppressDisconnectPrompt else { return }
         guard let partner = partnerStats else { return }
 
         if partner.connectionStatus == .disconnected {

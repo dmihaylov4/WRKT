@@ -261,6 +261,10 @@ extension Exercise {
 
     func contains(muscleGroup: String?) -> Bool {
         guard let g = muscleGroup?.lowercased(), !g.isEmpty else { return true }
+        // Fast path: check subregionTags built from targetMuscleGroup during indexing.
+        // This catches exercises whose primeMover ≠ targetMuscleGroup (e.g. Bench Press
+        // has primeMover "Triceps Brachii" but targetMuscleGroup "Chest").
+        if subregionTags.contains(where: { $0.lowercased() == g }) { return true }
         let all = (primaryMuscles + secondaryMuscles + tertiaryMuscles).map { $0.lowercased() }
         let keys = ExerciseRepository.synonyms(for: g)
         return all.contains { m in keys.contains { key in m.contains(key) } }

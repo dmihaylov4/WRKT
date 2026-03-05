@@ -183,9 +183,13 @@ class PartnerStats {
         self.maxHR = maxHR
     }
 
-    /// Update with new snapshot, returns true if this was a newer snapshot
+    /// Update with new snapshot, returns true if this was a newer snapshot.
+    /// When the partner is disconnected (>15s no data), the seq counter is reset to 0
+    /// so that any incoming snapshot — including ones fetched from the DB catch-up poll
+    /// that may have a lower seq than the last broadcast delivery — is accepted.
     @discardableResult
     func update(from snapshot: VirtualRunSnapshot) -> Bool {
+        if isDisconnected { lastSeq = 0 }
         guard snapshot.seq > lastSeq else { return false }
 
         rawDistanceM = snapshot.distanceM

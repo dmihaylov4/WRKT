@@ -83,7 +83,7 @@ final class ImageUploadService: ObservableObject {
             // Choose bucket based on privacy setting
             let bucket = imageIsPublic ? "workout-images-public" : "workout-images-private"
 
-            print("  📸 Uploading image \(index + 1)/\(images.count) to bucket: \(bucket)")
+            print("  Uploading image \(index + 1)/\(images.count) to bucket: \(bucket)")
             print("    Path: \(filePath)")
 
             // Upload to appropriate Supabase Storage bucket

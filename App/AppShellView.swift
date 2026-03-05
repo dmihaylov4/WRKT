@@ -156,6 +156,12 @@ struct AppShellView: View {
             .overlay(VirtualRunSummaryOverlay())
             .overlay { NotificationOverlay() }
             .overlay { UndoToastOverlay() }
+            .overlay(alignment: .bottom) {
+                VirtualRunFlowStatusCard()
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 74) // 62pt tab bar + 12pt gap
+                    .zIndex(998)
+            }
     }
 
     @ViewBuilder
@@ -344,11 +350,19 @@ struct AppShellView: View {
             UserDefaults.standard.markBackgrounded(hasActiveWorkout: hasActiveWorkout)
             AppLogger.debug("App backgrounded - hasActiveWorkout: \(hasActiveWorkout)", category: AppLogger.app)
 
-            // Stop invite coordinator polling and Realtime subscription.
-            // iOS kills WebSockets ~5s after suspension anyway — keeping them alive wastes resources.
-            // Push notifications handle invite delivery while truly backgrounded.
-            inviteCoordinator.stopListening()
-            AppLogger.info("📱 App backgrounded - stopped invite coordinator, keeping badge subscriptions", category: AppLogger.app)
+            // During active virtual runs, keep all Supabase subscriptions alive.
+            // Background execution modes (audio + location) prevent suspension, so the
+            // WebSocket stays open. Tearing down + rebuilding on every lock/unlock cycle
+            // creates reconnection windows where broadcast messages are silently dropped.
+            if inviteCoordinator.isInActiveRun {
+                AppLogger.info("📱 App backgrounded during active VR — keeping subscriptions alive", category: AppLogger.app)
+            } else {
+                // Stop invite coordinator polling and Realtime subscription.
+                // iOS kills WebSockets ~5s after suspension anyway — keeping them alive wastes resources.
+                // Push notifications handle invite delivery while truly backgrounded.
+                inviteCoordinator.stopListening()
+                AppLogger.info("📱 App backgrounded - stopped invite coordinator, keeping badge subscriptions", category: AppLogger.app)
+            }
         } else if newPhase == .active {
             UserDefaults.standard.markActive()
             AppLogger.debug("App activated - marked as running", category: AppLogger.app)
@@ -449,6 +463,14 @@ struct AppShellView: View {
 
         // Initialize Watch Connectivity
         WatchConnectivityManager.shared.connectToWorkoutStore(store)
+
+        // Seed birth year + resting HR so zones are personalised from first launch
+        if let birthYear = authService.currentUser?.profile?.birthYear {
+            HRZoneCalculator.shared.setBirthYear(birthYear)
+        }
+        if let rhr = try? await healthKit.fetchAverageRestingHeartRate() {
+            HRZoneCalculator.shared.setRestingHR(rhr)
+        }
 
         // Start real-time subscriptions for notifications
         // Only if not in local mode and user is authenticated
@@ -904,8 +926,9 @@ private struct TabBarIconConfigurator: UIViewRepresentable {
 
         for (index, item) in items.enumerated() {
             guard index < config.count else { break }
-            item.image         = UIImage(named: config[index].inactive)?.withRenderingMode(.alwaysOriginal)
-            item.selectedImage = UIImage(named: config[index].active)?.withRenderingMode(.alwaysOriginal)
+            let colored = UIImage(named: config[index].active)?.withRenderingMode(.alwaysOriginal)
+            item.image         = colored   // always colored, not just when selected
+            item.selectedImage = colored
         }
     }
 

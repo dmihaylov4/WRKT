@@ -18,8 +18,9 @@ import Auth
 
 /// Implements `AuthLocalStorage` using the Keychain.
 ///
-/// `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` means:
-/// - Tokens are only readable when the device is unlocked.
+/// `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` means:
+/// - Tokens are readable after the device has been unlocked at least once since boot.
+/// - Tokens remain readable when the screen is locked (required for background network calls).
 /// - Tokens are NOT included in iCloud or iTunes backups.
 /// - Tokens are NOT transferred to a new device via backup/restore.
 final class KeychainAuthStorage: @unchecked Sendable, AuthLocalStorage {
@@ -30,10 +31,23 @@ final class KeychainAuthStorage: @unchecked Sendable, AuthLocalStorage {
 
     /// Returns the stored token for `key`.
     ///
-    /// Migration path: if the Keychain has no entry but UserDefaults does
+    /// Migration path 1 (accessibility): upgrades any WhenUnlocked Keychain items to
+    /// AfterFirstUnlock so the auth token is readable while the screen is locked (needed
+    /// for background virtual run snapshot publishing). Runs once while device is unlocked.
+    ///
+    /// Migration path 2 (legacy): if the Keychain has no entry but UserDefaults does
     /// (i.e. the user has upgraded from an older build), the data is copied
     /// to the Keychain and removed from UserDefaults automatically.
     func retrieve(key: String) throws -> Data? {
+        // One-time accessibility migration: must succeed while device is unlocked.
+        let migrationKey = "KeychainAfterFirstUnlockMigrated_v1"
+        if !UserDefaults.standard.bool(forKey: migrationKey) {
+            if Keychain.migrateToAfterFirstUnlock() {
+                UserDefaults.standard.set(true, forKey: migrationKey)
+            }
+            // If migration returned false, device is locked — will retry on next retrieve()
+        }
+
         if let data = try Keychain.retrieve(forKey: key) {
             return data
         }
@@ -75,13 +89,34 @@ private enum Keychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
-            // Only readable when device is unlocked; excluded from backups
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            // AfterFirstUnlock: readable in background (e.g. while screen is locked during
+            // active virtual run). Still excluded from iCloud/iTunes backups.
+            // Previously WhenUnlockedThisDeviceOnly — that blocked Keychain access when the
+            // screen was locked, causing the Supabase auth token to be unreadable and every
+            // REST call to fail with an RLS policy violation.
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         guard status == errSecSuccess else {
             throw KeychainError.saveFailed(status)
         }
+    }
+
+    /// Migrate any existing WhenUnlocked items to AfterFirstUnlock so they remain readable
+    /// when the screen is locked (needed for background network calls). Returns true on success
+    /// or if there was nothing to migrate; false if the device is currently locked.
+    @discardableResult
+    static func migrateToAfterFirstUnlock() -> Bool {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        let updates: [String: Any] = [
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+        let status = SecItemUpdate(query as CFDictionary, updates as CFDictionary)
+        return status == errSecSuccess || status == errSecItemNotFound
     }
 
     static func retrieve(forKey key: String) throws -> Data? {

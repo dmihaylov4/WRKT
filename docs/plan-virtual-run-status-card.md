@@ -96,7 +96,8 @@ func onWatchConfirmed() {
 func cancelSentInvite() async {
     guard let inviteId = sentInviteId else { flowPhase = .idle; return }
     do {
-        try await virtualRunRepository?.cancelInvite(inviteId)
+        // Use declineInvite — there is no separate cancelInvite endpoint.
+        try await AppDependencies.shared.virtualRunRepository.declineInvite(inviteId)
     } catch { /* best-effort */ }
     sentInviteId = nil
     sentInvitePartnerName = nil
@@ -114,13 +115,33 @@ func setFailed(_ error: VirtualRunFlowError, retry: (@MainActor @Sendable () asy
 
 ### Error handling for invite send:
 
-In `VirtualRunInviteView.sendInvite()`, wrap the existing call in do/catch. On failure:
+In `VirtualRunInviteView.sendInvite()`, set `.sendingInvite` before the REST call and handle failure.
+`sendInvite()` already has a do/catch — extend the existing `catch` block.
+
+**Important:** `VirtualRunInviteView` is a SwiftUI struct (value type), so `[weak self]` cannot be
+used in the retry closure. Capture only value types (friend ID, name) and call the shared
+coordinator + repository directly:
+
 ```swift
-VirtualRunInviteCoordinator.shared.setFailed(
-    .sendFailed,
-    retry: { await sendInvite(to: friend) }
-)
+// Before the REST call:
+VirtualRunInviteCoordinator.shared.flowPhase = .sendingInvite   // (via setFailed companion)
+
+// Replace the generic catch block with:
+} catch let vrError as VirtualRunError where vrError == .alreadyInActiveRun {
+    // existing stale-run handling unchanged
+} catch {
+    let fId = friend.profile.id
+    let fName = friend.profile.displayName ?? friend.profile.username
+    VirtualRunInviteCoordinator.shared.setFailed(.sendFailed, retry: {
+        guard let userId = SupabaseAuthService.shared.currentUser?.id else { return }
+        let run = try await AppDependencies.shared.virtualRunRepository.sendInvite(to: fId, from: userId)
+        VirtualRunInviteCoordinator.shared.trackSentInvite(runId: run.id, partnerId: fId, partnerName: fName)
+    })
+}
 ```
+
+The retry closure captures `fId`/`fName` (value types), calls the repository directly, and
+calls `trackSentInvite` on success — no `self` capture needed.
 
 ---
 
@@ -154,12 +175,16 @@ VirtualRunFlowStatusCard
 | `.failed(.generic(msg))` | `exclamationmark.triangle` | msg | Try Again / Dismiss |
 
 ### Card Styling (DS system):
+
+Note: `ChamferedRectangle` takes an unnamed `DS.Chamfer` enum parameter, NOT a `chamferSize:` label.
+`ChamferedRectangle(chamferSize: DS.Chamfer.xl)` is a type error — use `ChamferedRectangle(.xl)`.
+
 ```swift
 .background {
-    ChamferedRectangle(chamferSize: DS.Chamfer.xl)
+    ChamferedRectangle(.xl)
         .fill(DS.Semantic.card)
         .overlay(
-            ChamferedRectangle(chamferSize: DS.Chamfer.xl)
+            ChamferedRectangle(.xl)
                 .strokeBorder(DS.Semantic.border, lineWidth: 1)
         )
 }
@@ -188,9 +213,12 @@ In `mainContentWithOverlays`, add alongside `UndoToastOverlay`:
 ```swift
 VirtualRunFlowStatusCard()
     .padding(.horizontal, 16)
-    .padding(.bottom, tabBarHeight + 12)   // floats above tab bar
+    .padding(.bottom, 74)   // 62pt tab bar + 12pt gap (mirrors liveOverlayCard hardcoded value)
     .zIndex(998)
 ```
+
+Note: `AppShellView` has no `tabBarHeight` variable. The live overlay card uses `.padding(.bottom, 62)`
+hardcoded. Use a similarly hardcoded value — 62 (tab bar) + 12 (gap) = 74.
 
 The card reads `VirtualRunInviteCoordinator.shared.flowPhase` directly and is only visible when `phase != .idle`.
 
@@ -200,12 +228,34 @@ The card reads `VirtualRunInviteCoordinator.shared.flowPhase` directly and is on
 
 **File:** `Core/Services/WatchConnectivityManager.swift` (iOS)
 
-In the switch handling incoming Watch messages, add:
+The `vrWatchConfirmed` case is **already handled** at line ~400 (dispatches to
+`handleVirtualRunWatchConfirmed(_:)`). Do NOT add a new switch case — it would be unreachable.
+
+Instead, add one line inside the existing `handleVirtualRunWatchConfirmed(_:)` method,
+after the existing `NotificationCenter.default.post(...)` call:
+
 ```swift
-case .watchConfirmed:
+private func handleVirtualRunWatchConfirmed(_ message: [String: Any]) {
+    AppLogger.info("Watch user confirmed virtual run — countdown started", category: AppLogger.app)
+
+    var startTime: Date?
+    if let payload = message["payload"] as? Data,
+       let dict = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
+       let ts = dict["startTime"] as? TimeInterval {
+        startTime = Date(timeIntervalSince1970: ts)
+    }
+
+    NotificationCenter.default.post(
+        name: NSNotification.Name("VirtualRunWatchConfirmed"),
+        object: nil,
+        userInfo: startTime.map { ["startTime": $0] }
+    )
+
+    // ← ADD THIS:
     Task { @MainActor in
         VirtualRunInviteCoordinator.shared.onWatchConfirmed()
     }
+}
 ```
 
 ---
@@ -215,7 +265,7 @@ case .watchConfirmed:
 1. **All coordinator changes are additive** — new properties default to `.idle`, new methods don't touch existing ones. No existing method signatures change.
 2. **Phase setting is a side-effect only** — all existing business logic (REST calls, WCSession sends, Supabase subscriptions) is unchanged. We only assign `flowPhase` alongside existing calls.
 3. **Card is read-only observer** — it reads coordinator state but drives zero business logic.
-4. **`cancelSentInvite()` wraps existing cancel** — the Supabase cancel endpoint already exists; this just exposes it through the card's Cancel button.
+4. **`cancelSentInvite()` wraps `declineInvite`** — there is no separate cancel endpoint; `declineInvite` is what the existing `VirtualRunInviteView.cancelActiveRun()` also uses.
 5. **`sendingInvite` phase** — set before the REST call in `VirtualRunInviteView.sendInvite()`, transitions to `waitingForPartner` on success or `failed` on error. Existing dismiss-on-success path unchanged.
 
 ---

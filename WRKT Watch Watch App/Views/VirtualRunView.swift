@@ -146,7 +146,8 @@ struct VirtualRunView: View {
             VStack(spacing: 0) {
                 MySection(
                     stats: manager.myStats,
-                    maxHR: manager.myMaxHR
+                    maxHR: manager.myMaxHR,
+                    restingHR: manager.myRestingHR
                 )
                 ZoneBar()
                     .frame(height: 14)
@@ -325,19 +326,77 @@ struct VirtualRunView: View {
         .background(Color.black.opacity(0.92))
     }
 
-    // MARK: - Disconnect Prompt
+    // MARK: - Disconnect Prompt (2-page: info on p1, End Run on p2)
 
     private var disconnectPromptOverlay: some View {
-        VStack(spacing: 10) {
+        TabView {
+            disconnectInfoPage
+            disconnectEndPage
+        }
+        .tabViewStyle(.verticalPage)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
+    }
+
+    /// Page 1 — status + keep-waiting actions
+    private var disconnectInfoPage: some View {
+        VStack(spacing: 8) {
             Spacer()
             Image(systemName: "wifi.slash")
-                .font(.system(size: 32))
+                .font(.system(size: 30))
                 .foregroundStyle(.red)
             Text("Partner Lost")
                 .font(.system(size: 18, weight: .bold))
             Text("Disconnected 3+ min")
-                .font(.system(size: 13))
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                manager.dismissDisconnectPrompt()
+            } label: {
+                Text("Keep Waiting")
+                    .font(.system(size: 16, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.green)
+                    )
+                    .foregroundStyle(.black)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+
+            Button {
+                manager.suppressDisconnectPromptForRun()
+            } label: {
+                Text("Don't Remind Me")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+
+            Text("Swipe down to end run")
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.3))
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Page 2 — destructive End Run (requires deliberate swipe to reach)
+    private var disconnectEndPage: some View {
+        VStack(spacing: 8) {
+            Spacer()
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 30))
+                .foregroundStyle(.red)
+            Text("End Run?")
+                .font(.system(size: 18, weight: .bold))
+            Text("Partner hasn't reconnected")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
             Spacer()
             Button {
                 manager.requestEndRun()
@@ -353,19 +412,9 @@ struct VirtualRunView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
-
-            Button {
-                manager.dismissDisconnectPrompt()
-            } label: {
-                Text("Keep Waiting")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.92))
     }
 
     // MARK: - Partner Finished Overlay
@@ -540,6 +589,7 @@ struct VirtualRunView: View {
 private struct MySection: View {
     let stats: VirtualRunSnapshot?
     let maxHR: Int
+    var restingHR: Int = 0
 
     private var healthManager: WatchHealthKitManager { WatchHealthKitManager.shared }
 
@@ -561,7 +611,7 @@ private struct MySection: View {
         return raw > 1800 ? nil : raw
     }
 
-    private var zone: HRZone { HRZoneHelper.zone(for: heartRate, maxHR: maxHR) }
+    private var zone: HRZone { HRZoneHelper.zone(for: heartRate, maxHR: maxHR, restingHR: restingHR) }
 
     var body: some View {
         VStack(spacing: 2) {

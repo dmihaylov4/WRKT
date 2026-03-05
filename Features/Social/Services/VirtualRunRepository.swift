@@ -286,9 +286,12 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
             logWarning("publishSnapshot: broadcastChannel is nil — seq \(snapshot.seq) not broadcast to partner")
         }
 
-        // Secondary: DB upsert at most every 30s for CDC fallback + crash recovery.
-        // No Timer object — fires only when we're already publishing a snapshot.
-        if Date().timeIntervalSince(lastDBPersistDate) >= 30 {
+        // Secondary: DB upsert at most every 3s for CDC fallback + catch-up poll support.
+        // Throttled to match the snapshot publish cadence (~3s). The upsert is cheap —
+        // always the same single row (virtual_run_id, user_id conflict key) — so write
+        // frequency has negligible DB cost. Fresh DB data is critical when the broadcast
+        // WebSocket drops during background execution (lock screen), so keep this tight.
+        if Date().timeIntervalSince(lastDBPersistDate) >= 3 {
             lastDBPersistDate = Date()
             Task {
                 do {
@@ -429,13 +432,15 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         return channelId
     }
 
-    /// Fetch latest snapshot from DB (for reconnection catch-up)
+    /// Fetch latest snapshot from DB (for reconnection catch-up).
+    /// Orders by seq descending so the most recent snapshot is always returned.
     func fetchLatestSnapshot(runId: UUID, partnerUserId: UUID) async throws -> VirtualRunSnapshot? {
         let snapshots: [VirtualRunSnapshot] = try await client
             .from("virtual_run_snapshots")
             .select()
             .eq("virtual_run_id", value: runId.uuidString)
             .eq("user_id", value: partnerUserId.uuidString)
+            .order("seq", ascending: false)
             .limit(1)
             .execute()
             .value

@@ -106,10 +106,33 @@ distance between snapshots.
 3. iPhone `WatchConnectivityManager.handleVirtualRunSnapshot` forwards it to Supabase via
    `VirtualRunRepository.publishSnapshot(snapshot)`.
 4. Supabase Realtime broadcasts to the partner's iPhone.
-5. Partner's iPhone `VirtualRunInviteCoordinator` receives it (via snapshot subscription)
-   and calls `WatchConnectivityManager.sendVirtualRunPartnerUpdate(snapshot)`.
+5. Partner's iPhone `VirtualRunInviteCoordinator` receives it (via snapshot subscription),
+   calls `WatchConnectivityManager.sendVirtualRunPartnerUpdate(snapshot)`, and calls
+   `updatePartnerSnapshot(snapshot)` to track `lastPartnerSnapshotTime`.
 6. Partner's Watch receives `vrPartnerUpdate` → `receivePartnerUpdate(snapshot)` →
    `PartnerStats.update(from:)` (seq-guarded, out-of-order snapshots are dropped).
+
+### DB catch-up poll (backup path when broadcast is silent)
+
+When the Supabase WebSocket dies (iPhone backgrounded, network hiccup), broadcast stops
+delivering partner snapshots. As a fallback, `VirtualRunInviteCoordinator` runs a 10-second
+timer (`snapshotPollTimer`) that queries the DB for the partner's latest persisted snapshot
+and forwards it to the Watch. The poll only fires when `lastPartnerSnapshotTime > 8 s`, so
+it is a no-op as long as broadcast is healthy.
+
+```
+Broadcast silent > 8 s
+  → snapshotPollTimer fires (every 10 s)
+  → VirtualRunRepository.fetchLatestSnapshot(runId:partnerUserId:)
+  → WatchConnectivityManager.sendVirtualRunPartnerUpdate(snapshot)
+  → updatePartnerSnapshot(snapshot)  ← resets lastPartnerSnapshotTime
+```
+
+The poll is started in `enterActiveRun()` and stopped (and timer invalidated) in `runEnded()`.
+
+**Note on DB freshness**: The partner's iPhone persists snapshots to `virtual_run_snapshots`
+every **10 seconds** (reduced from 30 s). This ensures catch-up data is at most ~10 s stale
+during broadcast outages.
 
 ### Compact encoding
 
@@ -206,12 +229,63 @@ guard !partnerHasFinished else { return }
 2. Watch `handleVirtualRunEnded()` → `VirtualRunManager.endVirtualRun()` +
    `WatchHealthKitManager.shared.endWorkout(discard: false)`.
 
+### Coordinator cleanup — `runEnded()` is the single exit point
+
+**All** run-end paths on iOS — Watch `vrRunEnded` arriving, CDC detecting `status = .completed`,
+or explicit cancellation — funnel through `VirtualRunInviteCoordinator.runEnded()`. This is
+the single function that clears all state:
+
+```swift
+func runEnded() {
+    stopSnapshotPoll()                          // invalidates snapshotPollTimer
+    isInActiveRun = false
+    activeRunId = nil
+    didSendPartnerFinished = false
+    isWaitingForAcceptance = false
+    sentInviteId = nil
+    sentInvitePartnerId = nil
+    sentInvitePartnerName = nil
+    activeRunPartnerName = nil
+    myRunSnapshot = nil
+    partnerRunSnapshot = nil
+    lastPartnerSnapshotTime = .distantPast
+    flowPhase = .idle
+    retryAction = nil
+    Task { await AppDependencies.shared.virtualRunRepository.unsubscribeFromSnapshots() }
+}
+```
+
+Previously, `handleRunStatusChanged(.completed)` only cleared `isInActiveRun` and
+`activeRunId`, leaving `flowPhase` stuck on `.activeRun` and the broadcast subscription
+alive. The Watch continued to receive phantom partner updates for ~1 km after the win
+screen appeared. All exit paths now call `runEnded()`.
+
 ### Deduplication
 
 `vrRunEnded` may arrive **twice** (once from `sendMessage`, once from `transferUserInfo`).
 - iPhone side: deduped by `lastProcessedVREndRunId` (persisted in `UserDefaults`).
 - Watch side: `endVirtualRun()` sets `phase = .idle` on the first call;
   subsequent calls to `endWorkout()` are no-ops because `isWorkoutActive` is already `false`.
+
+### Stale `transferUserInfo` guard (iPhone)
+
+`session.transferUserInfo(...)` is a **guaranteed-delivery queue** — iOS buffers messages
+until the Watch app is reachable and delivers them in order. A `vrRunEnded` (or `vrStarted`)
+from a previous run can therefore arrive during a new, unrelated run. iOS
+`WatchConnectivityManager.handleVirtualRunEnded` checks the payload run ID against the
+current `activeVirtualRunId` and discards the message if they don't match:
+
+```swift
+// Guard against stale transferUserInfo from a previous run:
+if let payloadRunId = runIdFromPayload, let currentRunId = activeVirtualRunId,
+   payloadRunId != currentRunId {
+    AppLogger.warning("[VR] Ignoring stale vrRunEnded from run \(payloadRunId)", ...)
+    return
+}
+```
+
+Without this guard a stale `vrRunEnded` carrying old stats (e.g., a short test run's
+`durationS = 30`) can trigger the win screen mid-run and destroy the coordinator's state.
 
 ---
 
@@ -265,6 +339,40 @@ returns to the foreground, `isSubscribedToSnapshots` (based on `broadcastChannel
 **Invariant**: Do not remove either the `pendingPartnerSnapshot` queue or the `isInActiveRun`
 re-subscribe branch. Without them partner data silently stops flowing whenever the iPhones
 leave the foreground.
+
+### Problem 3: DB catch-up snapshots rejected by seq guard after reconnect
+
+When the broadcast WebSocket dies and recovers, the DB catch-up poll fetches the latest
+persisted snapshot. This snapshot may have a **lower `seq`** than the last snapshot that was
+delivered via broadcast (broadcast delivers in real time, DB is persisted every 10 s). The
+`PartnerStats.update(from:)` seq guard (`guard snapshot.seq > lastSeq`) would silently drop
+these catch-up snapshots, leaving the Watch stuck on stale data indefinitely.
+
+**Fix (`VirtualRunSharedModels.PartnerStats.update`):**
+- When `isDisconnected` is `true` (data age > 15 s), `lastSeq` is reset to 0 before the
+  guard check. This allows any incoming snapshot — including low-seq DB catch-up rows — to
+  be accepted after a reconnect.
+
+```swift
+func update(from snapshot: VirtualRunSnapshot) -> Bool {
+    if isDisconnected { lastSeq = 0 }   // ← reset on reconnect so catch-up snapshots are accepted
+    guard snapshot.seq > lastSeq else { return false }
+    // ...
+}
+```
+
+### Problem 4: `fetchLatestSnapshot` returning oldest row instead of newest
+
+`VirtualRunRepository.fetchLatestSnapshot` previously issued a Supabase query without an
+`ORDER BY` clause. Supabase (PostgreSQL) returns rows in heap order when no sort is specified
+— in practice this meant the **oldest** snapshot was returned, not the most recent one, making
+the DB catch-up path useless.
+
+**Fix (`VirtualRunRepository.fetchLatestSnapshot`):**
+```swift
+.order("seq", ascending: false)
+.limit(1)
+```
 
 ### Pace calculation thresholds (expected behaviour for short test runs)
 
@@ -351,12 +459,14 @@ Audio cues only fire during virtual runs. They do not affect the strength workou
 ## Timing Constants (do not reduce without testing)
 
 ```swift
-snapshotPublishInterval  = 3.0 s   // Watch publishes stats to iPhone
-heartbeatInterval        = 3.0 s   // Watch sends heartbeat; disconnect check fires
-staleDataThreshold       = 8.0 s   // Partner shown as stale
-disconnectThreshold      = 15.0 s  // Partner shown as disconnected
-extendedDisconnectTimeout = 180 s  // "Partner Lost" prompt shown
-routeUploadRetries       = 18      // × 10 s = 3 min window for HK sync
+snapshotPublishInterval   = 3.0 s   // Watch publishes stats to iPhone
+heartbeatInterval         = 3.0 s   // Watch sends heartbeat; disconnect check fires
+staleDataThreshold        = 8.0 s   // Partner shown as stale (also: catch-up poll threshold)
+disconnectThreshold       = 15.0 s  // Partner shown as disconnected; seq guard resets
+extendedDisconnectTimeout = 180 s   // "Partner Lost" prompt shown
+dbPersistInterval         = 10.0 s  // How often snapshots are upserted to DB
+snapshotPollInterval      = 10.0 s  // DB catch-up poll fires if broadcast silent > 8 s
+routeUploadRetries        = 18      // × 10 s = 3 min window for HK sync
 ```
 
 ---
@@ -391,7 +501,9 @@ routeUploadRetries       = 18      // × 10 s = 3 min window for HK sync
 
 8. **`PartnerStats.update(from:)` is seq-guarded** (`guard snapshot.seq > lastSeq`).
    Out-of-order or duplicate snapshots are silently dropped. The `seq` counter is local to
-   each Watch session and starts at 0 on every `startVirtualRun()`.
+   each Watch session and starts at 0 on every `startVirtualRun()`. **When `isDisconnected`
+   is true (data age > 15 s), `lastSeq` is reset to 0** before the guard check so that DB
+   catch-up snapshots with lower seq values are accepted after a broadcast reconnect.
 
 9. **`CLLocationManager.desiredAccuracy` must be `kCLLocationAccuracyBest`** for outdoor
    running workouts. Reducing it (even to `kCLLocationAccuracyNearestTenMeters`) prevents
@@ -399,3 +511,20 @@ routeUploadRetries       = 18      // × 10 s = 3 min window for HK sync
    tracking for the entire run. This is a shared-hardware constraint, not a software bug.
    Do not change this in the name of energy optimisation without first verifying that distance
    still accumulates on a real outdoor run.
+
+10. **`runEnded()` is the single coordinator cleanup function.** All iOS run-end paths —
+    Watch-sent `vrRunEnded`, CDC `status = .completed`, explicit cancellation — must call
+    `runEnded()` and nothing else. It stops the snapshot poll, clears all state, resets
+    `flowPhase`, and unsubscribes the broadcast channel. Adding a new run-end path that
+    bypasses `runEnded()` will leave the coordinator in a corrupted state (wrong `flowPhase`,
+    live subscription, running timer).
+
+11. **`transferUserInfo` payloads from previous runs must be discarded.** WCSession's
+    guaranteed-delivery queue persists across app restarts. Always validate the run ID in
+    the payload against `activeVirtualRunId` before processing any `transferUserInfo`-delivered
+    VR message. Currently enforced for `vrRunEnded`; apply the same pattern to any new
+    `transferUserInfo` message type.
+
+12. **`snapshotPollTimer` must use `RunLoop.main.add(timer, forMode: .common)`**, not
+    `Timer.scheduledTimer`. The `.common` mode ensures the timer fires during scroll events
+    and other UI tracking run loop modes.

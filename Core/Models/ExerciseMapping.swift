@@ -43,8 +43,18 @@ enum ExerciseMapping {
         let base = ex.name + " " + muscP + " " + muscS
         let hay  = (base + " " + patterns).lowercased()
 
+        let allTopLevel = MuscleTaxonomy.subregions(for: .upper) + MuscleTaxonomy.subregions(for: .lower)
         var out = Set<String>()
         for p in possibleParentsLowercased {
+            // Tag the canonical top-level group directly when targetMuscleGroup/primeMover
+            // names a recognized group (e.g. "Chest"). This is required for groups that have
+            // deep subregions (Chest, Back) — those are skipped in the synonym loop below
+            // because they have deep subregions — yet their exercises' primaryMuscles is set
+            // to the prime mover (e.g. "Triceps Brachii"), not the target muscle group, so
+            // the synonym keyword check below would miss them entirely.
+            if let topLevel = allTopLevel.first(where: { $0.lowercased() == p }) {
+                out.insert(topLevel)
+            }
             if let deep = MuscleTaxonomy.deepSubregions(for: p.capitalized) {
                 for child in deep {
                     let (inc, exc) = MuscleTaxonomy.deepRules(parent: p, child: child)
@@ -58,7 +68,6 @@ enum ExerciseMapping {
         // For top-level muscles without deep subregions (e.g. Abs, Obliques, Forearms,
         // Biceps, Triceps, Glutes, Hamstrings, Calves, Adductors, Abductors), add the
         // canonical taxonomy name as a tag so bySubregion["Abs"] etc. work correctly.
-        let allTopLevel = MuscleTaxonomy.subregions(for: .upper) + MuscleTaxonomy.subregions(for: .lower)
         for parent in allTopLevel {
             guard MuscleTaxonomy.deepSubregions(for: parent) == nil else { continue }
             let keysLC = ExerciseRepository.synonyms(for: parent).map { $0.lowercased() }

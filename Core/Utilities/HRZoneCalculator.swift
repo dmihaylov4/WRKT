@@ -22,11 +22,13 @@ struct HRZoneConfig: Codable, Equatable {
     enum CalculationMethod: String, Codable {
         case ageBased       // 220 - age
         case defaultMax     // Default 190 bpm (no age set)
+        case karvonen       // Karvonen (HRR-based): restingHR + (maxHR − restingHR) × intensity
 
         var displayName: String {
             switch self {
             case .ageBased: return "Age-based (220 - age)"
             case .defaultMax: return "Default (190 bpm)"
+            case .karvonen: return "Karvonen (Heart Rate Reserve)"
             }
         }
 
@@ -36,6 +38,8 @@ struct HRZoneConfig: Codable, Equatable {
                 return "Using age-based formula (220 - age)"
             case .defaultMax:
                 return "Set your age in Profile to get personalized zones"
+            case .karvonen:
+                return "Using resting HR from Apple Health for personalized zones"
             }
         }
     }
@@ -66,7 +70,7 @@ final class HRZoneCalculator: ObservableObject {
     @Published private(set) var config: HRZoneConfig?
 
     private let configKey = "hr_zone_config_v2"
-    private let ageKey = "user_age"
+    private let birthYearKey = "user_birth_year"
 
     private init() {
         loadOrCreateConfig()
@@ -74,20 +78,51 @@ final class HRZoneCalculator: ObservableObject {
 
     // MARK: - Public API
 
-    /// Get/set user age (stored in UserDefaults)
+    /// Age derived from stored birth year — auto-updates each calendar year, no manual refresh needed.
     var userAge: Int? {
         get {
-            let age = UserDefaults.standard.integer(forKey: ageKey)
-            return age > 0 ? age : nil
+            let birthYear = UserDefaults.standard.integer(forKey: birthYearKey)
+            guard birthYear > 0 else { return nil }
+            let age = Calendar.current.component(.year, from: Date()) - birthYear
+            return age > 0 && age < 120 ? age : nil
         }
         set {
             if let age = newValue, age > 0 {
-                UserDefaults.standard.set(age, forKey: ageKey)
+                let birthYear = Calendar.current.component(.year, from: Date()) - age
+                UserDefaults.standard.set(birthYear, forKey: birthYearKey)
             } else {
-                UserDefaults.standard.removeObject(forKey: ageKey)
+                UserDefaults.standard.removeObject(forKey: birthYearKey)
             }
             recalculate()
         }
+    }
+
+    /// Seed birth year directly from Supabase profile (used at launch and on profile update).
+    func setBirthYear(_ birthYear: Int) {
+        guard birthYear > 1900 else { return }
+        UserDefaults.standard.set(birthYear, forKey: birthYearKey)
+        AppLogger.info("[HRZones] Birth year set to \(birthYear) → age \(Calendar.current.component(.year, from: Date()) - birthYear)", category: AppLogger.health)
+        recalculate()
+    }
+
+    /// Update resting HR (from HealthKit) and recalculate zones using Karvonen when available.
+    /// Pass nil to remove resting HR and fall back to %maxHR.
+    func setRestingHR(_ restingHR: Double?) {
+        let age = userAge
+        let maxHR: Double = age.map { a in Double(220 - a) } ?? 190
+        let method: HRZoneConfig.CalculationMethod = restingHR != nil ? .karvonen : (age != nil ? .ageBased : .defaultMax)
+
+        let newConfig = HRZoneConfig(
+            maxHR: maxHR,
+            restingHR: restingHR,
+            age: age,
+            method: method,
+            lastUpdated: Date()
+        )
+        self.config = newConfig
+        saveConfig(newConfig)
+        AppLogger.info("[HRZones] method=\(method.rawValue), maxHR=\(Int(maxHR)), restingHR=\(restingHR.map { String(Int($0)) } ?? "nil")", category: AppLogger.health)
+        logZoneBoundaries()
     }
 
     /// Recalculate config based on current age setting
@@ -119,7 +154,8 @@ final class HRZoneCalculator: ObservableObject {
         self.config = newConfig
         saveConfig(newConfig)
 
-        AppLogger.info("HR Zone config updated: method=\(newConfig.method.rawValue), maxHR=\(Int(newConfig.maxHR)), age=\(newConfig.age.map { String($0) } ?? "nil")", category: AppLogger.health)
+        AppLogger.info("[HRZones] method=\(newConfig.method.rawValue), maxHR=\(Int(newConfig.maxHR)), age=\(newConfig.age.map { String($0) } ?? "nil")", category: AppLogger.health)
+        logZoneBoundaries()
     }
 
     /// Get zone for a heart rate value
@@ -133,7 +169,8 @@ final class HRZoneCalculator: ObservableObject {
         return 1
     }
 
-    /// Get all zone boundaries (simple percentage of max HR)
+    /// Get all zone boundaries. Uses Karvonen (HRR-based) when resting HR is available,
+    /// otherwise falls back to simple percentage of max HR.
     func zoneBoundaries() -> [HRZoneBoundary] {
         let cfg = config ?? HRZoneConfig(maxHR: 190, restingHR: nil, age: nil, method: .defaultMax, lastUpdated: Date())
 
@@ -145,11 +182,20 @@ final class HRZoneCalculator: ObservableObject {
             (5, "Max", 0.90, 1.00, .red)
         ]
 
-        return zoneData.map { (zone, name, lower, upper, color) in
-            // Simple percentage of max HR
-            let lowerBPM = Int(cfg.maxHR * lower)
-            let upperBPM = Int(cfg.maxHR * upper)
-            return HRZoneBoundary(zone: zone, name: name, lowerBPM: lowerBPM, upperBPM: upperBPM, color: color)
+        if let restingHR = cfg.restingHR {
+            // Karvonen: targetBPM = restingHR + HRR × intensity
+            let hrr = cfg.maxHR - restingHR
+            return zoneData.map { (zone, name, lower, upper, color) in
+                let lowerBPM = Int(restingHR + hrr * lower)
+                let upperBPM = Int(restingHR + hrr * upper)
+                return HRZoneBoundary(zone: zone, name: name, lowerBPM: lowerBPM, upperBPM: upperBPM, color: color)
+            }
+        } else {
+            return zoneData.map { (zone, name, lower, upper, color) in
+                let lowerBPM = Int(cfg.maxHR * lower)
+                let upperBPM = Int(cfg.maxHR * upper)
+                return HRZoneBoundary(zone: zone, name: name, lowerBPM: lowerBPM, upperBPM: upperBPM, color: color)
+            }
         }
     }
 
@@ -175,6 +221,12 @@ final class HRZoneCalculator: ObservableObject {
 
     // MARK: - Private
 
+    private func logZoneBoundaries() {
+        let boundaries = zoneBoundaries()
+        let summary = boundaries.map { "Z\($0.zone):\($0.lowerBPM)-\($0.upperBPM)" }.joined(separator: "  ")
+        AppLogger.info("[HRZones] \(summary) bpm", category: AppLogger.health)
+    }
+
     private func loadOrCreateConfig() {
         // Try to load cached config
         if let data = UserDefaults.standard.data(forKey: configKey),
@@ -195,7 +247,7 @@ final class HRZoneCalculator: ObservableObject {
 
     /// Reset to defaults
     func resetToDefaults() {
-        UserDefaults.standard.removeObject(forKey: ageKey)
+        UserDefaults.standard.removeObject(forKey: birthYearKey)
         recalculate()
     }
 }

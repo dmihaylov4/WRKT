@@ -152,19 +152,24 @@ struct PreferencesView: View {
 
     private var profileSection: some View {
         Section {
-            Button { showAgePicker = true } label: {
+            if let birthYear = authService.currentUser?.profile?.birthYear {
+                // Age is set — show read-only; recalculates automatically each year
                 HStack {
                     Text("Age").foregroundStyle(.primary)
                     Spacer()
-                    if let birthYear = authService.currentUser?.profile?.birthYear {
-                        Text("\(Calendar.current.component(.year, from: Date()) - birthYear) years")
-                            .foregroundStyle(.secondary)
-                    } else {
+                    Text("\(Calendar.current.component(.year, from: Date()) - birthYear) years")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button { showAgePicker = true } label: {
+                    HStack {
+                        Text("Age").foregroundStyle(.primary)
+                        Spacer()
                         Text("Not set").foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
                     }
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
                 }
             }
             Button { showWeightPicker = true } label: {
@@ -180,7 +185,7 @@ struct PreferencesView: View {
         } header: {
             Text("Profile")
         } footer: {
-            Text("Age is used for heart rate zones (Max HR = 220 - age). Bodyweight is used for bodyweight exercise volume.")
+            Text("Age is used for heart rate zones (Max HR = 220 - age) and updates automatically each year. Bodyweight is used for bodyweight exercise volume.")
                 .font(.caption)
         }
     }

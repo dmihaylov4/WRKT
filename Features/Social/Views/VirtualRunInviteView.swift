@@ -187,6 +187,9 @@ struct VirtualRunInviteView: View {
                 sendingTo = nil
                 return
             }
+
+            VirtualRunInviteCoordinator.shared.beginSendingInvite()
+
             let run = try await deps.virtualRunRepository.sendInvite(to: friend.profile.id, from: userId)
 
             VirtualRunInviteCoordinator.shared.trackSentInvite(
@@ -203,7 +206,21 @@ struct VirtualRunInviteView: View {
                 staleActiveRun = try? await deps.virtualRunRepository.fetchActiveRun(for: userId)
             }
         } catch {
-            self.error = error.localizedDescription
+            let fId = friend.profile.id
+            let fName = friend.profile.displayName ?? friend.profile.username
+            VirtualRunInviteCoordinator.shared.setFailed(.sendFailed, retry: {
+                VirtualRunInviteCoordinator.shared.beginSendingInvite()
+                do {
+                    guard let userId = SupabaseAuthService.shared.currentUser?.id else {
+                        VirtualRunInviteCoordinator.shared.setFailed(.sendFailed)
+                        return
+                    }
+                    let run = try await AppDependencies.shared.virtualRunRepository.sendInvite(to: fId, from: userId)
+                    VirtualRunInviteCoordinator.shared.trackSentInvite(runId: run.id, partnerId: fId, partnerName: fName)
+                } catch {
+                    VirtualRunInviteCoordinator.shared.setFailed(.sendFailed)
+                }
+            })
         }
         sendingTo = nil
     }

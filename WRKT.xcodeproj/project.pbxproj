@@ -24,6 +24,7 @@
 		2E04134B2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */; };
 		2E04134D2F34B5F00090EF16 /* VirtualRunDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04134C2F34B5F00090EF16 /* VirtualRunDebugView.swift */; };
 		2E0413512F34C0000090EF16 /* VirtualRunInviteCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413502F34C0000090EF16 /* VirtualRunInviteCoordinator.swift */; };
+		2E0413532F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413522F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift */; };
 		2E0413602F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04135F2F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift */; };
 		2E0413622F3AD0010090EF16 /* VirtualRunSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413612F3AD0010090EF16 /* VirtualRunSummaryView.swift */; };
 		2E0413642F3AD0010090EF16 /* VirtualRunSummaryOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413632F3AD0010090EF16 /* VirtualRunSummaryOverlay.swift */; };
@@ -131,6 +132,7 @@
 		2E7461F82E954B7600A71C35 /* LiveWorkoutOverlayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461F72E954B7600A71C35 /* LiveWorkoutOverlayCard.swift */; };
 		2E7461FC2E95891100A71C35 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461FB2E95890500A71C35 /* Notifications.swift */; };
 		2E974F676CAFCEE52319B772 /* VirtualRunMapComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6E5B4157CDF29CBE269B9F /* VirtualRunMapComparisonView.swift */; };
+		2EA289E82F546B34001F7F29 /* VirtualRunFlowStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA289E72F546B34001F7F29 /* VirtualRunFlowStatusCard.swift */; };
 		2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9922EE9D30B0017683B /* Friendship.swift */; };
 		2EA7D9952EE9D3230017683B /* FriendshipRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */; };
 		2EA7D9972EE9D8B50017683B /* WorkoutPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */; };
@@ -346,6 +348,7 @@
 		2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */; };
 		2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */; };
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
+		2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
@@ -429,6 +432,7 @@
 		2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSharedModels.swift; sourceTree = "<group>"; };
 		2E04134C2F34B5F00090EF16 /* VirtualRunDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunDebugView.swift; sourceTree = "<group>"; };
 		2E0413502F34C0000090EF16 /* VirtualRunInviteCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunInviteCoordinator.swift; sourceTree = "<group>"; };
+		2E0413522F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneVirtualRunAudioCues.swift; sourceTree = "<group>"; };
 		2E04135F2F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSummaryCoordinator.swift; sourceTree = "<group>"; };
 		2E0413612F3AD0010090EF16 /* VirtualRunSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSummaryView.swift; sourceTree = "<group>"; };
 		2E0413632F3AD0010090EF16 /* VirtualRunSummaryOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSummaryOverlay.swift; sourceTree = "<group>"; };
@@ -541,6 +545,7 @@
 		2E7461F52E95181100A71C35 /* SubregionDetailScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubregionDetailScreen.swift; sourceTree = "<group>"; };
 		2E7461F72E954B7600A71C35 /* LiveWorkoutOverlayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWorkoutOverlayCard.swift; sourceTree = "<group>"; };
 		2E7461FB2E95890500A71C35 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
+		2EA289E72F546B34001F7F29 /* VirtualRunFlowStatusCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunFlowStatusCard.swift; sourceTree = "<group>"; };
 		2EA7D9922EE9D30B0017683B /* Friendship.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Friendship.swift; sourceTree = "<group>"; };
 		2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendshipRepository.swift; sourceTree = "<group>"; };
 		2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPost.swift; sourceTree = "<group>"; };
@@ -750,6 +755,7 @@
 		2EEEACD42EA38AF700EDD16E /* MusclePictogram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusclePictogram.swift; sourceTree = "<group>"; };
 		2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToConfirm.swift; sourceTree = "<group>"; };
 		2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalSetupView.swift; sourceTree = "<group>"; };
+		2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneVirtualRunAudioCues.swift; sourceTree = "<group>"; };
 		66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		89046F50535848139D95D2AE /* WRKT-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Debug.xcconfig"; sourceTree = "<group>"; };
 		9045D7549B884EEA9A17C4BC /* WRKT-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Release.xcconfig"; sourceTree = "<group>"; };
@@ -1585,6 +1591,7 @@
 		2EA7D99D2EE9EF540017683B /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				2EA289E72F546B34001F7F29 /* VirtualRunFlowStatusCard.swift */,
 				2E0413452F34AFFF0090EF16 /* VirtualRunInviteBanner.swift */,
 				2EC202B72EF4317600D6BAEF /* MentionText.swift */,
 				2EC202B52EF4316700D6BAEF /* MentionAutocomplete.swift */,
@@ -1938,9 +1945,11 @@
 		2EE8A0982EE9A10B00A74A3C /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */,
 				2E46E0182F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift */,
 				2E04133F2F34AFC90090EF16 /* VirtualRunRepository.swift */,
 				2E0413502F34C0000090EF16 /* VirtualRunInviteCoordinator.swift */,
+				2E0413522F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift */,
 				2E04135F2F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift */,
 				2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */,
 				2E695B792EFC3EB5002EA9FC /* PRAutoPostService.swift */,
@@ -2379,6 +2388,7 @@
 				2E7461CD2E942FC900A71C35 /* MuscleTaxonomy.swift in Sources */,
 				2ED2379E2EA60FEA009C742E /* RestTimerPreferences.swift in Sources */,
 				2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */,
+				2EA289E82F546B34001F7F29 /* VirtualRunFlowStatusCard.swift in Sources */,
 				2E510B702E99599F0089EE2C /* ExerciseMusclesSection.swift in Sources */,
 				2EA7DAAF2EEDC9950017683B /* BattleRepository.swift in Sources */,
 				2EA7DAAB2EEDC76F0017683B /* Battle.swift in Sources */,
@@ -2532,6 +2542,7 @@
 				2E7461A32E93ED4E00A71C35 /* CalendarMonthView.swift in Sources */,
 				2E0413402F34AFC90090EF16 /* VirtualRunRepository.swift in Sources */,
 				2E0413512F34C0000090EF16 /* VirtualRunInviteCoordinator.swift in Sources */,
+				2E0413532F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift in Sources */,
 				2EA7DA3A2EEC471F0017683B /* FeedViewModel.swift in Sources */,
 				2EA7DA3B2EEC471F0017683B /* ViewModelProtocol.swift in Sources */,
 				2E04133A2F2FA4CE0090EF16 /* CardioDataExtractor.swift in Sources */,
@@ -2568,6 +2579,7 @@
 				2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */,
 				2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */,
 				2EBE3FA12EB895D800A26355 /* SearchBarComponent.swift in Sources */,
+				2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */,
 				2EBE3FAF2EB8B46100A26355 /* HealthKitWorkoutCategory.swift in Sources */,
 				2EBE3F0E2EB6650B00A26355 /* PlanConfigValidator.swift in Sources */,
 				2EBE3F0F2EB6650B00A26355 /* SplitValidation.swift in Sources */,
@@ -3027,7 +3039,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.3.4;
+				MARKETING_VERSION = 3.4.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3075,7 +3087,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.3.4;
+				MARKETING_VERSION = 3.4.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -882,6 +882,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
             AppLogger.debug("Forwarding VR snapshot to Supabase (seq: \(snapshot.seq))", category: AppLogger.virtualRun)
 
+            // Expose to the live stats card on iPhone
+            Task { @MainActor in
+                VirtualRunInviteCoordinator.shared.updateMySnapshot(snapshot)
+            }
+
             let publishStart = Date()
             Task {
                 do {
@@ -928,6 +933,16 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                 runIdFromPayload = UUID(uuidString: runIdStr)
             }
             AppLogger.info("Watch final stats: \(String(format: "%.0f", finalDistance))m, \(finalDuration)s", category: AppLogger.app)
+        }
+
+        // Guard: ignore stale transferUserInfo from a previous run.
+        // WCSession guarantees delivery of transferUserInfo even across app restarts — a
+        // runEnded transfer queued from an old run can arrive during a new run.
+        // If the payload's run ID doesn't match the currently active run, discard it.
+        if let payloadRunId = runIdFromPayload, let currentRunId = activeVirtualRunId,
+           payloadRunId != currentRunId {
+            AppLogger.warning("[VR] Ignoring stale vrRunEnded from run \(payloadRunId) — active run is \(currentRunId)", category: AppLogger.virtualRun)
+            return
         }
 
         // Dedup: both sendMessage and transferUserInfo may deliver this message
@@ -1122,6 +1137,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             object: nil,
             userInfo: startTime.map { ["startTime": $0] }
         )
+
+        // Advance the flow status card to watchReady → auto-dismisses after 2 s
+        Task { @MainActor in
+            VirtualRunInviteCoordinator.shared.onWatchConfirmed()
+        }
     }
 
     private func handleVirtualRunPause() {
@@ -1173,7 +1193,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Notify Watch that a virtual run has started
-    func sendVirtualRunStarted(runId: UUID, partnerId: UUID, partnerName: String, myUserId: UUID, myMaxHR: Int? = nil, partnerMaxHR: Int = 190) {
+    func sendVirtualRunStarted(runId: UUID, partnerId: UUID, partnerName: String, myUserId: UUID, myMaxHR: Int? = nil, myRestingHR: Int = 0, partnerMaxHR: Int = 190) {
         // Track active run for cleanup when Watch ends
         activeVirtualRunId = runId
         activeVirtualRunUserId = myUserId
@@ -1193,6 +1213,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             "partnerName": partnerName,
             "myUserId": myUserId.uuidString,
             "myMaxHR": resolvedMaxHR,
+            "myRestingHR": myRestingHR,
             "partnerMaxHR": partnerMaxHR
         ]
 
@@ -1468,6 +1489,16 @@ extension WatchConnectivityManager: WCSessionDelegate {
         AppLogger.info("📨 Received transferUserInfo from Watch with keys: \(userInfo.keys.joined(separator: ", "))", category: AppLogger.app)
         Task { @MainActor in
             self.handleWatchMessage(userInfo)
+        }
+    }
+
+    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
+        // VR snapshots delivered via applicationContext when Watch couldn't use sendMessage
+        // (iPhone screen locked → isReachable false → Watch falls back to updateApplicationContext).
+        guard applicationContext["messageType"] as? String == WatchMessage.vrSnapshot.rawValue else { return }
+        AppLogger.debug("Received VR snapshot via applicationContext (background delivery)", category: AppLogger.virtualRun)
+        Task { @MainActor in
+            self.handleVirtualRunSnapshot(applicationContext)
         }
     }
 
