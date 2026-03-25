@@ -32,7 +32,7 @@ final class HealthKitManager: ObservableObject {
     /// Increment this any time `toRead` or `toShare` gains a new type.
     /// On app launch, if the stored version is lower, requestAuthorization() will fire
     /// and iOS will prompt the user for only the new, ungranted types.
-    private static let authScopeVersion = 2  // bumped when workoutRoute was added to toRead
+    private static let authScopeVersion = 3  // bumped to re-surface workoutRoute read permission (was in toRead but read toggle never appeared for some users)
 
     @Published var connectionState: HealthConnectionState {
         didSet {
@@ -990,13 +990,24 @@ final class HealthKitManager: ObservableObject {
 
     private func queueRouteFetching(for workouts: [HKWorkout], context: ModelContext) async {
         for workout in workouts {
-            // Check if task already exists
             let workoutUUIDString = workout.uuid.uuidString
             let descriptor = FetchDescriptor<RouteFetchTask>(
                 predicate: #Predicate { $0.workoutUUID == workoutUUIDString }
             )
 
-            if (try? context.fetch(descriptor).first) == nil {
+            if let existing = try? context.fetch(descriptor).first {
+                // Reset failed tasks so they get another attempt on the next queue run.
+                // Watch GPS routes sync separately from the workout summary and can lag
+                // 10-60+ minutes, so tasks often exhaust their attempt limit before the
+                // data arrives. Resetting here means pull-to-refresh and incremental syncs
+                // automatically unblock them without the user tapping "Get Route" manually.
+                if existing.status == "failed" {
+                    existing.status = "pending"
+                    existing.attemptCount = 0
+                    AppLogger.info("Reset failed route task to pending for re-queue: \(workoutUUIDString)", category: AppLogger.health)
+                }
+                // pending / fetching / completed tasks are left as-is
+            } else {
                 let priority = workouts.firstIndex(of: workout) ?? 0 < 5 ? 0 : 1  // High priority for recent 5
                 let task = RouteFetchTask(
                     workoutUUID: workout.uuid.uuidString,
@@ -1094,7 +1105,13 @@ final class HealthKitManager: ObservableObject {
                        let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
                         var updated = existing
                         updated.route = coords.isEmpty ? nil : coords
-                        updated.routeWithHR = routeWithHR
+                        // Only store routeWithHR when we actually have route points.
+                        // fetchRouteWithHeartRate returns [] when fetchRoute returns empty,
+                        // and storing that empty array makes every downstream `== nil` check
+                        // silently pass, permanently blocking all retry paths.
+                        if !coords.isEmpty {
+                            updated.routeWithHR = routeWithHR
+                        }
                         updated.splits = splits
                         updated.avgRunningPower = runningMetrics.avgPower
                         updated.avgCadence = runningMetrics.avgCadence
@@ -1104,10 +1121,14 @@ final class HealthKitManager: ObservableObject {
                         store.updateRun(updated)
 
                         if coords.isEmpty {
-                            // Route not yet available in HealthKit — retry up to 3 times
+                            // Route not yet available in HealthKit.
+                            // Only give up permanently after 24 hours — Watch GPS routes
+                            // sync separately from the workout summary and may not arrive
+                            // for up to an hour, so a hard attempt-count limit fires too early.
                             task.attemptCount += 1
-                            task.status = task.attemptCount >= 3 ? "failed" : "pending"
-                            AppLogger.warning("Route fetch returned no coordinates for \(uuid), attempt \(task.attemptCount)/3 → \(task.status)", category: AppLogger.health)
+                            let ageHours = Date.now.timeIntervalSince(task.createdAt) / 3600
+                            task.status = ageHours >= 24 ? "failed" : "pending"
+                            AppLogger.warning("Route fetch returned no coordinates for \(uuid), attempt \(task.attemptCount), age \(String(format: "%.1f", ageHours))h → \(task.status)", category: AppLogger.health)
 
                             // After exhausting retries, still trigger auto-post without route
                             if task.status == "failed" {
@@ -1179,10 +1200,12 @@ final class HealthKitManager: ObservableObject {
         // Pass 2: time-window fallback — catches cases where association link is missing
         // (e.g. Watch sync completed but metadata association dropped)
         AppLogger.warning("No route via association for \(workout.uuid) — trying time-window fallback", category: AppLogger.health)
+        // Use no options so routes that began recording a few seconds before the
+        // workout start (GPS warm-up) or ended slightly after are still matched.
         let timePredicate = HKQuery.predicateForSamples(
             withStart: workout.startDate,
             end: workout.endDate,
-            options: .strictStartDate
+            options: []
         )
         let timeBased = try await fetchRouteLocations(predicate: timePredicate, limit: 1)
         if !timeBased.isEmpty {
@@ -1209,21 +1232,25 @@ final class HealthKitManager: ObservableObject {
                 }
                 if let error { cont.resume(throwing: error); return }
                 guard let routes = samples as? [HKWorkoutRoute], let route = routes.first else {
+                    AppLogger.warning("fetchRouteLocations: HKSampleQuery returned 0 route objects (no HKWorkoutRoute found)", category: AppLogger.health)
                     cont.resume(returning: [])
                     return
                 }
 
+                AppLogger.debug("fetchRouteLocations: Found route object, streaming \(route.count) expected points via HKWorkoutRouteQuery", category: AppLogger.health)
                 var points: [CLLocation] = []
                 var didResume = false
                 let q = HKWorkoutRouteQuery(route: route) { _, locations, done, err in
                     guard !didResume else { return }
                     if let err {
+                        AppLogger.error("fetchRouteLocations: HKWorkoutRouteQuery error: \(err)", category: AppLogger.health)
                         didResume = true
                         cont.resume(throwing: err)
                         return
                     }
                     if let locations { points.append(contentsOf: locations) }
                     if done {
+                        AppLogger.debug("fetchRouteLocations: HKWorkoutRouteQuery done — \(points.count) pts streamed", category: AppLogger.health)
                         didResume = true
                         cont.resume(returning: points)
                     }
@@ -1704,9 +1731,15 @@ final class HealthKitManager: ObservableObject {
             await MainActor.run {
                 var updated = run
                 updated.splits = splits
-                updated.routeWithHR = routeWithHR
+                // Only persist routeWithHR when it actually contains points — an empty
+                // array means the underlying route fetch returned nothing (route not yet
+                // synced from Watch) and must NOT overwrite the existing nil value.
+                if let rhr = routeWithHR, !rhr.isEmpty {
+                    updated.routeWithHR = rhr
+                    updated.route = rhr.map { Coordinate(lat: $0.lat, lon: $0.lon) }
+                }
                 store.updateRun(updated)
-                AppLogger.success("Refreshed detailed data for run: \(splits?.count ?? 0) splits", category: AppLogger.health)
+                AppLogger.success("Refreshed detailed data for run: \(splits?.count ?? 0) splits, route: \(updated.routeWithHR?.count ?? 0) pts", category: AppLogger.health)
             }
         } catch {
             AppLogger.error("Failed to refresh detailed data: \(error)", category: AppLogger.health)
