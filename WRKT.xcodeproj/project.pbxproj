@@ -69,6 +69,7 @@
 		2E2F53AD2E9ED6DB00C81656 /* ExerciseBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53AC2E9ED6DB00C81656 /* ExerciseBrowserView.swift */; };
 		2E2F53AF2E9EDE0F00C81656 /* EmptyExercisesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53AE2E9EDE0F00C81656 /* EmptyExercisesView.swift */; };
 		2E34D87B2F269B1A00043649 /* HRZoneCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E34D87A2F269B1A00043649 /* HRZoneCalculator.swift */; };
+		2E3C06202F74087100E43789 /* LikesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3C061F2F74087100E43789 /* LikesListView.swift */; };
 		2E3D8EEC2EAF85EB00AC8A53 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EEB2EAF85EB00AC8A53 /* AppLogger.swift */; };
 		2E3D8EEE2EB0AB1B00AC8A53 /* CustomExerciseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EED2EB0AB1B00AC8A53 /* CustomExerciseStore.swift */; };
 		2E3D8EF02EB0ACFA00AC8A53 /* CreateExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */; };
@@ -479,6 +480,7 @@
 		2E2F53AC2E9ED6DB00C81656 /* ExerciseBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseBrowserView.swift; sourceTree = "<group>"; };
 		2E2F53AE2E9EDE0F00C81656 /* EmptyExercisesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyExercisesView.swift; sourceTree = "<group>"; };
 		2E34D87A2F269B1A00043649 /* HRZoneCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRZoneCalculator.swift; sourceTree = "<group>"; };
+		2E3C061F2F74087100E43789 /* LikesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LikesListView.swift; sourceTree = "<group>"; };
 		2E3D8EEB2EAF85EB00AC8A53 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		2E3D8EED2EB0AB1B00AC8A53 /* CustomExerciseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomExerciseStore.swift; sourceTree = "<group>"; };
 		2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateExerciseView.swift; sourceTree = "<group>"; };
@@ -1969,6 +1971,7 @@
 		2EE8A0992EE9A10B00A74A3C /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2E3C061F2F74087100E43789 /* LikesListView.swift */,
 				2E6E5B4157CDF29CBE269B9F /* VirtualRunMapComparisonView.swift */,
 				2ECE15BAE003DFAEE0F0D695 /* VirtualRunSummaryPager.swift */,
 				2E04134C2F34B5F00090EF16 /* VirtualRunDebugView.swift */,
@@ -2483,6 +2486,7 @@
 				2E510B532E96B3920089EE2C /* InteractiveRouteMapHeat.swift in Sources */,
 				2E2938C02EC8E10C0057F60C /* RetrospectiveSetEditor.swift in Sources */,
 				2EC245D12E9FD9AD00100333 /* StatModels.swift in Sources */,
+				2E3C06202F74087100E43789 /* LikesListView.swift in Sources */,
 				2EA7DA302EEC3EA40017683B /* ProfileRepository.swift in Sources */,
 				2E510B8C2E9AEEEF0089EE2C /* MuscleIndex.swift in Sources */,
 				2EBE3F072EB65F2A00A26355 /* CustomSplitExercisePicker.swift in Sources */,
@@ -2730,9 +2734,9 @@
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "WRKT Watch";
+				INFOPLIST_KEY_CFBundleDisplayName = Volia;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "WRKT uses your health data to display heart rate and calories during workouts.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Volia uses your health data to display heart rate and calories during workouts.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "WRKT saves your strength training workouts to Apple Health.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WRKT records your route during runs to display maps and share with friends.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -2770,9 +2774,9 @@
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "WRKT Watch";
+				INFOPLIST_KEY_CFBundleDisplayName = Volia;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "WRKT uses your health data to display heart rate and calories during workouts.";
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "Volia uses your health data to display heart rate and calories during workouts.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "WRKT saves your strength training workouts to Apple Health.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WRKT records your route during runs to display maps and share with friends.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -3039,7 +3043,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.4.7;
+				MARKETING_VERSION = 4.0.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3087,7 +3091,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.4.7;
+				MARKETING_VERSION = 4.0.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
