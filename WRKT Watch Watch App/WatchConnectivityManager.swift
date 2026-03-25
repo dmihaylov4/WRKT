@@ -544,8 +544,9 @@ extension WatchConnectivityManager: WCSessionDelegate {
             let myMaxHR = info["myMaxHR"] as? Int ?? 190
             let myRestingHR = info["myRestingHR"] as? Int ?? 0
             let partnerMaxHR = info["partnerMaxHR"] as? Int ?? 190
+            let partnerRestingHR = info["partnerRestingHR"] as? Int ?? 0
 
-            logger.info("🏃 Virtual run started with \(partnerName), myMaxHR=\(myMaxHR), myRestingHR=\(myRestingHR), partnerMaxHR=\(partnerMaxHR)")
+            logger.info("🏃 Virtual run started with \(partnerName), myMaxHR=\(myMaxHR), myRestingHR=\(myRestingHR), partnerMaxHR=\(partnerMaxHR), partnerRestingHR=\(partnerRestingHR)")
             VirtualRunFileLogger.shared.log(category: .connectivity, message: "VR started received", data: [
                 "runId": runIdStr,
                 "partner": partnerName,
@@ -554,7 +555,7 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 "partnerMaxHR": partnerMaxHR
             ])
 
-            let partner = PartnerStats(userId: partnerId, displayName: partnerName, maxHR: partnerMaxHR)
+            let partner = PartnerStats(userId: partnerId, displayName: partnerName, maxHR: partnerMaxHR, restingHR: partnerRestingHR)
 
             // Show confirmation screen on Watch — user must tap Go to start
             Task { @MainActor in
