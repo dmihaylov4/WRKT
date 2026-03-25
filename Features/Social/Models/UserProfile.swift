@@ -11,6 +11,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
     var autoPostPRs: Bool
     var autoPostCardio: Bool
     var birthYear: Int?
+    var restingHR: Int?
     let createdAt: Date
     var updatedAt: Date
 
@@ -24,6 +25,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         case autoPostPRs = "auto_post_prs"
         case autoPostCardio = "auto_post_cardio"
         case birthYear = "birth_year"
+        case restingHR = "resting_hr"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
     }
@@ -38,6 +40,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         autoPostPRs: Bool = true,
         autoPostCardio: Bool = true,
         birthYear: Int? = nil,
+        restingHR: Int? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -50,6 +53,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         self.autoPostPRs = autoPostPRs
         self.autoPostCardio = autoPostCardio
         self.birthYear = birthYear
+        self.restingHR = restingHR
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -65,6 +69,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         autoPostPRs = try container.decode(Bool.self, forKey: .autoPostPRs)
         autoPostCardio = try container.decodeIfPresent(Bool.self, forKey: .autoPostCardio) ?? true
         birthYear = try container.decodeIfPresent(Int.self, forKey: .birthYear)
+        restingHR = try container.decodeIfPresent(Int.self, forKey: .restingHR)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
