@@ -129,6 +129,7 @@ class PartnerStats {
     let displayName: String
     let avatarUrl: String?
     let maxHR: Int
+    let restingHR: Int
 
     // Raw stats from last snapshot
     private(set) var rawDistanceM: Double = 0
@@ -176,11 +177,12 @@ class PartnerStats {
         case paused
     }
 
-    init(userId: UUID, displayName: String, avatarUrl: String? = nil, maxHR: Int = 190) {
+    init(userId: UUID, displayName: String, avatarUrl: String? = nil, maxHR: Int = 190, restingHR: Int = 0) {
         self.userId = userId
         self.displayName = displayName
         self.avatarUrl = avatarUrl
         self.maxHR = maxHR
+        self.restingHR = restingHR
     }
 
     /// Update with new snapshot, returns true if this was a newer snapshot.
