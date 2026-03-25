@@ -1193,7 +1193,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     }
 
     /// Notify Watch that a virtual run has started
-    func sendVirtualRunStarted(runId: UUID, partnerId: UUID, partnerName: String, myUserId: UUID, myMaxHR: Int? = nil, myRestingHR: Int = 0, partnerMaxHR: Int = 190) {
+    func sendVirtualRunStarted(runId: UUID, partnerId: UUID, partnerName: String, myUserId: UUID, myMaxHR: Int? = nil, myRestingHR: Int = 0, partnerMaxHR: Int = 190, partnerRestingHR: Int = 0) {
         // Track active run for cleanup when Watch ends
         activeVirtualRunId = runId
         activeVirtualRunUserId = myUserId
@@ -1214,7 +1214,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             "myUserId": myUserId.uuidString,
             "myMaxHR": resolvedMaxHR,
             "myRestingHR": myRestingHR,
-            "partnerMaxHR": partnerMaxHR
+            "partnerMaxHR": partnerMaxHR,
+            "partnerRestingHR": partnerRestingHR
         ]
 
         guard let data = try? JSONSerialization.data(withJSONObject: info) else { return }

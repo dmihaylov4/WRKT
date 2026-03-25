@@ -301,16 +301,19 @@ struct VirtualRunDebugView: View {
             // Fetch partner's profile for maxHR, then notify Watch
             if let myUserId = currentUserId {
                 var partnerMaxHR = 190
+                var partnerRestingHR = 0
                 if let partnerProfile = try? await authService.fetchProfile(userId: testUserId) {
                     partnerMaxHR = partnerProfile.maxHR
-                    log("Partner maxHR: \(partnerMaxHR) (birth year: \(partnerProfile.birthYear.map { String($0) } ?? "nil"))")
+                    partnerRestingHR = partnerProfile.restingHR ?? 0
+                    log("Partner maxHR: \(partnerMaxHR) (birth year: \(partnerProfile.birthYear.map { String($0) } ?? "nil")), restingHR: \(partnerRestingHR)")
                 }
                 WatchConnectivityManager.shared.sendVirtualRunStarted(
                     runId: runId,
                     partnerId: testUserId,
                     partnerName: "Test Partner",
                     myUserId: myUserId,
-                    partnerMaxHR: partnerMaxHR
+                    partnerMaxHR: partnerMaxHR,
+                    partnerRestingHR: partnerRestingHR
                 )
             }
             log("Sent virtual run start to Watch")

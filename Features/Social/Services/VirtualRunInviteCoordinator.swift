@@ -517,16 +517,20 @@ final class VirtualRunInviteCoordinator {
             })
         }
 
-        // Fetch partner's maxHR and my resting HR for Watch HR zone display
+        // Fetch partner's zone config and my resting HR for Watch HR zone display
         var partnerMaxHR = 190
+        var partnerRestingHR = 0
         if let partnerProfile = try? await SupabaseAuthService.shared.fetchProfile(userId: partnerId) {
             partnerMaxHR = partnerProfile.maxHR
+            partnerRestingHR = partnerProfile.restingHR ?? 0
         }
 
         let myRestingHR: Int
         if let rhr = try? await HealthKitManager.shared.fetchAverageRestingHeartRate() {
             myRestingHR = Int(rhr)
             HRZoneCalculator.shared.setRestingHR(rhr)
+            // Sync to Supabase so our partner can read it in their next run
+            try? await SupabaseAuthService.shared.updateProfile(restingHR: myRestingHR)
         } else {
             myRestingHR = 0
         }
@@ -538,7 +542,8 @@ final class VirtualRunInviteCoordinator {
             partnerName: partnerName,
             myUserId: myUserId,
             myRestingHR: myRestingHR,
-            partnerMaxHR: partnerMaxHR
+            partnerMaxHR: partnerMaxHR,
+            partnerRestingHR: partnerRestingHR
         )
         flowPhase = .syncingWithWatch(partnerName: partnerName)
 
