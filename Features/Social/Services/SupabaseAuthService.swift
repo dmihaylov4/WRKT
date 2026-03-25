@@ -330,7 +330,7 @@ final class SupabaseAuthService: ObservableObject {
     // MARK: - Profile Management
 
     /// Update current user's profile
-    func updateProfile(username: String? = nil, displayName: String? = nil, bio: String? = nil, avatarUrl: String? = nil, isPrivate: Bool? = nil, autoPostPRs: Bool? = nil, autoPostCardio: Bool? = nil, birthYear: Int? = nil) async throws {
+    func updateProfile(username: String? = nil, displayName: String? = nil, bio: String? = nil, avatarUrl: String? = nil, isPrivate: Bool? = nil, autoPostPRs: Bool? = nil, autoPostCardio: Bool? = nil, birthYear: Int? = nil, restingHR: Int? = nil) async throws {
         guard let userId = currentUser?.id else {
             throw SupabaseError.notAuthenticated
         }
@@ -370,6 +370,9 @@ final class SupabaseAuthService: ObservableObject {
         }
         if let birthYear = birthYear {
             updates["birth_year"] = .integer(birthYear)
+        }
+        if let restingHR = restingHR {
+            updates["resting_hr"] = .integer(restingHR)
         }
 
         do {
