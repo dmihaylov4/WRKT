@@ -552,7 +552,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
                 "partner": partnerName,
                 "myMaxHR": myMaxHR,
                 "myRestingHR": myRestingHR,
-                "partnerMaxHR": partnerMaxHR
+                "partnerMaxHR": partnerMaxHR,
+                "partnerRestingHR": partnerRestingHR
             ])
 
             let partner = PartnerStats(userId: partnerId, displayName: partnerName, maxHR: partnerMaxHR, restingHR: partnerRestingHR)
