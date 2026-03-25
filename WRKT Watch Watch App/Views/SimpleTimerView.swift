@@ -35,7 +35,7 @@ struct SimpleTimerView: View {
             if isTimerActive, let timerData = timerInfo {
                 timerDisplay(timer: timerData)
             } else {
-                startButton
+                idleView
             }
         }
         .onReceive(tickTimer) { _ in
@@ -115,31 +115,10 @@ struct SimpleTimerView: View {
         }
     }
 
-    // MARK: - Start Button
+    // MARK: - Idle View
 
-    private var startButton: some View {
-        VStack(spacing: 12) {
-            Button {
-                WKInterfaceDevice.current().play(.start)
-                // Request default timer start (90 seconds)
-                connectivity.send(type: .startRestTimer, payload: ["durationSeconds": 90])
-            } label: {
-                VStack(spacing: 8) {
-                    Image(systemName: "timer")
-                        .font(.system(size: 40))
-                        .foregroundColor(accentGreen)
-
-                    Text("Start Rest")
-                        .font(.caption)
-                        .foregroundColor(.white)
-                }
-            }
-            .buttonStyle(.plain)
-
-            Text("No active timer")
-                .font(.caption2)
-                .foregroundColor(.white.opacity(0.4))
-        }
+    private var idleView: some View {
+        WatchIdleView()
     }
 
     // MARK: - Helpers
