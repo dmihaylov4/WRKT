@@ -660,7 +660,7 @@ private struct PartnerSection: View {
         guard let p = partner, let hr = p.heartRate, hr > 0 else {
             return HRZone(number: 0, name: "", color: .clear)
         }
-        return HRZoneHelper.zone(for: hr, maxHR: p.maxHR)
+        return HRZoneHelper.zone(for: hr, maxHR: p.maxHR, restingHR: p.restingHR)
     }
 
     var body: some View {
