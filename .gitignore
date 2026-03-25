@@ -92,3 +92,4 @@ warnings.txt
 *.swp
 *~.nib
 Thumbs.db
+.worktrees/
