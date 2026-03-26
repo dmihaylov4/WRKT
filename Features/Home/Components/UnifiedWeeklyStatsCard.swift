@@ -38,17 +38,17 @@ struct UnifiedWeeklyStatsCard: View {
     private var statusColor: Color {
         if overallPercentage >= 100 {
             return DS.Semantic.success
-        } else if overallPercentage >= 75 {
-            return DS.tint
-        } else if overallPercentage >= 50 {
-            return DS.Semantic.warning
+        } else if overallPercentage == 0 {
+            return .secondary  // Week just started — don't show alarm on day 1
+        } else if overallPercentage >= 50 || daysRemaining > 2 {
+            return DS.tint     // Making progress, or still plenty of time
         } else {
-            return DS.Semantic.warning
+            return DS.Semantic.warning  // Behind AND time is running out
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
@@ -56,7 +56,7 @@ struct UnifiedWeeklyStatsCard: View {
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
 
-                    Text(daysRemaining == 0 ? "Last day!" : "\(daysRemaining) days left")
+                    Text(daysRemaining == 0 ? "Last day!" : "\(daysRemaining) day\(daysRemaining == 1 ? "" : "s") left")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -188,7 +188,7 @@ struct UnifiedWeeklyStatsCard: View {
                 .frame(maxWidth: .infinity, alignment: .center)
             }
         }
-        .padding(14)
+        .padding(12)
         .background(DS.card, in: ChamferedRectangle(.large))
         .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
     }

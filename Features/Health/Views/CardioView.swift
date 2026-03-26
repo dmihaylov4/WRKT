@@ -314,6 +314,7 @@ struct CardioView: View {
                 }
             }
             .padding(.top, 12)
+            .padding(.bottom, 80) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
         }
         .background(Theme.bg.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)

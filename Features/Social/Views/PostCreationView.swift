@@ -73,10 +73,7 @@ struct PostCreationView: View {
                     )
                     viewModel = vm
 
-                    // Suppress didSet map generation during initial setup
-                    vm.suppressMapGeneration = true
                     vm.selectedWorkout = initialWorkout
-                    vm.suppressMapGeneration = false
 
                     // Add initial map image if provided (from CardioDetailView)
                     if let mapImage = initialMapImage {
@@ -92,6 +89,16 @@ struct PostCreationView: View {
                        let workout = initialWorkout, workout.isCardioWorkout {
                         await vm.generateMapSnapshotForWorkout(workout)
                     }
+                }
+            }
+            .onChange(of: viewModel?.selectedWorkout?.id) { _, newID in
+                // Only trigger for FAB path (no initial workout) — CardioDetailView path
+                // handles its own map generation in the .task block above.
+                guard initialWorkout == nil, newID != nil else { return }
+                guard let vm = viewModel, let workout = vm.selectedWorkout else { return }
+                guard workout.isCardioWorkout else { return }
+                Task {
+                    await vm.generateMapSnapshotForWorkout(workout)
                 }
             }
         }
@@ -311,9 +318,11 @@ struct PostCreationView: View {
                 }
             }
 
-            if !viewModel.photoImages.isEmpty {
+            let hasAnyImage = !viewModel.photoImages.isEmpty || viewModel.mapImage != nil
+            if hasAnyImage {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
+                        // User-picked photos first
                         ForEach(Array(viewModel.photoImages.enumerated()), id: \.offset) { index, image in
                             ZStack(alignment: .topTrailing) {
                                 Image(uiImage: image)
@@ -322,11 +331,9 @@ struct PostCreationView: View {
                                     .frame(width: 120, height: 120)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
                                     .overlay(alignment: .bottomLeading) {
-                                        // Privacy toggle button
                                         privacyToggleButton(for: index, viewModel: viewModel)
                                     }
 
-                                // Remove button (top-right)
                                 Button {
                                     viewModel.removePhoto(at: index)
                                 } label: {
@@ -336,6 +343,25 @@ struct PostCreationView: View {
                                         .background(Circle().fill(.black.opacity(0.5)))
                                 }
                                 .padding(4)
+                            }
+                        }
+
+                        // Map snapshot — slot 2 (after user photos), non-removable
+                        if let map = viewModel.mapImage {
+                            ZStack(alignment: .bottomLeading) {
+                                Image(uiImage: map)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 120, height: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                                Text("Map")
+                                    .font(.caption2.bold())
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                                    .padding(6)
                             }
                         }
                     }

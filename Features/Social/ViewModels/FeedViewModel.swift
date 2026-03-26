@@ -41,6 +41,26 @@ final class FeedViewModel {
         self.postRepository = postRepository
         self.authService = authService
         self.realtimeService = realtimeService
+
+        NotificationCenter.default.addObserver(
+            forName: .postCommentCountDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let postId = notification.userInfo?["postId"] as? UUID,
+                  let count = notification.userInfo?["count"] as? Int,
+                  let index = self.posts.firstIndex(where: { $0.post.id == postId }) else { return }
+            var updatedWorkoutPost = self.posts[index].post
+            updatedWorkoutPost.commentsCount = count
+            let existing = self.posts[index]
+            self.posts[index] = PostWithAuthor(
+                id: existing.id,
+                post: updatedWorkoutPost,
+                author: existing.author,
+                isLikedByCurrentUser: existing.isLikedByCurrentUser
+            )
+        }
     }
 
     deinit {
@@ -205,6 +225,8 @@ final class FeedViewModel {
                     Haptics.light()
                 }
             } catch {
+                print("❌ [Feed] Like error: \(error)")
+
                 // Revert on error
                 let revertedPost = posts[index]
                 let revertedLikesCount = revertedPost.isLikedByCurrentUser

@@ -26,19 +26,20 @@ struct SmartCardCarousel: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 180)
+                .frame(height: 160)
 
                 // Custom page indicator
                 if cards.count > 1 {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 5) {
                         ForEach(0..<cards.count, id: \.self) { index in
-                            Circle()
+                            Capsule()
                                 .fill(index == selectedIndex ? DS.tint : Color.secondary.opacity(0.3))
-                                .frame(width: index == selectedIndex ? 8 : 6, height: index == selectedIndex ? 8 : 6)
+                                .frame(width: index == selectedIndex ? 24 : 8, height: 3)
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedIndex)
                         }
                     }
-                    .padding(.vertical, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 16)
                 }
             }
         }

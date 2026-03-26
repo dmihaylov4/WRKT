@@ -145,21 +145,43 @@ struct DayDetail: View {
                         Rectangle().fill(DS.Semantic.border).frame(height: 1)
 
                         ForEach(cardioRuns) { r in
-                            HStack {
-                                Text(timeOnly(r.date))
-                                    .foregroundStyle(DS.Semantic.textPrimary)
-                                Spacer()
-                                Text(String(format: "%.2f km", max(0, r.distanceKm)))
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(DS.Semantic.textPrimary)
-                                Text("•")
-                                    .foregroundStyle(DS.Semantic.textSecondary)
-                                Text(hms(max(0, r.durationSec)))
-                                    .font(.subheadline.monospacedDigit())
-                                    .foregroundStyle(DS.Semantic.textPrimary)
+                            NavigationLink {
+                                CardioDetailView(run: r)
+                            } label: {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "map.fill")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(DS.Theme.accent)
+                                        .frame(width: 22, height: 22)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(timeOnly(r.date))
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(DS.Semantic.textPrimary)
+                                        HStack(spacing: 4) {
+                                            Text(String(format: "%.2f km", max(0, r.distanceKm)))
+                                                .font(.caption.monospacedDigit())
+                                                .foregroundStyle(DS.Semantic.textSecondary)
+                                            Text("·")
+                                                .foregroundStyle(DS.Semantic.textSecondary)
+                                            Text(hms(max(0, r.durationSec)))
+                                                .font(.caption.monospacedDigit())
+                                                .foregroundStyle(DS.Semantic.textSecondary)
+                                        }
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(DS.Semantic.textSecondary)
+                                        .opacity(0.6)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .contentShape(Rectangle())
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
+                            .buttonStyle(.plain)
 
                             if r.id != cardioRuns.last?.id {
                                 Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
@@ -219,7 +241,7 @@ struct DailySummaryCard: View {
                 }
             } label: {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(date.formatted(.dateTime.weekday(.wide).day().month()))
+                    Text(date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().locale(Locale(identifier: "en_US"))))
                         .font(.headline).foregroundStyle(DS.Semantic.textPrimary)
                     Spacer()
                     if workoutCount > 0 {

@@ -36,6 +36,9 @@ struct FeedView: View {
     // User search
     @State private var showingUserSearch = false
 
+    // Likes list
+    @State private var likesPost: PostWithAuthor?
+
     var body: some View {
         Group {
             if let viewModel = viewModel {
@@ -79,6 +82,7 @@ struct FeedView: View {
                     showingBattleCreation = true
                 }
             )
+            .padding(.bottom, 56) // lift above custom tab bar (UITabBar.isHidden breaks safe area propagation)
         }
         .sheet(isPresented: $showingCreatePost, onDismiss: {
             // Refresh feed when post creation sheet is dismissed
@@ -92,7 +96,7 @@ struct FeedView: View {
         }
         .sheet(item: $postToEdit) { editPost in
             if let vm = viewModel {
-                EditPostView(post: editPost) { @MainActor @Sendable [editPost] caption, visibility in
+                EditPostView(post: editPost, currentUserId: deps.authService.currentUser?.id) { @MainActor @Sendable [editPost] caption, visibility in
                     await vm.updatePost(editPost, caption: caption, visibility: visibility)
                 }
             }
@@ -119,6 +123,9 @@ struct FeedView: View {
                 UserSearchView()
                     .environment(\.dependencies, deps)
             }
+        }
+        .sheet(item: $likesPost) { post in
+            LikesListView(postId: post.post.id, postRepository: deps.postRepository)
         }
         .sheet(item: $selectedMuscleFilter) { muscleFilter in
             NavigationStack {
@@ -183,6 +190,9 @@ struct FeedView: View {
                     await vm?.cleanup()
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .socialTabReselected)) { _ in
+            selectedPost = nil
         }
     }
 
@@ -277,6 +287,9 @@ struct FeedView: View {
                                 },
                                 onComment: {
                                     selectedPost = post
+                                },
+                                onShowLikes: {
+                                    likesPost = post
                                 },
                                 onProfileTap: {
                                     selectedUserId = post.author.id

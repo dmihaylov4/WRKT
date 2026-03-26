@@ -1,30 +1,18 @@
 import AVFoundation
 
-/// Persistent AVAudioSession + spoken cues for iPhone during an active virtual run.
+/// Persistent AVAudioSession for iPhone during an active virtual run.
 ///
-/// Unlike the Watch's `VirtualRunAudioCues` (which activates/deactivates per-utterance
-/// because `workout-processing` keeps the Watch alive), this class holds the session open
-/// for the entire run. That persistent session is what prevents iOS from suspending the
-/// app when the screen locks, keeping the Supabase WebSocket and WCSession relay alive.
+/// The session is held open for the entire run — not for audio playback, but to prevent
+/// iOS from suspending the app when the screen locks. Without an active session the
+/// Supabase WebSocket and WCSession relay both die. No audio is played on the iPhone;
+/// haptic cues are handled on the Watch via VirtualRunAudioCues.
 @MainActor
-final class iPhoneVirtualRunAudioCues: NSObject {
+final class iPhoneVirtualRunAudioCues {
     static let shared = iPhoneVirtualRunAudioCues()
 
-    private let synthesizer = AVSpeechSynthesizer()
     private var isSessionActive = false
 
-    var isEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "iPhoneVRAudioCuesEnabled") }
-        set { UserDefaults.standard.set(newValue, forKey: "iPhoneVRAudioCuesEnabled") }
-    }
-
-    private override init() {
-        super.init()
-        if UserDefaults.standard.object(forKey: "iPhoneVRAudioCuesEnabled") == nil {
-            UserDefaults.standard.set(true, forKey: "iPhoneVRAudioCuesEnabled")
-        }
-        synthesizer.delegate = self
-    }
+    private init() {}
 
     // MARK: - Session Lifecycle
 
@@ -34,7 +22,7 @@ final class iPhoneVirtualRunAudioCues: NSObject {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .voicePrompt,
-                options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
+                options: [.mixWithOthers, .interruptSpokenAudioAndMixWithOthers]
             )
             try AVAudioSession.sharedInstance().setActive(true)
             isSessionActive = true
@@ -51,38 +39,18 @@ final class iPhoneVirtualRunAudioCues: NSObject {
 
     func endSession() {
         guard isSessionActive else { return }
-        synthesizer.stopSpeaking(at: .immediate)
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         isSessionActive = false
     }
 
-    // MARK: - Cues
+    // MARK: - Cues (no-ops — haptics handled on Watch)
 
-    func announceKilometer(_ km: Int) {
-        guard isEnabled, isSessionActive else { return }
-        speak(km == 1 ? "1 kilometer" : "\(km) kilometers")
-    }
-
-    func announceLeadChange(isLeading: Bool) {
-        guard isEnabled, isSessionActive else { return }
-        speak(isLeading ? "You took the lead" : "Partner took the lead")
-    }
-
-    func announcePartnerFinished() {
-        guard isEnabled, isSessionActive else { return }
-        speak("Partner finished")
-    }
+    func announceKilometer(_ km: Int) {}
+    func announceLeadChange(isLeading: Bool) {}
+    func announcePartnerFinished() {}
 
     // MARK: - Private
-
-    private func speak(_ text: String) {
-        synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: text)
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.1
-        utterance.volume = 0.8
-        synthesizer.speak(utterance)
-    }
 
     @objc private func handleInterruption(_ notification: Notification) {
         guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
@@ -90,10 +58,4 @@ final class iPhoneVirtualRunAudioCues: NSObject {
               type == .ended, isSessionActive else { return }
         try? AVAudioSession.sharedInstance().setActive(true)
     }
-}
-
-extension iPhoneVirtualRunAudioCues: AVSpeechSynthesizerDelegate {
-    // Session stays active between cues — do NOT deactivate here.
-    // (Watch's VirtualRunAudioCues deactivates here because workout-processing keeps it alive.)
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {}
 }

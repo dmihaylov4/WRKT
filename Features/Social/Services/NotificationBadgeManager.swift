@@ -275,7 +275,16 @@ final class NotificationBadgeManager {
 
             // Workout notifications
             case .workoutCompleted:
-                return ("Workout Complete", "\(actorName) just finished a workout", "figure.strengthtraining.traditional", .success)
+                let workoutType = notification.metadata?["workout_type"] ?? ""
+                if !workoutType.isEmpty {
+                    let icon = workoutType.lowercased() == "running" ? "figure.run" : "figure.outdoor.cycle"
+                    if let distKm = Double(notification.metadata?["distance_km"] ?? ""), distKm > 0 {
+                        let km = distKm >= 10 ? String(format: "%.0f", distKm) : String(format: "%.1f", distKm)
+                        return ("\(workoutType) Complete!", "\(actorName) just finished a \(km) km \(workoutType.lowercased()). Take a look!", icon, .success)
+                    }
+                    return ("\(workoutType) Complete!", "\(actorName) completed a \(workoutType.lowercased()) workout", icon, .success)
+                }
+                return ("Workout Complete", "\(actorName) completed a strength workout", "figure.strengthtraining.traditional", .success)
             }
         }()
 

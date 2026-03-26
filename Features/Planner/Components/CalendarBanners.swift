@@ -62,9 +62,14 @@ struct WeeklyStreakBanner: View {
 
             Spacer()
 
-            ProgressView(value: min(Double(streak)/12.0, 1.0))
-                .tint(DS.Theme.accent)
-                .frame(width: 80)
+            VStack(alignment: .trailing, spacing: 3) {
+                ProgressView(value: min(Double(streak)/12.0, 1.0))
+                    .tint(DS.Theme.accent)
+                    .frame(width: 80)
+                Text("Next: 12 wks")
+                    .font(.caption2)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
         }
         .padding(12)
         .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))

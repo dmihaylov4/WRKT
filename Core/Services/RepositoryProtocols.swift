@@ -25,6 +25,9 @@ import Foundation
     /// Update a post's caption and visibility
     func updatePost(_ postId: UUID, caption: String?, visibility: PostVisibility) async throws
 
+    /// Fetch the current user's post for a specific HealthKit workout UUID, if one exists
+    func fetchOwnPost(forHealthKitUUID hkUUID: UUID, userId: UUID) async throws -> WorkoutPost?
+
     /// Like a post
     func likePost(_ postId: UUID) async throws
 

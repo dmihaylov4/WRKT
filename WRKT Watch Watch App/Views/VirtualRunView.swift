@@ -276,8 +276,8 @@ struct VirtualRunView: View {
                     VirtualRunAudioCues.shared.isEnabled.toggle()
                 } label: {
                     Label(
-                        VirtualRunAudioCues.shared.isEnabled ? "Audio" : "Muted",
-                        systemImage: VirtualRunAudioCues.shared.isEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill"
+                        VirtualRunAudioCues.shared.isEnabled ? "Haptics" : "Silent",
+                        systemImage: VirtualRunAudioCues.shared.isEnabled ? "waveform" : "waveform.slash"
                     )
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(VirtualRunAudioCues.shared.isEnabled ? .green : .secondary)
@@ -420,20 +420,18 @@ struct VirtualRunView: View {
     // MARK: - Partner Finished Overlay
 
     private var partnerFinishedOverlay: some View {
-        VStack(spacing: 8) {
-            Spacer()
-            Image(systemName: "flag.checkered")
-                .font(.system(size: 32))
-                .foregroundStyle(.green)
+        VStack(spacing: 0) {
             Text("Partner Finished!")
-                .font(.system(size: 16, weight: .bold))
+                .font(.system(size: 15, weight: .bold))
+                .padding(.top, 12)
+                .padding(.bottom, 6)
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Text(formatDistanceValue(manager.partnerFinalDistance))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(.green)
                 Text(formatDistanceUnit(manager.partnerFinalDistance))
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.secondary)
             }
 
@@ -441,35 +439,44 @@ struct VirtualRunView: View {
                 Text("\(formatPace(pace)) /km")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.secondary)
+                    .padding(.bottom, 4)
             }
 
             Spacer()
 
-            Button {
-                manager.requestEndRun()
-            } label: {
-                Text("End My Run")
-                    .font(.system(size: 16, weight: .semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.green)
-                    )
-                    .foregroundStyle(.black)
+            VStack(spacing: 8) {
+                Button {
+                    manager.dismissPartnerFinished()
+                } label: {
+                    Text("Keep Going")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.green)
+                        )
+                        .foregroundStyle(.black)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    manager.requestEndRun()
+                } label: {
+                    Text("End My Run")
+                        .font(.system(size: 16, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.red)
+                        )
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, 16)
-
-            Button {
-                manager.dismissPartnerFinished()
-            } label: {
-                Text("Keep Going")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            Spacer()
+            .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.opacity(0.92))
@@ -556,25 +563,28 @@ struct VirtualRunView: View {
                 .frame(width: 60, height: 1)
                 .padding(.vertical, 2)
 
-            // Partner info
-            if let partner = manager.partnerStats {
-                HStack(spacing: 4) {
-                    Image(systemName: "figure.run")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.green.opacity(0.3))
-                    Text(partner.displayName)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.3))
-                        .lineLimit(1)
-                }
+            // Partner info — TimelineView forces re-evaluation every second so
+            // the display stays current while the wrist is down (always-on mode).
+            TimelineView(.periodic(from: .now, by: 1.0)) { _ in
+                if let partner = manager.partnerStats {
+                    HStack(spacing: 4) {
+                        Image(systemName: "figure.run")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.green.opacity(0.3))
+                        Text(partner.displayName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.3))
+                            .lineLimit(1)
+                    }
 
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(formatDistanceValue(partner.displayDistanceM))
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.35))
-                    Text(formatDistanceUnit(partner.displayDistanceM))
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.2))
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text(formatDistanceValue(partner.displayDistanceM))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.35))
+                        Text(formatDistanceUnit(partner.displayDistanceM))
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.2))
+                    }
                 }
             }
 
@@ -639,9 +649,15 @@ private struct MySection: View {
             }
 
             // Pace
-            Text(pace.map { "\(formatPace($0)) /km" } ?? "--:-- /km")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white)
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(pace.map { formatPace($0) } ?? "--:--")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                Text("/km")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+            }
 
             Spacer(minLength: 0)
         }

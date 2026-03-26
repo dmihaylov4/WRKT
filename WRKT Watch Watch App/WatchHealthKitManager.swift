@@ -202,9 +202,16 @@ final class WatchHealthKitManager: NSObject {
                     do {
                         try await rb.finishRoute(with: workout, metadata: nil)
                         logger.info("✅ Route saved to workout")
+                        VirtualRunFileLogger.shared.log(category: .healthkit, message: "Route saved to workout")
                     } catch {
                         logger.error("Failed to save route: \(error.localizedDescription)")
+                        VirtualRunFileLogger.shared.log(category: .error, message: "Route save FAILED", data: ["error": error.localizedDescription])
                     }
+                } else {
+                    VirtualRunFileLogger.shared.log(category: .healthkit, message: "No route to save", data: [
+                        "hasRouteBuilder": routeBuilderToEnd != nil,
+                        "hasWorkout": workout != nil
+                    ])
                 }
 
                 logger.info("✅ Workout saved - Duration: \(self.elapsedTime)s, Calories: \(self.activeCalories)")

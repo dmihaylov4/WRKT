@@ -74,7 +74,7 @@ struct HeroStartWorkoutButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: UIScreen.main.bounds.height * 0.26) // 26% of screen
+            .frame(height: UIScreen.main.bounds.height * 0.22) // 22% of screen
             .animation(nil, value: stateIdentifier) // Disable animation on content switch
             .background(dynamicBackground)
             .overlay(leftAccentStripe)

@@ -15,6 +15,7 @@ struct PostCard: View {
     let currentUserId: UUID?
     let onLike: () -> Void
     let onComment: () -> Void
+    let onShowLikes: (() -> Void)?
     let onProfileTap: () -> Void
     let onPostTap: () -> Void
     let onEdit: (() -> Void)?
@@ -27,6 +28,7 @@ struct PostCard: View {
     @State private var showingReportAlert = false
     @State private var showingMenuSheet = false
     @State private var displayImageURLs: [URL] = []
+    @State private var isBackfilling = false
 
     private let imageUploadService = ImageUploadService()
 
@@ -35,9 +37,8 @@ struct PostCard: View {
             // Header: Avatar + Username + Time
             header
 
-            // Caption (skip for cardio posts — the card itself is the content)
-            if !post.post.workoutData.isCardioWorkout,
-               let caption = post.post.caption, !caption.isEmpty {
+            // Caption
+            if let caption = post.post.caption, !caption.isEmpty {
                 Text(caption)
                     .font(.body)
                     .foregroundStyle(DS.Semantic.textPrimary)
@@ -120,7 +121,7 @@ struct PostCard: View {
                post.post.workoutData.isCardioWorkout,
                displayImageURLs.isEmpty,
                let hkUUID = post.post.workoutData.matchedHealthKitUUID {
-                await backfillMapIfNeeded(hkUUID: hkUUID)
+                await runBackfill(hkUUID: hkUUID)
             }
         }
     }
@@ -157,6 +158,13 @@ struct PostCard: View {
     }
 
     // MARK: - Lazy Map Backfill
+
+    private func runBackfill(hkUUID: UUID) async {
+        guard !isBackfilling else { return }
+        isBackfilling = true
+        await backfillMapIfNeeded(hkUUID: hkUUID)
+        isBackfilling = false
+    }
 
     /// Fetches route + HR from HealthKit, generates a map snapshot, uploads it,
     /// and patches the post record. Fails silently — retries on next feed load.
@@ -397,6 +405,33 @@ struct PostCard: View {
             // Map preview (if available) - first image is the map for cardio posts
             if !displayImageURLs.isEmpty {
                 cardioMapPreview
+            } else if post.post.userId == currentUserId,
+                      let hkUUID = post.post.workoutData.matchedHealthKitUUID {
+                // Show Get Route button for own posts missing a route map
+                Button {
+                    Task { await runBackfill(hkUUID: hkUUID) }
+                } label: {
+                    HStack(spacing: 6) {
+                        if isBackfilling {
+                            ProgressView()
+                                .scaleEffect(0.75)
+                                .tint(DS.Semantic.brand)
+                        } else {
+                            Image(systemName: "map.fill")
+                                .font(.caption)
+                                .foregroundStyle(DS.Semantic.brand)
+                        }
+                        Text(isBackfilling ? "Building route..." : "Get Route Map")
+                            .font(.caption.bold())
+                            .foregroundStyle(DS.Semantic.fillSubtle)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(DS.Semantic.brandSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .disabled(isBackfilling)
+                .buttonStyle(.plain)
             }
 
             // Hero display for distance and time (if distance is available)
@@ -404,9 +439,8 @@ struct PostCard: View {
                 cardioHeroStats(distanceMeters: distanceMeters)
             }
 
-            // Secondary stats in two rows for better formatting
+            // Secondary stats
             VStack(spacing: 6) {
-                // First row: calories and duration (if no distance hero shown)
                 HStack {
                     if let calories = post.post.workoutData.matchedHealthKitCalories {
                         statPill(icon: "flame.fill", value: String(format: "%.0f", calories), label: "cal")
@@ -420,7 +454,11 @@ struct PostCard: View {
 
                     Spacer()
 
-                    if let maxHR = post.post.workoutData.matchedHealthKitMaxHeartRate {
+                    // Non-GPS workouts: show duration instead of max BPM
+                    if post.post.workoutData.matchedHealthKitDistance == nil,
+                       let durationSec = post.post.workoutData.matchedHealthKitDuration {
+                        statPill(icon: "clock.fill", value: formatCardioDuration(durationSec), label: "duration")
+                    } else if let maxHR = post.post.workoutData.matchedHealthKitMaxHeartRate {
                         statPill(icon: "bolt.heart.fill", value: String(format: "%.0f", maxHR), label: "max bpm")
                     }
                 }
@@ -473,6 +511,11 @@ struct PostCard: View {
                 .padding(8)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedImageIndex = 0
+            showingImageViewer = true
+        }
     }
 
     // MARK: - HR Zones Legend
@@ -504,9 +547,12 @@ struct PostCard: View {
         return String(format: "%d:%02d", minutes, seconds)
     }
 
-    // MARK: - Cardio Hero Stats (Distance + Time)
+    // MARK: - Cardio Hero Stats (Distance + Time + Pace)
     private func cardioHeroStats(distanceMeters: Double) -> some View {
-        HStack(spacing: 16) {
+        let durationSec = post.post.workoutData.matchedHealthKitDuration
+        let paceSecPerKm: Double? = durationSec.map { Double($0) / (distanceMeters / 1000) }
+
+        return HStack(spacing: 0) {
             // Distance
             VStack(spacing: 2) {
                 Text(String(format: "%.2f", distanceMeters / 1000))
@@ -517,16 +563,16 @@ struct PostCard: View {
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .tracking(0.5)
             }
+            .frame(maxWidth: .infinity)
 
-            // Divider
             Rectangle()
                 .fill(DS.Semantic.border)
                 .frame(width: 1, height: 40)
 
             // Duration
             VStack(spacing: 2) {
-                if let durationSec = post.post.workoutData.matchedHealthKitDuration {
-                    Text(formatCardioDuration(durationSec))
+                if let sec = durationSec {
+                    Text(formatCardioDuration(sec))
                         .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundStyle(DS.Semantic.textPrimary)
                 } else {
@@ -539,8 +585,26 @@ struct PostCard: View {
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .tracking(0.5)
             }
+            .frame(maxWidth: .infinity)
+
+            // Pace (only for running/distance workouts)
+            if let pace = paceSecPerKm {
+                Rectangle()
+                    .fill(DS.Semantic.border)
+                    .frame(width: 1, height: 40)
+
+                VStack(spacing: 2) {
+                    Text(formatPace(pace))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                    Text("AVG PACE")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                        .tracking(0.5)
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
-        .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
     }
 
@@ -549,7 +613,7 @@ struct PostCard: View {
         let m = (seconds % 3600) / 60
         let s = seconds % 60
         if h > 0 {
-            return String(format: "%d:%02d:%02d", h, m, s)
+            return String(format: "%d:%02d", h, m)
         } else {
             return String(format: "%d:%02d", m, s)
         }
@@ -631,7 +695,7 @@ struct PostCard: View {
                 }
             }
         }
-        .transition(.opacity.combined(with: .move(edge: .top)))
+        .transition(.opacity)
     }
 
     // MARK: - Action Buttons
@@ -643,12 +707,10 @@ struct PostCard: View {
                 Haptics.light()
                 onLike()
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: post.isLikedByCurrentUser ? "heart.fill" : "heart")
-                        .font(.title3)
-                        .foregroundStyle(post.isLikedByCurrentUser ? DS.Semantic.brand : DS.Semantic.textSecondary)
-                        .symbolEffect(.bounce, value: post.isLikedByCurrentUser)
-                }
+                Image(post.isLikedByCurrentUser ? "tab-cardio" : "tab-cardio-inactive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
             }
 
             // Comment button
@@ -656,9 +718,10 @@ struct PostCard: View {
                 Haptics.light()
                 onComment()
             } label: {
-                Image(systemName: "bubble.right")
-                    .font(.title3)
-                    .foregroundStyle(DS.Semantic.textSecondary)
+                Image("tab-social-inactive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
             }
 
             Spacer()
@@ -680,9 +743,16 @@ struct PostCard: View {
     private var statsRow: some View {
         HStack(spacing: 4) {
             if post.post.likesCount > 0 {
-                Text("\(post.post.likesCount) \(post.post.likesCount == 1 ? "like" : "likes")")
-                    .font(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
+                Button {
+                    Haptics.light()
+                    onShowLikes?()
+                } label: {
+                    Text("\(post.post.likesCount) \(post.post.likesCount == 1 ? "like" : "likes")")
+                        .font(.caption)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(onShowLikes == nil)
             }
 
             if post.post.commentsCount > 0 {
@@ -692,14 +762,16 @@ struct PostCard: View {
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
-                Text("\(post.post.commentsCount) \(post.post.commentsCount == 1 ? "comment" : "comments")")
-                    .font(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
+                Button {
+                    Haptics.light()
+                    onComment()
+                } label: {
+                    Text("\(post.post.commentsCount) \(post.post.commentsCount == 1 ? "comment" : "comments")")
+                        .font(.caption)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                }
+                .buttonStyle(.plain)
             }
-        }
-        .onTapGesture {
-            Haptics.light()
-            onComment()
         }
     }
 

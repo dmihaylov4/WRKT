@@ -582,15 +582,20 @@ extension WatchConnectivityManager: WCSessionDelegate {
         lastProcessedVRRunId = nil
         cancelVirtualRunNotification()
         Task { @MainActor in
-            VirtualRunManager.shared.endVirtualRun()
+            // Keep logger open so HK save result is captured before transfer
+            VirtualRunManager.shared.endVirtualRun(finishLogger: false)
 
             // End the HealthKit workout and save it
             do {
                 try await WatchHealthKitManager.shared.endWorkout(discard: false)
                 logger.info("✅ Ended and saved running workout")
+                VirtualRunFileLogger.shared.log(category: .healthkit, message: "Running workout saved to HealthKit")
             } catch {
                 logger.error("Failed to end running workout: \(error.localizedDescription)")
+                VirtualRunFileLogger.shared.log(category: .error, message: "Running workout save FAILED", data: ["error": error.localizedDescription])
             }
+            VirtualRunFileLogger.shared.endSession()
+            WatchConnectivityManager.shared.transferLogFile()
         }
     }
 

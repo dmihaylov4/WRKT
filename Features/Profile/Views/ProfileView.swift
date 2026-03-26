@@ -32,8 +32,8 @@ struct ProfileView: View {
     @State private var graphsFrame: CGRect = .zero
     @State private var dexFrame: CGRect = .zero
     @State private var milestonesFrame: CGRect = .zero
-    @State private var settingsFrame: CGRect = .zero
     @State private var framesReady = false
+    @State private var showSettings = false
     @State private var allExercises: [Exercise] = []
     @State private var dexPreviewCache: [DexItem] = []
 
@@ -203,6 +203,33 @@ struct ProfileView: View {
     var body: some View {
         ScrollViewReader { proxy in
             List {
+                // SETTINGS BUTTON (top-right, compact)
+                Section {
+                    HStack {
+                        Spacer()
+                        Button { showSettings = true } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "gear")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                                Text("Settings")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                ChamferedRectangle(.small)
+                                    .fill(Color.black)
+                                    .overlay(ChamferedRectangle(.small).stroke(.white.opacity(0.1), lineWidth: 1))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 0, trailing: 16))
+                .listRowBackground(Color.clear)
+
                 // UNIFIED PROGRESS OVERVIEW
                 if let p = progress.first {
                     Section {
@@ -248,7 +275,7 @@ struct ProfileView: View {
                             }
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 2, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 2, trailing: 0))
                     .listRowBackground(Color.clear)
                     .id("levelCard")
                 } else {
@@ -269,7 +296,7 @@ struct ProfileView: View {
                             isFrozen: p.streakFrozen
                         )
                     }
-                    .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 4, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 4, trailing: 0))
                     .listRowBackground(Color.clear)
                     .id("weeklyStreak")
                 }
@@ -285,7 +312,7 @@ struct ProfileView: View {
                     }
                     .id(statsRefreshTrigger) // Force refresh when this changes
                 }
-                .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
                 .id("graphs")
 
@@ -331,7 +358,7 @@ struct ProfileView: View {
                         checkFramesReady()
                     }
                 }
-                .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
                 .id("dex")
 
@@ -367,24 +394,24 @@ struct ProfileView: View {
                             checkFramesReady()
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                     .listRowBackground(Color.clear)
                     .id("milestones")
                 }
 
-                // SETTINGS LINK
+                // Bottom spacer for custom tab bar (UITabBar.isHidden breaks safe area propagation)
                 Section {
-                    NavigationLink {
-                        SettingsView()
-                            .environmentObject(authService)
-                    } label: {
-                        Label("Settings", systemImage: "gear")
-                    }
+                    Color.clear.frame(height: 56)
                 }
-                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowInsets(.init())
             }
             .listStyle(.insetGrouped)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showSettings) {
+                SettingsView()
+                    .environmentObject(authService)
+            }
             .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .onChange(of: currentTutorialStep) { _, newStep in
@@ -480,11 +507,10 @@ struct ProfileView: View {
         let levelReady = levelCardFrame != .zero && levelCardFrame.width > minSize && levelCardFrame.height > minSize
         let graphsReady = graphsFrame != .zero && graphsFrame.width > minSize && graphsFrame.height > minSize
         let dexReady = dexFrame != .zero && dexFrame.width > minSize && dexFrame.height > minSize
-        // Milestones and Settings are optional (might not exist for new users)
+        // Milestones are optional (might not exist for new users)
         let milestonesReady = (milestonesFrame != .zero && milestonesFrame.width > minSize) || cachedMilestones.isEmpty
-        let settingsReady = settingsFrame != .zero && settingsFrame.width > minSize && settingsFrame.height > minSize
 
-        if levelReady && graphsReady && dexReady && milestonesReady && settingsReady && !framesReady {
+        if levelReady && graphsReady && dexReady && milestonesReady && !framesReady {
             // Add a small delay to ensure frames are stable before showing tutorial
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 framesReady = true
@@ -500,7 +526,6 @@ struct ProfileView: View {
         if hasMilestones {
             sectionIDs.append("milestones")
         }
-        sectionIDs.append("settings")
 
         guard step < sectionIDs.count else { return }
 
@@ -616,18 +641,6 @@ struct ProfileView: View {
                 tooltipPosition: .bottom,
                 highlightCornerRadius: 16
             ),
-            TutorialStep(
-                title: "Settings",
-                message: "Customize your preferences and connect to Apple Health for seamless workout tracking.",
-                spotlightFrame: CGRect(
-                    x: padding,
-                    y: max(100, screenHeight * 0.65) + 100 - 5,  // Position in lower portion of screen + move up by 5
-                    width: screenWidth - (padding * 2),
-                    height: 100  // Fixed height for settings section
-                ),
-                tooltipPosition: .top,
-                highlightCornerRadius: 16
-            )
         ]
 
         return steps

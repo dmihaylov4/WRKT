@@ -105,6 +105,19 @@ class VirtualRunManager {
 
     /// Called when iPhone sends a virtual run invite — shows confirmation screen on Watch
     func setPendingRun(runId: UUID, myUserId: UUID, partner: PartnerStats, myMaxHR: Int, myRestingHR: Int = 0) {
+        // Guard: never overwrite an in-progress run phase.
+        // transferUserInfo for a previous run can arrive late (Apple guarantees delivery but
+        // not timing). If we're already active/paused/counting down, silently ignore the
+        // stale message — overwriting the phase would trigger the 60-second auto-decline
+        // timer and end the current run without user intent.
+        guard phase == .idle else {
+            logger.warning("⚠️ Ignoring setPendingRun(runId:\(runId)) — current phase is \(String(describing: self.phase)). Stale message discarded.")
+            VirtualRunFileLogger.shared.log(category: .phase, message: "setPendingRun ignored (non-idle phase)", data: [
+                "runId": runId.uuidString,
+                "currentPhase": String(describing: phase)
+            ])
+            return
+        }
         pendingRunInfo = PendingRunInfo(runId: runId, myUserId: myUserId, partner: partner, myMaxHR: myMaxHR, myRestingHR: myRestingHR)
         partnerStats = partner
         phase = .pendingConfirmation
@@ -133,12 +146,19 @@ class VirtualRunManager {
     func declineRun() {
         cancelConfirmationTimeout()
         WatchConnectivityManager.shared.cancelVirtualRunNotification()
+        // Capture runId before clearing state so iPhone's stale-run guard can reject
+        // this message if it arrives after a new run has already started on iPhone.
+        let runId = pendingRunInfo?.runId
         pendingRunInfo = nil
         partnerStats = nil
         phase = .idle
+        var payload: [String: Any] = [:]
+        if let runId {
+            payload["runId"] = runId.uuidString
+        }
         WatchConnectivityManager.shared.sendMessage(
             type: .runEnded,
-            payload: [String: String]()
+            payload: payload
         )
     }
 
@@ -228,7 +248,10 @@ class VirtualRunManager {
         WKInterfaceDevice.current().play(.start)
     }
 
-    func endVirtualRun() {
+    /// End the virtual run state.
+    /// - Parameter finishLogger: Pass `false` when the caller will close the log session
+    ///   after an async HK save, so that finishRoute errors are captured in the transferred log.
+    func endVirtualRun(finishLogger: Bool = true) {
         VirtualRunFileLogger.shared.log(category: .phase, message: "Virtual run ending")
 
         countdownTimer?.invalidate()
@@ -257,10 +280,11 @@ class VirtualRunManager {
         kalmanFilter.reset()
         clearPersistedState()
 
-        VirtualRunFileLogger.shared.endSession()
-
-        // Auto-transfer log file to iPhone
-        WatchConnectivityManager.shared.transferLogFile()
+        if finishLogger {
+            VirtualRunFileLogger.shared.endSession()
+            // Auto-transfer log file to iPhone
+            WatchConnectivityManager.shared.transferLogFile()
+        }
 
         WKInterfaceDevice.current().play(.stop)
     }
@@ -297,16 +321,21 @@ class VirtualRunManager {
         //    iPhone deduplicates via lastProcessedVREndRunId
         WatchConnectivityManager.shared.sendRunEndedGuaranteed(payload: payload)
 
-        endVirtualRun()
+        // Keep logger open so HK save result (including finishRoute errors) is captured
+        endVirtualRun(finishLogger: false)
 
-        // Save HealthKit running workout
+        // Save HealthKit running workout, then close and transfer the log
         Task {
             do {
                 try await WatchHealthKitManager.shared.endWorkout(discard: false)
                 logger.info("Saved running workout after Watch-initiated end")
+                VirtualRunFileLogger.shared.log(category: .healthkit, message: "Running workout saved to HealthKit")
             } catch {
                 logger.error("Failed to end running workout: \(error.localizedDescription)")
+                VirtualRunFileLogger.shared.log(category: .error, message: "Running workout save FAILED", data: ["error": error.localizedDescription])
             }
+            VirtualRunFileLogger.shared.endSession()
+            WatchConnectivityManager.shared.transferLogFile()
         }
     }
 

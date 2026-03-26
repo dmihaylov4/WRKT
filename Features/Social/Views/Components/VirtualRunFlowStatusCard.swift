@@ -11,6 +11,7 @@ import SwiftUI
 
 struct VirtualRunFlowStatusCard: View {
     @State private var coordinator = VirtualRunInviteCoordinator.shared
+    @State private var isCollapsed = false
 
     private var phase: VirtualRunFlowPhase { coordinator.flowPhase }
     private var retryAction: (@MainActor @Sendable () async -> Void)? { coordinator.retryAction }
@@ -23,6 +24,10 @@ struct VirtualRunFlowStatusCard: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: phase)
+        .onChange(of: phase) { _, newPhase in
+            // Auto-expand when phase changes
+            if case .activeRun = newPhase { isCollapsed = false }
+        }
     }
 
     // MARK: - Card Body
@@ -30,11 +35,13 @@ struct VirtualRunFlowStatusCard: View {
     private var cardBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             headerRow
-            if case .activeRun = phase {
-                activeRunStats
-            } else {
-                statusRow
-                actionRow
+            if !isCollapsed {
+                if case .activeRun = phase {
+                    activeRunStats
+                } else {
+                    statusRow
+                    actionRow
+                }
             }
         }
         .padding(16)
@@ -62,9 +69,21 @@ struct VirtualRunFlowStatusCard: View {
                 PulsingDot(color: DS.Semantic.success, size: 7)
             }
             Spacer()
-            // No dismiss button during an active run — card lives for the run duration
+            // No dismiss during active run — show collapse toggle instead
             if case .activeRun = phase {
-                EmptyView()
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                        isCollapsed.toggle()
+                    }
+                } label: {
+                    Image(systemName: isCollapsed ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 26, height: 26)
+                        .background(.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             } else {
                 Button {
                     coordinator.dismissFlowCard()

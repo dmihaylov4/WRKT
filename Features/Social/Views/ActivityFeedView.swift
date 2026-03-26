@@ -101,6 +101,11 @@ private struct NotificationListView: View {
         }
         .task {
             await viewModel.loadNotifications()
+            // Auto-mark all as read when the screen is opened
+            if viewModel.notifications.contains(where: { !$0.read }) {
+                await viewModel.markAllAsRead()
+                NotificationBadgeManager.shared.notificationCount = 0
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {

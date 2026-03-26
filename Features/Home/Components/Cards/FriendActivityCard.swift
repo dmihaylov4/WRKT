@@ -69,7 +69,7 @@ struct FriendActivityCard: View {
                 }
             }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
             DS.card

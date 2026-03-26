@@ -17,27 +17,16 @@ final class PostCreationViewModel {
     var caption = ""
     var selectedVisibility: PostVisibility = .friends
     var selectedPhotos: [PhotosPickerItem] = []
-    var photoImages: [UIImage] = []
-    var imagePrivacySettings: [Bool] = [] // true = public, false = private
+    var photoImages: [UIImage] = []         // user-picked photos only
+    var mapImage: UIImage?                  // map snapshot, tracked separately so loadPhotos() never wipes it
+    var imagePrivacySettings: [Bool] = []   // mirrors photoImages (not mapImage)
     var isUploading = false
     var isLoadingWorkouts = false
     var isGeneratingMap = false
     var error: UserFriendlyError?
     var retryAttempt = 0
     var recentWorkouts: [CompletedWorkout] = []
-    var selectedWorkout: CompletedWorkout? {
-        didSet {
-            // When a workout is selected via picker (not initial setup), generate map if it's cardio
-            if !suppressMapGeneration, let workout = selectedWorkout, workout.isCardioWorkout {
-                Task {
-                    await generateMapSnapshotForWorkout(workout)
-                }
-            }
-        }
-    }
-
-    /// Temporarily suppress map generation in didSet (used during initial setup when map is provided externally)
-    var suppressMapGeneration = false
+    var selectedWorkout: CompletedWorkout?
 
     // Store runs to access route data for map generation
     private var cachedRuns: [Run] = []
@@ -70,11 +59,9 @@ final class PostCreationViewModel {
         error = nil
         retryAttempt = 0
 
-        // Step 1: Upload images with privacy settings (if any)
-        var postImages: [PostImage] = []
+        // Step 1: Upload user-picked photos (if any)
+        var uploadedUserPhotos: [PostImage] = []
         if !photoImages.isEmpty {
-            // Ensure imagePrivacySettings has same length as photoImages
-            // Default to public if not set
             let privacySettings = imagePrivacySettings.count == photoImages.count
                 ? imagePrivacySettings
                 : Array(repeating: true, count: photoImages.count)
@@ -89,7 +76,7 @@ final class PostCreationViewModel {
 
             switch uploadResult {
             case .success(let images):
-                postImages = images
+                uploadedUserPhotos = images
 
             case .failure(let err, let attempts):
                 let userError = errorHandler.handleError(err, context: .imageUpload)
@@ -102,19 +89,53 @@ final class PostCreationViewModel {
             }
         }
 
-        // Step 2: Create post with retry
+        // Step 2: Check if an auto-post already exists for this workout.
+        // If so, extend it with the user's photo instead of creating a duplicate.
+        if let hkUUID = workout.matchedHealthKitUUID,
+           let existingPost = try? await postRepository.fetchOwnPost(forHealthKitUUID: hkUUID, userId: currentUserId),
+           !uploadedUserPhotos.isEmpty {
+            // Order: user photo(s) → map (slot 2) → any other existing images
+            let existingImages = existingPost.images ?? []
+            let mapImages = existingImages.filter { isMapImage($0) }
+            let otherImages = existingImages.filter { !isMapImage($0) }
+            let reorderedImages = uploadedUserPhotos + mapImages + otherImages
+
+            try await postRepository.updatePostImages(existingPost.id, images: reorderedImages)
+            isUploading = false
+            error = nil
+            Haptics.success()
+            return
+        }
+
+        // Step 3: No existing post — create a new one.
+        // Compose images: user photos first, then map snapshot (if any).
+        var mapUploadedImages: [PostImage] = []
+        if let mapImg = mapImage {
+            let mapResult = await retryManager.uploadWithRetry {
+                try await self.imageUploadService.uploadWorkoutImages(
+                    images: [mapImg],
+                    userId: currentUserId,
+                    isPublic: [true]
+                )
+            }
+            if case .success(let imgs) = mapResult {
+                mapUploadedImages = imgs
+            }
+        }
+
+        let allImages = uploadedUserPhotos + mapUploadedImages
         let postResult = await retryManager.fetchWithRetry {
             try await self.postRepository.createPost(
                 workout: workout,
                 caption: self.caption.isEmpty ? nil : self.caption,
-                images: postImages.isEmpty ? nil : postImages,
+                images: allImages.isEmpty ? nil : allImages,
                 visibility: self.selectedVisibility,
                 userId: currentUserId
             )
         }
 
         switch postResult {
-        case .success(let newPost):
+        case .success:
             isUploading = false
             error = nil
             Haptics.success()
@@ -130,8 +151,13 @@ final class PostCreationViewModel {
         }
     }
 
+    /// Heuristic: map snapshots are uploaded to the public bucket with "map" in the path.
+    private func isMapImage(_ image: PostImage) -> Bool {
+        image.storagePath.contains("map") || image.storagePath.contains("route")
+    }
+
     func loadPhotos() async {
-        photoImages.removeAll()
+        photoImages.removeAll()          // only clears user-picked photos; mapImage is untouched
         imagePrivacySettings.removeAll()
 
         for item in selectedPhotos {
@@ -185,16 +211,14 @@ final class PostCreationViewModel {
         }
     }
 
-    /// Add an initial image (e.g., map snapshot for cardio workouts)
+    /// Set the map snapshot for this post. Tracked separately from user-picked photos
+    /// so that loadPhotos() never wipes it when the user selects images.
     func addInitialImage(_ image: UIImage) {
-        // Re-encode as JPEG to ensure compatibility
         guard let jpegData = image.jpegData(compressionQuality: 0.9),
               let finalImage = UIImage(data: jpegData) else {
             return
         }
-
-        photoImages.insert(finalImage, at: 0) // Insert at beginning
-        imagePrivacySettings.insert(true, at: 0) // Default to public
+        mapImage = finalImage
     }
 
     func loadRecentWorkouts() async {
@@ -244,7 +268,7 @@ final class PostCreationViewModel {
         guard workout.isCardioWorkout else { return }
 
         // Skip if a map image is already present (e.g., provided by CardioDetailView)
-        if !photoImages.isEmpty { return }
+        if mapImage != nil { return }
 
         // Find the corresponding Run using the HealthKit UUID or workout ID
         // Check both cachedRuns and the workout store for the latest data
@@ -261,64 +285,36 @@ final class PostCreationViewModel {
         var hrValues: [Double]?
 
         if let routeWithHR = run?.routeWithHR, routeWithHR.count > 1 {
-           
             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = routeWithHR.map { $0.hr ?? .nan }
         } else if let route = run?.route, route.count > 1 {
-           
             coordinates = route.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
         } else if let hkUUID = workout.matchedHealthKitUUID {
-            // No route data on run — fetch on-demand from HealthKit.
-            // Reset any exhausted background route task so the queue retries it in case
-            // previous failures were due to a now-fixed HK query bug.
+            // No usable route on the cached run — fetch on-demand from HealthKit.
             await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
-            
             isGeneratingMap = true
-            do {
-                let workouts = try await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID)
-               
-                if let hkWorkout = workouts.first {
-                    
-                    do {
-                        let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-                        
-                        if routeWithHR.count > 1 {
-                            coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
-                            hrValues = routeWithHR.map { $0.hr ?? .nan }
-                        } else {
-                            // fetchRouteWithHeartRate returned empty (not a throw) — try plain route
-                           
-                            let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                            
-                            if locations.count > 1 {
-                                coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
-                            }
-                        }
-                    } catch {
-                        
-                        // Try plain route as fallback
-                        do {
-                            let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                            
-                            if locations.count > 1 {
-                                coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
-                            }
-                        } catch {
-                            print(" [MapSnapshot] fetchRoute also FAILED: \(error)")
+            if let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first {
+                do {
+                    let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
+                    if routeWithHR.count > 1 {
+                        coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
+                        hrValues = routeWithHR.map { $0.hr ?? .nan }
+                    } else {
+                        let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
+                        if locations.count > 1 {
+                            coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
                         }
                     }
-                } else {
-                    print("[MapSnapshot] No HKWorkout found for UUID \(hkUUID)")
+                } catch {
+                    if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
+                       locations.count > 1 {
+                        coordinates = locations.map { CLLocationCoordinate2D(latitude: $0.coordinate.latitude, longitude: $0.coordinate.longitude) }
+                    }
                 }
-            } catch {
-                print("[MapSnapshot] fetchWorkoutByUUID FAILED: \(error)")
             }
-        } else {
-            print(" [MapSnapshot] No run found and no HealthKit UUID to fetch route")
         }
 
         guard let coordinates = coordinates, coordinates.count > 1 else {
-            print("[MapSnapshot] No route data available for run")
             isGeneratingMap = false
             return
         }
@@ -326,17 +322,14 @@ final class PostCreationViewModel {
         isGeneratingMap = true
 
         do {
-            print(" [MapSnapshot] Generating snapshot...")
             let snapshot = try await MapSnapshotService.shared.generateRouteSnapshot(
                 coordinates: coordinates,
                 hrValues: hrValues,
                 size: CGSize(width: 600, height: 400)
             )
-
             addInitialImage(snapshot)
-            print("[MapSnapshot] Snapshot added to images!")
         } catch {
-            print("[MapSnapshot] Failed to generate snapshot: \(error)")
+            // snapshot generation failed — post without map
         }
 
         isGeneratingMap = false

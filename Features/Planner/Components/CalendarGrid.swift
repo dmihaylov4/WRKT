@@ -41,6 +41,8 @@ struct MonthHeader: View {
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .background(GeometryReader { geometry in
                         Color.clear.preference(
@@ -55,17 +57,21 @@ struct MonthHeader: View {
 
                 Spacer()
 
-                HStack(spacing: 6) {
-                    Button { onBack() } label: { Image(systemName: "chevron.left") }
-                    Button { onForward() } label: { Image(systemName: "chevron.right") }
-                        .opacity(canGoForward ? 1.0 : 0.35)
-                        .disabled(!canGoForward)
+                HStack(spacing: 0) {
+                    Button { onBack() } label: {
+                        Image(systemName: "chevron.left")
+                            .frame(width: 44, height: 44)
+                    }
+                    Button { onForward() } label: {
+                        Image(systemName: "chevron.right")
+                            .frame(width: 44, height: 44)
+                    }
+                    .opacity(canGoForward ? 1.0 : 0.35)
+                    .disabled(!canGoForward)
                 }
                 .buttonStyle(.plain)
                 .font(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
                 .background(DS.Theme.cardTop, in: Capsule())
                 .overlay(Capsule().stroke(DS.Semantic.border, lineWidth: 1))
 
@@ -75,7 +81,7 @@ struct MonthHeader: View {
                         .foregroundStyle(Color.black)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(DS.Theme.accent, in: Capsule())
+                        .background(DS.Theme.accent, in: ChamferedRectangle(.small))
                 }
             }
             .padding(.horizontal, 16)

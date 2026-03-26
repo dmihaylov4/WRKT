@@ -319,6 +319,21 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         logSuccess("Post updated")
     }
 
+    // MARK: - Fetch Own Post by HealthKit UUID
+
+    /// Returns the current user's existing post for a given HealthKit workout UUID, or nil if none exists.
+    func fetchOwnPost(forHealthKitUUID hkUUID: UUID, userId: UUID) async throws -> WorkoutPost? {
+        let posts: [WorkoutPost] = try await client
+            .from(tableName)
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .eq("workout_data->>matchedHealthKitUUID", value: hkUUID.uuidString)
+            .limit(1)
+            .execute()
+            .value
+        return posts.first
+    }
+
     // MARK: - Update Post Images
 
     /// Update a post's images (e.g., after lazy map backfill)
@@ -388,7 +403,7 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
 
         try await client
             .from("post_likes")
-            .insert(NewLike(post_id: postId.uuidString, user_id: userId.uuidString))
+            .upsert(NewLike(post_id: postId.uuidString, user_id: userId.uuidString), onConflict: "post_id,user_id")
             .execute()
 
         // Invalidate caches
@@ -592,8 +607,9 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             .eq("id", value: commentId.uuidString)
             .execute()
 
-        // Invalidate comments cache (we don't have postId, so clear all comments)
+        // Invalidate caches (including feed so pull-to-refresh fetches fresh counts)
         cache.invalidatePrefix("comments:")
+        cache.invalidateAllFeeds()
 
         logSuccess("Comment deleted")
     }
@@ -610,7 +626,7 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             .select()
             .eq("post_id", value: postID.uuidString)
             .filter("parent_comment_id", operator: "is", value: "null")
-            .order("created_at", ascending: false)
+            .order("created_at", ascending: true)
             .execute()
             .value
 
@@ -704,9 +720,10 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             try await saveMentions(commentID: comment.id, mentionedUserIDs: mentionedUserIDs)
         }
 
-        // Invalidate caches
+        // Invalidate caches (including feed so pull-to-refresh fetches fresh counts)
         cache.invalidate(QueryCache.postDetailsKey(postId: postID.uuidString))
         cache.invalidatePrefix("comments:")
+        cache.invalidateAllFeeds()
 
         logSuccess("Comment posted: \(comment.id)")
         return comment

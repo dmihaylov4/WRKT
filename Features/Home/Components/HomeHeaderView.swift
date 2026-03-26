@@ -35,6 +35,8 @@ struct HomeHeaderView: View {
                 .background(.ultraThinMaterial)
                 .cornerRadius(12)
                 .fixedSize()
+                .accessibilityLabel("\(currentStreak)-week streak")
+                .accessibilityAddTraits(.isStaticText)
             }
         }
         .padding(.horizontal)

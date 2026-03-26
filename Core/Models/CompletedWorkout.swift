@@ -87,7 +87,22 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
 
     /// Get the appropriate icon for this workout type
     var workoutIcon: String {
-        isCardioWorkout ? "heart.fill" : "dumbbell.fill"
+        guard isCardioWorkout else { return "dumbbell.fill" }
+        switch cardioWorkoutType?.lowercased() {
+        case "running": return "figure.run"
+        case "cycling", "outdoor cycling", "indoor cycling": return "figure.outdoor.cycle"
+        case "swimming", "open water swimming": return "figure.pool.swim"
+        case "rowing": return "figure.rowing"
+        case "yoga": return "figure.mind.and.body"
+        case "hiking": return "figure.hiking"
+        case "walking": return "figure.walk"
+        case "functional strength training", "functional training": return "figure.strengthtraining.functional"
+        case "core training": return "figure.core.training"
+        case "elliptical": return "figure.elliptical"
+        case "stair climbing": return "figure.stair.stepper"
+        case "high intensity interval training", "hiit", "mixed cardio": return "bolt.heart.fill"
+        default: return "heart.fill"
+        }
     }
 
     /// Get the workout type display name

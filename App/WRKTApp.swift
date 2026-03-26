@@ -163,6 +163,9 @@ struct WRKTApp: App {
         UITabBar.appearance().tintColor = UIColor(Color(hex: "#CCFF00"))
         UITabBar.appearance().unselectedItemTintColor = UIColor.white.withAlphaComponent(0.6)
 
+        // Hide native tab bar — app uses a fully custom tab bar via safeAreaInset
+        UITabBar.appearance().isHidden = true
+
         AppLogger.success("UIKit appearances configured for accessibility (Reduce Transparency support)", category: AppLogger.app)
     }
 

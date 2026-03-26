@@ -9,22 +9,16 @@ import SwiftUI
 import Kingfisher
 import Charts
 
-// MARK: - Cardio Tab Enum
-private enum CardioTab: String, CaseIterable {
-    case overview = "Overview"
-    case splits = "Splits"
-    case heartRate = "Heart Rate"
-}
-
 struct PostDetailView: View {
     @Environment(\.dependencies) private var deps
 
     let post: PostWithAuthor
 
     @State private var viewModel: PostDetailViewModel?
+    @State private var showingLikes = false
     @FocusState private var isCommentFieldFocused: Bool
     @State private var displayImageURLs: [URL] = []
-    @State private var selectedCardioTab: CardioTab = .overview
+    @State private var carouselPage: Int = 0
 
     private let imageUploadService = ImageUploadService()
 
@@ -38,6 +32,15 @@ struct PostDetailView: View {
         }
         .navigationTitle("Post")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isCommentFieldFocused = false
+                }
+                .fontWeight(.semibold)
+            }
+        }
         .task {
             if viewModel == nil {
                 let vm = PostDetailViewModel(
@@ -55,44 +58,40 @@ struct PostDetailView: View {
     @ViewBuilder
     private func content(viewModel: PostDetailViewModel) -> some View {
         VStack(spacing: 0) {
-            // Scrollable content
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 16) {
                     // Post Header
                     postHeader(viewModel: viewModel)
 
-                    // Caption (skip for cardio — the card is the content)
-                    if !viewModel.post.post.workoutData.isCardioWorkout,
-                       let caption = viewModel.post.post.caption, !caption.isEmpty {
+                    // Caption
+                    if let caption = viewModel.post.post.caption, !caption.isEmpty {
                         Text(caption)
                             .font(.body)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .padding(.horizontal)
                     }
 
-                    // Images (skip for cardio — map is shown in workout details section)
-                    if !displayImageURLs.isEmpty && !viewModel.post.post.workoutData.isCardioWorkout {
-                        imageCarousel(imageUrls: displayImageURLs.map { $0.absoluteString })
+                    // Cardio: swipeable data carousel
+                    // Strength: images + exercise details
+                    if viewModel.post.post.workoutData.isCardioWorkout {
+                        cardioCarousel(viewModel: viewModel)
+                    } else {
+                        strengthCarousel(viewModel: viewModel)
                     }
-
-                    // Workout Details
-                    workoutDetails(viewModel: viewModel)
 
                     // Like/Comment counts
                     statsSection(viewModel: viewModel)
 
-                    Divider()
-
                     // Comments Section
                     commentsSection(viewModel: viewModel)
                 }
-                .padding(.bottom, 100) // Space for comment input
+                .padding(.bottom, 90)
             }
             .scrollDismissesKeyboard(.interactively)
 
-            // Comment Input (sticky at bottom)
             commentInput(viewModel: viewModel)
         }
+        .padding(.bottom, 56) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
     }
 
     private func postHeader(viewModel: PostDetailViewModel) -> some View {
@@ -158,262 +157,870 @@ struct PostDetailView: View {
         .tabViewStyle(.page(indexDisplayMode: imageUrls.count > 1 ? .always : .never))
     }
 
-    private func workoutDetails(viewModel: PostDetailViewModel) -> some View {
+    // MARK: - Strength Carousel
+
+    private func strengthCarousel(viewModel: PostDetailViewModel) -> some View {
+        let workout = viewModel.post.post.workoutData
+        let hasWatchData = workout.matchedHealthKitHeartRate != nil
+            || workout.matchedHealthKitCalories != nil
+        let pageCount = hasWatchData ? 3 : 2
+        return VStack(spacing: 0) {
+            TabView(selection: $carouselPage) {
+                strengthSummaryPage(viewModel: viewModel).tag(0)
+                strengthExercisePage(viewModel: viewModel).tag(1)
+                if hasWatchData {
+                    strengthWatchPage(viewModel: viewModel).tag(2)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 320)
+            .padding(.horizontal)
+
+            HStack(spacing: 5) {
+                ForEach(0..<pageCount, id: \.self) { index in
+                    Capsule()
+                        .fill(index == carouselPage ? DS.tint : Color.secondary.opacity(0.3))
+                        .frame(width: index == carouselPage ? 24 : 8, height: 3)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: carouselPage)
+                }
+            }
+            .padding(.top, 10)
+        }
+        .onAppear { carouselPage = 0 }
+    }
+
+    // MARK: - Strength Page 1: Summary hero
+
+    private func strengthSummaryPage(viewModel: PostDetailViewModel) -> some View {
+        let post = viewModel.post.post
+        let workout = post.workoutData
+        return ZStack {
+            // Background: first photo if available, else card with dumbbell watermark
+            if let firstURL = displayImageURLs.first {
+                KFImage(firstURL)
+                    .resizable()
+                    .scaledToFill()
+                    .clipped()
+            } else {
+                ZStack {
+                    DS.Semantic.card
+                    Image(systemName: "dumbbell.fill")
+                        .font(.system(size: 90))
+                        .foregroundStyle(DS.Semantic.brand.opacity(0.07))
+                }
+            }
+
+            LinearGradient(
+                colors: [.black.opacity(0.72), .clear, .black.opacity(0.85)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            VStack {
+                Spacer().frame(height: 90)
+
+                // Stats row — shifted right
+                HStack(alignment: .bottom, spacing: 0) {
+                    if post.totalVolume > 0 {
+                        VStack(spacing: 1) {
+                            Text("VOLUME")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .tracking(1.2)
+                            Text(formatVolume(post.totalVolume))
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Text("KG")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.65))
+                                .tracking(1.5)
+                        }
+                        .frame(maxWidth: .infinity)
+                        Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                    }
+
+                    VStack(spacing: 1) {
+                        Text("EXERCISES")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .tracking(1.2)
+                        Text("\(post.exerciseCount)")
+                            .font(.system(size: 26, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text("EX")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.65))
+                            .tracking(1.5)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+
+                    VStack(spacing: 1) {
+                        Text("SETS")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .tracking(1.2)
+                        Text("\(post.totalSets)")
+                            .font(.system(size: 26, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Text("TOTAL")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.65))
+                            .tracking(1.5)
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    if post.duration != nil {
+                        Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                        VStack(spacing: 1) {
+                            Text("DURATION")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .tracking(1.2)
+                            Text(post.durationFormatted)
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.55)
+                            Text("TIME")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.65))
+                                .tracking(1.5)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.leading, 32)
+                .padding(.trailing, 12)
+
+                Spacer()
+
+                // Bottom: Apple Watch quick stats
+                if workout.matchedHealthKitHeartRate != nil || workout.matchedHealthKitCalories != nil {
+                    HStack(spacing: 14) {
+                        if let hr = workout.matchedHealthKitHeartRate {
+                            HStack(spacing: 4) {
+                                Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red.opacity(0.9))
+                                Text(String(format: "%.0f BPM", hr))
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundStyle(.white.opacity(0.9))
+                        }
+                        if let cal = workout.matchedHealthKitCalories {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flame.fill").font(.caption2)
+                                Text(String(format: "%.0f kcal", cal))
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundStyle(.white.opacity(0.9))
+                        }
+                        Spacer()
+                    }
+                    .padding(.bottom, 14)
+                    .padding(.horizontal, 20)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Strength Page 2: Exercise list
+
+    private func strengthExercisePage(viewModel: PostDetailViewModel) -> some View {
+        let entries = viewModel.post.post.workoutData.entries
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(entries) { entry in
+                    strengthExerciseRow(entry: entry)
+                }
+            }
+            .padding(14)
+        }
+        .background(DS.Semantic.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func strengthExerciseRow(entry: WorkoutEntry) -> some View {
+        let totalReps = entry.sets.reduce(0) { $0 + $1.reps }
+        let totalVolume = entry.sets.reduce(0.0) { $0 + Double($1.reps) * $1.weight }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            // Exercise name
+            Text(entry.exerciseName)
+                .font(.subheadline.bold())
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            // Sets / Reps / Volume summary
+            HStack(spacing: 16) {
+                strengthStatItem(label: "Sets", value: "\(entry.sets.count)")
+                strengthStatItem(label: "Reps", value: "\(totalReps)")
+                if totalVolume > 0 {
+                    strengthStatItem(label: "Volume", value: String(format: "%.0f kg", totalVolume))
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(8)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+            // Duration / Work / Rest (only when timing data available)
+            if entry.totalDuration > 0 {
+                HStack(spacing: 16) {
+                    strengthStatItem(label: "Duration", value: entry.formattedTotalDuration)
+                    strengthStatItem(label: "Work", value: entry.formattedWorkTime)
+                    strengthStatItem(label: "Rest", value: entry.formattedRestTime)
+                    Spacer(minLength: 0)
+                }
+                .padding(8)
+                .background(DS.Semantic.fillSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            // Individual set rows
+            VStack(spacing: 6) {
+                ForEach(Array(entry.sets.enumerated()), id: \.offset) { index, set in
+                    HStack(spacing: 10) {
+                        // Number badge
+                        Text("\(index + 1)")
+                            .font(.caption.bold().monospacedDigit())
+                            .foregroundStyle(.black)
+                            .frame(width: 22, height: 22)
+                            .background(set.tag.color, in: Circle())
+
+                        // Set value + timing
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(set.displayValue)
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(DS.Semantic.textPrimary)
+
+                            if set.workDuration != nil || set.restAfterSeconds != nil {
+                                HStack(spacing: 8) {
+                                    if set.formattedWorkDuration != "—" {
+                                        Text("Work: \(set.formattedWorkDuration)")
+                                            .font(.caption2)
+                                            .foregroundStyle(DS.Semantic.textSecondary)
+                                    }
+                                    if set.formattedRestDuration != "—" {
+                                        Text("Rest: \(set.formattedRestDuration)")
+                                            .font(.caption2)
+                                            .foregroundStyle(DS.Semantic.textSecondary)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        // Tag badge
+                        Text(set.tag.short)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(set.tag.color, in: Capsule())
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(DS.Semantic.fillSubtle)
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(DS.Semantic.card)
+        .clipShape(ChamferedRectangleAlt(.medium))
+        .overlay(ChamferedRectangleAlt(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+    }
+
+    private func strengthStatItem(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(DS.Semantic.textSecondary)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(DS.Semantic.textPrimary)
+        }
+    }
+
+    // MARK: - Strength Page 3: Apple Watch biometrics (only shown when data exists)
+
+    private func strengthWatchPage(viewModel: PostDetailViewModel) -> some View {
+        let workout = viewModel.post.post.workoutData
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 8) {
+                    Image(systemName: "applewatch")
+                        .font(.title3)
+                        .foregroundStyle(DS.Semantic.brand)
+                    Text("Apple Watch")
+                        .font(.headline.bold())
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                }
+
+                // BPM columns
+                if workout.matchedHealthKitHeartRate != nil
+                    || workout.matchedHealthKitMaxHeartRate != nil
+                    || workout.matchedHealthKitMinHeartRate != nil {
+                    HStack(spacing: 0) {
+                        if let avg = workout.matchedHealthKitHeartRate {
+                            bpmColumn(value: avg, label: "AVG BPM", color: DS.Semantic.brand)
+                        }
+                        if let max = workout.matchedHealthKitMaxHeartRate {
+                            if workout.matchedHealthKitHeartRate != nil { bpmDivider() }
+                            bpmColumn(value: max, label: "MAX BPM", color: DS.Semantic.textPrimary)
+                        }
+                        if let min = workout.matchedHealthKitMinHeartRate {
+                            if workout.matchedHealthKitMaxHeartRate != nil { bpmDivider() }
+                            bpmColumn(value: min, label: "MIN BPM", color: DS.Semantic.textSecondary)
+                        }
+                    }
+                }
+
+                // HR area chart
+                if let samples = workout.matchedHealthKitHeartRateSamples, samples.count > 2,
+                   let avgHR = workout.matchedHealthKitHeartRate,
+                   let minHR = workout.matchedHealthKitMinHeartRate,
+                   let maxHR = workout.matchedHealthKitMaxHeartRate {
+                    strengthHRChart(
+                        samples: samples,
+                        avgHR: avgHR,
+                        minHR: minHR,
+                        maxHR: maxHR
+                    )
+                }
+
+                // Calories
+                if let calories = workout.matchedHealthKitCalories {
+                    HStack(spacing: 14) {
+                        Image(systemName: "flame.fill")
+                            .font(.title2)
+                            .foregroundStyle(DS.Semantic.brand)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(format: "%.0f", calories))
+                                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                                .foregroundStyle(DS.Semantic.textPrimary)
+                            Text("ACTIVE CALORIES")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                                .tracking(1.5)
+                        }
+                        Spacer()
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .background(DS.Semantic.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func strengthHRChart(
+        samples: [HeartRateSample],
+        avgHR: Double,
+        minHR: Double,
+        maxHR: Double
+    ) -> some View {
+        let startTime = samples.first?.timestamp ?? Date()
+        let dataPoints = samples.map { (time: $0.timestamp.timeIntervalSince(startTime), bpm: $0.bpm) }
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                // Min badge
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.down").font(.caption2).foregroundStyle(.green)
+                    Text("\(Int(minHR))")
+                        .font(.caption.monospacedDigit().weight(.medium))
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(.green.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+
+                // Avg badge
+                HStack(spacing: 4) {
+                    Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.pink)
+                    Text("\(Int(avgHR))")
+                        .font(.caption.monospacedDigit().weight(.medium))
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(.pink.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+
+                // Max badge
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.up").font(.caption2).foregroundStyle(.red)
+                    Text("\(Int(maxHR))")
+                        .font(.caption.monospacedDigit().weight(.medium))
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                }
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(.red.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+
+                Spacer()
+            }
+
+            Chart {
+                ForEach(Array(dataPoints.enumerated()), id: \.offset) { _, point in
+                    AreaMark(
+                        x: .value("Time", point.time),
+                        yStart: .value("Min", minHR - 10),
+                        yEnd: .value("BPM", point.bpm)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.pink.opacity(0.4), .red.opacity(0.08)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+
+                    LineMark(
+                        x: .value("Time", point.time),
+                        y: .value("BPM", point.bpm)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.pink, .red],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    .interpolationMethod(.catmullRom)
+                }
+
+                RuleMark(y: .value("Avg", avgHR))
+                    .foregroundStyle(.pink.opacity(0.6))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text("AVG")
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.pink)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.black.opacity(0.5), in: Capsule())
+                    }
+            }
+            .chartYScale(domain: (minHR - 10)...(maxHR + 10))
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 5)) { value in
+                    if let seconds = value.as(Double.self) {
+                        AxisValueLabel {
+                            let m = Int(seconds) / 60
+                            let s = Int(seconds) % 60
+                            Text(m > 0 ? "\(m)m" : "\(s)s")
+                                .font(.caption2)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                        AxisGridLine().foregroundStyle(DS.Semantic.border.opacity(0.4))
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                    AxisValueLabel {
+                        if let v = value.as(Int.self) {
+                            Text("\(v)")
+                                .font(.caption2)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    }
+                    AxisGridLine().foregroundStyle(DS.Semantic.border.opacity(0.4))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 180)
+        }
+    }
+
+    // MARK: - Cardio Carousel
+
+    private func cardioCarousel(viewModel: PostDetailViewModel) -> some View {
         let workout = viewModel.post.post.workoutData
 
-        return VStack(alignment: .leading, spacing: 16) {
-            Text("Workout Details")
-                .font(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .padding(.horizontal)
+        // Determine which pages have content
+        let isOutdoor = (workout.matchedHealthKitDistance ?? 0) > 0 || !displayImageURLs.isEmpty
+        let hasHR = workout.matchedHealthKitHeartRate != nil
+        let hasDynamics = workout.cardioAvgPower != nil || workout.cardioAvgCadence != nil
+            || workout.cardioAvgStrideLength != nil || workout.cardioAvgGroundContactTime != nil
+            || workout.cardioAvgVerticalOscillation != nil
+        let hasZones = !(workout.cardioHRZones ?? []).isEmpty
+        let hasSplits = !(workout.cardioSplits ?? []).isEmpty
 
-            // Map image for cardio posts
-            if workout.isCardioWorkout, !displayImageURLs.isEmpty {
-                KFImage(displayImageURLs.first)
-                    .placeholder {
-                        Rectangle()
-                            .fill(DS.Semantic.fillSubtle)
-                            .overlay(ProgressView())
+        // Assign sequential page indices so dots and TabView stay in sync
+        let hrIdx    = 1
+        let dynIdx   = hrIdx   + (hasHR       ? 1 : 0)
+        let zonesIdx = dynIdx  + (hasDynamics  ? 1 : 0)
+        let splitsIdx = zonesIdx + (hasZones   ? 1 : 0)
+        let pageCount = splitsIdx + (hasSplits ? 1 : 0)
+
+        return VStack(spacing: 0) {
+            TabView(selection: $carouselPage) {
+                Group {
+                    if isOutdoor {
+                        cardioMapPage(workout: workout)
+                    } else {
+                        cardioSummaryHeroPage(workout: workout)
                     }
+                }.tag(0)
+
+                if hasHR {
+                    cardioHeartRatePage(workout: workout, viewModel: viewModel).tag(hrIdx)
+                }
+                if hasDynamics {
+                    cardioDynamicsPage(workout: workout).tag(dynIdx)
+                }
+                if hasZones {
+                    cardioZonesPage(workout: workout, viewModel: viewModel).tag(zonesIdx)
+                }
+                if hasSplits {
+                    cardioSplitsPage(workout: workout).tag(splitsIdx)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 320)
+            .padding(.horizontal)
+
+            // Line indicator (same design as SmartCardCarousel)
+            HStack(spacing: 5) {
+                ForEach(0..<pageCount, id: \.self) { index in
+                    Capsule()
+                        .fill(index == carouselPage ? DS.tint : Color.secondary.opacity(0.3))
+                        .frame(width: index == carouselPage ? 24 : 8, height: 3)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: carouselPage)
+                }
+            }
+            .padding(.top, 10)
+        }
+        .onAppear { carouselPage = 0 }
+    }
+
+    // MARK: - Carousel Page 0 (indoor): Summary hero when no route is available
+
+    private func cardioSummaryHeroPage(workout: CompletedWorkout) -> some View {
+        ZStack {
+            DS.Semantic.card
+
+            Image(systemName: workout.workoutIcon)
+                .font(.system(size: 90))
+                .foregroundStyle(DS.Semantic.brand.opacity(0.07))
+
+            VStack(spacing: 16) {
+                Text(workout.workoutTypeDisplayName.uppercased())
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(DS.Semantic.brand)
+                    .tracking(2)
+
+                if let calories = workout.matchedHealthKitCalories {
+                    VStack(spacing: 2) {
+                        Text(String(format: "%.0f", calories))
+                            .font(.system(size: 52, weight: .heavy, design: .rounded))
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                        Text("CALORIES")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                            .tracking(1.5)
+                    }
+                }
+
+                HStack(spacing: 16) {
+                    if let durationSec = workout.matchedHealthKitDuration {
+                        cardioBigStat(value: formatSummaryDuration(durationSec), label: "DURATION")
+                    }
+                    if let avgHR = workout.matchedHealthKitHeartRate {
+                        if workout.matchedHealthKitDuration != nil {
+                            Rectangle().fill(DS.Semantic.border).frame(width: 1, height: 28)
+                        }
+                        cardioBigStat(value: String(format: "%.0f", avgHR), label: "AVG BPM")
+                    }
+                    if let maxHR = workout.matchedHealthKitMaxHeartRate {
+                        Rectangle().fill(DS.Semantic.border).frame(width: 1, height: 28)
+                        cardioBigStat(value: String(format: "%.0f", maxHR), label: "MAX BPM")
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func cardioBigStat(value: String, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundStyle(DS.Semantic.textPrimary)
+            Text(label)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .tracking(1)
+        }
+    }
+
+    private func formatSummaryDuration(_ seconds: Int) -> String {
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        return h > 0 ? String(format: "%dh %02dm", h, m) : "\(m)m"
+    }
+
+    // MARK: - Carousel Page 1: Route map with overlaid stats
+
+    private func cardioMapPage(workout: CompletedWorkout) -> some View {
+        ZStack {
+            // Route map
+            if let mapURL = displayImageURLs.first {
+                KFImage(mapURL)
+                    .placeholder { Rectangle().fill(DS.Semantic.fillSubtle) }
                     .fade(duration: 0.25)
                     .resizable()
                     .scaledToFill()
-                    .frame(height: 260)
                     .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .padding(.horizontal)
-            }
-
-            // Different stats for cardio vs strength
-            if workout.isCardioWorkout {
-                // Cardio tabbed interface
-                cardioTabbedContent(workout: workout, viewModel: viewModel)
             } else {
-                // Strength Stats
-                HStack(spacing: 16) {
-                    statCard(
-                        icon: "dumbbell.fill",
-                        value: "\(viewModel.post.post.exerciseCount)",
-                        label: "Exercises"
-                    )
-
-                    statCard(
-                        icon: "list.bullet",
-                        value: "\(viewModel.post.post.totalSets)",
-                        label: "Sets"
-                    )
-
-                    if viewModel.post.post.totalVolume > 0 {
-                        statCard(
-                            icon: "scalemass.fill",
-                            value: formatVolume(viewModel.post.post.totalVolume),
-                            label: "Volume"
-                        )
-                    }
-
-                    if viewModel.post.post.duration != nil {
-                        statCard(
-                            icon: "clock.fill",
-                            value: viewModel.post.post.durationFormatted,
-                            label: "Duration"
-                        )
-                    }
-                }
-                .padding(.horizontal)
-
-                // Exercise List (only for strength)
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(viewModel.post.post.workoutData.entries) { entry in
-                        exerciseRow(entry: entry)
-                    }
-                }
-                .padding(.horizontal)
+                DS.Semantic.fillSubtle
             }
-        }
-        .padding(.vertical, 12)
-        .background(DS.Semantic.fillSubtle.opacity(0.5))
-    }
 
-    // MARK: - Cardio Tabbed Content
-    private func cardioTabbedContent(workout: CompletedWorkout, viewModel: PostDetailViewModel) -> some View {
-        VStack(spacing: 16) {
-            // Tab picker
-            Picker("", selection: $selectedCardioTab) {
-                ForEach(CardioTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
+            // Gradient at top and bottom for legibility
+            LinearGradient(
+                colors: [.black.opacity(0.55), .clear, .black.opacity(0.85)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
 
-            // Tab content
-            switch selectedCardioTab {
-            case .overview:
-                cardioOverviewTab(workout: workout)
-            case .splits:
-                cardioSplitsTab(workout: viewModel.post.post.workoutData, viewModel: viewModel)
-            case .heartRate:
-                cardioHeartRateTab(workout: viewModel.post.post.workoutData, viewModel: viewModel)
-            }
-        }
-    }
+            // Pace + calories at top center, KM/TIME at bottom with labels above
+            VStack {
+                // Top center: pace + calories (small)
+                if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0,
+                   let durationSec = workout.matchedHealthKitDuration {
+                    let pace = Double(durationSec) / (distanceMeters / 1000)
+                    HStack(spacing: 16) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "figure.run").font(.caption2)
+                            Text("\(formatPace(pace)) /km")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(.white.opacity(0.92))
 
-    // MARK: - Cardio Overview Tab
-    private func cardioOverviewTab(workout: CompletedWorkout) -> some View {
-        VStack(spacing: 12) {
-            // Distance and Time (hero row)
-            if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0 {
-                HStack(spacing: 16) {
-                    // Distance
-                    VStack(spacing: 4) {
-                        Text(String(format: "%.2f", distanceMeters / 1000))
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(DS.Palette.marone)
-                        Text("KILOMETERS")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                            .tracking(0.5)
+                        if let calories = workout.matchedHealthKitCalories {
+                            HStack(spacing: 4) {
+                                Image(systemName: "flame.fill").font(.caption2)
+                                Text(String(format: "%.0f kcal", calories))
+                                    .font(.system(size: 13, weight: .semibold))
+                            }
+                            .foregroundStyle(.white.opacity(0.92))
+                        }
                     }
-                    .frame(maxWidth: .infinity)
+                    .padding(.top, 14)
+                }
 
-                    // Divider
-                    Rectangle()
-                        .fill(DS.Semantic.border)
-                        .frame(width: 1, height: 50)
+                Spacer()
 
-                    // Duration
-                    VStack(spacing: 4) {
+                // Bottom: distance and time, label above each number
+                if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0 {
+                    HStack(alignment: .bottom, spacing: 0) {
+                        VStack(spacing: 1) {
+                            Text("DISTANCE")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .tracking(1.5)
+                            Text(String(format: "%.2f", distanceMeters / 1000))
+                                .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                            Text("KM")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.65))
+                                .tracking(2)
+                        }
+                        .frame(maxWidth: .infinity)
+
                         if let durationSec = workout.matchedHealthKitDuration {
-                            Text(formatCardioDuration(durationSec))
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
-                                .foregroundStyle(DS.Semantic.textPrimary)
+                            Rectangle()
+                                .fill(.white.opacity(0.25))
+                                .frame(width: 1, height: 46)
+
+                            VStack(spacing: 1) {
+                                Text("DURATION")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                    .tracking(1.5)
+                                Text(formatCardioDuration(durationSec))
+                                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                                Text("TIME")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.65))
+                                    .tracking(2)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(.bottom, 16)
+                    .padding(.horizontal, 20)
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Carousel Page 2: Running dynamics
+
+    private func cardioDynamicsPage(workout: CompletedWorkout) -> some View {
+        RunningDynamicsGrid(
+            avgPower: workout.cardioAvgPower,
+            avgCadence: workout.cardioAvgCadence,
+            avgStrideLength: workout.cardioAvgStrideLength,
+            avgGroundContactTime: workout.cardioAvgGroundContactTime,
+            avgVerticalOscillation: workout.cardioAvgVerticalOscillation
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - Carousel Page 3: Heart rate numbers + time series
+
+    private func cardioHeartRatePage(workout: CompletedWorkout, viewModel: PostDetailViewModel) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack {
+                    Text("Heart Rate")
+                        .font(.headline.bold())
+                        .foregroundStyle(DS.Semantic.textPrimary)
+
+                    Spacer()
+
+                    if viewModel.canRefreshCardioData {
+                        if viewModel.isRefreshingCardioData {
+                            ProgressView().scaleEffect(0.7)
                         } else {
-                            Text("--:--")
-                                .font(.system(size: 36, weight: .bold, design: .rounded))
-                                .foregroundStyle(DS.Semantic.textPrimary)
+                            Button {
+                                Task { await viewModel.refreshCardioData() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text(workout.cardioHRZones == nil ? "Load" : "Refresh")
+                                }
+                                .font(.caption)
+                                .foregroundStyle(DS.Semantic.brand)
+                            }
                         }
-                        Text("TIME")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                            .tracking(0.5)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                .padding(.vertical, 16)
-                .padding(.horizontal)
-                .background(DS.Semantic.card)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal)
-            }
-
-            // Pace (if distance and duration available)
-            if let distanceMeters = workout.matchedHealthKitDistance,
-               let durationSec = workout.matchedHealthKitDuration,
-               distanceMeters > 0 {
-                let paceSecPerKm = Double(durationSec) / (distanceMeters / 1000)
-                HStack(spacing: 12) {
-                    statCard(icon: "figure.run", value: formatPace(paceSecPerKm), label: "Pace/km")
-
-                    if let calories = workout.matchedHealthKitCalories {
-                        statCard(icon: "flame.fill", value: String(format: "%.0f", calories), label: "Calories")
                     }
                 }
-                .padding(.horizontal)
-            }
 
-            // Running Dynamics
-            RunningDynamicsGrid(
-                avgPower: workout.cardioAvgPower,
-                avgCadence: workout.cardioAvgCadence,
-                avgStrideLength: workout.cardioAvgStrideLength,
-                avgGroundContactTime: workout.cardioAvgGroundContactTime,
-                avgVerticalOscillation: workout.cardioAvgVerticalOscillation
-            )
-            .padding(.horizontal)
+                // Large inline BPM numbers
+                if workout.matchedHealthKitHeartRate != nil
+                    || workout.matchedHealthKitMaxHeartRate != nil
+                    || workout.matchedHealthKitMinHeartRate != nil {
+                    HStack(spacing: 0) {
+                        if let avg = workout.matchedHealthKitHeartRate {
+                            bpmColumn(value: avg, label: "AVG BPM", color: DS.Semantic.brand)
+                        }
+                        if let max = workout.matchedHealthKitMaxHeartRate {
+                            if workout.matchedHealthKitHeartRate != nil {
+                                bpmDivider()
+                            }
+                            bpmColumn(value: max, label: "MAX BPM", color: DS.Semantic.textPrimary)
+                        }
+                        if let min = workout.matchedHealthKitMinHeartRate {
+                            if workout.matchedHealthKitMaxHeartRate != nil {
+                                bpmDivider()
+                            }
+                            bpmColumn(value: min, label: "MIN BPM", color: DS.Semantic.textSecondary)
+                        }
+                    }
+                } else {
+                    Text("No heart rate data — swipe right to load")
+                        .font(.subheadline)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+
+                // HR over time chart
+                if let samples = workout.matchedHealthKitHeartRateSamples, samples.count > 2 {
+                    HRZoneChart(
+                        zones: [],
+                        samples: samples,
+                        showZonesSection: false,
+                        showTimeSeriesSection: true,
+                        showCard: false
+                    )
+                }
+            }
+            .padding(16)
         }
+        .background(DS.Semantic.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
-    // MARK: - Cardio Splits Tab
-    private func cardioSplitsTab(workout: CompletedWorkout, viewModel: PostDetailViewModel) -> some View {
-        VStack(spacing: 12) {
-            // Refresh button if available
-            if viewModel.canRefreshCardioData {
-                HStack {
-                    Spacer()
-                    if viewModel.isRefreshingCardioData {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    } else {
-                        Button {
-                            Task {
-                                await viewModel.refreshCardioData()
-                            }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.clockwise")
-                                Text(workout.cardioSplits == nil ? "Load" : "Refresh")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(DS.Semantic.brand)
-                        }
-                    }
-                }
-                .padding(.horizontal)
-            }
-
-            SplitsChart(splits: workout.cardioSplits ?? [])
-                .padding(.horizontal)
+    private func bpmColumn(value: Double, label: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(String(format: "%.0f", value))
+                .font(.system(size: 40, weight: .heavy, design: .rounded))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .tracking(1)
         }
+        .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Cardio Heart Rate Tab
-    private func cardioHeartRateTab(workout: CompletedWorkout, viewModel: PostDetailViewModel) -> some View {
-        VStack(spacing: 12) {
-            // HR Stats row
-            HStack(spacing: 12) {
-                if let avgHR = workout.matchedHealthKitHeartRate {
-                    statCard(icon: "heart.fill", value: String(format: "%.0f", avgHR), label: "Avg BPM")
-                }
-                if let maxHR = workout.matchedHealthKitMaxHeartRate {
-                    statCard(icon: "bolt.heart.fill", value: String(format: "%.0f", maxHR), label: "Max BPM")
-                }
-                if let minHR = workout.matchedHealthKitMinHeartRate {
-                    statCard(icon: "heart", value: String(format: "%.0f", minHR), label: "Min BPM")
-                }
-            }
-            .padding(.horizontal)
+    private func bpmDivider() -> some View {
+        Rectangle()
+            .fill(DS.Semantic.border)
+            .frame(width: 1, height: 44)
+    }
 
-            // Refresh button
-            if viewModel.canRefreshCardioData {
+    // MARK: - Carousel Page 4: HR Zones
+
+    private func cardioZonesPage(workout: CompletedWorkout, viewModel: PostDetailViewModel) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Spacer()
-                    if viewModel.isRefreshingCardioData {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    } else {
-                        Button {
-                            Task {
-                                await viewModel.refreshCardioData()
+                    if viewModel.canRefreshCardioData {
+                        if viewModel.isRefreshingCardioData {
+                            ProgressView().scaleEffect(0.7)
+                        } else {
+                            Button {
+                                Task { await viewModel.refreshCardioData() }
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Refresh")
+                                }
+                                .font(.caption)
+                                .foregroundStyle(DS.Semantic.brand)
                             }
-                        } label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "arrow.clockwise")
-                                Text(workout.cardioHRZones == nil ? "Load" : "Refresh")
-                            }
-                            .font(.caption)
-                            .foregroundStyle(DS.Semantic.brand)
                         }
                     }
                 }
-                .padding(.horizontal)
-            }
 
-            HRZoneChart(
-                zones: workout.cardioHRZones ?? [],
-                samples: workout.matchedHealthKitHeartRateSamples
-            )
-            .padding(.horizontal)
+                HRZoneChart(
+                    zones: workout.cardioHRZones ?? [],
+                    samples: nil,
+                    showZonesSection: true,
+                    showTimeSeriesSection: false,
+                    showCard: false
+                )
+            }
+            .padding(16)
         }
+        .background(DS.Semantic.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    // MARK: - Carousel Page 5: Kilometer Splits
+
+    private func cardioSplitsPage(workout: CompletedWorkout) -> some View {
+        ScrollView {
+            SplitsChart(splits: workout.cardioSplits ?? [], showCard: false)
+                .padding(16)
+        }
+        .background(DS.Semantic.card)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
@@ -492,19 +1099,29 @@ struct PostDetailView: View {
 
     private func statsSection(viewModel: PostDetailViewModel) -> some View {
         HStack(spacing: 20) {
-            // Like button
-            Button {
-                Task {
-                    await viewModel.toggleLike()
+            // Like icon: toggles the like. Count: opens likers list.
+            HStack(spacing: 6) {
+                Button {
+                    Task { await viewModel.toggleLike() }
+                } label: {
+                    Image(viewModel.post.isLikedByCurrentUser ? "tab-cardio" : "tab-cardio-inactive")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
                 }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: viewModel.post.isLikedByCurrentUser ? "heart.fill" : "heart")
-                        .font(.title3)
-                        .foregroundStyle(viewModel.post.isLikedByCurrentUser ? DS.Semantic.brand : DS.Semantic.textSecondary)
-                        .symbolEffect(.bounce, value: viewModel.post.isLikedByCurrentUser)
 
-                    Text("\(viewModel.post.post.likesCount)")
+                let displayCount = max(viewModel.post.post.likesCount, viewModel.post.isLikedByCurrentUser ? 1 : 0)
+                if displayCount > 0 {
+                    Button {
+                        showingLikes = true
+                    } label: {
+                        Text("\(displayCount)")
+                            .font(.subheadline.bold())
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text("0")
                         .font(.subheadline.bold())
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
@@ -512,9 +1129,10 @@ struct PostDetailView: View {
 
             // Comment count
             HStack(spacing: 6) {
-                Image(systemName: "bubble.right.fill")
-                    .font(.title3)
-                    .foregroundStyle(DS.Semantic.textSecondary)
+                Image("tab-social-inactive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
 
                 Text("\(viewModel.post.post.commentsCount)")
                     .font(.subheadline.bold())
@@ -524,25 +1142,23 @@ struct PostDetailView: View {
             Spacer()
         }
         .padding(.horizontal)
+        .sheet(isPresented: $showingLikes) {
+            LikesListView(postId: post.post.id, postRepository: deps.postRepository)
+        }
     }
 
     private func commentsSection(viewModel: PostDetailViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Comments")
-                .font(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .padding(.horizontal)
-
+        VStack(alignment: .leading, spacing: 0) {
             if viewModel.isLoadingComments {
                 ProgressView()
                     .frame(maxWidth: .infinity)
-                    .padding()
+                    .padding(.vertical, 24)
             } else if viewModel.comments.isEmpty {
-                Text("No comments yet. Be the first to comment!")
+                Text("No comments yet")
                     .font(.subheadline)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .frame(maxWidth: .infinity)
-                    .padding()
+                    .padding(.vertical, 24)
             } else {
                 ForEach(viewModel.comments) { comment in
                     CommentRow(
@@ -550,9 +1166,7 @@ struct PostDetailView: View {
                         isReply: false,
                         canDelete: comment.userId == deps.authService.currentUser?.id,
                         onDelete: {
-                            Task {
-                                await viewModel.deleteComment(comment)
-                            }
+                            Task { await viewModel.deleteComment(comment) }
                         },
                         onReply: {
                             viewModel.startReply(to: comment)
@@ -560,6 +1174,7 @@ struct PostDetailView: View {
                         }
                     )
                     .padding(.horizontal)
+                    .padding(.vertical, 6)
                 }
             }
         }
@@ -602,7 +1217,7 @@ struct PostDetailView: View {
 
             Divider()
 
-            HStack(alignment: .bottom, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 10) {
                 TextField("Add a comment...", text: Binding(
                     get: { viewModel.commentText },
                     set: { newValue in
@@ -615,6 +1230,12 @@ struct PostDetailView: View {
                     .focused($isCommentFieldFocused)
                     .disabled(viewModel.isPostingComment)
                     .submitLabel(.return)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(DS.Semantic.fillSubtle)
+                    )
 
                 Button {
                     Task {
@@ -625,18 +1246,22 @@ struct PostDetailView: View {
                     if viewModel.isPostingComment {
                         ProgressView()
                             .tint(DS.Semantic.brand)
+                            .frame(width: 34, height: 34)
                     } else {
                         Image(systemName: "paperplane.fill")
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(
                                 viewModel.commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? DS.Semantic.textSecondary
                                     : DS.Semantic.brand
                             )
+                            .frame(width: 34, height: 34)
                     }
                 }
                 .disabled(viewModel.commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPostingComment)
             }
-            .padding()
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
             .background(DS.Semantic.card)
         }
     }
@@ -678,118 +1303,111 @@ struct CommentRow: View {
     let onDelete: () -> Void
     let onReply: () -> Void
 
-    @State private var showingDeleteAlert = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Main comment
-            HStack(alignment: .top, spacing: 12) {
-                // Indent for replies
-                if isReply {
-                    // Connecting line
-                    Rectangle()
-                        .fill(DS.Semantic.textSecondary.opacity(0.3))
-                        .frame(width: 2)
-                        .padding(.leading, 20)
+            commentBody
 
-                    // Horizontal line to avatar
-                    VStack(spacing: 0) {
-                        Rectangle()
-                            .fill(DS.Semantic.textSecondary.opacity(0.3))
-                            .frame(width: 20, height: 2)
-                        Spacer()
-                    }
-                    .frame(height: 20)
-                }
-
-                // Avatar (chamfered logo style)
-                if let author = comment.author {
-                    KFImage(URL(string: author.avatarUrl ?? ""))
-                        .placeholder {
-                            ChamferedRectangleAlt(chamferSize: isReply ? 6 : 8)
-                                .fill(DS.Semantic.brandSoft)
-                                .overlay(
-                                    Text(author.username.prefix(1).uppercased())
-                                        .font(isReply ? .system(size: 10, weight: .bold) : .caption.bold())
-                                        .foregroundStyle(DS.Semantic.brand)
-                                )
-                        }
-                        .fade(duration: 0.25)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: isReply ? 28 : 32, height: isReply ? 28 : 32)
-                        .clipShape(ChamferedRectangleAlt(chamferSize: isReply ? 6 : 8))
-                }
-
-                // Comment content
-                VStack(alignment: .leading, spacing: 4) {
-                    // Username and time
-                    HStack(spacing: 6) {
-                        if let author = comment.author {
-                            Text("@\(author.username)")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(DS.Semantic.textPrimary)
-                        }
-
-                        Text(relativeTime(for: comment.createdAt))
-                            .font(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-
-                        Spacer()
-
-                        if canDelete {
-                            Button {
-                                showingDeleteAlert = true
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.caption)
-                                    .foregroundStyle(DS.Status.error)
-                            }
-                        }
-                    }
-
-                    // Comment text with mentions highlighted
-                    MentionText(text: comment.content, mentions: comment.mentions)
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    // Reply button (only for top-level comments)
-                    if !isReply {
-                        Button {
-                            onReply()
-                        } label: {
-                            Text("Reply")
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(DS.Semantic.textSecondary)
-                        }
-                        .padding(.top, 4)
-                    }
-                }
-            }
-
-            // Nested replies
             if let replies = comment.replies, !replies.isEmpty, !isReply {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
                     ForEach(replies) { reply in
                         CommentRow(
                             comment: reply,
                             isReply: true,
-                            canDelete: false,  // Simplified: only allow deleting own top-level comments for now
+                            canDelete: false,
                             onDelete: {},
                             onReply: {}
                         )
+                        .padding(.leading, 34)
+                        .padding(.vertical, 4)
                     }
                 }
-                .padding(.top, 12)
+                .padding(.top, 6)
             }
         }
-        .alert("Delete Comment", isPresented: $showingDeleteAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) {
-                onDelete()
+    }
+
+    @ViewBuilder
+    private var commentBody: some View {
+        HStack(alignment: .top, spacing: 8) {
+            avatar
+
+            VStack(alignment: .leading, spacing: 2) {
+                // Username outside bubble — naturally aligned with avatar top
+                if let author = comment.author {
+                    Text(author.username)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(DS.Semantic.brand)
+                }
+
+                // Chamfered bubble (content only)
+                MentionText(text: comment.content, mentions: comment.mentions)
+                    .font(.subheadline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(
+                        ChamferedRectangleAlt(.small)
+                            .fill(isReply ? DS.Semantic.fillSubtle : DS.Semantic.card)
+                    )
+
+                // Time + Reply (outside bubble)
+                HStack(spacing: 12) {
+                    Text(relativeTime(for: comment.createdAt))
+                        .font(.caption2)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+
+                    if !isReply {
+                        Button(action: onReply) {
+                            Text("Reply")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+                .padding(.top, 2)
             }
-        } message: {
-            Text("Are you sure you want to delete this comment?")
+        }
+        .contentShape(Rectangle())
+        .contextMenu {
+            if canDelete {
+                Button(role: .destructive) {
+                    onDelete()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+            if !isReply {
+                Button {
+                    onReply()
+                } label: {
+                    Label("Reply", systemImage: "arrowshape.turn.up.left")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var avatar: some View {
+        let size: CGFloat = isReply ? 24 : 30
+        let chamfer: CGFloat = isReply ? 5 : 7
+        if let author = comment.author {
+            KFImage(URL(string: author.avatarUrl ?? ""))
+                .placeholder {
+                    ChamferedRectangleAlt(chamferSize: chamfer)
+                        .fill(DS.Semantic.brandSoft)
+                        .overlay(
+                            Text(author.username.prefix(1).uppercased())
+                                .font(.system(size: size * 0.4, weight: .bold))
+                                .foregroundStyle(DS.Semantic.brand)
+                        )
+                }
+                .fade(duration: 0.25)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size, height: size)
+                .clipShape(ChamferedRectangleAlt(chamferSize: chamfer))
         }
     }
 

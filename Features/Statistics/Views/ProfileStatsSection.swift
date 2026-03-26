@@ -642,6 +642,7 @@ private struct StatPill: View {
 private enum WeekLabel {
     static let df: DateFormatter = {
         let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US")
         df.setLocalizedDateFormatFromTemplate("MMM d")
         return df
     }()

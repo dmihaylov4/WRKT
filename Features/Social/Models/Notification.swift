@@ -264,7 +264,26 @@ struct NotificationWithActor: Identifiable, Sendable {
 
         // Workout
         case .workoutCompleted:
-            return "\(actorName) just finished a workout"
+            func activityNoun(_ type: String) -> String {
+                switch type.lowercased() {
+                case "running": return "run"
+                case "cycling": return "ride"
+                case "swimming": return "swim"
+                case "walking": return "walk"
+                case "rowing": return "row"
+                default: return type.lowercased() + " workout"
+                }
+            }
+            let workoutType = notification.metadata?["workout_type"] ?? ""
+            if !workoutType.isEmpty {
+                let noun = activityNoun(workoutType)
+                if let distKm = Double(notification.metadata?["distance_km"] ?? ""), distKm > 0 {
+                    let km = distKm >= 10 ? String(format: "%.0f", distKm) : String(format: "%.1f", distKm)
+                    return "\(actorName) completed a \(km) km \(noun)! Take a look at their progress."
+                }
+                return "\(actorName) completed a \(noun). Take a look at their progress."
+            }
+            return "\(actorName) completed a strength workout"
         }
     }
 

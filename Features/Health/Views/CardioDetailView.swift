@@ -23,8 +23,12 @@ struct CardioDetailView: View {
     @State private var selectedTab: DetailTab = .overview
     @State private var showingShareSheet = false
     @State private var showingDeleteConfirmation = false
+    @State private var deleteError: String?
     @State private var mapSnapshotImage: UIImage?
     @State private var isGeneratingSnapshot = false
+    @State private var localRouteWithHR: [RoutePoint]?
+    @State private var localRoute: [Coordinate]?
+    @State private var isFetchingRoute = false
     @Environment(\.dismiss) private var dismiss
 
     private enum DetailTab: String, CaseIterable {
@@ -40,33 +44,7 @@ struct CardioDetailView: View {
                 HeroCard(run: run)
 
                 // MAP
-                if let routeWithHR = run.routeWithHR, routeWithHR.count > 1 {
-                    // Use route with heart rate data
-                    InteractiveRouteMapHeat(points: routeWithHR)
-                        .frame(height: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            HStack {
-                                HeatLegend()
-                                Spacer()
-                            }
-                            .padding(10),
-                            alignment: .topLeading
-                        )
-                } else if let route = run.route, route.count > 1 {
-                    // Fallback to route without HR data
-                    InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
-                        .frame(height: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay(
-                            HStack {
-                                HeatLegend()
-                                Spacer()
-                            }
-                            .padding(10),
-                            alignment: .topLeading
-                        )
-                }
+                mapSection
 
                 // TABS
                 Picker("View", selection: $selectedTab) {
@@ -147,12 +125,23 @@ struct CardioDetailView: View {
                         }
                     } catch {
                         print("Failed to delete workout: \(error)")
+                        await MainActor.run {
+                            deleteError = error.localizedDescription
+                        }
                     }
                 }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Are you sure you want to delete this workout? This will remove it from both the app and Apple Health.")
+        }
+        .alert("Delete Failed", isPresented: Binding(
+            get: { deleteError != nil },
+            set: { if !$0 { deleteError = nil } }
+        )) {
+            Button("OK", role: .cancel) { deleteError = nil }
+        } message: {
+            Text(deleteError ?? "")
         }
         .sheet(isPresented: $showingShareSheet) {
             PostCreationView(workout: enrichedWorkout(), mapImage: mapSnapshotImage)
@@ -187,6 +176,55 @@ struct CardioDetailView: View {
         }
     }
 
+    // MARK: - Map Section
+
+    @ViewBuilder
+    private var mapSection: some View {
+        // Prefer locally-fetched route so the map updates immediately
+        // without waiting for the parent to re-render from the store.
+        let displayRouteWithHR = localRouteWithHR ?? run.routeWithHR
+        let displayRoute = localRoute ?? run.route
+
+        if let routeWithHR = displayRouteWithHR, routeWithHR.count > 1 {
+            InteractiveRouteMapHeat(points: routeWithHR)
+                .frame(height: 260)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    HStack { HeatLegend(); Spacer() }.padding(10),
+                    alignment: .topLeading
+                )
+        } else if let route = displayRoute, route.count > 1 {
+            InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
+                .frame(height: 260)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    HStack { HeatLegend(); Spacer() }.padding(10),
+                    alignment: .topLeading
+                )
+        } else if run.healthKitUUID != nil {
+            Button {
+                Task { await fetchRouteOnly() }
+            } label: {
+                HStack(spacing: 8) {
+                    if isFetchingRoute {
+                        ProgressView().tint(.white)
+                    } else {
+                        Image(systemName: "map.fill")
+                    }
+                    Text(isFetchingRoute ? "Fetching route..." : "Get Route")
+                        .fontWeight(.semibold)
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Theme.accent.opacity(isFetchingRoute ? 0.5 : 1))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            }
+            .disabled(isFetchingRoute)
+            .buttonStyle(.plain)
+        }
+    }
+
     // MARK: - Enriched Workout for Sharing
 
     private func enrichedWorkout() -> CompletedWorkout {
@@ -212,106 +250,116 @@ struct CardioDetailView: View {
     // MARK: - Map Snapshot Generation
 
     private func generateMapSnapshotAndShare() async {
-        // Use the latest run from the store — route data may have been fetched after this view was created
+        mapSnapshotImage = nil
         var currentRun = latestRun
+        isGeneratingSnapshot = true
 
-        print("🗺️ [CardioDetail] Starting map snapshot generation...")
-        print("🗺️ [CardioDetail] routeWithHR count: \(currentRun.routeWithHR?.count ?? 0)")
-        print("🗺️ [CardioDetail] route count: \(currentRun.route?.count ?? 0)")
-        print("🗺️ [CardioDetail] healthKitUUID: \(currentRun.healthKitUUID?.uuidString ?? "nil")")
-        print("🗺️ [CardioDetail] latestRun from store matched: \(latestRun.id == run.id)")
+        // Always attempt on-demand HealthKit fetch if there is no usable route.
+        // Use count > 1 (not == nil) because the background queue may have stored an
+        // empty routeWithHR = [] when HK hadn't synced the route yet — a non-nil empty
+        // array would bypass a nil-only check and silently skip the fetch.
+        let hasUsableRoute = (currentRun.routeWithHR?.count ?? 0) > 1 || (currentRun.route?.count ?? 0) > 1
 
-        // If no route data, try to fetch on-demand from HealthKit.
-        // Also reset any exhausted ("failed") background route task so the queue
-        // retries it — previous attempts may have failed due to a now-fixed HK query bug.
-        if currentRun.routeWithHR == nil && currentRun.route == nil,
-           let hkUUID = currentRun.healthKitUUID {
+        if !hasUsableRoute, let hkUUID = currentRun.healthKitUUID {
             await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
-            print("🗺️ [CardioDetail] No route data on run, fetching from HealthKit UUID: \(hkUUID)...")
-            isGeneratingSnapshot = true
-            do {
-                let workouts = try await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID)
-                print("🗺️ [CardioDetail] fetchWorkoutByUUID returned \(workouts.count) workouts")
-                if let hkWorkout = workouts.first {
-                    print("🗺️ [CardioDetail] Fetching route with HR...")
-                    do {
-                        let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-                        print("🗺️ [CardioDetail] fetchRouteWithHeartRate returned \(routeWithHR.count) points")
-                        if routeWithHR.count > 1 {
-                            currentRun.routeWithHR = routeWithHR
+            if let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first {
+                do {
+                    let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
+                    if routeWithHR.count > 1 {
+                        currentRun.routeWithHR = routeWithHR
+                        AppDependencies.shared.workoutStore.updateRun(currentRun)
+                    } else {
+                        let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
+                        if locations.count > 1 {
+                            currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
                             AppDependencies.shared.workoutStore.updateRun(currentRun)
-                        } else {
-                            // fetchRouteWithHeartRate returned empty (not a throw) — try plain route
-                            print("🗺️ [CardioDetail] fetchRouteWithHeartRate returned empty, falling back to plain route...")
-                            let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                            print("🗺️ [CardioDetail] fetchRoute returned \(locations.count) locations")
-                            if locations.count > 1 {
-                                currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
-                                AppDependencies.shared.workoutStore.updateRun(currentRun)
-                            }
-                        }
-                    } catch {
-                        print("🗺️ [CardioDetail] fetchRouteWithHeartRate FAILED: \(error), trying plain route...")
-                        // Fallback to plain route
-                        do {
-                            let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                            print("🗺️ [CardioDetail] fetchRoute returned \(locations.count) locations")
-                            if locations.count > 1 {
-                                currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
-                                AppDependencies.shared.workoutStore.updateRun(currentRun)
-                            }
-                        } catch {
-                            print("🗺️ [CardioDetail] fetchRoute also FAILED: \(error)")
                         }
                     }
-                } else {
-                    print("🗺️ [CardioDetail] No HKWorkout found for UUID \(hkUUID)")
+                } catch {
+                    if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
+                       locations.count > 1 {
+                        currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+                        AppDependencies.shared.workoutStore.updateRun(currentRun)
+                    }
                 }
-            } catch {
-                print("🗺️ [CardioDetail] fetchWorkoutByUUID FAILED: \(error)")
             }
-        } else if currentRun.routeWithHR == nil && currentRun.route == nil {
-            print("🗺️ [CardioDetail] No route data and no HealthKit UUID — cannot fetch route")
         }
 
-        // Get route coordinates
+        // Build coordinates from whichever source has data
         let coordinates: [CLLocationCoordinate2D]
         let hrValues: [Double]?
 
         if let routeWithHR = currentRun.routeWithHR, routeWithHR.count > 1 {
-            print("🗺️ [CardioDetail] Using routeWithHR with \(routeWithHR.count) points")
             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = routeWithHR.map { $0.hr ?? .nan }
         } else if let route = currentRun.route, route.count > 1 {
-            print("🗺️ [CardioDetail] Using route with \(route.count) points")
             coordinates = route.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = nil
         } else {
-            // No route data even after trying HealthKit
-            print("🗺️ [CardioDetail] No route data available, skipping map")
             isGeneratingSnapshot = false
             showingShareSheet = true
             return
         }
 
-        isGeneratingSnapshot = true
-
         do {
-            print("🗺️ [CardioDetail] Generating snapshot with \(coordinates.count) coordinates...")
             let snapshot = try await MapSnapshotService.shared.generateRouteSnapshot(
                 coordinates: coordinates,
                 hrValues: hrValues,
                 size: CGSize(width: 600, height: 400)
             )
             mapSnapshotImage = snapshot
-            print("🗺️ [CardioDetail] Snapshot generated successfully!")
         } catch {
-            print("🗺️ [CardioDetail] Failed to generate map snapshot: \(error)")
             mapSnapshotImage = nil
         }
 
         isGeneratingSnapshot = false
         showingShareSheet = true
+    }
+
+    // MARK: - Route-Only Fetch
+
+    /// Fetches the GPS route from HealthKit and stores it locally so the map
+    /// updates immediately without waiting for the background queue.
+    private func fetchRouteOnly() async {
+        guard !isFetchingRoute, let hkUUID = run.healthKitUUID else { return }
+        isFetchingRoute = true
+
+        await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
+
+        guard let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first else {
+            isFetchingRoute = false
+            return
+        }
+
+        do {
+            let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
+            if routeWithHR.count > 1 {
+                var updated = latestRun
+                updated.routeWithHR = routeWithHR
+                AppDependencies.shared.workoutStore.updateRun(updated)
+                localRouteWithHR = routeWithHR
+            } else {
+                let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
+                if locations.count > 1 {
+                    let coords = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+                    var updated = latestRun
+                    updated.route = coords
+                    AppDependencies.shared.workoutStore.updateRun(updated)
+                    localRoute = coords
+                }
+            }
+        } catch {
+            if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
+               locations.count > 1 {
+                let coords = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+                var updated = latestRun
+                updated.route = coords
+                AppDependencies.shared.workoutStore.updateRun(updated)
+                localRoute = coords
+            }
+        }
+
+        isFetchingRoute = false
     }
 }
 
@@ -520,8 +568,9 @@ private struct HeartRateTab: View {
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
             }
 
-            // Refresh button
-            if run.routeWithHR == nil && run.healthKitUUID != nil {
+            // Refresh button — show when route is missing OR empty (background queue
+            // may have stored [] when Watch hadn't synced the route yet)
+            if (run.routeWithHR?.count ?? 0) < 2 && run.healthKitUUID != nil {
                 HStack {
                     Spacer()
                     if isRefreshing {

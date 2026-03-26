@@ -1313,7 +1313,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
 
         // 2. Guaranteed delivery via transferUserInfo (Watch may have screen off)
-        var userInfoMsg: [String: Any] = ["messageType": WatchMessage.vrPartnerFinished.rawValue]
+        // Must use "type" key — Watch's handleIncomingMessage dispatches on message["type"]
+        var userInfoMsg: [String: Any] = ["type": WatchMessage.vrPartnerFinished.rawValue]
         userInfoMsg["partnerDistance"] = partnerDistance
         userInfoMsg["partnerDuration"] = partnerDuration
         if let pace = partnerPace {

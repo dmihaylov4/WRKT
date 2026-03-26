@@ -137,7 +137,7 @@ private struct MetaRow: View {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.caption.weight(.bold))
                         .foregroundStyle(DexTileColors.unlockedIcon)
-                    Text(when, style: .date)
+                    Text(when.formatted(.dateTime.month(.abbreviated).day().year().locale(Locale(identifier: "en_US"))))
                         .font(.caption2)
                         .foregroundStyle(DexTileColors.meta)
                 }

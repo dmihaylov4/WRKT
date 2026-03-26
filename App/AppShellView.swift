@@ -6,6 +6,31 @@ import OSLog
 // MARK: - Shell types & animation
 private enum AppTab: Int { case train = 0, plan = 1, social = 2, cardio = 3, profile = 4 }
 private enum ShellAnim { static let spring = Animation.spring(response: 0.42, dampingFraction: 0.85) }
+private enum TabBarLayout {
+    static let contentHeight: CGFloat = 49  // matches UITabBar content zone
+}
+
+extension AppTab {
+    var activeIcon: String {
+        switch self {
+        case .train:   "tab-train"
+        case .plan:    "tab-plan"
+        case .social:  "tab-social"
+        case .cardio:  "tab-cardio"
+        case .profile: "tab-profile"
+        }
+    }
+    var inactiveIcon: String { activeIcon + "-inactive" }
+    var label: String {
+        switch self {
+        case .train:   "Train"
+        case .plan:    "Plan"
+        case .social:  "Social"
+        case .cardio:  "Cardio"
+        case .profile: "Me"
+        }
+    }
+}
 
 struct AppShellView: View {
     @Environment(\.modelContext) private var modelContext
@@ -159,7 +184,7 @@ struct AppShellView: View {
             .overlay(alignment: .bottom) {
                 VirtualRunFlowStatusCard()
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 74) // 62pt tab bar + 12pt gap
+                    .padding(.bottom, TabBarLayout.contentHeight + 25) // tab bar + gap
                     .zIndex(998)
             }
     }
@@ -209,38 +234,8 @@ struct AppShellView: View {
             }
     }
 
-    @ViewBuilder
     private var baseContent: some View {
-        ZStack {
-            mainTabView
-                .overlay(tabBarDetector)
-                .overlay(tabBarIconConfigurator)
-        }
-    }
-
-    /// Zero-size overlay that sets tab bar icons via UIKit in updateUIView,
-    /// which runs after SwiftUI's tabItem pass each render cycle.
-    /// tabItem supplies the inactive (white) images, so setting item.image to
-    /// the same white value is a no-op visually — no flash. We then set
-    /// selectedImage to the colored version so the active tab shows correctly.
-    private var tabBarIconConfigurator: some View {
-        let config: [(inactive: String, active: String)] = settings.isLocalMode
-            ? [
-                ("tab-train-inactive",   "tab-train"),
-                ("tab-plan-inactive",    "tab-plan"),
-                ("tab-cardio-inactive",  "tab-cardio"),
-                ("tab-profile-inactive", "tab-profile"),
-            ]
-            : [
-                ("tab-train-inactive",   "tab-train"),
-                ("tab-plan-inactive",    "tab-plan"),
-                ("tab-social-inactive",  "tab-social"),
-                ("tab-cardio-inactive",  "tab-cardio"),
-                ("tab-profile-inactive", "tab-profile"),
-            ]
-        return TabBarIconConfigurator(config: config)
-            .frame(width: 0, height: 0)
-            .allowsHitTesting(false)
+        mainTabView
     }
 
     // MARK: - Main Tab View
@@ -285,39 +280,21 @@ struct AppShellView: View {
                     .scrollContentBackground(.hidden)
                     .navigationBarHidden(true)
             }
-            .tabItem { Label("Profile", image: "tab-profile-inactive") }
+            .tabItem { Label("Me", image: "tab-profile-inactive") }
             .tag(AppTab.profile)
         }
         .tint(DS.Palette.marone)
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            CustomTabBar(
+                selectedTab: $selectedTab,
+                isLocalMode: settings.isLocalMode,
+                friendRequestCount: badgeManager.friendRequestCount,
+                notificationCount: badgeManager.notificationCount
+            )
+        }
     }
 
-    // MARK: - Tab Bar Detector
-
-    @ViewBuilder
-    private var tabBarDetector: some View {
-        TabBarReselectionDetector(
-            selectedTab: $selectedTab,
-            onReselect: { [settings] index in
-                // Map visual index to AppTab (handles hidden Social tab in local mode)
-                let tabCount = settings.isLocalMode ? 4 : 5
-                let tab = TabBarReselectionDetector.Coordinator.mapIndexToTab(index: index, tabCount: tabCount)
-
-                switch tab {
-                case .train:
-                    NotificationCenter.default.post(name: .homeTabReselected, object: nil)
-                case .plan:
-                    NotificationCenter.default.post(name: .calendarTabReselected, object: nil)
-                case .social:
-                    NotificationCenter.default.post(name: .socialTabReselected, object: nil)
-                case .cardio:
-                    NotificationCenter.default.post(name: .cardioTabReselected, object: nil)
-                case .profile:
-                    break // TODO: Add profile tab reselection notification if needed
-                }
-            }
-        )
-        .allowsHitTesting(false)
-    }
 
     // MARK: - Bindings
 
@@ -558,7 +535,7 @@ struct AppShellView: View {
             )
             .id("overlay-\(workoutToken)")
             .padding(.horizontal, 12)
-            .padding(.bottom, 62)
+            .padding(.bottom, TabBarLayout.contentHeight + 13) // tab bar + gap
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(11)
         }
@@ -741,212 +718,91 @@ private struct LifecycleModifiers: ViewModifier {
     }
 }
 
-// MARK: - TabBarReselectionDetector
+// MARK: - CustomTabBar
 
-// Robust UITabBar re-tap detector
-private struct TabBarReselectionDetector: UIViewRepresentable {
+private struct CustomTabBar: View {
     @Binding var selectedTab: AppTab
-    let onReselect: (_ index: Int) -> Void
+    let isLocalMode: Bool
+    let friendRequestCount: Int
+    let notificationCount: Int
 
-    func makeCoordinator() -> Coordinator {
-        return Coordinator(selectedTab: $selectedTab, onReselect: onReselect)
+    private var tabs: [AppTab] {
+        isLocalMode ? [.train, .plan, .cardio, .profile]
+                    : [.train, .plan, .social, .cardio, .profile]
     }
 
-    func makeUIView(context: Context) -> UIView {
-        let v = DetectorView()
-        v.coordinator = context.coordinator
-        return v
-    }
+    private var socialBadge: Int { friendRequestCount + notificationCount }
 
-    func updateUIView(_ uiView: UIView, context: Context) {
-        (uiView as? DetectorView)?.attachDelegateIfNeeded()
-    }
-
-    final class DetectorView: UIView {
-        weak var coordinator: Coordinator?
-        private var retryCount = 0
-        private var hasAttached = false
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-
-            // Give SwiftUI time to set up the UITabBarController
-            // Initial attempt after a short delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                self?.attachDelegateIfNeeded()
-
-                if !(self?.hasAttached ?? true) {
-                    self?.retryWithDelay(0.2)
-                }
-            }
-        }
-
-        private func retryWithDelay(_ delay: TimeInterval) {
-            guard retryCount < 5 else { return }  // Reduced from 10 to 5 retries
-
-            retryCount += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                guard let self = self, !self.hasAttached else { return }
-                self.attachDelegateIfNeeded()
-
-                if !self.hasAttached {
-                    self.retryWithDelay(delay * 1.5) // Reduced exponential backoff
-                }
-            }
-        }
-
-        func attachDelegateIfNeeded() {
-            guard !hasAttached, let coord = coordinator else { return }
-
-            // Find the real UITabBarController SwiftUI created
-            if let tbc = findTabBarControllerInResponderChain(from: self) ?? findTabBarControllerInActiveWindow() {
-                // Set only the tab bar controller delegate (NOT tabBar.delegate - UIKit doesn't allow that)
-                tbc.delegate = coord
-                hasAttached = true
-            }
-        }
-
-        private func findTabBarControllerInResponderChain(from view: UIView) -> UITabBarController? {
-            var r: UIResponder? = view
-            while let cur = r {
-                if let tbc = (cur as? UIViewController)?.tabBarController
-                    ?? cur as? UITabBarController
-                    ?? (cur as? UIViewController)?.parent as? UITabBarController {
-                    return tbc
-                }
-                r = cur.next
-            }
-            return nil
-        }
-
-        private func findTabBarControllerInActiveWindow() -> UITabBarController? {
-            // Try all connected scenes, not just foregroundActive
-            let scenes = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-
-            // First try foreground active scene
-            if let scene = scenes.first(where: { $0.activationState == .foregroundActive }),
-               let root = (scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first)?.rootViewController {
-                if let tbc = dfs(root) { return tbc }
-            }
-
-            // Fallback: try all scenes
-            for scene in scenes {
-                for window in scene.windows {
-                    if let root = window.rootViewController,
-                       let tbc = dfs(root) {
-                        return tbc
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(tabs, id: \.self) { tab in
+                CustomTabBarButton(
+                    tab: tab,
+                    isSelected: selectedTab == tab,
+                    badge: tab == .social ? socialBadge : 0
+                ) {
+                    if selectedTab == tab {
+                        Haptics.soft()
+                        postReselect(for: tab)
+                    } else {
+                        Haptics.light()
+                        selectedTab = tab
                     }
                 }
             }
-
-            return nil
-
-            func dfs(_ vc: UIViewController) -> UITabBarController? {
-                if let tbc = vc as? UITabBarController { return tbc }
-                for child in vc.children { if let t = dfs(child) { return t } }
-                if let presented = vc.presentedViewController { return dfs(presented) }
-                return nil
-            }
+        }
+        .padding(.top, 12)
+        .background(DS.Semantic.surface)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .frame(height: 0.5)
+                .foregroundStyle(Color.primary.opacity(0.12))
         }
     }
 
-    final class Coordinator: NSObject, UITabBarControllerDelegate {
-        @Binding var selectedTab: AppTab
-        private let onReselect: (_ index: Int) -> Void
-
-        init(selectedTab: Binding<AppTab>, onReselect: @escaping (_ index: Int) -> Void) {
-            self._selectedTab = selectedTab
-            self.onReselect = onReselect
-        }
-
-        /// Maps visual tab index to AppTab, handling hidden Social tab in local mode
-        static func mapIndexToTab(index: Int, tabCount: Int) -> AppTab {
-            // 5 tabs = all tabs shown (train, plan, social, cardio, profile)
-            // 4 tabs = social hidden (train, plan, cardio, profile)
-            if tabCount == 5 {
-                return AppTab(rawValue: index) ?? .train
-            } else {
-                // Local mode: Social tab is hidden
-                // Visual: 0=train, 1=plan, 2=cardio, 3=profile
-                // AppTab: 0=train, 1=plan, 3=cardio, 4=profile
-                switch index {
-                case 0: return .train
-                case 1: return .plan
-                case 2: return .cardio
-                case 3: return .profile
-                default: return .train
-                }
-            }
-        }
-
-        // Called when any tab is selected, including re-tapping the current tab
-        func tabBarController(_ tabBarController: UITabBarController,
-                              shouldSelect viewController: UIViewController) -> Bool {
-            let isReselect = viewController == tabBarController.selectedViewController
-
-            // Haptic feedback on tab tap
-            Haptics.light()
-
-            if isReselect {
-                // Definite re-tap - stronger haptic
-                Haptics.soft()
-                onReselect(tabBarController.selectedIndex)
-            } else {
-                // Regular tab switch - update SwiftUI state
-                if let newIndex = tabBarController.viewControllers?.firstIndex(of: viewController) {
-                    let tabCount = tabBarController.viewControllers?.count ?? 5
-                    let newTab = Self.mapIndexToTab(index: newIndex, tabCount: tabCount)
-                    DispatchQueue.main.async {
-                        self.selectedTab = newTab
-                    }
-                }
-            }
-            return true
+    private func postReselect(for tab: AppTab) {
+        switch tab {
+        case .train:   NotificationCenter.default.post(name: .homeTabReselected, object: nil)
+        case .plan:    NotificationCenter.default.post(name: .calendarTabReselected, object: nil)
+        case .social:  NotificationCenter.default.post(name: .socialTabReselected, object: nil)
+        case .cardio:  NotificationCenter.default.post(name: .cardioTabReselected, object: nil)
+        case .profile: break
         }
     }
 }
 
-// MARK: - TabBarIconConfigurator
+private struct CustomTabBarButton: View {
+    let tab: AppTab
+    let isSelected: Bool
+    var badge: Int = 0
+    let action: () -> Void
 
-/// A zero-size UIViewRepresentable that overrides tab bar icons in `updateUIView`.
-/// `updateUIView` is called by SwiftUI AFTER it finishes rendering all tabItem
-/// modifiers, so setting images here always wins over SwiftUI's own tabItem pass.
-private struct TabBarIconConfigurator: UIViewRepresentable {
-    let config: [(inactive: String, active: String)]
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 3) {
+                ZStack(alignment: .topTrailing) {
+                    Image(isSelected ? tab.activeIcon : tab.inactiveIcon)
+                        .renderingMode(.original)
+                        .frame(width: 26, height: 26)
 
-    func makeUIView(context: Context) -> UIView { UIView() }
-
-    func updateUIView(_ uiView: UIView, context: Context) {
-        // Runs after SwiftUI's tabItem pass each cycle.
-        // item.image = inactive (white) — same as what tabItem just set, so no visual change.
-        // item.selectedImage = active (colored) — overrides the white SwiftUI set for selected state.
-        guard let tbc = findTabBarController(),
-              let items = tbc.tabBar.items else { return }
-
-        for (index, item) in items.enumerated() {
-            guard index < config.count else { break }
-            let colored = UIImage(named: config[index].active)?.withRenderingMode(.alwaysOriginal)
-            item.image         = colored   // always colored, not just when selected
-            item.selectedImage = colored
-        }
-    }
-
-    private func findTabBarController() -> UITabBarController? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        for scene in scenes {
-            for window in scene.windows {
-                guard let root = window.rootViewController else { continue }
-                if let tbc = dfs(root) { return tbc }
+                    if badge > 0 {
+                        Text(badge > 99 ? "99+" : "\(badge)")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1.5)
+                            .background(Color.red)
+                            .clipShape(Capsule())
+                            .offset(x: 10, y: -6)
+                    }
+                }
+                Text(tab.label)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(isSelected ? DS.Palette.marone : Color.secondary)
             }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
-        return nil
-
-        func dfs(_ vc: UIViewController) -> UITabBarController? {
-            if let tbc = vc as? UITabBarController { return tbc }
-            for child in vc.children { if let t = dfs(child) { return t } }
-            if let presented = vc.presentedViewController { return dfs(presented) }
-            return nil
-        }
+        .buttonStyle(.plain)
     }
 }

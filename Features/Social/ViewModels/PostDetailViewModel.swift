@@ -44,10 +44,24 @@ final class PostDetailViewModel {
         error = nil
 
         do {
-            
-           
             comments = try await postRepository.fetchCommentsWithReplies(postID: post.post.id)
-           
+
+            // Derive accurate count from loaded data (fixes DB counter drift)
+            let totalCount = comments.reduce(0) { $0 + 1 + ($1.replies?.count ?? 0) }
+            if totalCount != post.post.commentsCount {
+                let postId = post.post.id
+                var updatedPost = post.post
+                updatedPost.commentsCount = totalCount
+                post = PostWithAuthor(id: post.id, post: updatedPost, author: post.author, isLikedByCurrentUser: post.isLikedByCurrentUser)
+                // Sync corrected count to cache so feed reflects it
+                CacheManager.shared.updateCachedPost(id: postId, commentsCount: totalCount)
+                NotificationCenter.default.post(
+                    name: .postCommentCountDidChange,
+                    object: nil,
+                    userInfo: ["postId": postId, "count": totalCount]
+                )
+            }
+
             isLoadingComments = false
         } catch {
             
@@ -104,19 +118,8 @@ final class PostDetailViewModel {
             )
             
 
-            // Reload comments to get updated structure
-            
+            // Reload comments to get updated structure (also recalculates commentsCount from real data)
             await loadComments()
-
-            // Update comment count
-            var updatedPost = post.post
-            updatedPost.commentsCount += 1
-            post = PostWithAuthor(
-                id: post.id,
-                post: updatedPost,
-                author: post.author,
-                isLikedByCurrentUser: post.isLikedByCurrentUser
-            )
 
             commentText = ""
             replyingTo = nil
@@ -136,18 +139,8 @@ final class PostDetailViewModel {
         do {
             try await postRepository.deleteComment(commentId: comment.id)
 
-            // Reload comments to reflect deletion
+            // Reload comments to reflect deletion (also recalculates commentsCount from real data)
             await loadComments()
-
-            // Update comment count
-            var updatedPost = post.post
-            updatedPost.commentsCount = max(0, updatedPost.commentsCount - 1)
-            post = PostWithAuthor(
-                id: post.id,
-                post: updatedPost,
-                author: post.author,
-                isLikedByCurrentUser: post.isLikedByCurrentUser
-            )
 
             Haptics.success()
         } catch {
