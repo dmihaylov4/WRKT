@@ -587,6 +587,9 @@ struct ExerciseSessionView: View {
         @Binding var sets: [SetInput]
         @Binding var activeSetIndex: Int
         @EnvironmentObject private var store: WorkoutStoreV2
+        @EnvironmentObject private var repo: ExerciseRepository
+
+        @State private var showEditExercise = false
 
         let unit: WeightUnit
         let exercise: Exercise
@@ -710,13 +713,9 @@ struct ExerciseSessionView: View {
                             useLast()
                         }
 
-                        PresetButton(title: "5×5", icon: "number.circle") {
-                            applyFiveByFive()
-                        }
-
-                        if store.bestE1RM(exercise: exercise) != nil {
-                            PresetButton(title: "Try 1RM", icon: "star.circle") {
-                                tryOneRM()
+                        if exercise.isCustom {
+                            PresetButton(title: "Edit Exercise", icon: "pencil.circle") {
+                                showEditExercise = true
                             }
                         }
 
@@ -727,6 +726,14 @@ struct ExerciseSessionView: View {
                                 onToggle: onToggleSuperset
                             )
                         }
+                    }
+                    .sheet(isPresented: $showEditExercise) {
+                        CreateExerciseView(
+                            preselectedMuscle: exercise.primaryMuscles.first ?? "",
+                            editingExercise: exercise
+                        )
+                        .environmentObject(CustomExerciseStore.shared)
+                        .environmentObject(repo)
                     }
 
                     Button(action: onAdd) {
@@ -778,28 +785,6 @@ struct ExerciseSessionView: View {
             }
         }
 
-        private func applyFiveByFive() {
-            Haptics.light()
-            sets = (1...5).map { _ in
-                SetInput(reps: 5, weight: 0, tag: .working, autoWeight: true)
-            }
-            // Make the first set active
-            activeSetIndex = 0
-        }
-
-        private func tryOneRM() {
-            Haptics.light()
-            guard let e1rm = store.bestE1RM(exercise: exercise) else { return }
-            sets.append(SetInput(
-                reps: 1,
-                weight: e1rm,
-                tag: .working,
-                autoWeight: false,
-                didSeedFromMemory: false
-            ))
-            // Make the newly added set active
-            activeSetIndex = sets.count - 1
-        }
     }
 
     // MARK: - Helper Functions
