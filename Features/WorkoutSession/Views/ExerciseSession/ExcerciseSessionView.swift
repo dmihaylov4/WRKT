@@ -764,7 +764,16 @@ struct ExerciseSessionView: View {
                     autoWeight: false,  // Don't auto-recalculate - use explicit values from history
                     didSeedFromMemory: true
                 ))
-                // Make the newly added set active
+                activeSetIndex = sets.count - 1
+            } else if let lastLogged = sets.last(where: { $0.isCompleted && $0.tag == .working }) {
+                // No history from past workouts: fall back to the last logged set in this session
+                sets.append(SetInput(
+                    reps: lastLogged.reps,
+                    weight: lastLogged.weight,
+                    tag: .working,
+                    autoWeight: false,
+                    didSeedFromMemory: true
+                ))
                 activeSetIndex = sets.count - 1
             }
         }
