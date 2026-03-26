@@ -27,6 +27,8 @@ struct ExerciseSessionView: View {
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
+    @AppStorage("auto_add_set_on_rest_timer") private var autoAddSetOnRestTimer: Bool = true
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
 
@@ -1115,6 +1117,14 @@ struct ExerciseSessionView: View {
                 message: "\(completedSetsCount) sets completed! Tap + to add more",
                 icon: "checkmark.circle.fill"
             )
+            return
+        }
+
+        // Respect user preference: if auto-add is disabled, save rest data and stop here
+        guard autoAddSetOnRestTimer else {
+            if needsSave, let entryID = viewModel.currentEntryID {
+                store.updateEntrySetsAndActiveIndex(entryID: entryID, sets: viewModel.sets, activeSetIndex: viewModel.activeSetIndex)
+            }
             return
         }
 

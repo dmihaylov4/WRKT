@@ -21,6 +21,8 @@ struct PreferencesView: View {
     @AppStorage("streak_reminder_enabled") private var streakReminderEnabled: Bool = false
     @AppStorage("streak_reminder_hour") private var streakReminderHour: Int = 20
     @AppStorage("smart_nudges_enabled") private var smartNudgesEnabled: Bool = false
+    @AppStorage("weight_step_kg") private var weightStepKg: Double = 2.5
+    @AppStorage("auto_add_set_on_rest_timer") private var autoAddSetOnRestTimer: Bool = true
 
     @State private var showResetAlert = false
     @State private var notificationStatus: UNAuthorizationStatus = .notDetermined
@@ -195,10 +197,28 @@ struct PreferencesView: View {
             Toggle(isOn: $hapticsEnabled) {
                 Label("Haptic feedback", systemImage: "hand.tap.fill")
             }
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Weight increment", systemImage: "scalemass.fill").font(.subheadline)
+                Picker("Weight increment", selection: $weightStepKg) {
+                    Text("0.5 kg").tag(0.5)
+                    Text("1 kg").tag(1.0)
+                    Text("2.5 kg").tag(2.5)
+                }
+                .pickerStyle(.segmented)
+            }
             Toggle(isOn: $timerPrefs.isEnabled) {
                 Label("Rest timer", systemImage: "timer")
             }
             if timerPrefs.isEnabled {
+                Toggle(isOn: $autoAddSetOnRestTimer) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Auto-add next set").font(.body)
+                            Text("Add a new set row automatically when the rest timer finishes")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    } icon: { Image(systemName: "plus.circle") }
+                }
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Compound exercises", systemImage: "dumbbell.fill").font(.subheadline)
                     TimeStepper(seconds: $timerPrefs.defaultCompoundSeconds, lowerBound: 30, upperBound: 600, step: 30)

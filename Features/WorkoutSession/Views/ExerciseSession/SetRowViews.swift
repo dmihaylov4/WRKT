@@ -28,8 +28,18 @@ struct SetRowUnified: View {
     // Don't observe timer to avoid re-renders every second - access directly when needed
     private var timerManager: RestTimerManager { RestTimerManager.shared }
 
+    @AppStorage("weight_step_kg") private var weightStepKg: Double = 2.5
+
     private let defaultWorkingReps = 10
-    private var step: Double { unit == .kg ? 2.5 : 5 }
+    private var step: Double {
+        if unit == .kg { return weightStepKg }
+        // Map kg increment to nearest standard lb increment
+        switch weightStepKg {
+        case 0.5: return 1.25
+        case 1.0: return 2.5
+        default: return 5.0  // 2.5 kg
+        }
+    }
     private var displayWeight: Double { unit == .kg ? set.weight : (set.weight * 2.20462) }
 
     @State private var isEditingReps = false

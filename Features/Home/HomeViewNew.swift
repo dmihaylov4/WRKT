@@ -22,9 +22,6 @@ struct HomeViewNew: View {
     // ViewModel for data fetching and card management
     @State private var viewModel: HomeViewModel?
 
-    // Observe rest timer to trigger hero updates
-    @ObservedObject private var restTimerManager = RestTimerManager.shared
-
     // Split animation state (preserved for ExpandedRegionPanel)
     @Namespace private var regionNS
     @State private var expandedRegion: BodyRegion? = nil
@@ -67,32 +64,16 @@ struct HomeViewNew: View {
             }
 
             // Hero Button (28% screen - THE MAIN COMPONENT)
+            // Rendered in an isolated subview so per-second timer re-renders
+            // don't propagate up to HomeViewNew and invalidate NavigationStack destinations.
             if let vm = viewModel {
-                HeroStartWorkoutButton(
-                    content: vm.getHeroButtonContent(),
-                    onTap: {
-                        if hasActiveWorkout {
-                            // When workout is active, onTap means "Add Exercise"
-                            // TODO: Open exercise browser or show quick add
-                            showWorkoutSelector = true
-                        } else {
-                            // No workout - show workout type selector
-                            showWorkoutSelector = true
-                        }
-                    },
+                TimerIsolatedHeroButton(
+                    viewModel: vm,
+                    onTap: { showWorkoutSelector = true },
                     showLiveWorkoutSheet: {
                         NotificationCenter.default.post(name: .openLiveOverlay, object: nil)
                     },
-                    skipRest: {
-                        RestTimerManager.shared.skipTimer()
-                    },
-                    addExercise: {
-                        // Open workout type selector to add exercises
-                        showWorkoutSelector = true
-                    },
-                    extendRest: {
-                        RestTimerManager.shared.adjustTime(by: 15)
-                    }
+                    onAddExercise: { showWorkoutSelector = true }
                 )
                 .padding(.top, 1)
             }
@@ -375,6 +356,33 @@ struct HomeViewNew: View {
                 showTiles = false
             }
         }
+    }
+}
+
+// MARK: - Timer-isolated hero button
+// Owns @ObservedObject for RestTimerManager so per-second re-renders are confined
+// to this leaf view and do not propagate to HomeViewNew (which owns the NavigationStack).
+// Without this isolation every timer tick re-evaluated navigationDestination factories,
+// which caused MuscleExerciseListView to receive a new $path Binding, triggering its
+// body and re-evaluating the CreateExerciseView sheet — resetting the Form scroll position.
+private struct TimerIsolatedHeroButton: View {
+    @ObservedObject private var restTimerManager = RestTimerManager.shared
+    @EnvironmentObject private var store: WorkoutStoreV2
+
+    let viewModel: HomeViewModel
+    let onTap: () -> Void
+    let showLiveWorkoutSheet: () -> Void
+    let onAddExercise: () -> Void
+
+    var body: some View {
+        HeroStartWorkoutButton(
+            content: viewModel.getHeroButtonContent(),
+            onTap: onTap,
+            showLiveWorkoutSheet: showLiveWorkoutSheet,
+            skipRest: { RestTimerManager.shared.skipTimer() },
+            addExercise: onAddExercise,
+            extendRest: { RestTimerManager.shared.adjustTime(by: 15) }
+        )
     }
 }
 
