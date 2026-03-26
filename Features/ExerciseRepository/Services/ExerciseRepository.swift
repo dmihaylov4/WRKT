@@ -498,7 +498,7 @@ extension ExerciseRepository {
         case "glutes":      return ["glute","gluteus","butt","glute max","glute med","glute minimus"]
         case "quads":       return ["quad","quadriceps","vastus","rectus femoris"]
         case "hamstrings":  return ["hamstring","biceps femoris","semitendinosus","semimembranosus"]
-        case "calves":      return ["calf","gastrocnemius","soleus"]
+        case "calves":      return ["calf","calves","gastrocnemius","soleus"]
         case "adductors":   return ["adductor","adductors","inner thigh"]
         case "abductors":   return ["abductor","abductors","outer thigh","glute medius","glute minimus"]
 

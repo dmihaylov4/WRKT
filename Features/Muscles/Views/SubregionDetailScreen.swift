@@ -122,16 +122,7 @@ struct SubregionDetailScreen: View {
     }
 
     private func parentFiltered(_ subregion: String) -> [Exercise] {
-        let keys = MuscleMapper.synonyms(for: subregion)
-        return repo.exercises
-            .filter { ex in
-                let muscles = (ex.primaryMuscles + ex.secondaryMuscles).map { $0.lowercased() }
-                let name = ex.name.lowercased()
-                let hitMuscle = muscles.contains { m in keys.contains(where: { m.contains($0) }) }
-                let hitName = keys.contains { name.contains($0) }
-                return hitMuscle || hitName
-            }
-            .sorted { $0.name < $1.name }
+        repo.exercisesForMuscle(subregion)
     }
 }
 

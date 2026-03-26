@@ -32,7 +32,7 @@ enum MuscleFilter: Hashable, Identifiable {
             return ["chest", "back", "shoulder", "bicep", "tricep", "forearm", "trap", "lat", "pec", "delt",
                     "abs", "oblique", "abdom", "rectus", "core"]
         case .lowerBody:
-            return ["quad", "hamstring", "glute", "calf", "adductor", "abductor", "hip", "leg"]
+            return ["quad", "hamstring", "glute", "calf", "calves", "adductor", "abductor", "hip", "leg", "gastrocnemius", "soleus"]
         case .fullBody:
             return []  // Empty = all muscles allowed
         }
@@ -447,7 +447,7 @@ struct MuscleExerciseListView: View {
                 .environmentObject(store)
             }
             .sheet(isPresented: $showingCreateExercise) {
-                CreateExerciseView(preselectedMuscle: subregion ?? "")
+                CreateExerciseView(preselectedMuscle: selectedMuscleGroup ?? subregion ?? "")
                     .environmentObject(customStore)
                     .environmentObject(repo)
             }
@@ -912,7 +912,7 @@ enum MuscleMapper {
         case "glutes": return ["glute","gluteus","butt","glute max","glute med","glute minimus"]
         case "quads": return ["quad","quadriceps","vastus","rectus femoris"]
         case "hamstrings": return ["hamstring","biceps femoris","semitendinosus","semimembranosus"]
-        case "calves": return ["calf","gastrocnemius","soleus"]
+        case "calves": return ["calf","calves","gastrocnemius","soleus"]
         case "adductors": return ["adductor","adductors","inner thigh"]
         case "abductors": return ["abductor","abductors","outer thigh","glute medius","glute minimus"]
         default: return [name.lowercased()]
