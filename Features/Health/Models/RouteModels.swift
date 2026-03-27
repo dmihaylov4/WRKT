@@ -54,6 +54,11 @@ struct Run: Identifiable, Codable, Hashable {
     var workoutType: String?   // HealthKit workout activity type (e.g., "Running", "Cycling", "Traditional Strength Training")
     var workoutName: String?   // Custom workout name from Apple Fitness/Watch
 
+    // Heart rate stats (stored separately for non-route workouts like strength training)
+    var maxHeartRate: Double?
+    var minHeartRate: Double?
+    var hrSamples: [HeartRateSample]?      // Time-series for HR chart
+
     // Running dynamics (from Apple Watch)
     var avgRunningPower: Double?           // Watts
     var avgCadence: Double?                // Steps per minute
@@ -69,6 +74,9 @@ struct Run: Identifiable, Codable, Hashable {
         notes: String? = nil,
         healthKitUUID: UUID? = nil,
         avgHeartRate: Double? = nil,
+        maxHeartRate: Double? = nil,
+        minHeartRate: Double? = nil,
+        hrSamples: [HeartRateSample]? = nil,
         calories: Double? = nil,
         route: [Coordinate]? = nil,
         routeWithHR: [RoutePoint]? = nil,
@@ -88,6 +96,9 @@ struct Run: Identifiable, Codable, Hashable {
         self.notes = notes
         self.healthKitUUID = healthKitUUID
         self.avgHeartRate = avgHeartRate
+        self.maxHeartRate = maxHeartRate
+        self.minHeartRate = minHeartRate
+        self.hrSamples = hrSamples
         self.calories = calories
         self.route = route
         self.routeWithHR = routeWithHR
@@ -168,14 +179,14 @@ extension Array where Element == Coordinate {
 // MARK: - Run to CompletedWorkout Conversion
 
 extension Run {
-    /// Convert a cardio Run to a CompletedWorkout for sharing
-    /// Empty entries array will make isCardioWorkout return true
+    /// Convert a Run to a CompletedWorkout for sharing.
+    /// Strength-type workouts (functional training, strength training, etc.) will have
+    /// isCardioWorkout == false because cardioWorkoutType is set and maps to .strength.
     func toCompletedWorkout() -> CompletedWorkout {
-        // Calculate max heart rate from routeWithHR if available
-        let maxHR = routeWithHR?.compactMap { $0.hr }.max()
-
-        // Calculate min heart rate from routeWithHR if available
-        let minHR = routeWithHR?.compactMap { $0.hr }.min()
+        // Max/min HR: prefer explicit fields (set for strength workouts); fall back to
+        // per-point route data for running/cycling which has HR embedded in the route.
+        let maxHR = maxHeartRate ?? routeWithHR?.compactMap { $0.hr }.max()
+        let minHR = minHeartRate ?? routeWithHR?.compactMap { $0.hr }.min()
 
         // Convert distance from km to meters
         let distanceMeters = distanceKm * 1000
@@ -184,7 +195,7 @@ extension Run {
             id: id,
             date: date,
             startedAt: date.addingTimeInterval(-Double(durationSec)), // Estimate start time
-            entries: [], // Empty entries make this a cardio workout
+            entries: [],
             plannedWorkoutID: nil,
             workoutName: workoutName
         ).with(
@@ -196,6 +207,14 @@ extension Run {
             duration: durationSec,
             distance: distanceMeters
         )
+
+        // Preserve workout type so isCardioWorkout can correctly classify strength types
+        workout.cardioWorkoutType = workoutType
+
+        // HR time-series samples (used for chart in the Watch page)
+        if let samples = hrSamples, !samples.isEmpty {
+            workout.matchedHealthKitHeartRateSamples = samples
+        }
 
         // Map running dynamics
         workout.cardioAvgPower = avgRunningPower

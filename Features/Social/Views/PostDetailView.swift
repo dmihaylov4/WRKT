@@ -19,6 +19,7 @@ struct PostDetailView: View {
     @FocusState private var isCommentFieldFocused: Bool
     @State private var displayImageURLs: [URL] = []
     @State private var carouselPage: Int = 0
+    @State private var showMapFullscreen = false
 
     private let imageUploadService = ImageUploadService()
 
@@ -163,13 +164,20 @@ struct PostDetailView: View {
         let workout = viewModel.post.post.workoutData
         let hasWatchData = workout.matchedHealthKitHeartRate != nil
             || workout.matchedHealthKitCalories != nil
-        let pageCount = hasWatchData ? 3 : 2
+        // HK-only strength workout: no exercises to list, just summary + watch data page
+        let isHKOnly = workout.entries.isEmpty && workout.matchedHealthKitUUID != nil
+        let pageCount: Int = {
+            if isHKOnly { return hasWatchData ? 2 : 1 }
+            return hasWatchData ? 3 : 2
+        }()
         return VStack(spacing: 0) {
             TabView(selection: $carouselPage) {
                 strengthSummaryPage(viewModel: viewModel).tag(0)
-                strengthExercisePage(viewModel: viewModel).tag(1)
+                if !isHKOnly {
+                    strengthExercisePage(viewModel: viewModel).tag(1)
+                }
                 if hasWatchData {
-                    strengthWatchPage(viewModel: viewModel).tag(2)
+                    strengthWatchPage(viewModel: viewModel).tag(isHKOnly ? 1 : 2)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -194,8 +202,10 @@ struct PostDetailView: View {
     private func strengthSummaryPage(viewModel: PostDetailViewModel) -> some View {
         let post = viewModel.post.post
         let workout = post.workoutData
+        // HK-only: workout came purely from HealthKit with no logged exercises
+        let isHKOnly = workout.entries.isEmpty && workout.matchedHealthKitUUID != nil
         return ZStack {
-            // Background: first photo if available, else card with dumbbell watermark
+            // Background: first photo if available, else icon watermark
             if let firstURL = displayImageURLs.first {
                 KFImage(firstURL)
                     .resizable()
@@ -204,7 +214,7 @@ struct PostDetailView: View {
             } else {
                 ZStack {
                     DS.Semantic.card
-                    Image(systemName: "dumbbell.fill")
+                    Image(systemName: workout.workoutIcon)
                         .font(.system(size: 90))
                         .foregroundStyle(DS.Semantic.brand.opacity(0.07))
                 }
@@ -217,112 +227,189 @@ struct PostDetailView: View {
             )
 
             VStack {
-                Spacer().frame(height: 90)
-
-                // Stats row — shifted right
-                HStack(alignment: .bottom, spacing: 0) {
-                    if post.totalVolume > 0 {
-                        VStack(spacing: 1) {
-                            Text("VOLUME")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .tracking(1.2)
-                            Text(formatVolume(post.totalVolume))
-                                .font(.system(size: 26, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                            Text("KG")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.65))
-                                .tracking(1.5)
-                        }
-                        .frame(maxWidth: .infinity)
-                        Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
-                    }
-
-                    VStack(spacing: 1) {
-                        Text("EXERCISES")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .tracking(1.2)
-                        Text("\(post.exerciseCount)")
-                            .font(.system(size: 26, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text("EX")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.65))
+                if isHKOnly {
+                    // Workout type label at top
+                    HStack(spacing: 6) {
+                        Image(systemName: workout.workoutIcon)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text((workout.cardioWorkoutType ?? "Workout").uppercased())
+                            .font(.system(size: 11, weight: .bold))
                             .tracking(1.5)
                     }
-                    .frame(maxWidth: .infinity)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .padding(.top, 16)
 
-                    Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                    Spacer()
 
-                    VStack(spacing: 1) {
-                        Text("SETS")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.5))
-                            .tracking(1.2)
-                        Text("\(post.totalSets)")
-                            .font(.system(size: 26, weight: .heavy, design: .rounded))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Text("TOTAL")
-                            .font(.system(size: 8, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.65))
-                            .tracking(1.5)
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    if post.duration != nil {
-                        Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
-                        VStack(spacing: 1) {
-                            Text("DURATION")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .tracking(1.2)
-                            Text(post.durationFormatted)
-                                .font(.system(size: 26, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.55)
-                            Text("TIME")
-                                .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.65))
-                                .tracking(1.5)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                }
-                .padding(.leading, 32)
-                .padding(.trailing, 12)
-
-                Spacer()
-
-                // Bottom: Apple Watch quick stats
-                if workout.matchedHealthKitHeartRate != nil || workout.matchedHealthKitCalories != nil {
-                    HStack(spacing: 14) {
-                        if let hr = workout.matchedHealthKitHeartRate {
-                            HStack(spacing: 4) {
-                                Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red.opacity(0.9))
-                                Text(String(format: "%.0f BPM", hr))
-                                    .font(.system(size: 12, weight: .semibold))
+                    // Big stats: duration, calories, avg HR
+                    HStack(alignment: .bottom, spacing: 0) {
+                        if let sec = workout.matchedHealthKitDuration {
+                            VStack(spacing: 1) {
+                                Text("DURATION")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                    .tracking(1.2)
+                                Text(formatCardioDuration(sec))
+                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.55)
+                                Text("TIME")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.65))
+                                    .tracking(1.5)
                             }
-                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity)
                         }
+
                         if let cal = workout.matchedHealthKitCalories {
-                            HStack(spacing: 4) {
-                                Image(systemName: "flame.fill").font(.caption2)
-                                Text(String(format: "%.0f kcal", cal))
-                                    .font(.system(size: 12, weight: .semibold))
+                            Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                            VStack(spacing: 1) {
+                                Text("CALORIES")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                    .tracking(1.2)
+                                Text(String(format: "%.0f", cal))
+                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                Text("KCAL")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.65))
+                                    .tracking(1.5)
                             }
-                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity)
                         }
-                        Spacer()
+
+                        if let hr = workout.matchedHealthKitHeartRate {
+                            Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                            VStack(spacing: 1) {
+                                Text("AVG HR")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                    .tracking(1.2)
+                                Text(String(format: "%.0f", hr))
+                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                Text("BPM")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.65))
+                                    .tracking(1.5)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
                     }
-                    .padding(.bottom, 14)
+                    .padding(.bottom, 16)
                     .padding(.horizontal, 20)
+                } else {
+                    Spacer().frame(height: 90)
+
+                    // Stats row: volume (if any), exercises, sets, duration
+                    HStack(alignment: .bottom, spacing: 0) {
+                        if post.totalVolume > 0 {
+                            VStack(spacing: 1) {
+                                Text("VOLUME")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                    .tracking(1.2)
+                                Text(formatVolume(post.totalVolume))
+                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.6)
+                                Text("KG")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.65))
+                                    .tracking(1.5)
+                            }
+                            .frame(maxWidth: .infinity)
+                            Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                        }
+
+                        VStack(spacing: 1) {
+                            Text("EXERCISES")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .tracking(1.2)
+                            Text("\(post.exerciseCount)")
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            Text("EX")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.65))
+                                .tracking(1.5)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+
+                        VStack(spacing: 1) {
+                            Text("SETS")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.5))
+                                .tracking(1.2)
+                            Text("\(post.totalSets)")
+                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            Text("TOTAL")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.65))
+                                .tracking(1.5)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        if post.duration != nil {
+                            Rectangle().fill(.white.opacity(0.25)).frame(width: 1, height: 38)
+                            VStack(spacing: 1) {
+                                Text("DURATION")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.5))
+                                    .tracking(1.2)
+                                Text(post.durationFormatted)
+                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.white)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.55)
+                                Text("TIME")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white.opacity(0.65))
+                                    .tracking(1.5)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .padding(.leading, 32)
+                    .padding(.trailing, 12)
+
+                    Spacer()
+
+                    // Bottom: Apple Watch quick stats
+                    if workout.matchedHealthKitHeartRate != nil || workout.matchedHealthKitCalories != nil {
+                        HStack(spacing: 14) {
+                            if let hr = workout.matchedHealthKitHeartRate {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red.opacity(0.9))
+                                    Text(String(format: "%.0f BPM", hr))
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundStyle(.white.opacity(0.9))
+                            }
+                            if let cal = workout.matchedHealthKitCalories {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "flame.fill").font(.caption2)
+                                    Text(String(format: "%.0f kcal", cal))
+                                        .font(.system(size: 12, weight: .semibold))
+                                }
+                                .foregroundStyle(.white.opacity(0.9))
+                            }
+                            Spacer()
+                        }
+                        .padding(.bottom, 14)
+                        .padding(.horizontal, 20)
+                    }
                 }
             }
         }
@@ -771,99 +858,124 @@ struct PostDetailView: View {
     // MARK: - Carousel Page 1: Route map with overlaid stats
 
     private func cardioMapPage(workout: CompletedWorkout) -> some View {
-        ZStack {
-            // Route map
-            if let mapURL = displayImageURLs.first {
-                KFImage(mapURL)
-                    .placeholder { Rectangle().fill(DS.Semantic.fillSubtle) }
-                    .fade(duration: 0.25)
-                    .resizable()
-                    .scaledToFill()
-                    .clipped()
-            } else {
-                DS.Semantic.fillSubtle
-            }
+        GeometryReader { geo in
+            ZStack {
+                // Route map — explicit pixel frame prevents any panning
+                if let mapURL = displayImageURLs.first {
+                    KFImage(mapURL)
+                        .placeholder { Rectangle().fill(DS.Semantic.fillSubtle) }
+                        .fade(duration: 0.25)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .contentShape(Rectangle())
+                        .onTapGesture { showMapFullscreen = true }
+                } else {
+                    DS.Semantic.fillSubtle
+                }
 
-            // Gradient at top and bottom for legibility
-            LinearGradient(
-                colors: [.black.opacity(0.55), .clear, .black.opacity(0.85)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+                // Gradient at top and bottom for legibility
+                LinearGradient(
+                    colors: [.black.opacity(0.55), .clear, .black.opacity(0.85)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
 
-            // Pace + calories at top center, KM/TIME at bottom with labels above
-            VStack {
-                // Top center: pace + calories (small)
-                if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0,
-                   let durationSec = workout.matchedHealthKitDuration {
-                    let pace = Double(durationSec) / (distanceMeters / 1000)
-                    HStack(spacing: 16) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "figure.run").font(.caption2)
-                            Text("\(formatPace(pace)) /km")
-                                .font(.system(size: 13, weight: .semibold))
-                        }
-                        .foregroundStyle(.white.opacity(0.92))
-
-                        if let calories = workout.matchedHealthKitCalories {
+                // Pace + calories at top center, KM/TIME at bottom with labels above
+                VStack {
+                    // Top center: pace + calories (small)
+                    if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0,
+                       let durationSec = workout.matchedHealthKitDuration {
+                        let pace = Double(durationSec) / (distanceMeters / 1000)
+                        HStack(spacing: 16) {
                             HStack(spacing: 4) {
-                                Image(systemName: "flame.fill").font(.caption2)
-                                Text(String(format: "%.0f kcal", calories))
+                                Image(systemName: "figure.run").font(.caption2)
+                                Text("\(formatPace(pace)) /km")
                                     .font(.system(size: 13, weight: .semibold))
                             }
                             .foregroundStyle(.white.opacity(0.92))
+
+                            if let calories = workout.matchedHealthKitCalories {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "flame.fill").font(.caption2)
+                                    Text(String(format: "%.0f kcal", calories))
+                                        .font(.system(size: 13, weight: .semibold))
+                                }
+                                .foregroundStyle(.white.opacity(0.92))
+                            }
                         }
+                        .padding(.top, 14)
                     }
-                    .padding(.top, 14)
-                }
 
-                Spacer()
+                    Spacer()
 
-                // Bottom: distance and time, label above each number
-                if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0 {
-                    HStack(alignment: .bottom, spacing: 0) {
-                        VStack(spacing: 1) {
-                            Text("DISTANCE")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .tracking(1.5)
-                            Text(String(format: "%.2f", distanceMeters / 1000))
-                                .font(.system(size: 36, weight: .heavy, design: .rounded))
-                                .foregroundStyle(.white)
-                            Text("KM")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.65))
-                                .tracking(2)
-                        }
-                        .frame(maxWidth: .infinity)
-
-                        if let durationSec = workout.matchedHealthKitDuration {
-                            Rectangle()
-                                .fill(.white.opacity(0.25))
-                                .frame(width: 1, height: 46)
-
+                    // Bottom: distance and time, label above each number
+                    if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0 {
+                        HStack(alignment: .bottom, spacing: 0) {
                             VStack(spacing: 1) {
-                                Text("DURATION")
+                                Text("DISTANCE")
                                     .font(.system(size: 9, weight: .bold))
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.5)
-                                Text(formatCardioDuration(durationSec))
+                                Text(String(format: "%.2f", distanceMeters / 1000))
                                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                                     .foregroundStyle(.white)
-                                Text("TIME")
+                                Text("KM")
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundStyle(.white.opacity(0.65))
                                     .tracking(2)
                             }
                             .frame(maxWidth: .infinity)
+
+                            if let durationSec = workout.matchedHealthKitDuration {
+                                Rectangle()
+                                    .fill(.white.opacity(0.25))
+                                    .frame(width: 1, height: 46)
+
+                                VStack(spacing: 1) {
+                                    Text("DURATION")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(.white.opacity(0.5))
+                                        .tracking(1.5)
+                                    Text(formatCardioDuration(durationSec))
+                                        .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(.white)
+                                    Text("TIME")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(.white.opacity(0.65))
+                                        .tracking(2)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
                         }
+                        .padding(.bottom, 16)
+                        .padding(.horizontal, 20)
                     }
-                    .padding(.bottom, 16)
-                    .padding(.horizontal, 20)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .fullScreenCover(isPresented: $showMapFullscreen) {
+            if let mapURL = displayImageURLs.first {
+                ZStack(alignment: .topTrailing) {
+                    Color.black.ignoresSafeArea()
+                    KFImage(mapURL)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Button {
+                        showMapFullscreen = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding()
+                    }
                 }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     // MARK: - Carousel Page 2: Running dynamics

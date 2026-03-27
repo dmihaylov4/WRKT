@@ -74,6 +74,12 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
 
     /// Determine if this is primarily a cardio workout
     var isCardioWorkout: Bool {
+        // Workout type takes priority: strength-category HK workouts are never cardio
+        // even though they have no entries (functional training, strength training, etc.)
+        if let type = cardioWorkoutType,
+           HealthKitWorkoutCategory.categorize(type) == .strength {
+            return false
+        }
         // If there's a matched HealthKit workout but no strength exercises, it's cardio
         if matchedHealthKitUUID != nil && entries.isEmpty {
             return true
@@ -87,7 +93,8 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
 
     /// Get the appropriate icon for this workout type
     var workoutIcon: String {
-        guard isCardioWorkout else { return "dumbbell.fill" }
+        // Check workout type string first regardless of isCardioWorkout, so that
+        // strength-type HK workouts (functional training, etc.) get the right icon.
         switch cardioWorkoutType?.lowercased() {
         case "running": return "figure.run"
         case "cycling", "outdoor cycling", "indoor cycling": return "figure.outdoor.cycle"
@@ -97,20 +104,24 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
         case "hiking": return "figure.hiking"
         case "walking": return "figure.walk"
         case "functional strength training", "functional training": return "figure.strengthtraining.functional"
+        case "strength training": return "figure.strengthtraining.traditional"
         case "core training": return "figure.core.training"
         case "elliptical": return "figure.elliptical"
         case "stair climbing": return "figure.stair.stepper"
         case "high intensity interval training", "hiit", "mixed cardio": return "bolt.heart.fill"
-        default: return "heart.fill"
+        default: break
         }
+        // Fall back: cardio gets a generic heart, app-tracked strength gets dumbbell
+        return isCardioWorkout ? "heart.fill" : "dumbbell.fill"
     }
 
     /// Get the workout type display name
     var workoutTypeDisplayName: String {
-        if isCardioWorkout {
-            return cardioWorkoutType ?? "Cardio"
+        // If we have an explicit type name (from HK), use it for both cardio and strength
+        if let type = cardioWorkoutType, !type.isEmpty {
+            return type
         }
-        return "Strength"
+        return isCardioWorkout ? "Cardio" : "Strength"
     }
 
     // MARK: - Codable

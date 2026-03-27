@@ -35,6 +35,7 @@ struct ExerciseSessionView: View {
     // Tutorial state (only non-ViewModel state remains)
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var yOffset: CGFloat = 0
+    @State private var showEditExercise = false
     @State private var showWorkoutCreatedBanner = false
     @State private var workoutBannerMessage = ""
     @State private var selectedInfoTab: InfoTab = .info
@@ -437,6 +438,14 @@ struct ExerciseSessionView: View {
             .navigationTitle("Exercise Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if exercise.isCustom {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Edit") {
+                            showEditExercise = true
+                        }
+                        .foregroundStyle(Theme.accent)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
                         viewModel.showInfo = false
@@ -444,6 +453,14 @@ struct ExerciseSessionView: View {
                     .foregroundStyle(Theme.accent)
                     .fontWeight(.semibold)
                 }
+            }
+            .sheet(isPresented: $showEditExercise) {
+                CreateExerciseView(
+                    preselectedMuscle: exercise.primaryMuscles.first ?? "",
+                    editingExercise: exercise
+                )
+                .environmentObject(CustomExerciseStore.shared)
+                .environmentObject(repo)
             }
         }
         .presentationDetents([.medium, .large])
@@ -587,9 +604,6 @@ struct ExerciseSessionView: View {
         @Binding var sets: [SetInput]
         @Binding var activeSetIndex: Int
         @EnvironmentObject private var store: WorkoutStoreV2
-        @EnvironmentObject private var repo: ExerciseRepository
-
-        @State private var showEditExercise = false
 
         let unit: WeightUnit
         let exercise: Exercise
@@ -713,12 +727,6 @@ struct ExerciseSessionView: View {
                             useLast()
                         }
 
-                        if exercise.isCustom {
-                            PresetButton(title: "Edit Exercise", icon: "pencil.circle") {
-                                showEditExercise = true
-                            }
-                        }
-
                         // Superset toggle - show for all exercises except first
                         if canShowSupersetToggle {
                             SupersetToggleButton(
@@ -726,14 +734,6 @@ struct ExerciseSessionView: View {
                                 onToggle: onToggleSuperset
                             )
                         }
-                    }
-                    .sheet(isPresented: $showEditExercise) {
-                        CreateExerciseView(
-                            preselectedMuscle: exercise.primaryMuscles.first ?? "",
-                            editingExercise: exercise
-                        )
-                        .environmentObject(CustomExerciseStore.shared)
-                        .environmentObject(repo)
                     }
 
                     Button(action: onAdd) {

@@ -601,6 +601,25 @@ struct WorkoutPickerRow: View {
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
+                } else if workout.entries.isEmpty && workout.matchedHealthKitUUID != nil {
+                    // HK-only strength workout: show duration + calories + avg HR
+                    HStack(spacing: 16) {
+                        if let duration = workout.matchedHealthKitDuration {
+                            Label("\(duration / 60) min", systemImage: "clock.fill")
+                                .font(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                        if let calories = workout.matchedHealthKitCalories {
+                            Label(String(format: "%.0f cal", calories), systemImage: "flame.fill")
+                                .font(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                        if let hr = workout.matchedHealthKitHeartRate {
+                            Label(String(format: "%.0f bpm", hr), systemImage: "heart.fill")
+                                .font(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    }
                 } else {
                     HStack(spacing: 16) {
                         Label("\(workout.entries.count) exercises", systemImage: "dumbbell.fill")

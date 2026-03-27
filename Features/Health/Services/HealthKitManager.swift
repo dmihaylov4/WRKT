@@ -872,9 +872,20 @@ final class HealthKitManager: ObservableObject {
 
             // Refetch heart rate if missing or 0 (Apple Watch data may not be available immediately)
             if updated.avgHeartRate == nil || updated.avgHeartRate == 0 {
-                updated.avgHeartRate = try? await averageHeartRate(for: workout)
-                if let hr = updated.avgHeartRate {
-                    AppLogger.debug("Refetched heart rate for \(workoutType): \(Int(hr)) bpm", category: AppLogger.health)
+                if strengthTypes.contains(workout.workoutActivityType) {
+                    // Fetch full HR stats for strength workouts (avg, max, min, samples)
+                    if let (samples, avg, max, min) = try? await fetchHeartRateSamples(for: workout), avg > 0 {
+                        updated.avgHeartRate = avg
+                        updated.maxHeartRate = max
+                        updated.minHeartRate = min
+                        updated.hrSamples = samples
+                        AppLogger.debug("Refetched HR for \(workoutType): avg \(Int(avg)) max \(Int(max)) min \(Int(min)) bpm", category: AppLogger.health)
+                    }
+                } else {
+                    updated.avgHeartRate = try? await averageHeartRate(for: workout)
+                    if let hr = updated.avgHeartRate {
+                        AppLogger.debug("Refetched heart rate for \(workoutType): \(Int(hr)) bpm", category: AppLogger.health)
+                    }
                 }
             }
 
@@ -894,14 +905,30 @@ final class HealthKitManager: ObservableObject {
         let sec = workout.duration.safeInt
         let kcal = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
 
-        // Fetch average heart rate
-        let avgHR = try? await averageHeartRate(for: workout)
-
-        // Extract workout type name (e.g., "Running", "Cycling", "Traditional Strength Training")
+        // Extract workout type name (e.g., "Running", "Cycling", "Functional Training")
         let workoutType = workoutActivityTypeName(workout.workoutActivityType)
 
         // Extract custom workout name from metadata (if user named it in Apple Fitness)
         let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+
+        // For strength-type workouts fetch full HR stats (avg, max, min, samples) since
+        // there is no GPS route to derive them from. For cardio, avg HR suffices here;
+        // max/min are derived later from the route with HR when the route is fetched.
+        var avgHR: Double? = nil
+        var maxHR: Double? = nil
+        var minHR: Double? = nil
+        var hrSamples: [HeartRateSample]? = nil
+
+        if strengthTypes.contains(workout.workoutActivityType) {
+            if let (samples, avg, max, min) = try? await fetchHeartRateSamples(for: workout), avg > 0 {
+                avgHR = avg
+                maxHR = max
+                minHR = min
+                hrSamples = samples
+            }
+        } else {
+            avgHR = try? await averageHeartRate(for: workout)
+        }
 
         AppLogger.debug("Importing: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))", category: AppLogger.health)
 
@@ -912,6 +939,9 @@ final class HealthKitManager: ObservableObject {
             notes: nil,
             healthKitUUID: workout.uuid,
             avgHeartRate: avgHR,
+            maxHeartRate: maxHR,
+            minHeartRate: minHR,
+            hrSamples: hrSamples,
             calories: kcal,
             route: nil,  // Fetched separately via queue
             workoutType: workoutType,
