@@ -42,6 +42,11 @@ struct SocialProfileView: View {
     @State private var isInvitingToRun = false
     @State private var runInviteSent = false
 
+    // Barbell showcase
+    @State private var friendRackedPlates: [EarnedPlateInfo] = []
+    @Query(filter: #Predicate<BarbellConfig> { $0.id == "global" })
+    private var barbellConfigs: [BarbellConfig]
+
     init(userId: UUID, battleId: UUID? = nil) {
         self.userId = userId
         self.battleId = battleId
@@ -94,6 +99,16 @@ struct SocialProfileView: View {
 
             // Refresh notification badges
             await badgeManager.refreshBadges()
+
+            // Load friend's racked plates for barbell showcase
+            if userId != deps.authService.currentUser?.id {
+                // TODO: Task 12 - rackedPlatesForFriend will be implemented in Task 12
+                // do {
+                //     friendRackedPlates = try await deps.barbellProgressService.rackedPlatesForFriend(userID: userId)
+                // } catch {
+                //     friendRackedPlates = []
+                // }
+            }
 
             // NOTE: Don't validate streak here - validation should only happen on app cold start
         }
@@ -221,6 +236,17 @@ struct SocialProfileView: View {
                 if viewModel.isOwnProfile {
                     activityLink
                 }
+
+                // Barbell Showcase Card
+                let sessionCount = viewModel.isOwnProfile
+                    ? (barbellConfigs.first?.totalStrengthWorkouts ?? 0)
+                    : 0
+                BarbellShowcaseCard(
+                    isOwnProfile: viewModel.isOwnProfile,
+                    ownerId: userId,
+                    sessionCount: sessionCount,
+                    friendRackedPlates: viewModel.isOwnProfile ? [] : friendRackedPlates
+                )
 
                 // Action Buttons
                 actionButtons(viewModel: viewModel)

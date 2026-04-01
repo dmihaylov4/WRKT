@@ -65,6 +65,7 @@
 		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
 		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
 		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
+		2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */; };
 		2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539C2E9E714A00C81656 /* AchievementsView.swift */; };
 		2E2F539F2E9E715200C81656 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539E2E9E715200C81656 /* PreferencesView.swift */; };
 		2E2F53A12E9E716600C81656 /* ConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53A02E9E716600C81656 /* ConnectionsView.swift */; };
@@ -483,6 +484,7 @@
 		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
 		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
 		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
+		2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellShowcaseCard.swift; sourceTree = "<group>"; };
 		2E2F539C2E9E714A00C81656 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		2E2F539E2E9E715200C81656 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		2E2F53A02E9E716600C81656 /* ConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsView.swift; sourceTree = "<group>"; };
@@ -2009,6 +2011,7 @@
 				2EA7D9AC2EEABF480017683B /* FriendsListView.swift */,
 				2EA7D9A92EEABAD70017683B /* UserSearchView.swift */,
 				2EA7D9A72EEA9F020017683B /* SocialProfileView.swift */,
+				2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */,
 				2EA7D9A32EE9EF810017683B /* PostDetailView.swift */,
 				2EA7D9A12EE9EF760017683B /* FeedView.swift */,
 				2EA7D99F2EE9EF670017683B /* PostCreationView.swift */,
@@ -2638,6 +2641,7 @@
 				2EC245D32E9FEB4600100333 /* FavoritesStore.swift in Sources */,
 				2EA7DAA42EEDC7660017683B /* Challenge.swift in Sources */,
 				2EA7D9A82EEA9F020017683B /* SocialProfileView.swift in Sources */,
+				2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */,
 				2EA7DA322EEC3EBE0017683B /* BaseRepository.swift in Sources */,
 				2E2938B82EC8BFB10057F60C /* AggregatedExerciseListView.swift in Sources */,
 				2E7461A12E93ED2C00A71C35 /* ExcerciseSessionView.swift in Sources */,
