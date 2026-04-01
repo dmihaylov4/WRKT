@@ -56,7 +56,7 @@ final class BarbellProgressService {
 
     // MARK: - Rack / Unrack
 
-    enum RackError: Error { case barIsFull }
+    enum RackError: Error { case barIsFull, notConfigured }
 
     /// Racks a plate into the next available slot (0-3).
     ///
@@ -65,7 +65,7 @@ final class BarbellProgressService {
     /// bar simultaneously. There is no separate right-side position: one EarnedPlate row = one
     /// visual pair. Positions 4-7 are reserved and unused.
     func rackPlate(_ plate: EarnedPlate) throws {
-        guard let context else { return }
+        guard let context else { throw RackError.notConfigured }
 
         let validPositions = [0, 1, 2, 3]   // innermost to outermost
         let fd = FetchDescriptor<EarnedPlate>(predicate: #Predicate { $0.isRacked == true })
