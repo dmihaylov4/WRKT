@@ -89,6 +89,7 @@
 		2E510B882E9AE2F00089EE2C /* muscle_id_map.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E510B872E9AE2E40089EE2C /* muscle_id_map.json */; };
 		2E510B8A2E9AEEA60089EE2C /* muscles_index.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E510B892E9AEEA60089EE2C /* muscles_index.json */; };
 		2E510B8C2E9AEEEF0089EE2C /* MuscleIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8B2E9AEEEC0089EE2C /* MuscleIndex.swift */; };
+		353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */; };
 		2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B902E9AF1430089EE2C /* RewardsRules.swift */; };
 		2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */; };
 		2E510B932E9AF17A0089EE2C /* RewardProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */; };
@@ -504,6 +505,7 @@
 		2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardProgress.swift; sourceTree = "<group>"; };
 		2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardEngine.swift; sourceTree = "<group>"; };
 		2E510B902E9AF1430089EE2C /* RewardsRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsRules.swift; sourceTree = "<group>"; };
+		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
 		2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutModels.swift; sourceTree = "<group>"; };
 		2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WRKT Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1382,6 +1384,7 @@
 		2E196EED2EAE482E00EB4780 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */,
 				2E510B902E9AF1430089EE2C /* RewardsRules.swift */,
 				2E2F538C2E9D670700C81656 /* StreakResult.swift */,
 			);
@@ -2597,6 +2600,7 @@
 				2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */,
 				2EA7DA282EEC17E80017683B /* CacheManager.swift in Sources */,
 				2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */,
+				353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */,
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
 				2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */,
 				2E695B8A2F017589002EA9FC /* SettingsView.swift in Sources */,

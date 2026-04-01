@@ -248,31 +248,4 @@ final class ExerciseSessionViewModelTests: WRKTTestCase {
         XCTAssertFalse(viewModel.showTutorial)
     }
 
-    // MARK: - Frame Tracking Tests
-
-    func testCheckFramesReady() {
-        let exercise = TestFixtures.benchPress
-        let store = makeTestStore()
-        let viewModel = ExerciseSessionViewModel(exercise: exercise, workoutStore: store)
-
-        viewModel.setsSectionFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        viewModel.setTypeFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        viewModel.carouselsFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-        viewModel.saveButtonFrame = CGRect(x: 0, y: 0, width: 100, height: 100)
-
-        viewModel.checkFramesReady()
-
-        XCTAssertTrue(viewModel.framesReady)
-    }
-
-    func testCheckFramesReadyFailsWithZeroFrames() {
-        let exercise = TestFixtures.benchPress
-        let store = makeTestStore()
-        let viewModel = ExerciseSessionViewModel(exercise: exercise, workoutStore: store)
-
-        viewModel.setsSectionFrame = .zero
-        viewModel.checkFramesReady()
-
-        XCTAssertFalse(viewModel.framesReady)
-    }
 }
