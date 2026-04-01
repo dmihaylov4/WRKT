@@ -12,6 +12,7 @@ final class WorkoutStoreV2: ObservableObject {
     // MARK: - Published State
     @Published var currentWorkout: CurrentWorkout?
     @Published var completedWorkouts: [CompletedWorkout] = []
+    @Published private(set) var lastCompletedWorkout: CompletedWorkout?
     @Published private(set) var lastHealthImportEndDate: Date? = nil
     @Published private(set) var runs: [Run] = []
 
@@ -1609,6 +1610,7 @@ extension WorkoutStoreV2 {
 
         // Normal finish logic - add workout and keep array sorted by date
         completedWorkouts.append(completed)
+        lastCompletedWorkout = completed
         completedWorkouts.sort(by: { $0.date < $1.date })
         updatePRIndex(with: completed)
 

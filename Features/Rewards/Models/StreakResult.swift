@@ -144,9 +144,60 @@ extension RewardsEngine {
             newExerciseCount = c
         }
 
-        // 4) Persist
-        let shouldNotify = (totalXP != 0 || totalCoins != 0 || !newLedger.isEmpty || prCount > 0 || newExerciseCount > 0)
+        // 4) Barbell plate evaluation: evaluate only, inserts are deferred until after shouldNotify guard
+        var earnedPlates: [EarnedPlateInfo] = []
+        let earnedPlatesWorkoutID: String? = payload["workoutId"] as? String
+        if name == "workout_completed",
+           let workout = payload["completedWorkout"] as? CompletedWorkout,
+           !workout.isCardioWorkout {   // only strength workouts earn plates
+
+            let configFD = FetchDescriptor<BarbellConfig>(predicate: #Predicate { $0.id == "global" })
+            let bgConfig: BarbellConfig
+            if let existing = try? bgContext.fetch(configFD).first {
+                bgConfig = existing
+            } else {
+                bgConfig = BarbellConfig()
+                bgContext.insert(bgConfig)
+            }
+
+            // Increment strength workout count BEFORE evaluate (rules read updated count)
+            bgConfig.totalStrengthWorkouts += 1
+
+            let existingFD = FetchDescriptor<EarnedPlate>()
+            let existingPlates = (try? bgContext.fetch(existingFD)) ?? []
+            let existingEvents = existingPlates.map(\.earnedByEvent)
+
+            var plates = BarbellUnlockRules.evaluate(workout: workout, config: bgConfig, existingEvents: existingEvents)
+
+            // Gold streak: append to plates array, then re-sort so rarity order is always correct
+            if bgProgress.currentStreak >= 90 {
+                if let gold = BarbellUnlockRules.evaluateGoldStreak(existingEvents: existingEvents) {
+                    plates.append(gold)
+                    bgConfig.lastStreakCheckDate = .now
+                }
+            }
+
+            // Re-sort after merging so Gold (legendary) always leads regardless of insertion order
+            let rarityForTier: [Int: Int] = [6: 5, 5: 4, 4: 3, 3: 3, 2: 2, 1: 1, 0: 0]
+            earnedPlates = plates.sorted { (rarityForTier[$0.tierID] ?? 0) > (rarityForTier[$1.tierID] ?? 0) }
+        }
+
+        // 5) Persist
+        let shouldNotify = (totalXP != 0 || totalCoins != 0 || !newLedger.isEmpty
+                            || prCount > 0 || newExerciseCount > 0 || !earnedPlates.isEmpty)
         guard shouldNotify else { return }
+
+        // Persist earned plates (after guard: bgContext.save() is guaranteed to run from here)
+        for info in earnedPlates {
+            let plate = EarnedPlate(
+                tierID: info.tierID,
+                weightKg: info.weightKg,
+                engravingText: info.engravingText,
+                earnedByEvent: info.earnedByEvent,
+                sourceWorkoutID: earnedPlatesWorkoutID
+            )
+            bgContext.insert(plate)
+        }
 
         for entry in newLedger { bgContext.insert(entry) }
         let prevLevel = bgProgress.level
@@ -184,7 +235,8 @@ extension RewardsEngine {
             xpSnapshot: snapshot,
             xpLineItems: xpLineItems,
             streakFrozen: bgProgress.streakFrozen,
-            streakBonusXP: streakBonusXP
+            streakBonusXP: streakBonusXP,
+            earnedPlates: earnedPlates
         )
 
         // Post notification on main thread

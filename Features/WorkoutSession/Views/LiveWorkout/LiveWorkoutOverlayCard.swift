@@ -550,7 +550,8 @@ struct LiveWorkoutOverlayCard: View {
 
                     // 3) Send reward events (async to avoid blocking UI)
                     RewardsEngine.shared.processAsync(event: "workout_completed", payload: [
-                        "workoutId": result.workoutId
+                        "workoutId": result.workoutId,
+                        "completedWorkout": store.lastCompletedWorkout as Any
                     ])
 
                     if newIDs.count > 0 {
