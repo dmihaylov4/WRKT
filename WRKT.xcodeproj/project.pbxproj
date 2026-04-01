@@ -62,6 +62,8 @@
 		2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00002FA0000000000001 /* BarbellProgressService.swift */; };
 		2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */; };
 		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
+		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
+		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
 		2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539C2E9E714A00C81656 /* AchievementsView.swift */; };
 		2E2F539F2E9E715200C81656 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539E2E9E715200C81656 /* PreferencesView.swift */; };
 		2E2F53A12E9E716600C81656 /* ConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53A02E9E716600C81656 /* ConnectionsView.swift */; };
@@ -477,6 +479,8 @@
 		2EBB00002FA0000000000001 /* BarbellProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellProgressService.swift; sourceTree = "<group>"; };
 		2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellUnlockRules.swift; sourceTree = "<group>"; };
 		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
+		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
+		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
 		2E2F539C2E9E714A00C81656 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		2E2F539E2E9E715200C81656 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		2E2F53A02E9E716600C81656 /* ConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsView.swift; sourceTree = "<group>"; };
@@ -1315,6 +1319,8 @@
 				2E2F53A02E9E716600C81656 /* ConnectionsView.swift */,
 				2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */,
 				2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */,
+				2EBB00062FA0000000000001 /* PlateWallView.swift */,
+				2EBB00082FA0000000000001 /* BarbellPreviewView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -2653,6 +2659,8 @@
 				2E6732E1D7BDDE590ADB8BF5 /* VirtualRunRoute.swift in Sources */,
 				2E974F676CAFCEE52319B772 /* VirtualRunMapComparisonView.swift in Sources */,
 				2EEBEE157C2C0B99D65A0085 /* VirtualRunSummaryPager.swift in Sources */,
+				2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */,
+				2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

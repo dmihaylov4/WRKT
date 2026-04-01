@@ -3,9 +3,8 @@ import SwiftUI
 import RealityKit
 import SwiftData
 
-// Minimal stub: full implementation lives in BarbellPreviewView.swift
-// Replace with shared type in Task 8 when BarbellPreviewView is refactored.
-struct BarbellSceneState {
+// Minimal scene state for the moment view animation.
+private struct BarbellMomentSceneState {
     var rotAngle: Float = 0
     var lastTime: Double = 0
     var root: Entity? = nil
@@ -27,7 +26,7 @@ struct BarbellMomentView: View {
     // state from @Query as the base, then the animation layer adds the new plates
     // from the prop one by one (purely visual: no SwiftData read for the new plates).
     @State private var seatedCount = 0
-    @State private var scene = BarbellSceneState()
+    @State private var scene = BarbellMomentSceneState()
     @State private var isDragging = false
     @State private var lastTranslationX: CGFloat = 0
     @State private var showDoneButton = false
