@@ -55,6 +55,7 @@
 		2E2F538F2E9D675F00C81656 /* WinScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F538E2E9D675D00C81656 /* WinScreen.swift */; };
 		2E2F53912E9E223B00C81656 /* rewards_rules_v1.json in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
 		2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
+		84BC9435E0674897A910D943 /* plate_clink.caf in Resources */ = {isa = PBXBuildFile; fileRef = 1848F2CE0BE744519C79CD42 /* plate_clink.caf */; };
 		2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */; };
 		2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53962E9E4FF000C81656 /* ProfileView.swift */; };
 		2E2F53992E9E578B00C81656 /* RewardSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53982E9E578B00C81656 /* RewardSummary.swift */; };
@@ -472,6 +473,7 @@
 		2E2F538C2E9D670700C81656 /* StreakResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakResult.swift; sourceTree = "<group>"; };
 		2E2F538E2E9D675D00C81656 /* WinScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreen.swift; sourceTree = "<group>"; };
 		2E2F53902E9E223400C81656 /* rewards_rules_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = rewards_rules_v1.json; sourceTree = "<group>"; };
+		1848F2CE0BE744519C79CD42 /* plate_clink.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = plate_clink.caf; sourceTree = "<group>"; };
 		2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsHubView.swift; sourceTree = "<group>"; };
 		2E2F53962E9E4FF000C81656 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2E2F53982E9E578B00C81656 /* RewardSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardSummary.swift; sourceTree = "<group>"; };
@@ -1127,6 +1129,7 @@
 			children = (
 				2E196EF92EAE4B2D00EB4780 /* Data */,
 				2E196EA32EAD398900EB4780 /* Assets.xcassets */,
+				1848F2CE0BE744519C79CD42 /* plate_clink.caf */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -2279,6 +2282,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */,
+				84BC9435E0674897A910D943 /* plate_clink.caf in Resources */,
 				2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */,
 				2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */,
 				2EC203562EF59D4C00D6BAEF /* appLogs.md in Resources */,
