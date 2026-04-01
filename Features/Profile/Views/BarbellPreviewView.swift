@@ -451,14 +451,34 @@ struct BarbellPreviewView: View {
 
     // MARK: - Per-tier plate construction
 
-    private func makePlate(tier: PlateTier, thickness: Float, sticker: StickerOption) -> ModelEntity {
+    private func makePlate(tier: PlateTier, thickness: Float, sticker: StickerOption,
+                           weightKg: Double = 0, engravingText: String = "") -> ModelEntity {
+        let plateEntity: ModelEntity
         switch tier.style {
-        case .rawIron:      return makeRustyIronPlate(tier: tier, thickness: thickness, sticker: sticker)
-        case .castIron:     return makeCastIronPlate(tier: tier, thickness: thickness, sticker: sticker)
-        case .bumper:       return makeBumperPlate(tier: tier, thickness: thickness, sticker: sticker)
-        case .brass:        return makeBrassPlate(tier: tier, thickness: thickness, sticker: sticker)
-        default:            return makeCompetitionPlate(tier: tier, thickness: thickness, sticker: sticker)
+        case .rawIron:  plateEntity = makeRustyIronPlate(tier: tier, thickness: thickness, sticker: sticker)
+        case .castIron: plateEntity = makeCastIronPlate(tier: tier, thickness: thickness, sticker: sticker)
+        case .bumper:   plateEntity = makeBumperPlate(tier: tier, thickness: thickness, sticker: sticker)
+        case .brass:    plateEntity = makeBrassPlate(tier: tier, thickness: thickness, sticker: sticker)
+        default:        plateEntity = makeCompetitionPlate(tier: tier, thickness: thickness, sticker: sticker)
         }
+
+        // Attach weight disc (skip starter plates at tierID 7)
+        if tier.id != 7 && weightKg > 0 {
+            let key = "\(tier.id)_\(Int(weightKg))"
+            let weightDisc = scene.weightDiscCache[key] ?? makeWeightDisc(weightKg: weightKg, tierID: tier.id)
+            scene.weightDiscCache[key] = weightDisc
+            plateEntity.addChild(weightDisc.clone(recursive: false))
+        }
+
+        // Attach engraving disc
+        if tier.id != 7 && !engravingText.isEmpty {
+            let key = "\(tier.id)_\(engravingText)"
+            let engravingDisc = scene.engravingDiscCache[key] ?? makeEngravingDisc(text: engravingText, tierID: tier.id)
+            scene.engravingDiscCache[key] = engravingDisc
+            plateEntity.addChild(engravingDisc.clone(recursive: false))
+        }
+
+        return plateEntity
     }
 
     /// Real PBR texture (Metal041C) over a rust-brown tinted base
