@@ -48,9 +48,11 @@ struct PlateWallView: View {
                     BarbellPreviewView(mode: .editor)
                         .background(
                             GeometryReader { geo in
-                                Color.clear.onAppear {
-                                    barbellFrame = geo.frame(in: .global)
-                                }
+                                Color.clear
+                                    .onAppear { barbellFrame = geo.frame(in: .global) }
+                                    .onChange(of: geo.frame(in: .global)) { _, newFrame in
+                                        barbellFrame = newFrame
+                                    }
                             }
                         )
 
@@ -81,16 +83,14 @@ struct PlateWallView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(plateTierSections(), id: \.tierID) { section in
-                            if !section.plates.isEmpty {
-                                PlateShelfRow(
-                                    tierName: section.tierName,
-                                    plates: section.plates,
-                                    onDragStart: { plate, location in
-                                        draggedPlate = plate
-                                        dragLocation = location
-                                    }
-                                )
-                            }
+                            PlateShelfRow(
+                                tierName: section.tierName,
+                                plates: section.plates,
+                                onDragStart: { plate, location in
+                                    draggedPlate = plate
+                                    dragLocation = location
+                                }
+                            )
                         }
                     }
                     .padding(.horizontal, 16)
