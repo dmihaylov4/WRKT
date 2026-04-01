@@ -162,6 +162,7 @@ struct BarbellPreviewView: View {
     @State private var scene = BarbellSceneState()
     @State private var isDragging = false
     @State private var lastTranslationX: CGFloat = 0
+    @State private var lastDt: Float = 1.0 / 60.0
     @State private var selectedPlateTip: EarnedPlateInfo? = nil
 
     @State private var activeTab = 0
@@ -190,6 +191,7 @@ struct BarbellPreviewView: View {
                         let now = timeline.date.timeIntervalSinceReferenceDate
                         let dt = scene.lastTime > 0 ? Float(now - scene.lastTime) : 0
                         scene.lastTime = now
+                        lastDt = dt > 0 ? dt : lastDt
 
                         if isDragging {
                             // Velocity is updated by drag gesture; no auto-advance
@@ -206,7 +208,7 @@ struct BarbellPreviewView: View {
                             .onChanged { value in
                                 isDragging = true
                                 let delta = Float(value.translation.width - lastTranslationX) * 0.012
-                                scene.spinVelocity = -delta / max(Float(1.0 / 60.0), 0.016)  // velocity from delta per frame
+                                scene.spinVelocity = lastDt > 0 ? (-delta / lastDt) : -delta * 60
                                 scene.rotAngle -= delta
                                 scene.root?.orientation = simd_quatf(angle: scene.rotAngle, axis: SIMD3(0, 1, 0))
                                 lastTranslationX = value.translation.width
@@ -462,8 +464,8 @@ struct BarbellPreviewView: View {
         default:        plateEntity = makeCompetitionPlate(tier: tier, thickness: thickness, sticker: sticker)
         }
 
-        // Attach weight disc (skip starter plates at tierID 7)
-        if tier.id != 7 && weightKg > 0 {
+        // Attach weight disc (skip starter plates)
+        if tier.style != .starter && weightKg > 0 {
             let key = "\(tier.id)_\(Int(weightKg))"
             let weightDisc = scene.weightDiscCache[key] ?? makeWeightDisc(weightKg: weightKg, tierID: tier.id)
             scene.weightDiscCache[key] = weightDisc
@@ -471,7 +473,7 @@ struct BarbellPreviewView: View {
         }
 
         // Attach engraving disc
-        if tier.id != 7 && !engravingText.isEmpty {
+        if tier.style != .starter && !engravingText.isEmpty {
             let key = "\(tier.id)_\(engravingText)"
             let engravingDisc = scene.engravingDiscCache[key] ?? makeEngravingDisc(text: engravingText, tierID: tier.id)
             scene.engravingDiscCache[key] = engravingDisc
