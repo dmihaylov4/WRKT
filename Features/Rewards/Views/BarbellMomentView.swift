@@ -31,6 +31,7 @@ struct BarbellMomentView: View {
     @State private var isDragging = false
     @State private var lastTranslationX: CGFloat = 0
     @State private var showDoneButton = false
+    @State private var animationTask: Task<Void, Never>? = nil
 
     var body: some View {
         ZStack {
@@ -100,13 +101,17 @@ struct BarbellMomentView: View {
             }
         }
         .onAppear {
-            startPlateAnimation()
+            animationTask = startPlateAnimation()
+        }
+        .onDisappear {
+            animationTask?.cancel()
         }
     }
 
     // MARK: - Animation sequence
 
-    private func startPlateAnimation() {
+    @discardableResult
+    private func startPlateAnimation() -> Task<Void, Never> {
         Task { @MainActor in
             for index in plates.indices {
                 try? await Task.sleep(for: .seconds(Double(index) * 0.6 + 0.3))
