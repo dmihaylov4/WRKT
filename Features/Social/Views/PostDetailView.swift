@@ -204,12 +204,14 @@ struct PostDetailView: View {
         let workout = post.workoutData
         // HK-only: workout came purely from HealthKit with no logged exercises
         let isHKOnly = workout.entries.isEmpty && workout.matchedHealthKitUUID != nil
-        return ZStack {
+        return GeometryReader { geo in
+         ZStack {
             // Background: first photo if available, else icon watermark
             if let firstURL = displayImageURLs.first {
                 KFImage(firstURL)
                     .resizable()
                     .scaledToFill()
+                    .frame(width: geo.size.width, height: geo.size.height)
                     .clipped()
             } else {
                 ZStack {
@@ -413,7 +415,9 @@ struct PostDetailView: View {
                 }
             }
         }
+        .frame(width: geo.size.width, height: geo.size.height)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
     }
 
     // MARK: - Strength Page 2: Exercise list

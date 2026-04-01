@@ -361,20 +361,22 @@ struct PostCard: View {
     // MARK: - Strength Stats
     private var strengthStats: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 12) {
-                statPill(
-                    icon: "dumbbell.fill",
-                    value: "\(post.post.exerciseCount)",
-                    label: post.post.exerciseCount == 1 ? "exercise" : "exercises"
-                )
+            if post.post.exerciseCount > 0 {
+                HStack(spacing: 12) {
+                    statPill(
+                        icon: "dumbbell.fill",
+                        value: "\(post.post.exerciseCount)",
+                        label: post.post.exerciseCount == 1 ? "exercise" : "exercises"
+                    )
 
-                Spacer()
+                    Spacer()
 
-                statPill(
-                    icon: "list.bullet",
-                    value: "\(post.post.totalSets)",
-                    label: post.post.totalSets == 1 ? "set" : "sets"
-                )
+                    statPill(
+                        icon: "list.bullet",
+                        value: "\(post.post.totalSets)",
+                        label: post.post.totalSets == 1 ? "set" : "sets"
+                    )
+                }
             }
 
             HStack(spacing: 12) {

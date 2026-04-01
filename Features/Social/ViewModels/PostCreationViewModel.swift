@@ -237,9 +237,18 @@ final class PostCreationViewModel {
             // Filter and convert strength workouts
             let recentStrengthWorkouts = workouts.filter { $0.date >= threeDaysAgo }
 
-            // Filter and convert cardio runs to CompletedWorkout
+            // Build the set of HealthKit UUIDs already matched to app workouts,
+            // so we don't show them again as separate entries in the picker.
+            let matchedHKUUIDs = Set(workouts.compactMap { $0.matchedHealthKitUUID })
+
+            // Filter and convert runs to CompletedWorkout, excluding those already
+            // matched to an app workout (strength sessions recorded via ExerciseSessionView).
             let recentCardioWorkouts = runs
                 .filter { $0.date >= threeDaysAgo }
+                .filter { run in
+                    guard let hkUUID = run.healthKitUUID else { return true }
+                    return !matchedHKUUIDs.contains(hkUUID)
+                }
                 .map { $0.toCompletedWorkout() }
 
             // Combine both types and sort by date
