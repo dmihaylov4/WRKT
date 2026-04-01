@@ -167,6 +167,11 @@ extension RewardsEngine {
         } catch {
             AppLogger.error("Failed to save rewards reset: \(error)", category: AppLogger.rewards)
         }
+
+        // Reset barbell progress (service is @MainActor: dispatch from whatever actor resetAll runs on)
+        Task { @MainActor in
+            BarbellProgressService.shared.resetAll()
+        }
     }
 }
 
