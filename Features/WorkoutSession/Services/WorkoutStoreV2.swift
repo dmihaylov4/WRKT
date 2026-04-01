@@ -1586,7 +1586,7 @@ extension WorkoutStoreV2 {
     func finishCurrentWorkoutAndReturnPRs() -> (workoutId: String, prCount: Int) {
         guard let w = currentWorkout, !w.entries.isEmpty else { return ("none", 0) }
 
-        let completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID)
+        var completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID)
 
         // Store workout for social sharing on win screen
         Task { @MainActor in
@@ -1607,6 +1607,7 @@ extension WorkoutStoreV2 {
 
         // Count PRs before updating the index
         let newPRs = countPRs(in: completed)
+        completed.detectedPRCount = newPRs
 
         // Normal finish logic - add workout and keep array sorted by date
         completedWorkouts.append(completed)
