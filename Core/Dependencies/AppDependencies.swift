@@ -77,6 +77,9 @@ final class AppDependencies: ObservableObject {
     /// Virtual run repository - manages virtual running together sessions
     let virtualRunRepository: VirtualRunRepository
 
+    /// Barbell progress service - manages plate earn/rack state
+    let barbellProgressService: BarbellProgressService
+
     // MARK: - Computed Services
 
     /// Stats aggregator - created lazily with model context
@@ -108,6 +111,7 @@ final class AppDependencies: ObservableObject {
         self.challengeRepository = ChallengeRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.battleRepository = BattleRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.virtualRunRepository = VirtualRunRepository()
+        self.barbellProgressService = BarbellProgressService.shared
 
         AppLogger.success("AppDependencies initialized", category: AppLogger.app)
     }
@@ -150,6 +154,10 @@ final class AppDependencies: ObservableObject {
         // Wire up virtual run repository to WatchConnectivity
         WatchConnectivityManager.shared.virtualRunRepository = virtualRunRepository
         AppLogger.success("Virtual run repository wired to WatchConnectivity", category: AppLogger.app)
+
+        // Configure BarbellProgressService
+        barbellProgressService.configure(context: modelContext)
+        AppLogger.success("BarbellProgressService configured", category: AppLogger.rewards)
 
         AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
     }
