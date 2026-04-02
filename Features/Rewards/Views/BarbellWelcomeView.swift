@@ -81,9 +81,10 @@ private func addWelcomeLights(to scene: SCNScene) {
 
 private struct PlateSceneView: UIViewRepresentable {
     let scnView: SCNView
+    var frameSize: CGSize = CGSize(width: 68, height: 68)
 
     func makeUIView(context: Context) -> SCNView {
-        scnView.frame = CGRect(x: 0, y: 0, width: 68, height: 68)
+        scnView.frame = CGRect(origin: .zero, size: frameSize)
         scnView.backgroundColor = .black
         scnView.isOpaque = true
         scnView.antialiasingMode = .multisampling4X
@@ -370,7 +371,7 @@ private struct WelcomeBarbellView: View {
     @State private var s = BarbellWelcomeState()
 
     var body: some View {
-        PlateSceneView(scnView: s.scnView)
+        PlateSceneView(scnView: s.scnView, frameSize: CGSize(width: 340, height: 220))
             .gesture(
                 DragGesture(minimumDistance: 4)
                     .onChanged { value in
@@ -388,13 +389,7 @@ private struct WelcomeBarbellView: View {
             )
             .task { @MainActor in
                 let (scene, spin) = buildWelcomeBarbellScene(plates: plates)
-                s.scnView.frame = CGRect(x: 0, y: 0, width: 340, height: 220)
                 s.scnView.scene = scene
-                s.scnView.antialiasingMode = .multisampling4X
-                s.scnView.backgroundColor = .black
-                s.scnView.isOpaque = true
-                s.scnView.allowsCameraControl = false
-                s.scnView.rendersContinuously = true
                 s.spinRoot = spin
                 s.spinRoot?.eulerAngles.y = Float(s.rotY)
 
