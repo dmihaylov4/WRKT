@@ -12,6 +12,8 @@ final class BarbellProgressService {
     private var context: ModelContext?
     private var clinkPlayer: AVAudioPlayer?
 
+    private(set) var needsWelcomeScreen = false
+
     private init() {}
 
     // MARK: - Configuration
@@ -197,6 +199,46 @@ final class BarbellProgressService {
                 .execute()
         } catch {
             AppLogger.error("Failed to delete racked plate from Supabase: \(error)", category: AppLogger.rewards)
+        }
+    }
+
+    // MARK: - Backfill for existing users
+
+    func runBackfillIfNeeded(completedWorkouts: [CompletedWorkout]) {
+        guard let context else { return }
+        let config = fetchOrCreateConfig(context: context)
+        guard !config.backfillCompletedV1 else { return }
+
+        // Mark complete and save BEFORE inserting any plates.
+        // Crash-safe: if the app is killed mid-loop the flag is already
+        // written, so the next launch skips re-running and avoids duplicate plates.
+        // Trade-off: a crash mid-backfill leaves a partial plate collection, which is
+        // preferable to duplicates that require a manual reset.
+        config.backfillCompletedV1 = true
+        try? context.save()
+
+        // Sort chronologically; skip cardio workouts (same rule as live evaluation)
+        let sorted = completedWorkouts.sorted { $0.date < $1.date }
+
+        for workout in sorted where !workout.isCardioWorkout {
+            config.totalStrengthWorkouts += 1
+            let existingFD = FetchDescriptor<EarnedPlate>()
+            let existing = (try? context.fetch(existingFD)) ?? []
+            let existingEvents = existing.map(\.earnedByEvent)
+            let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: existingEvents)
+            for info in plates {
+                let plate = EarnedPlate(
+                    tierID: info.tierID, weightKg: info.weightKg,
+                    engravingText: info.engravingText, earnedAt: workout.date,
+                    earnedByEvent: info.earnedByEvent
+                )
+                context.insert(plate)
+            }
+        }
+
+        try? context.save()
+        if !completedWorkouts.isEmpty {
+            needsWelcomeScreen = true
         }
     }
 

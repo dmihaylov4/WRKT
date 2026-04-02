@@ -159,6 +159,16 @@ final class AppDependencies: ObservableObject {
         barbellProgressService.configure(context: modelContext)
         AppLogger.success("BarbellProgressService configured", category: AppLogger.rewards)
 
+        // Run backfill for existing users (no-op if already completed)
+        Task { @MainActor in
+            let workouts = self.workoutStore.completedWorkouts
+            self.barbellProgressService.runBackfillIfNeeded(completedWorkouts: workouts)
+        }
+        // TODO: wire BarbellWelcomeView presentation in app shell
+        // barbellProgressService.needsWelcomeScreen is set after backfill runs.
+        // To present BarbellWelcomeView, observe needsWelcomeScreen from AppShellView
+        // once BarbellProgressService adopts @Observable or ObservableObject.
+
         AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
     }
 
