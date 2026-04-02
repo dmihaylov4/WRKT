@@ -159,15 +159,17 @@ final class AppDependencies: ObservableObject {
         barbellProgressService.configure(context: modelContext)
         AppLogger.success("BarbellProgressService configured", category: AppLogger.rewards)
 
-        // Run backfill for existing users (no-op if already completed)
+        // Run backfill for existing users (no-op if already completed).
+        // WorkoutStoreV2 loads workouts asynchronously from disk; its isStorageLoaded
+        // property is private so we cannot poll it directly. A 1-second delay is sufficient
+        // for the initial async load to complete on any real device. If by some chance the
+        // store is still empty, runBackfillIfNeeded guards on completedWorkouts.isEmpty and
+        // leaves backfillCompletedV1 unset so the next launch will retry.
         Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
             let workouts = self.workoutStore.completedWorkouts
             self.barbellProgressService.runBackfillIfNeeded(completedWorkouts: workouts)
         }
-        // TODO: wire BarbellWelcomeView presentation in app shell
-        // barbellProgressService.needsWelcomeScreen is set after backfill runs.
-        // To present BarbellWelcomeView, observe needsWelcomeScreen from AppShellView
-        // once BarbellProgressService adopts @Observable or ObservableObject.
 
         AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
     }

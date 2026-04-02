@@ -1,18 +1,19 @@
 // Features/Rewards/Services/BarbellProgressService.swift
 import Foundation
+import Observation
 import SwiftData
 import UIKit
 import AVFoundation
 import Supabase
 
-@MainActor
+@Observable @MainActor
 final class BarbellProgressService {
     static let shared = BarbellProgressService()
 
     private var context: ModelContext?
     private var clinkPlayer: AVAudioPlayer?
 
-    private(set) var needsWelcomeScreen = false
+    var needsWelcomeScreen = false
 
     private init() {}
 
@@ -205,6 +206,9 @@ final class BarbellProgressService {
     // MARK: - Backfill for existing users
 
     func runBackfillIfNeeded(completedWorkouts: [CompletedWorkout]) {
+        // Guard before consuming the flag: if the store has not finished loading yet
+        // this returns without touching backfillCompletedV1, allowing a retry on next launch.
+        guard !completedWorkouts.isEmpty else { return }
         guard let context else { return }
         let config = fetchOrCreateConfig(context: context)
         guard !config.backfillCompletedV1 else { return }
@@ -220,11 +224,11 @@ final class BarbellProgressService {
         // Sort chronologically; skip cardio workouts (same rule as live evaluation)
         let sorted = completedWorkouts.sorted { $0.date < $1.date }
 
+        // Fetch existing events once before the loop to avoid N full-table SwiftData fetches.
+        var existingEvents = (try? context.fetch(FetchDescriptor<EarnedPlate>()))?.map(\.earnedByEvent) ?? []
+
         for workout in sorted where !workout.isCardioWorkout {
             config.totalStrengthWorkouts += 1
-            let existingFD = FetchDescriptor<EarnedPlate>()
-            let existing = (try? context.fetch(existingFD)) ?? []
-            let existingEvents = existing.map(\.earnedByEvent)
             let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: existingEvents)
             for info in plates {
                 let plate = EarnedPlate(
@@ -233,6 +237,7 @@ final class BarbellProgressService {
                     earnedByEvent: info.earnedByEvent
                 )
                 context.insert(plate)
+                existingEvents.append(info.earnedByEvent)
             }
         }
 

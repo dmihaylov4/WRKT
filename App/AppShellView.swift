@@ -172,6 +172,12 @@ struct AppShellView: View {
                         .environmentObject(store)
                 }
             }
+            .sheet(isPresented: Binding(
+                get: { dependencies.barbellProgressService.needsWelcomeScreen },
+                set: { if !$0 { dependencies.barbellProgressService.needsWelcomeScreen = false } }
+            )) {
+                BarbellWelcomeView()
+            }
     }
 
     @ViewBuilder
