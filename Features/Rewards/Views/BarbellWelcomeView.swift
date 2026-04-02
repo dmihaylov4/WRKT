@@ -250,7 +250,7 @@ private func buildWelcomeBarbellScene(plates: [EarnedPlateInfo]) -> (scene: SCNS
     barNode.eulerAngles = SCNVector3(0, 0, Float.pi / 2)
     spinRoot.addChildNode(barNode)
 
-    // Collars at ±0.46
+    // Collars at ±0.475
     for xSign: Float in [-1, 1] {
         let collarCyl = SCNCylinder(radius: 0.022, height: 0.04)
         collarCyl.materials = [chromeMat, chromeMat, chromeMat]
