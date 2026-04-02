@@ -159,9 +159,10 @@ private func buildSCNPlate(tierID: Int) -> SCNNode {
     mainCyl.materials = [plateMat, plateMat, plateMat]
     root.addChildNode(SCNNode(geometry: mainCyl))
 
-    // Chrome hub — all tiers
+    // Hub: chrome tube (visible from the side) + dark caps (simulate hole face-on)
+    let holeMat = pbrSCNMaterial(color: UIColor(white: 0.03, alpha: 1), metallic: 0, roughness: 1.0)
     let hubCyl = SCNCylinder(radius: 0.028, height: thickness + 0.003)
-    hubCyl.materials = [chrome, chrome, chrome]
+    hubCyl.materials = [chrome, holeMat, holeMat]   // [tube, front cap, back cap]
     root.addChildNode(SCNNode(geometry: hubCyl))
 
     // Style-specific geometry (mirrors BarbellPreviewView)
@@ -272,9 +273,10 @@ private func buildWelcomeBarbellScene(plates: [EarnedPlateInfo]) -> (scene: SCNS
         let offsets = slotOffsets[index]
         for xOffset in offsets {
             let plateInner = buildSCNPlate(tierID: info.tierID)
-            // buildSCNPlate cylinder axis is Y, already rotated 90° around X so face is +Z.
-            // Move the plate to its X slot on the bar.
+            // buildSCNPlate cylinder axis is Y. Rotate 90° around Z so axis aligns with X
+            // (the bar axis), making the flat disc face perpendicular to the bar.
             let plateNode = SCNNode()
+            plateNode.eulerAngles = SCNVector3(0, 0, Float.pi / 2)
             plateNode.addChildNode(plateInner)
             plateNode.position = SCNVector3(xOffset, 0, 0)
             spinRoot.addChildNode(plateNode)
