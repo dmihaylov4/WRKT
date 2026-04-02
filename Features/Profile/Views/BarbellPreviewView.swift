@@ -175,6 +175,11 @@ struct BarbellPreviewView: View {
     private let plateThickness: Float = 0.03
     private let maxExtraPairs = 2
 
+    private var showcasePlates: [EarnedPlateInfo]? {
+        if case .showcase(let plates) = mode { return plates }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
 
@@ -237,9 +242,10 @@ struct BarbellPreviewView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 360)
+            .frame(height: showcasePlates != nil ? 240 : 360)
 
             // MARK: Customization controls
+            if showcasePlates == nil {
             VStack(spacing: 0) {
 
                 // Tab row
@@ -334,6 +340,7 @@ struct BarbellPreviewView: View {
                 .padding(.vertical, 14)
             }
             .background(DS.Semantic.card)
+            } // end if showcasePlates == nil
         }
         .ignoresSafeArea(edges: .top)
         .navigationTitle("Barbell")
@@ -397,11 +404,17 @@ struct BarbellPreviewView: View {
 
         scene.root?.removeFromParent()
 
-        let root = makeBarbell(
-            tier: PlateTier.all[selectedTier],
-            skin: BarSkin.all[selectedBar],
-            sticker: StickerOption.all[selectedSticker]
-        )
+        let root: Entity
+        if let plates = showcasePlates {
+            root = makeBarbellShowcase(plates: plates, skin: BarSkin.all[selectedBar])
+            scene.spinVelocity = 0
+        } else {
+            root = makeBarbell(
+                tier: PlateTier.all[selectedTier],
+                skin: BarSkin.all[selectedBar],
+                sticker: StickerOption.all[selectedSticker]
+            )
+        }
 
         // Apply image-based lighting if the HDRI has been loaded
         if let ibl = scene.iblResource {
@@ -446,6 +459,58 @@ struct BarbellPreviewView: View {
             let plate = makePlate(tier: tier, thickness: plateThickness, sticker: sticker)
             plate.position = SIMD3(xOffset, 0, 0)
             root.addChild(plate)
+        }
+
+        return root
+    }
+
+    // Builds a static barbell for showcase mode using EarnedPlateInfo plate data.
+    // Plates are placed at the standard bilateral slot offsets (innermost first).
+    // The no-sticker option is used since showcase is read-only.
+    private func makeBarbellShowcase(plates: [EarnedPlateInfo], skin: BarSkin) -> Entity {
+        let root = Entity()
+        root.position = SIMD3(0, 0, -0.5)
+        root.scale = SIMD3(repeating: 1.8)
+        root.components.set(CollisionComponent(shapes: [.generateBox(size: SIMD3(1.2, 0.4, 0.4))]))
+        root.components.set(InputTargetComponent())
+
+        let barMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+
+        let bar = ModelEntity(mesh: .generateCylinder(height: 1.1, radius: 0.012), materials: [barMat])
+        bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        root.addChild(bar)
+
+        for xOffset: Float in [-0.46, 0.46] {
+            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.022), materials: [barMat])
+            collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            collar.position = SIMD3(xOffset, 0, 0)
+            root.addChild(collar)
+        }
+
+        // Standard bilateral offsets: slot 0=innermost, slot 3=outermost.
+        // Each entry maps to a left/right pair of x-offsets.
+        let slotOffsets: [[Float]] = [
+            [-0.34, 0.34],
+            [-0.37, 0.37],
+            [-0.40, 0.40],
+            [-0.43, 0.43],
+        ]
+        let noSticker = StickerOption(id: 0, name: "None", rarity: .common, earnedBy: "", emoji: nil)
+
+        for (index, info) in plates.prefix(4).enumerated() {
+            guard let tier = PlateTier.all.first(where: { $0.id == info.tierID }) else { continue }
+            let offsets = slotOffsets[index]
+            for xOffset in offsets {
+                let plate = makePlate(
+                    tier: tier,
+                    thickness: plateThickness,
+                    sticker: noSticker,
+                    weightKg: info.weightKg,
+                    engravingText: info.engravingText
+                )
+                plate.position = SIMD3(xOffset, 0, 0)
+                root.addChild(plate)
+            }
         }
 
         return root
@@ -704,16 +769,14 @@ struct BarbellPreviewView: View {
         func load(_ suffix: String, semantic: TextureResource.Semantic) -> TextureResource? {
             let name = "\(prefix)_\(suffix)"
             guard let url = Bundle.main.url(forResource: name, withExtension: "jpg") else {
-                print("[PT] URL not found: \(name).jpg")
+                AppLogger.debug("Plate texture URL not found: \(name).jpg", category: AppLogger.ui)
                 return nil
             }
-            print("[PT] URL ok: \(url.path)")
             guard let uiImage = UIImage(contentsOfFile: url.path),
                   let sourceCG = uiImage.cgImage else {
-                print("[PT] decode failed: \(name).jpg")
+                AppLogger.debug("Plate texture decode failed: \(name).jpg", category: AppLogger.ui)
                 return nil
             }
-            print("[PT] decoded \(name) \(sourceCG.width)x\(sourceCG.height) bpp=\(sourceCG.bitsPerPixel)")
             let w = sourceCG.width, h = sourceCG.height
             guard let ctx = CGContext(
                 data: nil, width: w, height: h,
@@ -724,10 +787,9 @@ struct BarbellPreviewView: View {
             ctx.draw(sourceCG, in: CGRect(x: 0, y: 0, width: w, height: h))
             guard let rgba = ctx.makeImage() else { return nil }
             guard let tex = try? TextureResource.generate(from: rgba, options: .init(semantic: semantic)) else {
-                print("[PT] TextureResource.generate failed: \(name).jpg")
+                AppLogger.debug("Plate texture generation failed: \(name).jpg", category: AppLogger.ui)
                 return nil
             }
-            print("[PT] texture ok: \(name)")
             return tex
         }
         return PlateTextures(

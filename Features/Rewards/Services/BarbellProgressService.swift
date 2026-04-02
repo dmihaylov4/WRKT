@@ -87,7 +87,7 @@ final class BarbellProgressService {
         let weightKg = plate.weightKg
         let engravingText = plate.engravingText
         let rackPosition = nextSlot
-        Task.detached { [weak self] in
+        Task { [weak self] in
             guard let self else { return }
             await self.syncRackedPlateToSupabase(
                 tierID: tierID,
@@ -104,7 +104,7 @@ final class BarbellProgressService {
         plate.isRacked = false
         plate.rackPosition = nil
         try? context.save()
-        Task.detached { [weak self, pos] in
+        Task { [weak self, pos] in
             guard let self, let pos else { return }
             await self.deleteRackedPlateFromSupabase(rackPosition: pos)
         }
