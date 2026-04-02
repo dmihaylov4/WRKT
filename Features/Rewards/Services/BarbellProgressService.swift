@@ -237,7 +237,8 @@ final class BarbellProgressService {
         }
 
         try? context.save()
-        if !completedWorkouts.isEmpty {
+        let hasStrengthWorkouts = sorted.contains { !$0.isCardioWorkout }
+        if hasStrengthWorkouts {
             needsWelcomeScreen = true
         }
     }
