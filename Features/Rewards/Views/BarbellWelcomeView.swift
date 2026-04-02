@@ -215,6 +215,84 @@ private func buildSCNPlate(tierID: Int) -> SCNNode {
     return root
 }
 
+private func pbrSCNMaterial(color: UIColor, texture: UIImage? = nil,
+                             metallic: Float, roughness: Float) -> SCNMaterial {
+    let m = SCNMaterial()
+    m.lightingModel = .physicallyBased
+    m.diffuse.contents = texture ?? color
+    m.metalness.contents = NSNumber(value: metallic)
+    m.roughness.contents = NSNumber(value: roughness)
+    return m
+}
+
+/// Builds a full barbell scene for the welcome screen hero.
+/// Returns the scene and its spin root (rotate spinRoot.eulerAngles.y for spin).
+///
+/// Coordinate system: bar runs along X. Camera looks toward +Z.
+/// Plates: innermost pair at ±0.34, outer pair at ±0.37 (matches showcase slots 0-1).
+private func buildWelcomeBarbellScene(plates: [EarnedPlateInfo]) -> (scene: SCNScene, spinRoot: SCNNode) {
+    let scene = SCNScene()
+    scene.background.contents = UIColor.black
+
+    // Camera — pulled back to frame the full ~1.1-unit wide barbell
+    let camNode = SCNNode()
+    camNode.camera = {
+        let c = SCNCamera()
+        c.fieldOfView = 38
+        c.zNear = 0.01
+        return c
+    }()
+    camNode.position = SCNVector3(0, 0.08, 1.6)
+    scene.rootNode.addChildNode(camNode)
+
+    addWelcomeLights(to: scene)
+
+    let spinRoot = SCNNode()
+    scene.rootNode.addChildNode(spinRoot)
+
+    // Bar — SCNCylinder axis is Y; rotate 90° around Z to lay along X
+    let chromeMat = pbrSCNMaterial(
+        color: UIColor(white: 0.85, alpha: 1), metallic: 1.0, roughness: 0.12
+    )
+    let barCyl = SCNCylinder(radius: 0.012, height: 1.1)
+    barCyl.materials = [chromeMat, chromeMat, chromeMat]
+    let barNode = SCNNode(geometry: barCyl)
+    barNode.eulerAngles = SCNVector3(0, 0, Float.pi / 2)
+    spinRoot.addChildNode(barNode)
+
+    // Collars at ±0.46
+    for xSign: Float in [-1, 1] {
+        let collarCyl = SCNCylinder(radius: 0.022, height: 0.04)
+        collarCyl.materials = [chromeMat, chromeMat, chromeMat]
+        let collarNode = SCNNode(geometry: collarCyl)
+        collarNode.eulerAngles = SCNVector3(0, 0, Float.pi / 2)
+        collarNode.position = SCNVector3(xSign * 0.46, 0, 0)
+        spinRoot.addChildNode(collarNode)
+    }
+
+    // Plates — bilateral pairs, innermost first
+    let slotOffsets: [[Float]] = [
+        [-0.34, 0.34],
+        [-0.37, 0.37],
+        [-0.40, 0.40],
+        [-0.43, 0.43],
+    ]
+    for (index, info) in plates.prefix(4).enumerated() {
+        let offsets = slotOffsets[index]
+        for xOffset in offsets {
+            let plateInner = buildSCNPlate(tierID: info.tierID)
+            // buildSCNPlate cylinder axis is Y, already rotated 90° around X so face is +Z.
+            // Move the plate to its X slot on the bar.
+            let plateNode = SCNNode()
+            plateNode.addChildNode(plateInner)
+            plateNode.position = SCNVector3(xOffset, 0, 0)
+            spinRoot.addChildNode(plateNode)
+        }
+    }
+
+    return (scene, spinRoot)
+}
+
 // MARK: - Plate state
 //
 // A plain class — held by @State so it survives re-renders, but never written
