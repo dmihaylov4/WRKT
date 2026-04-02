@@ -431,8 +431,9 @@ struct BarbellWelcomeView: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 24) {
-                BarbellPreviewView(mode: .showcase(plates: showcasePlateInfos))
-                    .allowsHitTesting(true)
+                WelcomeBarbellView(plates: showcasePlateInfos)
+                    .frame(width: 340, height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
 
                 VStack(spacing: 8) {
                     Text("Your workouts have paid off.")
