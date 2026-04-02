@@ -102,12 +102,12 @@ struct SocialProfileView: View {
 
             // Load friend's racked plates for barbell showcase
             if userId != deps.authService.currentUser?.id {
-                // TODO: Task 12 - rackedPlatesForFriend will be implemented in Task 12
-                // do {
-                //     friendRackedPlates = try await deps.barbellProgressService.rackedPlatesForFriend(userID: userId)
-                // } catch {
-                //     friendRackedPlates = []
-                // }
+                do {
+                    friendRackedPlates = try await deps.barbellProgressService.rackedPlatesForFriend(userID: userId)
+                } catch {
+                    // Non-fatal: show empty barbell for friend
+                    friendRackedPlates = []
+                }
             }
 
             // NOTE: Don't validate streak here - validation should only happen on app cold start

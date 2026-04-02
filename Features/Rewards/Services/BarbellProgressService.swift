@@ -3,6 +3,7 @@ import Foundation
 import SwiftData
 import UIKit
 import AVFoundation
+import Supabase
 
 @MainActor
 final class BarbellProgressService {
@@ -79,15 +80,31 @@ final class BarbellProgressService {
         plate.rackPosition = nextSlot
         try? context.save()
         playClinkHaptic()
-        queueSupabaseSync()
+        let tierID = plate.tierID
+        let weightKg = plate.weightKg
+        let engravingText = plate.engravingText
+        let rackPosition = nextSlot
+        Task.detached { [weak self] in
+            guard let self else { return }
+            await self.syncRackedPlateToSupabase(
+                tierID: tierID,
+                weightKg: weightKg,
+                engravingText: engravingText,
+                rackPosition: rackPosition
+            )
+        }
     }
 
     func unrackPlate(_ plate: EarnedPlate) {
         guard let context else { return }
+        let pos = plate.rackPosition
         plate.isRacked = false
         plate.rackPosition = nil
         try? context.save()
-        queueSupabaseSync()
+        Task.detached { [weak self, pos] in
+            guard let self, let pos else { return }
+            await self.deleteRackedPlateFromSupabase(rackPosition: pos)
+        }
     }
 
     // MARK: - Haptic + Sound
@@ -105,15 +122,74 @@ final class BarbellProgressService {
         clinkPlayer?.prepareToPlay()
     }
 
-    // MARK: - Supabase sync (stub, wired in Phase 4)
+    // MARK: - Supabase sync
 
-    private func queueSupabaseSync() {
-        guard let context else { return }
-        let fd = FetchDescriptor<BarbellConfig>(predicate: #Predicate { $0.id == "global" })
-        if let config = try? context.fetch(fd).first {
-            config.needsSupabaseSync = true
-            try? context.save()
+    func rackedPlatesForFriend(userID: UUID) async throws -> [EarnedPlateInfo] {
+        let client = SupabaseClientWrapper.shared.client
+        let rows: [RackedPlateRow] = try await client
+            .from("barbell_racked_plates")
+            .select("tier_id, weight_kg, engraving_text, rack_position")
+            .eq("user_id", value: userID.uuidString)
+            .execute()
+            .value
+
+        return rows.map { row in
+            EarnedPlateInfo(
+                tierID: row.tierID,
+                weightKg: row.weightKg,
+                engravingText: row.engravingText,
+                earnedByEvent: ""
+            )
         }
+    }
+
+    private func syncRackedPlateToSupabase(
+        tierID: Int,
+        weightKg: Double,
+        engravingText: String,
+        rackPosition: Int
+    ) async {
+        guard let userID = SupabaseAuthService.shared.currentUser?.id else { return }
+        let client = SupabaseClientWrapper.shared.client
+
+        struct RackedPlateUpsert: Encodable {
+            let userID: String
+            let tierID: Int
+            let weightKg: Double
+            let engravingText: String
+            let rackPosition: Int
+            let updatedAt: String
+
+            enum CodingKeys: String, CodingKey {
+                case userID = "user_id"
+                case tierID = "tier_id"
+                case weightKg = "weight_kg"
+                case engravingText = "engraving_text"
+                case rackPosition = "rack_position"
+                case updatedAt = "updated_at"
+            }
+        }
+
+        let row = RackedPlateUpsert(
+            userID: userID.uuidString,
+            tierID: tierID,
+            weightKg: weightKg,
+            engravingText: engravingText,
+            rackPosition: rackPosition,
+            updatedAt: ISO8601DateFormatter().string(from: .now)
+        )
+        try? await client.from("barbell_racked_plates").upsert(row).execute()
+    }
+
+    private func deleteRackedPlateFromSupabase(rackPosition: Int) async {
+        guard let userID = SupabaseAuthService.shared.currentUser?.id else { return }
+        let client = SupabaseClientWrapper.shared.client
+        try? await client
+            .from("barbell_racked_plates")
+            .delete()
+            .eq("user_id", value: userID.uuidString)
+            .eq("rack_position", value: rackPosition)
+            .execute()
     }
 
     // MARK: - RewardsEngine reset hook
@@ -131,5 +207,19 @@ final class BarbellProgressService {
         try? context.save()
         ensureBarbellConfig()
         ensureStarterPlates()
+    }
+}
+
+// MARK: - Private helpers
+
+private struct RackedPlateRow: Decodable {
+    let tierID: Int
+    let weightKg: Double
+    let engravingText: String
+
+    enum CodingKeys: String, CodingKey {
+        case tierID = "tier_id"
+        case weightKg = "weight_kg"
+        case engravingText = "engraving_text"
     }
 }
