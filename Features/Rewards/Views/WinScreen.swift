@@ -75,6 +75,10 @@ struct WinScreenView: View {
     @State private var showLuckyBanner = false
     @State private var luckyPulse = false
 
+    // Plate reveal state
+    @State private var revealedPlates: [Int] = []   // indices into summary.earnedPlates revealed so far
+    @State private var showBarbellMoment = false
+
     private var iconName: String {
         if summary.gotLuckyBonus { return "sparkles" }
         if summary.newExerciseCount > 0 { return "star.fill" }
@@ -229,6 +233,27 @@ struct WinScreenView: View {
                                 HighlightsOnlyCard(highlights: highlights)
                             }
                         }
+
+                        // Plate reveal cards
+                        if !summary.earnedPlates.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                if !revealedPlates.isEmpty {
+                                    Text("New Plates")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(.white.opacity(0.7))
+                                        .padding(.top, 4)
+                                }
+                                ForEach(Array(summary.earnedPlates.enumerated()), id: \.offset) { index, plate in
+                                    if revealedPlates.contains(index) {
+                                        PlateRevealCard(plate: plate)
+                                            .transition(.asymmetric(
+                                                insertion: .scale(scale: 0.85, anchor: .leading).combined(with: .opacity),
+                                                removal: .opacity
+                                            ))
+                                    }
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -263,9 +288,15 @@ struct WinScreenView: View {
                         // Continue Button
                         Button {
                             Haptics.light()
-                            onDismiss()
+                            if !summary.earnedPlates.isEmpty && !showBarbellMoment {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    showBarbellMoment = true
+                                }
+                            } else {
+                                onDismiss()
+                            }
                         } label: {
-                            Text("Continue")
+                            Text(summary.earnedPlates.isEmpty || showBarbellMoment ? "Continue" : "See Your Barbell")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 48)
                                 .contentShape(Rectangle())
@@ -285,6 +316,9 @@ struct WinScreenView: View {
             if let workout = WinScreenCoordinator.shared.currentWorkout {
                 PostCreationView(workout: workout)
             }
+        }
+        .fullScreenCover(isPresented: $showBarbellMoment) {
+            BarbellMomentView(plates: summary.earnedPlates, onDismiss: onDismiss)
         }
         .onAppear {
             startStaggeredReveal()
@@ -350,8 +384,19 @@ struct WinScreenView: View {
             }
         }
 
+        // Stagger plate reveal cards after highlights
+        let plateStartDelay = highlightStartDelay + Double(highlights.count) * 0.15 + 0.2
+        for (index, _) in summary.earnedPlates.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + plateStartDelay + Double(index) * 0.25) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    revealedPlates.append(index)
+                }
+                Haptics.heavy()
+            }
+        }
+
         // Buttons appear last
-        let totalItems = summary.xpLineItems.count + highlights.count
+        let totalItems = summary.xpLineItems.count + highlights.count + summary.earnedPlates.count
         let buttonsDelay = baseDelay + 0.9 + Double(totalItems) * 0.15 + 0.4
         DispatchQueue.main.asyncAfter(deadline: .now() + buttonsDelay) {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -384,6 +429,104 @@ struct WinScreenView: View {
         let id = UUID()
         let icon: String
         let label: String
+    }
+}
+
+// MARK: - Plate Reveal Card
+
+private struct PlateRevealCard: View {
+    let plate: EarnedPlateInfo
+
+    private var tierName: String {
+        switch plate.tierID {
+        case 0: return "Raw Iron"
+        case 1: return "Cast Iron"
+        case 2: return "Black Bumper"
+        case 3: return "Brass"
+        case 4: return "Competition"
+        case 5: return "Polished Steel"
+        case 6: return "Gold"
+        default: return "Plate"
+        }
+    }
+
+    private var rarityLabel: String {
+        switch plate.tierID {
+        case 0, 1: return "Common"
+        case 2: return "Uncommon"
+        case 3, 4: return "Rare"
+        case 5: return "Epic"
+        case 6: return "Legendary"
+        default: return ""
+        }
+    }
+
+    private var rarityColor: Color {
+        switch plate.tierID {
+        case 0, 1: return .gray
+        case 2: return Color(red: 0.2, green: 0.7, blue: 0.3)
+        case 3, 4: return Color(red: 0.2, green: 0.4, blue: 0.9)
+        case 5: return Color(red: 0.6, green: 0.2, blue: 0.9)
+        case 6: return Color(red: 0.9, green: 0.65, blue: 0.1)
+        default: return .white
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Plate swatch: colored circle matching tier material
+            Circle()
+                .fill(plateSwatchColor)
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Text(plate.weightKg > 0 ? "\(Int(plate.weightKg))" : "")
+                        .font(.caption.weight(.black))
+                        .foregroundStyle(textColorForTier(plate.tierID))
+                )
+                .overlay(Circle().stroke(rarityColor.opacity(0.5), lineWidth: 1.5))
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(tierName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(rarityLabel)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(rarityColor)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(rarityColor.opacity(0.15), in: Capsule())
+                }
+                Text(plate.engravingText)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            Spacer(minLength: 0)
+
+            Image(systemName: "plus.circle.fill")
+                .font(.title3)
+                .foregroundStyle(DS.Semantic.brand)
+        }
+        .padding(12)
+        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(rarityColor.opacity(0.25), lineWidth: 1))
+    }
+
+    private var plateSwatchColor: Color {
+        switch plate.tierID {
+        case 0: return Color(red: 0.40, green: 0.18, blue: 0.07)
+        case 1: return Color(red: 0.14, green: 0.14, blue: 0.14)
+        case 2: return Color(red: 0.07, green: 0.07, blue: 0.07)
+        case 3: return Color(red: 0.75, green: 0.60, blue: 0.25)
+        case 4: return Color(red: 0.82, green: 0.09, blue: 0.09)
+        case 5: return Color(red: 0.72, green: 0.76, blue: 0.80)
+        case 6: return Color(red: 0.88, green: 0.68, blue: 0.12)
+        default: return .gray
+        }
+    }
+
+    private func textColorForTier(_ id: Int) -> Color {
+        [0, 1, 2].contains(id) ? .white : .black
     }
 }
 

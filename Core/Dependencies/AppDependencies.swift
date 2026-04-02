@@ -77,11 +77,17 @@ final class AppDependencies: ObservableObject {
     /// Virtual run repository - manages virtual running together sessions
     let virtualRunRepository: VirtualRunRepository
 
+    /// Barbell progress service - manages plate earn/rack state
+    let barbellProgressService: BarbellProgressService
+
     // MARK: - Computed Services
 
     /// Stats aggregator - created lazily with model context
     /// Must be set after initialization with proper context
     @Published private(set) var statsAggregator: StatsAggregator?
+
+    // Holds the backfill subscription alive until it fires
+    private var backfillCancellable: AnyCancellable?
 
     // MARK: - Initialization
 
@@ -108,6 +114,7 @@ final class AppDependencies: ObservableObject {
         self.challengeRepository = ChallengeRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.battleRepository = BattleRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.virtualRunRepository = VirtualRunRepository()
+        self.barbellProgressService = BarbellProgressService.shared
 
         AppLogger.success("AppDependencies initialized", category: AppLogger.app)
     }
@@ -150,6 +157,22 @@ final class AppDependencies: ObservableObject {
         // Wire up virtual run repository to WatchConnectivity
         WatchConnectivityManager.shared.virtualRunRepository = virtualRunRepository
         AppLogger.success("Virtual run repository wired to WatchConnectivity", category: AppLogger.app)
+
+        // Configure BarbellProgressService
+        barbellProgressService.configure(context: modelContext)
+        AppLogger.success("BarbellProgressService configured", category: AppLogger.rewards)
+
+        // Run backfill once WorkoutStoreV2 has finished loading from disk.
+        // We subscribe to isStorageLoaded and fire as soon as it becomes true.
+        backfillCancellable = workoutStore.$isStorageLoaded
+            .filter { $0 }
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.barbellProgressService.runBackfillIfNeeded(completedWorkouts: self.workoutStore.completedWorkouts)
+                self.backfillCancellable = nil
+            }
 
         AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
     }

@@ -96,6 +96,11 @@ struct SettingsView: View {
                     VirtualRunDebugView()
                         .environmentObject(authService)
                 }
+                Button {
+                    BarbellProgressService.shared.needsWelcomeScreen = true
+                } label: {
+                    Label("Show Barbell Welcome", systemImage: "barbell")
+                }
             }
             #endif
 

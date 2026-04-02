@@ -55,10 +55,18 @@
 		2E2F538F2E9D675F00C81656 /* WinScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F538E2E9D675D00C81656 /* WinScreen.swift */; };
 		2E2F53912E9E223B00C81656 /* rewards_rules_v1.json in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
 		2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
+		84BC9435E0674897A910D943 /* plate_clink.caf in Resources */ = {isa = PBXBuildFile; fileRef = 1848F2CE0BE744519C79CD42 /* plate_clink.caf */; };
 		2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */; };
 		2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53962E9E4FF000C81656 /* ProfileView.swift */; };
 		2E2F53992E9E578B00C81656 /* RewardSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53982E9E578B00C81656 /* RewardSummary.swift */; };
 		2E2F539B2E9E582F00C81656 /* WinScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */; };
+		2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00002FA0000000000001 /* BarbellProgressService.swift */; };
+		2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */; };
+		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
+		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
+		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
+		2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */; };
+		2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */; };
 		2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539C2E9E714A00C81656 /* AchievementsView.swift */; };
 		2E2F539F2E9E715200C81656 /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539E2E9E715200C81656 /* PreferencesView.swift */; };
 		2E2F53A12E9E716600C81656 /* ConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53A02E9E716600C81656 /* ConnectionsView.swift */; };
@@ -89,6 +97,7 @@
 		2E510B882E9AE2F00089EE2C /* muscle_id_map.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E510B872E9AE2E40089EE2C /* muscle_id_map.json */; };
 		2E510B8A2E9AEEA60089EE2C /* muscles_index.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E510B892E9AEEA60089EE2C /* muscles_index.json */; };
 		2E510B8C2E9AEEEF0089EE2C /* MuscleIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8B2E9AEEEC0089EE2C /* MuscleIndex.swift */; };
+		353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */; };
 		2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B902E9AF1430089EE2C /* RewardsRules.swift */; };
 		2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */; };
 		2E510B932E9AF17A0089EE2C /* RewardProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */; };
@@ -466,10 +475,18 @@
 		2E2F538C2E9D670700C81656 /* StreakResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakResult.swift; sourceTree = "<group>"; };
 		2E2F538E2E9D675D00C81656 /* WinScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreen.swift; sourceTree = "<group>"; };
 		2E2F53902E9E223400C81656 /* rewards_rules_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = rewards_rules_v1.json; sourceTree = "<group>"; };
+		1848F2CE0BE744519C79CD42 /* plate_clink.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = plate_clink.caf; sourceTree = "<group>"; };
 		2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsHubView.swift; sourceTree = "<group>"; };
 		2E2F53962E9E4FF000C81656 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2E2F53982E9E578B00C81656 /* RewardSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardSummary.swift; sourceTree = "<group>"; };
 		2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreenCoordinator.swift; sourceTree = "<group>"; };
+		2EBB00002FA0000000000001 /* BarbellProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellProgressService.swift; sourceTree = "<group>"; };
+		2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellUnlockRules.swift; sourceTree = "<group>"; };
+		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
+		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
+		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
+		2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellShowcaseCard.swift; sourceTree = "<group>"; };
+		2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellWelcomeView.swift; sourceTree = "<group>"; };
 		2E2F539C2E9E714A00C81656 /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		2E2F539E2E9E715200C81656 /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
 		2E2F53A02E9E716600C81656 /* ConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsView.swift; sourceTree = "<group>"; };
@@ -504,6 +521,7 @@
 		2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardProgress.swift; sourceTree = "<group>"; };
 		2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardEngine.swift; sourceTree = "<group>"; };
 		2E510B902E9AF1430089EE2C /* RewardsRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsRules.swift; sourceTree = "<group>"; };
+		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
 		2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutModels.swift; sourceTree = "<group>"; };
 		2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WRKT Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1115,6 +1133,7 @@
 			children = (
 				2E196EF92EAE4B2D00EB4780 /* Data */,
 				2E196EA32EAD398900EB4780 /* Assets.xcassets */,
+				1848F2CE0BE744519C79CD42 /* plate_clink.caf */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -1307,6 +1326,8 @@
 				2E2F53A02E9E716600C81656 /* ConnectionsView.swift */,
 				2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */,
 				2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */,
+				2EBB00062FA0000000000001 /* PlateWallView.swift */,
+				2EBB00082FA0000000000001 /* BarbellPreviewView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1375,6 +1396,8 @@
 				2E2F538E2E9D675D00C81656 /* WinScreen.swift */,
 				2E2F53982E9E578B00C81656 /* RewardSummary.swift */,
 				2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */,
+				2EBB00042FA0000000000001 /* BarbellMomentView.swift */,
+				2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1382,6 +1405,7 @@
 		2E196EED2EAE482E00EB4780 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */,
 				2E510B902E9AF1430089EE2C /* RewardsRules.swift */,
 				2E2F538C2E9D670700C81656 /* StreakResult.swift */,
 			);
@@ -1393,6 +1417,8 @@
 			children = (
 				2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */,
 				2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */,
+				2EBB00002FA0000000000001 /* BarbellProgressService.swift */,
+				2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1988,6 +2014,7 @@
 				2EA7D9AC2EEABF480017683B /* FriendsListView.swift */,
 				2EA7D9A92EEABAD70017683B /* UserSearchView.swift */,
 				2EA7D9A72EEA9F020017683B /* SocialProfileView.swift */,
+				2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */,
 				2EA7D9A32EE9EF810017683B /* PostDetailView.swift */,
 				2EA7D9A12EE9EF760017683B /* FeedView.swift */,
 				2EA7D99F2EE9EF670017683B /* PostCreationView.swift */,
@@ -2261,6 +2288,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */,
+				84BC9435E0674897A910D943 /* plate_clink.caf in Resources */,
 				2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */,
 				2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */,
 				2EC203562EF59D4C00D6BAEF /* appLogs.md in Resources */,
@@ -2539,6 +2567,10 @@
 				2EA7DA342EEC3EC60017683B /* RepositoryProtocols.swift in Sources */,
 				2EC245C42E9FB4F400100333 /* ExerciseMedia.swift in Sources */,
 				2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */,
+				2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */,
+				2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */,
+				2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */,
+				2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */,
 				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,
 				2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */,
 				2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */,
@@ -2597,6 +2629,7 @@
 				2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */,
 				2EA7DA282EEC17E80017683B /* CacheManager.swift in Sources */,
 				2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */,
+				353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */,
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
 				2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */,
 				2E695B8A2F017589002EA9FC /* SettingsView.swift in Sources */,
@@ -2612,6 +2645,7 @@
 				2EC245D32E9FEB4600100333 /* FavoritesStore.swift in Sources */,
 				2EA7DAA42EEDC7660017683B /* Challenge.swift in Sources */,
 				2EA7D9A82EEA9F020017683B /* SocialProfileView.swift in Sources */,
+				2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */,
 				2EA7DA322EEC3EBE0017683B /* BaseRepository.swift in Sources */,
 				2E2938B82EC8BFB10057F60C /* AggregatedExerciseListView.swift in Sources */,
 				2E7461A12E93ED2C00A71C35 /* ExcerciseSessionView.swift in Sources */,
@@ -2637,6 +2671,8 @@
 				2E6732E1D7BDDE590ADB8BF5 /* VirtualRunRoute.swift in Sources */,
 				2E974F676CAFCEE52319B772 /* VirtualRunMapComparisonView.swift in Sources */,
 				2EEBEE157C2C0B99D65A0085 /* VirtualRunSummaryPager.swift in Sources */,
+				2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */,
+				2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -247,7 +247,8 @@ struct WRKTApp: App {
             MovingAverage.self, ExerciseProgressionSummary.self, ExerciseTrend.self, PushPullBalance.self,
             MuscleGroupFrequency.self, MovementPatternBalance.self, WeeklyGoal.self,
             HealthSyncAnchor.self, RouteFetchTask.self, MapSnapshotCache.self,
-            PlannedWorkout.self, PlannedExercise.self, WorkoutSplit.self, PlanBlock.self, PlanBlockExercise.self
+            PlannedWorkout.self, PlannedExercise.self, WorkoutSplit.self, PlanBlock.self, PlanBlockExercise.self,
+            EarnedPlate.self, BarbellConfig.self  // barbell gamification
         ])
 
         // Attempt to create persistent container with file protection

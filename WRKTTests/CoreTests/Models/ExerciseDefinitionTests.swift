@@ -181,7 +181,10 @@ final class ExerciseDefinitionTests: WRKTTestCase {
             forceType: "push",
             mechanics: "compound",
             laterality: "bilateral",
-            primaryClassification: "strength"
+            primaryClassification: "strength",
+            trackingMode: nil,
+            defaultDurationSeconds: nil,
+            recommendedRestSeconds: nil
         )
 
         XCTAssertEqual(dto.name, "Test Exercise")

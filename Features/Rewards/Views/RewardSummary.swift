@@ -54,6 +54,9 @@ public struct RewardSummary: Equatable {
     // Lucky bonus (variable ratio reinforcement)
     let gotLuckyBonus: Bool
     let bonusMultiplier: Double  // 1.0 = no bonus, 1.5/2.0/3.0 = bonus
+
+    // Barbell plates earned this workout
+    let earnedPlates: [EarnedPlateInfo]   // empty array = no plates earned
 }
 
 extension RewardSummary {
@@ -64,7 +67,8 @@ extension RewardSummary {
         (newExerciseCount > 0) ||
         (levelUpTo != nil) ||
         (streakNew > streakOld) ||
-        !unlockedAchievements.isEmpty
+        !unlockedAchievements.isEmpty ||
+        !earnedPlates.isEmpty
     }
 
     func merged(with other: RewardSummary) -> RewardSummary {
@@ -106,7 +110,8 @@ extension RewardSummary {
             streakFrozen: streakFrozen || other.streakFrozen,
             streakBonusXP: streakBonusXP + other.streakBonusXP,
             gotLuckyBonus: gotLuckyBonus || other.gotLuckyBonus,
-            bonusMultiplier: max(bonusMultiplier, other.bonusMultiplier)
+            bonusMultiplier: max(bonusMultiplier, other.bonusMultiplier),
+            earnedPlates: earnedPlates + other.earnedPlates
         )
     }
 
@@ -129,13 +134,14 @@ extension RewardSummary {
         self.streakBonusXP = 0
         self.gotLuckyBonus = false
         self.bonusMultiplier = 1.0
+        self.earnedPlates = []
     }
 
     // Full init with XP breakdown (lucky bonus defaults to false)
     init(xp: Int, coins: Int, levelUpTo: Int?, streakOld: Int, streakNew: Int,
          hitStreakMilestone: Bool, unlockedAchievements: [String], prCount: Int,
          newExerciseCount: Int, xpSnapshot: XPSnapshot?, xpLineItems: [XPLineItem],
-         streakFrozen: Bool, streakBonusXP: Int) {
+         streakFrozen: Bool, streakBonusXP: Int, earnedPlates: [EarnedPlateInfo] = []) {
         self.xp = xp
         self.coins = coins
         self.levelUpTo = levelUpTo
@@ -151,6 +157,7 @@ extension RewardSummary {
         self.streakBonusXP = streakBonusXP
         self.gotLuckyBonus = false
         self.bonusMultiplier = 1.0
+        self.earnedPlates = earnedPlates
     }
 
 
@@ -206,7 +213,8 @@ extension RewardSummary {
             streakFrozen: streakFrozen,
             streakBonusXP: streakBonusXP,
             gotLuckyBonus: true,
-            bonusMultiplier: multiplier
+            bonusMultiplier: multiplier,
+            earnedPlates: earnedPlates
         )
     }
 }
