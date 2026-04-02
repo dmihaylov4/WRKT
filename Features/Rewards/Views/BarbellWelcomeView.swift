@@ -299,6 +299,15 @@ private final class PlateState {
     var lastTranslationX: CGFloat = 0
 }
 
+private final class BarbellWelcomeState {
+    let scnView = SCNView()
+    var spinRoot: SCNNode? = nil
+    var rotY: Double = 0
+    var velocity: Double = 0.35   // radians/sec, matches BarbellPreviewView initial spin
+    var isDragging: Bool = false
+    var lastTranslationX: CGFloat = 0
+}
+
 // MARK: - Spinnable plate cell
 
 private struct SpinnablePlateCell: View {
@@ -351,6 +360,56 @@ private struct SpinnablePlateCell: View {
                 .foregroundStyle(.white.opacity(0.4))
                 .lineLimit(1)
         }
+    }
+}
+
+// MARK: - Welcome barbell view
+
+private struct WelcomeBarbellView: View {
+    let plates: [EarnedPlateInfo]
+    @State private var s = BarbellWelcomeState()
+
+    var body: some View {
+        PlateSceneView(scnView: s.scnView)
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onChanged { value in
+                        s.isDragging = true
+                        let delta = Double(value.translation.width - s.lastTranslationX)
+                        s.velocity = delta * 60
+                        s.rotY += delta * 0.012
+                        s.lastTranslationX = value.translation.width
+                        s.spinRoot?.eulerAngles.y = Float(s.rotY)
+                    }
+                    .onEnded { _ in
+                        s.isDragging = false
+                        s.lastTranslationX = 0
+                    }
+            )
+            .task { @MainActor in
+                let (scene, spin) = buildWelcomeBarbellScene(plates: plates)
+                s.scnView.frame = CGRect(x: 0, y: 0, width: 340, height: 220)
+                s.scnView.scene = scene
+                s.scnView.antialiasingMode = .multisampling4X
+                s.scnView.backgroundColor = .black
+                s.scnView.isOpaque = true
+                s.scnView.allowsCameraControl = false
+                s.scnView.rendersContinuously = true
+                s.spinRoot = spin
+                s.spinRoot?.eulerAngles.y = Float(s.rotY)
+
+                var lastTime = Date().timeIntervalSinceReferenceDate
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(16))
+                    let now = Date().timeIntervalSinceReferenceDate
+                    let dt = min(now - lastTime, 0.05)
+                    lastTime = now
+                    guard !s.isDragging else { continue }
+                    s.velocity *= pow(0.97, dt * 60)
+                    s.rotY += s.velocity * dt
+                    s.spinRoot?.eulerAngles.y = Float(s.rotY)
+                }
+            }
     }
 }
 
