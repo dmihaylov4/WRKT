@@ -55,13 +55,14 @@ enum BarbellRealityMode {
         rackedPlates: [EarnedPlate],
         floorPlates: [EarnedPlate],
         onRack: (EarnedPlate) -> Void,
-        onUnrack: (EarnedPlate) -> Void,
-        onNewPlate: (@escaping (EarnedPlateInfo) -> Void) -> Void
+        onUnrack: (EarnedPlate) -> Void
     )
 }
 ```
 
-Callbacks are passed in by the parent view. The scene never calls into SwiftData directly.
+`onRack` and `onUnrack` callbacks are passed in by the parent. The scene never calls into SwiftData directly.
+
+`SceneState` is created by the parent (`PlateWallView`) and passed into `BarbellRealityView` as an init parameter. This gives the parent a direct reference to the scene so it can call `sceneState.addPlate(info:)` when a new plate is earned — no callback registration, no reactive loop. `PlateWallView` detects new plates via `onChange(of: ownedPlates.count)`, finds the new `EarnedPlate`, and calls `sceneState.addPlate` directly.
 
 ## BarbellRealityView — Scene State
 
@@ -93,7 +94,6 @@ enum DragPhase {
 1. Build bar, collar, rack stand entities via `BarbellEntityBuilder` and add to scene
 2. For each plate in the initial array: call `makePlateEntity`, assign a stable name matching `EarnedPlate.id`, add to `floorAnchor` or `barAnchor` based on `isRacked`, store reference in `entityMap`
 3. For `.welcome` mode: start per-entity spin animations via `entity.playAnimation` with repeating rotation around Y; position plate entities in a grid layout below the hero barbell
-4. Register the `onNewPlate` callback — when it fires, `scene.addPlateEntity(info:)` adds a new entity to `floorAnchor` and updates `entityMap`
 
 `RealityView update { }` is empty. The scene manages its own state after `make`.
 
@@ -151,9 +151,9 @@ Gesture ends (rack or unrack confirmed)
 EXTERNAL CHANGE (new plate earned mid-session)
 BarbellProgressService earns a plate
   -> PlateWallView onChange(of: ownedPlates.count) detects new entry
-  -> calls registered onNewPlate callback with EarnedPlateInfo
-  -> scene.addPlateEntity(info:) adds entity to floorAnchor, updates entityMap
-  -> no update closure, no reactive diff
+  -> PlateWallView calls sceneState.addPlate(info:) directly (it owns the reference)
+  -> sceneState.addPlate creates entity, adds to floorAnchor, updates entityMap
+  -> no callback registration, no update closure, no reactive diff
 ```
 
 ## .welcome Mode Layout
