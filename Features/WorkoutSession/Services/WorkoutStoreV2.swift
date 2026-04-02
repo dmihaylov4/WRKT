@@ -79,7 +79,7 @@ final class WorkoutStoreV2: ObservableObject {
     /// persistWorkouts/persistRuns/persistCurrentWorkout refuse to write while false,
     /// preventing a failed load (e.g. device locked during background task) from
     /// overwriting good data with an empty array.
-    private var isStorageLoaded = false
+    @Published private(set) var isStorageLoaded = false
 
     // MARK: - Dependencies
     private let storage = WorkoutStorage.shared
