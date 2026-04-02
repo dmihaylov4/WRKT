@@ -2,6 +2,7 @@
 import SwiftUI
 import SwiftData
 import SceneKit
+import UIKit
 
 // MARK: - Texture cache (UIImage, same source files as BarbellPreviewView)
 
