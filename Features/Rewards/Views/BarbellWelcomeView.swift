@@ -145,21 +145,11 @@ private func buildSCNPlate(tierID: Int) -> SCNNode {
     let radius: CGFloat = 0.18
     let root = SCNNode()
 
-    func pbrMat(color: UIColor, texture: UIImage? = nil,
-                metallic: Float, roughness: Float) -> SCNMaterial {
-        let m = SCNMaterial()
-        m.lightingModel = .physicallyBased
-        m.diffuse.contents = texture ?? color
-        m.metalness.contents = NSNumber(value: metallic)
-        m.roughness.contents = NSNumber(value: roughness)
-        return m
-    }
-
-    let chrome = pbrMat(color: UIColor(white: 0.85, alpha: 1), metallic: 1.0, roughness: 0.12)
+    let chrome = pbrSCNMaterial(color: UIColor(white: 0.85, alpha: 1), metallic: 1.0, roughness: 0.12)
 
     // Main disc — set all 3 slots explicitly: [tube, front cap, back cap]
     let mainCyl = SCNCylinder(radius: radius, height: thickness)
-    let plateMat = pbrMat(
+    let plateMat = pbrSCNMaterial(
         color: tier.plateColor,
         texture: PlateUITextureCache.image(for: tierID),
         metallic: tier.metallic,
@@ -176,7 +166,7 @@ private func buildSCNPlate(tierID: Int) -> SCNNode {
     // Style-specific geometry (mirrors BarbellPreviewView)
     switch tier.style {
     case .castIron:
-        let innerMat = pbrMat(
+        let innerMat = pbrSCNMaterial(
             color: UIColor(red: 0.20, green: 0.20, blue: 0.20, alpha: 1),
             texture: PlateUITextureCache.image(for: tierID),
             metallic: 0.06, roughness: 0.96
@@ -185,13 +175,13 @@ private func buildSCNPlate(tierID: Int) -> SCNNode {
         innerCyl.materials = [innerMat, innerMat, innerMat]
         root.addChildNode(SCNNode(geometry: innerCyl))
 
-        let bossMat = pbrMat(color: tier.plateColor, metallic: 0.06, roughness: 0.95)
+        let bossMat = pbrSCNMaterial(color: tier.plateColor, metallic: 0.06, roughness: 0.95)
         let bossCyl = SCNCylinder(radius: radius * 0.22, height: thickness * 0.82)
         bossCyl.materials = [bossMat, bossMat, bossMat]
         root.addChildNode(SCNNode(geometry: bossCyl))
 
     case .bumper:
-        let bandMat = pbrMat(color: UIColor(white: 0.35, alpha: 1), metallic: 0.1, roughness: 0.88)
+        let bandMat = pbrSCNMaterial(color: UIColor(white: 0.35, alpha: 1), metallic: 0.1, roughness: 0.88)
         let bandCyl = SCNCylinder(radius: radius + 0.002, height: thickness * 0.35)
         bandCyl.materials = [bandMat, bandMat, bandMat]
         root.addChildNode(SCNNode(geometry: bandCyl))
@@ -266,7 +256,7 @@ private func buildWelcomeBarbellScene(plates: [EarnedPlateInfo]) -> (scene: SCNS
         collarCyl.materials = [chromeMat, chromeMat, chromeMat]
         let collarNode = SCNNode(geometry: collarCyl)
         collarNode.eulerAngles = SCNVector3(0, 0, Float.pi / 2)
-        collarNode.position = SCNVector3(xSign * 0.46, 0, 0)
+        collarNode.position = SCNVector3(xSign * 0.475, 0, 0)
         spinRoot.addChildNode(collarNode)
     }
 
