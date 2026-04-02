@@ -128,7 +128,7 @@ final class BarbellProgressService {
         let client = SupabaseClientWrapper.shared.client
         let rows: [RackedPlateRow] = try await client
             .from("barbell_racked_plates")
-            .select("tier_id, weight_kg, engraving_text, rack_position")
+            .select("tier_id, weight_kg, engraving_text")
             .eq("user_id", value: userID.uuidString)
             .execute()
             .value
@@ -178,18 +178,26 @@ final class BarbellProgressService {
             rackPosition: rackPosition,
             updatedAt: ISO8601DateFormatter().string(from: .now)
         )
-        try? await client.from("barbell_racked_plates").upsert(row).execute()
+        do {
+            try await client.from("barbell_racked_plates").upsert(row).execute()
+        } catch {
+            AppLogger.error("Failed to sync racked plate to Supabase: \(error)", category: AppLogger.rewards)
+        }
     }
 
     private func deleteRackedPlateFromSupabase(rackPosition: Int) async {
         guard let userID = SupabaseAuthService.shared.currentUser?.id else { return }
         let client = SupabaseClientWrapper.shared.client
-        try? await client
-            .from("barbell_racked_plates")
-            .delete()
-            .eq("user_id", value: userID.uuidString)
-            .eq("rack_position", value: rackPosition)
-            .execute()
+        do {
+            try await client
+                .from("barbell_racked_plates")
+                .delete()
+                .eq("user_id", value: userID.uuidString)
+                .eq("rack_position", value: rackPosition)
+                .execute()
+        } catch {
+            AppLogger.error("Failed to delete racked plate from Supabase: \(error)", category: AppLogger.rewards)
+        }
     }
 
     // MARK: - RewardsEngine reset hook
