@@ -99,8 +99,15 @@ func pbrMaterial(
     return mat
 }
 
+// Process-level singleton -- shared across all hub caps to avoid one material object per plate.
+// nonisolated(unsafe) matches the mesh cache pattern; written once before RealityView runs.
+private nonisolated(unsafe) var _sharedChromeMaterial: PhysicallyBasedMaterial?
+
 func chromeMaterial() -> PhysicallyBasedMaterial {
-    pbrMaterial(color: UIColor(white: 0.85, alpha: 1), metallic: 1.0, roughness: 0.12)
+    if let cached = _sharedChromeMaterial { return cached }
+    let mat = pbrMaterial(color: UIColor(white: 0.85, alpha: 1), metallic: 1.0, roughness: 0.12)
+    _sharedChromeMaterial = mat
+    return mat
 }
 
 // MARK: - Texture loading
