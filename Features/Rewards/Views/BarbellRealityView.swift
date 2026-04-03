@@ -514,7 +514,8 @@ struct BarbellRealityView: View {
         if sceneState.isReduceMotionEnabled {
             entity.position = SIMD3(xPos, 0, 0)
             entity.orientation = leanRot
-            finishUnrack(entity: entity, plateID: plateID, delayMs: 0)
+            let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
+            finishUnrack(plateID: plateID, plate: plateToUnrack)
         } else {
             // Switch to dynamic so physics handles the bounce on floor contact
             entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
@@ -525,29 +526,29 @@ struct BarbellRealityView: View {
                 translation: SIMD3(xPos, 0.3, 0)
             )
             entity.move(to: dropTarget, relativeTo: sceneState.floorAnchor, duration: 0.15, timingFunction: .easeOut)
+            // Pre-capture before async gap to avoid stale allRackedPlates read.
+            let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
             Task { @MainActor in
-                // Let physics settle (~800ms), then lock back to kinematic and play drop sound
+                // Let physics settle (~800ms), then lock back to kinematic and play drop sound.
+                // Guard: if entity was re-grabbed during settle window, skip re-lock.
                 try? await Task.sleep(for: .milliseconds(800))
+                guard entity.components[PlateRoleComponent.self]?.role == .floor else { return }
                 entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
                 if let audioComp = entity.components[PlateAudioCategoryComponent.self] {
                     playDropSound(on: entity, category: audioComp.category)
                     playDropHaptic(category: audioComp.category)
                 }
-                finishUnrack(entity: entity, plateID: plateID, delayMs: 0)
+                finishUnrack(plateID: plateID, plate: plateToUnrack)
             }
         }
     }
 
-    private func finishUnrack(entity: Entity, plateID: String, delayMs: Int) {
-        Task { @MainActor in
-            if delayMs > 0 { try? await Task.sleep(for: .milliseconds(delayMs)) }
-            if let plate = allRackedPlates.first(where: { $0.id == plateID }) {
-                onUnrackCallback?(plate)
-            }
-            sceneState.barMirrorMap[plateID]?.removeFromParent()
-            sceneState.barMirrorMap.removeValue(forKey: plateID)
-            sceneState.barPositionMap.removeValue(forKey: plateID)
-        }
+    /// plate is pre-captured by the caller before any async gap to avoid stale allRackedPlates reads.
+    private func finishUnrack(plateID: String, plate: EarnedPlate?) {
+        if let plate { onUnrackCallback?(plate) }
+        sceneState.barMirrorMap[plateID]?.removeFromParent()
+        sceneState.barMirrorMap.removeValue(forKey: plateID)
+        sceneState.barPositionMap.removeValue(forKey: plateID)
     }
 
     private func snapBack(entity: Entity, plateID: String) {
@@ -568,7 +569,8 @@ struct BarbellRealityView: View {
             entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
             let target = Transform(matrix: original.transformMatrix(relativeTo: nil))
             if sceneState.isReduceMotionEnabled {
-                entity.transform = Transform(matrix: entity.convert(transform: target, from: nil))
+                // Convert world-space target into floorAnchor's local space (entity.transform is parent-relative).
+                entity.transform = Transform(matrix: sceneState.floorAnchor.convert(transform: target, from: nil))
             } else {
                 entity.move(to: target, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
             }
