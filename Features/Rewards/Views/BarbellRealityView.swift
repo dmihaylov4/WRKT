@@ -502,9 +502,78 @@ struct BarbellRealityView: View {
         }
     }
 
-    // Stubs for Task 11
-    private func snapToFloor(entity: Entity, plateID: String) {}
-    private func snapBack(entity: Entity, plateID: String) {}
+    private func snapToFloor(entity: Entity, plateID: String) {
+        let xPos = Float(sceneState.floorAnchor.children.count) * 0.15
+        entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
+        entity.components.set(PlateRoleComponent(role: .floor))
+
+        let leanAngle = Float.random(in: 0.10 ..< 0.23)
+        let leanRot = simd_quatf(angle: -.pi / 2, axis: SIMD3(1, 0, 0))
+            * simd_quatf(angle: leanAngle, axis: SIMD3(0, 0, 1))
+
+        if sceneState.isReduceMotionEnabled {
+            entity.position = SIMD3(xPos, 0, 0)
+            entity.orientation = leanRot
+            finishUnrack(entity: entity, plateID: plateID, delayMs: 0)
+        } else {
+            // Switch to dynamic so physics handles the bounce on floor contact
+            entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+            // Drop from slightly above (physics takes it to the static floor collider)
+            let dropTarget = Transform(
+                scale: SIMD3(repeating: 1),
+                rotation: leanRot,
+                translation: SIMD3(xPos, 0.3, 0)
+            )
+            entity.move(to: dropTarget, relativeTo: sceneState.floorAnchor, duration: 0.15, timingFunction: .easeOut)
+            Task { @MainActor in
+                // Let physics settle (~800ms), then lock back to kinematic and play drop sound
+                try? await Task.sleep(for: .milliseconds(800))
+                entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+                if let audioComp = entity.components[PlateAudioCategoryComponent.self] {
+                    playDropSound(on: entity, category: audioComp.category)
+                    playDropHaptic(category: audioComp.category)
+                }
+                finishUnrack(entity: entity, plateID: plateID, delayMs: 0)
+            }
+        }
+    }
+
+    private func finishUnrack(entity: Entity, plateID: String, delayMs: Int) {
+        Task { @MainActor in
+            if delayMs > 0 { try? await Task.sleep(for: .milliseconds(delayMs)) }
+            if let plate = allRackedPlates.first(where: { $0.id == plateID }) {
+                onUnrackCallback?(plate)
+            }
+            sceneState.barMirrorMap[plateID]?.removeFromParent()
+            sceneState.barMirrorMap.removeValue(forKey: plateID)
+            sceneState.barPositionMap.removeValue(forKey: plateID)
+        }
+    }
+
+    private func snapBack(entity: Entity, plateID: String) {
+        if let roleComp = entity.components[PlateRoleComponent.self], roleComp.role == .bar,
+           let barPos = sceneState.barPositionMap[plateID] {
+            // Return bar plate to its slot
+            entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
+            let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            let target = Transform(scale: SIMD3(repeating: 1), rotation: rot, translation: barPos)
+            if sceneState.isReduceMotionEnabled {
+                entity.position = barPos
+                entity.orientation = rot
+            } else {
+                entity.move(to: target, relativeTo: sceneState.barAnchor, duration: 0.2, timingFunction: .easeOut)
+            }
+        } else if let original = sceneState.entityMap[plateID] {
+            // Return floor plate to its original position
+            entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
+            let target = Transform(matrix: original.transformMatrix(relativeTo: nil))
+            if sceneState.isReduceMotionEnabled {
+                entity.transform = Transform(matrix: entity.convert(transform: target, from: nil))
+            } else {
+                entity.move(to: target, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
+            }
+        }
+    }
 
     // MARK: RackRoom scene setup
 
