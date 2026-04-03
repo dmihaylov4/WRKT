@@ -77,6 +77,11 @@ struct PlateTier: Identifiable {
                   plateColor: UIColor(red: 0.88, green: 0.68, blue: 0.12, alpha: 1),
                   metallic: 1.0, roughness: 0.05, clearcoat: 0.6, clearcoatRoughness: 0.05,
                   style: .gold),
+        PlateTier(id: 7, name: "Starter", rarity: .common,
+                  earnedBy: "Awarded at account creation",
+                  plateColor: UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 1),
+                  metallic: 0, roughness: 0.9, clearcoat: 0, clearcoatRoughness: 0,
+                  style: .starter),
     ]
 }
 
