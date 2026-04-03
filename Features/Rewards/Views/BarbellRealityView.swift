@@ -159,14 +159,188 @@ final class SceneState {
     }
 }
 
-// MARK: - BarbellRealityView (stub -- body implemented in Task 6)
+// MARK: - BarbellRealityView
 
 struct BarbellRealityView: View {
     let mode: BarbellRealityMode
     let sceneState: SceneState
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
     var body: some View {
-        Text("BarbellRealityView -- not yet implemented")
-            .foregroundStyle(.white)
+        ZStack {
+            RealityView { content in
+                setupLighting(content: &content)
+                sceneState.sceneRoot   = Entity()
+                sceneState.floorAnchor = Entity()
+                sceneState.barAnchor   = Entity()
+                sceneState.sceneRoot.addChild(sceneState.floorAnchor)
+                sceneState.sceneRoot.addChild(sceneState.barAnchor)
+                content.add(sceneState.sceneRoot)
+
+                switch mode {
+                case .welcome(let plates):
+                    setupWelcomeScene(content: &content, plates: plates)
+                case .rackRoom(let racked, let floor, _, _):
+                    setupRackRoomScene(content: &content, racked: racked, floor: floor)
+                }
+
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
+            } update: { _ in
+                // Intentionally empty -- scene owns its runtime state
+            }
+            .gesture(entityDragGesture)
+            .gesture(floorPanGesture)
+            .onChange(of: sizeClass) { _, _ in
+                // Re-apply camera proxy on device rotation / iPad split view changes
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
+            }
+
+            overlayView
+
+            // Shader warm-up: forces Metal PSO compilation during the loading spinner
+            // so the first plate drag is smooth. Self-destructs after 1 second.
+            ShaderWarmUpView()
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
+        }
+    }
+
+    // MARK: Lighting
+    // DirectionalLightComponent is required for shadow casting in RealityKit.
+    // Point lights do not cast shadows. One directional key light + one point fill.
+
+    private func setupLighting(content: inout RealityViewContent) {
+        // Key light -- directional, casts contact shadows
+        let keyEntity = Entity()
+        var keyLight = DirectionalLightComponent()
+        keyLight.color = .white
+        keyLight.intensity = 3500
+        var shadow = DirectionalLightComponent.Shadow()
+        shadow.maximumDistance = 4
+        shadow.depthBias = 2.0
+        keyLight.shadow = shadow
+        keyEntity.components.set(keyLight)
+        // 45-degree down, 30-degree from front-left
+        keyEntity.orientation = simd_quatf(angle: -.pi / 4, axis: SIMD3(1, 0, 0))
+            * simd_quatf(angle: .pi / 6, axis: SIMD3(0, 1, 0))
+        content.add(keyEntity)
+
+        // Fill light -- point, no shadow, reduces harsh key-side darkness
+        let fillEntity = Entity()
+        fillEntity.components[PointLightComponent.self] = PointLightComponent(
+            color: UIColor(white: 0.75, alpha: 1), intensity: 600, attenuationRadius: 8
+        )
+        fillEntity.position = SIMD3(-1.5, -0.5, 0.8)
+        content.add(fillEntity)
+    }
+
+    // MARK: Welcome scene setup
+
+    private func setupWelcomeScene(content: inout RealityViewContent, plates: [EarnedPlateInfo]) {
+        let barbellRoot = Entity()
+        barbellRoot.position = SIMD3(0, 0.3, -0.5)
+        barbellRoot.scale = SIMD3(repeating: 1.8)
+
+        let bar = makeBarEntity(skinID: 0)
+        barbellRoot.addChild(bar)
+        for xSign: Float in [-1, 1] {
+            let collar = makeCollarEntity()
+            collar.position = SIMD3(xSign * 0.475, 0, 0)
+            barbellRoot.addChild(collar)
+        }
+        sceneState.sceneRoot.addChild(barbellRoot)
+        sceneState.barbellRoot = barbellRoot
+
+        let cols = 4
+        let spacingX: Float = 0.12
+        let spacingY: Float = 0.14
+        for (i, info) in plates.enumerated() {
+            let col = Float(i % cols)
+            let row = Float(i / cols)
+            let entity = makePlateEntity(
+                tierID: info.tierID,
+                material: sceneState.materialCache[info.tierID],
+                weightKg: info.weightKg,
+                engravingText: info.engravingText,
+                role: .floor
+            )
+            entity.name = "welcome_plate_\(i)"
+            entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
+            entity.position = SIMD3(
+                (col - Float(cols - 1) / 2) * spacingX,
+                -0.25 - row * spacingY,
+                -0.5
+            )
+            sceneState.sceneRoot.addChild(entity)
+            sceneState.entityMap["welcome_plate_\(i)"] = entity
+            sceneState.plateSpinStates["welcome_plate_\(i)"] = PlateSpinState()
+        }
+    }
+
+    // MARK: Overlay
+
+    @ViewBuilder
+    private var overlayView: some View {
+        switch mode {
+        case .welcome:  EmptyView()   // BarbellWelcomeView owns the CTA overlay
+        case .rackRoom: EmptyView()   // PlateWallView owns the Done/weight overlay
+        }
+    }
+
+    // MARK: Gesture stubs (implemented in Tasks 9-11)
+
+    private var entityDragGesture: some Gesture {
+        DragGesture()
+            .targetedToAnyEntity()
+            .onChanged { _ in }
+            .onEnded { _ in }
+    }
+
+    private var floorPanGesture: some Gesture {
+        DragGesture()
+            .onChanged { _ in }
+            .onEnded { _ in }
+    }
+
+    // MARK: RackRoom scene setup stub (Task 8)
+    private func setupRackRoomScene(content: inout RealityViewContent,
+                                     racked: [EarnedPlate], floor: [EarnedPlate]) {}
+}
+
+// MARK: - ShaderWarmUpView
+//
+// Renders one entity per material variant in a 1x1 invisible RealityView.
+// Metal compiles and caches shader PSOs on first render -- warming up here prevents
+// hitch on first plate drag. Self-destructs after 1 second (shaders stay compiled).
+
+private struct ShaderWarmUpView: View {
+    @State private var visible = true
+
+    var body: some View {
+        if visible {
+            RealityView { content in
+                // One entity per shader variant used in the barbell scene
+                let variants: [(MeshResource, any RealityKit.Material)] = [
+                    (.generateBox(size: .init(repeating: 0.001)), {
+                        var m = PhysicallyBasedMaterial()
+                        m.baseColor = .init(tint: .clear)
+                        return m
+                    }()),
+                    (.generateCylinder(height: 0.001, radius: 0.001), chromeMaterial()),
+                    (.generateBox(size: .init(repeating: 0.001)), UnlitMaterial()),
+                ]
+                let root = Entity()
+                root.position = SIMD3(0, 0, -500)  // far off-screen
+                for (mesh, mat) in variants {
+                    root.addChild(ModelEntity(mesh: mesh, materials: [mat]))
+                }
+                content.add(root)
+            }
+            .task {
+                try? await Task.sleep(for: .seconds(1))
+                visible = false
+            }
+        }
     }
 }
