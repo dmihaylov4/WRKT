@@ -45,4 +45,21 @@ struct BarbellEntityBuilderTests {
         let entity = makePlateEntity(tierID: 0, material: mat)
         #expect(entity.components[PlateRoleComponent.self] != nil)
     }
+
+    @Test func makeBarEntityIsNonNil() {
+        for skinID in 0..<BarSkin.all.count {
+            let bar = makeBarEntity(skinID: skinID)
+            #expect(bar.model != nil, "skinID \(skinID) missing mesh")
+        }
+    }
+
+    @Test func makeCollarEntityIsNonNil() {
+        let collar = makeCollarEntity()
+        #expect(collar.model != nil)
+    }
+
+    @Test func makeRackStandEntityIsNonNil() {
+        let stand = makeRackStandEntity()
+        #expect(!stand.children.isEmpty, "stand has no children")
+    }
 }

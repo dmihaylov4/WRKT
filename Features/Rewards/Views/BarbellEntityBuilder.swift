@@ -380,6 +380,55 @@ func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> Physicall
     return mat
 }
 
+// MARK: - Bar, collar, rack stand
+
+func makeBarEntity(skinID: Int = 0) -> ModelEntity {
+    let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
+    let mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+    let bar = ModelEntity(
+        mesh: cachedCylinder(height: 1.1, radius: 0.012),
+        materials: [mat]
+    )
+    bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+    return bar
+}
+
+func makeCollarEntity(skinID: Int = 0) -> ModelEntity {
+    let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
+    let mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+    let collar = ModelEntity(
+        mesh: cachedCylinder(height: 0.04, radius: 0.022),
+        materials: [mat]
+    )
+    collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+    return collar
+}
+
+func makeRackStandEntity() -> ModelEntity {
+    let mat = pbrMaterial(color: UIColor(white: 0.25, alpha: 1), metallic: 0.3, roughness: 0.75)
+    let stand = Entity()
+    let post = ModelEntity(
+        mesh: cachedCylinder(height: 1.0, radius: 0.025),
+        materials: [mat]
+    )
+    stand.addChild(post)
+    let foot = ModelEntity(
+        mesh: cachedBox(size: SIMD3(0.12, 0.02, 0.08)),
+        materials: [mat]
+    )
+    foot.position = SIMD3(0, -0.51, 0)
+    stand.addChild(foot)
+    let saddle = ModelEntity(
+        mesh: cachedBox(size: SIMD3(0.06, 0.03, 0.04)),
+        materials: [pbrMaterial(color: UIColor(white: 0.15, alpha: 1), metallic: 0.1, roughness: 0.9)]
+    )
+    saddle.position = SIMD3(0, 0.1, 0.03)
+    stand.addChild(saddle)
+    let root = ModelEntity()
+    root.addChild(stand)
+    return root
+}
+
 // MARK: - Stubs (replaced by BarbellAudioBuilder.swift in Task 4)
 
 // Stub -- replaced by BarbellAudioBuilder.swift in Task 4
