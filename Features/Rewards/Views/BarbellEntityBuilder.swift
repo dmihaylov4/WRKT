@@ -429,12 +429,3 @@ func makeRackStandEntity() -> ModelEntity {
     return root
 }
 
-// MARK: - Stubs (replaced by BarbellAudioBuilder.swift in Task 4)
-
-// Stub -- replaced by BarbellAudioBuilder.swift in Task 4
-func attachSpatialAudio(to entity: Entity, category: PlateAudioCategory) {}
-
-extension PlateAudioCategory {
-    static func from(tierID: Int) -> PlateAudioCategory { .iron }
-    var physicsMaterial: PhysicsMaterialResource { .generate(friction: 0.7, restitution: 0.3) }
-}
