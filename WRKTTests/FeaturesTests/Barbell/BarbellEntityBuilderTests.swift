@@ -19,6 +19,8 @@ struct BarbellEntityBuilderTests {
                     "tier \(tierID) missing TierIDComponent")
             #expect(entity.components[PlateAudioCategoryComponent.self] != nil,
                     "tier \(tierID) missing PlateAudioCategoryComponent")
+            #expect(entity.components[PhysicsMotionComponent.self] != nil,
+                    "tier \(tierID) missing PhysicsMotionComponent")
         }
     }
 

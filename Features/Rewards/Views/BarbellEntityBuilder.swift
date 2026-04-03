@@ -302,8 +302,12 @@ func makePlateEntity(
         entity = makeBrassEntity(tier: tier, thickness: plateThickness, textures: textures, material: material)
     case .starter:
         entity = makeStarterEntity(tier: tier, thickness: plateThickness)
-    default:  // competition, polishedSteel, gold
+    case .competition:
         entity = makeCompetitionEntity(tier: tier, thickness: plateThickness, material: material)
+    case .polishedSteel, .gold:
+        // High-tier plates use the base cylinder shape with their own PBR properties;
+        // chrome rings are competition-specific and must not appear on these tiers.
+        entity = makeRawIronEntity(tier: tier, thickness: plateThickness, textures: textures, material: material)
     }
 
     // Chrome hub
