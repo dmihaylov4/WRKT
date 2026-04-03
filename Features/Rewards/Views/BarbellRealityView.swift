@@ -79,10 +79,14 @@ final class SceneState {
     }
 
     // MARK: Floor pan state
-    var floorOffset: Float   = 0
-    var floorVelocity: Float = 0
-    var floorMinX: Float     = 0
-    var floorMaxX: Float     = 0
+    var floorOffset: Float            = 0
+    var floorVelocity: Float          = 0
+    var floorMinX: Float              = 0
+    var floorMaxX: Float              = 0
+    /// Last cumulative translation from the active pan gesture.
+    /// DragGesture.translation is cumulative from gesture start, not a per-event delta.
+    /// Reset to 0 in onEnded.
+    var floorPanLastTranslation: Float = 0
 
     // MARK: Welcome spin state
     var plateSpinStates: [String: PlateSpinState] = [:]
@@ -217,7 +221,7 @@ struct BarbellRealityView: View {
         keyLight.color = .white
         keyLight.intensity = 3500
         var shadow = DirectionalLightComponent.Shadow()
-        shadow.maximumDistance = 4
+        shadow.shadowProjection = .automatic(maximumDistance: 4)
         shadow.depthBias = 2.0
         keyLight.shadow = shadow
         keyEntity.components.set(keyLight)
@@ -298,9 +302,40 @@ struct BarbellRealityView: View {
     }
 
     private var floorPanGesture: some Gesture {
-        DragGesture()
-            .onChanged { _ in }
-            .onEnded { _ in }
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            .onChanged { value in
+                // Attempt transition to .panningFloor; also allow if already panning
+                let alreadyPanning: Bool
+                if case .panningFloor = sceneState.dragPhase { alreadyPanning = true } else { alreadyPanning = false }
+                guard sceneState.transition(to: .panningFloor) || alreadyPanning else { return }
+
+                // translation.width is cumulative from gesture start -- compute real per-event delta
+                let current = Float(value.translation.width)
+                let delta = (current - sceneState.floorPanLastTranslation) * -0.002
+                sceneState.floorPanLastTranslation = current
+                let raw = sceneState.floorOffset + delta
+                sceneState.floorOffset = max(sceneState.floorMinX, min(sceneState.floorMaxX, raw))
+                sceneState.floorAnchor.position.x = -sceneState.floorOffset
+                sceneState.floorVelocity = delta * 60
+            }
+            .onEnded { _ in
+                sceneState.floorPanLastTranslation = 0
+                sceneState.transition(to: .idle)
+                guard !sceneState.isReduceMotionEnabled else {
+                    sceneState.floorVelocity = 0
+                    return
+                }
+                Task { @MainActor in
+                    while abs(sceneState.floorVelocity) > 0.001 {
+                        try? await Task.sleep(for: .milliseconds(16))
+                        sceneState.floorVelocity *= 0.90
+                        let raw = sceneState.floorOffset - sceneState.floorVelocity * 0.016
+                        sceneState.floorOffset = max(sceneState.floorMinX, min(sceneState.floorMaxX, raw))
+                        sceneState.floorAnchor.position.x = -sceneState.floorOffset
+                    }
+                    sceneState.floorVelocity = 0
+                }
+            }
     }
 
     // MARK: RackRoom scene setup
