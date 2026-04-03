@@ -570,7 +570,8 @@ struct BarbellRealityView: View {
             let target = Transform(matrix: original.transformMatrix(relativeTo: nil))
             if sceneState.isReduceMotionEnabled {
                 // Convert world-space target into floorAnchor's local space (entity.transform is parent-relative).
-                entity.transform = Transform(matrix: sceneState.floorAnchor.convert(transform: target, from: nil))
+                // floorAnchor.convert(transform:from:nil) returns a Transform already in floorAnchor space.
+                entity.transform = sceneState.floorAnchor.convert(transform: target, from: nil)
             } else {
                 entity.move(to: target, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
             }
