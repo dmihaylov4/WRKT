@@ -40,7 +40,7 @@ struct SceneStateTests {
     @Test func idleCanTransitionToDraggingPlate() {
         let state = SceneState()
         let entity = Entity()
-        let result = state.transition(to: .draggingPlate(entity, plateID: "x"))
+        let result = state.transition(to: .draggingPlate(entity, plateID: "x", originRole: .floor))
         #expect(result == true)
         if case .draggingPlate = state.dragPhase { } else {
             Issue.record("Expected .draggingPlate after valid transition")
@@ -55,7 +55,7 @@ struct SceneStateTests {
     @Test func panningFloorCannotTransitionToDraggingPlate() {
         let state = SceneState()
         state.transition(to: .panningFloor)
-        let result = state.transition(to: .draggingPlate(Entity(), plateID: "x"))
+        let result = state.transition(to: .draggingPlate(Entity(), plateID: "x", originRole: .floor))
         #expect(result == false)
         if case .panningFloor = state.dragPhase { } else {
             Issue.record("State should remain .panningFloor after invalid transition")

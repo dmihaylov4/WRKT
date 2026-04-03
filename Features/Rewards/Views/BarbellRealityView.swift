@@ -19,7 +19,9 @@ enum BarbellRealityMode {
 
 enum DragPhase {
     case idle
-    case draggingPlate(Entity, plateID: String)
+    /// originRole: the PlateRoleComponent.Role the entity had when the drag began.
+    /// Captured at drag-start so onEnded routing is not affected by mid-drag model mutations.
+    case draggingPlate(Entity, plateID: String, originRole: PlateRoleComponent.Role)
     case panningFloor
 }
 
@@ -44,6 +46,8 @@ final class SceneState {
     var entityMap: [String: Entity] = [:]
     /// Canonical position on barAnchor per plate ID. Used by snapBack for bar plates.
     var barPositionMap: [String: SIMD3<Float>] = [:]
+    /// Mirror entity per plate ID. Populated by snapToBar; removed by finishUnrack / snapBack.
+    var barMirrorMap: [String: Entity] = [:]
     /// Slot highlight ring entities on barAnchor. Index matches slotOffsets[0...3].
     /// Toggled visible/invisible during drag to show the target slot.
     var slotHighlights: [Entity] = []
@@ -314,7 +318,7 @@ struct BarbellRealityView: View {
         return []
     }
 
-    // MARK: Gesture stubs (implemented in Tasks 9-11)
+    // MARK: Gestures
 
     private var entityDragGesture: some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
@@ -325,14 +329,14 @@ struct BarbellRealityView: View {
 
                 switch roleComp.role {
                 case .floor:
-                    // One-time: enter dragging state and reparent to scene root.
+                    // One-time: enter dragging state (captures originRole) and reparent to scene root.
                     // transition() rejects .draggingPlate -> .draggingPlate, so call it
                     // unconditionally but only run reparent when it succeeds.
-                    if sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) {
+                    if sceneState.transition(to: .draggingPlate(entity, plateID: entity.name, originRole: .floor)) {
                         entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
                     }
                     // Guard: ensure we own this drag before updating position each frame.
-                    guard case .draggingPlate(let dragging, _) = sceneState.dragPhase,
+                    guard case .draggingPlate(let dragging, _, _) = sceneState.dragPhase,
                           dragging === entity else { return }
 
                     let worldPos = value.convert(value.location3D, from: .local, to: .scene)
@@ -361,7 +365,7 @@ struct BarbellRealityView: View {
                     guard case .idle = sceneState.dragPhase else { return }
                     let dx = Float(value.translation.width)
                     guard abs(dx) > 0.04 else { return }
-                    guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) else { return }
+                    guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name, originRole: .bar)) else { return }
                     let slideTarget = Transform(
                         scale: entity.scale,
                         rotation: entity.orientation,
@@ -377,14 +381,16 @@ struct BarbellRealityView: View {
                 }
             }
             .onEnded { value in
-                guard case .draggingPlate(let entity, let plateID) = sceneState.dragPhase else { return }
+                guard case .draggingPlate(let entity, let plateID, let originRole) = sceneState.dragPhase else { return }
                 sceneState.transition(to: .idle)
                 sceneState.slotHighlights.forEach { $0.isEnabled = false }
                 sceneState.wasInSnapZone = false
 
                 let worldPos = value.convert(value.location3D, from: .local, to: .scene)
                 let barWorldY = sceneState.barAnchor.position(relativeTo: nil).y
-                let isFromFloor = allFloorPlates.contains { $0.id == plateID }
+                // Use originRole captured at drag-start -- not re-querying allFloorPlates,
+                // which could reflect a concurrent model mutation.
+                let isFromFloor = originRole == .floor
 
                 if isFromFloor && worldPos.y > barWorldY - 0.15 {
                     snapToBar(entity: entity, plateID: plateID)
@@ -443,17 +449,19 @@ struct BarbellRealityView: View {
             return
         }
         let offset = slotOffsets[nextSlot]
-        let slotPos = SIMD3<Float>(offset, 0, 0)
+        let slotPos = SIMD3<Float>(offset, 0, 0) // bar-anchor local space: y=0 is bar centerline
         let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
 
         entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
         entity.components.set(PlateRoleComponent(role: .bar))
 
-        // Bilateral mirror entity for the opposite side of the bar
+        // Bilateral mirror entity for the opposite side of the bar.
+        // Stored in barMirrorMap so finishUnrack / snapBack can remove it without a scene search.
         let mirrorEntity = entity.clone(recursive: true)
         mirrorEntity.name = plateID + "_mirror"
         mirrorEntity.components.set(PlateRoleComponent(role: .bar))
         sceneState.barAnchor.addChild(mirrorEntity)
+        sceneState.barMirrorMap[plateID] = mirrorEntity
 
         if sceneState.isReduceMotionEnabled {
             entity.position = slotPos
@@ -478,13 +486,17 @@ struct BarbellRealityView: View {
         sceneState.barPositionMap[plateID] = slotPos
 
         let animDelay = sceneState.isReduceMotionEnabled ? 0 : 270
+        // Capture before the async boundary to avoid stale allFloorPlates reads if the model
+        // is mutated by a concurrent onRack callback from a second plate.
+        let plateToRack = allFloorPlates.first(where: { $0.id == plateID })
+        let audioComp = entity.components[PlateAudioCategoryComponent.self]
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(animDelay))
-            if let plate = allFloorPlates.first(where: { $0.id == plateID }) {
+            if let plate = plateToRack {
                 onRackCallback?(plate)
-                if let audioComp = entity.components[PlateAudioCategoryComponent.self] {
-                    playClinkSound(on: entity, category: audioComp.category)
-                    playRackHaptic(category: audioComp.category)
+                if let audio = audioComp {
+                    playClinkSound(on: entity, category: audio.category)
+                    playRackHaptic(category: audio.category)
                 }
             }
         }
