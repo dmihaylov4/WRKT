@@ -325,9 +325,17 @@ struct BarbellRealityView: View {
 
                 switch roleComp.role {
                 case .floor:
-                    guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) else { return }
+                    // One-time: enter dragging state and reparent to scene root.
+                    // transition() rejects .draggingPlate -> .draggingPlate, so call it
+                    // unconditionally but only run reparent when it succeeds.
+                    if sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) {
+                        entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
+                    }
+                    // Guard: ensure we own this drag before updating position each frame.
+                    guard case .draggingPlate(let dragging, _) = sceneState.dragPhase,
+                          dragging === entity else { return }
+
                     let worldPos = value.convert(value.location3D, from: .local, to: .scene)
-                    entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
                     entity.position = worldPos
 
                     // Snap zone feedback
