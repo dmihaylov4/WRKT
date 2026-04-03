@@ -292,13 +292,100 @@ struct BarbellRealityView: View {
         }
     }
 
+    // MARK: Mode accessors
+
+    private var onRackCallback: ((EarnedPlate) -> Void)? {
+        if case .rackRoom(_, _, let onRack, _) = mode { return onRack }
+        return nil
+    }
+
+    private var onUnrackCallback: ((EarnedPlate) -> Void)? {
+        if case .rackRoom(_, _, _, let onUnrack) = mode { return onUnrack }
+        return nil
+    }
+
+    private var allFloorPlates: [EarnedPlate] {
+        if case .rackRoom(_, let floor, _, _) = mode { return floor }
+        return []
+    }
+
+    private var allRackedPlates: [EarnedPlate] {
+        if case .rackRoom(let racked, _, _, _) = mode { return racked }
+        return []
+    }
+
     // MARK: Gesture stubs (implemented in Tasks 9-11)
 
     private var entityDragGesture: some Gesture {
-        DragGesture()
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .targetedToAnyEntity()
-            .onChanged { _ in }
-            .onEnded { _ in }
+            .onChanged { value in
+                let entity = value.entity
+                guard let roleComp = entity.components[PlateRoleComponent.self] else { return }
+
+                switch roleComp.role {
+                case .floor:
+                    guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) else { return }
+                    let worldPos = value.convert(value.location3D, from: .local, to: .scene)
+                    entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
+                    entity.position = worldPos
+
+                    // Snap zone feedback
+                    let barWorldY = sceneState.barAnchor.position(relativeTo: nil).y
+                    let inZone = worldPos.y > barWorldY - 0.2
+                    if inZone {
+                        let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
+                        if let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }),
+                           nextSlot < sceneState.slotHighlights.count {
+                            sceneState.slotHighlights.forEach { $0.isEnabled = false }
+                            sceneState.slotHighlights[nextSlot].isEnabled = true
+                        }
+                        if !sceneState.wasInSnapZone {
+                            playSnapZoneEntryHaptic()
+                            sceneState.wasInSnapZone = true
+                        }
+                    } else {
+                        sceneState.slotHighlights.forEach { $0.isEnabled = false }
+                        sceneState.wasInSnapZone = false
+                    }
+
+                case .bar:
+                    guard case .idle = sceneState.dragPhase else { return }
+                    let dx = Float(value.translation.width)
+                    guard abs(dx) > 0.04 else { return }
+                    guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) else { return }
+                    let slideTarget = Transform(
+                        scale: entity.scale,
+                        rotation: entity.orientation,
+                        translation: entity.position(relativeTo: nil) + SIMD3(dx > 0 ? 0.6 : -0.6, 0, 0)
+                    )
+                    if sceneState.isReduceMotionEnabled {
+                        entity.position = slideTarget.translation
+                    } else {
+                        entity.move(to: slideTarget, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
+                    }
+                    entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
+                    entity.components.set(PlateRoleComponent(role: .floor))
+                }
+            }
+            .onEnded { value in
+                guard case .draggingPlate(let entity, let plateID) = sceneState.dragPhase else { return }
+                sceneState.transition(to: .idle)
+                sceneState.slotHighlights.forEach { $0.isEnabled = false }
+                sceneState.wasInSnapZone = false
+
+                let worldPos = value.convert(value.location3D, from: .local, to: .scene)
+                let barWorldY = sceneState.barAnchor.position(relativeTo: nil).y
+                let isFromFloor = allFloorPlates.contains { $0.id == plateID }
+
+                if isFromFloor && worldPos.y > barWorldY - 0.15 {
+                    snapToBar(entity: entity, plateID: plateID)
+                } else if !isFromFloor && worldPos.y < barWorldY - 0.2 {
+                    snapToFloor(entity: entity, plateID: plateID)
+                } else {
+                    snapBack(entity: entity, plateID: plateID)
+                }
+            }
     }
 
     private var floorPanGesture: some Gesture {
@@ -337,6 +424,67 @@ struct BarbellRealityView: View {
                 }
             }
     }
+
+    // MARK: - Snap animations
+
+    private func snapToBar(entity: Entity, plateID: String) {
+        let slotOffsets: [Float] = [0.34, 0.37, 0.40, 0.43]
+        let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
+        guard let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }) else {
+            snapBack(entity: entity, plateID: plateID)
+            return
+        }
+        let offset = slotOffsets[nextSlot]
+        let slotPos = SIMD3<Float>(offset, 0, 0)
+        let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+
+        entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
+        entity.components.set(PlateRoleComponent(role: .bar))
+
+        // Bilateral mirror entity for the opposite side of the bar
+        let mirrorEntity = entity.clone(recursive: true)
+        mirrorEntity.name = plateID + "_mirror"
+        mirrorEntity.components.set(PlateRoleComponent(role: .bar))
+        sceneState.barAnchor.addChild(mirrorEntity)
+
+        if sceneState.isReduceMotionEnabled {
+            entity.position = slotPos
+            entity.orientation = rot
+            mirrorEntity.position = SIMD3(-offset, 0, 0)
+            mirrorEntity.orientation = rot
+        } else {
+            // Spring snap: overshoot 2.5cm above slot then settle
+            for (e, xSign) in [(entity, Float(1)), (mirrorEntity, Float(-1))] {
+                let overshoot = Transform(scale: SIMD3(repeating: 1), rotation: rot,
+                                          translation: SIMD3(xSign * offset, slotPos.y + 0.025, 0))
+                let settle    = Transform(scale: SIMD3(repeating: 1), rotation: rot,
+                                          translation: SIMD3(xSign * offset, slotPos.y, 0))
+                e.move(to: overshoot, relativeTo: sceneState.barAnchor, duration: 0.15, timingFunction: .easeOut)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(150))
+                    e.move(to: settle, relativeTo: sceneState.barAnchor, duration: 0.12, timingFunction: .easeIn)
+                }
+            }
+        }
+
+        sceneState.barPositionMap[plateID] = slotPos
+
+        let animDelay = sceneState.isReduceMotionEnabled ? 0 : 270
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(animDelay))
+            if let plate = allFloorPlates.first(where: { $0.id == plateID }) {
+                onRackCallback?(plate)
+                if let audioComp = entity.components[PlateAudioCategoryComponent.self] {
+                    playClinkSound(on: entity, category: audioComp.category)
+                    playRackHaptic(category: audioComp.category)
+                }
+            }
+        }
+    }
+
+    // Stubs for Task 11
+    private func snapToFloor(entity: Entity, plateID: String) {}
+    private func snapBack(entity: Entity, plateID: String) {}
 
     // MARK: RackRoom scene setup
 
