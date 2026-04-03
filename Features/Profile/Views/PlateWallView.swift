@@ -1,4 +1,5 @@
 // Features/Profile/Views/PlateWallView.swift
+import RealityKit
 import SwiftUI
 import SwiftData
 
@@ -60,18 +61,8 @@ struct PlateWallView: View {
                     _ = loadAudioResource(named: cat.clinkSoundName)
                     _ = loadAudioResource(named: cat.dropSoundName)
                 }
-                // IBL if available
-                if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
-                    let iblEntity = Entity()
-                    iblEntity.components.set(
-                        ImageBasedLightComponent(source: .single(ibl), intensityExponent: 0.5)
-                    )
-                    sceneState.sceneRoot.addChild(iblEntity)
-                    sceneState.sceneRoot.components.set(
-                        ImageBasedLightReceiverComponent(imageBasedLight: iblEntity)
-                    )
-                }
                 assetsReady = true  // Cache is populated -- safe for make{} to run
+                // IBL is applied inside BarbellRealityView.make{} after sceneRoot is initialized.
             }
             .onChange(of: ownedPlates.count) { oldCount, newCount in
                 guard newCount > oldCount else { return }

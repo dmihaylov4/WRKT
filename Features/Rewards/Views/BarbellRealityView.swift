@@ -186,6 +186,21 @@ struct BarbellRealityView: View {
                 sceneState.sceneRoot.addChild(sceneState.barAnchor)
                 content.add(sceneState.sceneRoot)
 
+                // IBL: load async after sceneRoot is wired to content.
+                // Nested Task so make{} is not blocked -- IBL enhances lighting when available.
+                Task { @MainActor in
+                    if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
+                        let iblEntity = Entity()
+                        iblEntity.components.set(
+                            ImageBasedLightComponent(source: .single(ibl), intensityExponent: 0.5)
+                        )
+                        sceneState.sceneRoot.addChild(iblEntity)
+                        sceneState.sceneRoot.components.set(
+                            ImageBasedLightReceiverComponent(imageBasedLight: iblEntity)
+                        )
+                    }
+                }
+
                 switch mode {
                 case .welcome(let plates):
                     setupWelcomeScene(content: &content, plates: plates)
