@@ -303,9 +303,124 @@ struct BarbellRealityView: View {
             .onEnded { _ in }
     }
 
-    // MARK: RackRoom scene setup stub (Task 8)
-    private func setupRackRoomScene(content: inout RealityViewContent,
-                                     racked: [EarnedPlate], floor: [EarnedPlate]) {}
+    // MARK: RackRoom scene setup
+
+    private func setupRackRoomScene(
+        content: inout RealityViewContent,
+        racked: [EarnedPlate], floor: [EarnedPlate]
+    ) {
+        // Performance budget: 4 racked (bilateral = 8 entities) + 24 floor = 32 plate entities.
+        // With shared materialCache, this stays under 150 draw calls on A15+ at 60fps.
+        // Plates beyond index 24 are in SwiftData but not rendered.
+
+        // Invisible static physics floor -- plates settle on this after .dynamic release
+        let floorShape = ShapeResource.generateBox(size: SIMD3(20, 0.02, 4))
+        let floorCollider = Entity()
+        floorCollider.components.set(CollisionComponent(
+            shapes: [floorShape],
+            filter: CollisionFilter(group: floorCollisionGroup, mask: plateCollisionGroup)
+        ))
+        var floorBody = PhysicsBodyComponent()
+        floorBody.mode = .static
+        floorBody.material = PhysicsMaterialResource.generate(friction: 0.75, restitution: 0.25)
+        floorCollider.components.set(floorBody)
+        floorCollider.position = SIMD3(0, -0.01, 0)
+        sceneState.sceneRoot.addChild(floorCollider)
+
+        // Visual floor line
+        let floorLine = ModelEntity(
+            mesh: cachedBox(size: SIMD3(1.2, 0.004, 0.08)),
+            materials: [pbrMaterial(color: UIColor(white: 0.15, alpha: 1), metallic: 0, roughness: 1)]
+        )
+        floorLine.position = SIMD3(0, 0, 0)
+        sceneState.sceneRoot.addChild(floorLine)
+
+        // Rack stands
+        for xSign: Float in [-1, 1] {
+            let stand = makeRackStandEntity()
+            stand.position = SIMD3(xSign * 0.55, 0.3, 0)
+            sceneState.sceneRoot.addChild(stand)
+        }
+
+        // Bar
+        let bar = makeBarEntity(skinID: 0)
+        bar.position = SIMD3(0, 0.6, 0)
+        sceneState.sceneRoot.addChild(bar)
+        sceneState.barAnchor.position = SIMD3(0, 0.6, 0)
+        sceneState.sceneRoot.addChild(sceneState.barAnchor)
+
+        // Collars
+        for xSign: Float in [-1, 1] {
+            let collar = makeCollarEntity()
+            collar.position = SIMD3(xSign * 0.475, 0.6, 0)
+            sceneState.sceneRoot.addChild(collar)
+        }
+
+        // Slot highlight rings -- one per bar slot, hidden until plate is dragged near bar.
+        // UnlitMaterial so they always appear bright regardless of scene lighting.
+        let slotOffsets: [Float] = [0.34, 0.37, 0.40, 0.43]
+        sceneState.slotHighlights.removeAll()
+        for offset in slotOffsets {
+            var mat = UnlitMaterial()
+            mat.color = .init(tint: UIColor(white: 1, alpha: 0.7))
+            let ring = ModelEntity(
+                mesh: cachedCylinder(height: 0.003, radius: 0.21),
+                materials: [mat]
+            )
+            ring.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            ring.position = SIMD3(offset, 0, 0)
+            ring.isEnabled = false  // hidden until drag enters snap zone
+            sceneState.barAnchor.addChild(ring)
+            sceneState.slotHighlights.append(ring)
+        }
+
+        // Racked plates -- bilateral rendering, use cached material
+        let sorted = racked.sorted { ($0.rackPosition ?? 999) < ($1.rackPosition ?? 999) }
+        for (idx, plate) in sorted.prefix(4).enumerated() {
+            let offset = slotOffsets[min(idx, slotOffsets.count - 1)]
+            for xSign: Float in [-1, 1] {
+                let entity = makePlateEntity(
+                    tierID: plate.tierID,
+                    material: sceneState.materialCache[plate.tierID],
+                    weightKg: plate.weightKg,
+                    engravingText: plate.engravingText,
+                    role: .bar
+                )
+                entity.name = xSign == 1 ? plate.id : plate.id + "_mirror"
+                entity.position = SIMD3(xSign * offset, 0, 0)
+                sceneState.barAnchor.addChild(entity)
+            }
+            sceneState.entityMap[plate.id] = sceneState.barAnchor.children
+                .first(where: { $0.name == plate.id })
+            sceneState.barPositionMap[plate.id] = SIMD3(offset, 0, 0)
+        }
+
+        // Floor plates -- use cached material
+        let spacing: Float = 0.15
+        let visibleFloor = Array(floor.prefix(24))
+        for (idx, plate) in visibleFloor.enumerated() {
+            let entity = makePlateEntity(
+                tierID: plate.tierID,
+                material: sceneState.materialCache[plate.tierID],
+                weightKg: plate.weightKg,
+                engravingText: plate.engravingText,
+                role: .floor
+            )
+            entity.name = plate.id
+            let xPos = Float(idx) * spacing
+            entity.position = SIMD3(xPos, 0, 0)
+            let leanAngle = Float.random(in: 0.10 ..< 0.23)
+            entity.orientation = simd_quatf(angle: -.pi / 2, axis: SIMD3(1, 0, 0))
+                * simd_quatf(angle: leanAngle, axis: SIMD3(0, 0, 1))
+            sceneState.floorAnchor.addChild(entity)
+            sceneState.entityMap[plate.id] = entity
+        }
+
+        // Floor pan clamp bounds
+        let totalWidth = Float(max(visibleFloor.count - 1, 0)) * spacing
+        sceneState.floorMinX = 0
+        sceneState.floorMaxX = max(totalWidth - 0.8, 0)
+    }
 }
 
 // MARK: - ShaderWarmUpView
