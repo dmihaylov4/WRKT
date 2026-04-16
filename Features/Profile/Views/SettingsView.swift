@@ -88,6 +88,16 @@ struct SettingsView: View {
             Section("Preferences") {
                 NavigationLink("App Preferences") { PreferencesView() }
                 NavigationLink("Apple Health") { ConnectionsView() }
+                NavigationLink {
+                    BarbellPreviewView()
+                } label: {
+                    Label("My Barbell", systemImage: "scalemass.fill")
+                }
+                NavigationLink {
+                    DataPortabilityView()
+                } label: {
+                    Label("Data Portability", systemImage: "arrow.up.arrow.down.circle")
+                }
             }
 
             #if DEBUG
