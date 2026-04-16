@@ -2,6 +2,32 @@ import Testing
 import Foundation
 @testable import WRKT
 
+@Suite("Merge logic")
+struct MergeTests {
+    @Test("merge workouts deduplicates by id")
+    func mergeWorkoutsByID() {
+        let id = UUID()
+        var w1 = CompletedWorkout(entries: []); w1.id = id
+        var w2 = CompletedWorkout(entries: []); w2.id = id
+        var w3 = CompletedWorkout(entries: [])
+
+        let result = DataPortabilityService.mergedWorkouts(
+            existing: [w1],
+            incoming: [w2, w3]
+        )
+        #expect(result.count == 2)  // w1 kept, w2 filtered as duplicate, w3 added
+    }
+
+    @Test("merge workouts with no overlap appends all incoming")
+    func mergeWorkoutsNoOverlap() {
+        let w1 = CompletedWorkout(entries: [])
+        let w2 = CompletedWorkout(entries: [])
+
+        let result = DataPortabilityService.mergedWorkouts(existing: [w1], incoming: [w2])
+        #expect(result.count == 2)
+    }
+}
+
 @Suite("ExportBundle")
 struct ExportBundleTests {
     @Test("round-trips through JSON without data loss")

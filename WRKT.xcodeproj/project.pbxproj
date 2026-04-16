@@ -11,6 +11,7 @@
 		2E0412312F2B439A0090EF16 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412302F2B439A0090EF16 /* PushNotificationService.swift */; };
 		2E0412332F2B43AC0090EF16 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412322F2B43AC0090EF16 /* AppDelegate.swift */; };
 		2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */; };
+		2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */; };
 		2E0412372F2B9ED70090EF16 /* FriendsHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412362F2B9ED70090EF16 /* FriendsHubViewModel.swift */; };
 		2E0412392F2B9F6F0090EF16 /* ActiveFriend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412382F2B9F6F0090EF16 /* ActiveFriend.swift */; };
 		2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */; };
@@ -435,6 +436,7 @@
 		2E0412302F2B439A0090EF16 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		2E0412322F2B43AC0090EF16 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSnapshotService.swift; sourceTree = "<group>"; };
+		2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityService.swift; sourceTree = "<group>"; };
 		2E0412362F2B9ED70090EF16 /* FriendsHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsHubViewModel.swift; sourceTree = "<group>"; };
 		2E0412382F2B9F6F0090EF16 /* ActiveFriend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveFriend.swift; sourceTree = "<group>"; };
 		2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioAutoPostService.swift; sourceTree = "<group>"; };
@@ -1563,6 +1565,7 @@
 			children = (
 				2E0413392F2FA4CE0090EF16 /* CardioDataExtractor.swift */,
 				2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */,
+				2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */,
 				2E0412302F2B439A0090EF16 /* PushNotificationService.swift */,
 				2EA7DA332EEC3EC60017683B /* RepositoryProtocols.swift */,
 				2EA7DA312EEC3EBE0017683B /* BaseRepository.swift */,
@@ -2649,6 +2652,7 @@
 				2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */,
 				2EA7DA282EEC17E80017683B /* CacheManager.swift in Sources */,
 				2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */,
+				2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */,
 				353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */,
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
 				2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */,

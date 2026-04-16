@@ -1021,6 +1021,14 @@ final class WorkoutStoreV2: ObservableObject {
         persistWorkouts()
     }
 
+    /// Reloads completed workouts and PR index from disk into in-memory state.
+    /// Call after any external write to WorkoutStorage (e.g., data import or restore).
+    func reloadWorkouts() async throws {
+        let (workouts, prIndex) = try await storage.loadWorkouts()
+        self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
+        self.prIndex = prIndex
+    }
+
     func workouts(on date: Date, calendar: Calendar = .current) -> [CompletedWorkout] {
         let day = calendar.startOfDay(for: date)
         return completedWorkouts.filter { calendar.isDate($0.date, inSameDayAs: day) }
