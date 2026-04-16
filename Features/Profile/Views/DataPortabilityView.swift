@@ -98,11 +98,11 @@ struct DataPortabilityView: View {
             if let s = lastSummary {
                 Section("Last Import") {
                     LabeledContent(
-                        importStrategy == .replace ? "Workouts imported" : "Workouts added",
+                        s.record.strategy == "replace" ? "Workouts imported" : "Workouts added",
                         value: "\(s.workoutsAdded)"
                     )
                     LabeledContent(
-                        importStrategy == .replace ? "Plates imported" : "Plates added",
+                        s.record.strategy == "replace" ? "Plates imported" : "Plates added",
                         value: "\(s.platesAdded)"
                     )
                 }
