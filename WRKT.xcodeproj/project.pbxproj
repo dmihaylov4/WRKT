@@ -67,6 +67,7 @@
 		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
 		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
 		2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */; };
+		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
 		2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */; };
 		2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */; };
 		2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */; };
@@ -496,6 +497,7 @@
 		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
 		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
 		2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityView.swift; sourceTree = "<group>"; };
+		2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHistoryView.swift; sourceTree = "<group>"; };
 		2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellShowcaseCard.swift; sourceTree = "<group>"; };
 		2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellWelcomeView.swift; sourceTree = "<group>"; };
 		2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEntityBuilder.swift; sourceTree = "<group>"; };
@@ -1345,6 +1347,7 @@
 				2EBB00062FA0000000000001 /* PlateWallView.swift */,
 				2EBB00082FA0000000000001 /* BarbellPreviewView.swift */,
 				2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */,
+				2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -2701,6 +2704,7 @@
 				2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */,
 				2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */,
 				2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */,
+				2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
