@@ -11,7 +11,7 @@ import Foundation
 // MARK: - Envelope
 
 struct ExportBundle: Codable {
-    static let currentVersion = 1
+    static let currentVersion: Int = 1
 
     let version: Int
     let appVersion: String
@@ -63,7 +63,7 @@ extension EarnedPlateExport {
             isRacked: isRacked,
             rackPosition: rackPosition
         )
-        plate.displayOrder = displayOrder
+        plate.displayOrder = displayOrder != 0 ? displayOrder : Int(earnedAt.timeIntervalSince1970)
         return plate
     }
 }

@@ -34,5 +34,6 @@ struct ExportBundleTests {
         #expect(decoded.completedWorkouts.count == 1)
         #expect(decoded.earnedPlates.count == 1)
         #expect(decoded.earnedPlates[0].id == "abc")
+        #expect(decoded.earnedPlates[0].earnedAt == plate.earnedAt)
     }
 }
