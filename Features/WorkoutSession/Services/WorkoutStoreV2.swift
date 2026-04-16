@@ -1027,6 +1027,15 @@ final class WorkoutStoreV2: ObservableObject {
         let (workouts, prIndex) = try await storage.loadWorkouts()
         self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
         self.prIndex = prIndex
+        // Rebuild stats from scratch -- the full workout history may have changed after import or restore.
+        // Reset all cached summaries first, then reindex the rolling window.
+        let snapshot = self.completedWorkouts
+        Task.detached(priority: .utility) { [_stats] in
+            await _stats?.resetAll()
+            if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
+                await _stats?.reindex(all: snapshot, cutoff: cutoff)
+            }
+        }
     }
 
     func workouts(on date: Date, calendar: Calendar = .current) -> [CompletedWorkout] {
