@@ -23,63 +23,63 @@ struct ImportHistoryView: View {
 
     var body: some View {
         List {
-            if records.isEmpty {
-                ContentUnavailableView(
-                    "No Import History",
-                    systemImage: "clock",
-                    description: Text("Imports you apply will appear here.")
-                )
-            } else {
-                ForEach(records.reversed()) { record in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(record.sourceFileName)
-                                .font(.subheadline.weight(.semibold))
-                            Spacer()
-                            Text(record.strategy == "replace" ? "Replace" : "Merge")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(record.strategy == "replace" ? .orange : .green)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(
-                                    (record.strategy == "replace" ? Color.orange : Color.green).opacity(0.15),
-                                    in: Capsule()
-                                )
-                        }
-
-                        Text(record.importedAt.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        HStack(spacing: 12) {
-                            Label(
-                                record.strategy == "replace" ? "\(record.workoutsAdded) workouts" : "+\(record.workoutsAdded) workouts",
-                                systemImage: "dumbbell"
+            ForEach(records.reversed()) { record in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(record.sourceFileName)
+                            .font(.subheadline.weight(.semibold))
+                        Spacer()
+                        Text(record.strategy == "replace" ? "Replace" : "Merge")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(record.strategy == "replace" ? .orange : .green)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                (record.strategy == "replace" ? Color.orange : Color.green).opacity(0.15),
+                                in: Capsule()
                             )
-                            Label(
-                                record.strategy == "replace" ? "\(record.platesAdded) plates" : "+\(record.platesAdded) plates",
-                                systemImage: "scalemass"
-                            )
-                        }
+                    }
+
+                    Text(record.importedAt.formatted(date: .abbreviated, time: .shortened))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+
+                    HStack(spacing: 12) {
+                        Label(
+                            record.strategy == "replace" ? "\(record.workoutsAdded) workouts" : "+\(record.workoutsAdded) workouts",
+                            systemImage: "dumbbell"
+                        )
+                        Label(
+                            record.strategy == "replace" ? "\(record.platesAdded) plates" : "+\(record.platesAdded) plates",
+                            systemImage: "scalemass"
+                        )
                     }
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            recordToRestore = record
-                            showRestoreConfirm = true
-                        } label: {
-                            Label("Restore", systemImage: "arrow.uturn.backward")
-                        }
-                        .tint(.orange)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                .swipeActions(edge: .trailing) {
+                    Button {
+                        recordToRestore = record
+                        showRestoreConfirm = true
+                    } label: {
+                        Label("Restore", systemImage: "arrow.uturn.backward")
                     }
+                    .tint(.orange)
                 }
             }
         }
         .navigationTitle("Import History")
         .navigationBarTitleDisplayMode(.inline)
         .overlay {
-            if isLoading { ProgressView() }
+            if isLoading {
+                ProgressView()
+            } else if records.isEmpty {
+                ContentUnavailableView(
+                    "No Import History",
+                    systemImage: "clock",
+                    description: Text("Imports you apply will appear here.")
+                )
+            }
         }
         .task { await loadRecords() }
         .confirmationDialog(restoreConfirmTitle, isPresented: $showRestoreConfirm, titleVisibility: .visible) {
