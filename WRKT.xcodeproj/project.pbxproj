@@ -11,6 +11,7 @@
 		2E0412312F2B439A0090EF16 /* PushNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412302F2B439A0090EF16 /* PushNotificationService.swift */; };
 		2E0412332F2B43AC0090EF16 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412322F2B43AC0090EF16 /* AppDelegate.swift */; };
 		2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */; };
+		2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */; };
 		2E0412372F2B9ED70090EF16 /* FriendsHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412362F2B9ED70090EF16 /* FriendsHubViewModel.swift */; };
 		2E0412392F2B9F6F0090EF16 /* ActiveFriend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0412382F2B9F6F0090EF16 /* ActiveFriend.swift */; };
 		2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */; };
@@ -65,6 +66,8 @@
 		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
 		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
 		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
+		2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */; };
+		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
 		2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */; };
 		2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */; };
 		2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */; };
@@ -360,6 +363,8 @@
 		2EEEACDA2EA38B3400EDD16E /* MusclePictogram.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD42EA38AF700EDD16E /* MusclePictogram.swift */; };
 		2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */; };
 		2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */; };
+		86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414B41C8700743B3B70EF25D /* ExportBundle.swift */; };
+		226FFA5A1F3745D78A805A8E /* ImportRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */; };
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
 		2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
@@ -433,6 +438,7 @@
 		2E0412302F2B439A0090EF16 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		2E0412322F2B43AC0090EF16 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSnapshotService.swift; sourceTree = "<group>"; };
+		2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityService.swift; sourceTree = "<group>"; };
 		2E0412362F2B9ED70090EF16 /* FriendsHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsHubViewModel.swift; sourceTree = "<group>"; };
 		2E0412382F2B9F6F0090EF16 /* ActiveFriend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveFriend.swift; sourceTree = "<group>"; };
 		2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioAutoPostService.swift; sourceTree = "<group>"; };
@@ -453,6 +459,8 @@
 		2E196EA62EAD398900EB4780 /* WRKT.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WRKT.entitlements; sourceTree = "<group>"; };
 		2E196EAC2EAD3A0600EB4780 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		2E196EC42EAE2F9A00EB4780 /* CompletedWorkout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedWorkout.swift; sourceTree = "<group>"; };
+		414B41C8700743B3B70EF25D /* ExportBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportBundle.swift; sourceTree = "<group>"; };
+		1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRecord.swift; sourceTree = "<group>"; };
 		2E196EC62EAE2FA000EB4780 /* CurrentWorkout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentWorkout.swift; sourceTree = "<group>"; };
 		2E196EC82EAE2FA800EB4780 /* WorkoutEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutEntry.swift; sourceTree = "<group>"; };
 		2E196ECA2EAE2FB100EB4780 /* ExerciseDefinition.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseDefinition.swift; sourceTree = "<group>"; };
@@ -488,6 +496,8 @@
 		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
 		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
 		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
+		2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityView.swift; sourceTree = "<group>"; };
+		2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHistoryView.swift; sourceTree = "<group>"; };
 		2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellShowcaseCard.swift; sourceTree = "<group>"; };
 		2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellWelcomeView.swift; sourceTree = "<group>"; };
 		2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEntityBuilder.swift; sourceTree = "<group>"; };
@@ -958,6 +968,8 @@
 				2E196EC62EAE2FA000EB4780 /* CurrentWorkout.swift */,
 				2E196EC42EAE2F9A00EB4780 /* CompletedWorkout.swift */,
 				2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */,
+				414B41C8700743B3B70EF25D /* ExportBundle.swift */,
+				1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */,
 				2EEEACD02EA38AC400EDD16E /* ExerciseMapping.swift */,
 			);
 			path = Models;
@@ -1334,6 +1346,8 @@
 				2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */,
 				2EBB00062FA0000000000001 /* PlateWallView.swift */,
 				2EBB00082FA0000000000001 /* BarbellPreviewView.swift */,
+				2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */,
+				2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1557,6 +1571,7 @@
 			children = (
 				2E0413392F2FA4CE0090EF16 /* CardioDataExtractor.swift */,
 				2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */,
+				2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */,
 				2E0412302F2B439A0090EF16 /* PushNotificationService.swift */,
 				2EA7DA332EEC3EC60017683B /* RepositoryProtocols.swift */,
 				2EA7DA312EEC3EBE0017683B /* BaseRepository.swift */,
@@ -2391,6 +2406,8 @@
 				2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */,
 				2EA7DAB42EEDCD7F0017683B /* ChallengesViewModel.swift in Sources */,
 				2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */,
+				86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */,
+				226FFA5A1F3745D78A805A8E /* ImportRecord.swift in Sources */,
 				2EC202B62EF4316700D6BAEF /* MentionAutocomplete.swift in Sources */,
 				2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */,
 				2EC2028C2EF2A2D000D6BAEF /* HomeViewModel.swift in Sources */,
@@ -2641,6 +2658,7 @@
 				2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */,
 				2EA7DA282EEC17E80017683B /* CacheManager.swift in Sources */,
 				2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */,
+				2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */,
 				353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */,
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
 				2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */,
@@ -2685,6 +2703,8 @@
 				2EEBEE157C2C0B99D65A0085 /* VirtualRunSummaryPager.swift in Sources */,
 				2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */,
 				2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */,
+				2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */,
+				2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
