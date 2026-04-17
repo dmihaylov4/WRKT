@@ -138,7 +138,8 @@ create table public.shared_programs (
 
 create index shared_programs_creator_idx on public.shared_programs(creator_user_id);
 
--- Invite table: one row per (program, sender, recipient)
+-- Invite table. Note: no full UNIQUE on (program, sender, recipient).
+-- See partial unique index below for the correct "only one pending at a time" rule.
 create table public.program_invites (
     id uuid primary key default gen_random_uuid(),
     program_id uuid not null references public.shared_programs(id) on delete cascade,
@@ -146,8 +147,7 @@ create table public.program_invites (
     recipient_user_id uuid not null references auth.users(id) on delete cascade,
     status text not null check (status in ('pending','accepted','declined','revoked')),
     created_at timestamptz not null default now(),
-    responded_at timestamptz,
-    unique (program_id, sender_user_id, recipient_user_id)
+    responded_at timestamptz
 );
 
 create index program_invites_recipient_pending_idx
@@ -155,6 +155,14 @@ create index program_invites_recipient_pending_idx
     where status = 'pending';
 
 create index program_invites_sender_idx on public.program_invites(sender_user_id);
+
+-- At most one PENDING invite per (program, sender, recipient). Terminal-state rows
+-- (accepted/declined/revoked) are excluded, so the sender can resend the same program
+-- to the same recipient after a decline or revoke. This is the schema-level expression
+-- of the "re-share is allowed" decision in the spec.
+create unique index program_invites_unique_pending
+    on public.program_invites (program_id, sender_user_id, recipient_user_id)
+    where status = 'pending';
 
 -- Enable RLS
 alter table public.shared_programs enable row level security;
@@ -164,14 +172,23 @@ alter table public.program_invites enable row level security;
 create policy "creator inserts" on public.shared_programs
     for insert with check (auth.uid() = creator_user_id);
 
--- shared_programs: creator reads own, or anyone invited reads
+-- shared_programs read access:
+-- - Creator always reads their own rows (including soft-deleted, for moderation/recovery).
+-- - Other users only read while:
+--      (a) the program is not soft-deleted, AND
+--      (b) they have a pending OR accepted invite to it.
+--   Once an invite is declined or revoked, the recipient loses read access to the snapshot.
 create policy "creator or invited reads" on public.shared_programs
     for select using (
         auth.uid() = creator_user_id
-        or exists (
-            select 1 from public.program_invites pi
-            where pi.program_id = shared_programs.id
-              and pi.recipient_user_id = auth.uid()
+        or (
+            deleted_at is null
+            and exists (
+                select 1 from public.program_invites pi
+                where pi.program_id = shared_programs.id
+                  and pi.recipient_user_id = auth.uid()
+                  and pi.status in ('pending','accepted')
+            )
         )
     );
 
@@ -206,13 +223,27 @@ create policy "involved parties update" on public.program_invites
         auth.uid() = sender_user_id or auth.uid() = recipient_user_id
     );
 
--- Status transition guard: only legal transitions allowed
+-- Status transition + immutability guard.
+-- The RLS UPDATE policy above only checks identity. This trigger enforces:
+--   1. Identifying columns (program_id, sender, recipient, created_at) are immutable.
+--   2. Only legal status transitions are allowed.
+--   3. responded_at is auto-set when leaving pending.
 create or replace function public.check_program_invite_transition()
 returns trigger
 language plpgsql
 security definer
 as $$
 begin
+    -- Immutability guard: identifying columns cannot be mutated by anyone.
+    -- This prevents an authenticated party from rewriting an invite to point at
+    -- another program/user under the cover of a "status change".
+    if old.program_id is distinct from new.program_id
+       or old.sender_user_id is distinct from new.sender_user_id
+       or old.recipient_user_id is distinct from new.recipient_user_id
+       or old.created_at is distinct from new.created_at then
+        raise exception 'program_invite identifying columns are immutable';
+    end if;
+
     -- Terminal states cannot change
     if old.status in ('accepted','declined','revoked') then
         raise exception 'program_invite is in terminal state %, cannot update', old.status;
@@ -301,6 +332,11 @@ Via Supabase SQL editor, run as an authenticated test user. Expected:
 - INSERT into `program_invites` to an accepted friend succeeds and a `notifications` row appears for the recipient.
 - UPDATE `program_invites` setting status to `accepted` as the recipient succeeds.
 - UPDATE `program_invites` setting status to `accepted` as the sender fails with "only recipient can set status to accepted".
+- A second INSERT into `program_invites` with the same (program_id, sender_user_id, recipient_user_id) while the first row is still `pending` fails with "duplicate key value violates unique constraint program_invites_unique_pending".
+- After the recipient declines, a second INSERT into `program_invites` with the same triple **succeeds** (resend allowed after terminal state).
+- UPDATE attempting to mutate `program_id`, `sender_user_id`, `recipient_user_id`, or `created_at` (e.g., `update program_invites set program_id = '...' where id = ...`) fails with "program_invite identifying columns are immutable".
+- After the recipient accepts, then the sender soft-deletes the program (`update shared_programs set deleted_at = now() where id = ...`), the recipient's SELECT on that `shared_programs` row returns zero rows. The creator's SELECT still returns the row.
+- After the recipient declines an invite, the recipient's SELECT on the underlying `shared_programs` row returns zero rows.
 
 - [ ] **Step 1.4: Commit**
 
@@ -551,10 +587,16 @@ git commit -m "feat(planner): add SharedProgramStructure wire types"
 
 **Files:**
 - Modify: `Features/WorkoutSession/Models/PlannerModels.swift:195-245`
+- Modify: `Features/Planner/ViewModels/ProgramLibraryViewModel.swift` (Task 10) sort key — uses `createdAt ?? importedAt ?? .distantPast` since `createdAt` is now optional.
+
+**SwiftData migration note:**
+The app currently registers a flat `Schema([...])` (see `App/WRKTApp.swift:245-252`) without a `VersionedSchema` plan. SwiftData lightweight migration reliably handles **adding optional properties with default `nil`**, but adding a non-optional property with a runtime default like `var createdAt: Date = Date()` has been observed to crash at first launch on some OS versions. Therefore every new field added here is **optional with default `nil`**, including `createdAt`. Library sort order falls back through the chain `createdAt ?? importedAt ?? .distantPast` so existing rows (which will have nil for both) sort to the bottom on first launch but otherwise behave normally.
+
+Do NOT change the `Schema([...])` registration shape in `App/WRKTApp.swift`. If a future task requires non-optional new fields, it must introduce a `VersionedSchema` + `SchemaMigrationPlan` first; that work is explicitly out of scope here.
 
 - [ ] **Step 3.1: Add attribution fields to `WorkoutSplit`**
 
-Locate the `@Model final class WorkoutSplit { ... }` block. Add these properties alongside the existing ones (all optional, default nil, so existing rows migrate without schema bump):
+Locate the `@Model final class WorkoutSplit { ... }` block. Add these properties alongside the existing ones. All are optional with default `nil` so SwiftData's lightweight migration applies cleanly to existing rows.
 
 ```swift
 // Attribution (set when program arrives from a share; nil when user-created locally)
@@ -564,10 +606,10 @@ var creatorDisplayName: String?
 var originProgramID: UUID?          // links back to shared_programs.id
 var programDescription: String?
 var importedAt: Date?               // nil means "created here"
-var createdAt: Date = Date()        // library sort order
+var createdAt: Date?                // library sort order; nil for pre-feature rows
 ```
 
-Update the `init(...)` signature to accept them, all defaulting to nil so all existing call sites still compile:
+Update the `init(...)` signature to accept them, all defaulting to nil so all existing call sites still compile. Note that `createdAt` is set to `.now` *inside* the initializer (so newly created rows get a timestamp) but the persisted property remains optional (so migration of existing rows lands them at nil):
 
 ```swift
 init(id: UUID = UUID(),
@@ -1414,12 +1456,17 @@ Add inside `PlannerStore` class, near `activeSplit()`:
 
 ```swift
     /// All WorkoutSplits owned by the user, sorted by creation date descending.
+    /// `createdAt` is optional in the schema (see Task 3 SwiftData migration note),
+    /// so we sort in Swift after fetch with a fallback chain. Pre-feature rows that
+    /// have nil for both createdAt and importedAt sort to the bottom.
     func splitLibrary() throws -> [WorkoutSplit] {
         guard let context = context else { return [] }
-        let descriptor = FetchDescriptor<WorkoutSplit>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )
-        return try context.fetch(descriptor)
+        let all = try context.fetch(FetchDescriptor<WorkoutSplit>())
+        return all.sorted { a, b in
+            let aDate = a.createdAt ?? a.importedAt ?? .distantPast
+            let bDate = b.createdAt ?? b.importedAt ?? .distantPast
+            return aDate > bDate
+        }
     }
 
     /// Activate a split with customization. Deactivates any previously active split.
