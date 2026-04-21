@@ -55,6 +55,7 @@ struct AppShellView: View {
     @State private var selectedTab: AppTab = .train
     @State private var showLiveOverlay = false
     @State private var showContent = false
+    @State private var isShellTabBarHidden = false
     @AppStorage("is_browsing_exercises") private var isBrowsingExercises = false
 
     // Notification navigation
@@ -98,6 +99,9 @@ struct AppShellView: View {
 
     // Virtual run invite coordinator
     @State private var inviteCoordinator = VirtualRunInviteCoordinator.shared
+    @State private var isPerformingInitialLaunch = false
+    @State private var didCompleteInitialLaunch = false
+    @State private var lastForegroundSyncAt: Date?
 
     // Convenience accessor for stats
     private var stats: StatsAggregator? { dependencies.statsAggregator }
@@ -117,6 +121,12 @@ struct AppShellView: View {
         }
         .background(DS.Semantic.surface.ignoresSafeArea())
         .withDependencies(dependencies)
+        .onReceive(NotificationCenter.default.publisher(for: .hideShellTabBar)) { _ in
+            isShellTabBarHidden = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showShellTabBar)) { _ in
+            isShellTabBarHidden = false
+        }
         .fullScreenCover(isPresented: $authService.needsPasswordReset) {
             SetNewPasswordView()
                 .environmentObject(authService)
@@ -248,56 +258,60 @@ struct AppShellView: View {
 
     @ViewBuilder
     private var mainTabView: some View {
-        TabView(selection: $selectedTab) {
-            // TRAIN (was Home)
-            HomeViewNew()
-                .background(DS.Semantic.surface.ignoresSafeArea())
-                .tabItem { Label("Train", image: "tab-train-inactive") }
-                .tag(AppTab.train)
-
-            // PLAN (was Calendar)
-            PlanView()
-                .background(DS.Semantic.surface.ignoresSafeArea())
-                .tabItem { Label("Plan", image: "tab-plan-inactive") }
-                .tag(AppTab.plan)
-
-            // SOCIAL (new - combines Feed, Compete, Friends)
-            // Only show if not in local mode
-            if !settings.isLocalMode {
-                SocialView(pendingNotification: $pendingNotificationNavigation)
+        ZStack(alignment: .bottom) {
+            TabView(selection: $selectedTab) {
+                // TRAIN (was Home)
+                HomeViewNew()
                     .background(DS.Semantic.surface.ignoresSafeArea())
-                    .tabItem { Label("Social", image: "tab-social-inactive") }
-                    .tag(AppTab.social)
-            }
+                    .tabItem { Label("Train", image: "tab-train-inactive") }
+                    .tag(AppTab.train)
 
-            // CARDIO
-            NavigationStack {
-                CardioView()
-                    .background(DS.Semantic.surface)
-                    .scrollContentBackground(.hidden)
-            }
-            .tabItem { Label("Cardio", image: "tab-cardio-inactive") }
-            .tag(AppTab.cardio)
+                // PLAN (was Calendar)
+                PlanView(pendingNotification: $pendingNotificationNavigation)
+                    .background(DS.Semantic.surface.ignoresSafeArea())
+                    .tabItem { Label("Plan", image: "tab-plan-inactive") }
+                    .tag(AppTab.plan)
 
-            // PROFILE (simplified - settings and account)
-            NavigationStack {
-                ProfileView()
-                    .background(DS.Semantic.surface)
-                    .scrollContentBackground(.hidden)
-                    .navigationBarHidden(true)
+                // SOCIAL (new - combines Feed, Compete, Friends)
+                // Only show if not in local mode
+                if !settings.isLocalMode {
+                    SocialView(pendingNotification: $pendingNotificationNavigation)
+                        .background(DS.Semantic.surface.ignoresSafeArea())
+                        .tabItem { Label("Social", image: "tab-social-inactive") }
+                        .tag(AppTab.social)
+                }
+
+                // CARDIO
+                NavigationStack {
+                    CardioView()
+                        .background(DS.Semantic.surface)
+                        .scrollContentBackground(.hidden)
+                }
+                .tabItem { Label("Cardio", image: "tab-cardio-inactive") }
+                .tag(AppTab.cardio)
+
+                // PROFILE (simplified - settings and account)
+                NavigationStack {
+                    ProfileView()
+                        .background(DS.Semantic.surface)
+                        .scrollContentBackground(.hidden)
+                        .navigationBarHidden(true)
+                }
+                .tabItem { Label("Me", image: "tab-profile-inactive") }
+                .tag(AppTab.profile)
             }
-            .tabItem { Label("Me", image: "tab-profile-inactive") }
-            .tag(AppTab.profile)
-        }
-        .tint(DS.Palette.marone)
-        .toolbar(.hidden, for: .tabBar)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            CustomTabBar(
-                selectedTab: $selectedTab,
-                isLocalMode: settings.isLocalMode,
-                friendRequestCount: badgeManager.friendRequestCount,
-                notificationCount: badgeManager.notificationCount
-            )
+            .tint(DS.Palette.marone)
+            .toolbar(.hidden, for: .tabBar)
+
+            if !isShellTabBarHidden {
+                CustomTabBar(
+                    selectedTab: $selectedTab,
+                    isLocalMode: settings.isLocalMode,
+                    friendRequestCount: badgeManager.friendRequestCount,
+                    notificationCount: badgeManager.notificationCount
+                )
+                .ignoresSafeArea(edges: .bottom)
+            }
         }
     }
 
@@ -349,12 +363,23 @@ struct AppShellView: View {
         } else if newPhase == .active {
             UserDefaults.standard.markActive()
             AppLogger.debug("App activated - marked as running", category: AppLogger.app)
-
-            // Restart invite coordinator (re-subscribes Realtime, starts poll timer, polls immediately)
-            inviteCoordinator.startListening()
+            guard didCompleteInitialLaunch, !isPerformingInitialLaunch else {
+                AppLogger.info("⏭️ App became active during initial launch - skipping duplicate startup work", category: AppLogger.app)
+                return
+            }
 
             // Ensure real-time subscriptions are active (will skip if already subscribed)
             Task {
+                if let lastForegroundSyncAt,
+                   Date.now.timeIntervalSince(lastForegroundSyncAt) < 5 {
+                    AppLogger.info("⏭️ App became active too soon after previous foreground sync - skipping", category: AppLogger.app)
+                    return
+                }
+                lastForegroundSyncAt = .now
+
+                // Restart invite coordinator on true resume.
+                inviteCoordinator.startListening()
+
                 AppLogger.info("🚀 App became active - ensuring realtime subscriptions are running", category: AppLogger.app)
                 await badgeManager.startRealtimeSubscriptions()
 
@@ -362,7 +387,10 @@ struct AppShellView: View {
                 if healthKit.connectionState == .connected {
                     AppLogger.info("📊 App became active - syncing HealthKit workouts", category: AppLogger.health)
                     try? await healthKit.syncWorkoutsIncremental()
+                    await healthKit.syncExerciseTimeIncremental()
                 }
+
+                RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
             }
         }
     }
@@ -386,11 +414,6 @@ struct AppShellView: View {
         } else if needsGoalSetup && (selectedTab == .profile) {
             showGoalSetupSheet = true
         }
-
-        // Validate weekly streak ONCE on cold start - not in individual views
-        // This ensures the streak is recalculated once from historical data,
-        // without each view recalculating and potentially corrupting the value.
-        RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
     }
 
     private func handleResetHomeToRoot(_ note: Notification) {
@@ -440,9 +463,24 @@ struct AppShellView: View {
 
     private func handleAppLaunch() async {
         AppLogger.info("📱 handleAppLaunch() called", category: AppLogger.app)
+        guard !didCompleteInitialLaunch, !isPerformingInitialLaunch else {
+            AppLogger.info("⏭️ Initial launch already handled or in progress - skipping", category: AppLogger.app)
+            return
+        }
+
+        isPerformingInitialLaunch = true
+        defer { isPerformingInitialLaunch = false }
 
         dependencies.configure(with: modelContext)
         await dependencies.bootstrap()
+
+        if healthKit.connectionState == .connected {
+            AppLogger.info("Running launch HealthKit sync after dependency configuration", category: AppLogger.health)
+            await healthKit.syncWorkoutsIncremental()
+            await healthKit.syncExerciseTimeIncremental()
+        }
+
+        RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
 
         // Initialize Watch Connectivity
         WatchConnectivityManager.shared.connectToWorkoutStore(store)
@@ -490,6 +528,8 @@ struct AppShellView: View {
         #if DEBUG
         dependencies.logMemoryFootprint()
         #endif
+
+        didCompleteInitialLaunch = true
     }
 
     private func handleRepoReady(_ isEmpty: Bool) {
@@ -503,13 +543,15 @@ struct AppShellView: View {
     private func handleNotificationNavigation(_ notification: AppNotification) {
         AppLogger.info("🧭 Handling notification navigation: type=\(notification.type.rawValue)", category: AppLogger.app)
 
-        // Switch to social tab
-        selectedTab = .social
+        switch notification.type {
+        case .programInvite:
+            selectedTab = .plan
+        default:
+            selectedTab = .social
+        }
 
-        // Set pending notification for SocialView to handle
         pendingNotificationNavigation = notification
 
-        // Clear after a delay to allow SocialView to process
         Task {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             pendingNotificationNavigation = nil

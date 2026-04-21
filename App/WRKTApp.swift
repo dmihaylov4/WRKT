@@ -64,14 +64,6 @@ struct WRKTApp: App {
 
             // Register for push notifications
             await PushNotificationService.shared.registerForPushNotifications()
-
-            // Trigger incremental sync on app launch if connected
-            if HealthKitManager.shared.connectionState == .connected {
-                AppLogger.info("App launched - triggering incremental HealthKit sync", category: AppLogger.health)
-                Task {
-                    try? await HealthKitManager.shared.syncWorkoutsIncremental()
-                }
-            }
         }
     }
 
@@ -243,7 +235,7 @@ struct WRKTApp: App {
         // Create schema with all models
         let schema = Schema([
             RewardProgress.self, Achievement.self, ChallengeAssignment.self, RewardLedgerEntry.self,
-            Wallet.self, ExercisePR.self, DexStamp.self, WeeklyTrainingSummary.self, ExerciseVolumeSummary.self,
+            Wallet.self, ExercisePR.self, DexStamp.self, WeeklyTrainingSummary.self, DailyAppleExerciseSummary.self, ExerciseVolumeSummary.self,
             MovingAverage.self, ExerciseProgressionSummary.self, ExerciseTrend.self, PushPullBalance.self,
             MuscleGroupFrequency.self, MovementPatternBalance.self, WeeklyGoal.self,
             HealthSyncAnchor.self, RouteFetchTask.self, MapSnapshotCache.self,
