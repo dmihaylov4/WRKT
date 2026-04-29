@@ -30,6 +30,9 @@ import SwiftData
     var freezeUsedAt: Date? = nil   // When freeze was last used
 
     // Weekly goal streaks
+    var weeklyStreakFrozen: Bool = false  // Weekly streak freeze active
+    var weeklyFreezeUsedAt: Date? = nil   // When weekly freeze was last used
+    var weeklyFreezeProtectedWeekStart: Date? = nil  // Historical week preserved by the monthly freeze
     var weeklyGoalStreakCurrent: Int = 0
     var weeklyGoalStreakLongest: Int = 0
     var lastWeekGoalMet: Date? = nil  // Week start date of last completed week

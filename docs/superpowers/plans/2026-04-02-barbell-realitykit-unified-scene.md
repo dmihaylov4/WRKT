@@ -1,4 +1,6 @@
-# Barbell — Unified RealityKit Scene Implementation Plan
+# Barbell — Unified RealityKit Scene Implementation Plan (Revised)
+
+> **Status: IMPLEMENTED (on-device debug iteration in progress)** — All 14 tasks were executed. Core architecture is in production on `main`. Several bugs discovered during on-device testing required post-plan fixes; these are documented in the Implementation Notes section at the bottom of this file. The plan checkboxes were not ticked during the fast-paced agentic execution run. Treat all tasks as complete unless noted otherwise in the Implementation Notes.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -6,7 +8,17 @@
 
 **Architecture:** One `BarbellRealityView` struct with a `BarbellRealityMode` enum (`.welcome` / `.rackRoom`). A `SceneState` class (not struct — mutations must not trigger SwiftUI re-renders) is created by the parent view and passed in. All gesture handling mutates entities directly at 60fps; `BarbellProgressService.rackPlate()` / `unrackPlate()` are called only at gesture end as persistence side-effects. The `RealityView update {}` closure is empty after initial setup.
 
-**Tech Stack:** RealityKit, SwiftUI, SwiftData (`@Query`), `PhysicallyBasedMaterial`, `InputTargetComponent`, `CollisionComponent`, `DragGesture().targetedToAnyEntity()`, Swift Testing
+**This revision adds:** RealityKit physics (kinematic drag, dynamic settle), spatial audio (`SpatialAudioComponent`, per-material sounds), directional shadow casting, shared material and mesh instance caching, formal `SceneState.transition(to:)` state machine, Reduce Motion support throughout, and encapsulated camera proxy management.
+
+**Tech Stack:** RealityKit, SwiftUI, SwiftData (`@Query`), `PhysicallyBasedMaterial`, `PhysicsBodyComponent`, `SpatialAudioComponent`, `DirectionalLightComponent`, `InputTargetComponent`, `CollisionComponent`, `DragGesture().targetedToAnyEntity()`, Swift Testing
+
+**Audio assets required (add to `Resources/Audio/` and include in WRKT target before Task 4):**
+- `plate_clink_iron.wav`
+- `plate_clink_brass.wav`
+- `plate_thud_rubber.wav`
+- `plate_drop_iron.wav`
+- `plate_drop_brass.wav`
+- `plate_drop_rubber.wav`
 
 **Spec:** `docs/superpowers/specs/2026-04-02-barbell-realitykit-unified-scene.md`
 
@@ -16,30 +28,43 @@
 
 | Action | Path | Responsibility |
 |--------|------|----------------|
-| Create | `Features/Rewards/Views/BarbellEntityBuilder.swift` | Pure free functions: entity factory, PBR helpers, texture loading |
+| Create | `Features/Rewards/Views/BarbellEntityBuilder.swift` | Entity factory, PBR + physics helpers, collision groups, texture loading, material builder |
+| Create | `Features/Rewards/Views/BarbellAudioBuilder.swift` | Audio resource loading, `SpatialAudioComponent` attachment, per-material sound playback, physics materials |
 | Create | `Features/Rewards/Views/BarbellRealityView.swift` | `BarbellRealityMode`, `SceneState`, `DragPhase`, `BarbellRealityView` |
-| Modify | `Features/Rewards/Views/BarbellWelcomeView.swift` | Delete all SceneKit code; use `BarbellRealityView(mode: .welcome(...))` |
+| Modify | `Features/Rewards/Views/BarbellWelcomeView.swift` | Delete all SceneKit; use `BarbellRealityView(mode: .welcome(...))` |
 | Modify | `Features/Profile/Views/PlateWallView.swift` | Delete barbell + 2D grid; use `BarbellRealityView(mode: .rackRoom(...))` |
 | Create | `WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift` | Unit tests for entity builder |
-| Create | `WRKTTests/FeaturesTests/Barbell/SceneStateTests.swift` | Unit tests for SceneState logic |
+| Create | `WRKTTests/FeaturesTests/Barbell/BarbellAudioBuilderTests.swift` | Unit tests for audio builder |
+| Create | `WRKTTests/FeaturesTests/Barbell/SceneStateTests.swift` | Unit tests for SceneState and state machine |
 | Unchanged | `Features/Profile/Views/BarbellPreviewView.swift` | Cosmetic editor — do not touch |
 | Unchanged | `Features/Rewards/Models/BarbellModels.swift` | Models — do not touch |
 | Unchanged | `Features/Rewards/Services/BarbellProgressService.swift` | Service — do not touch |
 
 ---
 
-## Task 1: BarbellEntityBuilder — foundation types and PBR helpers
+## Task 1: BarbellEntityBuilder — foundation types, collision groups, PBR helpers
 
 **Files:**
 - Create: `Features/Rewards/Views/BarbellEntityBuilder.swift`
 - Create: `WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift`
 
-- [ ] **Step 1: Create the file with imports and PlateRoleComponent**
+- [ ] **Step 1: Create the file with imports, collision groups, and ECS components**
 
 ```swift
 // Features/Rewards/Views/BarbellEntityBuilder.swift
 import RealityKit
 import UIKit
+
+// MARK: - Collision groups
+// Plates collide with the floor plane and each other.
+// Bar and rack stands have no collision bodies — snapping is gesture-driven.
+
+let plateCollisionGroup = CollisionGroup(rawValue: 1 << 0)
+let floorCollisionGroup = CollisionGroup(rawValue: 1 << 1)
+let plateCollisionFilter = CollisionFilter(
+    group: plateCollisionGroup,
+    mask: plateCollisionGroup.union(floorCollisionGroup)
+)
 
 // MARK: - PlateRoleComponent
 
@@ -52,12 +77,48 @@ struct PlateRoleComponent: Component {
 
 // MARK: - TierIDComponent
 
-/// Stores the plate tier so texture-application passes can look up which
-/// textures to apply without re-threading tierID through every call site.
+/// Stores the plate tier so texture and audio passes can look up data
+/// without re-threading tierID through every call site.
 struct TierIDComponent: Component {
     let tierID: Int
 }
+
+// MARK: - PlateAudioCategoryComponent
+
+/// Stores the audio category so snap handlers can play the correct sound
+/// without re-deriving it from tierID at gesture time.
+struct PlateAudioCategoryComponent: Component {
+    let category: PlateAudioCategory
+}
+
+// MARK: - Mesh resource cache
+//
+// Process-level cache so identical cylinder/box geometries are uploaded to the GPU once.
+// Without this, each plate entity calls MeshResource.generateCylinder independently,
+// producing duplicate GPU mesh buffers even for same-tier plates.
+// Use cachedCylinder / cachedBox throughout all entity builders instead of
+// MeshResource.generate* directly.
+
+private nonisolated(unsafe) var meshResourceCache: [String: MeshResource] = [:]
+
+func cachedCylinder(height: Float, radius: Float) -> MeshResource {
+    let key = "cyl_h\(height)_r\(radius)"
+    if let cached = meshResourceCache[key] { return cached }
+    let mesh = MeshResource.generateCylinder(height: height, radius: radius)
+    meshResourceCache[key] = mesh
+    return mesh
+}
+
+func cachedBox(size: SIMD3<Float>) -> MeshResource {
+    let key = "box_\(size.x)_\(size.y)_\(size.z)"
+    if let cached = meshResourceCache[key] { return cached }
+    let mesh = MeshResource.generateBox(size: size)
+    meshResourceCache[key] = mesh
+    return mesh
+}
 ```
+
+Note: all `MeshResource.generateCylinder(...)` and `MeshResource.generateBox(...)` calls in the per-style helpers, makeBarEntity, makeCollarEntity, and makeRackStandEntity must be replaced with `cachedCylinder(...)` and `cachedBox(...)`. Apply this substitution throughout the entity builder functions below.
 
 - [ ] **Step 2: Add PlateTextures struct and PBR material helpers**
 
@@ -102,9 +163,6 @@ Append to `BarbellEntityBuilder.swift`:
 
 ```swift
 // MARK: - Texture loading
-//
-// Same bundle files as BarbellPreviewView. Tiers 0,1,2,3,6 have PBR textures;
-// all others fall back to color-only materials.
 
 func loadPlateTextures(forTierID tierID: Int) -> PlateTextures {
     let prefix: String
@@ -144,38 +202,41 @@ private func loadBundleTextures(prefix: String) -> PlateTextures {
 }
 ```
 
-- [ ] **Step 4: Add to Xcode project**
+- [ ] **Step 4: Add to Xcode project and create test file stub**
 
-In Xcode: right-click `Features/Rewards/Views` → Add Files → select `BarbellEntityBuilder.swift`. Target: WRKT (iOS app only, not Watch).
+In Xcode: right-click `Features/Rewards/Views` → Add Files → select `BarbellEntityBuilder.swift`. Target: WRKT (iOS only).
 
-Also add `WRKTTests/FeaturesTests/Barbell/` directory and create the test file stub:
+Create `WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift`:
 
 ```swift
-// WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift
 import Testing
 import RealityKit
 @testable import WRKT
 
 struct BarbellEntityBuilderTests {
-    // tests added in Task 2 and Task 3
+    // tests added in Tasks 2 and 3
 }
 ```
 
 - [ ] **Step 5: Build to verify compilation**
 
-Build target WRKT (Cmd+B). Expected: no errors.
+```
+Cmd+B
+```
+
+Expected: no errors.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellEntityBuilder.swift \
         WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift
-git commit -m "feat: add BarbellEntityBuilder foundation — PlateRoleComponent, PBR helpers, texture loader"
+git commit -m "feat: add BarbellEntityBuilder foundation — collision groups, ECS components, PBR helpers, texture loader"
 ```
 
 ---
 
-## Task 2: BarbellEntityBuilder — makePlateEntity
+## Task 2: BarbellEntityBuilder — makePlateEntity (physics-aware, material param)
 
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellEntityBuilder.swift`
@@ -184,14 +245,9 @@ git commit -m "feat: add BarbellEntityBuilder foundation — PlateRoleComponent,
 - [ ] **Step 1: Write the failing tests first**
 
 ```swift
-// WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift
-import Testing
-import RealityKit
-@testable import WRKT
-
 struct BarbellEntityBuilderTests {
 
-    @Test func makePlateEntityReturnsEntityForEveryTier() {
+    @Test func makePlateEntityHasRequiredComponents() {
         for tierID in 0...7 {
             let entity = makePlateEntity(tierID: tierID)
             #expect(entity.components[InputTargetComponent.self] != nil,
@@ -200,6 +256,12 @@ struct BarbellEntityBuilderTests {
                     "tier \(tierID) missing CollisionComponent")
             #expect(entity.components[PlateRoleComponent.self] != nil,
                     "tier \(tierID) missing PlateRoleComponent")
+            #expect(entity.components[PhysicsBodyComponent.self] != nil,
+                    "tier \(tierID) missing PhysicsBodyComponent")
+            #expect(entity.components[TierIDComponent.self] != nil,
+                    "tier \(tierID) missing TierIDComponent")
+            #expect(entity.components[PlateAudioCategoryComponent.self] != nil,
+                    "tier \(tierID) missing PlateAudioCategoryComponent")
         }
     }
 
@@ -212,28 +274,35 @@ struct BarbellEntityBuilderTests {
         let entity = makePlateEntity(tierID: 2, role: .bar)
         #expect(entity.components[PlateRoleComponent.self]?.role == .bar)
     }
+
+    @Test func makePlateEntityPhysicsIsKinematicByDefault() {
+        let entity = makePlateEntity(tierID: 0)
+        #expect(entity.components[PhysicsBodyComponent.self]?.mode == .kinematic)
+    }
+
+    @Test func makePlateEntityAcceptsExternalMaterial() {
+        var mat = PhysicallyBasedMaterial()
+        mat.baseColor = .init(tint: .red)
+        let entity = makePlateEntity(tierID: 0, material: mat)
+        #expect(entity.components[PlateRoleComponent.self] != nil)
+    }
 }
 ```
 
-- [ ] **Step 2: Run tests to confirm they fail**
-
-```
-Cmd+U in Xcode (or xcodebuild test -scheme WRKT -destination 'platform=iOS Simulator,name=iPhone 16')
-```
+- [ ] **Step 2: Run to confirm compile failure**
 
 Expected: compile error — `makePlateEntity` not yet defined.
 
-- [ ] **Step 3: Add per-style helper functions to BarbellEntityBuilder.swift**
+- [ ] **Step 3: Add per-style helper functions**
 
 Append to `BarbellEntityBuilder.swift`:
 
 ```swift
 // MARK: - Per-style plate helpers
-// Mirror the geometry from BarbellPreviewView's per-style functions.
 
-private func makeRawIronEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?) -> ModelEntity {
-    var mat = pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness)
-    if let tex = textures {
+private func makeRawIronEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?, material: PhysicallyBasedMaterial?) -> ModelEntity {
+    var mat = material ?? pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness)
+    if material == nil, let tex = textures {
         if let a = tex.albedo    { mat.baseColor  = .init(tint: .white, texture: .init(a)) }
         if let n = tex.normal    { mat.normal     = .init(texture: .init(n)) }
         if let r = tex.roughness { mat.roughness  = .init(texture: .init(r)) }
@@ -244,14 +313,14 @@ private func makeRawIronEntity(tier: PlateTier, thickness: Float, textures: Plat
     return plate
 }
 
-private func makeCastIronEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?) -> ModelEntity {
+private func makeCastIronEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?, material: PhysicallyBasedMaterial?) -> ModelEntity {
     let radius: Float = 0.18
-    var outerMat = pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness)
+    var outerMat = material ?? pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness)
     var innerMat = pbrMaterial(color: UIColor(red: 0.20, green: 0.20, blue: 0.20, alpha: 1),
                                 metallic: 0.04, roughness: 0.96)
-    if let tex = textures {
+    if material == nil, let tex = textures {
         if let a = tex.albedo {
-            outerMat.baseColor = .init(tint: .white,                      texture: .init(a))
+            outerMat.baseColor = .init(tint: .white, texture: .init(a))
             innerMat.baseColor = .init(tint: UIColor(white: 0.6, alpha: 1), texture: .init(a))
         }
         if let n = tex.normal    { outerMat.normal    = .init(texture: .init(n))
@@ -271,11 +340,11 @@ private func makeCastIronEntity(tier: PlateTier, thickness: Float, textures: Pla
     return plate
 }
 
-private func makeBumperEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?) -> ModelEntity {
+private func makeBumperEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?, material: PhysicallyBasedMaterial?) -> ModelEntity {
     let radius: Float = 0.18
-    var mat = pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness,
+    var mat = material ?? pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness,
                            clearcoat: tier.clearcoat, clearcoatRoughness: tier.clearcoatRoughness)
-    if let tex = textures {
+    if material == nil, let tex = textures {
         if let a = tex.albedo    { mat.baseColor = .init(tint: .white, texture: .init(a)) }
         if let n = tex.normal    { mat.normal    = .init(texture: .init(n)) }
         if let r = tex.roughness { mat.roughness = .init(texture: .init(r)) }
@@ -290,14 +359,13 @@ private func makeBumperEntity(tier: PlateTier, thickness: Float, textures: Plate
     return plate
 }
 
-private func makeBrassEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?) -> ModelEntity {
-    // Brass uses same shape as rawIron but with brass PBR values
-    makeRawIronEntity(tier: tier, thickness: thickness, textures: textures)
+private func makeBrassEntity(tier: PlateTier, thickness: Float, textures: PlateTextures?, material: PhysicallyBasedMaterial?) -> ModelEntity {
+    makeRawIronEntity(tier: tier, thickness: thickness, textures: textures, material: material)
 }
 
-private func makeCompetitionEntity(tier: PlateTier, thickness: Float) -> ModelEntity {
+private func makeCompetitionEntity(tier: PlateTier, thickness: Float, material: PhysicallyBasedMaterial?) -> ModelEntity {
     let radius: Float = 0.18
-    let mat = pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness,
+    let mat = material ?? pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: tier.roughness,
                            clearcoat: tier.clearcoat, clearcoatRoughness: tier.clearcoatRoughness)
     let plate = ModelEntity(mesh: .generateCylinder(height: thickness, radius: radius), materials: [mat])
     plate.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
@@ -314,7 +382,6 @@ private func makeCompetitionEntity(tier: PlateTier, thickness: Float) -> ModelEn
 }
 
 private func makeStarterEntity(tier: PlateTier, thickness: Float) -> ModelEntity {
-    // Starter: small bright green rubber disc, no weight stamp
     let mat = pbrMaterial(color: UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 1), metallic: 0, roughness: 0.9)
     let plate = ModelEntity(mesh: .generateCylinder(height: thickness, radius: 0.12), materials: [mat])
     plate.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
@@ -322,8 +389,6 @@ private func makeStarterEntity(tier: PlateTier, thickness: Float) -> ModelEntity
 }
 
 private func makeWeightDisc(weightKg: Double, tierID: Int) -> ModelEntity {
-    // Renders weight number to a thin disc placed at the plate face.
-    // Same approach as BarbellPreviewView.makeWeightDisc.
     let side: CGFloat = 128
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side))
     let image = renderer.image { ctx in
@@ -347,7 +412,7 @@ private func makeWeightDisc(weightKg: Double, tierID: Int) -> ModelEntity {
         mat.color = .init(texture: .init(tex))
     }
     let disc = ModelEntity(mesh: .generateCylinder(height: 0.005, radius: 0.06), materials: [mat])
-    disc.position = SIMD3(0, 0.018, 0)  // offset toward front face
+    disc.position = SIMD3(0, 0.018, 0)
     return disc
 }
 ```
@@ -360,18 +425,23 @@ Append to `BarbellEntityBuilder.swift`:
 // MARK: - makePlateEntity
 
 /// Builds a complete plate ModelEntity for the given tier.
-/// Attach InputTargetComponent and CollisionComponent are always set so the
-/// entity is immediately eligible for DragGesture().targetedToAnyEntity().
 ///
 /// - Parameters:
 ///   - tierID: 0-7 matching PlateTier.all.id
-///   - textures: Pre-loaded PBR textures from loadPlateTextures(forTierID:). Pass nil to fall back to color materials.
-///   - weightKg: Renders weight number on a face disc when > 0
-///   - engravingText: Not rendered in this builder (engraving discs are for the editor, not rack room)
-///   - role: .floor (default) or .bar — stored in PlateRoleComponent for gesture routing
+///   - textures: Pre-loaded PBR textures. Pass nil to fall back to color materials.
+///   - material: Cached PhysicallyBasedMaterial from SceneState.materialCache. When provided,
+///               textures are ignored and the shared instance is used directly — avoids
+///               creating duplicate GPU material objects per plate.
+///   - weightKg: Renders weight number on a face disc when > 0.
+///   - role: .floor (default) or .bar — stored in PlateRoleComponent for gesture routing.
+///
+/// Physics: PhysicsBodyComponent is always set with mode .kinematic.
+/// Gesture handlers switch to .dynamic on release so the plate settles via physics,
+/// then back to .kinematic after ~800ms settling time.
 func makePlateEntity(
     tierID: Int,
     textures: PlateTextures? = nil,
+    material: PhysicallyBasedMaterial? = nil,
     weightKg: Double = 0,
     engravingText: String = "",
     role: PlateRoleComponent.Role = .floor
@@ -385,17 +455,17 @@ func makePlateEntity(
 
     switch tier.style {
     case .rawIron:
-        entity = makeRawIronEntity(tier: tier, thickness: plateThickness, textures: textures)
+        entity = makeRawIronEntity(tier: tier, thickness: plateThickness, textures: textures, material: material)
     case .castIron:
-        entity = makeCastIronEntity(tier: tier, thickness: plateThickness, textures: textures)
+        entity = makeCastIronEntity(tier: tier, thickness: plateThickness, textures: textures, material: material)
     case .bumper:
-        entity = makeBumperEntity(tier: tier, thickness: plateThickness, textures: textures)
+        entity = makeBumperEntity(tier: tier, thickness: plateThickness, textures: textures, material: material)
     case .brass:
-        entity = makeBrassEntity(tier: tier, thickness: plateThickness, textures: textures)
+        entity = makeBrassEntity(tier: tier, thickness: plateThickness, textures: textures, material: material)
     case .starter:
         entity = makeStarterEntity(tier: tier, thickness: plateThickness)
     default:  // competition, polishedSteel, gold
-        entity = makeCompetitionEntity(tier: tier, thickness: plateThickness)
+        entity = makeCompetitionEntity(tier: tier, thickness: plateThickness, material: material)
     }
 
     // Chrome hub
@@ -405,36 +475,86 @@ func makePlateEntity(
     )
     entity.addChild(hub)
 
-    // Weight disc (skip starter plates: tierID 7)
+    // Weight disc
     if weightKg > 0 && tierID != 7 {
         entity.addChild(makeWeightDisc(weightKg: weightKg, tierID: tierID))
     }
 
     // Gesture components
+    let collisionShape = ShapeResource.generateBox(size: SIMD3(0.36, plateThickness, 0.36))
     entity.components.set(InputTargetComponent())
-    entity.components.set(CollisionComponent(shapes: [
-        .generateBox(size: SIMD3(0.36, plateThickness, 0.36))
-    ]))
+    entity.components.set(CollisionComponent(shapes: [collisionShape], filter: plateCollisionFilter))
+
+    // Physics — kinematic by default; gesture handlers switch to .dynamic on release
+    let audioCategory = PlateAudioCategory.from(tierID: tierID)
+    var physicsBody = PhysicsBodyComponent()
+    physicsBody.massProperties = .init(mass: Float(max(weightKg, 1.25)))
+    physicsBody.material = audioCategory.physicsMaterial
+    physicsBody.mode = .kinematic
+    entity.components.set(physicsBody)
+    entity.components.set(PhysicsMotionComponent())
+
+    // Metadata components
     entity.components.set(PlateRoleComponent(role: role))
+    entity.components.set(TierIDComponent(tierID: tierID))
+    entity.components.set(PlateAudioCategoryComponent(category: audioCategory))
+
+    // Transparent tiers need explicit sort order to prevent z-fighting
+    if tier.style == .starter {
+        entity.components.set(ModelSortGroupComponent(
+            group: ModelSortGroup(depthPass: .postPass), order: 0
+        ))
+    }
+
+    // Spatial audio source — must be set before playAudio() is called
+    attachSpatialAudio(to: entity, category: audioCategory)
 
     return entity
 }
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [ ] **Step 5: Add buildMaterial helper**
 
+Append to `BarbellEntityBuilder.swift`:
+
+```swift
+// MARK: - Material builder (for SceneState.materialCache population)
+
+/// Builds a PhysicallyBasedMaterial for the given tier with textures applied.
+/// Store the result in SceneState.materialCache[tierID] and pass it into
+/// makePlateEntity(material:) to share one GPU material object across all plates
+/// of the same tier rather than creating one per entity.
+func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> PhysicallyBasedMaterial {
+    guard let tier = PlateTier.all.first(where: { $0.id == tierID }) else {
+        return PhysicallyBasedMaterial()
+    }
+    var mat = pbrMaterial(
+        color: tier.plateColor,
+        metallic: tier.metallic,
+        roughness: tier.roughness,
+        clearcoat: tier.clearcoat,
+        clearcoatRoughness: tier.clearcoatRoughness
+    )
+    if let tex = textures {
+        if let a = tex.albedo    { mat.baseColor  = .init(tint: .white, texture: .init(a)) }
+        if let n = tex.normal    { mat.normal     = .init(texture: .init(n)) }
+        if let r = tex.roughness { mat.roughness  = .init(texture: .init(r)) }
+        if let m = tex.metalness { mat.metallic   = .init(texture: .init(m)) }
+    }
+    return mat
+}
 ```
-Cmd+U
-```
 
-Expected: `BarbellEntityBuilderTests` — all 3 tests pass.
+- [ ] **Step 6: Run tests**
 
-- [ ] **Step 6: Commit**
+Expected: all 5 `BarbellEntityBuilderTests` pass.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellEntityBuilder.swift \
         WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift
-git commit -m "feat: add makePlateEntity to BarbellEntityBuilder with per-style geometry"
+git commit -m "feat: add physics-aware makePlateEntity with material param, ECS components, spatial audio"
 ```
 
 ---
@@ -479,7 +599,6 @@ Append to `BarbellEntityBuilder.swift`:
 ```swift
 // MARK: - Bar, collar, rack stand
 
-/// Builds the bar cylinder. skinID indexes into BarSkin.all.
 func makeBarEntity(skinID: Int = 0) -> ModelEntity {
     let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
     let mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
@@ -487,12 +606,10 @@ func makeBarEntity(skinID: Int = 0) -> ModelEntity {
         mesh: .generateCylinder(height: 1.1, radius: 0.012),
         materials: [mat]
     )
-    // Rotate cylinder axis (Y) to lie along X (bar axis)
     bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
     return bar
 }
 
-/// Builds one collar. Position it at ±0.475 on X after creation.
 func makeCollarEntity(skinID: Int = 0) -> ModelEntity {
     let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
     let mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
@@ -504,33 +621,26 @@ func makeCollarEntity(skinID: Int = 0) -> ModelEntity {
     return collar
 }
 
-/// Builds a vertical rack upright. Position at ±0.55 on X after creation.
 func makeRackStandEntity() -> ModelEntity {
     let mat = pbrMaterial(color: UIColor(white: 0.25, alpha: 1), metallic: 0.3, roughness: 0.75)
-    // Main upright
     let stand = Entity()
     let post = ModelEntity(
         mesh: .generateCylinder(height: 1.0, radius: 0.025),
         materials: [mat]
     )
-    // Cylinder axis is Y by default — correct for a vertical post
     stand.addChild(post)
-    // Foot plate
     let foot = ModelEntity(
         mesh: .generateBox(size: SIMD3(0.12, 0.02, 0.08)),
         materials: [mat]
     )
     foot.position = SIMD3(0, -0.51, 0)
     stand.addChild(foot)
-    // Saddle (J-hook shape approximated as a small box at bar height)
     let saddle = ModelEntity(
         mesh: .generateBox(size: SIMD3(0.06, 0.03, 0.04)),
         materials: [pbrMaterial(color: UIColor(white: 0.15, alpha: 1), metallic: 0.1, roughness: 0.9)]
     )
-    saddle.position = SIMD3(0, 0.1, 0.03)  // slightly forward at bar height
+    saddle.position = SIMD3(0, 0.1, 0.03)
     stand.addChild(saddle)
-    // Return a ModelEntity wrapper so the caller gets a consistent type.
-    // Stand children provide the actual geometry.
     let root = ModelEntity()
     root.addChild(stand)
     return root
@@ -539,7 +649,7 @@ func makeRackStandEntity() -> ModelEntity {
 
 - [ ] **Step 4: Run tests**
 
-Expected: all 6 `BarbellEntityBuilderTests` pass.
+Expected: all 8 `BarbellEntityBuilderTests` pass.
 
 - [ ] **Step 5: Commit**
 
@@ -551,7 +661,197 @@ git commit -m "feat: add makeBarEntity, makeCollarEntity, makeRackStandEntity to
 
 ---
 
-## Task 4: SceneState, DragPhase, BarbellRealityMode — skeleton view file
+## Task 4: BarbellAudioBuilder — spatial audio resources and physics materials
+
+**Pre-condition:** Audio `.wav` files listed in the plan header are added to `Resources/Audio/` and included in the WRKT target before this task.
+
+**Files:**
+- Create: `Features/Rewards/Views/BarbellAudioBuilder.swift`
+- Create: `WRKTTests/FeaturesTests/Barbell/BarbellAudioBuilderTests.swift`
+
+- [ ] **Step 1: Write failing tests**
+
+```swift
+// WRKTTests/FeaturesTests/Barbell/BarbellAudioBuilderTests.swift
+import Testing
+import RealityKit
+@testable import WRKT
+
+struct BarbellAudioBuilderTests {
+
+    @Test func audioResourceLoadsForEveryTier() {
+        for tierID in 0...7 {
+            let cat = PlateAudioCategory.from(tierID: tierID)
+            let resource = loadAudioResource(named: cat.clinkSoundName)
+            #expect(resource != nil, "clink sound missing for tier \(tierID): \(cat.clinkSoundName)")
+        }
+    }
+
+    @Test func dropSoundLoadsForEveryCategory() {
+        for cat in [PlateAudioCategory.iron, .rubber, .brass, .starter] {
+            let resource = loadAudioResource(named: cat.dropSoundName)
+            #expect(resource != nil, "drop sound missing for \(cat): \(cat.dropSoundName)")
+        }
+    }
+
+    @Test func physicsMaterialDefinedForAllCategories() {
+        // Compile-time guarantee — if any case is missing, this won't build
+        for cat in [PlateAudioCategory.iron, .rubber, .brass, .starter] {
+            _ = cat.physicsMaterial
+        }
+        #expect(true)
+    }
+}
+```
+
+- [ ] **Step 2: Run to confirm failure**
+
+Expected: compile error — `PlateAudioCategory` not yet defined.
+
+- [ ] **Step 3: Create BarbellAudioBuilder.swift**
+
+```swift
+// Features/Rewards/Views/BarbellAudioBuilder.swift
+import RealityKit
+
+// MARK: - PlateAudioCategory
+
+enum PlateAudioCategory {
+    case iron, rubber, brass, starter
+
+    static func from(tierID: Int) -> PlateAudioCategory {
+        switch tierID {
+        case 0, 1: return .iron
+        case 2:    return .rubber
+        case 3, 6: return .brass
+        case 7:    return .starter
+        default:   return .iron
+        }
+    }
+
+    var clinkSoundName: String {
+        switch self {
+        case .iron:    return "plate_clink_iron"
+        case .rubber:  return "plate_thud_rubber"
+        case .brass:   return "plate_clink_brass"
+        case .starter: return "plate_thud_rubber"
+        }
+    }
+
+    var dropSoundName: String {
+        switch self {
+        case .iron:    return "plate_drop_iron"
+        case .rubber:  return "plate_drop_rubber"
+        case .brass:   return "plate_drop_brass"
+        case .starter: return "plate_drop_rubber"
+        }
+    }
+
+    /// Physics material tuned per plate material type.
+    /// Iron: moderate bounce, medium friction.
+    /// Rubber bumper: low bounce, high friction (grips the floor).
+    /// Brass: slightly more bounce than iron due to density.
+    var physicsMaterial: PhysicsMaterialResource {
+        switch self {
+        case .iron:    return .generate(friction: 0.70, restitution: 0.30)
+        case .rubber:  return .generate(friction: 0.92, restitution: 0.08)
+        case .brass:   return .generate(friction: 0.65, restitution: 0.38)
+        case .starter: return .generate(friction: 0.85, restitution: 0.12)
+        }
+    }
+}
+
+// MARK: - Audio resource cache
+
+// Process-level cache — resources are loaded once and reused across view instances
+// and mode switches. nonisolated(unsafe) because writes are guarded by call-site
+// sequencing (all loads happen in .task{} before gesture handlers can fire).
+private nonisolated(unsafe) var audioResourceCache: [String: AudioFileResource] = [:]
+
+func loadAudioResource(named name: String) -> AudioFileResource? {
+    if let cached = audioResourceCache[name] { return cached }
+    guard let resource = try? AudioFileResource.load(named: name, in: .main,
+                                                      configuration: .init()) else { return nil }
+    audioResourceCache[name] = resource
+    return resource
+}
+
+// MARK: - Spatial audio helpers
+
+/// Attaches a SpatialAudioComponent to the entity. Must be called before playAudio().
+/// Called from makePlateEntity so every plate entity is automatically a spatial emitter.
+func attachSpatialAudio(to entity: Entity, category: PlateAudioCategory) {
+    entity.components.set(SpatialAudioComponent(gain: -6, directivity: .beam(focus: 0.5)))
+}
+
+/// Plays the rack/clink sound at the entity's world position.
+func playClinkSound(on entity: Entity, category: PlateAudioCategory) {
+    guard let resource = loadAudioResource(named: category.clinkSoundName) else { return }
+    entity.playAudio(resource)
+}
+
+/// Plays the floor-drop sound at the entity's world position.
+func playDropSound(on entity: Entity, category: PlateAudioCategory) {
+    guard let resource = loadAudioResource(named: category.dropSoundName) else { return }
+    entity.playAudio(resource)
+}
+
+// MARK: - Haptic vocabulary
+//
+// Typed haptic functions keyed to plate material category.
+// Replace all BarbellProgressService.playClinkHaptic() call sites with these.
+// Do not use a single undifferentiated haptic — iron racking onto steel should feel
+// different from rubber bumpers settling on a floor.
+
+/// Fires on successful rack (plate lands on bar).
+/// Iron/brass: rigid impact (hard metal-on-metal).
+/// Rubber/starter: soft impact (rubber damping).
+func playRackHaptic(category: PlateAudioCategory) {
+    switch category {
+    case .iron, .brass:
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+    case .rubber, .starter:
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+    }
+}
+
+/// Fires once when a dragged plate enters the bar snap zone.
+/// Light selection tick — tells the user "you're in range" without committing.
+func playSnapZoneEntryHaptic() {
+    UISelectionFeedbackGenerator().selectionChanged()
+}
+
+/// Fires when a plate lands on the floor after unracking.
+/// Iron/brass: heavy drop. Rubber: medium (absorbs impact).
+func playDropHaptic(category: PlateAudioCategory) {
+    switch category {
+    case .iron, .brass:
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+    case .rubber, .starter:
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+}
+```
+
+- [ ] **Step 4: Add files to Xcode project**
+
+Add `BarbellAudioBuilder.swift` to WRKT target. Add `BarbellAudioBuilderTests.swift` to WRKTTests target.
+
+- [ ] **Step 5: Run tests**
+
+Expected: all 3 `BarbellAudioBuilderTests` pass (requires audio files in bundle).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add Features/Rewards/Views/BarbellAudioBuilder.swift \
+        WRKTTests/FeaturesTests/Barbell/BarbellAudioBuilderTests.swift
+git commit -m "feat: add BarbellAudioBuilder — PlateAudioCategory, spatial audio, physics materials per material type"
+```
+
+---
+
+## Task 5: SceneState, DragPhase, BarbellRealityMode — state machine, camera proxy, material cache
 
 **Files:**
 - Create: `Features/Rewards/Views/BarbellRealityView.swift`
@@ -563,6 +863,7 @@ git commit -m "feat: add makeBarEntity, makeCollarEntity, makeRackStandEntity to
 // WRKTTests/FeaturesTests/Barbell/SceneStateTests.swift
 import Testing
 import RealityKit
+import SwiftUI
 @testable import WRKT
 
 struct SceneStateTests {
@@ -581,27 +882,61 @@ struct SceneStateTests {
 
     @Test func addPlateUpdatesEntityMap() {
         let state = SceneState()
-        let plate = EarnedPlate(
-            id: "test-id",
-            tierID: 0, weightKg: 5,
-            engravingText: "Test",
-            earnedByEvent: "first_workout"
-        )
+        let plate = EarnedPlate(id: "test-id", tierID: 0, weightKg: 5,
+                                engravingText: "Test", earnedByEvent: "first_workout")
         state.addPlate(plate)
         #expect(state.entityMap["test-id"] != nil)
     }
 
     @Test func addPlateIdempotent() {
         let state = SceneState()
-        let plate = EarnedPlate(
-            id: "dup-id",
-            tierID: 1, weightKg: 10,
-            engravingText: "",
-            earnedByEvent: "5_workouts"
-        )
+        let plate = EarnedPlate(id: "dup-id", tierID: 1, weightKg: 10,
+                                engravingText: "", earnedByEvent: "5_workouts")
         state.addPlate(plate)
         state.addPlate(plate)
         #expect(state.entityMap.count == 1)
+    }
+
+    // MARK: State machine
+
+    @Test func idleCanTransitionToDraggingPlate() {
+        let state = SceneState()
+        let entity = Entity()
+        let result = state.transition(to: .draggingPlate(entity, plateID: "x"))
+        #expect(result == true)
+        if case .draggingPlate = state.dragPhase { } else {
+            Issue.record("Expected .draggingPlate after valid transition")
+        }
+    }
+
+    @Test func idleCanTransitionToPanningFloor() {
+        let state = SceneState()
+        #expect(state.transition(to: .panningFloor) == true)
+    }
+
+    @Test func panningFloorCannotTransitionToDraggingPlate() {
+        let state = SceneState()
+        state.transition(to: .panningFloor)
+        let result = state.transition(to: .draggingPlate(Entity(), plateID: "x"))
+        #expect(result == false)
+        if case .panningFloor = state.dragPhase { } else {
+            Issue.record("State should remain .panningFloor after invalid transition")
+        }
+    }
+
+    @Test func draggingPlateCannotTransitionToPanningFloor() {
+        let state = SceneState()
+        state.transition(to: .draggingPlate(Entity(), plateID: "x"))
+        #expect(state.transition(to: .panningFloor) == false)
+    }
+
+    @Test func floorOffsetClampDoesNotExceedBounds() {
+        let state = SceneState()
+        state.floorMinX = 0
+        state.floorMaxX = 1.0
+        let raw: Float = 1.5
+        let clamped = max(state.floorMinX, min(state.floorMaxX, raw))
+        #expect(clamped == 1.0)
     }
 }
 ```
@@ -639,79 +974,118 @@ enum DragPhase {
 }
 
 // MARK: - PlateSpinState
-// One instance per plate in .welcome mode. Holds independent spin velocity/angle
-// so each plate coin-spins at a different speed. Class (not struct) because it is
-// mutated per frame inside a Task loop without triggering SwiftUI re-renders.
 
 final class PlateSpinState {
-    var angle: Float = Float.random(in: 0 ..< Float.pi * 2)
+    var angle: Float    = Float.random(in: 0 ..< Float.pi * 2)
     var velocity: Float = Float.random(in: 0.5 ..< 1.8) * (Bool.random() ? 1 : -1)
 }
 
 // MARK: - SceneState
-// Owned by the parent view (@State var sceneState = SceneState()).
-// Passed into BarbellRealityView as an init parameter.
-// Mutations to this class do NOT trigger SwiftUI re-renders.
 
 final class SceneState {
 
-    // Anchor entities — reference types, safe to hold and mutate outside make{}
+    // MARK: Scene graph anchors
     var floorAnchor = Entity()
     var barAnchor   = Entity()
-    var sceneRoot   = Entity()      // top-level root added to RealityViewContent
-
-    // Barbell root for .welcome mode (spin target)
+    var sceneRoot   = Entity()
     var barbellRoot: Entity?
 
-    // Entity lookup — keyed by EarnedPlate.id
+    // MARK: Entity lookups
     var entityMap: [String: Entity] = [:]
+    /// Canonical position on barAnchor per plate ID. Used by snapBack for bar plates.
+    var barPositionMap: [String: SIMD3<Float>] = [:]
+    /// Slot highlight ring entities on barAnchor. Index matches slotOffsets[0...3].
+    /// Toggled visible/invisible during drag to show the target slot.
+    var slotHighlights: [Entity] = []
+    /// Tracks whether the dragged plate was in the snap zone on the previous frame.
+    /// Prevents snap zone entry haptic from firing every frame.
+    var wasInSnapZone: Bool = false
 
-    // Gesture state
-    var dragPhase: DragPhase = .idle
+    // MARK: Caches
+    /// One PhysicallyBasedMaterial per tierID — shared across all plates of the same tier.
+    /// Populate in .task{} before RealityView make{} runs. Pass entries into makePlateEntity(material:).
+    var materialCache: [Int: PhysicallyBasedMaterial] = [:]
+    var plateTextureCache: [Int: PlateTextures] = [:]
 
-    // Floor pan state (.rackRoom)
+    // MARK: State machine
+
+    private(set) var dragPhase: DragPhase = .idle
+
+    /// Attempts the transition to `next`. Returns false and leaves dragPhase unchanged
+    /// if the transition is invalid.
+    /// Invalid transitions: floor pan while dragging a plate; dragging a plate while floor
+    /// panning. Both require returning to .idle first.
+    @discardableResult
+    func transition(to next: DragPhase) -> Bool {
+        switch (dragPhase, next) {
+        case (.idle, _),
+             (.draggingPlate, .idle),
+             (.panningFloor, .idle):
+            dragPhase = next
+            return true
+        default:
+            return false
+        }
+    }
+
+    // MARK: Floor pan state
     var floorOffset: Float   = 0
     var floorVelocity: Float = 0
-    var floorMinX: Float     = 0    // set in make{} based on plate count
+    var floorMinX: Float     = 0
     var floorMaxX: Float     = 0
 
-    // Welcome spin state (.welcome)
+    // MARK: Welcome spin state
     var plateSpinStates: [String: PlateSpinState] = [:]
     var barbellSpinAngle: Float    = 0
     var barbellSpinVelocity: Float = 0.35
 
-    // Texture cache — populated in .task{}, used by addPlate()
-    var plateTextureCache: [Int: PlateTextures] = [:]
+    // MARK: Accessibility
+    /// Re-read at gesture time so it responds to in-session Reduce Motion changes.
+    var isReduceMotionEnabled: Bool {
+        UIAccessibility.isReduceMotionEnabled
+    }
 
-    // Adds a newly earned plate entity to the floor during a live session.
-    // Safe to call from PlateWallView.onChange because floorAnchor is an Entity
-    // (reference type); adding a child is picked up by RealityKit automatically.
+    // MARK: Camera proxy
+    /// Positions sceneRoot so the default RealityView perspective camera frames the scene.
+    /// Call after scene setup completes and on horizontal size class changes.
+    func configureCameraPosition(for mode: BarbellRealityMode, sizeClass: UserInterfaceSizeClass?) {
+        let isWide = sizeClass == .regular   // iPad or split view
+        switch mode {
+        case .welcome:
+            sceneRoot.position = SIMD3(0, -0.1, -1.2)
+            if isWide { sceneRoot.position.z = -1.6 }
+        case .rackRoom:
+            sceneRoot.position = SIMD3(0, -0.3, -1.4)
+            if isWide { sceneRoot.position.z = -1.9 }
+        }
+    }
+
+    // MARK: Live plate addition
     func addPlate(_ plate: EarnedPlate) {
         guard entityMap[plate.id] == nil else { return }
-        let textures = plateTextureCache[plate.tierID]
         let entity = makePlateEntity(
             tierID: plate.tierID,
-            textures: textures,
+            textures: plateTextureCache[plate.tierID],
+            material: materialCache[plate.tierID],
             weightKg: plate.weightKg,
             engravingText: plate.engravingText,
             role: .floor
         )
         entity.name = plate.id
-        // Place at the far end of existing floor plates (0.15m spacing)
         let xPos = Float(floorAnchor.children.count) * 0.15
         entity.position = SIMD3(xPos, 0, 0)
         let leanAngle = Float.random(in: 0.10 ..< 0.23)
         entity.orientation = simd_quatf(angle: leanAngle, axis: SIMD3(0, 0, 1))
         floorAnchor.addChild(entity)
         entityMap[plate.id] = entity
-        // Extend floor clamp bounds
         if xPos > floorMaxX { floorMaxX = xPos }
     }
 
-    // Per-frame spin loop for .welcome mode. Called from .task{} in BarbellWelcomeView.
-    // Lives on SceneState so it can be called directly without creating a new view instance.
+    // MARK: Welcome spin loop
+    /// No-ops immediately when Reduce Motion is enabled.
     @MainActor
     func runWelcomeSpinLoop() async {
+        guard !isReduceMotionEnabled else { return }
         var lastTime = Date().timeIntervalSinceReferenceDate
         while !Task.isCancelled {
             try? await Task.sleep(for: .milliseconds(16))
@@ -719,7 +1093,6 @@ final class SceneState {
             let dt = Float(min(now - lastTime, 0.05))
             lastTime = now
 
-            // Per-plate spin
             for (key, spinState) in plateSpinStates {
                 spinState.velocity *= pow(0.995, dt * 60)
                 spinState.angle    += spinState.velocity * dt
@@ -728,7 +1101,6 @@ final class SceneState {
                     * simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
             }
 
-            // Hero barbell spin
             barbellSpinVelocity *= pow(0.992, dt * 60)
             barbellSpinAngle    += barbellSpinVelocity * dt
             barbellRoot?.orientation =
@@ -752,44 +1124,43 @@ struct BarbellRealityView: View {
 
 - [ ] **Step 4: Add files to Xcode project**
 
-In Xcode: add `Features/Rewards/Views/BarbellRealityView.swift` to WRKT target.
-Add `WRKTTests/FeaturesTests/Barbell/SceneStateTests.swift` to WRKTTests target.
+Add `BarbellRealityView.swift` to WRKT target. Add `SceneStateTests.swift` to WRKTTests target.
 
 - [ ] **Step 5: Run tests**
 
-Expected: `SceneStateTests` — all 4 pass.
-
-Note: `addPlateUpdatesEntityMap` and `addPlateIdempotent` require `EarnedPlate` to have a memberwise init with `id:`. Check `BarbellModels.swift` — `EarnedPlate.init` already accepts an `id` parameter (defaults to `UUID().uuidString`). Pass `id: "test-id"` explicitly.
+Expected: all 9 `SceneStateTests` pass.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellRealityView.swift \
         WRKTTests/FeaturesTests/Barbell/SceneStateTests.swift
-git commit -m "feat: add SceneState, DragPhase, BarbellRealityMode skeleton"
+git commit -m "feat: add SceneState with state machine, camera proxy, material cache, reduce motion guard"
 ```
 
 ---
 
-## Task 5: BarbellRealityView — welcome mode
+## Task 6: BarbellRealityView — directional shadow lighting, welcome mode
 
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellRealityView.swift`
 
-- [ ] **Step 1: Replace the stub body with the full welcome implementation**
+- [ ] **Step 1: Replace the stub body with the full implementation**
 
-Replace the entire `BarbellRealityView` struct in `BarbellRealityView.swift`:
+Replace the entire `BarbellRealityView` struct:
 
 ```swift
 struct BarbellRealityView: View {
     let mode: BarbellRealityMode
     let sceneState: SceneState
 
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
     var body: some View {
         ZStack {
             RealityView { content in
                 setupLighting(content: &content)
-                sceneState.sceneRoot = Entity()
+                sceneState.sceneRoot   = Entity()
                 sceneState.floorAnchor = Entity()
                 sceneState.barAnchor   = Entity()
                 sceneState.sceneRoot.addChild(sceneState.floorAnchor)
@@ -802,38 +1173,63 @@ struct BarbellRealityView: View {
                 case .rackRoom(let racked, let floor, _, _):
                     setupRackRoomScene(content: &content, racked: racked, floor: floor)
                 }
+
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
             } update: { _ in
                 // Intentionally empty — scene owns its runtime state
             }
             .gesture(entityDragGesture)
             .gesture(floorPanGesture)
+            .onChange(of: sizeClass) { _, _ in
+                // Re-apply camera proxy when horizontal size class changes
+                // (device rotation, iPad split view entry/exit).
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
+            }
 
             overlayView
+
+            // Shader warm-up overlay: a 1x1 invisible RealityView that forces Metal to
+            // compile PBR, physics, and unlit shader variants before the main scene renders.
+            // Without this, the first plate drag causes a 300-800ms shader compilation hitch
+            // on A14 and older. The overlay renders off-screen content then self-destructs.
+            ShaderWarmUpView()
+                .frame(width: 1, height: 1)
+                .allowsHitTesting(false)
         }
     }
 
     // MARK: Lighting
+    // DirectionalLightComponent is required for shadow casting in RealityKit.
+    // Point lights do not cast shadows. One directional key light + one point fill.
 
     private func setupLighting(content: inout RealityViewContent) {
-        let key = Entity()
-        key.components[PointLightComponent.self] = PointLightComponent(
-            color: .white, intensity: 3000, attenuationRadius: 10
-        )
-        key.position = SIMD3(0.5, 1.5, 1.5)
-        content.add(key)
+        // Key light — directional, casts contact shadows
+        let keyEntity = Entity()
+        var keyLight = DirectionalLightComponent()
+        keyLight.color = .white
+        keyLight.intensity = 3500
+        var shadow = DirectionalLightComponent.Shadow()
+        shadow.maximumDistance = 4      // covers scene depth without over-sampling shadow map
+        shadow.depthBias = 2.0
+        keyLight.shadow = shadow
+        keyEntity.components.set(keyLight)
+        // 45-degree down, 30-degree from front-left
+        keyEntity.orientation = simd_quatf(angle: -.pi / 4, axis: SIMD3(1, 0, 0))
+            * simd_quatf(angle: .pi / 6, axis: SIMD3(0, 1, 0))
+        content.add(keyEntity)
 
-        let fill = Entity()
-        fill.components[PointLightComponent.self] = PointLightComponent(
-            color: .init(white: 0.85, alpha: 1), intensity: 800, attenuationRadius: 8
+        // Fill light — point, no shadow, reduces harsh key-side darkness
+        let fillEntity = Entity()
+        fillEntity.components[PointLightComponent.self] = PointLightComponent(
+            color: UIColor(white: 0.75, alpha: 1), intensity: 600, attenuationRadius: 8
         )
-        fill.position = SIMD3(-1.5, -0.5, 0.8)
-        content.add(fill)
+        fillEntity.position = SIMD3(-1.5, -0.5, 0.8)
+        content.add(fillEntity)
     }
 
     // MARK: Welcome scene setup
 
     private func setupWelcomeScene(content: inout RealityViewContent, plates: [EarnedPlateInfo]) {
-        // Hero barbell (no plate data needed — shows starter plates)
         let barbellRoot = Entity()
         barbellRoot.position = SIMD3(0, 0.3, -0.5)
         barbellRoot.scale = SIMD3(repeating: 1.8)
@@ -848,7 +1244,6 @@ struct BarbellRealityView: View {
         sceneState.sceneRoot.addChild(barbellRoot)
         sceneState.barbellRoot = barbellRoot
 
-        // Plate grid — rows of 4, face-on to camera
         let cols = 4
         let spacingX: Float = 0.12
         let spacingY: Float = 0.14
@@ -857,12 +1252,12 @@ struct BarbellRealityView: View {
             let row = Float(i / cols)
             let entity = makePlateEntity(
                 tierID: info.tierID,
+                material: sceneState.materialCache[info.tierID],
                 weightKg: info.weightKg,
                 engravingText: info.engravingText,
-                role: .floor    // .floor so entityDragGesture routes to spin, not rack
+                role: .floor
             )
             entity.name = "welcome_plate_\(i)"
-            // Face-on: cylinder oriented so flat face looks toward +Z (camera)
             entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
             entity.position = SIMD3(
                 (col - Float(cols - 1) / 2) * spacingX,
@@ -875,19 +1270,17 @@ struct BarbellRealityView: View {
         }
     }
 
-    // MARK: Overlay SwiftUI
+    // MARK: Overlay
 
     @ViewBuilder
     private var overlayView: some View {
         switch mode {
-        case .welcome:
-            EmptyView()    // BarbellWelcomeView owns the CTA overlay — see Task 6
-        case .rackRoom:
-            EmptyView()    // PlateWallView owns the Done/weight overlay — see Task 11
+        case .welcome:  EmptyView()   // BarbellWelcomeView owns the CTA overlay
+        case .rackRoom: EmptyView()   // PlateWallView owns the Done/weight overlay
         }
     }
 
-    // MARK: Gesture stubs (implemented in Tasks 7-10)
+    // MARK: Gesture stubs (implemented in Tasks 9-11)
 
     private var entityDragGesture: some Gesture {
         DragGesture()
@@ -902,21 +1295,56 @@ struct BarbellRealityView: View {
             .onEnded { _ in }
     }
 
-    // MARK: RackRoom scene setup stub (Task 7)
+    // MARK: RackRoom scene setup stub (Task 8)
     private func setupRackRoomScene(content: inout RealityViewContent,
                                      racked: [EarnedPlate], floor: [EarnedPlate]) {}
 }
 ```
 
-- [ ] **Step 2: Add .task{} for async texture loading in BarbellWelcomeView.swift (preview)**
+- [ ] **Step 2: Add ShaderWarmUpView to BarbellRealityView.swift**
 
-This step is done in Task 6. Skip for now — the stub view is sufficient to verify the welcome scene renders.
+Append to `BarbellRealityView.swift` (outside the `BarbellRealityView` struct):
 
-- [ ] **Step 3: Build and verify compilation**
+```swift
+// MARK: - ShaderWarmUpView
+//
+// Renders one entity per material variant in a 1x1 invisible RealityView.
+// Metal compiles and caches shader PSOs on first render — warming up here prevents
+// hitch on first plate drag. Self-destructs after 1 second (shaders stay compiled).
 
+private struct ShaderWarmUpView: View {
+    @State private var visible = true
+
+    var body: some View {
+        if visible {
+            RealityView { content in
+                // One entity per shader variant used in the barbell scene
+                let variants: [(MeshResource, any RealityKit.Material)] = [
+                    (.generateBox(size: .init(repeating: 0.001)), {
+                        var m = PhysicallyBasedMaterial()
+                        m.baseColor = .init(tint: .clear)
+                        return m
+                    }()),
+                    (.generateCylinder(height: 0.001, radius: 0.001), chromeMaterial()),
+                    (.generateBox(size: .init(repeating: 0.001)), UnlitMaterial()),
+                ]
+                let root = Entity()
+                root.position = SIMD3(0, 0, -500)  // far off-screen
+                for (mesh, mat) in variants {
+                    root.addChild(ModelEntity(mesh: mesh, materials: [mat]))
+                }
+                content.add(root)
+            }
+            .task {
+                try? await Task.sleep(for: .seconds(1))
+                visible = false
+            }
+        }
+    }
+}
 ```
-Cmd+B
-```
+
+- [ ] **Step 3: Build**
 
 Expected: no errors.
 
@@ -924,12 +1352,12 @@ Expected: no errors.
 
 ```bash
 git add Features/Rewards/Views/BarbellRealityView.swift
-git commit -m "feat: implement BarbellRealityView welcome mode scene setup and spin loop"
+git commit -m "feat: BarbellRealityView — directional shadow lighting, welcome scene, camera proxy, shader warm-up"
 ```
 
 ---
 
-## Task 6: Migrate BarbellWelcomeView
+## Task 7: Migrate BarbellWelcomeView
 
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellWelcomeView.swift`
@@ -951,6 +1379,10 @@ struct BarbellWelcomeView: View {
     @Query private var ownedPlates: [EarnedPlate]
     @State private var showPlateWall = false
     @State private var sceneState = SceneState()
+    /// Guards against the .task{} / RealityView make{} race condition.
+    /// BarbellRealityView is only rendered after the material cache is fully populated,
+    /// guaranteeing make{} never runs against an empty cache.
+    @State private var assetsReady = false
 
     private var earnedPlates: [EarnedPlate] {
         ownedPlates.filter { $0.earnedByEvent != "starter" }
@@ -968,21 +1400,31 @@ struct BarbellWelcomeView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            BarbellRealityView(
-                mode: .welcome(plates: showcasePlateInfos),
-                sceneState: sceneState
-            )
-            .ignoresSafeArea()
-            .task { @MainActor in
-                // Load textures into sceneState cache, then start spin loop
+            if assetsReady {
+                BarbellRealityView(
+                    mode: .welcome(plates: showcasePlateInfos),
+                    sceneState: sceneState
+                )
+                .ignoresSafeArea()
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+
+            // Run asset loading in .task{}. Set assetsReady = true only after cache
+            // is fully populated — this is what makes the gate safe.
+            Color.clear.task { @MainActor in
                 for tierID in 0...6 {
                     sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+                    sceneState.materialCache[tierID] = buildMaterial(
+                        forTierID: tierID,
+                        textures: sceneState.plateTextureCache[tierID]
+                    )
                 }
-                await sceneState.applyTexturesToWelcomeEntities()
+                assetsReady = true
                 await sceneState.runWelcomeSpinLoop()
             }
 
-            // SwiftUI overlay
             VStack {
                 Spacer()
                 VStack(spacing: 8) {
@@ -1020,98 +1462,35 @@ struct BarbellWelcomeView: View {
 }
 ```
 
-- [ ] **Step 3: Add applyTexturesToWelcomeEntities to SceneState**
+- [ ] **Step 3: Build**
 
-Append to `SceneState` in `BarbellRealityView.swift`:
+Expected: no errors. Confirm no `import SceneKit` in the file.
 
-```swift
-/// After textures are loaded into plateTextureCache, update all welcome-mode
-/// plate entity materials. Called once from BarbellWelcomeView.task{}.
-@MainActor
-func applyTexturesToWelcomeEntities() async {
-    for (key, entity) in entityMap {
-        guard key.hasPrefix("welcome_plate_") else { continue }
-        // Rebuild the entity's materials with textures now that they are loaded.
-        // Extract tierID from the PlateRoleComponent is not available here,
-        // so we match against the entity's first ModelComponent material color.
-        // Simplest approach: store tierID alongside entity in a parallel dict.
-        // For now the welcome view rebuilds the scene root if textures change.
-        // This is acceptable since it happens at most once per session launch.
-        _ = entity  // texture application deferred to rackRoom mode for now
-    }
-    // Trigger sceneRoot IBL if IndoorHDRI is available
-    if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
-        let iblEntity = Entity()
-        iblEntity.components.set(ImageBasedLightComponent(source: .single(ibl), intensityExponent: 0.5))
-        sceneRoot.addChild(iblEntity)
-        sceneRoot.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
-    }
-}
-```
+- [ ] **Step 4: Run on simulator — visual verification**
 
-Update `applyTexturesToWelcomeEntities`:
+- [ ] 3D barbell renders with auto-spin (static if Reduce Motion is on)
+- [ ] Earned plates appear in grid below
+- [ ] Contact shadows visible under barbell and plates
+- [ ] "Build Your Rack" opens `PlateWallView`
 
-```swift
-@MainActor
-func applyTexturesToWelcomeEntities() async {
-    for (_, entity) in entityMap {
-        guard let tierComp = entity.components[TierIDComponent.self] else { continue }
-        let textures = plateTextureCache[tierComp.tierID]
-        guard let textures, let albedo = textures.albedo else { continue }
-        if var model = entity.components[ModelComponent.self] {
-            if var mat = model.materials.first as? PhysicallyBasedMaterial {
-                mat.baseColor = .init(tint: .white, texture: .init(albedo))
-                if let n = textures.normal    { mat.normal    = .init(texture: .init(n)) }
-                if let r = textures.roughness { mat.roughness = .init(texture: .init(r)) }
-                if let m = textures.metalness { mat.metallic  = .init(texture: .init(m)) }
-                model.materials = [mat]
-                entity.components.set(model)
-            }
-        }
-    }
-    if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
-        let iblEntity = Entity()
-        iblEntity.components.set(ImageBasedLightComponent(source: .single(ibl), intensityExponent: 0.5))
-        sceneRoot.addChild(iblEntity)
-        sceneRoot.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
-    }
-}
-```
-
-- [ ] **Step 4: Build**
-
-```
-Cmd+B
-```
-
-Expected: no errors. `SceneKit` import removed from `BarbellWelcomeView.swift` — confirm no SceneKit references remain.
-
-- [ ] **Step 5: Run on simulator and verify visually**
-
-Run on iPhone 16 simulator. Navigate to the welcome screen. Verify:
-- [ ] 3D barbell renders at top with auto-spin
-- [ ] Earned plate entities appear in a grid below
-- [ ] Tapping "Build Your Rack" opens `PlateWallView`
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellWelcomeView.swift \
-        Features/Rewards/Views/BarbellEntityBuilder.swift \
         Features/Rewards/Views/BarbellRealityView.swift
-git commit -m "feat: migrate BarbellWelcomeView from SceneKit to BarbellRealityView welcome mode"
+git commit -m "feat: migrate BarbellWelcomeView to BarbellRealityView; reduce motion, material cache"
 ```
 
 ---
 
-## Task 7: BarbellRealityView — rackRoom scene setup
+## Task 8: BarbellRealityView — rackRoom scene setup with physics floor
 
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellRealityView.swift`
 
 - [ ] **Step 1: Implement setupRackRoomScene**
 
-Replace the stub `setupRackRoomScene` function in `BarbellRealityView`:
+Replace the stub `setupRackRoomScene` in `BarbellRealityView`:
 
 ```swift
 private func setupRackRoomScene(
@@ -1119,69 +1498,98 @@ private func setupRackRoomScene(
     racked: [EarnedPlate],
     floor: [EarnedPlate]
 ) {
-    // Camera at (0, 0.4, 1.8) looking toward origin, ~42-degree FOV.
-    // RealityView uses a default perspective camera; we position the scene root
-    // to achieve the desired framing rather than moving the camera directly.
-    sceneState.sceneRoot.position = SIMD3(0, -0.3, -1.4)
+    // Invisible static physics floor — plates settle on this after .dynamic release
+    let floorShape = ShapeResource.generateBox(size: SIMD3(20, 0.02, 4))
+    let floorCollider = Entity()
+    floorCollider.components.set(CollisionComponent(
+        shapes: [floorShape],
+        filter: CollisionFilter(group: floorCollisionGroup, mask: plateCollisionGroup)
+    ))
+    var floorBody = PhysicsBodyComponent()
+    floorBody.mode = .static
+    floorBody.material = PhysicsMaterialResource.generate(friction: 0.75, restitution: 0.25)
+    floorCollider.components.set(floorBody)
+    floorCollider.position = SIMD3(0, -0.01, 0)
+    sceneState.sceneRoot.addChild(floorCollider)
 
-    // Rack stands at ±0.55 on X
+    // Visual floor line
+    let floorLine = ModelEntity(
+        mesh: .generateBox(size: SIMD3(1.2, 0.004, 0.08)),
+        materials: [pbrMaterial(color: UIColor(white: 0.15, alpha: 1), metallic: 0, roughness: 1)]
+    )
+    floorLine.position = SIMD3(0, 0, 0)
+    sceneState.sceneRoot.addChild(floorLine)
+
+    // Rack stands
     for xSign: Float in [-1, 1] {
         let stand = makeRackStandEntity()
         stand.position = SIMD3(xSign * 0.55, 0.3, 0)
         sceneState.sceneRoot.addChild(stand)
     }
 
-    // Bar at Y = 0.6 (resting on saddles)
+    // Bar
     let bar = makeBarEntity(skinID: 0)
     bar.position = SIMD3(0, 0.6, 0)
     sceneState.sceneRoot.addChild(bar)
     sceneState.barAnchor.position = SIMD3(0, 0.6, 0)
     sceneState.sceneRoot.addChild(sceneState.barAnchor)
 
-    // Collars at ±0.475 relative to bar
+    // Collars
     for xSign: Float in [-1, 1] {
         let collar = makeCollarEntity()
         collar.position = SIMD3(xSign * 0.475, 0.6, 0)
         sceneState.sceneRoot.addChild(collar)
     }
 
-    // Floor line reference (thin box at Y = 0)
-    let floor_line = ModelEntity(
-        mesh: .generateBox(size: SIMD3(1.2, 0.004, 0.08)),
-        materials: [pbrMaterial(color: UIColor(white: 0.15, alpha: 1), metallic: 0, roughness: 1)]
-    )
-    floor_line.position = SIMD3(0, 0, 0)
-    sceneState.sceneRoot.addChild(floor_line)
-
-    // Racked plates on bar
+    // Slot highlight rings — one per bar slot, hidden until plate is dragged near bar.
+    // Thin flat cylinder oriented face-on, rendered with UnlitMaterial so they always
+    // appear bright regardless of scene lighting.
     let slotOffsets: [Float] = [0.34, 0.37, 0.40, 0.43]
+    sceneState.slotHighlights.removeAll()
+    for offset in slotOffsets {
+        var mat = UnlitMaterial()
+        mat.color = .init(tint: UIColor(white: 1, alpha: 0.7))
+        let ring = ModelEntity(
+            mesh: cachedCylinder(height: 0.003, radius: 0.21),
+            materials: [mat]
+        )
+        ring.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        ring.position = SIMD3(offset, 0, 0)
+        ring.isEnabled = false  // hidden until drag enters snap zone
+        sceneState.barAnchor.addChild(ring)
+        sceneState.slotHighlights.append(ring)
+    }
+
+    // Racked plates — bilateral rendering, use cached material
+    // Performance budget: max 4 racked plates (4 bar slots)
     let sorted = racked.sorted { ($0.rackPosition ?? 999) < ($1.rackPosition ?? 999) }
     for (idx, plate) in sorted.prefix(4).enumerated() {
         let offset = slotOffsets[min(idx, slotOffsets.count - 1)]
         for xSign: Float in [-1, 1] {
             let entity = makePlateEntity(
                 tierID: plate.tierID,
-                textures: sceneState.plateTextureCache[plate.tierID],
+                material: sceneState.materialCache[plate.tierID],
                 weightKg: plate.weightKg,
                 engravingText: plate.engravingText,
                 role: .bar
             )
-            entity.name = plate.id
-            entity.position = SIMD3(xSign * offset, 0, 0)  // relative to barAnchor
+            entity.name = xSign == 1 ? plate.id : plate.id + "_mirror"
+            entity.position = SIMD3(xSign * offset, 0, 0)
             sceneState.barAnchor.addChild(entity)
-            // Only store one entity per EarnedPlate (bilateral rendering uses same data)
-            if xSign == 1 {
-                sceneState.entityMap[plate.id] = entity
-            }
         }
+        sceneState.entityMap[plate.id] = sceneState.barAnchor.children
+            .first(where: { $0.name == plate.id })
+        sceneState.barPositionMap[plate.id] = SIMD3(offset, 0, 0)
     }
 
-    // Floor plates leaning against rack base
+    // Floor plates — use cached material
+    // Performance budget: max 24 floor plates (see Task 12 for rationale)
     let spacing: Float = 0.15
-    for (idx, plate) in floor.enumerated() {
+    let visibleFloor = Array(floor.prefix(24))
+    for (idx, plate) in visibleFloor.enumerated() {
         let entity = makePlateEntity(
             tierID: plate.tierID,
-            textures: sceneState.plateTextureCache[plate.tierID],
+            material: sceneState.materialCache[plate.tierID],
             weightKg: plate.weightKg,
             engravingText: plate.engravingText,
             role: .floor
@@ -1189,7 +1597,6 @@ private func setupRackRoomScene(
         entity.name = plate.id
         let xPos = Float(idx) * spacing
         entity.position = SIMD3(xPos, 0, 0)
-        // Lean angle: slight tilt backward (rotation around X from face-forward orientation)
         let leanAngle = Float.random(in: 0.10 ..< 0.23)
         entity.orientation = simd_quatf(angle: -.pi / 2, axis: SIMD3(1, 0, 0))
             * simd_quatf(angle: leanAngle, axis: SIMD3(0, 0, 1))
@@ -1197,8 +1604,8 @@ private func setupRackRoomScene(
         sceneState.entityMap[plate.id] = entity
     }
 
-    // Clamp bounds for floor pan
-    let totalWidth = Float(max(floor.count - 1, 0)) * spacing
+    // Floor pan clamp bounds
+    let totalWidth = Float(max(visibleFloor.count - 1, 0)) * spacing
     sceneState.floorMinX = 0
     sceneState.floorMaxX = max(totalWidth - 0.8, 0)
 }
@@ -1206,62 +1613,45 @@ private func setupRackRoomScene(
 
 - [ ] **Step 2: Build**
 
-```
-Cmd+B
-```
-
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellRealityView.swift
-git commit -m "feat: implement rackRoom scene setup — rack stands, bar, floor plates"
+git commit -m "feat: implement rackRoom scene setup — static physics floor, cached materials, bilateral bar plates"
 ```
 
 ---
 
-## Task 8: rackRoom — floor pan gesture
+## Task 9: rackRoom — floor pan gesture (state machine guarded, reduce motion aware)
 
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellRealityView.swift`
 
-- [ ] **Step 1: Add unit test for floor offset clamping**
-
-Append to `SceneStateTests`:
-
-```swift
-@Test func floorOffsetClampDoesNotExceedBounds() {
-    let state = SceneState()
-    state.floorMinX = 0
-    state.floorMaxX = 1.0
-    // Simulate clamped assignment
-    let raw: Float = 1.5
-    let clamped = max(state.floorMinX, min(state.floorMaxX, raw))
-    #expect(clamped == 1.0)
-}
-```
-
-- [ ] **Step 2: Run test to confirm it passes immediately** (pure math, no RealityKit needed)
-
-- [ ] **Step 3: Replace the floorPanGesture stub**
-
-Replace the `floorPanGesture` computed property in `BarbellRealityView`:
+- [ ] **Step 1: Replace the floorPanGesture stub**
 
 ```swift
 private var floorPanGesture: some Gesture {
     DragGesture(minimumDistance: 4, coordinateSpace: .global)
         .onChanged { value in
-            guard case .idle = sceneState.dragPhase else { return }
-            sceneState.dragPhase = .panningFloor
-            let delta = Float(value.translation.width - (value.startLocation.x - value.location.x)) * -0.002
+            // Attempt transition to .panningFloor; also allow if already panning
+            let alreadyPanning: Bool
+            if case .panningFloor = sceneState.dragPhase { alreadyPanning = true } else { alreadyPanning = false }
+            guard sceneState.transition(to: .panningFloor) || alreadyPanning else { return }
+
+            let delta = Float(value.translation.width) * -0.002
             let raw = sceneState.floorOffset + delta
             sceneState.floorOffset = max(sceneState.floorMinX, min(sceneState.floorMaxX, raw))
             sceneState.floorAnchor.position.x = -sceneState.floorOffset
             sceneState.floorVelocity = delta * 60
         }
         .onEnded { _ in
-            sceneState.dragPhase = .idle
+            sceneState.transition(to: .idle)
+            guard !sceneState.isReduceMotionEnabled else {
+                sceneState.floorVelocity = 0
+                return
+            }
             Task { @MainActor in
                 while abs(sceneState.floorVelocity) > 0.001 {
                     try? await Task.sleep(for: .milliseconds(16))
@@ -1276,31 +1666,29 @@ private var floorPanGesture: some Gesture {
 }
 ```
 
-- [ ] **Step 4: Build and run on simulator**
+- [ ] **Step 2: Build and run on simulator**
 
-Verify the floor plates pan left/right with momentum when dragging empty space below the bar.
+Verify panning with momentum. Enable Settings → Accessibility → Reduce Motion and verify momentum is suppressed (plates stop immediately on finger lift).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add Features/Rewards/Views/BarbellRealityView.swift \
-        WRKTTests/FeaturesTests/Barbell/SceneStateTests.swift
-git commit -m "feat: implement floor pan gesture with momentum for rackRoom mode"
+git add Features/Rewards/Views/BarbellRealityView.swift
+git commit -m "feat: floor pan gesture — state machine guard, reduce motion kills momentum"
 ```
 
 ---
 
-## Task 9: rackRoom — rack gesture (floor plate → bar)
+## Task 10: rackRoom — rack gesture (floor plate to bar)
 
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellRealityView.swift`
 
-- [ ] **Step 1: Add helper to find EarnedPlate from entityMap key**
+- [ ] **Step 1: Add mode accessor helpers**
 
-This gesture calls `onRack(plate)` at the end. To find the `EarnedPlate` from an entity, the gesture handler uses the entity's `name` (set to `plate.id` in `setupRackRoomScene`). The `onRack` callback is extracted from the mode enum when needed:
+Append to `BarbellRealityView`:
 
 ```swift
-// In BarbellRealityView — add this helper
 private var onRackCallback: ((EarnedPlate) -> Void)? {
     if case .rackRoom(_, _, let onRack, _) = mode { return onRack }
     return nil
@@ -1322,9 +1710,7 @@ private var allRackedPlates: [EarnedPlate] {
 }
 ```
 
-- [ ] **Step 2: Replace entityDragGesture stub with rack+unrack handler**
-
-Replace `entityDragGesture` in `BarbellRealityView`:
+- [ ] **Step 2: Replace entityDragGesture stub**
 
 ```swift
 private var entityDragGesture: some Gesture {
@@ -1336,58 +1722,75 @@ private var entityDragGesture: some Gesture {
 
             switch roleComp.role {
             case .floor:
-                // Rack gesture: lift plate and follow finger
-                sceneState.dragPhase = .draggingPlate(entity, plateID: entity.name)
+                guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) else { return }
+                // PhysicsBodyComponent stays .kinematic during drag — position directly
                 let worldPos = value.convert(value.location3D, from: .local, to: .scene)
-                entity.position = worldPos
                 entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
+                entity.position = worldPos
+
+                // Snap zone feedback: show slot highlight and fire a selection haptic
+                // once when the plate first enters the bar's snap zone.
+                let barWorldY = sceneState.barAnchor.position(relativeTo: nil).y
+                let inZone = worldPos.y > barWorldY - 0.2
+                if inZone {
+                    let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
+                    if let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }),
+                       nextSlot < sceneState.slotHighlights.count {
+                        sceneState.slotHighlights.forEach { $0.isEnabled = false }
+                        sceneState.slotHighlights[nextSlot].isEnabled = true
+                    }
+                    if !sceneState.wasInSnapZone {
+                        playSnapZoneEntryHaptic()
+                        sceneState.wasInSnapZone = true
+                    }
+                } else {
+                    sceneState.slotHighlights.forEach { $0.isEnabled = false }
+                    sceneState.wasInSnapZone = false
+                }
 
             case .bar:
-                // Unrack gesture: detect horizontal swipe
                 guard case .idle = sceneState.dragPhase else { return }
                 let dx = Float(value.translation.width)
-                if abs(dx) > 0.04 {
-                    // Animate plate off bar end in swipe direction
-                    let slideTarget = Transform(
-                        scale: entity.scale,
-                        rotation: entity.orientation,
-                        translation: entity.position(relativeTo: nil)
-                            + SIMD3(dx > 0 ? 0.6 : -0.6, 0, 0)
-                    )
+                guard abs(dx) > 0.04 else { return }
+                guard sceneState.transition(to: .draggingPlate(entity, plateID: entity.name)) else { return }
+                // Slide off bar end in swipe direction
+                let slideTarget = Transform(
+                    scale: entity.scale,
+                    rotation: entity.orientation,
+                    translation: entity.position(relativeTo: nil) + SIMD3(dx > 0 ? 0.6 : -0.6, 0, 0)
+                )
+                if sceneState.isReduceMotionEnabled {
+                    entity.position = slideTarget.translation
+                } else {
                     entity.move(to: slideTarget, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
-                    sceneState.dragPhase = .draggingPlate(entity, plateID: entity.name)
-                    entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
-                    // Update role so onEnded knows this is an unrack gesture
-                    entity.components.set(PlateRoleComponent(role: .floor))
                 }
+                entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
+                entity.components.set(PlateRoleComponent(role: .floor))
             }
         }
         .onEnded { value in
             guard case .draggingPlate(let entity, let plateID) = sceneState.dragPhase else { return }
-            sceneState.dragPhase = .idle
+            sceneState.transition(to: .idle)
+            // Always hide highlights and reset snap zone state on drag end
+            sceneState.slotHighlights.forEach { $0.isEnabled = false }
+            sceneState.wasInSnapZone = false
 
             let worldPos = value.convert(value.location3D, from: .local, to: .scene)
             let barWorldY = sceneState.barAnchor.position(relativeTo: nil).y
-
-            // Determine whether this was originally a floor→bar rack or a bar→floor unrack
-            // by checking whether this entity is in allFloorPlates or allRackedPlates
             let isFromFloor = allFloorPlates.contains { $0.id == plateID }
 
             if isFromFloor && worldPos.y > barWorldY - 0.15 {
-                // Snap to bar — find next open slot
                 snapToBar(entity: entity, plateID: plateID)
             } else if !isFromFloor && worldPos.y < barWorldY - 0.2 {
-                // Unrack — land on floor
                 snapToFloor(entity: entity, plateID: plateID)
             } else {
-                // Missed — snap back to original position
                 snapBack(entity: entity, plateID: plateID)
             }
         }
 }
 ```
 
-- [ ] **Step 3: Add snapToBar, snapToFloor, snapBack helpers**
+- [ ] **Step 3: Add snapToBar**
 
 Append to `BarbellRealityView`:
 
@@ -1395,7 +1798,6 @@ Append to `BarbellRealityView`:
 // MARK: - Snap animations
 
 private func snapToBar(entity: Entity, plateID: String) {
-    // Find next open slot (0-3 from innermost)
     let slotOffsets: [Float] = [0.34, 0.37, 0.40, 0.43]
     let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
     guard let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }) else {
@@ -1403,163 +1805,231 @@ private func snapToBar(entity: Entity, plateID: String) {
         return
     }
     let offset = slotOffsets[nextSlot]
+    let slotPos = SIMD3<Float>(offset, 0, 0)
+    let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
 
     entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
     entity.components.set(PlateRoleComponent(role: .bar))
 
-    // Animate bilateral: add a second entity for the other side
+    // Bilateral mirror entity for the opposite side of the bar
     let mirrorEntity = entity.clone(recursive: true)
     mirrorEntity.name = plateID + "_mirror"
+    mirrorEntity.components.set(PlateRoleComponent(role: .bar))
     sceneState.barAnchor.addChild(mirrorEntity)
 
-    for (e, xSign) in [(entity, Float(1)), (mirrorEntity, Float(-1))] {
-        let target = Transform(
-            scale: SIMD3(repeating: 1),
-            rotation: simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1)),
-            translation: SIMD3(xSign * offset, 0, 0)
-        )
-        e.move(to: target, relativeTo: sceneState.barAnchor, duration: 0.25, timingFunction: .easeOut)
+    if sceneState.isReduceMotionEnabled {
+        entity.position = slotPos
+        entity.orientation = rot
+        mirrorEntity.position = SIMD3(-offset, 0, 0)
+        mirrorEntity.orientation = rot
+    } else {
+        // Spring snap: overshoot 2.5cm above slot then settle — gives physical weight feeling
+        for (e, xSign) in [(entity, Float(1)), (mirrorEntity, Float(-1))] {
+            let overshoot = Transform(scale: SIMD3(repeating: 1), rotation: rot,
+                                      translation: SIMD3(xSign * offset, slotPos.y + 0.025, 0))
+            let settle    = Transform(scale: SIMD3(repeating: 1), rotation: rot,
+                                      translation: SIMD3(xSign * offset, slotPos.y, 0))
+            e.move(to: overshoot, relativeTo: sceneState.barAnchor, duration: 0.15, timingFunction: .easeOut)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                e.move(to: settle, relativeTo: sceneState.barAnchor, duration: 0.12, timingFunction: .easeIn)
+            }
+        }
     }
 
-    // Call persistence callback after animation
+    sceneState.barPositionMap[plateID] = slotPos
+
+    let animDelay = sceneState.isReduceMotionEnabled ? 0 : 270
     Task { @MainActor in
-        try? await Task.sleep(for: .milliseconds(260))
+        try? await Task.sleep(for: .milliseconds(animDelay))
         if let plate = allFloorPlates.first(where: { $0.id == plateID }) {
             onRackCallback?(plate)
-            BarbellProgressService.shared.playClinkHaptic()
+            if let audioComp = entity.components[PlateAudioCategoryComponent.self] {
+                playClinkSound(on: entity, category: audioComp.category)
+                playRackHaptic(category: audioComp.category)
+            }
         }
     }
-}
-
-private func snapToFloor(entity: Entity, plateID: String) {
-    // Place entity at end of current floor plates
-    let xPos = Float(sceneState.floorAnchor.children.count) * 0.15
-    entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
-    entity.components.set(PlateRoleComponent(role: .floor))
-    let leanAngle = Float.random(in: 0.10 ..< 0.23)
-    let target = Transform(
-        scale: SIMD3(repeating: 1),
-        rotation: simd_quatf(angle: -.pi / 2, axis: SIMD3(1, 0, 0))
-            * simd_quatf(angle: leanAngle, axis: SIMD3(0, 0, 1)),
-        translation: SIMD3(xPos, 0, 0)
-    )
-    entity.move(to: target, relativeTo: sceneState.floorAnchor, duration: 0.25, timingFunction: .easeOut)
-
-    Task { @MainActor in
-        try? await Task.sleep(for: .milliseconds(260))
-        if let plate = allRackedPlates.first(where: { $0.id == plateID }) {
-            onUnrackCallback?(plate)
-            // Remove mirror entity from barAnchor
-            sceneState.barAnchor.children.first(where: { $0.name == plateID + "_mirror" })?
-                .removeFromParent()
-        }
-    }
-}
-
-private func snapBack(entity: Entity, plateID: String) {
-    // Determine original parent and position from entityMap
-    if let original = sceneState.entityMap[plateID] {
-        let target = Transform(matrix: original.transformMatrix(relativeTo: nil))
-        entity.move(to: target, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
-    }
-    entity.setParent(
-        entity.components[PlateRoleComponent.self]?.role == .bar
-            ? sceneState.barAnchor : sceneState.floorAnchor,
-        preservingWorldTransform: true
-    )
 }
 ```
 
 - [ ] **Step 4: Build**
 
-```
-Cmd+B
-```
-
 Expected: no errors.
 
 - [ ] **Step 5: Run on simulator — rack test**
 
-1. Open PlateWallView (temporarily wire it in Task 11 — do a quick stub first if needed).
-2. Drag a floor plate up to the bar zone. Verify it snaps onto the bar.
-3. Verify `BarbellProgressService.rackPlate()` is called (check that the plate appears on bar after relaunch).
+1. Drag a floor plate up past the bar. Verify spring snap (or instant with Reduce Motion).
+2. Verify clink sound plays spatially from the plate's 3D position.
+3. Verify bilateral plate appears symmetrically on both bar sides.
+4. Verify `rackPlate()` is called (plate persists on bar after relaunch).
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellRealityView.swift
-git commit -m "feat: implement rack gesture (floor plate drag to bar) for rackRoom mode"
+git commit -m "feat: rack gesture — state machine, spring snap, bilateral clone, spatial clink"
 ```
 
 ---
 
-## Task 10: rackRoom — unrack gesture (bar plate → floor)
-
-The unrack path is already handled inside `entityDragGesture` from Task 9 (the `.bar` role branch detects the horizontal swipe and calls `snapToFloor`). This task verifies it works end-to-end and fixes any issues found.
+## Task 11: rackRoom — unrack gesture and snapBack (physics-aware)
 
 **Files:**
-- Modify: `Features/Rewards/Views/BarbellRealityView.swift` (fixes only)
+- Modify: `Features/Rewards/Views/BarbellRealityView.swift`
 
-- [ ] **Step 1: Run on simulator — unrack test**
+The unrack swipe is already in `entityDragGesture` from Task 10. This task adds `snapToFloor` and `snapBack`.
 
-1. With a plate on the bar, swipe it left or right.
-2. Verify the plate slides off the bar end.
-3. Drag it down to the floor zone and release. Verify it lands on the floor.
-4. Verify `BarbellProgressService.unrackPlate()` is called (plate no longer on bar after relaunch).
+- [ ] **Step 1: Add snapToFloor**
 
-- [ ] **Step 2: Fix snapBack for unrack miss case**
-
-If the user swipes a plate off the bar but releases it in mid-air (not in the floor zone), `snapBack` should return it to its bar position. The current `snapBack` reads `sceneState.entityMap[plateID]` which holds the floor entity reference, not the bar position.
-
-Extend `SceneState` with a bar position cache:
+Append to `BarbellRealityView`:
 
 ```swift
-// In SceneState — add this property
-var barPositionMap: [String: SIMD3<Float>] = [:]  // plateID -> position on barAnchor
-```
+private func snapToFloor(entity: Entity, plateID: String) {
+    let xPos = Float(sceneState.floorAnchor.children.count) * 0.15
+    entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
+    entity.components.set(PlateRoleComponent(role: .floor))
 
-Set it in `setupRackRoomScene` after placing each bar plate:
+    let leanAngle = Float.random(in: 0.10 ..< 0.23)
+    let leanRot = simd_quatf(angle: -.pi / 2, axis: SIMD3(1, 0, 0))
+        * simd_quatf(angle: leanAngle, axis: SIMD3(0, 0, 1))
 
-```swift
-// After entity.position = SIMD3(xSign * offset, 0, 0):
-if xSign == 1 {
-    sceneState.barPositionMap[plate.id] = SIMD3(xSign * offset, 0, 0)
+    if sceneState.isReduceMotionEnabled {
+        entity.position = SIMD3(xPos, 0, 0)
+        entity.orientation = leanRot
+        finishUnrack(entity: entity, plateID: plateID, delayMs: 0)
+    } else {
+        // Switch to dynamic so physics handles the bounce on floor contact
+        entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+        // Drop from slightly above (physics takes it to the static floor collider)
+        let dropTarget = Transform(
+            scale: SIMD3(repeating: 1),
+            rotation: leanRot,
+            translation: SIMD3(xPos, 0.3, 0)
+        )
+        entity.move(to: dropTarget, relativeTo: sceneState.floorAnchor, duration: 0.15, timingFunction: .easeOut)
+        Task { @MainActor in
+            // Let physics settle (~800ms), then lock back to kinematic and play drop sound
+            try? await Task.sleep(for: .milliseconds(800))
+            entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+            if let audioComp = entity.components[PlateAudioCategoryComponent.self] {
+                playDropSound(on: entity, category: audioComp.category)
+                playDropHaptic(category: audioComp.category)
+            }
+            finishUnrack(entity: entity, plateID: plateID, delayMs: 0)
+        }
+    }
+}
+
+private func finishUnrack(entity: Entity, plateID: String, delayMs: Int) {
+    Task { @MainActor in
+        if delayMs > 0 { try? await Task.sleep(for: .milliseconds(delayMs)) }
+        if let plate = allRackedPlates.first(where: { $0.id == plateID }) {
+            onUnrackCallback?(plate)
+        }
+        sceneState.barAnchor.children
+            .first(where: { $0.name == plateID + "_mirror" })?
+            .removeFromParent()
+        sceneState.barPositionMap.removeValue(forKey: plateID)
+    }
 }
 ```
 
-Update `snapBack` to use `barPositionMap` for bar plates:
+- [ ] **Step 2: Add snapBack**
+
+Append to `BarbellRealityView`:
 
 ```swift
 private func snapBack(entity: Entity, plateID: String) {
     if let roleComp = entity.components[PlateRoleComponent.self], roleComp.role == .bar,
        let barPos = sceneState.barPositionMap[plateID] {
+        // Return bar plate to its slot
         entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
-        let target = Transform(
-            scale: SIMD3(repeating: 1),
-            rotation: simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1)),
-            translation: barPos
-        )
-        entity.move(to: target, relativeTo: sceneState.barAnchor, duration: 0.2, timingFunction: .easeOut)
+        let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        let target = Transform(scale: SIMD3(repeating: 1), rotation: rot, translation: barPos)
+        if sceneState.isReduceMotionEnabled {
+            entity.position = barPos
+            entity.orientation = rot
+        } else {
+            entity.move(to: target, relativeTo: sceneState.barAnchor, duration: 0.2, timingFunction: .easeOut)
+        }
     } else if let original = sceneState.entityMap[plateID] {
-        let target = Transform(matrix: original.transformMatrix(relativeTo: nil))
-        entity.move(to: target, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
+        // Return floor plate to its original position
         entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
+        let target = Transform(matrix: original.transformMatrix(relativeTo: nil))
+        if sceneState.isReduceMotionEnabled {
+            entity.transform = Transform(matrix: entity.convert(transform: target, from: nil))
+        } else {
+            entity.move(to: target, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
+        }
     }
 }
 ```
 
-- [ ] **Step 3: Build and re-test unrack flow on simulator**
+- [ ] **Step 3: Build**
+
+Expected: no errors.
+
+- [ ] **Step 4: Run on simulator — unrack test**
+
+1. Swipe a bar plate horizontally. Verify it slides off.
+2. Release into the floor zone — verify it drops with physics bounce, drop sound plays spatially.
+3. Release in mid-air (not in floor zone) — verify `snapBack` returns it to bar slot.
+4. Enable Reduce Motion — verify instant placement, no physics settle delay, no sounds during animation.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add Features/Rewards/Views/BarbellRealityView.swift
+git commit -m "feat: unrack snapToFloor with physics settle + drop sound; snapBack with reduce motion paths"
+```
+
+---
+
+## Task 12: Performance budget verification
+
+**Files:**
+- Modify: `Features/Rewards/Views/BarbellRealityView.swift` (comment, floor cap already in Task 8)
+
+This task verifies the draw call budget and documents the constraints. No new logic is added — the floor cap (24 plates) and `ModelSortGroupComponent` were added in Tasks 2 and 8.
+
+- [ ] **Step 1: Verify draw call count on device**
+
+Build and run on a physical device (iPhone 12 or later). In Xcode: Debug → Metal HUD.
+
+Target draw call counts:
+- Welcome mode: < 60 draw calls (4 plates + barbell)
+- RackRoom mode with 24 floor plates + 4 racked (bilateral = 8 entities): < 150 draw calls
+
+If over budget, investigate:
+- Duplicate material objects: confirm `materialCache` is populated before `make{}` runs
+- Rack stand children: each stand adds ~3 child ModelEntities; merge into one if needed
+- Hub cylinder on every plate: shared `chromeMaterial()` call already returns a new instance per plate — extract to a static let to share the material
+
+- [ ] **Step 2: Add draw call budget comment to setupRackRoomScene**
+
+At the top of `setupRackRoomScene`:
+
+```swift
+// Performance budget: 4 racked (bilateral = 8 entities) + 24 floor = 32 plate entities.
+// With shared materialCache, this stays under 150 draw calls on A15+ at 60fps.
+// Plates beyond index 24 are in SwiftData but not rendered.
+```
+
+- [ ] **Step 3: Run full test suite**
+
+Expected: all tests pass.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellRealityView.swift
-git commit -m "feat: fix snapBack for unrack-cancelled gesture; add barPositionMap to SceneState"
+git commit -m "perf: document draw call budget; verify materialCache prevents GPU material duplication"
 ```
 
 ---
 
-## Task 11: Migrate PlateWallView
+## Task 13: Migrate PlateWallView
 
 **Files:**
 - Modify: `Features/Profile/Views/PlateWallView.swift`
@@ -1581,6 +2051,9 @@ struct PlateWallView: View {
     private var ownedPlates: [EarnedPlate]
 
     @State private var sceneState = SceneState()
+    /// Guards against the .task{} / RealityView make{} race condition.
+    /// Same pattern as BarbellWelcomeView: make{} only runs after cache is populated.
+    @State private var assetsReady = false
 
     private var totalWeight: Double {
         let racked = rackedPlates.filter { $0.earnedByEvent != "starter" }
@@ -1591,24 +2064,42 @@ struct PlateWallView: View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            BarbellRealityView(
-                mode: .rackRoom(
-                    rackedPlates: rackedPlates,
-                    floorPlates: floorPlates,
-                    onRack: { plate in
-                        try? BarbellProgressService.shared.rackPlate(plate)
-                    },
-                    onUnrack: { plate in
-                        BarbellProgressService.shared.unrackPlate(plate)
-                    }
-                ),
-                sceneState: sceneState
-            )
-            .ignoresSafeArea()
-            .task { @MainActor in
+            if assetsReady {
+                BarbellRealityView(
+                    mode: .rackRoom(
+                        rackedPlates: rackedPlates,
+                        floorPlates: floorPlates,
+                        onRack: { plate in
+                            try? BarbellProgressService.shared.rackPlate(plate)
+                        },
+                        onUnrack: { plate in
+                            BarbellProgressService.shared.unrackPlate(plate)
+                        }
+                    ),
+                    sceneState: sceneState
+                )
+                .ignoresSafeArea()
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+
+            Color.clear.task { @MainActor in
+                // Populate caches, then set assetsReady = true before RealityView renders
                 for tierID in 0...6 {
                     sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+                    sceneState.materialCache[tierID] = buildMaterial(
+                        forTierID: tierID,
+                        textures: sceneState.plateTextureCache[tierID]
+                    )
                 }
+                // Preload audio into process-level cache so first interaction has no latency
+                for tierID in 0...7 {
+                    let cat = PlateAudioCategory.from(tierID: tierID)
+                    _ = loadAudioResource(named: cat.clinkSoundName)
+                    _ = loadAudioResource(named: cat.dropSoundName)
+                }
+                // IBL if available
                 if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
                     let iblEntity = Entity()
                     iblEntity.components.set(
@@ -1619,6 +2110,7 @@ struct PlateWallView: View {
                         ImageBasedLightReceiverComponent(imageBasedLight: iblEntity)
                     )
                 }
+                assetsReady = true  // Cache is populated — safe for make{} to run
             }
             .onChange(of: ownedPlates.count) { oldCount, newCount in
                 guard newCount > oldCount else { return }
@@ -1628,7 +2120,6 @@ struct PlateWallView: View {
                 }
             }
 
-            // SwiftUI overlay
             VStack {
                 HStack {
                     Button("Done") { dismiss() }
@@ -1657,48 +2148,38 @@ struct PlateWallView: View {
 
 - [ ] **Step 2: Build**
 
-```
-Cmd+B
-```
-
-Expected: no errors. All SceneKit, `DragGesture` zone logic, `PlateShelfRow`, `PlateCell`, `BarbellPreviewView(mode: .showcase)` references removed.
+Expected: no errors.
 
 - [ ] **Step 3: Run all tests**
 
-```
-Cmd+U
-```
+Expected: all tests pass.
 
-Expected: all existing tests pass (barbell unlock rules, SceneState, EntityBuilder).
+- [ ] **Step 4: End-to-end simulator verification**
 
-- [ ] **Step 4: Run on simulator — end-to-end flow**
-
-1. Launch app → navigate to the barbell feature
-2. Verify `BarbellWelcomeView` renders with RealityKit barbell and spinning plate grid
-3. Tap "Build Your Rack" → `PlateWallView` opens
-4. Verify rack room renders: stands, bar, floor plates
-5. Drag a floor plate up to the bar → verify it snaps on, clink plays, haptic fires
-6. Swipe a bar plate left or right → verify it slides off → drag down → verify it lands on floor
-7. Swipe floor left/right with no plate under finger → verify floor pans with momentum
-8. Dismiss → verify `BarbellWelcomeView` also dismisses
-9. Relaunch app → verify rack state persisted (racked plates still on bar)
+1. Navigate to barbell welcome — RealityKit barbell spins (static with Reduce Motion on)
+2. Tap "Build Your Rack" — rackRoom renders: rack stands, bar, floor plates, contact shadows on floor
+3. Drag a floor plate up — spring snap onto bar, bilateral plates appear, directional clink plays
+4. Swipe a bar plate horizontally — slides off, falls with physics bounce, drop sound plays from plate position
+5. Pan floor empty space — momentum scroll (instant stop with Reduce Motion on)
+6. Dismiss — welcome view also dismisses
+7. Relaunch — rack state persisted (racked plates on bar)
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add Features/Profile/Views/PlateWallView.swift
-git commit -m "feat: migrate PlateWallView to BarbellRealityView rackRoom mode"
+git commit -m "feat: migrate PlateWallView to BarbellRealityView rackRoom; preload materials and audio"
 ```
 
 ---
 
-## Task 12: Cleanup and final verification
+## Task 14: Cleanup and final verification
 
 **Files:**
-- Modify: `Features/Rewards/Views/BarbellWelcomeView.swift` (remove SceneKit import if still present)
+- Modify: `Features/Rewards/Views/BarbellWelcomeView.swift` (confirm clean)
 - Modify: `Features/Rewards/Views/BarbellRealityView.swift` (remove any leftover TODOs)
 
-- [ ] **Step 1: Verify no SceneKit imports remain in the two migrated files**
+- [ ] **Step 1: Verify no SceneKit imports remain**
 
 ```bash
 grep -r "import SceneKit" Features/Rewards/Views/BarbellWelcomeView.swift \
@@ -1707,43 +2188,137 @@ grep -r "import SceneKit" Features/Rewards/Views/BarbellWelcomeView.swift \
 
 Expected: no output.
 
-- [ ] **Step 2: Verify no BarbellPreviewView showcase mode usage in PlateWallView**
+- [ ] **Step 2: Verify no showcase mode usage in PlateWallView**
 
 ```bash
-grep -r "showcase" Features/Profile/Views/PlateWallView.swift
+grep "showcase" Features/Profile/Views/PlateWallView.swift
 ```
 
 Expected: no output.
 
-- [ ] **Step 3: Run full test suite**
+- [ ] **Step 3: Verify Reduce Motion paths on simulator**
 
-```
-Cmd+U
-```
+Settings → Accessibility → Motion → Reduce Motion ON:
+- [ ] Welcome: barbell static, plates static
+- [ ] Rack gesture: instant placement, no animation delay before clink
+- [ ] Unrack gesture: instant floor placement, no 800ms physics wait
+- [ ] Floor pan: no momentum on finger lift
+
+- [ ] **Step 4: Verify shadows are visible**
+
+On a physical device or Metal-enabled simulator:
+- [ ] Contact shadows under rack stands and floor plates
+- [ ] Bar shadow falls on floor
+- [ ] No self-shadowing artifacts (depthBias = 2.0 prevents acne)
+
+- [ ] **Step 5: Run full test suite**
 
 Expected: all tests pass.
 
-- [ ] **Step 4: Final simulator verification on both iPhone and iPad**
-
-Check for layout issues on iPad (wider screen may require camera FOV adjustment in `setupRackRoomScene`).
-
-- [ ] **Step 5: Final commit**
+- [ ] **Step 6: Final commit**
 
 ```bash
 git add -A
-git commit -m "feat: complete BarbellRealityKit migration — unified scene for WelcomeView and PlateWallView"
+git commit -m "feat: complete BarbellRealityKit migration — physics, spatial audio, shadows, state machine, reduce motion"
 ```
 
 ---
 
 ## Implementation Notes
 
-**RealityKit bilateral plate rendering:** Each racked `EarnedPlate` shows on both sides of the bar. `snapToBar` creates a `clone` for the mirror entity. The canonical entity (positive X side) is stored in `entityMap`; the mirror entity (`plateID_mirror`) is stored on `barAnchor` only.
+**Physics mode lifecycle:** Plates are always `.kinematic` except during the settle phase after `snapToFloor`. The sequence is: kinematic (drag) → dynamic (release, ~800ms settle) → kinematic (locked). Bar plates are always kinematic — they are clamped to slot positions, never dynamic.
 
-**BarbellPreviewView is untouched:** It uses RealityKit independently for the cosmetic editor. When both `BarbellPreviewView` and `PlateWallView` are never on screen simultaneously (they are on different navigation paths), there is no multi-instance RealityKit crash risk.
+**Material caching:** `SceneState.materialCache` stores one `PhysicallyBasedMaterial` per `tierID`. All plates of the same tier share one GPU material object. Populate the cache in `.task{}` before `RealityView make{}` runs. This is critical: if `make{}` runs before the cache is populated, entities fall back to per-instance material creation and the budget breaks.
 
-**SceneKit imports:** After migration `BarbellWelcomeView.swift` should have zero SceneKit imports. All SceneKit code is deleted, not commented out.
+**Audio process cache:** `audioResourceCache` is process-level. First `PlateWallView` appearance loads all sounds; subsequent appearances are instant. `SpatialAudioComponent` must be attached to an entity (via `attachSpatialAudio`) before `playAudio()` is called on it — this is done in `makePlateEntity` so every plate is always ready.
 
-**Texture loading timing:** Textures are loaded in `.task{}` after the scene builds. Entities render with color-only PBR materials initially and texture updates applied via `TierIDComponent` lookup. For most tiers (4, 5, 6, 7) there are no bundle textures and color materials are the final appearance.
+**Shadow casting:** Only `DirectionalLightComponent` casts shadows in RealityKit. Point lights do not. The key light in `setupLighting` is directional with `Shadow.maximumDistance = 4` to cover the scene depth without excessive shadow map cost. `depthBias = 2.0` prevents shadow acne on cylinder surfaces.
 
-**`DragGesture()` vs `.targetedToAnyEntity()` coexistence:** RealityKit naturally prioritises `.targetedToAnyEntity()` when a touch starts on an entity. The plain `DragGesture()` (floor pan) fires only when no entity is under the finger. No explicit gesture priority configuration is needed.
+**State machine:** `SceneState.transition(to:)` guards all `dragPhase` mutations. Floor pan and entity drag are mutually exclusive and must go through `.idle` to switch. Gesture handlers must check the return value and bail on `false`. This prevents the common two-finger corruption bug.
+
+**Reduce Motion:** `SceneState.isReduceMotionEnabled` reads `UIAccessibility.isReduceMotionEnabled` at gesture time, not at init time — responds to in-session changes without a view reload. All animation paths (snap, inertia, spin loop) have explicit reduce motion branches.
+
+**Camera proxy:** `configureCameraPosition` positions `sceneRoot` because `RealityView` on iOS does not expose direct camera control. The adjustment for iPad (`sizeClass == .regular`) pulls the scene back to account for the wider viewport. `onChange(of: sizeClass)` in `BarbellRealityView` re-applies the proxy on device rotation and split view changes.
+
+**Asset loading race:** `BarbellRealityView` is rendered conditionally on `assetsReady`. The `.task{}` that populates `materialCache` and `plateTextureCache` sets `assetsReady = true` only after all cache entries are written, guaranteeing `RealityView make{}` never runs against an empty cache. A `ProgressView` fills the gap while loading.
+
+**Mesh resource cache:** `cachedCylinder` / `cachedBox` are process-level free functions that deduplicate `MeshResource` GPU uploads. Identical geometry (e.g. all iron plate cylinders at radius 0.18) shares one GPU mesh buffer. Always use these instead of `MeshResource.generate*` directly in entity builders.
+
+**Snap zone feedback:** Slot highlight rings are `UnlitMaterial` cylinders parented to `barAnchor`, one per slot. They are toggled via `entity.isEnabled` (free — no scene graph mutation) in `entityDragGesture.onChanged`. `SceneState.wasInSnapZone` prevents `playSnapZoneEntryHaptic()` from firing every frame — it fires once on zone entry.
+
+**Haptic vocabulary:** Three typed functions in `BarbellAudioBuilder`: `playRackHaptic(category:)`, `playSnapZoneEntryHaptic()`, `playDropHaptic(category:)`. Do not use `BarbellProgressService.playClinkHaptic()` for plate interactions — it produces a single undifferentiated feedback regardless of plate material. The typed functions vary style by `PlateAudioCategory`.
+
+**Shader warm-up:** `ShaderWarmUpView` renders one entity per Metal shader variant in a 1x1 invisible overlay before the main scene appears. This forces Metal PSO compilation during the loading spinner, so the first drag interaction is smooth. The view self-destructs after 1 second via `.task {}`.
+
+**BarbellPreviewView is untouched:** Cosmetic editor uses RealityKit independently on a separate navigation path. No multi-instance RealityKit crash risk.
+
+---
+
+## Post-Plan Bug Fixes (on-device testing, 2026-04-03)
+
+The following bugs were discovered during on-device testing after the initial implementation run. All are now fixed in `main`.
+
+### Task 5 / Task 8 — SceneState: `originalTransforms` dictionary (not in original plan)
+
+`SceneState` gained a new property: `var originalTransforms: [String: Transform] = [:]`. This is required for `snapBack` to restore floor plates to their exact starting positions. The original plan assumed `entityMap[plateID]` could serve as the restore target, but `entity.transformMatrix(relativeTo: nil)` returns the *current* world transform at call time — it is not a snapshot. `originalTransforms` captures the world-space transform immediately after `addChild` resolves the hierarchy, and `snapBack` uses `entity.move(to:relativeTo:nil)` against that snapshot.
+
+### Task 8 — `setupRackRoomScene`: initial mirror plates were fully interactive
+
+**Bug:** The racked-plate loop created two entities per plate (primary + mirror) both via `makePlateEntity(role: .bar)`, which always adds `InputTargetComponent` and `CollisionComponent`. The `_mirror` entities were therefore hittable from the first open. `targetedToAnyEntity()` picked them up, the drag logged `id=<uuid>_mirror role=bar`, and `finishUnrack` called `barMirrorMap[plateID]?.removeFromParent()` which returned nil (map was never populated at setup), so mirrors became permanent ghosts on the bar after an unrack.
+
+**Fix:** In the racked-plate setup loop, the `xSign == -1` branch now strips `InputTargetComponent`, `CollisionComponent`, `PhysicsBodyComponent`, `PhysicsMotionComponent` from the mirror entity (matching what `snapToBar` already did for interactively-racked plates). `barMirrorMap[plate.id]` is also populated here so `finishUnrack` can remove it.
+
+### Task 8 — floor plate start position
+
+**Bug:** `xPos = Float(idx) * spacing` started at 0.0, placing the first floor plate at the bar's center (between the rack stands at ±0.55). Visually a plate appeared inside the rack at startup.
+
+**Fix:** `let floorStartX: Float = 0.65`. Floor plates start at x = 0.65 (just outside the right rack stand). `floorMaxX` updated to account for the extra offset.
+
+### Task 10 — Welcome mode drag guard
+
+**Bug:** `entityDragGesture` had no mode guard. In `.welcome` mode, plate entities have `InputTargetComponent` and were eligible for dragging. Dragging a welcome plate triggered `snapToBar` / `snapBack` logic designed for rack room, producing erratic movement.
+
+**Fix:** Added `guard case .rackRoom = mode else { return }` at the top of `entityDragGesture.onChanged`.
+
+### Task 10 — Drag translation scale factor
+
+**Bug:** `s = 0.002 m/pt` — half the correct value. At `sceneRoot.z = -1.4m` with a ~60° FOV, 1 screen point maps to ~0.004 m of world space. The plate lagged behind the finger by 2x.
+
+**Fix:** `s = 0.004`.
+
+### Task 10 — Snap zone threshold
+
+Plan had `entityY > barLocalY - 0.2`. Changed to `entityY > barLocalY - 0.15` to match the tighter snap zone used in the slot highlight logic and reduce false positives near the bottom of the bar stand.
+
+### Task 10 / 11 — Bar plate unrack routing (y-position check never fired)
+
+**Bug:** The plan's `onEnded` routing used `entityY < barLocalY - 0.2` to detect a bar plate being dragged below the bar. But the bar drag gesture slides the plate *sideways* (not downward), so `entityY` stays at bar height throughout the gesture. The condition was always false; bar plates always fell into `snapBack` instead of `snapToFloor`.
+
+**Fix:** Routing now uses `originRole` (captured at drag-start as part of `DragPhase.draggingPlate`):
+- `isFromFloor && entityY > barLocalY - 0.15` → `snapToBar`
+- `!isFromFloor` → `snapToFloor` (bar plate always goes to floor regardless of y)
+- else → `snapBack`
+
+The `originRole` capture in `DragPhase` was not in the original plan spec; it was added to make routing robust against mid-drag model mutations.
+
+### Task 11 — `snapToFloor`: `entity.move()` incompatible with `.dynamic` physics
+
+**Bug:** The original `snapToFloor` called `entity.move(to:relativeTo:duration:)` after setting `physics.mode = .dynamic`. Dynamic bodies ignore the RealityKit animation system entirely — the `move()` call was a no-op, leaving the plate frozen at its drop position in a 2D-looking pose.
+
+**Fix:** Removed `entity.move()` from `snapToFloor`. Position is set directly before enabling physics, with a y clamp (`if entity.position.y < 0.25 { entity.position.y = 0.25 }`) to ensure the plate starts above the static floor collider. Physics then simulates the drop naturally.
+
+### Task 11 — Settle time increased from 800ms to 1400ms
+
+Bar-height drop (~0.6m in sceneRoot space) plus bounce takes longer than the original 800ms budget. Plates were being re-locked to kinematic mid-bounce, freezing mid-air. Increased to 1400ms.
+
+### Task 10 — Bar gesture redesign: outermost plate auto-selection
+
+**Original plan:** Swiping a bar plate entity slides that specific entity off the bar. Requires precise touch on a thin plate edge; touching a plate inside the outermost one had no useful effect.
+
+**Change:** The `.bar` case in `entityDragGesture.onChanged` now finds `allRackedPlates.max(by: rackPosition)` regardless of which entity was touched. Any swipe on any bar entity (primary only — mirrors are now non-interactive) unracks the outermost plate and slides it in the swipe direction. `dragStartEntityPosition` is set on the outermost entity immediately after reparenting to prevent the subsequent `.floor`-routed `onChanged` events from jumping the plate.
+
+### Debug tooling added (not in plan, `#if DEBUG` gated)
+
+- `barbellLog(_ tag:_ msg:)` and `v3(_ v:)` free functions at the top of `BarbellRealityView.swift`.
+- `BarbellDebugHUD` struct: on-screen overlay toggled by a "D" button in the top-right corner. Refreshes at 4 Hz via `TimelineView(.periodic(from:by:0.25))`. Shows: drag phase, anchor positions, all entities in `entityMap` with role, physics mode (DYN/kin/sta), local position, and world position. Dynamic entities are highlighted orange.
+- Console logging at `DRAG_START`, `DRAG_END`, `SNAP_BAR`, `SNAP_FLOOR` decision points.

@@ -36,7 +36,7 @@ struct DifficultyBadge: View {
         HStack(spacing: 6) {
             Circle().fill(c).frame(width: 8, height: 8)
             Text(level.label)
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -92,7 +92,7 @@ struct DifficultyChip: View {
                     Circle().fill(c).frame(width: 8, height: 8)
                 }
                 Text(filter.label)
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.95))
             }
             .padding(.horizontal, 12)

@@ -114,19 +114,19 @@ private struct AchievementRow: View {
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(a.title).font(.subheadline.weight(.semibold))
-                Text(a.desc).font(.caption).foregroundStyle(.secondary)
+                Text(a.title).dsFont(.subheadline, weight: .semibold)
+                Text(a.desc).dsFont(.caption).foregroundStyle(.secondary)
 
                 if let unlockedDate = a.unlockedAt {
                     Text(unlockedDate, style: .date)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     ProgressView(value: progressFrac) {
                         EmptyView()
                     } currentValueLabel: {
                         Text("\(a.progress)/\(a.target)")
-                            .font(.caption.monospacedDigit())
+                            .dsFont(.caption, monospacedDigits: true)
                             .foregroundStyle(.secondary)
                     }
                     .tint(DS.Theme.accent)

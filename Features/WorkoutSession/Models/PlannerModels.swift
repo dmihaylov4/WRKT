@@ -78,13 +78,14 @@ final class PlannedExercise {
 
     init(id: UUID = UUID(), exerciseID: String, exerciseName: String,
          ghostSets: [GhostSet], progressionStrategy: ProgressionStrategy = .static,
-         order: Int, lastPerformance: String? = nil) {
+         order: Int, notes: String? = nil, lastPerformance: String? = nil) {
         self.id = id
         self.exerciseID = exerciseID
         self.exerciseName = exerciseName
         self.ghostSets = ghostSets
         self.progressionStrategyRaw = progressionStrategy.encode()
         self.order = order
+        self.notes = notes
         self.lastPerformance = lastPerformance
     }
 
@@ -200,9 +201,26 @@ final class WorkoutSplit {
     var cursor: Int                       // Current position (Rolling mode)
     var reschedulePolicy: String          // ReschedulePolicy raw value
     var isActive: Bool
+    var creatorUserID: String?
+    var creatorUsername: String?
+    var creatorDisplayName: String?
+    var originProgramID: UUID?
+    var lastSharedProgramID: UUID?
+    var programDescription: String?
+    var importedAt: Date?
+    var createdAt: Date?
 
     init(id: UUID = UUID(), name: String, planBlocks: [PlanBlock],
-         anchorDate: Date = .now, reschedulePolicy: ReschedulePolicy = .strict) {
+         anchorDate: Date = .now,
+         reschedulePolicy: ReschedulePolicy = .strict,
+         creatorUserID: String? = nil,
+         creatorUsername: String? = nil,
+         creatorDisplayName: String? = nil,
+         originProgramID: UUID? = nil,
+         lastSharedProgramID: UUID? = nil,
+         programDescription: String? = nil,
+         importedAt: Date? = nil,
+         createdAt: Date? = nil) {
         self.id = id
         self.name = name
         self.planBlocks = planBlocks
@@ -210,11 +228,31 @@ final class WorkoutSplit {
         self.cursor = 0
         self.reschedulePolicy = reschedulePolicy.rawValue
         self.isActive = true
+        self.creatorUserID = creatorUserID
+        self.creatorUsername = creatorUsername
+        self.creatorDisplayName = creatorDisplayName
+        self.originProgramID = originProgramID
+        self.lastSharedProgramID = lastSharedProgramID
+        self.programDescription = programDescription
+        self.importedAt = importedAt
+        self.createdAt = createdAt ?? Date()
     }
 
     var policy: ReschedulePolicy {
         get { ReschedulePolicy(rawValue: reschedulePolicy) ?? .strict }
         set { reschedulePolicy = newValue.rawValue }
+    }
+
+    /// Align the schedule so the selected date lands on the first non-rest block.
+    /// This keeps the existing block order intact while making the chosen start
+    /// date behave like the first workout date.
+    func anchorDateAligningFirstWorkout(to startDate: Date, calendar: Calendar = .current) -> Date {
+        let normalizedStartDate = calendar.startOfDay(for: startDate)
+        guard let firstWorkoutIndex = planBlocks.firstIndex(where: { !$0.isRestDay }) else {
+            return normalizedStartDate
+        }
+
+        return calendar.date(byAdding: .day, value: -firstWorkoutIndex, to: normalizedStartDate) ?? normalizedStartDate
     }
 
     /// Get plan block for a given date based on reschedule policy

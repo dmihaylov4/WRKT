@@ -2,6 +2,11 @@
 import RealityKit
 import UIKit
 
+struct PlatePhysicsTuning: Equatable {
+    let friction: Float
+    let restitution: Float
+}
+
 // MARK: - PlateAudioCategory extension
 // Base enum (cases) is defined in BarbellEntityBuilder.swift.
 // All logic is here so audio concerns stay in one file.
@@ -40,13 +45,18 @@ extension PlateAudioCategory {
     /// Iron: moderate bounce, medium friction.
     /// Rubber bumper: low bounce, high friction (grips the floor).
     /// Brass: slightly more bounce than iron due to density.
-    var physicsMaterial: PhysicsMaterialResource {
+    var physicsTuning: PlatePhysicsTuning {
         switch self {
-        case .iron:    return .generate(friction: 0.70, restitution: 0.30)
-        case .rubber:  return .generate(friction: 0.92, restitution: 0.08)
-        case .brass:   return .generate(friction: 0.65, restitution: 0.38)
-        case .starter: return .generate(friction: 0.85, restitution: 0.12)
+        case .iron:    return PlatePhysicsTuning(friction: 0.70, restitution: 0.30)
+        case .rubber:  return PlatePhysicsTuning(friction: 0.92, restitution: 0.08)
+        case .brass:   return PlatePhysicsTuning(friction: 0.65, restitution: 0.38)
+        case .starter: return PlatePhysicsTuning(friction: 0.85, restitution: 0.12)
         }
+    }
+
+    var physicsMaterial: PhysicsMaterialResource {
+        let tuning = physicsTuning
+        return .generate(friction: tuning.friction, restitution: tuning.restitution)
     }
 }
 

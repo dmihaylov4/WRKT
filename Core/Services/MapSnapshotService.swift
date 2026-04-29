@@ -16,6 +16,11 @@ final class MapSnapshotService {
 
     private init() {}
 
+    // Serializes concurrent callers — MKMapSnapshotter uses Metal internally and
+    // crashes with MTLDebugDevice assertions when multiple instances run simultaneously
+    // (e.g. two PostCards backfilling their route maps at the same time).
+    private var lastSnapshotTask: Task<UIImage, Error>?
+
     /// Generate a map snapshot with route and optional HR-colored overlay
     /// - Parameters:
     ///   - coordinates: Array of route coordinates
@@ -26,6 +31,22 @@ final class MapSnapshotService {
         coordinates: [CLLocationCoordinate2D],
         hrValues: [Double]? = nil,
         size: CGSize = CGSize(width: 600, height: 400)
+    ) async throws -> UIImage {
+        let prev = lastSnapshotTask
+        let task = Task<UIImage, Error> { @MainActor [weak self] in
+            // Wait for the previous snapshot to finish before starting this one
+            _ = try? await prev?.value
+            guard let self else { throw MapSnapshotError.snapshotFailed }
+            return try await self.generateSnapshot(coordinates: coordinates, hrValues: hrValues, size: size)
+        }
+        lastSnapshotTask = task
+        return try await task.value
+    }
+
+    private func generateSnapshot(
+        coordinates: [CLLocationCoordinate2D],
+        hrValues: [Double]?,
+        size: CGSize
     ) async throws -> UIImage {
         guard coordinates.count > 1 else {
             throw MapSnapshotError.insufficientCoordinates

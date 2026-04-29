@@ -25,7 +25,7 @@ struct ConnectionsView: View {
                 Text("Apple Health")
             } footer: {
                 Text("Sync workouts, active energy, exercise minutes, runs and more from Apple Health.")
-                    .font(.caption)
+                    .dsFont(.caption)
             }
             .onAppear {
                 vm.setHealthKitManager(healthKit)
@@ -234,8 +234,8 @@ private struct ConnectionRow: View {
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(provider.name).font(.subheadline.weight(.semibold))
-                Text(statusText).font(.caption).foregroundStyle(.secondary)
+                Text(provider.name).dsFont(.subheadline, weight: .semibold)
+                Text(statusText).dsFont(.caption).foregroundStyle(.secondary)
             }
 
             Spacer()
@@ -252,7 +252,7 @@ private struct ConnectionRow: View {
                 } label: {
                     Label("Manage", systemImage: "ellipsis.circle")
                         .labelStyle(.iconOnly)
-                        .font(.title3)
+                        .dsFont(.title3)
                 }
 
             case .syncing:

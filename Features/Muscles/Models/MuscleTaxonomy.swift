@@ -109,7 +109,7 @@ struct DeepSubregionGridView: View {
             LazyVGrid(columns: cols, spacing: 12) {
                 ForEach(items, id: \.self) { name in
                     let chip = Text(name)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(Theme.text)
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -157,14 +157,14 @@ private struct ExerciseRowCompact: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
                     Text(ex.name)
-                        .font(.body.weight(.semibold))
+                        .dsFont(.body, weight: .semibold)
                         .foregroundStyle(Theme.text)
                     if ex.isCustom {
                         CustomExerciseBadge()
                     }
                 }
                 Text(meta)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
 
@@ -172,7 +172,7 @@ private struct ExerciseRowCompact: View {
 
             // Small accent pill for quick "Add Only"
             Button("Add") { onAddOnly() }
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(.black)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)

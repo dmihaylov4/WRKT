@@ -33,16 +33,16 @@ struct CardioStatsCard: View {
             // Header
             HStack {
                 Image(systemName: "figure.walk")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(statusColor)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Active Minutes")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
 
                     Text("This week")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
@@ -77,18 +77,18 @@ struct CardioStatsCard: View {
             // Target
             HStack {
                 Text("Goal: \(targetMinutes) min")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.secondary)
 
                 Spacer()
 
                 if percentage >= 100 {
                     Text("Goal complete!")
-                        .font(.caption2.weight(.medium))
+                        .dsFont(.caption2, weight: .medium)
                         .foregroundStyle(.green)
                 } else {
                     Text("\(targetMinutes - activeMinutes) min to go")
-                        .font(.caption2.weight(.medium))
+                        .dsFont(.caption2, weight: .medium)
                         .foregroundStyle(.secondary)
                 }
             }

@@ -11,7 +11,7 @@ import SwiftUI
 struct PlannerTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
-            .font(.body)
+            .dsFont(.body)
             .foregroundStyle(.white)
             .padding(16)
             .background(
@@ -42,11 +42,11 @@ struct CustomSplitStep1NameAndParts: View {
                 // Split Name
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Name Your Split")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .padding(.horizontal)
 
                     Text("Give your custom training split a memorable name")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
 
@@ -56,7 +56,7 @@ struct CustomSplitStep1NameAndParts: View {
                         .padding(.horizontal)
 
                     Text("\(config.customSplitName.count)/\(PlannerConstants.CustomSplit.maxNameLength) characters")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
                 }
@@ -66,11 +66,11 @@ struct CustomSplitStep1NameAndParts: View {
                 // Number of Parts
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Choose Split Structure")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .padding(.horizontal)
 
                     Text("How many different workout parts?")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
 
@@ -93,13 +93,13 @@ struct CustomSplitStep1NameAndParts: View {
 
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Name Your Workout Parts")
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
                             .padding(.horizontal)
 
                         ForEach(0..<config.numberOfParts, id: \.self) { index in
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Part \(index + 1)")
-                                    .font(.headline)
+                                    .dsFont(.headline)
 
                                 TextField("e.g., Push, Pull, Legs", text: Binding(
                                     get: { config.partNames[safe: index] ?? "" },
@@ -122,7 +122,7 @@ struct CustomSplitStep1NameAndParts: View {
                                 focusedField = nil // Dismiss keyboard
                             } label: {
                                 Text("Quick Fill: Push / Pull / Legs")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Theme.accent)
                             }
                             .padding(.horizontal)
@@ -152,7 +152,7 @@ struct PartsOptionButton: View {
         Button(action: onTap) {
             HStack {
                 Text("\(number)-Part Split")
-                    .font(.headline)
+                    .dsFont(.headline)
 
                 Spacer()
 
@@ -184,11 +184,11 @@ struct CustomSplitStep2AddExercises: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Add Exercises")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
                     .padding(.horizontal)
 
                 Text("Select \(PlannerConstants.ExerciseLimits.minPerPart)-\(PlannerConstants.ExerciseLimits.maxPerPart) exercises for each workout part")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
 
@@ -218,12 +218,12 @@ struct ExercisePickerCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(partName)
-                    .font(.headline)
+                    .dsFont(.headline)
 
                 Spacer()
 
                 Text("\(exercises.count)/\(PlannerConstants.ExerciseLimits.maxPerPart)")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(exercises.count >= PlannerConstants.ExerciseLimits.minPerPart ? DS.Theme.accent : .orange)
             }
 
@@ -231,12 +231,12 @@ struct ExercisePickerCard: View {
                 ForEach(exercises) { exercise in
                     HStack {
                         Text(exercise.exerciseName)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
 
                         Spacer()
 
                         Text("\(exercise.sets) × \(exercise.reps)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)
@@ -277,11 +277,11 @@ struct CustomSplitStep3FrequencyAndRest: View {
                 // Training Frequency
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Training Frequency")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .padding(.horizontal)
 
                     Text("How many days per week will you train?")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
 
@@ -291,7 +291,7 @@ struct CustomSplitStep3FrequencyAndRest: View {
                         } label: {
                             HStack {
                                 Text("\(days) days per week")
-                                    .font(.headline)
+                                    .dsFont(.headline)
 
                                 Spacer()
 
@@ -318,11 +318,11 @@ struct CustomSplitStep3FrequencyAndRest: View {
                 // Rest Days
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Rest Days")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .padding(.horizontal)
 
                     Text("How should rest days be distributed?")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal)
 

@@ -32,22 +32,22 @@ struct StatsDebugView: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text("In-Memory Store")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                         Text("\(store.completedWorkouts.count) workouts")
-                            .font(.headline)
+                            .dsFont(.headline)
                     }
                     Spacer()
                     VStack(alignment: .trailing) {
                         Text("JSON Storage")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                         if loadingStorage {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
                             Text("\(storageWorkouts.count) workouts")
-                                .font(.headline)
+                                .dsFont(.headline)
                         }
                     }
                 }
@@ -55,7 +55,7 @@ struct StatsDebugView: View {
 
                 if !loadingStorage && store.completedWorkouts.count != storageWorkouts.count {
                     Text("⚠️ MISMATCH! Memory and storage have different workout counts")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.red)
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
@@ -81,16 +81,16 @@ struct StatsDebugView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text("Exercise Repository:")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                         Spacer()
                     }
                     HStack {
                         Text("Display Array:")
                         Spacer()
                         Text("\(repo.exercises.count) exercises")
-                            .font(.caption.monospacedDigit())
+                            .dsFont(.caption, monospacedDigits: true)
                     }
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
 
                     Button("Check byID Index") {
@@ -99,7 +99,7 @@ struct StatsDebugView: View {
                             diagnosticResults = ["byID index has \(allExercises.count) total exercises"]
                         }
                     }
-                    .font(.caption)
+                    .dsFont(.caption)
                 }
                 .padding(.vertical, 4)
 
@@ -111,20 +111,20 @@ struct StatsDebugView: View {
                     ForEach(latest.entries.prefix(5), id: \.id) { entry in
                         VStack(alignment: .leading, spacing: 4) {
                             Text("ID: \(entry.exerciseID)")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
                             let exercise = repo.exercise(byID: entry.exerciseID)
                             if let ex = exercise {
                                 Text("✅ Found: \(ex.name)")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.green)
                                 Text("Force: \(ex.force ?? "nil")")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                 Text("Primary: \(ex.primaryMuscles.joined(separator: ", "))")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                             } else {
                                 Text("❌ NOT FOUND in repository")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.red)
                             }
                         }
@@ -135,7 +135,7 @@ struct StatsDebugView: View {
             Section("Recent Workouts (from JSON Storage)") {
                 if storageWorkouts.isEmpty {
                     Text("Tap 'Check Storage' above to load")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     if let latestStorage = storageWorkouts.max(by: { $0.date < $1.date }) {
@@ -144,7 +144,7 @@ struct StatsDebugView: View {
                     }
 
                     Text("Last 10 workouts:")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .padding(.top, 8)
 
                     let sortedWorkouts = storageWorkouts.sorted(by: { $0.date > $1.date })
@@ -152,15 +152,15 @@ struct StatsDebugView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(workout.date.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                 Text("\(workout.entries.count) exercises")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             if isToday(workout.date) {
                                 Text("TODAY")
-                                    .font(.caption.weight(.bold))
+                                    .dsFont(.caption, weight: .bold)
                                     .foregroundStyle(.green)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
@@ -168,7 +168,7 @@ struct StatsDebugView: View {
                                     .cornerRadius(6)
                             } else if isThisWeek(workout.date) {
                                 Text("THIS WEEK")
-                                    .font(.caption.weight(.bold))
+                                    .dsFont(.caption, weight: .bold)
                                     .foregroundStyle(.blue)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
@@ -182,13 +182,13 @@ struct StatsDebugView: View {
 
             Section("🧪 LIVE CLASSIFICATION TEST") {
                 Text("Test exercises from recent workouts:")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
 
                 if let recent = store.completedWorkouts.suffix(3).reversed().first {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Recent Workout: \(recent.date.formatted(date: .abbreviated, time: .shortened))")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
 
                         ForEach(recent.entries, id: \.id) { entry in
                             let ex = repo.exercise(byID: entry.exerciseID)
@@ -201,12 +201,12 @@ struct StatsDebugView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         HStack {
                                             Text(exercise.name)
-                                                .font(.subheadline)
+                                                .dsFont(.subheadline)
                                             Spacer()
 
                                             if isPush && !isPull {
                                                 Text("PUSH")
-                                                    .font(.caption2.weight(.bold))
+                                                    .dsFont(.caption2, weight: .bold)
                                                     .foregroundStyle(.white)
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 4)
@@ -214,7 +214,7 @@ struct StatsDebugView: View {
                                                     .cornerRadius(6)
                                             } else if isPull && !isPush {
                                                 Text("PULL")
-                                                    .font(.caption2.weight(.bold))
+                                                    .dsFont(.caption2, weight: .bold)
                                                     .foregroundStyle(.white)
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 4)
@@ -222,7 +222,7 @@ struct StatsDebugView: View {
                                                     .cornerRadius(6)
                                             } else if isPush && isPull {
                                                 Text("BOTH??")
-                                                    .font(.caption2.weight(.bold))
+                                                    .dsFont(.caption2, weight: .bold)
                                                     .foregroundStyle(.white)
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 4)
@@ -230,7 +230,7 @@ struct StatsDebugView: View {
                                                     .cornerRadius(6)
                                             } else {
                                                 Text("NEITHER")
-                                                    .font(.caption2.weight(.bold))
+                                                    .dsFont(.caption2, weight: .bold)
                                                     .foregroundStyle(.white)
                                                     .padding(.horizontal, 8)
                                                     .padding(.vertical, 4)
@@ -240,7 +240,7 @@ struct StatsDebugView: View {
 
                                             if isBodyweight {
                                                 Text("BW")
-                                                    .font(.caption2.weight(.bold))
+                                                    .dsFont(.caption2, weight: .bold)
                                                     .foregroundStyle(.white)
                                                     .padding(.horizontal, 6)
                                                     .padding(.vertical, 4)
@@ -256,34 +256,34 @@ struct StatsDebugView: View {
 
                                             if set.weight > 0 {
                                                 Text("Vol: \(set.reps) × \(set.weight.safeInt)kg = \((Double(set.reps) * set.weight).safeInt)")
-                                                    .font(.caption2)
+                                                    .dsFont(.caption2)
                                                     .foregroundStyle(.green)
                                             } else if isBodyweight {
                                                 let percentage = ExerciseClassifier.bodyweightPercentage(for: exercise)
                                                 let vol = Double(set.reps) * (bodyweight * percentage)
                                                 Text("Vol: \(set.reps) × (\(bodyweight.safeInt)kg × \((percentage * 100).safeInt)%) = \(vol.safeInt)")
-                                                    .font(.caption2)
+                                                    .dsFont(.caption2)
                                                     .foregroundStyle(.green)
                                             } else {
                                                 Text("Vol: NO WEIGHT + NOT BODYWEIGHT = SKIPPED ⚠️")
-                                                    .font(.caption2.weight(.bold))
+                                                    .dsFont(.caption2, weight: .bold)
                                                     .foregroundStyle(.red)
                                             }
                                         }
                                     }
 
                                     Text("Force: '\(exercise.force ?? "nil")'")
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                         .foregroundStyle(.secondary)
                                     Text("Primary: \(exercise.primaryMuscles.joined(separator: ", "))")
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                         .foregroundStyle(.secondary)
                                 } else {
                                     Text("ID: \(entry.exerciseID)")
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                         .foregroundStyle(.red)
                                     Text("❌ NOT FOUND IN REPO")
-                                        .font(.caption2.weight(.bold))
+                                        .dsFont(.caption2, weight: .bold)
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -304,7 +304,7 @@ struct StatsDebugView: View {
                 if let latest = pushPull.last {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Latest Push/Pull:")
-                            .font(.headline)
+                            .dsFont(.headline)
                         Text("Week: \(latest.weekStart.formatted(date: .abbreviated, time: .omitted))")
                         Text("Push Volume: \(latest.pushVolume.safeInt)")
                         Text("Pull Volume: \(latest.pullVolume.safeInt)")
@@ -323,21 +323,21 @@ struct StatsDebugView: View {
                             let exercise = repo.exercise(byID: vol.exerciseID)
                             if let ex = exercise {
                                 Text("✅ \(ex.name)")
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                 Text("Volume: \(vol.volume.safeInt) | Force: \(ex.force ?? "nil")")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                                 let isPush = ExerciseClassifier.isPush(exercise: ex)
                                 let isPull = ExerciseClassifier.isPull(exercise: ex)
                                 Text("Classification: Push=\(isPush), Pull=\(isPull)")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                     .foregroundStyle(isPush ? .blue : (isPull ? .green : .gray))
                             } else {
                                 Text("❌ ID: \(vol.exerciseID)")
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                     .foregroundStyle(.red)
                                 Text("Volume: \(vol.volume.safeInt) | NOT FOUND")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                             }
                         }
                     }
@@ -410,7 +410,7 @@ struct StatsDebugView: View {
                 Section("Diagnostic Results") {
                     ForEach(diagnosticResults, id: \.self) { result in
                         Text(result)
-                            .font(.caption)
+                            .dsFont(.caption)
                     }
                 }
             }

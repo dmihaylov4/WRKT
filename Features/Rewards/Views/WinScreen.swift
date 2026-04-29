@@ -8,6 +8,7 @@
 // WinScreen.swift
 import SwiftUI
 import Combine
+import RealityKit
 
 
 
@@ -68,8 +69,9 @@ struct WinScreenView: View {
     @State private var showPills = false
     @State private var showXPCard = false
     @State private var revealedLineItems: Set<String> = []
-    @State private var revealedHighlights: Set<UUID> = []
+    @State private var revealedHighlights: Set<String> = []
     @State private var showButtons = false
+    @State private var didStartReveal = false
 
     // Lucky bonus animation state
     @State private var showLuckyBanner = false
@@ -78,13 +80,6 @@ struct WinScreenView: View {
     // Plate reveal state
     @State private var revealedPlates: [Int] = []   // indices into summary.earnedPlates revealed so far
     @State private var showBarbellMoment = false
-
-    private var iconName: String {
-        if summary.gotLuckyBonus { return "sparkles" }
-        if summary.newExerciseCount > 0 { return "star.fill" }
-        if summary.prCount > 0 { return "crown.fill" }
-        return "sparkles"
-    }
 
     private var title: String {
         if summary.gotLuckyBonus { return "LUCKY!" }
@@ -114,25 +109,25 @@ struct WinScreenView: View {
     private var highlights: [Highlight] {
         var items: [Highlight] = []
         if summary.newExerciseCount > 0 {
-            items.append(.init(icon: "star.fill", label: "\(summary.newExerciseCount) new exercise\(summary.newExerciseCount == 1 ? "" : "s") unlocked"))
+            items.append(.init(id: "new-exercise-\(summary.newExerciseCount)", icon: "star.fill", label: "\(summary.newExerciseCount) new exercise\(summary.newExerciseCount == 1 ? "" : "s") unlocked"))
         }
         if summary.prCount > 0 {
-            items.append(.init(icon: "crown.fill", label: "\(summary.prCount) new PR\(summary.prCount == 1 ? "" : "s")"))
+            items.append(.init(id: "pr-\(summary.prCount)", icon: "crown.fill", label: "\(summary.prCount) new PR\(summary.prCount == 1 ? "" : "s")"))
         }
         if let lvl = summary.levelUpTo {
-            items.append(.init(icon: "rosette", label: "Reached level \(lvl)"))
+            items.append(.init(id: "level-\(lvl)", icon: "rosette", label: "Reached level \(lvl)"))
         }
         if summary.streakNew > summary.streakOld {
             let milestone = summary.hitStreakMilestone ? " (milestone!)" : ""
-            items.append(.init(icon: "flame.fill", label: "Streak \(summary.streakNew)\(milestone)"))
+            items.append(.init(id: "streak-\(summary.streakNew)-\(summary.hitStreakMilestone)", icon: "flame.fill", label: "Streak \(summary.streakNew)\(milestone)"))
         }
         if !summary.unlockedAchievements.isEmpty {
             // Show up to 3, then "+N more…"
             let pretty = summary.unlockedAchievements.map(humanize)
             let head = pretty.prefix(3)
-            head.forEach { items.append(.init(icon: "medal.fill", label: $0)) }
+            head.forEach { items.append(.init(id: "achievement-\($0)", icon: "medal.fill", label: $0)) }
             let remaining = pretty.count - head.count
-            if remaining > 0 { items.append(.init(icon: "ellipsis.circle", label: "+\(remaining) more achievements")) }
+            if remaining > 0 { items.append(.init(id: "achievement-more-\(remaining)", icon: "ellipsis.circle", label: "+\(remaining) more achievements")) }
         }
         return items
     }
@@ -148,7 +143,7 @@ struct WinScreenView: View {
                 LinearGradient(
                     colors: [
                         Color.black,
-                        Color.yellow.opacity(luckyPulse ? 0.12 : 0.04),
+                        DS.Theme.accent.opacity(luckyPulse ? 0.08 : 0.025),
                         Color.black
                     ],
                     startPoint: .top,
@@ -172,24 +167,26 @@ struct WinScreenView: View {
 
                     // Top icon & title - more compact
                     if showHeader {
-                        Image(systemName: iconName)
-                            .font(.system(size: 52, weight: .bold))
-                            .foregroundStyle(summary.gotLuckyBonus ? .yellow : DS.Theme.accent)
+                        Image("reward-angular-spark")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 56, height: 56)
+                            .foregroundStyle(DS.Theme.accent)
                             .scaleEffect(animate ? 1 : 0.6)
-                            .symbolEffect(.bounce, options: .repeat(1))
                             .padding(.top, summary.gotLuckyBonus ? 8 : 20)
                             .transition(.scale.combined(with: .opacity))
 
                         Text(title)
                             .font(.system(.title, weight: .bold))
-                            .foregroundStyle(summary.gotLuckyBonus ? .yellow : .white)
+                            .foregroundStyle(summary.gotLuckyBonus ? DS.Theme.accent : .white)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
 
                         if let sub = subtitle {
                             Text(sub)
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(.white.opacity(0.6))
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
@@ -239,7 +236,7 @@ struct WinScreenView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 if !revealedPlates.isEmpty {
                                     Text("New Plates")
-                                        .font(.caption.weight(.semibold))
+                                        .dsFont(.caption, weight: .semibold)
                                         .foregroundStyle(.white.opacity(0.7))
                                         .padding(.top, 4)
                                 }
@@ -272,15 +269,15 @@ struct WinScreenView: View {
                                     Image(systemName: "square.and.arrow.up")
                                     Text("Share Workout")
                                 }
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 48)
                                 .contentShape(Rectangle())
                             }
-                            .background(.white.opacity(0.15))
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(.white.opacity(0.15))
+                        .foregroundStyle(.white)
+                            .clipShape(ChamferedRectangle(.medium))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                ChamferedRectangle(.medium)
                                     .stroke(.white.opacity(0.2), lineWidth: 1)
                             )
                         }
@@ -297,13 +294,13 @@ struct WinScreenView: View {
                             }
                         } label: {
                             Text(summary.earnedPlates.isEmpty || showBarbellMoment ? "Continue" : "See Your Barbell")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 48)
                                 .contentShape(Rectangle())
                         }
-                        .background(summary.gotLuckyBonus ? .yellow : DS.Theme.accent)
+                        .background(DS.Theme.accent)
                         .foregroundStyle(.black)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(ChamferedRectangle(.medium))
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
@@ -320,7 +317,10 @@ struct WinScreenView: View {
         .fullScreenCover(isPresented: $showBarbellMoment) {
             BarbellMomentView(plates: summary.earnedPlates, onDismiss: onDismiss)
         }
-        .onAppear {
+        .task {
+            guard !didStartReveal else { return }
+            didStartReveal = true
+            try? await Task.sleep(for: .milliseconds(80))
             startStaggeredReveal()
         }
     }
@@ -367,9 +367,8 @@ struct WinScreenView: View {
         for (index, item) in summary.xpLineItems.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + baseDelay + 0.9 + Double(index) * 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    revealedLineItems.insert(item.id)
+                    _ = revealedLineItems.insert(item.id)
                 }
-                Haptics.soft()
             }
         }
 
@@ -378,9 +377,8 @@ struct WinScreenView: View {
         for (index, highlight) in highlights.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + highlightStartDelay + Double(index) * 0.15) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    revealedHighlights.insert(highlight.id)
+                    _ = revealedHighlights.insert(highlight.id)
                 }
-                Haptics.soft()
             }
         }
 
@@ -407,12 +405,12 @@ struct WinScreenView: View {
 
     private func Pill(_ text: String, isLucky: Bool = false) -> some View {
         Text(text)
-            .font(.subheadline.weight(.semibold))
+            .dsFont(.subheadline, weight: .semibold)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isLucky ? .yellow.opacity(0.20) : .white.opacity(0.10), in: Capsule())
-            .overlay(Capsule().stroke(isLucky ? .yellow.opacity(0.4) : .white.opacity(0.15), lineWidth: 1))
-            .foregroundStyle(isLucky ? .yellow : .white)
+            .background(isLucky ? DS.Theme.accent.opacity(0.16) : .white.opacity(0.10), in: ChamferedRectangle(.small))
+            .overlay(ChamferedRectangle(.small).stroke(isLucky ? DS.Theme.accent.opacity(0.45) : .white.opacity(0.15), lineWidth: 1))
+            .foregroundStyle(isLucky ? DS.Theme.accent : .white)
     }
 
     private func humanize(_ raw: String) -> String {
@@ -426,7 +424,7 @@ struct WinScreenView: View {
     }
 
     fileprivate struct Highlight: Identifiable {
-        let id = UUID()
+        let id: String
         let icon: String
         let label: String
     }
@@ -474,59 +472,83 @@ private struct PlateRevealCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // Plate swatch: colored circle matching tier material
-            Circle()
-                .fill(plateSwatchColor)
-                .frame(width: 44, height: 44)
-                .overlay(
-                    Text(plate.weightKg > 0 ? "\(Int(plate.weightKg))" : "")
-                        .font(.caption.weight(.black))
-                        .foregroundStyle(textColorForTier(plate.tierID))
-                )
-                .overlay(Circle().stroke(rarityColor.opacity(0.5), lineWidth: 1.5))
+            RealityPlatePreview(plate: plate)
+                .frame(width: 72, height: 58)
+                .clipShape(ChamferedRectangle(.small))
+                .overlay(ChamferedRectangle(.small).stroke(rarityColor.opacity(0.35), lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(tierName)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white)
                     Text(rarityLabel)
-                        .font(.caption.weight(.bold))
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(rarityColor)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(rarityColor.opacity(0.15), in: Capsule())
+                        .background(rarityColor.opacity(0.15), in: ChamferedRectangle(.small))
                 }
                 Text(plate.engravingText)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.6))
             }
             Spacer(minLength: 0)
 
             Image(systemName: "plus.circle.fill")
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Semantic.brand)
         }
         .padding(12)
-        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(rarityColor.opacity(0.25), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
+        .overlay(ChamferedRectangle(.medium).stroke(rarityColor.opacity(0.35), lineWidth: 1))
     }
 
-    private var plateSwatchColor: Color {
-        switch plate.tierID {
-        case 0: return Color(red: 0.40, green: 0.18, blue: 0.07)
-        case 1: return Color(red: 0.14, green: 0.14, blue: 0.14)
-        case 2: return Color(red: 0.07, green: 0.07, blue: 0.07)
-        case 3: return Color(red: 0.75, green: 0.60, blue: 0.25)
-        case 4: return Color(red: 0.82, green: 0.09, blue: 0.09)
-        case 5: return Color(red: 0.72, green: 0.76, blue: 0.80)
-        case 6: return Color(red: 0.88, green: 0.68, blue: 0.12)
-        default: return .gray
+}
+
+private struct RealityPlatePreview: View {
+    let plate: EarnedPlateInfo
+
+    var body: some View {
+        RealityView { content in
+            let root = Entity()
+            root.scale = SIMD3(repeating: 1.05)
+
+            let material = buildMaterial(forTierID: plate.tierID, textures: nil)
+            let entity = makePlateEntity(
+                tierID: plate.tierID,
+                material: material,
+                weightKg: plate.weightKg,
+                engravingText: plate.engravingText,
+                role: .bar
+            )
+            entity.components.remove(InputTargetComponent.self)
+            entity.components.remove(CollisionComponent.self)
+            entity.components.remove(PhysicsBodyComponent.self)
+            entity.components.remove(PhysicsMotionComponent.self)
+            entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(1, 0, 0))
+            root.addChild(entity)
+
+            let keyLight = Entity()
+            var directional = DirectionalLightComponent()
+            directional.color = .white
+            directional.intensity = 2500
+            keyLight.components.set(directional)
+            keyLight.orientation = simd_quatf(angle: -.pi / 5, axis: SIMD3<Float>(1, 0, 0))
+
+            let fillLight = Entity()
+            fillLight.components[PointLightComponent.self] = PointLightComponent(
+                color: UIColor(white: 0.7, alpha: 1),
+                intensity: 450,
+                attenuationRadius: 2
+            )
+            fillLight.position = SIMD3(-0.25, 0.2, 0.45)
+
+            content.add(root)
+            content.add(keyLight)
+            content.add(fillLight)
         }
-    }
-
-    private func textColorForTier(_ id: Int) -> Color {
-        [0, 1, 2].contains(id) ? .white : .black
+        .background(DS.Theme.cardBottom.opacity(0.55))
     }
 }
 
@@ -544,17 +566,17 @@ private struct LuckyBonusBanner: View {
 
     var body: some View {
         Text("\(multiplierText) BONUS!")
-            .font(.headline.weight(.black))
+            .dsFont(.headline, weight: .black)
             .foregroundStyle(.black)
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
             .background(
                 ZStack {
-                    Capsule()
-                        .fill(.yellow)
+                    ChamferedRectangle(.medium)
+                        .fill(DS.Theme.accent)
 
                     // Shimmer effect
-                    Capsule()
+                    ChamferedRectangle(.medium)
                         .fill(
                             LinearGradient(
                                 colors: [.clear, .white.opacity(0.4), .clear],
@@ -563,10 +585,10 @@ private struct LuckyBonusBanner: View {
                             )
                         )
                         .offset(x: shimmer ? 100 : -100)
-                        .mask(Capsule())
+                        .mask(ChamferedRectangle(.medium))
                 }
             )
-            .shadow(color: .yellow.opacity(0.5), radius: 10, x: 0, y: 0)
+            .shadow(color: DS.Theme.accent.opacity(0.35), radius: 10, x: 0, y: 0)
             .onAppear {
                 withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
                     shimmer = true
@@ -584,11 +606,11 @@ private struct HighlightsOnlyCard: View {
             ForEach(highlights) { h in
                 HStack(spacing: 8) {
                     Image(systemName: h.icon)
-                        .font(.caption.weight(.bold))
+                        .dsFont(.caption, weight: .bold)
                         .frame(width: 18, height: 18)
                         .foregroundStyle(DS.Theme.accent)
                     Text(h.label)
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                     Spacer(minLength: 0)
                 }
                 .foregroundStyle(.white)
@@ -600,8 +622,8 @@ private struct HighlightsOnlyCard: View {
             }
         }
         .padding(14)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.10), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.10), lineWidth: 1))
     }
 }
 
@@ -612,7 +634,7 @@ private struct XPGainCardStaggered: View {
     let highlights: [WinScreenView.Highlight]
     let humanize: (String) -> String
     @Binding var revealedLineItems: Set<String>
-    @Binding var revealedHighlights: Set<UUID>
+    @Binding var revealedHighlights: Set<String>
     let isLuckyBonus: Bool
 
     @State private var progress: Double = 0
@@ -623,7 +645,7 @@ private struct XPGainCardStaggered: View {
 
     init(snapshot: XPSnapshot, lineItems: [XPLineItem], highlights: [WinScreenView.Highlight],
          humanize: @escaping (String) -> String, revealedLineItems: Binding<Set<String>>,
-         revealedHighlights: Binding<Set<UUID>>, isLuckyBonus: Bool) {
+         revealedHighlights: Binding<Set<String>>, isLuckyBonus: Bool) {
         self.snapshot = snapshot
         self.lineItems = lineItems
         self.highlights = highlights
@@ -641,7 +663,7 @@ private struct XPGainCardStaggered: View {
     }
 
     private var accentColor: Color {
-        isLuckyBonus ? .yellow : DS.Theme.accent
+        DS.Theme.accent
     }
 
     private var isLevelUp: Bool {
@@ -654,13 +676,13 @@ private struct XPGainCardStaggered: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Level \(displayLevel)")
-                        .font(.subheadline.weight(.bold))
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(.white)
                         .transition(.opacity)
                         .id("level-\(displayLevel)")
                     Spacer()
                     Text("+\(snapshot.xpGained) XP")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(accentColor)
                 }
 
@@ -668,12 +690,12 @@ private struct XPGainCardStaggered: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         // Background track
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        ChamferedRectangle(.small)
                             .fill(.white.opacity(0.10))
                             .frame(height: 10)
 
                         // Fill - smoothly animated with GPU acceleration
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        ChamferedRectangle(.small)
                             .fill(
                                 LinearGradient(
                                     colors: [accentColor, accentColor.opacity(0.7)],
@@ -684,13 +706,12 @@ private struct XPGainCardStaggered: View {
                             .frame(width: geo.size.width * progress, height: 10)
                             .animation(.easeOut(duration: 1.0), value: progress)
                     }
-                    .drawingGroup() // GPU-accelerated rendering
                 }
                 .frame(height: 10)
 
                 HStack {
                     Text("\(displayXP - displayFloor) / \(displayCeiling - displayFloor) XP")
-                        .font(.caption2.weight(.medium))
+                        .dsFont(.caption2, weight: .medium)
                         .foregroundStyle(.white.opacity(0.6))
                         .contentTransition(.numericText())
                         .animation(.easeOut(duration: 1.0), value: displayXP)
@@ -705,25 +726,25 @@ private struct XPGainCardStaggered: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("XP Breakdown")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.7))
 
                     ForEach(lineItems) { item in
                         if revealedLineItems.contains(item.id) {
                             HStack(spacing: 8) {
                                 Image(systemName: item.icon)
-                                    .font(.caption.weight(.bold))
+                                    .dsFont(.caption, weight: .bold)
                                     .frame(width: 18, height: 18)
                                     .foregroundStyle(accentColor)
 
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(humanize(item.source))
-                                        .font(.caption.weight(.medium))
+                                        .dsFont(.caption, weight: .medium)
                                         .foregroundStyle(.white)
 
                                     if let detail = item.detail {
                                         Text(humanize(detail))
-                                            .font(.caption2)
+                                            .dsFont(.caption2)
                                             .foregroundStyle(.white.opacity(0.5))
                                     }
                                 }
@@ -731,7 +752,7 @@ private struct XPGainCardStaggered: View {
                                 Spacer(minLength: 0)
 
                                 Text("+\(item.xp)")
-                                    .font(.caption.weight(.bold))
+                                    .dsFont(.caption, weight: .bold)
                                     .foregroundStyle(accentColor)
                             }
                             .padding(.vertical, 2)
@@ -751,19 +772,19 @@ private struct XPGainCardStaggered: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Rewards")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.7))
 
                     ForEach(highlights) { h in
                         if revealedHighlights.contains(h.id) {
                             HStack(spacing: 8) {
                                 Image(systemName: h.icon)
-                                    .font(.caption.weight(.bold))
+                                    .dsFont(.caption, weight: .bold)
                                     .frame(width: 18, height: 18)
                                     .foregroundStyle(accentColor)
 
                                 Text(h.label)
-                                    .font(.caption.weight(.medium))
+                                    .dsFont(.caption, weight: .medium)
                                     .foregroundStyle(.white)
 
                                 Spacer(minLength: 0)
@@ -781,13 +802,13 @@ private struct XPGainCardStaggered: View {
         .padding(14)
         .background(
             isLuckyBonus
-                ? .yellow.opacity(0.08)
-                : .white.opacity(0.06),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                ? DS.Theme.accent.opacity(0.08)
+                : DS.Theme.cardTop,
+            in: ChamferedRectangle(.large)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14).stroke(
-                isLuckyBonus ? .yellow.opacity(0.2) : .white.opacity(0.10),
+            ChamferedRectangle(.large).stroke(
+                isLuckyBonus ? DS.Theme.accent.opacity(0.26) : .white.opacity(0.10),
                 lineWidth: 1
             )
         )
@@ -874,13 +895,13 @@ private struct XPGainCard: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Level \(displayLevel)")
-                        .font(.subheadline.weight(.bold))
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(.white)
                         .transition(.opacity)
                         .id("level-\(displayLevel)")
                     Spacer()
                     Text("+\(snapshot.xpGained) XP")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Theme.accent)
                 }
 
@@ -888,12 +909,12 @@ private struct XPGainCard: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         // Background track
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        ChamferedRectangle(.small)
                             .fill(.white.opacity(0.10))
                             .frame(height: 10)
 
                         // Fill - smoothly animated with GPU acceleration
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        ChamferedRectangle(.small)
                             .fill(
                                 LinearGradient(
                                     colors: [DS.Theme.accent, DS.Theme.accent.opacity(0.7)],
@@ -904,13 +925,12 @@ private struct XPGainCard: View {
                             .frame(width: geo.size.width * progress, height: 10)
                             .animation(.easeOut(duration: 1.0), value: progress)
                     }
-                    .drawingGroup() // GPU-accelerated rendering
                 }
                 .frame(height: 10)
 
                 HStack {
                     Text("\(displayXP - displayFloor) / \(displayCeiling - displayFloor) XP")
-                        .font(.caption2.weight(.medium))
+                        .dsFont(.caption2, weight: .medium)
                         .foregroundStyle(.white.opacity(0.6))
                         .contentTransition(.numericText())
                         .animation(.easeOut(duration: 1.0), value: displayXP)
@@ -925,24 +945,24 @@ private struct XPGainCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("XP Breakdown")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.7))
 
                     ForEach(lineItems) { item in
                         HStack(spacing: 8) {
                             Image(systemName: item.icon)
-                                .font(.caption.weight(.bold))
+                                .dsFont(.caption, weight: .bold)
                                 .frame(width: 18, height: 18)
                                 .foregroundStyle(DS.Theme.accent)
 
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(humanize(item.source))
-                                    .font(.caption.weight(.medium))
+                                    .dsFont(.caption, weight: .medium)
                                     .foregroundStyle(.white)
 
                                 if let detail = item.detail {
                                     Text(humanize(detail))
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                         .foregroundStyle(.white.opacity(0.5))
                                 }
                             }
@@ -950,7 +970,7 @@ private struct XPGainCard: View {
                             Spacer(minLength: 0)
 
                             Text("+\(item.xp)")
-                                .font(.caption.weight(.bold))
+                                .dsFont(.caption, weight: .bold)
                                 .foregroundStyle(DS.Theme.accent)
                         }
                         .padding(.vertical, 2)
@@ -965,18 +985,18 @@ private struct XPGainCard: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Rewards")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.7))
 
                     ForEach(highlights) { h in
                         HStack(spacing: 8) {
                             Image(systemName: h.icon)
-                                .font(.caption.weight(.bold))
+                                .dsFont(.caption, weight: .bold)
                                 .frame(width: 18, height: 18)
                                 .foregroundStyle(DS.Theme.accent)
 
                             Text(h.label)
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                                 .foregroundStyle(.white)
 
                             Spacer(minLength: 0)
@@ -987,8 +1007,8 @@ private struct XPGainCard: View {
             }
         }
         .padding(14)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(.white.opacity(0.10), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.10), lineWidth: 1))
         .onAppear {
             if isLevelUp {
                 // Level up animation sequence

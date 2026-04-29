@@ -19,29 +19,29 @@ struct EmailVerificationView: View {
 
             // Title
             Text("Verify Your Email")
-                .font(.title.bold())
+                .dsFont(.title, weight: .bold)
 
             // Subtitle
             Text("We sent a verification link to:")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(.secondary)
 
             // Email
             if let email = authService.signupEmail {
                 Text(email)
-                    .font(.body.weight(.semibold))
+                    .dsFont(.body, weight: .semibold)
                     .foregroundStyle(DS.Semantic.brand)
             }
 
             // Instructions
             VStack(spacing: 12) {
-                Text("Click the link in the email to verify your account and start using WRKT.")
-                    .font(.subheadline)
+                Text("Click the link in the email to verify your account.")
+                    .dsFont(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
-                Text("After verifying, return here and we'll log you in automatically.")
-                    .font(.caption)
+                Text("After verifying, the app will finish login automatically.")
+                    .dsFont(.caption)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
             }
@@ -56,7 +56,7 @@ struct EmailVerificationView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                         Text("Verification email sent!")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundColor(.green)
                     }
                     .padding()
@@ -66,7 +66,7 @@ struct EmailVerificationView: View {
 
                 if let errorMessage = errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundColor(.red)
                 }
 

@@ -20,17 +20,17 @@ struct LiveWorkoutView: View {
                                 editingEntry = e
                             } label: {
                                 HStack(alignment: .top, spacing: 12) {
-                                    Image(systemName: "dumbbell").font(.headline)
+                                    Image(systemName: "dumbbell").dsFont(.headline)
                                     VStack(alignment: .leading, spacing: 6) {
-                                        Text(e.exerciseName).font(.headline)
+                                        Text(e.exerciseName).dsFont(.headline)
                                         if !e.sets.isEmpty {
                                             Text(e.sets.map { "\($0.reps)×\($0.weight.safeInt)kg" }
                                                 .joined(separator: "  •  "))
-                                                .font(.caption)
+                                                .dsFont(.caption)
                                                 .foregroundStyle(.secondary)
                                         } else {
                                             Text("No sets yet")
-                                                .font(.caption)
+                                                .dsFont(.caption)
                                                 .foregroundStyle(.secondary)
                                         }
                                     }
@@ -68,7 +68,7 @@ struct LiveWorkoutView: View {
                             HStack {
                                 Spacer()
                                 Label("Discard Workout", systemImage: "trash")
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                 Spacer()
                             }
                             .padding(.vertical, 14)

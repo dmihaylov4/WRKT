@@ -14,33 +14,35 @@ struct RecentPRCard: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             Text("Recent PR")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(.primary)
 
             // PR details
             HStack(spacing: 12) {
-                // Trophy icon
-                Image(systemName: "medal.fill")
-                    .font(.system(size: 32))
+                Image("recent-pr-cup")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 34, height: 34)
                     .foregroundStyle(.orange)
 
                 // Exercise info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(pr.exerciseName)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
 
                     HStack(spacing: 4) {
                         Text("\(pr.weight.safeInt) kg")
-                            .font(.caption.weight(.medium))
+                            .dsFont(.caption, weight: .medium)
                             .foregroundStyle(.orange)
 
                         Text("×")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
 
                         Text("\(pr.reps) reps")
-                            .font(.caption.weight(.medium))
+                            .dsFont(.caption, weight: .medium)
                             .foregroundStyle(.orange)
                     }
                 }
@@ -50,14 +52,14 @@ struct RecentPRCard: View {
                 // Date
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(pr.relativeDateString)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
 
             // Motivational message
             Text("Keep pushing for new records!")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(.secondary)
         }
         .padding(14)

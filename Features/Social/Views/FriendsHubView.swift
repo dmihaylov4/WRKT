@@ -72,24 +72,24 @@ struct FriendsHubView: View {
                         .frame(width: 44, height: 44)
 
                     Image(systemName: "person.badge.plus.fill")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Semantic.brand)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Friend Requests")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("\(badgeManager.friendRequestCount) pending")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
                 Spacer()
 
                 Text("\(badgeManager.friendRequestCount)")
-                    .font(.callout.bold())
+                    .dsFont(.callout, weight: .bold)
                     .foregroundStyle(.black)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
@@ -97,7 +97,7 @@ struct FriendsHubView: View {
                     .clipShape(Capsule())
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
             .padding()
@@ -116,7 +116,7 @@ struct FriendsHubView: View {
     private func storiesSection(viewModel: FriendsHubViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Friends")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .padding(.horizontal)
 
@@ -143,13 +143,13 @@ struct FriendsHubView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Recent Activity")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
 
                 Text("\(viewModel.recentlyActiveFriends.count) active")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
             .padding(.horizontal)
@@ -225,18 +225,18 @@ struct FriendsHubView: View {
     private func quickActionRow(icon: String, title: String, color: Color) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(color)
                 .frame(width: 32)
 
             Text(title)
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .padding()
@@ -310,7 +310,7 @@ struct FriendStoryAvatar: View {
 
             // Username
             Text(friend.profile.displayName ?? friend.profile.username)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1)
                 .frame(width: 76)
@@ -325,7 +325,7 @@ struct FriendStoryAvatar: View {
                     .fill(DS.Semantic.brandSoft)
                     .overlay(
                         Text(friend.profile.username.prefix(1).uppercased())
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(DS.Semantic.brand)
                     )
             }
@@ -360,7 +360,7 @@ struct ActivityRow: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(friend.profile.username.prefix(1).uppercased())
-                                .font(.caption.bold())
+                                .dsFont(.caption, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
@@ -373,21 +373,21 @@ struct ActivityRow: View {
             // Name and activity
             VStack(alignment: .leading, spacing: 2) {
                 Text(friend.profile.displayName ?? friend.profile.username)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 HStack(spacing: 4) {
                     Image(systemName: "figure.strengthtraining.traditional")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(DS.Status.success)
 
                     if let lastWorkout = friend.lastWorkoutText {
                         Text("Worked out \(lastWorkout)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     } else {
                         Text("Recently active")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -398,7 +398,7 @@ struct ActivityRow: View {
             // Workout count badge
             if friend.recentWorkoutCount > 0 {
                 Text("\(friend.recentWorkoutCount)")
-                    .font(.caption.bold())
+                    .dsFont(.caption, weight: .bold)
                     .foregroundStyle(DS.Semantic.brand)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -407,7 +407,7 @@ struct ActivityRow: View {
             }
 
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .padding()

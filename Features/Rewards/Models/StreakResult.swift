@@ -561,15 +561,17 @@ extension RewardsEngine {
                 }
                 let weeksGap = weekCount
 
-                AppLogger.debug("Weekly streak calculation: lastWeek=\(lastWeek.formatted(date: .abbreviated, time: .omitted)), currentWeek=\(weekStart.formatted(date: .abbreviated, time: .omitted)), weeksGap=\(weeksGap), frozen=\(prog.streakFrozen), currentStreak=\(prog.weeklyGoalStreakCurrent)", category: AppLogger.rewards)
+                AppLogger.debug("Weekly streak calculation: lastWeek=\(lastWeek.formatted(date: .abbreviated, time: .omitted)), currentWeek=\(weekStart.formatted(date: .abbreviated, time: .omitted)), weeksGap=\(weeksGap), frozen=\(prog.weeklyStreakFrozen), currentStreak=\(prog.weeklyGoalStreakCurrent)", category: AppLogger.rewards)
 
-                switch (weeksGap, prog.streakFrozen) {
+                switch (weeksGap, prog.weeklyStreakFrozen) {
                 case (1, _):         // Consecutive week
                     calculatedStreak = prog.weeklyGoalStreakCurrent + 1
                     AppLogger.info("Weekly streak: Consecutive week, incrementing to \(calculatedStreak)", category: AppLogger.rewards)
                 case (2, true):      // 1-week gap with freeze active
                     calculatedStreak = prog.weeklyGoalStreakCurrent + 1
+                    prog.weeklyFreezeProtectedWeekStart = calendar.date(byAdding: .day, value: -7, to: weekStart)
                     AppLogger.info("Weekly streak: 1-week gap with freeze, incrementing to \(calculatedStreak)", category: AppLogger.rewards)
+                    prog.weeklyStreakFrozen = false
                 default:             // Streak broken
                     calculatedStreak = 1
                     AppLogger.warning("Weekly streak: Broken (gap=\(weeksGap)), resetting to 1", category: AppLogger.rewards)
@@ -708,7 +710,8 @@ extension RewardsEngine {
 
         let strengthDone = inAppStrengthDays.union(healthKitStrengthDays).count
 
-        // Calculate MVPA minutes
+        // Calculate MVPA minutes using exact day-level HealthKit cache for the goal week
+        // window so custom anchor weekdays cannot double-count overlapping ISO-week rows.
         let summariesDescriptor = FetchDescriptor<WeeklyTrainingSummary>(
             predicate: #Predicate { $0.weekStart >= weekStart && $0.weekStart < weekEnd }
         )
@@ -719,7 +722,19 @@ extension RewardsEngine {
         }
 
         let minutesFromSummaries = validRows.reduce(0) { $0 + $1.minutes }
-        let appleExerciseMinutes = validRows.reduce(0) { $0 + ($1.appleExerciseMinutes ?? 0) }
+        let dailyExerciseDescriptor = FetchDescriptor<DailyAppleExerciseSummary>(
+            predicate: #Predicate { $0.dayStart < weekEnd }
+        )
+        let dailyExerciseRows = ((try? context.fetch(dailyExerciseDescriptor)) ?? []).filter { row in
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: row.dayStart) ?? row.dayStart
+            return row.dayStart < weekEnd && dayEnd > max(weekStart, cutoffDate)
+        }
+        let appleExerciseMinutes = HealthAggregationStore.appleExerciseMinutes(
+            from: max(weekStart, cutoffDate),
+            to: weekEnd,
+            in: context,
+            calendar: calendar
+        )
 
         // NOTE: We do NOT add cardio run durations because Apple Watch exercise minutes
         // already include MVPA from cardio activities. Adding run durations would double-count.
@@ -757,6 +772,14 @@ extension RewardsEngine {
             }
         }
 
+        if !dailyExerciseRows.isEmpty {
+            for row in dailyExerciseRows.sorted(by: { $0.dayStart < $1.dayStart }) {
+                AppLogger.info("🔍       Apple Exercise Day: \(row.dayStart.formatted(date: .abbreviated, time: .omitted)) - \(row.minutes)min", category: AppLogger.rewards)
+            }
+        } else {
+            AppLogger.info("🔍       Apple Exercise Day: none", category: AppLogger.rewards)
+        }
+
         return (weekMet, strengthMet, mvpaMet)
     }
 
@@ -774,7 +797,7 @@ extension RewardsEngine {
             return false
         }
 
-        AppLogger.info("🔍 Current streak: \(prog.weeklyGoalStreakCurrent), frozen: \(prog.streakFrozen)", category: AppLogger.rewards)
+        AppLogger.info("🔍 Current streak: \(prog.weeklyGoalStreakCurrent), frozen: \(prog.weeklyStreakFrozen)", category: AppLogger.rewards)
 
         // Get the user's weekly goal to use correct anchor weekday
         guard let weeklyGoal = fetchWeeklyGoal(context: context!),
@@ -799,6 +822,7 @@ extension RewardsEngine {
         // Check all weeks going backwards from current week
         var consecutiveWeeks = 0
         var checkDate = currentWeekStart
+        var firstBrokenWeekStart: Date?
 
         for i in 0..<weeksToCheck {
             checkDate = calendar.date(byAdding: .day, value: -7, to: checkDate) ?? checkDate
@@ -821,25 +845,81 @@ extension RewardsEngine {
             if result.met {
                 consecutiveWeeks += 1
                 AppLogger.info("🔍 Week \(checkDate.formatted(date: .abbreviated, time: .omitted)) met goal (consecutive: \(consecutiveWeeks))", category: AppLogger.rewards)
+            } else if let protectedWeek = prog.weeklyFreezeProtectedWeekStart,
+                      calendar.isDate(protectedWeek, equalTo: checkDate, toGranularity: .weekOfYear) {
+                consecutiveWeeks += 1
+                AppLogger.info("🔍 Week \(checkDate.formatted(date: .abbreviated, time: .omitted)) preserved by historical weekly freeze (consecutive: \(consecutiveWeeks))", category: AppLogger.rewards)
             } else {
                 // Stop at first incomplete week
+                firstBrokenWeekStart = checkDate
                 AppLogger.info("🔍 Week \(checkDate.formatted(date: .abbreviated, time: .omitted)) did NOT meet goal, stopping at week \(i+1)/\(weeksToCheck)", category: AppLogger.rewards)
                 break
             }
         }
 
-        // Update streak
         let oldStreak = prog.weeklyGoalStreakCurrent
+        let oldLastWeekGoalMet = prog.lastWeekGoalMet
+        let oldFreezeState = prog.weeklyStreakFrozen
+        let oldFreezeUsedAt = prog.weeklyFreezeUsedAt
+        let oldProtectedWeekStart = prog.weeklyFreezeProtectedWeekStart
+
+        // Update streak
         prog.weeklyGoalStreakCurrent = consecutiveWeeks
         prog.weeklyGoalStreakLongest = max(prog.weeklyGoalStreakLongest, consecutiveWeeks)
 
         if consecutiveWeeks > 0 {
             prog.lastWeekGoalMet = calendar.date(byAdding: .day, value: -7, to: currentWeekStart)
+            prog.weeklyStreakFrozen = false
         } else {
             prog.lastWeekGoalMet = nil
         }
 
-        AppLogger.success("🔍 Rebuilt streak: \(oldStreak) -> \(consecutiveWeeks) weeks", category: AppLogger.rewards)
+        // If validation would break an existing streak, auto-consume a monthly weekly freeze once.
+        if consecutiveWeeks < oldStreak && oldStreak > 0 {
+            if let protectedWeek = oldProtectedWeekStart,
+               let brokenWeek = firstBrokenWeekStart,
+               calendar.isDate(protectedWeek, equalTo: brokenWeek, toGranularity: .weekOfYear) {
+                prog.weeklyGoalStreakCurrent = oldStreak
+                prog.lastWeekGoalMet = oldLastWeekGoalMet
+                prog.weeklyStreakFrozen = false
+                prog.weeklyFreezeUsedAt = oldFreezeUsedAt
+                prog.weeklyFreezeProtectedWeekStart = protectedWeek
+                AppLogger.info("🔍 Historical weekly freeze already covers \(brokenWeek.formatted(date: .abbreviated, time: .omitted)) - preserving streak at \(oldStreak)", category: AppLogger.rewards)
+            } else if oldProtectedWeekStart == nil,
+                      let priorFreezeUse = oldFreezeUsedAt,
+                      let brokenWeek = firstBrokenWeekStart,
+                      oldStreak == consecutiveWeeks + 1,
+                      !hasWeeklyFreezeAvailable(prog, now: now, calendar: calendar) {
+                prog.weeklyGoalStreakCurrent = oldStreak
+                prog.lastWeekGoalMet = oldLastWeekGoalMet
+                prog.weeklyStreakFrozen = false
+                prog.weeklyFreezeUsedAt = priorFreezeUse
+                prog.weeklyFreezeProtectedWeekStart = brokenWeek
+                AppLogger.info("🔍 Backfilled historical weekly freeze for \(brokenWeek.formatted(date: .abbreviated, time: .omitted)) based on prior freeze usage - preserving streak at \(oldStreak)", category: AppLogger.rewards)
+            } else if oldFreezeState, let brokenWeek = firstBrokenWeekStart {
+                prog.weeklyGoalStreakCurrent = oldStreak
+                prog.lastWeekGoalMet = oldLastWeekGoalMet
+                prog.weeklyStreakFrozen = false
+                prog.weeklyFreezeUsedAt = oldFreezeUsedAt ?? now
+                prog.weeklyFreezeProtectedWeekStart = brokenWeek
+                AppLogger.info("🔍 Consumed active weekly freeze for \(brokenWeek.formatted(date: .abbreviated, time: .omitted)) - preserving streak at \(oldStreak)", category: AppLogger.rewards)
+            } else if hasWeeklyFreezeAvailable(prog, now: now, calendar: calendar) {
+                prog.weeklyGoalStreakCurrent = oldStreak
+                prog.lastWeekGoalMet = oldLastWeekGoalMet
+                prog.weeklyStreakFrozen = false
+                prog.weeklyFreezeUsedAt = now
+                prog.weeklyFreezeProtectedWeekStart = firstBrokenWeekStart
+                AppLogger.info("🔍 Auto-used weekly freeze to preserve streak at \(oldStreak)", category: AppLogger.rewards)
+
+                Task { @MainActor in
+                    await SmartNudgeManager.shared.sendWeeklyFreezeUsedNotification(streak: oldStreak)
+                }
+            } else {
+                prog.weeklyFreezeProtectedWeekStart = oldProtectedWeekStart
+            }
+        }
+
+        AppLogger.success("🔍 Rebuilt streak: \(oldStreak) -> \(prog.weeklyGoalStreakCurrent) weeks", category: AppLogger.rewards)
 
         // Also rebuild super streak
         var consecutiveSuperWeeks = 0

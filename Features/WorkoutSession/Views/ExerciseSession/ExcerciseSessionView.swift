@@ -104,9 +104,9 @@ struct ExerciseSessionView: View {
                     VStack {
                         HStack(spacing: 8) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.body.weight(.semibold))
+                                .dsFont(.body, weight: .semibold)
                             Text(workoutBannerMessage)
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                         }
                         .foregroundStyle(.black)
                         .padding(.horizontal, 16)
@@ -294,7 +294,7 @@ struct ExerciseSessionView: View {
                 // Exercise name and progress (compact)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)
-                        .font(.headline.weight(.semibold))
+                        .dsFont(.headline, weight: .semibold)
                         .foregroundStyle(Theme.text)
                         .lineLimit(1)
 
@@ -302,7 +302,7 @@ struct ExerciseSessionView: View {
                     HStack(spacing: 8) {
                         // Current set progress
                         Text("Set \(viewModel.activeSetIndex + 1)/\(viewModel.sets.count)")
-                            .font(.caption.weight(.medium))
+                            .dsFont(.caption, weight: .medium)
                             .foregroundStyle(Theme.secondary)
 
                         // PR badge (compact, inline)
@@ -312,7 +312,7 @@ struct ExerciseSessionView: View {
                                 Image(systemName: "star.fill")
                                     .font(.system(size: 9))
                                 Text("PR \(String(format: "%.0f", e1rmDisplay))\(unit.rawValue)")
-                                    .font(.caption2.weight(.semibold))
+                                    .dsFont(.caption2, weight: .semibold)
                             }
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 6)
@@ -330,7 +330,7 @@ struct ExerciseSessionView: View {
                                     .font(.system(size: 8))
                                 // Always show complete target: weight × reps
                                 Text("\(String(format: "%.1f", displayWeight))\(unit.rawValue) × \(progression.suggestedReps)")
-                                    .font(.caption2.weight(.semibold))
+                                    .dsFont(.caption2, weight: .semibold)
                             }
                             .foregroundStyle(DS.Palette.marone)
                             .padding(.horizontal, 6)
@@ -348,7 +348,7 @@ struct ExerciseSessionView: View {
                     viewModel.showInfo.toggle()
                 } label: {
                     Image(systemName: "info.circle.fill")
-                        .font(.title2.weight(.semibold))
+                        .dsFont(.title2, weight: .semibold)
                         .foregroundStyle(Theme.accent)
                         .padding(8)
                         .background(
@@ -379,16 +379,16 @@ struct ExerciseSessionView: View {
                 // Header: Exercise Name
                 VStack(alignment: .leading, spacing: 8) {
                     Text(exercise.name)
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(Theme.text)
 
                     if !guideMeta.equipment.isEmpty {
                         HStack(spacing: 12) {
                             HStack(spacing: 6) {
                                 Image(systemName: "dumbbell.fill")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                 Text(guideMeta.equipment)
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                             }
                             .foregroundStyle(Theme.secondary)
 
@@ -397,9 +397,9 @@ struct ExerciseSessionView: View {
                                     .foregroundStyle(Theme.secondary)
                                 HStack(spacing: 6) {
                                     Image(systemName: "dial.medium.fill")
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                     Text(guideMeta.difficulty)
-                                        .font(.subheadline)
+                                        .dsFont(.subheadline)
                                 }
                                 .foregroundStyle(Theme.secondary)
                             }
@@ -549,11 +549,11 @@ struct ExerciseSessionView: View {
         var body: some View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.accent)
 
                 Text(title)
-                    .font(.headline.weight(.semibold))
+                    .dsFont(.headline, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
         }
@@ -678,10 +678,10 @@ struct ExerciseSessionView: View {
                                     DS.Palette.marone
                                     HStack(spacing: 6) {
                                         Image(systemName: "xmark.circle.fill")
-                                            .font(.title3)
+                                            .dsFont(.title3)
                                             .foregroundColor(.black)
                                         Text("Mark Incomplete")
-                                            .font(.subheadline.weight(.semibold))
+                                            .dsFont(.subheadline, weight: .semibold)
                                             .foregroundColor(.black)
                                     }
                                 }
@@ -694,10 +694,10 @@ struct ExerciseSessionView: View {
                                     DS.Palette.marone
                                     HStack(spacing: 6) {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .font(.title3)
+                                            .dsFont(.title3)
                                             .foregroundColor(.black)
                                         Text("Mark Complete")
-                                            .font(.subheadline.weight(.semibold))
+                                            .dsFont(.subheadline, weight: .semibold)
                                             .foregroundColor(.black)
                                     }
                                 }
@@ -710,10 +710,10 @@ struct ExerciseSessionView: View {
                         } label: {
                             VStack(spacing: 4) {
                                 Image(systemName: "trash.fill")
-                                    .font(.title2)
+                                    .dsFont(.title2)
                                     .foregroundStyle(DS.Palette.marone)
                                 Text("Delete")
-                                    .font(.caption2.weight(.semibold))
+                                    .dsFont(.caption2, weight: .semibold)
                                     .foregroundStyle(DS.Palette.marone)
                             }
                         }
@@ -742,7 +742,7 @@ struct ExerciseSessionView: View {
                             Text("Add Set")
                                 .fontWeight(.semibold)
                         }
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -1318,16 +1318,16 @@ private struct ProgressionCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.up.right.circle.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(.green)
 
                 Text("Progressive Overload Applied")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(ExerciseSessionTheme.text)
             }
 
             Text(progression.reason)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(ExerciseSessionTheme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1337,23 +1337,23 @@ private struct ProgressionCard: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Previous")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(ExerciseSessionTheme.secondary)
                         Text("\(progression.suggestedReps - 1) reps")
-                            .font(.title3.monospacedDigit().weight(.semibold))
+                            .dsFont(.title3, weight: .semibold, monospacedDigits: true)
                             .foregroundStyle(ExerciseSessionTheme.text)
                     }
 
                     Image(systemName: "arrow.right")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(ExerciseSessionTheme.secondary)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Suggested")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.green)
                         Text("\(progression.suggestedReps) reps")
-                            .font(.title3.monospacedDigit().weight(.semibold))
+                            .dsFont(.title3, weight: .semibold, monospacedDigits: true)
                             .foregroundStyle(.green)
                     }
                 }
@@ -1363,25 +1363,25 @@ private struct ProgressionCard: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Previous")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(ExerciseSessionTheme.secondary)
                         let prevDisplay = unit == .kg ? progression.previousWeight : progression.previousWeight * 2.20462
                         Text("\(String(format: "%.1f", prevDisplay))\(unit.rawValue)")
-                            .font(.title3.monospacedDigit().weight(.semibold))
+                            .dsFont(.title3, weight: .semibold, monospacedDigits: true)
                             .foregroundStyle(ExerciseSessionTheme.text)
                     }
 
                     Image(systemName: "arrow.right")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(ExerciseSessionTheme.secondary)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Suggested")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.green)
                         let suggestedDisplay = unit == .kg ? progression.suggestedWeight : progression.suggestedWeight * 2.20462
                         Text("\(String(format: "%.1f", suggestedDisplay))\(unit.rawValue)")
-                            .font(.title3.monospacedDigit().weight(.semibold))
+                            .dsFont(.title3, weight: .semibold, monospacedDigits: true)
                             .foregroundStyle(.green)
                     }
                 }

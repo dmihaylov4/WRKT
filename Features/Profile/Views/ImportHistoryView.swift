@@ -27,10 +27,10 @@ struct ImportHistoryView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(record.sourceFileName)
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                         Spacer()
                         Text(record.strategy == "replace" ? "Replace" : "Merge")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(record.strategy == "replace" ? .orange : .green)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -41,7 +41,7 @@ struct ImportHistoryView: View {
                     }
 
                     Text(record.importedAt.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 12) {
@@ -54,7 +54,7 @@ struct ImportHistoryView: View {
                             systemImage: "scalemass"
                         )
                     }
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
                 }
                 .swipeActions(edge: .trailing) {

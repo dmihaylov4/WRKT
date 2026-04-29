@@ -77,14 +77,14 @@ struct VirtualRunInviteView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(coordinator.isWaitingForAcceptance ? "Invite Sent" : "Run In Progress")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                     if let name = coordinator.sentInvitePartnerName {
                         Text("Waiting for \(name)...")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                     } else {
                         Text("You're currently in a virtual run")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -98,7 +98,7 @@ struct VirtualRunInviteView: View {
                         showCancelConfirmation = true
                     } label: {
                         Text("End")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
@@ -142,9 +142,9 @@ struct VirtualRunInviteView: View {
                 .font(.system(size: 44))
                 .foregroundStyle(.secondary)
             Text("No Friends Yet")
-                .font(.title3.weight(.bold))
+                .dsFont(.title3, weight: .bold)
             Text("Add friends to invite them for a virtual run")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Spacer()
@@ -258,10 +258,10 @@ private struct FriendInviteCard: View {
                 // Name + username
                 VStack(alignment: .leading, spacing: 2) {
                     Text(friend.profile.displayName ?? friend.profile.username)
-                        .font(.body.weight(.semibold))
+                        .dsFont(.body, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("@\(friend.profile.username)")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -305,7 +305,7 @@ private struct FriendInviteCard: View {
                 .fill(DS.Semantic.surface50)
                 .overlay {
                     Text(String((friend.profile.displayName ?? friend.profile.username).prefix(1)).uppercased())
-                        .font(.body.weight(.semibold))
+                        .dsFont(.body, weight: .semibold)
                         .foregroundStyle(.secondary)
                 }
         }

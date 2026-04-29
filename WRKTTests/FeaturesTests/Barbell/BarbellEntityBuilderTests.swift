@@ -1,65 +1,53 @@
 import Testing
-import RealityKit
 @testable import WRKT
 
 struct BarbellEntityBuilderTests {
 
-    @Test func makePlateEntityHasRequiredComponents() {
-        for tierID in 0...7 {
-            let entity = makePlateEntity(tierID: tierID)
-            #expect(entity.components[InputTargetComponent.self] != nil,
-                    "tier \(tierID) missing InputTargetComponent")
-            #expect(entity.components[CollisionComponent.self] != nil,
-                    "tier \(tierID) missing CollisionComponent")
-            #expect(entity.components[PlateRoleComponent.self] != nil,
-                    "tier \(tierID) missing PlateRoleComponent")
-            #expect(entity.components[PhysicsBodyComponent.self] != nil,
-                    "tier \(tierID) missing PhysicsBodyComponent")
-            #expect(entity.components[TierIDComponent.self] != nil,
-                    "tier \(tierID) missing TierIDComponent")
-            #expect(entity.components[PlateAudioCategoryComponent.self] != nil,
-                    "tier \(tierID) missing PlateAudioCategoryComponent")
-            #expect(entity.components[PhysicsMotionComponent.self] != nil,
-                    "tier \(tierID) missing PhysicsMotionComponent")
-        }
+    @Test func plateTierCatalogHasExpectedIDs() {
+        #expect(PlateTier.all.map(\.id) == Array(0...7))
     }
 
-    @Test func makePlateEntityDefaultRoleIsFloor() {
-        let entity = makePlateEntity(tierID: 0)
-        #expect(entity.components[PlateRoleComponent.self]?.role == .floor)
+    @Test func starterTierIsLastAndMarkedStarterStyle() throws {
+        let starter = try #require(PlateTier.all.last)
+        #expect(starter.id == 7)
+        #expect(starter.style == .starter)
+        #expect(starter.name == "Starter")
     }
 
-    @Test func makePlateEntityBarRoleRoundtrips() {
-        let entity = makePlateEntity(tierID: 2, role: .bar)
-        #expect(entity.components[PlateRoleComponent.self]?.role == .bar)
+    @Test func plateAudioCategoryMapsExpectedTiers() {
+        #expect(PlateAudioCategory.from(tierID: 0) == .iron)
+        #expect(PlateAudioCategory.from(tierID: 1) == .iron)
+        #expect(PlateAudioCategory.from(tierID: 2) == .rubber)
+        #expect(PlateAudioCategory.from(tierID: 3) == .brass)
+        #expect(PlateAudioCategory.from(tierID: 4) == .iron)
+        #expect(PlateAudioCategory.from(tierID: 5) == .iron)
+        #expect(PlateAudioCategory.from(tierID: 6) == .brass)
+        #expect(PlateAudioCategory.from(tierID: 7) == .starter)
     }
 
-    @Test func makePlateEntityPhysicsIsKinematicByDefault() {
-        let entity = makePlateEntity(tierID: 0)
-        #expect(entity.components[PhysicsBodyComponent.self]?.mode == .kinematic)
+    @Test func barSkinCatalogHasUniqueIDs() {
+        let ids = BarSkin.all.map(\.id)
+        #expect(Set(ids).count == BarSkin.all.count)
+        #expect(ids == Array(0..<(BarSkin.all.count)))
     }
 
-    @Test func makePlateEntityAcceptsExternalMaterial() {
-        var mat = PhysicallyBasedMaterial()
-        mat.baseColor = .init(tint: .red)
-        let entity = makePlateEntity(tierID: 0, material: mat)
-        #expect(entity.components[PlateRoleComponent.self] != nil)
+    @Test func barSkinCatalogIncludesChromeDefault() throws {
+        let chrome = try #require(BarSkin.all.first)
+        #expect(chrome.id == 0)
+        #expect(chrome.name == "Chrome")
+        #expect(chrome.earnedBy == "Default")
     }
 
-    @Test func makeBarEntityIsNonNil() {
-        for skinID in 0..<BarSkin.all.count {
-            let bar = makeBarEntity(skinID: skinID)
-            #expect(bar.model != nil, "skinID \(skinID) missing mesh")
-        }
+    @Test func stickerCatalogHasNoneOptionFirst() throws {
+        let none = try #require(StickerOption.all.first)
+        #expect(none.id == 0)
+        #expect(none.name == "None")
+        #expect(none.emoji == nil)
     }
 
-    @Test func makeCollarEntityIsNonNil() {
-        let collar = makeCollarEntity()
-        #expect(collar.model != nil)
-    }
-
-    @Test func makeRackStandEntityIsNonNil() {
-        let stand = makeRackStandEntity()
-        #expect(!stand.children.isEmpty, "stand has no children")
+    @Test func stickerCatalogContainsLegendaryCrown() {
+        let crown = StickerOption.all.first(where: { $0.name == "Crown" })
+        #expect(crown?.rarity == .legendary)
+        #expect(crown?.emoji == "👑")
     }
 }

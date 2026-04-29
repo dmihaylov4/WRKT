@@ -53,11 +53,11 @@ struct UnifiedWeeklyStatsCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Weekly Progress")
-                        .font(.subheadline.weight(.semibold))
+                        .font(DS.Typography.font(.subheadline, weight: .semibold))
                         .foregroundStyle(.primary)
 
                     Text(daysRemaining == 0 ? "Last day!" : "\(daysRemaining) day\(daysRemaining == 1 ? "" : "s") left")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
@@ -65,7 +65,7 @@ struct UnifiedWeeklyStatsCard: View {
 
                 // Overall percentage
                 Text("\(Int(overallPercentage))%")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(DS.Typography.custom(size: 28, weight: .bold, relativeTo: .title2, monospacedDigits: true))
                     .foregroundStyle(statusColor)
             }
 
@@ -83,13 +83,13 @@ struct UnifiedWeeklyStatsCard: View {
                         .frame(width: 14, height: 14)
 
                     Text("Strength")
-                        .font(.caption.weight(.medium))
+                        .font(DS.Typography.font(.caption, weight: .medium))
                         .foregroundStyle(.primary)
 
                     Spacer()
 
                     Text("\(strengthCompleted)/\(strengthTarget) workouts")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -123,13 +123,13 @@ struct UnifiedWeeklyStatsCard: View {
                         .frame(width: 14, height: 14)
 
                     Text("Cardio")
-                        .font(.caption.weight(.medium))
+                        .font(DS.Typography.font(.caption, weight: .medium))
                         .foregroundStyle(.primary)
 
                     Spacer()
 
                     Text("\(cardioMinutes)/\(cardioTarget) min")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -157,17 +157,17 @@ struct UnifiedWeeklyStatsCard: View {
             // Status message
             if strengthPercentage >= 100 && cardioPercentage >= 100 {
                 Text("All goals complete!")
-                    .font(.caption.weight(.medium))
+                    .font(DS.Typography.font(.caption, weight: .medium))
                     .foregroundStyle(Color.green)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else if strengthPercentage >= 100 {
                 Text("Strength goal complete!")
-                    .font(.caption.weight(.medium))
+                    .font(DS.Typography.font(.caption, weight: .medium))
                     .foregroundStyle(Color.green)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else if cardioPercentage >= 100 {
                 Text("Cardio goal complete!")
-                    .font(.caption.weight(.medium))
+                    .font(DS.Typography.font(.caption, weight: .medium))
                     .foregroundStyle(Color.green)
                     .frame(maxWidth: .infinity, alignment: .center)
             } else {
@@ -183,7 +183,7 @@ struct UnifiedWeeklyStatsCard: View {
                         Text("\(cardioTarget - cardioMinutes) min to go")
                     }
                 }
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -200,12 +200,12 @@ struct UnifiedWeeklyStatsCard: View {
         HStack(alignment: .center, spacing: 8) {
             // Icon on the left, aligned with text
             Image(systemName: level == .critical ? "exclamationmark.octagon.fill" : "exclamationmark.triangle.fill")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(level.color)
 
             // Text aligned to the left
             Text(message)
-                .font(.caption.weight(.medium))
+                .font(DS.Typography.font(.caption, weight: .medium))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -221,18 +221,20 @@ struct UnifiedWeeklyStatsCard: View {
         VStack(spacing: 8) {
             HStack {
                 Image("streak-icon")
+                    .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 14, height: 14)
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(DS.Palette.marone)
 
                 Text("Weekly Streak")
-                    .font(.caption.weight(.medium))
+                    .font(DS.Typography.font(.caption, weight: .medium))
                     .foregroundStyle(.primary)
 
                 Spacer()
 
                 Text("\(currentStreak) week\(currentStreak == 1 ? "" : "s")")
-                    .font(.caption.weight(.bold))
+                    .font(DS.Typography.font(.caption, weight: .bold))
                     .foregroundStyle(DS.Palette.marone)
             }
 
@@ -255,11 +257,11 @@ struct UnifiedWeeklyStatsCard: View {
 
                     HStack {
                         Text("Next milestone:")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Text("\(nextMilestone) weeks")
-                            .font(.caption2.weight(.medium))
+                            .font(DS.Typography.font(.caption2, weight: .medium))
                             .foregroundStyle(DS.Palette.marone)
                     }
                 }

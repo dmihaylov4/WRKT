@@ -73,7 +73,7 @@ private struct YouTubeWebPlayer: View {
                     onClose()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(.white, .black.opacity(0.7))
                         .padding(8)
                 }
@@ -216,9 +216,9 @@ private struct YouTubePreviewCard: View {
                         Spacer()
                         HStack(spacing: 4) {
                             Image(systemName: "play.rectangle.fill")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                             Text("Tap to Play")
-                                .font(.caption2.weight(.medium))
+                                .dsFont(.caption2, weight: .medium)
                         }
                         .foregroundStyle(.white)
                         .padding(.horizontal, 8)
@@ -242,7 +242,7 @@ private struct YouTubePreviewCard: View {
                     .font(.system(size: 40))
                     .foregroundStyle(.white.opacity(0.7))
                 Text("Tap to Watch")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.white.opacity(0.7))
             }
         }

@@ -34,9 +34,9 @@ struct RestTimerCompactBadge: View {
         if isActive {
             HStack(spacing: 4) {
                 Image(systemName: "timer")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                 Text(timeRemaining)
-                    .font(.caption.monospacedDigit().weight(.semibold))
+                    .dsFont(.caption, weight: .semibold, monospacedDigits: true)
             }
             .foregroundStyle(Theme.accent)
             .padding(.horizontal, 8)
@@ -89,10 +89,10 @@ struct RestTimerSettingsCard: View {
             // Header
             HStack {
                 Image(systemName: "hourglass")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.accent)
                 Text("Rest Timer")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
 
@@ -103,17 +103,17 @@ struct RestTimerSettingsCard: View {
                 HStack(spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(timeString)
-                            .font(.title2.monospacedDigit().weight(.bold))
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.text)
 
                         HStack(spacing: 4) {
                             if hasCustomTimer {
                                 Image(systemName: "star.fill")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                     .foregroundStyle(Theme.accent)
                             }
                             Text(durationSource)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(Theme.secondary)
                         }
                     }
@@ -122,7 +122,7 @@ struct RestTimerSettingsCard: View {
 
                     // Edit indicator
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Theme.secondary)
                 }
                 .padding(12)
@@ -154,12 +154,12 @@ struct CustomTimerEditorView: View {
             // Timer preview
             VStack(spacing: 8) {
                 Text("Rest Timer")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .textCase(.uppercase)
 
                 Text(String(format: "%d:%02d", minutes, seconds))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 48, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Theme.accent)
             }
@@ -169,7 +169,7 @@ struct CustomTimerEditorView: View {
             VStack(spacing: 16) {
                 HStack {
                     Text("Minutes")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(Theme.text)
                     Spacer()
                     Picker("Minutes", selection: $minutes) {
@@ -183,7 +183,7 @@ struct CustomTimerEditorView: View {
 
                 HStack {
                     Text("Seconds")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(Theme.text)
                     Spacer()
                     Picker("Seconds", selection: $seconds) {
@@ -210,7 +210,7 @@ struct CustomTimerEditorView: View {
                         Image(systemName: "arrow.counterclockwise")
                         Text("Reset to Default")
                     }
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)

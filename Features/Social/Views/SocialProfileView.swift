@@ -68,7 +68,7 @@ struct SocialProfileView: View {
                     // Skeleton posts section
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Workouts")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .padding(.horizontal)
 
@@ -186,22 +186,33 @@ struct SocialProfileView: View {
 
             // All retries failed
             isLoading = false
-            loadError = "Failed to load profile: \(lastError?.localizedDescription ?? "Unknown error")"
+            if let supabaseError = lastError as? SupabaseError {
+                switch supabaseError {
+                case .profileNotFound:
+                    loadError = "Profile not found"
+                default:
+                    loadError = "Failed to load profile. Please try again."
+                }
+            } else {
+                loadError = "Failed to load profile. Please try again."
+            }
         }
     }
 
     private func errorView(error: String) -> some View {
-        VStack(spacing: 16) {
+        let isMissingProfile = error == "Profile not found"
+
+        return VStack(spacing: 16) {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
                 .font(.system(size: 60))
                 .foregroundStyle(DS.Semantic.textSecondary)
 
-            Text("Profile Not Found")
-                .font(.headline)
+            Text(isMissingProfile ? "Profile Not Found" : "Couldn’t Load Profile")
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text(error)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -220,43 +231,43 @@ struct SocialProfileView: View {
     @ViewBuilder
     private func content(viewModel: ProfileViewModel) -> some View {
         ScrollView {
-            VStack(spacing: 24) {
-                // Profile Header
-                profileHeader(viewModel: viewModel)
-
-                // Battle Invite Card (if present)
-                if let battle = battle, battle.battle.status == .pending {
-                    battleInviteCard(battle: battle, viewModel: viewModel)
-                }
-
-                // Stats Row
-                statsRow(viewModel: viewModel)
-
-                // Activity Link (for own profile)
-                if viewModel.isOwnProfile {
+            if viewModel.isOwnProfile {
+                VStack(spacing: 24) {
+                    profileHeader(viewModel: viewModel)
+                    statsRow(viewModel: viewModel)
                     activityLink
+                    BarbellShowcaseCard(
+                        isOwnProfile: true,
+                        ownerId: userId,
+                        sessionCount: barbellConfigs.first?.totalStrengthWorkouts ?? 0,
+                        friendRackedPlates: []
+                    )
+                    actionButtons(viewModel: viewModel)
+                    postsSection(viewModel: viewModel)
                 }
+                .padding()
+            } else {
+                VStack(spacing: 20) {
+                    profileHeader(viewModel: viewModel)
+                    headToHeadCard(viewModel: viewModel)
+                    accountabilitySnapshot(viewModel: viewModel)
+                    actionButtons(viewModel: viewModel)
 
-                // Barbell Showcase Card
-                let sessionCount = viewModel.isOwnProfile
-                    ? (barbellConfigs.first?.totalStrengthWorkouts ?? 0)
-                    : 0
-                BarbellShowcaseCard(
-                    isOwnProfile: viewModel.isOwnProfile,
-                    ownerId: userId,
-                    sessionCount: sessionCount,
-                    friendRackedPlates: viewModel.isOwnProfile ? [] : friendRackedPlates
-                )
+                    if let battle = battle, battle.battle.status == .pending {
+                        battleInviteCard(battle: battle, viewModel: viewModel)
+                    }
 
-                // Action Buttons
-                actionButtons(viewModel: viewModel)
+                    BarbellShowcaseCard(
+                        isOwnProfile: false,
+                        ownerId: userId,
+                        sessionCount: 0,
+                        friendRackedPlates: friendRackedPlates
+                    )
 
-                Divider()
-
-                // Posts Section
-                postsSection(viewModel: viewModel)
+                    postsSection(viewModel: viewModel)
+                }
+                .padding()
             }
-            .padding()
         }
         .refreshable {
             async let posts: () = viewModel.loadUserPosts()
@@ -276,92 +287,149 @@ struct SocialProfileView: View {
     }
 
     private func profileHeader(viewModel: ProfileViewModel) -> some View {
-        VStack(spacing: 16) {
-            // Profile Picture (Chamfered logo style)
-            ZStack(alignment: .bottomTrailing) {
-                KFImage(URL(string: viewModel.profile.avatarUrl ?? ""))
-                    .placeholder {
-                        ChamferedRectangleAlt(.hero)
-                            .fill(DS.Semantic.brandSoft)
-                            .overlay(
-                                Text(viewModel.profile.username.prefix(1).uppercased())
-                                    .font(.system(size: 40, weight: .bold))
-                                    .foregroundStyle(DS.Semantic.brand)
-                            )
-                    }
-                    .fade(duration: 0.25)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 100, height: 100)
-                    .clipShape(ChamferedRectangleAlt(.hero))
-                    .overlay(
-                        ChamferedRectangleAlt(.hero)
-                            .stroke(DS.Semantic.brand, lineWidth: 2.5)
-                    )
-                    .id(viewModel.profile.avatarUrl ?? "")
+        return VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 16) {
+                profileAvatar(viewModel: viewModel)
 
-                // Edit button for own profile (hexagonal)
-                if viewModel.isOwnProfile {
-                    PhotosPicker(selection: Binding(
-                        get: { viewModel.selectedPhoto },
-                        set: { newValue in
-                            viewModel.selectedPhoto = newValue
-                            if newValue != nil {
-                                Task {
-                                    await viewModel.uploadProfilePicture()
-                                }
-                            }
-                        }
-                    ), matching: .images) {
-                        ZStack {
-                            Hexagon()
-                                .fill(DS.Semantic.brand)
-                                .frame(width: 32, height: 32)
-
-                            if viewModel.isUploadingAvatar {
-                                ProgressView()
-                                    .tint(.black)
-                            } else {
-                                Image(systemName: "camera.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.black)
-                            }
-                        }
-                    }
-                    .disabled(viewModel.isUploadingAvatar)
+                VStack(alignment: .leading, spacing: 14) {
+                    profileIdentity(viewModel: viewModel)
+                    profileStatusStack(viewModel: viewModel)
                 }
+
+                Spacer(minLength: 0)
             }
 
-            // Username & Display Name
-            VStack(spacing: 4) {
-                if let displayName = viewModel.profile.displayName, !displayName.isEmpty {
-                    Text(displayName)
-                        .font(.title2.bold())
-                        .foregroundStyle(DS.Semantic.textPrimary)
-
-                    Text("@\(viewModel.profile.username)")
-                        .font(.subheadline)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                } else {
-                    Text("@\(viewModel.profile.username)")
-                        .font(.title2.bold())
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                }
-            }
-
-            // Bio
             if let bio = viewModel.profile.bio, !bio.isEmpty {
+                Rectangle()
+                    .fill(DS.Semantic.border.opacity(0.5))
+                    .frame(height: 1)
+
                 Text(bio)
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
-                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(
+            ChamferedRectangle(.xl)
+                .fill(DS.Semantic.fillSubtle)
+        )
+        .overlay(
+            ChamferedRectangle(.xl)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+    }
+
+    private func profileAvatar(viewModel: ProfileViewModel) -> some View {
+        ZStack(alignment: .bottomTrailing) {
+            ChamferedRectangle(.large)
+                .fill(DS.Semantic.surface.opacity(0.55))
+                .frame(width: 112, height: 124)
+                .overlay(alignment: .center) {
+                    KFImage(URL(string: viewModel.profile.avatarUrl ?? ""))
+                        .placeholder {
+                            Rectangle()
+                                .fill(DS.Semantic.brandSoft)
+                                .overlay(
+                                    Text(viewModel.profile.username.prefix(1).uppercased())
+                                        .font(.system(size: 34, weight: .bold))
+                                        .foregroundStyle(DS.Semantic.brand)
+                                )
+                        }
+                        .fade(duration: 0.25)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 92, height: 104)
+                        .clipShape(Rectangle())
+                        .id(viewModel.profile.avatarUrl ?? "")
+                }
+
+            if viewModel.isOwnProfile {
+                PhotosPicker(selection: Binding(
+                    get: { viewModel.selectedPhoto },
+                    set: { newValue in
+                        viewModel.selectedPhoto = newValue
+                        if newValue != nil {
+                            Task {
+                                await viewModel.uploadProfilePicture()
+                            }
+                        }
+                    }
+                ), matching: .images) {
+                    ZStack {
+                        ChamferedRectangle(.small)
+                            .fill(DS.Semantic.brand)
+                            .frame(width: 34, height: 34)
+
+                        if viewModel.isUploadingAvatar {
+                            ProgressView()
+                                .tint(.black)
+                        } else {
+                            Image(systemName: "camera.fill")
+                                .dsFont(.caption, weight: .bold)
+                                .foregroundStyle(.black)
+                        }
+                    }
+                }
+                .disabled(viewModel.isUploadingAvatar)
+            }
+        }
+    }
+
+    private func profileIdentity(viewModel: ProfileViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let displayName = viewModel.profile.displayName, !displayName.isEmpty {
+                Text(displayName)
+                    .font(DS.Typography.custom(size: 28, weight: .bold))
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .multilineTextAlignment(.leading)
+
+                Text("@\(viewModel.profile.username)")
+                    .dsFont(.title3, weight: .medium)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            } else {
+                Text("@\(viewModel.profile.username)")
+                    .font(DS.Typography.custom(size: 28, weight: .bold))
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+    }
+
+    private func profileStatusStack(viewModel: ProfileViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            profileMetaRow(
+                label: "Last Active",
+                value: latestActivityDate(for: viewModel.posts).map { relativeTimeText(for: $0) } ?? "No recent sessions"
+            )
+
+            profileMetaRow(
+                label: "Streak",
+                value: "x weeks"
+            )
+        }
+        .padding(.top, 2)
+    }
+
+    private func profileMetaRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("\(label):")
+                .dsFont(.subheadline, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .frame(width: 88, alignment: .leading)
+
+            Text(value)
+                .dsFont(.subheadline, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .multilineTextAlignment(.leading)
         }
     }
 
     private func statsRow(viewModel: ProfileViewModel) -> some View {
         HStack(spacing: 32) {
-            statItem(value: "\(viewModel.posts.count)", label: "Workouts")
+            statItem(value: "\(viewModel.posts.count)", label: "Recent Posts")
             statItem(value: "\(viewModel.friendCount)", label: "Friends")
             // Only show streak for own profile - other users' streaks are not available
             if viewModel.isOwnProfile {
@@ -370,19 +438,418 @@ struct SocialProfileView: View {
         }
         .padding()
         .background(DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(ChamferedRectangle(.medium))
     }
 
     private func statItem(value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.title3.bold())
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
+    }
+
+    private func accountabilityInsightCard(viewModel: ProfileViewModel) -> some View {
+        let insight = primaryInsight(for: viewModel)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: insight.icon)
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.brand)
+
+                Text(insight.title)
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+            }
+
+            Text(insight.message)
+                .dsFont(.subheadline)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ChamferedRectangle(.large)
+                .fill(DS.Semantic.fillSubtle)
+        )
+        .overlay(
+            ChamferedRectangle(.large)
+                .stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private func accountabilitySnapshot(viewModel: ProfileViewModel) -> some View {
+        let thisWeek = friendWorkoutsThisWeek(posts: viewModel.posts)
+        let active14 = activeDays(for: viewModel.posts, days: 14)
+        let lastActive = latestActivityDate(for: viewModel.posts).map { relativeTimeText(for: $0) } ?? "No activity"
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Accountability Snapshot")
+                .dsFont(.headline)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                metricCard(title: "This Week", value: "\(thisWeek)", detail: thisWeek == 1 ? "shared session" : "shared sessions")
+                metricCard(title: "Last Active", value: lastActive, detail: "most recent session")
+                metricCard(title: "Last 14 Days", value: "\(active14)", detail: active14 == 1 ? "active day" : "active days")
+                metricCard(title: "Recent Posts", value: "\(viewModel.posts.count)", detail: "activity on profile")
+            }
+        }
+    }
+
+    private func headToHeadCard(viewModel: ProfileViewModel) -> some View {
+        let yourWeek = viewerWorkoutsThisWeek()
+        let friendWeek = friendWorkoutsThisWeek(posts: viewModel.posts)
+        let yourActiveDays = viewerActiveDays(days: 14)
+        let friendActiveDays = activeDays(for: viewModel.posts, days: 14)
+        let maxCount = max(yourWeek, friendWeek, 1)
+        let friendName = displayName(for: viewModel.profile)
+
+        return VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("You vs \(friendName)")
+                    .dsFont(.title2, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                Text(headToHeadMessage(friendName: friendName, yourWeek: yourWeek, friendWeek: friendWeek))
+                    .dsFont(.subheadline)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+
+                Text(headToHeadCallout(friendName: friendName, yourWeek: yourWeek, friendWeek: friendWeek))
+                    .dsFont(.subheadline, weight: .semibold)
+                    .foregroundStyle(DS.Semantic.brand)
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("This Week")
+                    .dsFont(.caption, weight: .semibold)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+
+                HStack(spacing: 12) {
+                    headToHeadStatCard(label: "You", value: "\(yourWeek)", detail: yourWeek == 1 ? "session" : "sessions")
+                    headToHeadStatCard(label: friendName, value: "\(friendWeek)", detail: friendWeek == 1 ? "session" : "sessions")
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Weekly Sessions")
+                    .dsFont(.caption, weight: .semibold)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+
+                comparisonRow(label: "You", value: yourWeek, total: maxCount, color: DS.Palette.marone)
+                comparisonRow(label: friendName, value: friendWeek, total: maxCount, color: Color.white.opacity(0.78))
+            }
+            .padding(16)
+            .background(DS.Semantic.surface.opacity(0.4))
+            .clipShape(ChamferedRectangle(.medium))
+
+            Rectangle()
+                .fill(DS.Semantic.border.opacity(0.45))
+                .frame(height: 1)
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Consistency")
+                    .dsFont(.caption, weight: .semibold)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+
+                HStack(spacing: 12) {
+                    compactTrendStat(label: "You 14d", value: "\(yourActiveDays) active days")
+                    compactTrendStat(label: "\(friendName) 14d", value: "\(friendActiveDays) active days")
+                    compactTrendStat(label: "Streak", value: "x weeks")
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ChamferedRectangle(.large)
+                .fill(DS.Semantic.fillSubtle)
+        )
+        .overlay(
+            ChamferedRectangle(.large)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+    }
+
+    private func headToHeadCallout(friendName: String, yourWeek: Int, friendWeek: Int) -> String {
+        if yourWeek == friendWeek {
+            return yourWeek == 0
+                ? "Neither of you has started this week."
+                : "Next session breaks the tie."
+        }
+
+        if yourWeek > friendWeek {
+            let delta = yourWeek - friendWeek
+            return delta == 1 ? "One more session extends the lead." : "You’ve built a \(delta)-session lead."
+        }
+
+        let delta = friendWeek - yourWeek
+        return delta == 1 ? "One session ties \(friendName)." : "You need \(delta) sessions to catch \(friendName)."
+    }
+
+    private func headToHeadStatCard(label: String, value: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .dsFont(.caption, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text(value)
+                .font(DS.Typography.custom(size: 28, weight: .bold))
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Text(detail)
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(DS.Semantic.surface.opacity(0.4))
+        .clipShape(ChamferedRectangle(.medium))
+    }
+
+    private func compactTrendStat(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .dsFont(.caption, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text(value)
+                .dsFont(.subheadline, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func metricCard(title: String, value: String, detail: String) -> some View {
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(title.uppercased())
+                .dsFont(.caption, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text(value)
+                .dsFont(.title3, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            Text(detail)
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
+        .padding(14)
+        .background(
+            ChamferedRectangle(.medium)
+                .fill(DS.Semantic.fillSubtle)
+        )
+        .overlay(
+            ChamferedRectangle(.medium)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+    }
+
+    private func comparisonRow(label: String, value: Int, total: Int, color: Color) -> some View {
+        let ratio = total > 0 ? CGFloat(value) / CGFloat(total) : 0
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(label)
+                    .dsFont(.subheadline, weight: .semibold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                Spacer()
+
+                Text("\(value)")
+                    .dsFont(.subheadline, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(DS.Semantic.border.opacity(0.6))
+                        .frame(height: 10)
+
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(color)
+                        .frame(width: max(8, geo.size.width * ratio), height: 10)
+                }
+            }
+            .frame(height: 10)
+        }
+    }
+
+    private func relationshipBadge(viewModel: ProfileViewModel) -> some View {
+        let badge: (String, String) = {
+            if viewModel.isOwnProfile {
+                return ("You", "person.fill")
+            }
+
+            switch viewModel.friendshipStatus {
+            case .none:
+                return ("Not Friends", "plus")
+            case .friends:
+                return ("Friends", "person.2.fill")
+            case .pendingSent:
+                return ("Request Sent", "arrow.up.right")
+            case .pendingReceived:
+                return ("Wants to Connect", "arrow.down.left")
+            }
+        }()
+
+        return pillLabel(icon: badge.1, text: badge.0, tint: DS.Semantic.brand)
+    }
+
+    private func pillLabel(icon: String, text: String, tint: Color = DS.Semantic.brand) -> some View {
+        return HStack(spacing: 6) {
+            angularBadgeIcon(systemName: icon, tint: tint)
+            Text(text)
+        }
+        .dsFont(.caption, weight: .semibold)
+        .foregroundStyle(DS.Semantic.textPrimary)
+        .padding(.leading, 6)
+        .padding(.trailing, 10)
+        .padding(.vertical, 6)
+        .background(DS.Semantic.surface.opacity(0.55))
+        .clipShape(ChamferedRectangle(.small))
+        .overlay(
+            ChamferedRectangle(.small)
+                .stroke(tint.opacity(0.28), lineWidth: 1)
+        )
+    }
+
+    private func angularBadgeIcon(systemName: String, tint: Color) -> some View {
+        ZStack {
+            ChamferedRectangle(.small)
+                .fill(tint.opacity(0.14))
+
+            ChamferedRectangle(.small)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+
+            Image(systemName: systemName)
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(tint)
+        }
+        .frame(width: 22, height: 22)
+    }
+
+    private func primaryInsight(for viewModel: ProfileViewModel) -> (title: String, message: String, icon: String) {
+        let friendName = displayName(for: viewModel.profile)
+        let friendWeek = friendWorkoutsThisWeek(posts: viewModel.posts)
+        let yourWeek = viewerWorkoutsThisWeek()
+
+        if let lastWorkout = latestActivityDate(for: viewModel.posts) {
+            let hoursAgo = Date().timeIntervalSince(lastWorkout) / 3600
+            if hoursAgo <= 24 {
+                return (
+                    "Fresh activity",
+                    "\(friendName) logged a session \(relativeTimeText(for: lastWorkout)). This is the right moment to answer back.",
+                    "bolt.fill"
+                )
+            }
+        }
+
+        if friendWeek > yourWeek {
+            let delta = friendWeek - yourWeek
+            return (
+                "Momentum favors \(friendName)",
+                delta == 1 ? "You’re one session behind. A single workout ties it." : "You’re \(delta) sessions behind. This should feel urgent.",
+                "figure.run"
+            )
+        }
+
+        if yourWeek > friendWeek {
+            let delta = yourWeek - friendWeek
+            return (
+                "You have the edge",
+                delta == 1 ? "You’re ahead by one session. Another workout makes the gap real." : "You’re ahead by \(delta) sessions. Don’t let the pressure disappear.",
+                "flag.fill"
+            )
+        }
+
+        let active14 = activeDays(for: viewModel.posts, days: 14)
+        return (
+            "It’s close",
+            active14 > 0 ? "\(friendName) has been active \(active14) day\(active14 == 1 ? "" : "s") in the last two weeks. The next move matters." : "\(friendName) has no recent shared activity. Use this profile to pull them back in.",
+            "equal.circle.fill"
+        )
+    }
+
+    private func headToHeadMessage(friendName: String, yourWeek: Int, friendWeek: Int) -> String {
+        if yourWeek == friendWeek {
+            return yourWeek == 0
+                ? "Neither of you has logged a session this week yet."
+                : "You’re tied. The next session puts someone in front."
+        }
+
+        if yourWeek > friendWeek {
+            let delta = yourWeek - friendWeek
+            return delta == 1 ? "You’re ahead by one session." : "You’re ahead by \(delta) sessions."
+        }
+
+        let delta = friendWeek - yourWeek
+        return delta == 1 ? "\(friendName) is ahead by one session." : "\(friendName) is ahead by \(delta) sessions."
+    }
+
+    private func displayName(for profile: UserProfile) -> String {
+        if let name = profile.displayName, !name.isEmpty {
+            return name
+        }
+        return profile.username
+    }
+
+    private func latestActivityDate(for posts: [WorkoutPost]) -> Date? {
+        posts.map(\.workoutData.date).max()
+    }
+
+    private func friendWorkoutsThisWeek(posts: [WorkoutPost]) -> Int {
+        let calendar = Calendar.current
+        let weekStart = calendar.startOfWeek(for: .now, anchorWeekday: 2)
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? .now
+
+        return posts.filter { post in
+            post.workoutData.date >= weekStart && post.workoutData.date < weekEnd
+        }.count
+    }
+
+    private func activeDays(for posts: [WorkoutPost], days: Int) -> Int {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: .now) ?? .now
+        let uniqueDays = Set(posts
+            .filter { $0.workoutData.date >= cutoff }
+            .map { Calendar.current.startOfDay(for: $0.workoutData.date) })
+
+        return uniqueDays.count
+    }
+
+    private func viewerWorkoutsThisWeek() -> Int {
+        let calendar = Calendar.current
+        let weekStart = calendar.startOfWeek(for: .now, anchorWeekday: 2)
+        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? .now
+
+        return store.completedWorkouts.filter { workout in
+            workout.date >= weekStart && workout.date < weekEnd
+        }.count
+    }
+
+    private func viewerActiveDays(days: Int) -> Int {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days + 1, to: .now) ?? .now
+        let uniqueDays = Set(store.completedWorkouts
+            .filter { $0.date >= cutoff }
+            .map { Calendar.current.startOfDay(for: $0.date) })
+
+        return uniqueDays.count
+    }
+
+    private func relativeTimeText(for date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter.localizedString(for: date, relativeTo: .now)
     }
 
     private var activityLink: some View {
@@ -398,7 +865,7 @@ struct SocialProfileView: View {
 
                 if badgeManager.notificationCount > 0 {
                     Text("\(badgeManager.notificationCount)")
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -407,23 +874,23 @@ struct SocialProfileView: View {
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
             .padding()
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(ChamferedRectangle(.medium))
         }
     }
 
     private func actionButtons(viewModel: ProfileViewModel) -> some View {
-        Group {
+        return Group {
             if viewModel.isOwnProfile {
                 Button {
                     showingEditProfile = true
                 } label: {
                     Text("Edit Profile")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -440,101 +907,180 @@ struct SocialProfileView: View {
     private func friendActionButton(viewModel: ProfileViewModel) -> some View {
         switch viewModel.friendshipStatus {
         case .none:
-            Button {
-                Task {
-                    await viewModel.sendFriendRequest()
-                }
-            } label: {
-                if viewModel.isLoadingFriendship {
-                    ProgressView()
-                        .tint(.black)
-                } else {
-                    Text("Add Friend")
-                }
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .disabled(viewModel.isLoadingFriendship)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Next Move")
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
 
-        case .friends:
-            Menu {
-                Button {
-                    Task { await sendRunInvite() }
-                } label: {
-                    Label("Invite to Run", systemImage: "figure.run")
-                }
-                .disabled(isInvitingToRun)
-
-                Button {
-                    Task { await viewModel.toggleMuteNotifications() }
-                } label: {
-                    Label(
-                        viewModel.isMuted ? "Unmute Notifications" : "Mute Notifications",
-                        systemImage: viewModel.isMuted ? "bell.fill" : "bell.slash.fill"
-                    )
-                }
-
-                Button(role: .destructive) {
-                    viewModel.removeFriend()
-                } label: {
-                    Label("Remove Friend", systemImage: "person.fill.xmark")
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(DS.Semantic.brand)
-                    Text("Friends")
-
-                    if viewModel.isMuted {
-                        Image(systemName: "bell.slash.fill")
-                            .font(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                    }
-                }
-                .font(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-
-        case .pendingSent:
-            Button {
-                Task {
-                    await viewModel.cancelFriendRequest()
-                }
-            } label: {
-                Text("Cancel Request")
-            }
-            .buttonStyle(SecondaryButtonStyle())
-
-        case .pendingReceived:
-            HStack(spacing: 12) {
                 Button {
                     Task {
-                        await viewModel.acceptFriendRequest()
+                        await viewModel.sendFriendRequest()
                     }
                 } label: {
-                    Text("Accept")
+                    if viewModel.isLoadingFriendship {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Text("Add Friend")
+                    }
                 }
                 .buttonStyle(PrimaryButtonStyle())
+                .disabled(viewModel.isLoadingFriendship)
+
+                Text("Add them first, then use this page to compare momentum and push each other.")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
+            .padding(16)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
+            )
+
+        case .friends:
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Next Move")
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                HStack(spacing: 12) {
+                    Button {
+                        Task { await sendRunInvite() }
+                    } label: {
+                        HStack {
+                            if isInvitingToRun {
+                                ProgressView()
+                                    .tint(.black)
+                            } else {
+                                Image(systemName: "figure.run")
+                                Text("Invite to Run")
+                            }
+                        }
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(isInvitingToRun)
+
+                    Menu {
+                        Button {
+                            Task { await viewModel.toggleMuteNotifications() }
+                        } label: {
+                            Label(
+                                viewModel.isMuted ? "Unmute Notifications" : "Mute Notifications",
+                                systemImage: viewModel.isMuted ? "bell.fill" : "bell.slash.fill"
+                            )
+                        }
+
+                        Button(role: .destructive) {
+                            viewModel.removeFriend()
+                        } label: {
+                            Label("Remove Friend", systemImage: "person.fill.xmark")
+                        }
+                    } label: {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(DS.Semantic.brand)
+                            Text("Friends")
+
+                            if viewModel.isMuted {
+                                Image(systemName: "bell.slash.fill")
+                                    .dsFont(.caption)
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                            }
+                        }
+                        .dsFont(.headline)
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(DS.Semantic.surface)
+                        .clipShape(ChamferedRectangle(.medium))
+                    }
+                }
+
+                Text("Use the run invite when you want action now. Use the friend menu when you need quieter control.")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
+            .padding(16)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
+            )
+
+        case .pendingSent:
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Waiting On Them")
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
 
                 Button {
                     Task {
-                        await viewModel.declineFriendRequest()
+                        await viewModel.cancelFriendRequest()
                     }
                 } label: {
-                    Text("Decline")
+                    Text("Cancel Request")
                 }
                 .buttonStyle(SecondaryButtonStyle())
+
+                Text("They need to accept before this page becomes useful for accountability.")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
             }
+            .padding(16)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
+            )
+
+        case .pendingReceived:
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Open The Loop")
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                HStack(spacing: 12) {
+                    Button {
+                        Task {
+                            await viewModel.acceptFriendRequest()
+                        }
+                    } label: {
+                        Text("Accept")
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+
+                    Button {
+                        Task {
+                            await viewModel.declineFriendRequest()
+                        }
+                    } label: {
+                        Text("Decline")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                }
+
+                Text("Accept to unlock head-to-head pressure and live accountability actions.")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
+            .padding(16)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
+            )
         }
     }
 
     private func postsSection(viewModel: ProfileViewModel) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Workouts")
-                .font(.headline)
+            Text("Recent Activity")
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             if viewModel.isLoadingPosts {
@@ -551,7 +1097,7 @@ struct SocialProfileView: View {
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Text("No workouts shared yet")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -568,38 +1114,98 @@ struct SocialProfileView: View {
     }
 
     private func postPreview(post: WorkoutPost) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let workout = post.workoutData
+
+        return VStack(alignment: .leading, spacing: 12) {
             if let caption = post.caption {
                 Text(caption)
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .lineLimit(2)
             }
 
             HStack {
-                Image(systemName: "figure.run")
+                Image(systemName: workout.workoutIcon)
                     .foregroundStyle(DS.Semantic.brand)
-                Text(post.workoutData.workoutName ?? "Workout")
-                    .font(.subheadline.bold())
+                Text(workout.workoutName ?? workout.workoutTypeDisplayName)
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
 
                 Text(post.createdAt, style: .date)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
             HStack(spacing: 16) {
-                Label("\(post.exerciseCount) exercises", systemImage: "dumbbell.fill")
-                Label("\(post.totalSets) sets", systemImage: "list.bullet")
+                if workout.isCardioWorkout {
+                    cardioPreviewStats(for: workout)
+                } else {
+                    Label("\(post.exerciseCount) exercises", systemImage: "dumbbell.fill")
+                    Label("\(post.totalSets) sets", systemImage: "list.bullet")
+                }
             }
-            .font(.caption)
+            .dsFont(.caption)
             .foregroundStyle(DS.Semantic.textSecondary)
         }
         .padding()
         .background(DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(ChamferedRectangle(.medium))
+    }
+
+    @ViewBuilder
+    private func cardioPreviewStats(for workout: CompletedWorkout) -> some View {
+        if let distanceMeters = workout.matchedHealthKitDistance, distanceMeters > 0 {
+            Label(formatDistance(distanceMeters), systemImage: "point.topleft.down.curvedto.point.bottomright.up")
+        }
+
+        if let durationSec = workout.matchedHealthKitDuration, durationSec > 0 {
+            Label(formatCardioDuration(durationSec), systemImage: "clock.fill")
+        } else if let duration = workout.estimatedDuration, duration > 0 {
+            Label(formatCardioDuration(Int(duration)), systemImage: "clock.fill")
+        }
+
+        if let pace = cardioPace(for: workout) {
+            Label("\(formatPace(pace))/km", systemImage: "speedometer")
+        }
+    }
+
+    private func cardioPace(for workout: CompletedWorkout) -> Double? {
+        guard let distanceMeters = workout.matchedHealthKitDistance,
+              distanceMeters > 0 else { return nil }
+
+        if let durationSec = workout.matchedHealthKitDuration, durationSec > 0 {
+            return Double(durationSec) / (distanceMeters / 1000)
+        }
+
+        if let splitPace = workout.cardioSplits?.first?.paceSecPerKm, splitPace > 0 {
+            return Double(splitPace)
+        }
+
+        return nil
+    }
+
+    private func formatDistance(_ meters: Double) -> String {
+        String(format: "%.2f km", meters / 1000)
+    }
+
+    private func formatPace(_ secPerKm: Double) -> String {
+        let minutes = Int(secPerKm) / 60
+        let seconds = Int(secPerKm) % 60
+        return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private func formatCardioDuration(_ seconds: Int) -> String {
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        let secs = seconds % 60
+
+        if hours > 0 {
+            return String(format: "%d:%02d", hours, minutes)
+        } else {
+            return String(format: "%d:%02d", minutes, secs)
+        }
     }
 
     // MARK: - Battle Invite Card
@@ -610,16 +1216,16 @@ struct SocialProfileView: View {
             // Header
             HStack(spacing: 12) {
                 Image(systemName: "flag.2.crossed.fill")
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Semantic.brand)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Battle Challenge!")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("\(viewModel.profile.displayName ?? viewModel.profile.username) challenged you")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -634,7 +1240,7 @@ struct SocialProfileView: View {
             }
             .padding()
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(ChamferedRectangle(.medium))
 
             // Action Buttons
             HStack(spacing: 12) {
@@ -644,12 +1250,12 @@ struct SocialProfileView: View {
                     }
                 } label: {
                     Text("Decline")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(DS.Semantic.fillSubtle)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(ChamferedRectangle(.medium))
                 }
 
                 Button {
@@ -658,20 +1264,20 @@ struct SocialProfileView: View {
                     }
                 } label: {
                     Text("Accept Challenge")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(DS.Semantic.brand)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .clipShape(ChamferedRectangle(.medium))
                 }
             }
         }
         .padding()
         .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            ChamferedRectangle(.large)
                 .stroke(DS.Semantic.brand, lineWidth: 2)
         )
         .shadow(color: DS.Semantic.brand.opacity(0.2), radius: 8, y: 4)
@@ -680,18 +1286,18 @@ struct SocialProfileView: View {
     private func detailRow(icon: String, label: String, value: String) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.brand)
                 .frame(width: 20)
 
             Text(label)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Spacer()
 
             Text(value)
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
     }
@@ -742,12 +1348,12 @@ struct SocialProfileView: View {
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .dsFont(.headline)
             .foregroundStyle(.black)
             .frame(maxWidth: .infinity)
             .padding()
             .background(DS.Palette.marone)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(ChamferedRectangle(.medium))
             .opacity(configuration.isPressed ? 0.8 : 1.0)
     }
 }
@@ -755,12 +1361,12 @@ struct PrimaryButtonStyle: ButtonStyle {
 struct SecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline)
+            .dsFont(.headline)
             .foregroundStyle(DS.Semantic.textPrimary)
             .frame(maxWidth: .infinity)
             .padding()
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(ChamferedRectangle(.medium))
             .opacity(configuration.isPressed ? 0.8 : 1.0)
     }
 }
@@ -802,14 +1408,14 @@ struct EditProfileView: View {
                     Text("Privacy")
                 } footer: {
                     Text("When enabled, your profile won't appear in search results. People can only find you if they already know your username.")
-                        .font(.caption)
+                        .dsFont(.caption)
                 }
 
                 if let error = error {
                     Section {
                         Text(error)
                             .foregroundStyle(.red)
-                            .font(.caption)
+                            .dsFont(.caption)
                     }
                 }
             }

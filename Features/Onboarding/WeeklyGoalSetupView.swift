@@ -28,15 +28,11 @@ struct WeeklyGoalSetupView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [DS.Theme.cardBottom, DS.Theme.cardTop],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DS.Semantic.surface
+                .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 32) {
+                VStack(spacing: 18) {
                     headerView
                     ageCard
                     activityCard
@@ -48,17 +44,18 @@ struct WeeklyGoalSetupView: View {
                         saveGoal()
                     } label: {
                         Text("Save Goal")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(DS.Theme.accent)
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .background(DS.Theme.accent, in: ChamferedRectangle(.large))
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 40)
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
             }
         }
         .navigationBarHidden(true)
@@ -86,32 +83,40 @@ struct WeeklyGoalSetupView: View {
     // MARK: - Subviews
 
     private var headerView: some View {
-        VStack(spacing: 12) {
+        HStack(alignment: .center, spacing: 14) {
             Image(systemName: "target")
-                .font(.system(size: 60, weight: .semibold))
-                .foregroundStyle(DS.Theme.accent)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 54, height: 54)
+                .background(DS.Theme.accent, in: ChamferedRectangle(.medium))
 
-            Text("Set Your Weekly Goal")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Weekly Goal")
+                    .font(DS.Typography.custom(size: 28, weight: .bold))
+                    .foregroundStyle(DS.Semantic.textPrimary)
 
-            Text("Track your fitness with custom weekly targets")
-                .font(.system(size: 16, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.7))
-                .multilineTextAlignment(.center)
+                Text("Set targets for steps, minutes, and strength days.")
+                    .font(DS.Typography.custom(size: 15, weight: .regular))
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
         }
-        .padding(.top, 40)
+        .padding(18)
+        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .overlay(ChamferedRectangle(.xl).stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1))
     }
 
     private var ageCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "person.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Theme.accent)
                 Text("Your Age")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
             }
 
             HStack(spacing: 20) {
@@ -126,7 +131,7 @@ struct WeeklyGoalSetupView: View {
                 .buttonStyle(.plain)
 
                 Text("\(inputAge)")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 42, weight: .bold))
                     .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
                     .frame(minWidth: 60)
@@ -143,9 +148,9 @@ struct WeeklyGoalSetupView: View {
             }
             .frame(maxWidth: .infinity)
 
-            Text("Used to calculate your heart rate zones")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
+                Text("Used to calculate your heart rate zones")
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
         }
         .goalCardStyle()
     }
@@ -156,15 +161,15 @@ struct WeeklyGoalSetupView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
                     Image(systemName: "applewatch")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Theme.accent)
                     Text("Active Minutes (MVPA)")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+                        .dsFont(.headline)
+                        .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 Text("\(targetMinutes) min")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 42, weight: .bold))
                     .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
 
@@ -175,23 +180,23 @@ struct WeeklyGoalSetupView: View {
                 .tint(DS.Theme.accent)
 
                 Text("Apple Watch tracks exercise time automatically")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
             }
             .goalCardStyle()
         } else {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 8) {
                     Image(systemName: "figure.walk")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Theme.accent)
                     Text("Daily Steps")
-                        .font(.headline)
-                        .foregroundStyle(.white)
+                        .dsFont(.headline)
+                        .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 Text("\(targetDailySteps.formatted())")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 42, weight: .bold))
                     .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
 
@@ -202,8 +207,8 @@ struct WeeklyGoalSetupView: View {
                 .tint(DS.Theme.accent)
 
                 Text("Aim for 10,000 steps per day for good health")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.6))
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
             }
             .goalCardStyle()
         }
@@ -213,11 +218,11 @@ struct WeeklyGoalSetupView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "dumbbell.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Theme.accent)
                 Text("Strength Training Days")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
             }
 
             HStack(spacing: 20) {
@@ -232,7 +237,7 @@ struct WeeklyGoalSetupView: View {
                 .buttonStyle(.plain)
 
                 Text("\(targetStrengthDays)")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 42, weight: .bold))
                     .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
                     .frame(minWidth: 60)
@@ -250,8 +255,8 @@ struct WeeklyGoalSetupView: View {
             .frame(maxWidth: .infinity)
 
             Text("Aim for 2-3 strength sessions per week")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
         }
         .goalCardStyle()
     }
@@ -260,15 +265,15 @@ struct WeeklyGoalSetupView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Theme.accent)
                 Text("Week Start Day")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
             }
 
             Text(weekdayName(for: weekStartDay))
-                .font(.system(size: 42, weight: .bold, design: .rounded))
+                .font(DS.Typography.custom(size: 42, weight: .bold))
                 .foregroundStyle(DS.Theme.accent)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -280,21 +285,21 @@ struct WeeklyGoalSetupView: View {
                         } label: {
                             VStack(spacing: 6) {
                                 Text(weekdayShortName(for: day))
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(weekStartDay == day ? .black : .white)
+                                    .dsFont(.caption, weight: .semibold)
+                                    .foregroundStyle(weekStartDay == day ? .black : DS.Semantic.textPrimary)
 
                                 Circle()
-                                    .fill(weekStartDay == day ? DS.Theme.accent : .white.opacity(0.2))
+                                    .fill(weekStartDay == day ? DS.Theme.accent : DS.Semantic.surface50)
                                     .frame(width: 8, height: 8)
                             }
                             .frame(width: 60, height: 60)
                             .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(weekStartDay == day ? DS.Theme.accent : .white.opacity(0.06))
+                                ChamferedRectangle(.small)
+                                    .fill(weekStartDay == day ? DS.Theme.accent : DS.Semantic.fillSubtle)
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(weekStartDay == day ? DS.Theme.accent : .white.opacity(0.1), lineWidth: 1.5)
+                                ChamferedRectangle(.small)
+                                    .stroke(weekStartDay == day ? DS.Theme.accent : DS.Semantic.border, lineWidth: 1.5)
                             )
                         }
                     }
@@ -302,8 +307,8 @@ struct WeeklyGoalSetupView: View {
             }
 
             Text("Your week will start on \(weekdayName(for: weekStartDay))")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.6))
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
         }
         .goalCardStyle()
     }
@@ -311,17 +316,12 @@ struct WeeklyGoalSetupView: View {
     // MARK: - Helpers
 
     private func stepperButtonLabel(systemImage: String) -> some View {
-        ZStack {
-            Circle()
-                .fill(.white.opacity(0.15))
-                .frame(width: 50, height: 50)
-            Circle()
-                .strokeBorder(.white.opacity(0.3), lineWidth: 1)
-                .frame(width: 50, height: 50)
-            Image(systemName: systemImage)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
-        }
+        Image(systemName: systemImage)
+            .font(.system(size: 20, weight: .bold))
+            .foregroundStyle(DS.Semantic.textPrimary)
+            .frame(width: 50, height: 50)
+            .background(DS.Semantic.surface50.opacity(0.85), in: ChamferedRectangle(.medium))
+            .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func saveGoal() {
@@ -362,16 +362,12 @@ struct WeeklyGoalSetupView: View {
 private extension View {
     func goalCardStyle() -> some View {
         self
-            .padding(24)
+            .padding(18)
             .background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.white.opacity(0.06))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .stroke(.white.opacity(0.1), lineWidth: 1)
-                    )
+                ChamferedRectangle(.xl)
+                    .fill(DS.Semantic.card)
+                    .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
             )
-            .padding(.horizontal, 24)
     }
 }
 

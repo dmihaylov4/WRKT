@@ -23,7 +23,7 @@ struct FiltersBar: View {
             if let categoryBinding = category {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("CATEGORY")
-                        .font(.caption2.weight(.bold))
+                        .dsFont(.caption2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
                         .padding(.horizontal, 16)
 
@@ -46,7 +46,7 @@ struct FiltersBar: View {
             // Equipment Row
             VStack(alignment: .leading, spacing: 6) {
                 Text("EQUIPMENT")
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
                     .padding(.horizontal, 16)
 
@@ -71,7 +71,7 @@ struct FiltersBar: View {
             // Movement Row
             VStack(alignment: .leading, spacing: 6) {
                 Text("MOVEMENT")
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
                     .padding(.horizontal, 16)
 
@@ -163,7 +163,7 @@ struct SelectChip: View {
             }
         }) {
             Text(title)
-                .font(.subheadline.weight(selected ? .semibold : .medium))
+                .dsFont(.subheadline, weight: selected ? .semibold : .medium)
                 .foregroundStyle(selected ? DS.Palette.marone : DS.Semantic.textPrimary.opacity(0.8))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)

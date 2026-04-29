@@ -65,20 +65,20 @@ struct PlannedWorkoutCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(planned.splitDayName)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         HStack(spacing: 4) {
                             Text(statusText)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(statusColor)
 
                             Text("•")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(DS.Semantic.textSecondary)
 
                             Text("\(planned.exercises.count) exercises")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -87,7 +87,7 @@ struct PlannedWorkoutCard: View {
 
                     // Expand/collapse chevron
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .padding(.trailing, 4)
 
@@ -95,7 +95,7 @@ struct PlannedWorkoutCard: View {
                     if isCompleted {
                         // Completed: dark badge with yellow text
                         Text(statusText.uppercased())
-                            .font(.caption2.weight(.bold))
+                            .dsFont(.caption2, weight: .bold)
                             .foregroundStyle(DS.Theme.accent)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -104,7 +104,7 @@ struct PlannedWorkoutCard: View {
                     } else {
                         // Planned: yellow badge with black text
                         Text(statusText.uppercased())
-                            .font(.caption2.weight(.bold))
+                            .dsFont(.caption2, weight: .bold)
                             .foregroundStyle(Color.black)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
@@ -126,18 +126,18 @@ struct PlannedWorkoutCard: View {
                         HStack {
                             if isCompleted {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Theme.accent)
                             }
 
                             Text(exercise.exerciseName)
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             Spacer()
 
                             Text("\(exercise.ghostSets.count) × \(exercise.ghostSets.first?.reps ?? 0)")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -146,12 +146,12 @@ struct PlannedWorkoutCard: View {
                         HStack {
                             if isCompleted {
                                 Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Theme.accent)
                             }
 
                             Text("+\(planned.exercises.count - 3) more exercises")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -173,16 +173,17 @@ struct PlannedWorkoutCard: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "pencil")
-                                        .font(.body)
+                                        .dsFont(.body)
                                     Text("Edit")
-                                        .font(.subheadline.weight(.medium))
+                                        .dsFont(.subheadline, weight: .medium)
                                 }
                                 .foregroundStyle(DS.Semantic.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.Semantic.border, lineWidth: 1))
+                                .background(Color.white.opacity(0.05), in: ChamferedRectangle(.medium))
+                                .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
                             }
+                            .buttonStyle(.plain)
                         }
 
                         // Start/Start Again button
@@ -197,14 +198,14 @@ struct PlannedWorkoutCard: View {
                             HStack {
                                 if isCompleted {
                                     Image(systemName: "arrow.clockwise.circle.fill")
-                                        .font(.body)
+                                        .dsFont(.body)
                                     Text("Start Again")
-                                        .font(.subheadline.weight(.medium))
+                                        .dsFont(.subheadline, weight: .medium)
                                 } else {
                                     Image(systemName: "play.circle.fill")
-                                        .font(.body)
+                                        .dsFont(.body)
                                     Text("Start")
-                                        .font(.subheadline.weight(.semibold))
+                                        .dsFont(.subheadline, weight: .semibold)
                                 }
                             }
                             .foregroundStyle(isCompleted ? DS.Semantic.textSecondary : Color.black)
@@ -214,15 +215,16 @@ struct PlannedWorkoutCard: View {
                                 isCompleted
                                     ? Color.white.opacity(0.05)
                                     : DS.Theme.accent,
-                                in: RoundedRectangle(cornerRadius: 10)
+                                in: ChamferedRectangle(.medium)
                             )
                             .overlay(
                                 isCompleted
-                                    ? RoundedRectangle(cornerRadius: 10)
+                                    ? ChamferedRectangle(.medium)
                                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                                     : nil
                             )
                         }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 10)

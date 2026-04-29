@@ -302,6 +302,56 @@ final class RealtimeService {
 
     // MARK: - Friendships Subscription
 
+    // MARK: - Program Invites
+
+    func subscribeToProgramInvites(
+        userId: UUID,
+        onInsert: @escaping (ProgramInviteRow) -> Void,
+        onUpdate: @escaping (ProgramInviteRow) -> Void
+    ) async throws -> String {
+        let uid = userId.uuidString.lowercased()
+        let channelId = "program_invites_\(uid)"
+
+        if let existingChannel = activeChannels[channelId] {
+            await existingChannel.unsubscribe()
+            await client.removeChannel(existingChannel)
+            activeChannels.removeValue(forKey: channelId)
+            observationTokens.removeValue(forKey: channelId)
+        }
+
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        let channel = await client.channel(channelId)
+        let observation = await channel.onPostgresChange(
+            AnyAction.self,
+            schema: "public",
+            table: "program_invites",
+            filter: "recipient_user_id=eq.\(uid)",
+            callback: { action in
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+
+                switch action {
+                case .insert(let insertAction):
+                    if let row = try? insertAction.decodeRecord(as: ProgramInviteRow.self, decoder: decoder) {
+                        onInsert(row)
+                    }
+                case .update(let updateAction):
+                    if let row = try? updateAction.decodeRecord(as: ProgramInviteRow.self, decoder: decoder) {
+                        onUpdate(row)
+                    }
+                default:
+                    break
+                }
+            }
+        )
+
+        observationTokens[channelId] = observation
+        await channel.subscribe()
+        activeChannels[channelId] = channel
+        return channelId
+    }
+
     /// Subscribe to friendship changes for the current user
     func subscribeToFriendships(
         userId: UUID,

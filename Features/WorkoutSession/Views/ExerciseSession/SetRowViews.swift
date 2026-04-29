@@ -59,7 +59,7 @@ struct SetRowUnified: View {
                 HStack(spacing: 6) {
                     if set.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                             .foregroundStyle(Theme.accent)
                     } else if isActive {
                         Circle()
@@ -72,7 +72,7 @@ struct SetRowUnified: View {
                     }
 
                     Text("Set \(index)")
-                        .font(.subheadline.weight(isActive ? .bold : .semibold))
+                        .dsFont(.subheadline, weight: isActive ? .bold : .semibold)
                         .foregroundStyle(
                             set.isCompleted && hasActiveTimer ? Theme.text.opacity(0.7) :
                             set.isCompleted ? Theme.secondary :
@@ -105,7 +105,7 @@ struct SetRowUnified: View {
                 // Reps input
                 VStack(spacing: 2) {
                     Text("REPS")
-                        .font(.caption2.weight(.semibold))
+                        .dsFont(.caption2, weight: .semibold)
                         .foregroundStyle(Theme.secondary)
 
                     HStack(spacing: 8) {
@@ -135,13 +135,13 @@ struct SetRowUnified: View {
                             ), format: .number)
                                 .keyboardType(.numberPad)
                                 .focused($focusedField, equals: .reps)
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(Theme.text)
                                 .multilineTextAlignment(.center)
                                 .frame(minWidth: 40)
                         } else {
                             Text("\(set.reps)")
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(set.isCompleted ? Theme.secondary : Theme.text)
                                 .frame(minWidth: 40)
                                 .contentShape(Rectangle())
@@ -175,7 +175,7 @@ struct SetRowUnified: View {
                 // Weight input
                 VStack(spacing: 2) {
                     Text("WEIGHT (\(unit.rawValue))")
-                        .font(.caption2.weight(.semibold))
+                        .dsFont(.caption2, weight: .semibold)
                         .foregroundStyle(Theme.secondary)
 
                     HStack(spacing: 8) {
@@ -206,13 +206,13 @@ struct SetRowUnified: View {
                             ), format: .number.precision(.fractionLength(0...1)))
                                 .keyboardType(.decimalPad)
                                 .focused($focusedField, equals: .weight)
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(Theme.text)
                                 .multilineTextAlignment(.center)
                                 .frame(minWidth: 70, maxWidth: 100)
                         } else {
                             Text(String(format: "%.1f", displayWeight))
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(set.isCompleted ? Theme.secondary : Theme.text)
                                 .frame(minWidth: 70, maxWidth: 100)
                                 .contentShape(Rectangle())
@@ -255,7 +255,7 @@ struct SetRowUnified: View {
                         Text("Log This Set")
                             .fontWeight(.semibold)
                     }
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(Color.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
@@ -401,7 +401,7 @@ struct TagDotCycler: View {
                     .fill(tag.color)
                     .frame(width: 8, height: 8)
                 Text(tag.label)
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
             .padding(.horizontal, 10)
@@ -441,7 +441,7 @@ private struct StepperButton: View {
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.title2)
+            .dsFont(.title2)
             .foregroundStyle(isEnabled ? color : Theme.secondary.opacity(0.3))
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
@@ -506,18 +506,18 @@ private struct RestTimerBadgeIsolated: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: "timer")
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                     Text(formatTime(timerManager.remainingSeconds))
-                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .dsFont(.caption, weight: .semibold, monospacedDigits: true)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                     Text("•")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                     Text("Cancel")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .lineLimit(1)
                     Image(systemName: "xmark.circle.fill")
-                        .font(.caption)
+                        .dsFont(.caption)
                 }
                 .foregroundStyle(ExerciseSessionTheme.accent)
                 .padding(.horizontal, 10)

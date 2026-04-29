@@ -83,7 +83,7 @@ struct RegionCard: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 Image(systemName: systemImage).font(.system(size: 28, weight: .semibold))
-                Text(title).font(.headline)
+                Text(title).dsFont(.headline)
             }
             .frame(maxWidth: .infinity, minHeight: 120)
             //.background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -148,7 +148,7 @@ struct SubregionGridView: View {
   //  let title: String
     //var body: some View {
       //  Text(title)
-        //    .font(.headline)
+        //    .dsFont(.headline)
           //  .frame(maxWidth: .infinity, minHeight: 80)
             //.background(.quaternary, in: RoundedRectangle(cornerRadius: 14))
     //}
@@ -313,7 +313,7 @@ struct MuscleExerciseListView: View {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 6) {
                                 HStack(spacing: 8) {
-                                    Text(ex.name).font(.body)
+                                    Text(ex.name).dsFont(.body)
                                     if ex.isCustom {
                                         CustomExerciseBadge()
                                     }
@@ -387,11 +387,11 @@ struct MuscleExerciseListView: View {
                                 } label: {
                                     HStack {
                                         Text("More Filters")
-                                            .font(.subheadline.weight(.medium))
+                                            .dsFont(.subheadline, weight: .medium)
                                             .foregroundStyle(DS.Semantic.textSecondary)
 
                                         Image(systemName: showSecondaryFilters ? "chevron.up" : "chevron.down")
-                                            .font(.caption)
+                                            .dsFont(.caption)
                                             .foregroundStyle(DS.Semantic.textSecondary)
 
                                         // Show active filter indicators
@@ -465,7 +465,7 @@ struct MuscleExerciseListView: View {
                                 Haptics.light()
                             } label: {
                                 Image(systemName: "magnifyingglass")
-                                    .font(.title3)
+                                    .dsFont(.title3)
                             }
                             .accessibilityLabel("Search exercises")
                         }
@@ -475,7 +475,7 @@ struct MuscleExerciseListView: View {
                             showingCreateExercise = true
                         } label: {
                             Image(systemName: "plus.circle.fill")
-                                .font(.title3)
+                                .dsFont(.title3)
                                 .captureFrame(in: .global) { frame in
                                     guard !onboardingManager.hasSeenBodyBrowse else { return }
                                     createButtonFrame = frame
@@ -881,7 +881,7 @@ private struct FilterChip: View {
     var body: some View {
         Button(action: onTap) {
             Text(title)
-                .font(.subheadline.weight(.medium))
+                .dsFont(.subheadline, weight: .medium)
                 .foregroundStyle(isSelected ? DS.Semantic.surface : DS.Semantic.textPrimary)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)

@@ -16,6 +16,18 @@ actor StatsAggregator {
     private let cal = Calendar.current
     private var exerciseRepo: ExerciseRepository?
 
+    private struct PreservedWeeklyHealthData {
+        let key: String
+        let weekStart: Date
+        let appleExerciseMinutes: Int?
+        let cardioSessions: Int?
+        let lastHealthSync: Date?
+
+        var hasHealthData: Bool {
+            appleExerciseMinutes != nil || cardioSessions != nil || lastHealthSync != nil
+        }
+    }
+
     init(container: ModelContainer) {
         self.container = container
     }
@@ -43,6 +55,21 @@ actor StatsAggregator {
         let starts = weeks.map { startOfWeek(for: $0) }
         let slice = workouts.filter { starts.contains(startOfWeek(for: $0.date)) }
         await recompute(for: slice, replacingWeeks: Set(starts))
+    }
+
+    /// Full rebuild used after external source-of-truth replacement (e.g. import/restore).
+    /// Preserves HealthKit-owned weekly fields while replacing all strength-derived caches.
+    func rebuildAfterExternalWorkoutReplace(all workouts: [CompletedWorkout]) async {
+        let preservedHealth = loadPreservedWeeklyHealthData()
+        await resetAll()
+        restorePreservedWeeklyHealthData(preservedHealth)
+
+        guard !workouts.isEmpty else {
+            AppLogger.info("Rebuilt stats after external replace with no workouts; restored \(preservedHealth.count) health summary weeks", category: AppLogger.statistics)
+            return
+        }
+
+        await recompute(for: workouts, allWorkouts: workouts)
     }
 
     /// Reset all cached stats
@@ -130,6 +157,74 @@ actor StatsAggregator {
         }
     }
 
+    private func loadPreservedWeeklyHealthData() -> [PreservedWeeklyHealthData] {
+        let context = ModelContext(container)
+        let weeklyFetch = FetchDescriptor<WeeklyTrainingSummary>()
+        let summaries = (try? context.fetch(weeklyFetch)) ?? []
+
+        return summaries.compactMap { preservedHealthData(from: $0) }
+    }
+
+    private func loadPreservedWeeklyHealthData(for weeks: Set<Date>) -> [PreservedWeeklyHealthData] {
+        guard !weeks.isEmpty else { return [] }
+
+        let normalizedWeeks = Set(weeks.map(startOfWeek(for:)))
+        let context = ModelContext(container)
+        let weeklyFetch = FetchDescriptor<WeeklyTrainingSummary>()
+        let summaries = (try? context.fetch(weeklyFetch)) ?? []
+
+        return summaries.compactMap { summary in
+            guard normalizedWeeks.contains(startOfWeek(for: summary.weekStart)) else { return nil }
+            return preservedHealthData(from: summary)
+        }
+    }
+
+    private func preservedHealthData(from summary: WeeklyTrainingSummary) -> PreservedWeeklyHealthData? {
+        let preserved = PreservedWeeklyHealthData(
+            key: summary.key,
+            weekStart: summary.weekStart,
+            appleExerciseMinutes: summary.appleExerciseMinutes,
+            cardioSessions: summary.cardioSessions,
+            lastHealthSync: summary.lastHealthSync
+        )
+        return preserved.hasHealthData ? preserved : nil
+    }
+
+    private func restorePreservedWeeklyHealthData(_ preservedHealth: [PreservedWeeklyHealthData]) {
+        guard !preservedHealth.isEmpty else { return }
+
+        let context = ModelContext(container)
+        context.autosaveEnabled = false
+
+        for preserved in preservedHealth {
+            let preservedKey = preserved.key
+            let request = FetchDescriptor<WeeklyTrainingSummary>(
+                predicate: #Predicate { $0.key == preservedKey }
+            )
+
+            let summary = (try? context.fetch(request).first)
+                ?? WeeklyTrainingSummary(
+                    key: preserved.key,
+                    weekStart: preserved.weekStart,
+                    totalVolume: 0,
+                    sessions: 0,
+                    totalSets: 0,
+                    totalReps: 0,
+                    minutes: 0
+                )
+
+            if summary.modelContext == nil {
+                context.insert(summary)
+            }
+
+            summary.appleExerciseMinutes = preserved.appleExerciseMinutes
+            summary.cardioSessions = preserved.cardioSessions
+            summary.lastHealthSync = preserved.lastHealthSync
+        }
+
+        try? context.save()
+    }
+
     // MARK: Core recompute
 
     /// Recompute summaries for the passed workouts.
@@ -144,6 +239,9 @@ actor StatsAggregator {
         guard !workouts.isEmpty else { return }
         let ctx = ModelContext(container)
         ctx.autosaveEnabled = false
+        let preservedHealthForReplacingWeeks = (!merge && !replacingWeeks.isEmpty)
+            ? loadPreservedWeeklyHealthData(for: replacingWeeks)
+            : []
 
         // Get user's bodyweight from UserDefaults (stored in kg)
         let userBodyweightKg = UserDefaults.standard.double(forKey: "user_bodyweight_kg")
@@ -243,6 +341,10 @@ actor StatsAggregator {
         }
 
         try? ctx.save()
+
+        if !preservedHealthForReplacingWeeks.isEmpty {
+            restorePreservedWeeklyHealthData(preservedHealthForReplacingWeeks)
+        }
 
         AppLogger.info("Computed \(byWeek.count) weeks of data", category: AppLogger.statistics)
 

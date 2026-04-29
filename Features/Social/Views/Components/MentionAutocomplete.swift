@@ -25,18 +25,18 @@ struct MentionAutocomplete: View {
                                 .frame(width: 32, height: 32)
                                 .overlay {
                                     Text(user.username.prefix(1).uppercased())
-                                        .font(.caption.weight(.semibold))
+                                        .dsFont(.caption, weight: .semibold)
                                         .foregroundStyle(.white)
                                 }
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("@\(user.username)")
-                                    .font(.subheadline.weight(.medium))
+                                    .dsFont(.subheadline, weight: .medium)
                                     .foregroundStyle(.primary)
 
                                 if let fullName = user.displayName {
                                     Text(fullName)
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }

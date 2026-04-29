@@ -37,7 +37,7 @@ struct HeroStartWorkoutButton: View {
                         startDate: startDate,
                         onAddExercise: {
                             Haptics.medium()
-                            onTap()
+                            addExercise?()
                         },
                         onViewWorkout: {
                             Haptics.light()
@@ -74,7 +74,7 @@ struct HeroStartWorkoutButton: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: UIScreen.main.bounds.height * 0.22) // 22% of screen
+            .frame(height: UIScreen.main.bounds.height * 0.24) // 24% of screen
             .animation(nil, value: stateIdentifier) // Disable animation on content switch
             .background(dynamicBackground)
             .overlay(leftAccentStripe)
@@ -106,7 +106,7 @@ struct HeroStartWorkoutButton: View {
         VStack(spacing: 8) {
             // Large bold "START WORKOUT" text with serious font
             Text(content.mainText)
-                .font(.system(size: 42, weight: .heavy, design: .default))
+                .font(DS.Typography.custom(size: 42, weight: .heavy, relativeTo: .largeTitle))
                 .foregroundStyle(.black)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -114,7 +114,7 @@ struct HeroStartWorkoutButton: View {
 
             // Secondary text (smaller, subtle)
             Text(content.secondaryText)
-                .font(.system(size: 15, weight: .medium, design: .default))
+                .font(DS.Typography.custom(size: 15, weight: .medium, relativeTo: .subheadline))
                 .foregroundStyle(.black.opacity(0.65))
                 .multilineTextAlignment(.center)
         }
@@ -263,4 +263,3 @@ extension View {
         }
     }
 }
-

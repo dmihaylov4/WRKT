@@ -32,14 +32,14 @@ struct ActiveCompetitionCard: View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
             Text("Active Competition")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(.primary)
 
             // Competition details
             HStack(spacing: 12) {
                 // Icon
                 Image(systemName: icon)
-                    .font(.title)
+                    .dsFont(.title)
                     .foregroundStyle(iconColor)
                     .frame(width: 44, height: 44)
                     .background(iconColor.opacity(0.2))
@@ -48,11 +48,11 @@ struct ActiveCompetitionCard: View {
                 // Info
                 VStack(alignment: .leading, spacing: 4) {
                     Text(competition.name)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
 
                     Text(competition.status)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -61,7 +61,7 @@ struct ActiveCompetitionCard: View {
 
                 // Chevron
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.tertiary)
             }
 
@@ -69,11 +69,11 @@ struct ActiveCompetitionCard: View {
             if competition.daysLeft > 0 {
                 HStack(spacing: 4) {
                     Image(systemName: "clock.fill")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
 
                     Text("\(competition.daysLeft) day\(competition.daysLeft == 1 ? "" : "s") remaining")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
             }

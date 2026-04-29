@@ -33,7 +33,7 @@ struct SignupView: View {
                             .foregroundStyle(DS.Palette.marone)
 
                         Text("Create Account")
-                            .font(.title.bold())
+                            .dsFont(.title, weight: .bold)
                     }
                     .padding(.top, 32)
                     .padding(.bottom, 16)
@@ -66,7 +66,7 @@ struct SignupView: View {
                         // Email validation feedback
                         if !email.isEmpty && !isValidEmail(email) {
                             Text("Please enter a valid email address")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundColor(DS.Status.warning)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -97,7 +97,7 @@ struct SignupView: View {
                         // Username validation feedback
                         if !username.isEmpty && !isValidUsername(username) {
                             Text("Username must be 3-30 characters (letters, numbers, underscore only)")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundColor(DS.Status.warning)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -137,7 +137,7 @@ struct SignupView: View {
                                 .cornerRadius(2)
 
                                 Text(strengthText)
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundColor(strengthColor)
                             }
                         }
@@ -156,7 +156,7 @@ struct SignupView: View {
                         // Password match indicator
                         if !confirmPassword.isEmpty && password != confirmPassword {
                             Text("Passwords do not match")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -164,14 +164,14 @@ struct SignupView: View {
                         // Terms agreement
                         Toggle(isOn: $agreedToTerms) {
                             Text("I agree to the Terms & Conditions")
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                         }
                         .padding(.top, 8)
 
                         // Error message
                         if let errorMessage = errorMessage {
                             Text(errorMessage)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }

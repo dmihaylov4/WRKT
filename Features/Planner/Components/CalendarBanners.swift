@@ -12,18 +12,21 @@ struct StreakBanner: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "flame.fill")
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(Color.black, DS.Theme.accent)
+            Image("streak-icon")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .foregroundStyle(Color.black)
                 .padding(8)
                 .background(DS.Theme.accent, in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(streak)-day streak")
-                    .font(.headline.weight(.semibold))
+                    .dsFont(.headline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
                 Text("Don't break the chain.")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
@@ -45,18 +48,21 @@ struct WeeklyStreakBanner: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "flame.fill")
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(Color.black, DS.Theme.accent)
+            Image("streak-icon")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .foregroundStyle(Color.black)
                 .padding(8)
                 .background(DS.Theme.accent, in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(streak)-week goal streak")
-                    .font(.headline.weight(.semibold))
+                    .dsFont(.headline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
                 Text("Keep meeting your weekly goal!")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
@@ -67,7 +73,7 @@ struct WeeklyStreakBanner: View {
                     .tint(DS.Theme.accent)
                     .frame(width: 80)
                 Text("Next: 12 wks")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
@@ -81,6 +87,7 @@ struct WeeklyStreakBanner: View {
 /// Uses alternate chamfered corners (top-left/bottom-right) to contrast with the streak banner above
 struct CurrentWeekProgressBanner: View {
     let progress: WeeklyProgress
+    let isFrozenWeek: Bool
 
     private var statusColor: Color {
         switch progress.paceStatus {
@@ -111,7 +118,7 @@ struct CurrentWeekProgressBanner: View {
     }
 
     private var weekGoalMet: Bool {
-        strengthGoalMet || mvpaGoalMet
+        isFrozenWeek || strengthGoalMet || mvpaGoalMet
     }
 
     private var weekLabel: String {
@@ -133,7 +140,7 @@ struct CurrentWeekProgressBanner: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(weekLabel)
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -142,18 +149,26 @@ struct CurrentWeekProgressBanner: View {
                 if isSuperWeek {
                     HStack(spacing: 4) {
                         Image(systemName: "star.fill")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                         Text("Super Week!")
-                            .font(.caption2.weight(.bold))
+                            .dsFont(.caption2, weight: .bold)
                     }
                     .foregroundStyle(DS.Theme.accent)
+                } else if isFrozenWeek {
+                    HStack(spacing: 4) {
+                        Image(systemName: "snowflake")
+                            .dsFont(.caption2)
+                        Text("Freeze Protected")
+                            .dsFont(.caption2, weight: .bold)
+                    }
+                    .foregroundStyle(.blue)
                 } else if weekGoalMet {
                     // Encourage completing the other goal for super streak
                     HStack(spacing: 4) {
                         Image(systemName: "star")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                         Text(strengthGoalMet ? "Finish MVPA for Super Streak!" : "Finish Strength for Super Streak!")
-                            .font(.caption2.weight(.medium))
+                            .dsFont(.caption2, weight: .medium)
                     }
                     .foregroundStyle(.orange)
                 }
@@ -164,15 +179,15 @@ struct CurrentWeekProgressBanner: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "figure.run")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(DS.Semantic.textSecondary)
-                        Text("\(progress.mvpaDone)/\(progress.mvpaTarget) min")
-                            .font(.caption2.weight(.medium))
+                        Text("\(isFrozenWeek ? progress.mvpaTarget : progress.mvpaDone)/\(progress.mvpaTarget) min")
+                            .dsFont(.caption2, weight: .medium)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
 
-                    ProgressView(value: min(Double(progress.mvpaDone), Double(progress.mvpaTarget)), total: Double(progress.mvpaTarget))
-                        .tint(DS.Theme.accent)
+                    ProgressView(value: min(Double(isFrozenWeek ? progress.mvpaTarget : progress.mvpaDone), Double(progress.mvpaTarget)), total: Double(progress.mvpaTarget))
+                        .tint(isFrozenWeek ? .blue : DS.Theme.accent)
                         .frame(height: 4)
                 }
 
@@ -183,15 +198,15 @@ struct CurrentWeekProgressBanner: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "dumbbell.fill")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(DS.Semantic.textSecondary)
-                        Text("\(progress.strengthDaysDone)/\(progress.strengthTarget) days")
-                            .font(.caption2.weight(.medium))
+                        Text("\(isFrozenWeek ? progress.strengthTarget : progress.strengthDaysDone)/\(progress.strengthTarget) days")
+                            .dsFont(.caption2, weight: .medium)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
 
-                    ProgressView(value: min(Double(progress.strengthDaysDone), Double(progress.strengthTarget)), total: Double(progress.strengthTarget))
-                        .tint(DS.Theme.accent)
+                    ProgressView(value: min(Double(isFrozenWeek ? progress.strengthTarget : progress.strengthDaysDone), Double(progress.strengthTarget)), total: Double(progress.strengthTarget))
+                        .tint(isFrozenWeek ? .blue : DS.Theme.accent)
                         .frame(height: 4)
                 }
             }

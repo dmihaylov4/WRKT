@@ -7,8 +7,6 @@
 
 import SwiftUI
 import Kingfisher
-import HealthKit
-import CoreLocation
 
 struct PostCard: View {
     let post: PostWithAuthor
@@ -20,6 +18,7 @@ struct PostCard: View {
     let onPostTap: () -> Void
     let onEdit: (() -> Void)?
     let onDelete: (() -> Void)?
+    let onBackfillRoute: (() async -> Bool)?
 
     @State private var isExpanded = false
     @State private var showingImageViewer = false
@@ -40,7 +39,7 @@ struct PostCard: View {
             // Caption
             if let caption = post.post.caption, !caption.isEmpty {
                 Text(caption)
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -113,15 +112,15 @@ struct PostCard: View {
         } message: {
             Text("Report this post for inappropriate content? Our team will review it.")
         }
-        .task {
+        .task(id: imageTaskKey) {
             await loadImageURLs()
 
             // Lazy map backfill: own cardio post with HealthKit UUID but no map image
             if post.post.userId == currentUserId,
                post.post.workoutData.isCardioWorkout,
                displayImageURLs.isEmpty,
-               let hkUUID = post.post.workoutData.matchedHealthKitUUID {
-                await runBackfill(hkUUID: hkUUID)
+               post.post.workoutData.matchedHealthKitUUID != nil {
+                await runBackfill()
             }
         }
     }
@@ -159,72 +158,20 @@ struct PostCard: View {
 
     // MARK: - Lazy Map Backfill
 
-    private func runBackfill(hkUUID: UUID) async {
-        guard !isBackfilling else { return }
-        isBackfilling = true
-        await backfillMapIfNeeded(hkUUID: hkUUID)
-        isBackfilling = false
+    private var imageTaskKey: String {
+        let imageCount = post.post.images?.count ?? 0
+        return "\(post.post.id.uuidString)-\(imageCount)-\(post.post.updatedAt.timeIntervalSince1970)"
     }
 
-    /// Fetches route + HR from HealthKit, generates a map snapshot, uploads it,
-    /// and patches the post record. Fails silently — retries on next feed load.
-    private func backfillMapIfNeeded(hkUUID: UUID) async {
-        guard let userId = currentUserId else { return }
-
-        // 1. Fetch workout from HealthKit
-        guard let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first else {
-            print("ℹ️ [PostCard] Backfill: workout not found in HealthKit for \(hkUUID)")
-            return
+    private func runBackfill() async {
+        guard !isBackfilling,
+              let onBackfillRoute else { return }
+        isBackfilling = true
+        let success = await onBackfillRoute()
+        if success {
+            await loadImageURLs()
         }
-
-        // 2. Fetch route with HR data, falling back to plain route if needed
-        let routePoints = try? await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-        let coordinates: [CLLocationCoordinate2D]
-        let hrValues: [Double]?
-
-        if let points = routePoints, points.count > 1 {
-            coordinates = points.map { $0.coordinate }
-            hrValues = points.compactMap { $0.hr }.isEmpty ? nil : points.map { $0.hr ?? .nan }
-        } else {
-            // fetchRouteWithHeartRate returned empty — try plain route
-            guard let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
-                  locations.count > 1 else {
-                print("ℹ️ [PostCard] Backfill: no route data yet for \(hkUUID)")
-                return
-            }
-            coordinates = locations.map { $0.coordinate }
-            hrValues = nil
-        }
-
-        guard let snapshot = try? await MapSnapshotService.shared.generateRouteSnapshot(
-            coordinates: coordinates,
-            hrValues: hrValues
-        ) else {
-            print("⚠️ [PostCard] Backfill: failed to generate map snapshot")
-            return
-        }
-
-        // 4. Upload to Supabase
-        guard let uploadedImages = try? await imageUploadService.uploadWorkoutImages(
-            images: [snapshot],
-            userId: userId,
-            isPublic: [true]
-        ), !uploadedImages.isEmpty else {
-            print("⚠️ [PostCard] Backfill: failed to upload map image")
-            return
-        }
-
-        // 5. Update post record with new images
-        let postRepo = PostRepository()
-        let allImages = (post.post.images ?? []) + uploadedImages
-        guard let _ = try? await postRepo.updatePostImages(post.post.id, images: allImages) else {
-            print("⚠️ [PostCard] Backfill: failed to update post images")
-            return
-        }
-
-        // 6. Reload displayed image URLs
-        print("✅ [PostCard] Backfill: map image added to post \(post.post.id)")
-        await loadImageURLs()
+        isBackfilling = false
     }
 
     // MARK: - Header
@@ -238,7 +185,7 @@ struct PostCard: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(post.author.username.prefix(1).uppercased())
-                                .font(.title3.bold())
+                                .dsFont(.title3, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
@@ -254,20 +201,20 @@ struct PostCard: View {
             // Username + Time
             VStack(alignment: .leading, spacing: 2) {
                 Text(post.author.displayName ?? post.author.username)
-                    .font(.subheadline.bold())
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 HStack(spacing: 4) {
                     Text(post.relativeTime)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Text("•")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Image(systemName: post.post.visibility.icon)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -282,7 +229,7 @@ struct PostCard: View {
                 showingMenuSheet = true
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .padding(8)
             }
@@ -309,17 +256,17 @@ struct PostCard: View {
                             .frame(width: 40, height: 40)
 
                         Image(systemName: post.post.workoutData.workoutIcon)
-                            .font(.title3)
+                            .dsFont(.title3)
                             .foregroundStyle(DS.Semantic.brand)
                     }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(post.post.workoutData.workoutName ?? post.post.workoutData.workoutTypeDisplayName)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text(post.post.workoutData.isCardioWorkout ? "Tap for details" : "Tap to \(isExpanded ? "hide" : "view") exercises")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
 
@@ -327,7 +274,7 @@ struct PostCard: View {
 
                     if !post.post.workoutData.isCardioWorkout {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -408,10 +355,10 @@ struct PostCard: View {
             if !displayImageURLs.isEmpty {
                 cardioMapPreview
             } else if post.post.userId == currentUserId,
-                      let hkUUID = post.post.workoutData.matchedHealthKitUUID {
+                      post.post.workoutData.matchedHealthKitUUID != nil {
                 // Show Get Route button for own posts missing a route map
                 Button {
-                    Task { await runBackfill(hkUUID: hkUUID) }
+                    Task { await runBackfill() }
                 } label: {
                     HStack(spacing: 6) {
                         if isBackfilling {
@@ -420,11 +367,11 @@ struct PostCard: View {
                                 .tint(DS.Semantic.brand)
                         } else {
                             Image(systemName: "map.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.brand)
                         }
                         Text(isBackfilling ? "Building route..." : "Get Route Map")
-                            .font(.caption.bold())
+                            .dsFont(.caption, weight: .bold)
                             .foregroundStyle(DS.Semantic.fillSubtle)
                     }
                     .frame(maxWidth: .infinity)
@@ -499,11 +446,11 @@ struct PostCard: View {
                 let paceSecPerKm = Double(durationSec) / (distanceMeters / 1000)
                 HStack(spacing: 4) {
                     Image(systemName: "figure.run")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                     Text(formatPace(paceSecPerKm))
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                     Text("/km")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 8)
@@ -558,7 +505,7 @@ struct PostCard: View {
             // Distance
             VStack(spacing: 2) {
                 Text(String(format: "%.2f", distanceMeters / 1000))
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 32, weight: .bold))
                     .foregroundStyle(DS.Palette.marone)
                 Text("KILOMETERS")
                     .font(.system(size: 9, weight: .semibold))
@@ -575,11 +522,11 @@ struct PostCard: View {
             VStack(spacing: 2) {
                 if let sec = durationSec {
                     Text(formatCardioDuration(sec))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 32, weight: .bold))
                         .foregroundStyle(DS.Semantic.textPrimary)
                 } else {
                     Text("--:--")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 32, weight: .bold))
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 Text("TIME")
@@ -597,7 +544,7 @@ struct PostCard: View {
 
                 VStack(spacing: 2) {
                     Text(formatPace(pace))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 32, weight: .bold))
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Text("AVG PACE")
                         .font(.system(size: 9, weight: .semibold))
@@ -624,14 +571,14 @@ struct PostCard: View {
     private func statPill(icon: String, value: String, label: String) -> some View {
         HStack(spacing: 3) {
             Image(systemName: icon)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(DS.Semantic.textSecondary)
             Text(value)
-                .font(.caption.bold())
+                .dsFont(.caption, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
             if !label.isEmpty {
                 Text(label)
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
@@ -675,7 +622,7 @@ struct PostCard: View {
             Divider()
 
             Text("Exercises")
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             ForEach(post.post.workoutData.entries) { entry in
@@ -685,11 +632,11 @@ struct PostCard: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(entry.exerciseName)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text("\(entry.sets.count) sets")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
 
@@ -734,7 +681,7 @@ struct PostCard: View {
                 sharePost()
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
@@ -750,7 +697,7 @@ struct PostCard: View {
                     onShowLikes?()
                 } label: {
                     Text("\(post.post.likesCount) \(post.post.likesCount == 1 ? "like" : "likes")")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -760,7 +707,7 @@ struct PostCard: View {
             if post.post.commentsCount > 0 {
                 if post.post.likesCount > 0 {
                     Text("•")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -769,7 +716,7 @@ struct PostCard: View {
                     onComment()
                 } label: {
                     Text("\(post.post.commentsCount) \(post.post.commentsCount == 1 ? "comment" : "comments")")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
                 .buttonStyle(.plain)
@@ -843,11 +790,10 @@ struct ImageViewer: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.title)
+                    .dsFont(.title)
                     .foregroundStyle(.white.opacity(0.8))
                     .padding()
             }
         }
     }
 }
-

@@ -12,6 +12,7 @@ extension Notification.Name {
     static let presentLiveWorkoutSheet = Notification.Name("WRKT.PresentLiveWorkoutSheet")
     static let plannedWorkoutDeleted = Notification.Name("WRKT.PlannedWorkoutDeleted")
     static let plannedWorkoutsChanged = Notification.Name("WRKT.PlannedWorkoutsChanged")
+    static let appDependenciesDidConfigure = Notification.Name("WRKT.AppDependenciesDidConfigure")
     /// Fired when a post's comment count is corrected from real data.
     /// userInfo: ["postId": UUID, "count": Int]
     static let postCommentCountDidChange = Notification.Name("WRKT.PostCommentCountDidChange")

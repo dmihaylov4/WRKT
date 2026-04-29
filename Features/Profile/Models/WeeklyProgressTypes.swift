@@ -74,25 +74,27 @@ extension WorkoutStoreV2 {
         let secsElapsed = max(0, now.timeIntervalSince(start))
         let daysFrac = min(max(secsElapsed / weekSecs, 0), 1)
 
-        // 2) Minutes done so far this week (from WeeklyTrainingSummary + HealthKit runs)
-        //    (If your aggregator writes one row per week, this sums them anyway.)
-        // IMPORTANT: Only count summaries after data cutoff date
+        // 2) Minutes done so far this week.
+        // Strength minutes come from WeeklyTrainingSummary.
+        // Apple Exercise Time comes from day-level HealthKit cache so user-defined weeks
+        // do not double-count overlapping ISO-week buckets.
         let fdMinutes = FetchDescriptor<WeeklyTrainingSummary>(
             predicate: #Predicate { $0.weekStart >= start && $0.weekStart < end }
         )
         let weeklyRows = (try? context.fetch(fdMinutes)) ?? []
 
-        // Only include summaries where the week contains at least one day after cutoff date
         let validRows = weeklyRows.filter { row in
-            // If any day in this summary week is on/after cutoff, include it
             let weekEndDate = calendar.date(byAdding: .day, value: 7, to: row.weekStart) ?? row.weekStart
             return weekEndDate > cutoffDate
         }
 
         let minutesFromSummaries = validRows.reduce(0) { $0 + $1.minutes }
-
-        // Add Apple Watch exercise minutes (MVPA) from WeeklyTrainingSummary for this week
-        let appleExerciseMinutes = validRows.reduce(0) { $0 + ($1.appleExerciseMinutes ?? 0) }
+        let appleExerciseMinutes = HealthAggregationStore.appleExerciseMinutes(
+            from: max(start, cutoffDate),
+            to: end,
+            in: context,
+            calendar: calendar
+        )
 
         // NOTE: We do NOT add HealthKit run durations because Apple Watch exercise minutes
         // already include MVPA from cardio activities. Adding run durations would double-count.

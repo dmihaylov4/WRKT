@@ -88,7 +88,7 @@ struct ExercisePickerView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(.secondary)
-                        .font(.body)
+                        .dsFont(.body)
 
                     TextField("Search exercises", text: $searchText)
                         .textFieldStyle(.plain)
@@ -234,18 +234,18 @@ private struct ExerciseRowContent: View {
             // Favorite star
             if favs.ids.contains(exercise.id) {
                 Image(systemName: "star.fill")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Theme.accent)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 if !exercise.primaryMuscles.isEmpty {
                     Text(exercise.primaryMuscles.joined(separator: ", "))
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -253,7 +253,7 @@ private struct ExerciseRowContent: View {
             Spacer()
 
             Image(systemName: "plus.circle.fill")
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Theme.accent)
         }
         .padding(.vertical, 8)

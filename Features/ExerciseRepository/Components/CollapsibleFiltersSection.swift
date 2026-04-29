@@ -23,11 +23,11 @@ struct CollapsibleFiltersSection: View {
             } label: {
                 HStack {
                     Text("More Filters")
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Spacer()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)

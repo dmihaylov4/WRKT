@@ -49,11 +49,11 @@ struct QuickWorkoutTypeSelector: View {
                     // Header
                     VStack(spacing: 8) {
                         Text("What are you training today?")
-                            .font(.title2.weight(.bold))
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text(date.formatted(date: .abbreviated, time: .omitted))
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                     .padding(.top, 20)
@@ -69,7 +69,7 @@ struct QuickWorkoutTypeSelector: View {
                             .fill(DS.Semantic.border)
                             .frame(height: 1)
                         Text("or")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                         Rectangle()
                             .fill(DS.Semantic.border)
@@ -117,7 +117,7 @@ private struct WorkoutTypeCard: View {
             HStack(spacing: 16) {
                 // Icon
                 Image(systemName: type.icon)
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Theme.accent)
                     .frame(width: 44, height: 44)
                     .background(DS.Theme.accent.opacity(0.1), in: Circle())
@@ -125,11 +125,11 @@ private struct WorkoutTypeCard: View {
                 // Text
                 VStack(alignment: .leading, spacing: 4) {
                     Text(type.title)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(type.subtitle)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .lineLimit(2)
                 }
@@ -138,7 +138,7 @@ private struct WorkoutTypeCard: View {
 
                 // Chevron
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .opacity(0.6)
             }

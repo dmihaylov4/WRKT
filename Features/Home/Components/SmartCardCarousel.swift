@@ -12,30 +12,38 @@ struct SmartCardCarousel: View {
     var onCardTap: ((HomeCardType) -> Void)? = nil
     var onWorkoutTap: ((CompletedWorkout) -> Void)? = nil  // NEW: For RecentActivityCard
     var onCardioTap: ((Run) -> Void)? = nil  // NEW: For RecentActivityCard
-    @State private var selectedIndex: Int = 0
+    @State private var selectedCardID: String?
+
+    private let cardHeight: CGFloat = 188
 
     var body: some View {
         // Only show carousel if cards exist
         if !cards.isEmpty {
             VStack(spacing: 0) {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(cards.enumerated()), id: \.offset) { index, card in
+                TabView(selection: $selectedCardID) {
+                    ForEach(cards) { card in
                         cardView(for: card)
                             .padding(.horizontal, 16)
-                            .tag(index)
+                            .tag(Optional(card.id))
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 160)
+                .frame(height: cardHeight)
+                .onAppear {
+                    syncSelection(with: cards.map(\.id))
+                }
+                .onChange(of: cards.map(\.id)) { _, ids in
+                    syncSelection(with: ids)
+                }
 
                 // Custom page indicator
                 if cards.count > 1 {
                     HStack(spacing: 5) {
-                        ForEach(0..<cards.count, id: \.self) { index in
+                        ForEach(cards) { card in
                             Capsule()
-                                .fill(index == selectedIndex ? DS.tint : Color.secondary.opacity(0.3))
-                                .frame(width: index == selectedIndex ? 24 : 8, height: 3)
-                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedIndex)
+                                .fill(card.id == selectedCardID ? DS.tint : Color.secondary.opacity(0.3))
+                                .frame(width: card.id == selectedCardID ? 24 : 8, height: 3)
+                                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedCardID)
                         }
                     }
                     .padding(.top, 10)
@@ -43,6 +51,19 @@ struct SmartCardCarousel: View {
                 }
             }
         }
+    }
+
+    private func syncSelection(with ids: [String]) {
+        guard !ids.isEmpty else {
+            selectedCardID = nil
+            return
+        }
+
+        if let selectedCardID, ids.contains(selectedCardID) {
+            return
+        }
+
+        selectedCardID = ids[0]
     }
 
     @ViewBuilder

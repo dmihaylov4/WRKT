@@ -61,10 +61,10 @@ struct CreateBattleView: View {
                 .foregroundStyle(DS.Semantic.brand)
 
             Text("Start a Battle")
-                .font(.title2.bold())
+                .dsFont(.title2, weight: .bold)
 
             Text("Challenge a friend and compete!")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .padding(.top, 8)
@@ -73,7 +73,7 @@ struct CreateBattleView: View {
     private var opponentSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("OPPONENT")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             opponentButton
@@ -88,7 +88,7 @@ struct CreateBattleView: View {
                 opponentAvatar
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
             }
             .padding()
@@ -110,17 +110,17 @@ struct CreateBattleView: View {
                 .frame(width: 50, height: 50)
                 .overlay(
                     Text(String(friend.username.prefix(1)).uppercased())
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.brand)
                 )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(friend.displayName ?? friend.username)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("@\(friend.username)")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         } else {
@@ -129,7 +129,7 @@ struct CreateBattleView: View {
                 .foregroundStyle(DS.Semantic.surface50)
 
             Text("Choose Opponent")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
     }
@@ -137,7 +137,7 @@ struct CreateBattleView: View {
     private var battleTypeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("BATTLE TYPE")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             VStack(spacing: 8) {
@@ -158,7 +158,7 @@ struct CreateBattleView: View {
     private var durationSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("DURATION")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             HStack(spacing: 8) {
@@ -183,7 +183,7 @@ struct CreateBattleView: View {
             }
         } label: {
             Text("Create")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(selectedFriend != nil ? DS.Semantic.brand : DS.Semantic.textPrimary)
         }
         .disabled(selectedFriend == nil)
@@ -198,7 +198,7 @@ struct CreateBattleView: View {
             HStack {
                 Image(systemName: "flag.2.crossed.fill")
                 Text("Start Battle")
-                    .font(.headline)
+                    .dsFont(.headline)
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -237,17 +237,17 @@ private struct BattleTypeCard: View {
             HStack(spacing: 12) {
                 // Icon
                 Image(systemName: type.icon)
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(isSelected ? DS.Semantic.brand : DS.Semantic.textSecondary)
                     .frame(width: 40)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(type.displayName)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(type.description)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .lineLimit(2)
                 }
@@ -258,7 +258,7 @@ private struct BattleTypeCard: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(DS.Semantic.brand)
-                        .font(.title3)
+                        .dsFont(.title3)
                 } else {
                     Circle()
                         .strokeBorder(DS.Semantic.border, lineWidth: 2)
@@ -288,11 +288,11 @@ private struct DurationButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text("\(days)")
-                    .font(.title3.bold())
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(isSelected ? .black : DS.Semantic.textPrimary)
 
                 Text(days == 1 ? "day" : "days")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(isSelected ? .black.opacity(0.7) : DS.Semantic.textSecondary)
             }
             .frame(maxWidth: .infinity)
@@ -429,17 +429,17 @@ private struct FriendRowButton: View {
                     .frame(width: 50, height: 50)
                     .overlay(
                         Text(String(friend.username.prefix(1)).uppercased())
-                            .font(.title3.bold())
+                            .dsFont(.title3, weight: .bold)
                             .foregroundStyle(DS.Semantic.brand)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(friend.displayName ?? friend.username)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("@\(friend.username)")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -449,7 +449,7 @@ private struct FriendRowButton: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(DS.Semantic.brand)
-                        .font(.title3)
+                        .dsFont(.title3)
                 }
             }
             .padding(16)

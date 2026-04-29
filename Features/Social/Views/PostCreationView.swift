@@ -154,7 +154,7 @@ struct PostCreationView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Workout")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -163,7 +163,7 @@ struct PostCreationView: View {
                     showingWorkoutPicker = true
                 } label: {
                     Text("Change")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.brand)
                 }
             }
@@ -174,11 +174,11 @@ struct PostCreationView: View {
                     Image(systemName: workout.workoutIcon)
                         .foregroundStyle(DS.Semantic.brand)
                     Text(workout.workoutName ?? workout.workoutTypeDisplayName)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Spacer()
                     Text(workout.date, style: .date)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -187,26 +187,26 @@ struct PostCreationView: View {
                     HStack(spacing: 16) {
                         if let calories = workout.matchedHealthKitCalories {
                             Label(String(format: "%.0f cal", calories), systemImage: "flame.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
                         if let duration = workout.matchedHealthKitDuration {
                             let minutes = duration / 60
                             Label("\(minutes) min", systemImage: "clock.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
                 } else {
                     HStack(spacing: 16) {
                         Label("\(workout.entries.count) exercises", systemImage: "dumbbell.fill")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         let totalSets = workout.entries.reduce(0) { $0 + $1.sets.count }
                         Label("\(totalSets) sets", systemImage: "list.bullet")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -226,15 +226,15 @@ struct PostCreationView: View {
             } else if viewModel.recentWorkouts.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "figure.run.circle")
-                        .font(.largeTitle)
+                        .dsFont(.largeTitle)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Text("No workouts yet")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("Complete a workout to share it")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -242,22 +242,22 @@ struct PostCreationView: View {
             } else {
                 VStack(spacing: 12) {
                     Image(systemName: "hand.tap")
-                        .font(.largeTitle)
+                        .dsFont(.largeTitle)
                         .foregroundStyle(DS.Semantic.brand)
 
                     Text("Select a workout")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("Choose from your recent workouts")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Button {
                         showingWorkoutPicker = true
                     } label: {
                         Text("Choose Workout")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 24)
                             .padding(.vertical, 12)
@@ -275,7 +275,7 @@ struct PostCreationView: View {
     private func captionSection(viewModel: PostCreationViewModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Caption")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             TextField("Share your thoughts...", text: Binding(
@@ -294,7 +294,7 @@ struct PostCreationView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Photos")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -308,7 +308,7 @@ struct PostCreationView: View {
                     matching: .images
                 ) {
                     Label("Add Photos", systemImage: "photo.on.rectangle.angled")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.brand)
                 }
                 .onChange(of: viewModel.selectedPhotos) { _, _ in
@@ -338,7 +338,7 @@ struct PostCreationView: View {
                                     viewModel.removePhoto(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.title3)
+                                        .dsFont(.title3)
                                         .foregroundStyle(.white)
                                         .background(Circle().fill(.black.opacity(0.5)))
                                 }
@@ -356,7 +356,7 @@ struct PostCreationView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
 
                                 Text("Map")
-                                    .font(.caption2.bold())
+                                    .dsFont(.caption2, weight: .bold)
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 3)
@@ -368,7 +368,7 @@ struct PostCreationView: View {
                 }
             } else {
                 Text("No photos selected")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
@@ -381,7 +381,7 @@ struct PostCreationView: View {
     private func visibilitySection(viewModel: PostCreationViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Visibility")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(spacing: 0) {
@@ -403,17 +403,17 @@ struct PostCreationView: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: visibility.icon)
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(viewModel.selectedVisibility == visibility ? DS.Semantic.brand : DS.Semantic.textSecondary)
                     .frame(width: 24)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(visibility.displayName)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(visibilityDescription(visibility))
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -452,7 +452,7 @@ struct PostCreationView: View {
                     .tint(.white)
 
                 Text("Sharing workout...")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.white)
             }
             .padding(24)
@@ -471,7 +471,7 @@ struct PostCreationView: View {
                     .tint(.white)
 
                 Text("Preparing map...")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.white)
             }
             .padding(24)
@@ -493,9 +493,9 @@ struct PostCreationView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: isPublic ? "eye.fill" : "eye.slash.fill")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                     Text(isPublic ? "Public" : "Private")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .fontWeight(.medium)
                 }
                 .foregroundStyle(.white)
@@ -572,16 +572,16 @@ struct WorkoutPickerRow: View {
                 HStack {
                     Image(systemName: workout.workoutIcon)
                         .foregroundStyle(DS.Semantic.brand)
-                        .font(.caption)
+                        .dsFont(.caption)
 
                     Text(workout.workoutName ?? workout.workoutTypeDisplayName)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
 
                     Text(workout.date, style: .date)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -590,14 +590,14 @@ struct WorkoutPickerRow: View {
                     HStack(spacing: 16) {
                         if let calories = workout.matchedHealthKitCalories {
                             Label(String(format: "%.0f cal", calories), systemImage: "flame.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
                         if let duration = workout.matchedHealthKitDuration {
                             let minutes = duration / 60
                             Label("\(minutes) min", systemImage: "clock.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -606,29 +606,29 @@ struct WorkoutPickerRow: View {
                     HStack(spacing: 16) {
                         if let duration = workout.matchedHealthKitDuration {
                             Label("\(duration / 60) min", systemImage: "clock.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                         if let calories = workout.matchedHealthKitCalories {
                             Label(String(format: "%.0f cal", calories), systemImage: "flame.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                         if let hr = workout.matchedHealthKitHeartRate {
                             Label(String(format: "%.0f bpm", hr), systemImage: "heart.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
                 } else {
                     HStack(spacing: 16) {
                         Label("\(workout.entries.count) exercises", systemImage: "dumbbell.fill")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         let totalSets = workout.entries.reduce(0) { $0 + $1.sets.count }
                         Label("\(totalSets) sets", systemImage: "list.bullet")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -637,7 +637,7 @@ struct WorkoutPickerRow: View {
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(DS.Semantic.brand)
-                    .font(.title3)
+                    .dsFont(.title3)
             }
         }
         .padding()

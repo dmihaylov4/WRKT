@@ -90,6 +90,7 @@ final class WorkoutStoreV2: ObservableObject {
     weak var battleRepository: BattleRepository?
     weak var challengeRepository: ChallengeRepository?
     weak var authService: SupabaseAuthService?
+    private var plannedWorkoutCompletionHandler: ((UUID, CompletedWorkout) -> Void)?
 
     // MARK: - UserDefaults keys
     private let defaults = UserDefaults.standard
@@ -100,6 +101,10 @@ final class WorkoutStoreV2: ObservableObject {
 
     func installStats(_ stats: StatsAggregator) {
         self._stats = stats
+    }
+
+    func installPlannedWorkoutCompletionHandler(_ handler: @escaping (UUID, CompletedWorkout) -> Void) {
+        plannedWorkoutCompletionHandler = handler
     }
 
     // MARK: - Init
@@ -148,8 +153,23 @@ final class WorkoutStoreV2: ObservableObject {
                 let ignoredUUIDs = try await storage.loadIgnoredHealthKitUUIDs()
                 let discardWindows = try await storage.loadDiscardedWorkoutWindows()
 
+                // Auto-recovery: if the main runs file exists but loaded empty, try to restore
+                // from the most recent backup that has runs. This mirrors the workouts path
+                // and protects durable cardio history from empty-file overwrite cases.
+                if runs.isEmpty, await storage.hasRunsFile() {
+                    if let backupRuns = try? await storage.loadMostRecentNonEmptyRunsBackup() {
+                        AppLogger.warning("Runs storage empty but backup has \(backupRuns.count) runs — auto-restoring", category: AppLogger.storage)
+                        self.runs = backupRuns.sorted(by: { $0.date > $1.date })
+                        self.isStorageLoaded = true
+                        self.persistRuns()
+                    } else {
+                        self.runs = runs
+                    }
+                } else {
+                    self.runs = runs
+                }
+
                 // IMPORTANT: Sort workouts by date to ensure proper ordering
-                self.runs = runs
                 self.currentWorkout = currentWorkout
                 self.ignoredHealthKitUUIDs = ignoredUUIDs
                 self.discardedWorkoutWindows = discardWindows
@@ -186,6 +206,9 @@ final class WorkoutStoreV2: ObservableObject {
                     defaults.set(true, forKey: deduplicationFlag)
                     AppLogger.info("Completed one-time run deduplication", category: AppLogger.health)
                 }
+
+                // Repair low-value HealthKit operational SwiftData state from durable runs.
+                await HealthKitManager.shared.repairOperationalStateIfNeeded(runs: self.runs)
 
                 AppLogger.success("Loaded from unified storage - Workouts: \(self.completedWorkouts.count), Runs: \(runs.count), PR entries: \(self.prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
 
@@ -340,6 +363,10 @@ final class WorkoutStoreV2: ObservableObject {
 
         // Persist to storage
         persistWorkouts()
+
+        if let plannedWorkoutID = completed.plannedWorkoutID {
+            plannedWorkoutCompletionHandler?(plannedWorkoutID, completed)
+        }
 
         // Update stats
         Task.detached(priority: .utility) { [_stats, completedWorkouts] in
@@ -641,7 +668,13 @@ final class WorkoutStoreV2: ObservableObject {
             w.activeEntryID = w.entries.first?.id
         }
 
-        currentWorkout = w.entries.isEmpty ? w : w
+        if w.entries.isEmpty {
+            currentWorkout = nil
+            RestTimerManager.shared.stopTimer()
+            WatchConnectivityManager.shared.sendDiscardWatchWorkout()
+        } else {
+            currentWorkout = w
+        }
         persistCurrentWorkout()
     }
 
@@ -1021,20 +1054,17 @@ final class WorkoutStoreV2: ObservableObject {
         persistWorkouts()
     }
 
-    /// Reloads completed workouts and PR index from disk into in-memory state.
+    /// Reloads completed workouts and PR index from disk into in-memory state,
+    /// then fully rebuilds strength-derived stats from the replaced workout source of truth.
     /// Call after any external write to WorkoutStorage (e.g., data import or restore).
+    /// HealthKit-owned weekly fields are preserved during the rebuild.
     func reloadWorkouts() async throws {
         let (workouts, prIndex) = try await storage.loadWorkouts()
         self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
         self.prIndex = prIndex
-        // Rebuild stats from scratch -- the full workout history may have changed after import or restore.
-        // Reset all cached summaries first, then reindex the rolling window.
         let snapshot = self.completedWorkouts
         Task.detached(priority: .utility) { [_stats] in
-            await _stats?.resetAll()
-            if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
-                await _stats?.reindex(all: snapshot, cutoff: cutoff)
-            }
+            await _stats?.rebuildAfterExternalWorkoutReplace(all: snapshot)
         }
     }
 
@@ -1610,7 +1640,7 @@ extension WorkoutStoreV2 {
             WinScreenCoordinator.shared.setCompletedWorkout(completed)
         }
 
-        // Unlock dex entries
+        var dexKeysToUnlock: [String] = []
         for e in completed.entries {
             let didWork = e.sets.contains { set in
                 guard set.tag == .working && set.isCompleted else { return false }
@@ -1618,7 +1648,15 @@ extension WorkoutStoreV2 {
             }
             if didWork {
                 let key = canonicalExerciseKey(from: e.exerciseID)
-                RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key, date: completed.date)
+                dexKeysToUnlock.append(key)
+            }
+        }
+        let dexUnlockDate = completed.date
+        let uniqueDexKeysToUnlock = Array(Set(dexKeysToUnlock))
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(800))
+            for key in uniqueDexKeysToUnlock {
+                RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key, date: dexUnlockDate)
             }
         }
 
@@ -1636,6 +1674,10 @@ extension WorkoutStoreV2 {
         handlePRAutoPost(for: completed)
 
         persistWorkouts()
+
+        if let plannedWorkoutID = completed.plannedWorkoutID {
+            plannedWorkoutCompletionHandler?(plannedWorkoutID, completed)
+        }
 
         // Update stats
         Task.detached(priority: .utility) { [_stats, completedWorkouts] in

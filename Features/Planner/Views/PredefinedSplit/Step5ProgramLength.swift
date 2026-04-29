@@ -15,7 +15,7 @@ struct Step5ProgramLength: View {
         VStack(spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("How long should this program run?")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
 
                 Text("Choose your training block length.")
                     .foregroundStyle(.secondary)
@@ -45,7 +45,7 @@ struct Step5ProgramLength: View {
 
             if config.includeDeload {
                 Text("Every 4th week will be a deload week at 70% volume")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
             }
@@ -66,18 +66,18 @@ struct ProgramLengthButton: View {
         Button(action: onTap) {
             VStack(spacing: 8) {
                 Text("\(weeks)")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 40, weight: .bold))
                     .foregroundStyle(isSelected ? DS.Palette.marone : .primary)
 
                 Text("weeks")
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(isSelected ? DS.Palette.marone : .secondary)
 
                 // Empty spacer that's visible only for recommended badge
                 Group {
                     if isRecommended {
                         Text("RECOMMENDED")
-                            .font(.caption2.bold())
+                            .dsFont(.caption2, weight: .bold)
                             .foregroundStyle(isSelected ? DS.Palette.marone : DS.Palette.marone.opacity(0.8))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -87,7 +87,7 @@ struct ProgramLengthButton: View {
                             )
                     } else {
                         Text(" ")
-                            .font(.caption2.bold())
+                            .dsFont(.caption2, weight: .bold)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .opacity(0)

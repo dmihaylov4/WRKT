@@ -16,14 +16,14 @@ struct RecommendationCard: View {
             HStack(spacing: 8) {
                 if !recommendation.icon.isEmpty {
                     Text(recommendation.icon)
-                        .font(.title2)
+                        .dsFont(.title2)
                 } else {
                     // Spacer for arrow when no icon
                     Color.clear.frame(width: 24, height: 1)
                 }
 
                 Text(recommendation.title)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.primary)
 
                 Spacer()
@@ -32,7 +32,7 @@ struct RecommendationCard: View {
 
             // Reason
             Text(recommendation.reason)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -43,7 +43,7 @@ struct RecommendationCard: View {
                     action.handler()
                 } label: {
                     Text(action.label)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(DS.tint)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)

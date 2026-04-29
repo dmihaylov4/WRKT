@@ -29,7 +29,7 @@ struct ExerciseEditSheet: View {
             Form {
                 Section("Exercise") {
                     Text(exercise.exerciseName)
-                        .font(.headline)
+                        .dsFont(.headline)
                 }
 
                 Section("Sets") {

@@ -128,8 +128,8 @@ enum SplitTemplates {
         id: "full-body",
         name: "Full Body",
         shortName: "FB",
-        description: "Hit all major muscle groups each session. Ideal for beginners or time-constrained lifters.",
-        days: [fullBodyDay],
+        description: "A 3-day full-body rotation that hits all major muscle groups each session. Ideal for beginners or time-constrained lifters.",
+        days: [fullBodyDayA, fullBodyDayB, fullBodyDayC],
         recommendedFrequency: 3,
         difficulty: .beginner,
         focus: "Overall strength",
@@ -225,9 +225,9 @@ enum SplitTemplates {
         isRestDay: false
     )
 
-    private static let fullBodyDay = DayTemplate(
-        id: "full-body",
-        name: "Full Body",
+    private static let fullBodyDayA = DayTemplate(
+        id: "full-body-a",
+        name: "Full Body A",
         exercises: [
             ExerciseTemplate(exerciseID: "barbell-back-squat", exerciseName: "Barbell Back Squat", sets: 3, reps: 8, startingWeight: 70, progressionStrategy: .linear(increment: 5)),
             ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Bench Press", sets: 3, reps: 8, startingWeight: 50),
@@ -235,6 +235,34 @@ enum SplitTemplates {
             ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 3, reps: 8, startingWeight: 35),
             ExerciseTemplate(exerciseID: "barbell-romanian-deadlift", exerciseName: "Barbell Romanian Deadlift", sets: 2, reps: 10, startingWeight: 50),
             ExerciseTemplate(exerciseID: "bar-eccentric-pull-up", exerciseName: "Pull-ups", sets: 2, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated)
+        ],
+        isRestDay: false
+    )
+
+    private static let fullBodyDayB = DayTemplate(
+        id: "full-body-b",
+        name: "Full Body B",
+        exercises: [
+            ExerciseTemplate(exerciseID: "barbell-romanian-deadlift", exerciseName: "Barbell Romanian Deadlift", sets: 3, reps: 8, startingWeight: 60),
+            ExerciseTemplate(exerciseID: "barbell-incline-bench-press", exerciseName: "Barbell Incline Bench Press", sets: 3, reps: 8, startingWeight: 35),
+            ExerciseTemplate(exerciseID: "bar-eccentric-pull-up", exerciseName: "Pull-ups", sets: 3, reps: 8, startingWeight: 0, progressionStrategy: .autoregulated),
+            ExerciseTemplate(exerciseID: "barbell-overhead-bulgarian-split-squat", exerciseName: "Bulgarian Split Squat", sets: 3, reps: 10, startingWeight: 30),
+            ExerciseTemplate(exerciseID: "double-dumbbell-lateral-raise", exerciseName: "Double Dumbbell Lateral Raise", sets: 3, reps: 15, startingWeight: 8),
+            ExerciseTemplate(exerciseID: "cable-rope-tricep-pushdown", exerciseName: "Cable Rope Tricep Pushdown", sets: 3, reps: 12, startingWeight: 15)
+        ],
+        isRestDay: false
+    )
+
+    private static let fullBodyDayC = DayTemplate(
+        id: "full-body-c",
+        name: "Full Body C",
+        exercises: [
+            ExerciseTemplate(exerciseID: "machine-45-degree-leg-press", exerciseName: "Machine Leg Press", sets: 3, reps: 12, startingWeight: 100),
+            ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Bench Press", sets: 3, reps: 6, startingWeight: 55),
+            ExerciseTemplate(exerciseID: "dumbbell-chest-supported-row", exerciseName: "Dumbbell Chest Supported Row", sets: 3, reps: 10, startingWeight: 45),
+            ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 3, reps: 6, startingWeight: 35),
+            ExerciseTemplate(exerciseID: "machine-seated-leg-curl", exerciseName: "Machine Seated Leg Curl", sets: 3, reps: 12, startingWeight: 80),
+            ExerciseTemplate(exerciseID: "alternating-double-dumbbell-bicep-curl", exerciseName: "Alternating Dumbbell Curl", sets: 3, reps: 12, startingWeight: 12)
         ],
         isRestDay: false
     )

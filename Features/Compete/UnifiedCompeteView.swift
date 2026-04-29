@@ -94,7 +94,7 @@ struct UnifiedCompeteView: View {
     private func activeCompetitionsCarousel(challengesVM: ChallengesViewModel, battlesVM: BattleViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Active Competitions")
-                .font(.title3.bold())
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -164,7 +164,7 @@ struct UnifiedCompeteView: View {
     private var creationGrid: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Start Competing")
-                .font(.title3.bold())
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             HStack(spacing: 12) {
@@ -207,7 +207,7 @@ struct UnifiedCompeteView: View {
     private func pendingInvitesSection(vm: BattleViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Action Needed", systemImage: "exclamationmark.circle.fill")
-                .font(.title3.bold())
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Status.warning)
 
             VStack(spacing: 8) {
@@ -224,9 +224,9 @@ struct UnifiedCompeteView: View {
                 } label: {
                     HStack {
                         Text("View All Pending (\(vm.pendingBattles.filter({ vm.isPendingAction(for: $0) }).count))")
-                            .font(.subheadline.bold())
+                            .dsFont(.subheadline, weight: .bold)
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .dsFont(.caption)
                     }
                     .foregroundStyle(DS.Semantic.brand)
                     .padding(.vertical, 8)
@@ -242,7 +242,7 @@ struct UnifiedCompeteView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Recommended Challenges")
-                    .font(.title3.bold())
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -252,9 +252,9 @@ struct UnifiedCompeteView: View {
                 } label: {
                     HStack(spacing: 4) {
                         Text("View All")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                         Image(systemName: "chevron.right")
-                            .font(.caption)
+                            .dsFont(.caption)
                     }
                     .foregroundStyle(DS.Semantic.brand)
                 }
@@ -274,7 +274,7 @@ struct UnifiedCompeteView: View {
     private func recentCompletionsSection(challengesVM: ChallengesViewModel, battlesVM: BattleViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent Completions")
-                .font(.title3.bold())
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(spacing: 8) {
@@ -316,12 +316,12 @@ struct CreationGridButton: View {
 
             VStack(spacing: 4) {
                 Text(title)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .multilineTextAlignment(.center)
 
                 Text(subtitle)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
@@ -350,11 +350,11 @@ struct LargeBattleCard: View {
                 // Header
                 HStack {
                     Image(systemName: battle.battle.battleType.icon)
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Semantic.brand)
 
                     Text(battle.battle.battleType.displayName)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
@@ -364,25 +364,25 @@ struct LargeBattleCard: View {
                 HStack(spacing: 20) {
                     VStack(spacing: 4) {
                         Text("You")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         Text(formatScore(viewModel.getCurrentUserScore(for: battle)))
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(viewModel.isCurrentUserWinning(for: battle) ? DS.Semantic.success : DS.Semantic.textPrimary)
                     }
 
                     Text("VS")
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     VStack(spacing: 4) {
                         Text(battle.opponentProfile.username)
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         Text(formatScore(viewModel.getOpponentScore(for: battle)))
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(!viewModel.isCurrentUserWinning(for: battle) ? DS.Semantic.warning : DS.Semantic.textPrimary)
                     }
                 }
@@ -390,13 +390,13 @@ struct LargeBattleCard: View {
                 // Days remaining
                 HStack {
                     Image(systemName: "clock")
-                        .font(.caption)
+                        .dsFont(.caption)
                     Text("\(battle.battle.daysRemaining) days left")
-                        .font(.caption)
+                        .dsFont(.caption)
                     Spacer()
                     if viewModel.isCurrentUserWinning(for: battle) {
                         Label("Winning", systemImage: "crown.fill")
-                            .font(.caption.bold())
+                            .dsFont(.caption, weight: .bold)
                             .foregroundStyle(DS.Semantic.success)
                     }
                 }
@@ -445,11 +445,11 @@ struct LargeChallengeCard: View {
                 // Header
                 HStack {
                     Image(systemName: challenge.challenge.challengeType.icon)
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Semantic.brand)
 
                     Text(challenge.challenge.title)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .lineLimit(1)
 
@@ -477,19 +477,19 @@ struct LargeChallengeCard: View {
                         .animation(.spring(duration: 0.6), value: challenge.userProgressPercentage)
 
                     Text("\(challenge.userProgressPercentage)%")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 // Days remaining
                 HStack {
                     Image(systemName: "clock")
-                        .font(.caption)
+                        .dsFont(.caption)
                     Text("\(challenge.challenge.daysRemaining) days left")
-                        .font(.caption)
+                        .dsFont(.caption)
                     Spacer()
                     Text("\(challenge.challenge.participantCount) competing")
-                        .font(.caption)
+                        .dsFont(.caption)
                 }
                 .foregroundStyle(DS.Semantic.textSecondary)
             }
@@ -518,7 +518,7 @@ struct RecommendedChallengeCard: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: challenge.challenge.challengeType.icon)
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Semantic.brand)
                     .frame(width: 44, height: 44)
                     .background(DS.Semantic.brandSoft)
@@ -526,13 +526,13 @@ struct RecommendedChallengeCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(challenge.challenge.title)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     HStack(spacing: 8) {
                         if let difficulty = challenge.challenge.difficulty {
                             Text(difficulty.displayName)
-                                .font(.caption2.bold())
+                                .dsFont(.caption2, weight: .bold)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(difficultyColor(difficulty))
@@ -541,7 +541,7 @@ struct RecommendedChallengeCard: View {
                         }
 
                         Text("\(challenge.challenge.participantCount) competing")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -549,7 +549,7 @@ struct RecommendedChallengeCard: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
             .padding(12)
@@ -588,16 +588,16 @@ struct CompletedChallengeCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Status.success)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(challenge.challenge.title)
-                    .font(.subheadline.bold())
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("Completed • \(challenge.userProgressPercentage)%")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 

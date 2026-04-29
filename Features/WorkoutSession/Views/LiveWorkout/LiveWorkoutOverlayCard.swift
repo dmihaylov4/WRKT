@@ -6,6 +6,7 @@ struct LiveWorkoutOverlayCard: View {
     @EnvironmentObject var store: WorkoutStoreV2
     @ObservedObject private var restTimer = RestTimerManager.shared
     @Environment(\.modelContext) private var context
+    @AppStorage("auto_add_set_on_rest_timer") private var autoAddSetOnRestTimer: Bool = true
 
     let namespace: Namespace.ID
     let title: String
@@ -94,6 +95,11 @@ struct LiveWorkoutOverlayCard: View {
             checkForPendingSetGeneration()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("GeneratePendingSetBeforeTimer"))) { notification in
+            let shouldLogSet = notification.userInfo?["shouldLogSet"] as? Bool ?? false
+            if shouldLogSet {
+                return
+            }
+
             if let exerciseID = notification.userInfo?["exerciseID"] as? String {
                 generatePendingSetImmediately(exerciseID: exerciseID)
             }
@@ -105,6 +111,11 @@ struct LiveWorkoutOverlayCard: View {
     private func handleTimerStateChange(newState: RestTimerState) {
         // Check if timer just completed
         guard case .completed(let exerciseID, _) = newState else { return }
+
+        guard autoAddSetOnRestTimer else {
+            restTimer.clearPendingSetGeneration(for: exerciseID)
+            return
+        }
 
         // Find the entry for this exercise
         guard let entry = store.currentWorkout?.entries.first(where: { $0.exerciseID == exerciseID }) else {
@@ -125,6 +136,11 @@ struct LiveWorkoutOverlayCard: View {
         // Check each entry for pending set generation
         for entry in workout.entries {
             if restTimer.hasPendingSetGeneration(for: entry.exerciseID) {
+                guard autoAddSetOnRestTimer else {
+                    restTimer.clearPendingSetGeneration(for: entry.exerciseID)
+                    continue
+                }
+
                 AppLogger.debug("Found pending set generation for \(entry.exerciseName), generating now", category: AppLogger.workout)
                 generateNewSetAfterRest(for: entry)
                 restTimer.clearPendingSetGeneration(for: entry.exerciseID)
@@ -144,6 +160,11 @@ struct LiveWorkoutOverlayCard: View {
 
         // Only generate if there's a pending flag
         if restTimer.hasPendingSetGeneration(for: exerciseID) {
+            guard autoAddSetOnRestTimer else {
+                restTimer.clearPendingSetGeneration(for: exerciseID)
+                return
+            }
+
             AppLogger.debug("Generating pending set immediately for \(entry.exerciseName) before starting timer", category: AppLogger.workout)
             generateNewSetAfterRest(for: entry)
             restTimer.clearPendingSetGeneration(for: exerciseID)
@@ -200,12 +221,12 @@ struct LiveWorkoutOverlayCard: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "bolt.heart.fill")
-                .font(.title3.weight(.semibold))
+                .dsFont(.title3, weight: .semibold)
                 .foregroundStyle(DS.Theme.accent)
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
-                    Text(title).font(.headline)
+                    Text(title).dsFont(.headline)
 
                     // Show rest timer OR workout timer, not both
                     if restTimer.isActive {
@@ -215,7 +236,7 @@ struct LiveWorkoutOverlayCard: View {
                     }
                 }
                 Text(subtitle)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
@@ -226,7 +247,7 @@ struct LiveWorkoutOverlayCard: View {
                 withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
             } label: {
                 Image(systemName: "chevron.down.circle.fill")
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
             .accessibilityLabel("Close live workout")
@@ -474,11 +495,11 @@ struct LiveWorkoutOverlayCard: View {
                             .foregroundStyle(DS.Theme.accent)
 
                         Text("All exercises completed")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text("Slide below to finish your workout")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -623,10 +644,10 @@ private struct OverlayBottomActions: View {
             if hasIncompleteExercises {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.circle.fill")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Theme.accent)
                     Text("Complete or remove all exercises to finish")
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Spacer()
                 }
@@ -663,7 +684,7 @@ private struct OverlayBottomActions: View {
                 HStack {
                     Spacer()
                     Label("Discard Workout", systemImage: "trash")
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                     Spacer()
                 }
                 .padding(.vertical, 14)
@@ -705,11 +726,11 @@ private struct DiscardConfirmationDialog: View {
                 // Title & Message
                 VStack(spacing: 8) {
                     Text("Discard Workout?")
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("Are you sure you want to discard this workout? You can undo this action.")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -730,7 +751,7 @@ private struct DiscardConfirmationDialog: View {
                         }
                     } label: {
                         Text("Discard Workout")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -747,7 +768,7 @@ private struct DiscardConfirmationDialog: View {
                         }
                     } label: {
                         Text("Cancel")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
@@ -798,16 +819,16 @@ private struct LiveWorkoutRow: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(entry.exerciseName)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                 Text(summary)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.65))
             }
 
             Spacer()
             Button(role: .destructive, action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
             }
             .buttonStyle(.plain)
             .padding(.leading, 4)
@@ -849,7 +870,7 @@ struct WorkoutTimerText: View {
             let m = (Int(elapsed) % 3600) / 60
             let s = Int(elapsed) % 60
             Text(String(format: "%02d:%02d:%02d", h, m, s))
-                .font(.caption.monospacedDigit())
+                .dsFont(.caption, monospacedDigits: true)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .foregroundStyle(DS.Theme.accent)
@@ -899,16 +920,16 @@ private struct CurrentExerciseHeroCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(stateLabel)
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(stateColor)
 
                 // Superset badge
                 if entry.isInSuperset {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                         Text("SUPERSET")
-                            .font(.caption2.weight(.bold))
+                            .dsFont(.caption2, weight: .bold)
                     }
                     .foregroundStyle(DS.Theme.accent)
                     .padding(.horizontal, 6)
@@ -918,18 +939,18 @@ private struct CurrentExerciseHeroCard: View {
 
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
             VStack(alignment: .leading, spacing: 8) {
                 Text(entry.exerciseName)
-                    .font(.title3.weight(.semibold))
+                    .dsFont(.title3, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 // Status text
                 Text(statusText)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
 
                 // Set data pills
@@ -990,17 +1011,17 @@ private struct SupersetGroupSection: View {
             } label: {
                 HStack {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
 
                     Text("\(totalEntries)")
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isExpanded)
@@ -1047,9 +1068,9 @@ private struct SupersetGroupRow: View {
             // Superset header
             HStack(spacing: 6) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                 Text("SUPERSET")
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                 Spacer()
             }
             .foregroundStyle(DS.Theme.accent)
@@ -1077,7 +1098,7 @@ private struct SupersetGroupRow: View {
                     // Entry content
                     VStack(alignment: .leading, spacing: 6) {
                         Text(entry.exerciseName)
-                            .font(.subheadline.weight(.medium))
+                            .dsFont(.subheadline, weight: .medium)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .lineLimit(2)
 
@@ -1092,7 +1113,7 @@ private struct SupersetGroupRow: View {
                         onRemove(entry.id)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
+                            .dsFont(.title3)
                             .foregroundStyle(DS.Semantic.textSecondary.opacity(0.6))
                     }
                     .buttonStyle(.plain)
@@ -1124,9 +1145,9 @@ private struct SupersetHeroCard: View {
             // Header
             HStack(spacing: 6) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                 Text("SUPERSET")
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                 Spacer()
             }
             .foregroundStyle(DS.Theme.accent)
@@ -1197,7 +1218,7 @@ private struct SupersetHeroRow: View {
                 // Status label for hero
                 if isHero {
                     Text("CURRENT")
-                        .font(.caption2.weight(.bold))
+                        .dsFont(.caption2, weight: .bold)
                         .foregroundStyle(DS.Theme.accent)
                 }
 
@@ -1210,7 +1231,7 @@ private struct SupersetHeroRow: View {
                     Spacer(minLength: 8)
 
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .padding(.top, 2)
                 }
@@ -1253,17 +1274,17 @@ private struct ExerciseGroupSection: View {
             } label: {
                 HStack {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
 
                     Text("\(entries.count)")
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isExpanded)
@@ -1302,7 +1323,7 @@ private struct ExerciseGroupRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) {
                     Text(entry.exerciseName)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     // Superset badge
@@ -1311,7 +1332,7 @@ private struct ExerciseGroupRow: View {
                             Image(systemName: "arrow.triangle.2.circlepath")
                                 .font(.system(size: 9))
                             Text("SS")
-                                .font(.caption2.weight(.bold))
+                                .dsFont(.caption2, weight: .bold)
                         }
                         .foregroundStyle(DS.Theme.accent)
                         .padding(.horizontal, 5)
@@ -1327,7 +1348,7 @@ private struct ExerciseGroupRow: View {
 
             Button(role: .destructive, action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Semantic.textSecondary.opacity(0.6))
             }
             .buttonStyle(.plain)
@@ -1382,7 +1403,7 @@ private struct SetDataDisplay: View {
     var body: some View {
         if sets.isEmpty {
             Text("No sets yet")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         } else {
             FlowLayout(spacing: 6) {
@@ -1392,7 +1413,7 @@ private struct SetDataDisplay: View {
 
                 if remainingCount > 0 {
                     Text("+\(remainingCount) more")
-                        .font(.caption2.weight(.medium))
+                        .dsFont(.caption2, weight: .medium)
                         .foregroundStyle(DS.Semantic.textSecondary.opacity(0.7))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
@@ -1425,7 +1446,7 @@ private struct SetPill: View {
         HStack(spacing: 4) {
             if set.isCompleted {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Theme.accent)
             }
 

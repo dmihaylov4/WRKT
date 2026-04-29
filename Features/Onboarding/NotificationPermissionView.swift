@@ -32,7 +32,7 @@ struct NotificationPermissionView: View {
 
             // Title
             Text("Stay on Track")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(DS.Typography.custom(size: 32, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
@@ -62,7 +62,7 @@ struct NotificationPermissionView: View {
                         Text("Enable Notifications")
                     }
                 }
-                .font(.headline)
+                .dsFont(.headline)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
                 .foregroundStyle(.black)
@@ -75,7 +75,7 @@ struct NotificationPermissionView: View {
             Button("Not Now") {
                 onComplete()
             }
-            .font(.subheadline.weight(.medium))
+            .dsFont(.subheadline, weight: .medium)
             .foregroundStyle(.white.opacity(0.6))
             .padding(.bottom, 40)
         }
@@ -113,17 +113,17 @@ private struct FeatureRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Theme.accent)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.9))
                     .fixedSize(horizontal: false, vertical: true)
                 Text(description)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }

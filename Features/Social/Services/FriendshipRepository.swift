@@ -324,6 +324,13 @@ final class FriendshipRepository: BaseRepository<Friendship>, FriendshipReposito
             let muted_notifications: Bool
         }
 
+        let friendships: [Friendship] = try await client
+            .from("friendships")
+            .select()
+            .eq("id", value: friendshipId.uuidString)
+            .execute()
+            .value
+
         try await client
             .from("friendships")
             .update(UpdateMuted(muted_notifications: muted))
@@ -332,6 +339,9 @@ final class FriendshipRepository: BaseRepository<Friendship>, FriendshipReposito
 
         // Invalidate friendship caches
         cache.invalidateAllFriendsLists()
+        if let friendship = friendships.first {
+            invalidateFriendshipStatusCache(userId: friendship.userId, friendId: friendship.friendId)
+        }
 
         logSuccess("Mute notifications set to \(muted) for friendship \(friendshipId)")
     }

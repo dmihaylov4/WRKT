@@ -38,11 +38,11 @@ struct ProfileStatsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Training Trends")
-                        .font(.title3.weight(.bold))
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(.white)
 
                     Text("Last \(weeks) weeks")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                 }
 
@@ -66,7 +66,7 @@ struct ProfileStatsView: View {
                             .tint(.white.opacity(0.6))
                     } else {
                         Image(systemName: "arrow.clockwise")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.white.opacity(0.6))
                     }
                 }
@@ -144,11 +144,11 @@ struct ProfileChartsView: View {
                         .foregroundStyle(.white.opacity(0.3))
 
                     Text("No recent training")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.white.opacity(0.9))
 
                     Text("Complete some workouts to see trends")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.white.opacity(0.5))
                         .multilineTextAlignment(.center)
                 }
@@ -228,7 +228,7 @@ private struct VolumeWithTrendChart: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Label("Weekly volume", systemImage: "chart.line.uptrend.xyaxis")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
                             title: "Weekly Volume",
@@ -236,21 +236,21 @@ private struct VolumeWithTrendChart: View {
                         )
                     }
                     Text("Total volume (reps × kg)")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
                 }
                 Spacer()
                 if let last = weekly.last, let lastAvg = movingAvgs.last, hasMultipleWeeks {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("Week of " + WeekLabel.format(last.weekStart))
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.white.opacity(0.6))
                         if abs(lastAvg.percentChange) > 0.1 {
                             HStack(spacing: 2) {
                                 Image(systemName: lastAvg.percentChange > 0 ? "arrow.up.right" : "arrow.down.right")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                 Text(String(format: "%.1f%%", abs(lastAvg.percentChange)))
-                                    .font(.caption2.monospacedDigit())
+                                    .dsFont(.caption2, monospacedDigits: true)
                             }
                             .foregroundStyle(lastAvg.percentChange > 0 ? DS.Charts.positive : DS.Charts.negative)
                         }
@@ -268,7 +268,7 @@ private struct VolumeWithTrendChart: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 5]))
                         .annotation(position: .top, alignment: .trailing) {
                             Text("Personal avg")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(.white.opacity(0.7))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3)
@@ -321,7 +321,7 @@ private struct VolumeWithTrendChart: View {
                     if let date = value.as(Date.self) {
                         AxisValueLabel {
                             Text(hasMultipleWeeks ? WeekLabel.format(date) : "Week of " + WeekLabel.format(date))
-                                .font(.caption2)
+                                .dsFont(.caption2)
                         }
                     }
                 }
@@ -332,7 +332,7 @@ private struct VolumeWithTrendChart: View {
                     AxisValueLabel {
                         if let n = value.as(Double.self) {
                             Text(shortVolume(n))
-                                .font(.caption2)
+                                .dsFont(.caption2)
                         }
                     }
                 }
@@ -353,12 +353,12 @@ private struct VolumeWithTrendChart: View {
                     }
                     LegendItem(color: .white.opacity(0.5), label: "Personal avg", isDashed: true)
                 }
-                .font(.caption2)
+                .dsFont(.caption2)
                 .padding(.top, 4)
             } else {
                 // Explanation for single week
                 Text("Complete more workouts across different weeks to see trends")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.white.opacity(0.5))
                     .padding(.top, 4)
             }
@@ -466,7 +466,7 @@ private struct TopLiftsCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Label("Top lifts (by volume)", systemImage: "trophy")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.9))
                 InfoButton(
                     title: "Top Lifts",
@@ -477,11 +477,11 @@ private struct TopLiftsCard: View {
             if items.isEmpty {
                 HStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(.white.opacity(0.4))
 
                     Text("No data yet")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.white.opacity(0.5))
 
                     Spacer()
@@ -519,13 +519,13 @@ private struct TopLiftsCard: View {
                                 // Trend indicator
                                 if let direction = item.trendDirection {
                                     trendIcon(for: direction)
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .frame(width: 20)
                                 }
 
                                 // Exercise name
                                 Text(item.name)
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                     .foregroundStyle(.white.opacity(0.9))
                                     .lineLimit(1)
 
@@ -534,19 +534,19 @@ private struct TopLiftsCard: View {
                                 // Volume with optional change percentage
                                 VStack(alignment: .trailing, spacing: 2) {
                                     Text(pretty(item.totalVolume))
-                                        .font(.footnote.monospacedDigit())
+                                        .dsFont(.footnote, monospacedDigits: true)
                                         .foregroundStyle(.white.opacity(0.95))
 
                                     if let change = item.volumeChange, abs(change) >= 5 {
                                         Text(String(format: "%+.0f%%", change))
-                                            .font(.caption2.monospacedDigit())
+                                            .dsFont(.caption2, monospacedDigits: true)
                                             .foregroundStyle(change > 0 ? DS.Charts.positive : DS.Charts.negative)
                                     }
                                 }
 
                                 // Chevron indicator
                                 Image(systemName: "chevron.right")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                     .foregroundStyle(.white.opacity(0.4))
                             }
                             .padding(10)
@@ -606,7 +606,7 @@ private struct InfoButton: View {
             showingAlert = true
         } label: {
             Image(systemName: "info.circle")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(.white.opacity(0.5))
         }
         .buttonStyle(.plain)
@@ -626,10 +626,10 @@ private struct StatPill: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.headline.monospacedDigit())
+                .dsFont(.headline, monospacedDigits: true)
                 .foregroundStyle(.white.opacity(0.95))
             Text(title)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)

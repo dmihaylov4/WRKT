@@ -33,17 +33,17 @@ struct CrossMuscleSuggestionSection: View {
             Button(action: onToggle) {
                 HStack(spacing: 16) {
                     Image(systemName: isExpanded ? "chevron.down.circle.fill" : "chevron.right.circle.fill")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(DS.Palette.marone)
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             Text("Found in \(suggestion.muscle)")
-                                .font(.title3.weight(.bold))
+                                .dsFont(.title3, weight: .bold)
                                 .foregroundStyle(.white)
 
                             Text(suggestion.region)
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(.white.opacity(0.7))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
@@ -51,7 +51,7 @@ struct CrossMuscleSuggestionSection: View {
                         }
 
                         Text("\(suggestion.totalCount) exercise\(suggestion.totalCount == 1 ? "" : "s") match your search")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.white.opacity(0.8))
                     }
 
@@ -83,7 +83,7 @@ struct CrossMuscleSuggestionSection: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 HStack(spacing: 8) {
                                     Text(exercise.name)
-                                        .font(.body)
+                                        .dsFont(.body)
                                         .foregroundStyle(.white)
 
                                     if exercise.isCustom {
@@ -93,7 +93,7 @@ struct CrossMuscleSuggestionSection: View {
 
                                 if let equipment = exercise.equipment {
                                     Text(equipment)
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(.white.opacity(0.6))
                                 }
                             }
@@ -101,7 +101,7 @@ struct CrossMuscleSuggestionSection: View {
                             Spacer()
 
                             Image(systemName: "arrow.right.circle.fill")
-                                .font(.title3)
+                                .dsFont(.title3)
                                 .foregroundStyle(DS.Palette.marone.opacity(0.6))
                         }
                         .padding(.vertical, 8)
@@ -122,11 +122,11 @@ struct CrossMuscleSuggestionSection: View {
                     } label: {
                         HStack(spacing: 8) {
                             Text("+ \(suggestion.totalCount - suggestion.exercises.count) more")
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(DS.Palette.marone)
 
                             Image(systemName: "arrow.right.circle.fill")
-                                .font(.body)
+                                .dsFont(.body)
                                 .foregroundStyle(DS.Palette.marone)
                         }
                         .frame(maxWidth: .infinity)

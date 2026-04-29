@@ -37,6 +37,9 @@ enum NotificationType: String, Codable, Sendable {
     // Workout notifications
     case workoutCompleted = "workout_completed"
 
+    // Planner notifications
+    case programInvite = "program_invite"
+
     var icon: String {
         switch self {
         // Social
@@ -73,6 +76,9 @@ enum NotificationType: String, Codable, Sendable {
 
         // Workout
         case .workoutCompleted: return "figure.strengthtraining.traditional"
+
+        // Planner
+        case .programInvite: return "doc.text"
         }
     }
 
@@ -112,6 +118,9 @@ enum NotificationType: String, Codable, Sendable {
 
         // Workout
         case .workoutCompleted: return "green"
+
+        // Planner
+        case .programInvite: return "blue"
         }
     }
 
@@ -130,6 +139,8 @@ enum NotificationType: String, Codable, Sendable {
         case .virtualRunInvite:
             return .social
         case .workoutCompleted:
+            return .social
+        case .programInvite:
             return .social
         }
     }
@@ -284,6 +295,10 @@ struct NotificationWithActor: Identifiable, Sendable {
                 return "\(actorName) completed a \(noun). Take a look at their progress."
             }
             return "\(actorName) completed a strength workout"
+
+        // Planner
+        case .programInvite:
+            return "\(actorName) shared a program with you"
         }
     }
 

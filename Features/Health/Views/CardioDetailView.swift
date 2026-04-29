@@ -19,6 +19,7 @@ private enum Theme {
 
 struct CardioDetailView: View {
     let run: Run
+    @EnvironmentObject private var store: WorkoutStoreV2
     @State private var hasActiveWorkoutInset = false
     @State private var selectedTab: DetailTab = .overview
     @State private var showingShareSheet = false
@@ -38,10 +39,12 @@ struct CardioDetailView: View {
     }
 
     var body: some View {
+        let currentRun = latestRun
+
         ScrollView {
             VStack(spacing: 16) {
                 // HERO CARD - Workout summary
-                HeroCard(run: run)
+                HeroCard(run: currentRun)
 
                 // MAP
                 mapSection
@@ -59,19 +62,19 @@ struct CardioDetailView: View {
                 Group {
                     switch selectedTab {
                     case .overview:
-                        OverviewTab(run: run)
+                        OverviewTab(run: currentRun)
                     case .splits:
-                        SplitsTab(run: run)
+                        SplitsTab(run: currentRun)
                     case .heartRate:
-                        HeartRateTab(run: run)
+                        HeartRateTab(run: currentRun)
                     }
                 }
 
                 // NOTES
-                if let notes = run.notes, !notes.isEmpty {
+                if let notes = currentRun.notes, !notes.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Notes")
-                            .font(.headline)
+                            .dsFont(.headline)
                         Text(notes)
                             .foregroundStyle(Theme.secondary)
                     }
@@ -119,7 +122,7 @@ struct CardioDetailView: View {
             Button("Delete Workout", role: .destructive) {
                 Task {
                     do {
-                        try await HealthKitManager.shared.deleteCardioWorkout(run: run)
+                        try await HealthKitManager.shared.deleteCardioWorkout(run: latestRun)
                         await MainActor.run {
                             dismiss()
                         }
@@ -155,7 +158,7 @@ struct CardioDetailView: View {
                         ProgressView()
                             .tint(.white)
                         Text("Preparing map...")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.white)
                     }
                     .padding(24)
@@ -182,8 +185,9 @@ struct CardioDetailView: View {
     private var mapSection: some View {
         // Prefer locally-fetched route so the map updates immediately
         // without waiting for the parent to re-render from the store.
-        let displayRouteWithHR = localRouteWithHR ?? run.routeWithHR
-        let displayRoute = localRoute ?? run.route
+        let currentRun = latestRun
+        let displayRouteWithHR = localRouteWithHR ?? currentRun.routeWithHR
+        let displayRoute = localRoute ?? currentRun.route
 
         if let routeWithHR = displayRouteWithHR, routeWithHR.count > 1 {
             InteractiveRouteMapHeat(points: routeWithHR)
@@ -201,7 +205,7 @@ struct CardioDetailView: View {
                     HStack { HeatLegend(); Spacer() }.padding(10),
                     alignment: .topLeading
                 )
-        } else if run.healthKitUUID != nil {
+        } else if currentRun.healthKitUUID != nil {
             Button {
                 Task { await fetchRouteOnly() }
             } label: {
@@ -213,8 +217,9 @@ struct CardioDetailView: View {
                     }
                     Text(isFetchingRoute ? "Fetching route..." : "Get Route")
                         .fontWeight(.semibold)
+                        
                 }
-                .foregroundStyle(.white)
+                .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(Theme.accent.opacity(isFetchingRoute ? 0.5 : 1))
@@ -244,7 +249,7 @@ struct CardioDetailView: View {
 
     /// Get the latest version of this run from the store (may have route data fetched after view was created)
     private var latestRun: Run {
-        AppDependencies.shared.workoutStore.runs.first(where: { $0.id == run.id }) ?? run
+        store.runs.first(where: { $0.id == run.id }) ?? run
     }
 
     // MARK: - Map Snapshot Generation
@@ -260,29 +265,9 @@ struct CardioDetailView: View {
         // array would bypass a nil-only check and silently skip the fetch.
         let hasUsableRoute = (currentRun.routeWithHR?.count ?? 0) > 1 || (currentRun.route?.count ?? 0) > 1
 
-        if !hasUsableRoute, let hkUUID = currentRun.healthKitUUID {
-            await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
-            if let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first {
-                do {
-                    let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-                    if routeWithHR.count > 1 {
-                        currentRun.routeWithHR = routeWithHR
-                        AppDependencies.shared.workoutStore.updateRun(currentRun)
-                    } else {
-                        let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                        if locations.count > 1 {
-                            currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
-                            AppDependencies.shared.workoutStore.updateRun(currentRun)
-                        }
-                    }
-                } catch {
-                    if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
-                       locations.count > 1 {
-                        currentRun.route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
-                        AppDependencies.shared.workoutStore.updateRun(currentRun)
-                    }
-                }
-            }
+        if !hasUsableRoute, currentRun.healthKitUUID != nil,
+           let refreshed = await HealthKitManager.shared.refreshDetailedDataForRun(runId: currentRun.id) {
+            currentRun = refreshed
         }
 
         // Build coordinates from whichever source has data
@@ -321,42 +306,12 @@ struct CardioDetailView: View {
     /// Fetches the GPS route from HealthKit and stores it locally so the map
     /// updates immediately without waiting for the background queue.
     private func fetchRouteOnly() async {
-        guard !isFetchingRoute, let hkUUID = run.healthKitUUID else { return }
+        guard !isFetchingRoute, latestRun.healthKitUUID != nil else { return }
         isFetchingRoute = true
 
-        await HealthKitManager.shared.retryFailedRouteTaskIfNeeded(for: hkUUID)
-
-        guard let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first else {
-            isFetchingRoute = false
-            return
-        }
-
-        do {
-            let routeWithHR = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-            if routeWithHR.count > 1 {
-                var updated = latestRun
-                updated.routeWithHR = routeWithHR
-                AppDependencies.shared.workoutStore.updateRun(updated)
-                localRouteWithHR = routeWithHR
-            } else {
-                let locations = try await HealthKitManager.shared.fetchRoute(for: hkWorkout)
-                if locations.count > 1 {
-                    let coords = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
-                    var updated = latestRun
-                    updated.route = coords
-                    AppDependencies.shared.workoutStore.updateRun(updated)
-                    localRoute = coords
-                }
-            }
-        } catch {
-            if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
-               locations.count > 1 {
-                let coords = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
-                var updated = latestRun
-                updated.route = coords
-                AppDependencies.shared.workoutStore.updateRun(updated)
-                localRoute = coords
-            }
+        if let updated = await HealthKitManager.shared.refreshDetailedDataForRun(runId: latestRun.id) {
+            localRouteWithHR = updated.routeWithHR
+            localRoute = updated.route
         }
 
         isFetchingRoute = false
@@ -378,18 +333,18 @@ private struct HeroCard: View {
             VStack(spacing: 4) {
                 if let workoutName = run.workoutName, !workoutName.isEmpty {
                     Text(workoutName)
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(Theme.text)
                 }
                 HStack(spacing: 6) {
                     if let workoutType = run.workoutType {
                         Text(workoutType)
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(Theme.accent)
                     }
-                    Text("•").font(.subheadline).foregroundStyle(Theme.secondary)
+                    Text("•").dsFont(.subheadline).foregroundStyle(Theme.secondary)
                     Text(run.date.formatted(date: .abbreviated, time: .shortened))
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(Theme.secondary)
                 }
             }
@@ -400,10 +355,10 @@ private struct HeroCard: View {
                     // Distance
                     VStack(spacing: 4) {
                         Text(String(format: "%.2f", run.distanceKm))
-                            .font(.system(size: 42, weight: .bold, design: .rounded))
+                            .font(DS.Typography.custom(size: 42, weight: .bold))
                             .foregroundStyle(Theme.accent)
                         Text("KILOMETERS")
-                            .font(.caption2.weight(.semibold))
+                            .dsFont(.caption2, weight: .semibold)
                             .foregroundStyle(Theme.secondary)
                             .tracking(1)
                     }
@@ -415,10 +370,10 @@ private struct HeroCard: View {
                     // Duration
                     VStack(spacing: 4) {
                         Text(formatTime(run.durationSec))
-                            .font(.system(size: 42, weight: .bold, design: .rounded))
+                            .font(DS.Typography.custom(size: 42, weight: .bold))
                             .foregroundStyle(Theme.text)
                         Text("TIME")
-                            .font(.caption2.weight(.semibold))
+                            .dsFont(.caption2, weight: .semibold)
                             .foregroundStyle(Theme.secondary)
                             .tracking(1)
                     }
@@ -428,10 +383,10 @@ private struct HeroCard: View {
                 // For strength workouts, show duration prominently
                 VStack(spacing: 4) {
                     Text(formatTime(run.durationSec))
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 42, weight: .bold))
                         .foregroundStyle(Theme.accent)
                     Text("DURATION")
-                        .font(.caption2.weight(.semibold))
+                        .dsFont(.caption2, weight: .semibold)
                         .foregroundStyle(Theme.secondary)
                         .tracking(1)
                 }
@@ -514,7 +469,7 @@ private struct SplitsTab: View {
                                 Image(systemName: "arrow.clockwise")
                                 Text(run.splits == nil ? "Load Splits" : "Refresh")
                             }
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.accent)
                         }
                     }
@@ -539,10 +494,14 @@ private struct HeartRateTab: View {
     }
 
     private var hrSamples: [HeartRateSample]? {
-        run.routeWithHR?.compactMap { point in
+        let routeSamples: [HeartRateSample]? = run.routeWithHR?.compactMap { point -> HeartRateSample? in
             guard let hr = point.hr else { return nil }
             return HeartRateSample(timestamp: point.t, bpm: hr)
         }
+        if let routeSamples, !routeSamples.isEmpty {
+            return routeSamples
+        }
+        return run.hrSamples
     }
 
     var body: some View {
@@ -552,10 +511,10 @@ private struct HeartRateTab: View {
                 HStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Average Heart Rate")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(Theme.secondary)
                         Text("\(Int(avgHR)) bpm")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                            .font(DS.Typography.custom(size: 36, weight: .bold))
                             .foregroundStyle(Theme.accent)
                     }
                     Spacer()
@@ -566,6 +525,26 @@ private struct HeartRateTab: View {
                 .padding(16)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
+            }
+
+            if run.maxHeartRate != nil || run.minHeartRate != nil {
+                HStack(spacing: 10) {
+                    if let maxHR = run.maxHeartRate, maxHR > 0 {
+                        MetricCard(
+                            title: "Max Heart Rate",
+                            value: "\(Int(maxHR)) bpm",
+                            icon: "arrow.up.heart.fill"
+                        )
+                    }
+
+                    if let minHR = run.minHeartRate, minHR > 0 {
+                        MetricCard(
+                            title: "Min Heart Rate",
+                            value: "\(Int(minHR)) bpm",
+                            icon: "arrow.down.heart.fill"
+                        )
+                    }
+                }
             }
 
             // Refresh button — show when route is missing OR empty (background queue
@@ -588,7 +567,7 @@ private struct HeartRateTab: View {
                                 Image(systemName: "arrow.clockwise")
                                 Text("Load Details")
                             }
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.accent)
                         }
                     }
@@ -618,7 +597,7 @@ private struct PerformanceSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Performance")
-                .font(.headline)
+                .dsFont(.headline)
                 .padding(.horizontal, 4)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -674,14 +653,14 @@ private struct MetricCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.accent)
                 Text(title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
             Text(value)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(Theme.text)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -699,7 +678,7 @@ private struct StatGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Quick Stats")
-                .font(.headline)
+                .dsFont(.headline)
                 .padding(.horizontal, 4)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -737,17 +716,17 @@ private struct QuickStatTile: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(Theme.accent)
                 .frame(width: 32, height: 32)
                 .background(Theme.accent.opacity(0.15), in: Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
                 Text(value)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
 
@@ -767,7 +746,7 @@ private struct HeatLegend: View {
             Capsule().fill(Theme.accent).frame(width: 16, height: 6)
             Capsule().fill(Color.red).frame(width: 16, height: 6)
             Text("HR")
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
                 .foregroundStyle(Theme.text)
                 .padding(.leading, 2)
         }

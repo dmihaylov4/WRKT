@@ -42,7 +42,7 @@ struct LiveWorkoutHeroContent: View {
                     .frame(width: 8, height: 8)
 
                 Text("LIVE")
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(DS.Theme.accent)
             }
 
@@ -50,23 +50,23 @@ struct LiveWorkoutHeroContent: View {
             HStack(spacing: 8) {
                 HStack(spacing: 3) {
                     Text("\(exercises)")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Text("ex")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
                 Text("•")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Semantic.textSecondary.opacity(0.5))
 
                 HStack(spacing: 3) {
                     Text("\(completedSets)")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Text("sets")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -75,7 +75,7 @@ struct LiveWorkoutHeroContent: View {
 
             // Duration (minimal)
             WorkoutDurationText(startDate: startDate)
-                .font(.caption.monospacedDigit().weight(.medium))
+                .dsFont(.caption, weight: .medium, monospacedDigits: true)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
     }
@@ -90,7 +90,7 @@ struct LiveWorkoutHeroContent: View {
                     .symbolEffect(.pulse.byLayer, options: .repeating)
 
                 Text("Add Exercise")
-                    .font(.headline.weight(.semibold))
+                    .dsFont(.headline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
             }
         }
@@ -101,9 +101,9 @@ struct LiveWorkoutHeroContent: View {
         Button(action: onViewWorkout) {
             HStack(spacing: 6) {
                 Text("View Workout")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                 Image(systemName: "arrow.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
             }
             .foregroundStyle(DS.Semantic.textPrimary)
             .frame(maxWidth: .infinity)

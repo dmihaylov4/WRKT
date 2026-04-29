@@ -231,11 +231,8 @@ final class PostCreationViewModel {
             // Cache runs for map generation
             self.cachedRuns = runs
 
-            // Only show workouts from the last 3 days
-            let threeDaysAgo = Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date()
-
-            // Filter and convert strength workouts
-            let recentStrengthWorkouts = workouts.filter { $0.date >= threeDaysAgo }
+            // Show the latest workouts regardless of age, then cap the picker list.
+            let recentStrengthWorkouts = workouts
 
             // Build the set of HealthKit UUIDs already matched to app workouts,
             // so we don't show them again as separate entries in the picker.
@@ -244,7 +241,6 @@ final class PostCreationViewModel {
             // Filter and convert runs to CompletedWorkout, excluding those already
             // matched to an app workout (strength sessions recorded via ExerciseSessionView).
             let recentCardioWorkouts = runs
-                .filter { $0.date >= threeDaysAgo }
                 .filter { run in
                     guard let hkUUID = run.healthKitUUID else { return true }
                     return !matchedHKUUIDs.contains(hkUUID)

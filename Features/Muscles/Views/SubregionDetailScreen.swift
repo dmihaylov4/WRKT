@@ -56,13 +56,13 @@ struct SubregionDetailScreen: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 8) {
-                                Text(ex.name).font(.body)
+                                Text(ex.name).dsFont(.body)
                                 if ex.isCustom {
                                     CustomExerciseBadge()
                                 }
                             }
                             Text("\(ex.category.capitalized) • \(ex.equipment ?? "Bodyweight")")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()

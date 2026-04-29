@@ -185,12 +185,12 @@ struct VirtualRunDebugView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(file.lastPathComponent)
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .monospaced()
                                     .lineLimit(1)
                                 if let size = try? FileManager.default.attributesOfItem(atPath: file.path)[.size] as? Int {
                                     Text("\(size / 1024) KB")
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -202,7 +202,7 @@ struct VirtualRunDebugView: View {
                                 showingShareSheet = true
                             } label: {
                                 Image(systemName: "square.and.arrow.up")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                             }
                             .buttonStyle(.borderless)
                         }
@@ -245,11 +245,11 @@ struct VirtualRunDebugView: View {
                 ForEach(logEntries) { entry in
                     HStack(alignment: .top, spacing: 8) {
                         Text(entry.timestamp, style: .time)
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.secondary)
                             .monospaced()
                         Text(entry.message)
-                            .font(.caption)
+                            .dsFont(.caption)
                     }
                 }
             }

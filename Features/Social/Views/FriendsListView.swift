@@ -92,7 +92,7 @@ struct FriendsListView: View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Loading friends...")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -105,7 +105,7 @@ struct FriendsListView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text(error)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -127,11 +127,11 @@ struct FriendsListView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("No friends yet")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Find people and send friend requests to connect")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -139,7 +139,7 @@ struct FriendsListView: View {
                 UserSearchView()
             } label: {
                 Text("Find Friends")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -160,11 +160,11 @@ struct FriendsListView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("No results")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("No friends match '\(viewModel?.searchQuery ?? "")'")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -192,10 +192,10 @@ struct FriendsListView: View {
                             } label: {
                                 VStack(spacing: 4) {
                                     Image(systemName: "person.fill.xmark")
-                                        .font(.title2)
+                                        .dsFont(.title2)
                                         .foregroundStyle(DS.Palette.marone)
                                     Text("Remove")
-                                        .font(.caption2.weight(.semibold))
+                                        .dsFont(.caption2, weight: .semibold)
                                         .foregroundStyle(DS.Palette.marone)
                                 }
                             }
@@ -224,7 +224,7 @@ struct FriendRow: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(friend.profile.username.prefix(1).uppercased())
-                                .font(.title3.bold())
+                                .dsFont(.title3, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
@@ -238,20 +238,20 @@ struct FriendRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let displayName = friend.profile.displayName, !displayName.isEmpty {
                     Text(displayName)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("@\(friend.profile.username)")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 } else {
                     Text("@\(friend.profile.username)")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 Text(friend.friendsSinceText)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textPrimary)
             }
 
@@ -259,7 +259,7 @@ struct FriendRow: View {
 
             // Chevron
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
         .padding()

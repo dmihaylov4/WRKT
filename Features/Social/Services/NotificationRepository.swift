@@ -17,13 +17,6 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
 
     /// Fetch notifications for a user with actor profiles and caching
     func fetchNotifications(userId: UUID, limit: Int = 50, offset: Int = 0) async throws -> [NotificationWithActor] {
-        // Try cache first (only for initial page)
-        let cacheKey = QueryCache.notificationsKey(userId: userId.uuidString)
-        if offset == 0, let cached: [NotificationWithActor] = cache.get(cacheKey) {
-            logSuccess("Cache hit")
-            return cached
-        }
-
         // Fetch notifications
         let notifications: [AppNotification] = try await client
             .from("notifications")
@@ -36,21 +29,23 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
             .value
 
         guard !notifications.isEmpty else {
-            if offset == 0 {
-                cache.set(cacheKey, value: [], ttl: .notifications)
-            }
+            return []
+        }
+
+        let visibleNotifications = await filterVisibleNotifications(notifications)
+        guard !visibleNotifications.isEmpty else {
             return []
         }
 
         // Fetch actor profiles with individual caching
-        let actorIds = Array(Set(notifications.map { $0.actorId }))
+        let actorIds = Array(Set(visibleNotifications.map { $0.actorId }))
         let actors = try await fetchProfilesBatched(actorIds)
 
         // Create lookup dictionary
         let actorMap = Dictionary(uniqueKeysWithValues: actors.map { ($0.id, $0) })
 
         // Combine notifications with actors
-        let result: [NotificationWithActor] = notifications.compactMap { notification in
+        let result: [NotificationWithActor] = visibleNotifications.compactMap { notification in
             guard let actor = actorMap[notification.actorId] else {
                 logWarning("Notification \(notification.id) dropped: actor \(notification.actorId) not found in profiles")
                 return nil
@@ -60,11 +55,6 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
                 notification: notification,
                 actor: actor
             )
-        }
-
-        // Cache the result (only for initial page)
-        if offset == 0 {
-            cache.set(cacheKey, value: result, ttl: .notifications)
         }
 
         return result
@@ -196,6 +186,59 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
 
     // MARK: - Helper Methods
     // Note: fetchProfilesBatched is inherited from BaseRepository
+
+    private func filterVisibleNotifications(_ notifications: [AppNotification]) async -> [AppNotification] {
+        var visible: [AppNotification] = []
+
+        for notification in notifications {
+            guard notification.type == .programInvite else {
+                visible.append(notification)
+                continue
+            }
+
+            guard let inviteId = notification.targetId else {
+                try? await deleteNotification(notificationId: notification.id)
+                continue
+            }
+
+            guard await isProgramInviteStillActionable(inviteId: inviteId) else {
+                try? await deleteNotification(notificationId: notification.id)
+                continue
+            }
+
+            visible.append(notification)
+        }
+
+        return visible
+    }
+
+    private func isProgramInviteStillActionable(inviteId: UUID) async -> Bool {
+        do {
+            let invite: ProgramInviteRow = try await client
+                .from("program_invites")
+                .select()
+                .eq("id", value: inviteId.uuidString.lowercased())
+                .single()
+                .execute()
+                .value
+
+            guard invite.status == .pending else {
+                return false
+            }
+
+            let program: SharedProgramRow = try await client
+                .from("shared_programs")
+                .select()
+                .eq("id", value: invite.programId.uuidString.lowercased())
+                .single()
+                .execute()
+                .value
+
+            return program.deletedAt == nil
+        } catch {
+            return false
+        }
+    }
 }
 
 extension Array {

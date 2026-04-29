@@ -38,7 +38,7 @@ struct DexTile: View, Equatable {
             TrophyBadge(unlocked: item.isUnlocked)
 
             Text(item.short)
-                .font(.footnote.weight(.semibold))
+                .dsFont(.footnote, weight: .semibold)
                 .multilineTextAlignment(.center)
                 .lineLimit(DexTileMetrics.titleLines)
                 .minimumScaleFactor(0.85)
@@ -81,7 +81,7 @@ private struct TrophyBadge: View {
                 .shadow(color: shadowColor, radius: unlocked ? 6 : 3, y: unlocked ? 3 : 1)
 
             Image(systemName: unlocked ? "trophy.fill" : "trophy")
-                .font(.title3.weight(.bold))
+                .dsFont(.title3, weight: .bold)
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(trophyColor)
         }
@@ -135,10 +135,10 @@ private struct MetaRow: View {
                 // Unlocked date
                 HStack(spacing: 6) {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.caption.weight(.bold))
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DexTileColors.unlockedIcon)
                     Text(when.formatted(.dateTime.month(.abbreviated).day().year().locale(Locale(identifier: "en_US"))))
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(DexTileColors.meta)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)

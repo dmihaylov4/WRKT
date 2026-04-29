@@ -12,16 +12,16 @@ struct OfflineBanner: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("You're offline")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.white)
 
                 if queueCount > 0 {
                     Text("\(queueCount) action\(queueCount == 1 ? "" : "s") queued")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.8))
                 } else {
                     Text("Showing cached content")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.8))
                 }
             }
@@ -31,7 +31,7 @@ struct OfflineBanner: View {
             if queueCount > 0 {
                 Button(action: onSync) {
                     Text("Sync")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)

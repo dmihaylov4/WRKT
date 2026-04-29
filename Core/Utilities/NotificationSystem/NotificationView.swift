@@ -36,14 +36,14 @@ struct NotificationView: View {
         HStack(spacing: 12) {
             // Icon
             Image(systemName: notification.icon ?? notification.type.icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(notification.type.color)
 
             // Content
             VStack(alignment: .leading, spacing: 2) {
                 if let title = notification.title {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white)
                 }
 
@@ -59,7 +59,7 @@ struct NotificationView: View {
             if let action = notification.action {
                 Button(action: onAction) {
                     Text(action.label)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.black)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -71,7 +71,7 @@ struct NotificationView: View {
             // Close Button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.6))
                     .frame(width: 20, height: 20)
             }
@@ -102,7 +102,7 @@ struct NotificationView: View {
         HStack(spacing: 12) {
             // Icon
             Image(systemName: notification.icon ?? notification.type.icon)
-                .font(.title2)
+                .dsFont(.title2)
                 .foregroundStyle(notification.type.color)
                 .frame(width: 32)
 
@@ -110,12 +110,12 @@ struct NotificationView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let title = notification.title {
                     Text(title)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.white)
                 }
 
                 Text(notification.message)
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.white.opacity(0.8))
             }
 
@@ -125,7 +125,7 @@ struct NotificationView: View {
             if let action = notification.action {
                 Button(action: onAction) {
                     Text(action.label)
-                        .font(.subheadline.weight(.bold))
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(.black)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -137,7 +137,7 @@ struct NotificationView: View {
             // Close Button
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .font(.body.weight(.semibold))
+                    .dsFont(.body, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -158,19 +158,19 @@ struct NotificationView: View {
         HStack(spacing: 12) {
             // Icon
             Image(systemName: notification.icon ?? notification.type.icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(notification.type.color)
 
             // Content
             VStack(alignment: .leading, spacing: 2) {
                 if let title = notification.title {
                     Text(title)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white)
                 }
 
                 Text(notification.message)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.8))
             }
 
@@ -180,7 +180,7 @@ struct NotificationView: View {
             if let action = notification.action {
                 Button(action: onAction) {
                     Text(action.label)
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(notification.type.color)
                 }
             }
@@ -188,7 +188,7 @@ struct NotificationView: View {
             // Close Button
             Button(action: onDismiss) {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(.white.opacity(0.4))
             }
         }

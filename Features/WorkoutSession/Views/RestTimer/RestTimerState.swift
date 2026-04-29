@@ -48,6 +48,7 @@ class RestTimerManager: ObservableObject {
         static let timerExerciseName = "rest_timer_exercise_name"
         static let timerDuration = "rest_timer_duration"
         static let pendingSetGeneration = "pending_set_generation_exercises"
+        static let autoAddSetOnRestTimer = "auto_add_set_on_rest_timer"
     }
 
     // App Group for sharing data with Widget Extension
@@ -206,8 +207,11 @@ class RestTimerManager: ObservableObject {
         remainingSeconds = 0
         hasTriggeredTenSecondWarning = false
 
-        // Mark that this exercise needs a new set generated
-        markPendingSetGeneration(for: exerciseID)
+        if shouldAutoAddSetOnRestTimer {
+            markPendingSetGeneration(for: exerciseID)
+        } else {
+            clearPendingSetGeneration(for: exerciseID)
+        }
 
         // IMPORTANT: Stop LiveActivityManager's auto-update loop BEFORE updating to "Ready" state
         // Otherwise the loop will recalculate remaining time and overwrite our update
@@ -266,6 +270,10 @@ class RestTimerManager: ObservableObject {
         }
 
        
+
+        // Explicit user action from the widget/Live Activity. This should log
+        // the next set even when passive auto-add-on-completion is disabled.
+        markPendingSetGeneration(for: exerciseID)
 
         // Post notification to trigger immediate set generation AND log it as completed
         // This ensures the set is created and logged BEFORE the timer starts showing in UI
@@ -425,7 +433,8 @@ class RestTimerManager: ObservableObject {
         let remaining = endDate.timeIntervalSinceNow
 
         if remaining <= 0 {
-            // Timer completed naturally - generate next set
+            // Timer completed naturally. The next set is only generated if the
+            // user's auto-add preference allows it.
             completeTimer(exerciseID: exerciseID, exerciseName: exerciseName, vibrate: true)
         } else {
             remainingSeconds = remaining
@@ -459,8 +468,11 @@ class RestTimerManager: ObservableObject {
         remainingSeconds = 0
         hasTriggeredTenSecondWarning = false
 
-        // Mark that this exercise needs a new set generated
-        markPendingSetGeneration(for: exerciseID)
+        if shouldAutoAddSetOnRestTimer {
+            markPendingSetGeneration(for: exerciseID)
+        } else {
+            clearPendingSetGeneration(for: exerciseID)
+        }
 
         // Note: LiveActivityManager's auto-update loop will stop itself when remaining <= 0
         // See LiveActivityManager.startUpdateLoop() - it checks and stops when timer reaches 0
@@ -573,6 +585,10 @@ class RestTimerManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: Keys.timerExerciseName)
         // Don't clear Keys.timerDuration - keep it so the next timer can reuse the exercise-specific duration
         // This allows "Log Next Set" from widget to use the correct rest time for the exercise
+    }
+
+    private var shouldAutoAddSetOnRestTimer: Bool {
+        UserDefaults.standard.object(forKey: Keys.autoAddSetOnRestTimer) as? Bool ?? true
     }
 }
 

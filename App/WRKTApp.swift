@@ -96,15 +96,20 @@ struct WRKTApp: App {
 
         // Configure title and button colors for visibility
         navBarAppearance.titleTextAttributes = [
-            .foregroundColor: UIColor.white
+            .foregroundColor: UIColor.white,
+            .font: DS.Typography.uiFont(.navigationTitle)
         ]
         navBarAppearance.largeTitleTextAttributes = [
-            .foregroundColor: UIColor.white
+            .foregroundColor: UIColor.white,
+            .font: DS.Typography.uiFont(.navigationLargeTitle)
         ]
 
         // Configure button colors (back button, toolbar buttons, etc.)
         let buttonAppearance = UIBarButtonItemAppearance()
-        buttonAppearance.normal.titleTextAttributes = [.foregroundColor: UIColor(Color(hex: "#CCFF00"))]
+        buttonAppearance.normal.titleTextAttributes = [
+            .foregroundColor: UIColor(Color(hex: "#CCFF00")),
+            .font: DS.Typography.uiFont(.buttonRegular)
+        ]
         navBarAppearance.buttonAppearance = buttonAppearance
         navBarAppearance.backButtonAppearance = buttonAppearance
         navBarAppearance.doneButtonAppearance = buttonAppearance
@@ -132,13 +137,15 @@ struct WRKTApp: App {
         // Normal (unselected) state - white with lower opacity
         tabBarAppearance.stackedLayoutAppearance.normal.iconColor = UIColor.white.withAlphaComponent(0.6)
         tabBarAppearance.stackedLayoutAppearance.normal.titleTextAttributes = [
-            .foregroundColor: UIColor.white.withAlphaComponent(0.6)
+            .foregroundColor: UIColor.white.withAlphaComponent(0.6),
+            .font: DS.Typography.uiFont(.tabLabel)
         ]
 
         // Selected state - accent yellow
         tabBarAppearance.stackedLayoutAppearance.selected.iconColor = UIColor(Color(hex: "#CCFF00"))
         tabBarAppearance.stackedLayoutAppearance.selected.titleTextAttributes = [
-            .foregroundColor: UIColor(Color(hex: "#CCFF00"))
+            .foregroundColor: UIColor(Color(hex: "#CCFF00")),
+            .font: DS.Typography.uiFont(.tabLabel)
         ]
 
         // Apply same configuration to inline and compact layouts
@@ -201,7 +208,7 @@ struct WRKTApp: App {
             else if url.host == "auth" {
                 AppLogger.info("Handling email verification deep link", category: AppLogger.app)
                 Task {
-                    await handleEmailVerificationDeepLink()
+                    await handleEmailVerificationDeepLink(url: url)
                 }
             } else {
                 AppLogger.info("Opening app from watch", category: AppLogger.app)
@@ -215,20 +222,9 @@ struct WRKTApp: App {
         await authService.handlePasswordRecovery(url: url)
     }
 
-    private func handleEmailVerificationDeepLink() async {
+    private func handleEmailVerificationDeepLink(url: URL) async {
         let authService = SupabaseAuthService.shared
-
-        // Check if user is verified
-        let isVerified = await authService.checkEmailVerified()
-
-        if isVerified {
-            AppLogger.success("Email verified successfully, restoring session", category: AppLogger.app)
-            // Restore session (will fetch profile and log them in)
-            await authService.restoreSession()
-            authService.clearSignupState()
-        } else {
-            AppLogger.warning("Email not yet verified", category: AppLogger.app)
-        }
+        await authService.handleEmailConfirmation(url: url)
     }
 
     static func makeContainer() -> (container: ModelContainer, error: Error?, isCritical: Bool) {

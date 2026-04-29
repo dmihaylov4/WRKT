@@ -9,6 +9,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         AppLogger.info("AppDelegate: didFinishLaunchingWithOptions", category: AppLogger.app)
+        if let userInfo = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
+            Task { @MainActor in
+                PushNotificationService.shared.storeLaunchNotification(userInfo: userInfo)
+            }
+        }
         return true
     }
 

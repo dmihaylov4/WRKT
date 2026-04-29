@@ -64,7 +64,7 @@ struct VirtualRunFlowStatusCard: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(DS.Palette.marone)
             Text("Virtual Run")
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
             if case .activeRun = phase {
                 PulsingDot(color: DS.Semantic.success, size: 7)
             }
@@ -107,7 +107,7 @@ struct VirtualRunFlowStatusCard: View {
             statusIndicator
                 .frame(width: 24, height: 24)
             Text(messageText)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(.secondary)
                 .contentTransition(.opacity)
                 .animation(.easeInOut(duration: 0.2), value: messageText)
@@ -162,7 +162,7 @@ struct VirtualRunFlowStatusCard: View {
                 Task { await coordinator.cancelSentInvite() }
             } label: {
                 Text("Cancel Invite")
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(DS.Semantic.surface50)
@@ -177,7 +177,7 @@ struct VirtualRunFlowStatusCard: View {
                         Task { await retry() }
                     } label: {
                         Text("Try Again")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
                             .background(DS.Palette.marone)
@@ -190,7 +190,7 @@ struct VirtualRunFlowStatusCard: View {
                     coordinator.dismissFlowCard()
                 } label: {
                     Text("Dismiss")
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(DS.Semantic.surface50)
@@ -218,11 +218,11 @@ struct VirtualRunFlowStatusCard: View {
             // Column headers
             HStack {
                 Text("Me")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(partnerName)
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.secondary)
             }
             .padding(.bottom, 8)
@@ -258,7 +258,7 @@ struct VirtualRunFlowStatusCard: View {
     private func statRow(icon: String, myValue: String, partnerValue: String) -> some View {
         HStack {
             Text(myValue)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .monospacedDigit()
             Spacer()
             Image(systemName: icon)
@@ -266,7 +266,7 @@ struct VirtualRunFlowStatusCard: View {
                 .foregroundStyle(.tertiary)
             Spacer()
             Text(partnerValue)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .monospacedDigit()
         }
     }

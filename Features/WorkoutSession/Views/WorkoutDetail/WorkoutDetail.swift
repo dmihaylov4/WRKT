@@ -109,21 +109,21 @@ struct WorkoutDetailView: View {
                     // Title and date
                     VStack(alignment: .leading, spacing: 4) {
                         Text(workoutTitle)
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(Theme.text)
 
                         Text(workout.date.formatted(date: .long, time: .omitted))
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(Theme.secondary)
 
                         // Only show time range if we have start time, otherwise just show end time
                         if startTime != "—" {
                             Text(startTime + " — " + endTime)
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(Theme.secondary)
                         } else {
                             Text("Ended: " + endTime)
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(Theme.secondary)
                         }
 
@@ -131,9 +131,9 @@ struct WorkoutDetailView: View {
                         if hasHealthData {
                             HStack(spacing: 4) {
                                 Image(systemName: "applewatch")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                 Text("Enhanced with Apple Watch data")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                             }
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 8)
@@ -290,12 +290,12 @@ private struct StatPill: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.title3.weight(.semibold))
+                .dsFont(.title3, weight: .semibold)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(Theme.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -314,11 +314,11 @@ private struct StatRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(Theme.secondary)
             Spacer()
             Text(value)
-                .font(.subheadline.weight(.medium))
+                .dsFont(.subheadline, weight: .medium)
                 .foregroundStyle(Theme.text)
         }
     }
@@ -332,7 +332,7 @@ private struct HealthKitMetricsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Apple Watch Metrics")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(Theme.text)
 
             LazyVGrid(columns: [
@@ -388,14 +388,14 @@ private struct MetricTile: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(iconColor.opacity(0.7))
                 Text(title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
             Text(value)
-                .font(.body.weight(.semibold))
+                .dsFont(.body, weight: .semibold)
                 .foregroundStyle(Theme.text)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -428,11 +428,11 @@ private struct HeartRateGraph: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Heart Rate")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(Theme.text)
 
                     Text("\(samples.count) samples")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(Theme.secondary)
                 }
 
@@ -444,7 +444,7 @@ private struct HeartRateGraph: View {
                     HRStat(icon: "heart.fill", value: Int(avgHR), color: .pink)
                     HRStat(icon: "arrow.up", value: Int(maxHR), color: .red)
                 }
-                .font(.caption)
+                .dsFont(.caption)
             }
 
             // Chart
@@ -485,7 +485,7 @@ private struct HeartRateGraph: View {
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
                     .annotation(position: .top, alignment: .trailing) {
                         Text("AVG")
-                            .font(.caption2.weight(.medium))
+                            .dsFont(.caption2, weight: .medium)
                             .foregroundStyle(.pink)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -498,7 +498,7 @@ private struct HeartRateGraph: View {
                     if let seconds = value.as(Double.self) {
                         AxisValueLabel {
                             Text(formatTimeAxis(seconds))
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(Theme.secondary)
                         }
                         AxisGridLine().foregroundStyle(Theme.border)
@@ -509,7 +509,7 @@ private struct HeartRateGraph: View {
                 AxisMarks(values: .automatic(desiredCount: 5)) { value in
                     AxisValueLabel {
                         Text("\(value.as(Int.self) ?? 0)")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     }
                     AxisGridLine().foregroundStyle(Theme.border)
@@ -541,10 +541,10 @@ private struct HRStat: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(color)
             Text("\(value)")
-                .font(.caption.monospacedDigit().weight(.medium))
+                .dsFont(.caption, weight: .medium, monospacedDigits: true)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
                 .fixedSize()

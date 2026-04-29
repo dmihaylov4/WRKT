@@ -67,7 +67,7 @@ struct PostDetailView: View {
                     // Caption
                     if let caption = viewModel.post.post.caption, !caption.isEmpty {
                         Text(caption)
-                            .font(.body)
+                            .dsFont(.body)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .padding(.horizontal)
                     }
@@ -104,7 +104,7 @@ struct PostDetailView: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(viewModel.post.author.username.prefix(1).uppercased())
-                                .font(.title3.bold())
+                                .dsFont(.title3, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
@@ -117,20 +117,20 @@ struct PostDetailView: View {
             // Username + Time
             VStack(alignment: .leading, spacing: 2) {
                 Text(viewModel.post.author.displayName ?? viewModel.post.author.username)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 HStack(spacing: 4) {
                     Text(viewModel.post.relativeTime)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Text("•")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Image(systemName: viewModel.post.post.visibility.icon)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -252,7 +252,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.2)
                                 Text(formatCardioDuration(sec))
-                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .font(DS.Typography.custom(size: 26, weight: .heavy))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.55)
@@ -272,7 +272,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.2)
                                 Text(String(format: "%.0f", cal))
-                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .font(DS.Typography.custom(size: 26, weight: .heavy))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
                                 Text("KCAL")
@@ -291,7 +291,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.2)
                                 Text(String(format: "%.0f", hr))
-                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .font(DS.Typography.custom(size: 26, weight: .heavy))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
                                 Text("BPM")
@@ -316,7 +316,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.2)
                                 Text(formatVolume(post.totalVolume))
-                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .font(DS.Typography.custom(size: 26, weight: .heavy))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.6)
@@ -335,7 +335,7 @@ struct PostDetailView: View {
                                 .foregroundStyle(.white.opacity(0.5))
                                 .tracking(1.2)
                             Text("\(post.exerciseCount)")
-                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .font(DS.Typography.custom(size: 26, weight: .heavy))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
                             Text("EX")
@@ -353,7 +353,7 @@ struct PostDetailView: View {
                                 .foregroundStyle(.white.opacity(0.5))
                                 .tracking(1.2)
                             Text("\(post.totalSets)")
-                                .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                .font(DS.Typography.custom(size: 26, weight: .heavy))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
                             Text("TOTAL")
@@ -371,7 +371,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.2)
                                 Text(post.durationFormatted)
-                                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                                    .font(DS.Typography.custom(size: 26, weight: .heavy))
                                     .foregroundStyle(.white)
                                     .lineLimit(1)
                                     .minimumScaleFactor(0.55)
@@ -393,7 +393,7 @@ struct PostDetailView: View {
                         HStack(spacing: 14) {
                             if let hr = workout.matchedHealthKitHeartRate {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.red.opacity(0.9))
+                                    Image(systemName: "heart.fill").dsFont(.caption2).foregroundStyle(.red.opacity(0.9))
                                     Text(String(format: "%.0f BPM", hr))
                                         .font(.system(size: 12, weight: .semibold))
                                 }
@@ -401,7 +401,7 @@ struct PostDetailView: View {
                             }
                             if let cal = workout.matchedHealthKitCalories {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "flame.fill").font(.caption2)
+                                    Image(systemName: "flame.fill").dsFont(.caption2)
                                     Text(String(format: "%.0f kcal", cal))
                                         .font(.system(size: 12, weight: .semibold))
                                 }
@@ -443,7 +443,7 @@ struct PostDetailView: View {
         return VStack(alignment: .leading, spacing: 10) {
             // Exercise name
             Text(entry.exerciseName)
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             // Sets / Reps / Volume summary
@@ -478,7 +478,7 @@ struct PostDetailView: View {
                     HStack(spacing: 10) {
                         // Number badge
                         Text("\(index + 1)")
-                            .font(.caption.bold().monospacedDigit())
+                            .dsFont(.caption, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(.black)
                             .frame(width: 22, height: 22)
                             .background(set.tag.color, in: Circle())
@@ -486,19 +486,19 @@ struct PostDetailView: View {
                         // Set value + timing
                         VStack(alignment: .leading, spacing: 2) {
                             Text(set.displayValue)
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             if set.workDuration != nil || set.restAfterSeconds != nil {
                                 HStack(spacing: 8) {
                                     if set.formattedWorkDuration != "—" {
                                         Text("Work: \(set.formattedWorkDuration)")
-                                            .font(.caption2)
+                                            .dsFont(.caption2)
                                             .foregroundStyle(DS.Semantic.textSecondary)
                                     }
                                     if set.formattedRestDuration != "—" {
                                         Text("Rest: \(set.formattedRestDuration)")
-                                            .font(.caption2)
+                                            .dsFont(.caption2)
                                             .foregroundStyle(DS.Semantic.textSecondary)
                                     }
                                 }
@@ -509,7 +509,7 @@ struct PostDetailView: View {
 
                         // Tag badge
                         Text(set.tag.short)
-                            .font(.caption2.weight(.semibold))
+                            .dsFont(.caption2, weight: .semibold)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
@@ -532,10 +532,10 @@ struct PostDetailView: View {
     private func strengthStatItem(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(DS.Semantic.textSecondary)
             Text(value)
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
     }
@@ -548,10 +548,10 @@ struct PostDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(spacing: 8) {
                     Image(systemName: "applewatch")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Semantic.brand)
                     Text("Apple Watch")
-                        .font(.headline.bold())
+                        .dsFont(.headline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
@@ -591,11 +591,11 @@ struct PostDetailView: View {
                 if let calories = workout.matchedHealthKitCalories {
                     HStack(spacing: 14) {
                         Image(systemName: "flame.fill")
-                            .font(.title2)
+                            .dsFont(.title2)
                             .foregroundStyle(DS.Semantic.brand)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(String(format: "%.0f", calories))
-                                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                                .font(DS.Typography.custom(size: 32, weight: .heavy))
                                 .foregroundStyle(DS.Semantic.textPrimary)
                             Text("ACTIVE CALORIES")
                                 .font(.system(size: 9, weight: .bold))
@@ -625,9 +625,9 @@ struct PostDetailView: View {
             HStack(spacing: 8) {
                 // Min badge
                 HStack(spacing: 4) {
-                    Image(systemName: "arrow.down").font(.caption2).foregroundStyle(.green)
+                    Image(systemName: "arrow.down").dsFont(.caption2).foregroundStyle(.green)
                     Text("\(Int(minHR))")
-                        .font(.caption.monospacedDigit().weight(.medium))
+                        .dsFont(.caption, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -635,9 +635,9 @@ struct PostDetailView: View {
 
                 // Avg badge
                 HStack(spacing: 4) {
-                    Image(systemName: "heart.fill").font(.caption2).foregroundStyle(.pink)
+                    Image(systemName: "heart.fill").dsFont(.caption2).foregroundStyle(.pink)
                     Text("\(Int(avgHR))")
-                        .font(.caption.monospacedDigit().weight(.medium))
+                        .dsFont(.caption, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -645,9 +645,9 @@ struct PostDetailView: View {
 
                 // Max badge
                 HStack(spacing: 4) {
-                    Image(systemName: "arrow.up").font(.caption2).foregroundStyle(.red)
+                    Image(systemName: "arrow.up").dsFont(.caption2).foregroundStyle(.red)
                     Text("\(Int(maxHR))")
-                        .font(.caption.monospacedDigit().weight(.medium))
+                        .dsFont(.caption, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
@@ -691,7 +691,7 @@ struct PostDetailView: View {
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
                     .annotation(position: .top, alignment: .trailing) {
                         Text("AVG")
-                            .font(.caption2.weight(.medium))
+                            .dsFont(.caption2, weight: .medium)
                             .foregroundStyle(.pink)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -706,7 +706,7 @@ struct PostDetailView: View {
                             let m = Int(seconds) / 60
                             let s = Int(seconds) % 60
                             Text(m > 0 ? "\(m)m" : "\(s)s")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                         AxisGridLine().foregroundStyle(DS.Semantic.border.opacity(0.4))
@@ -718,7 +718,7 @@ struct PostDetailView: View {
                     AxisValueLabel {
                         if let v = value.as(Int.self) {
                             Text("\(v)")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -811,7 +811,7 @@ struct PostDetailView: View {
                 if let calories = workout.matchedHealthKitCalories {
                     VStack(spacing: 2) {
                         Text(String(format: "%.0f", calories))
-                            .font(.system(size: 52, weight: .heavy, design: .rounded))
+                            .font(DS.Typography.custom(size: 52, weight: .heavy))
                             .foregroundStyle(DS.Semantic.textPrimary)
                         Text("CALORIES")
                             .font(.system(size: 10, weight: .bold))
@@ -844,7 +844,7 @@ struct PostDetailView: View {
     private func cardioBigStat(value: String, label: String) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .font(DS.Typography.custom(size: 20, weight: .bold))
                 .foregroundStyle(DS.Semantic.textPrimary)
             Text(label)
                 .font(.system(size: 9, weight: .semibold))
@@ -894,7 +894,7 @@ struct PostDetailView: View {
                         let pace = Double(durationSec) / (distanceMeters / 1000)
                         HStack(spacing: 16) {
                             HStack(spacing: 4) {
-                                Image(systemName: "figure.run").font(.caption2)
+                                Image(systemName: "figure.run").dsFont(.caption2)
                                 Text("\(formatPace(pace)) /km")
                                     .font(.system(size: 13, weight: .semibold))
                             }
@@ -902,7 +902,7 @@ struct PostDetailView: View {
 
                             if let calories = workout.matchedHealthKitCalories {
                                 HStack(spacing: 4) {
-                                    Image(systemName: "flame.fill").font(.caption2)
+                                    Image(systemName: "flame.fill").dsFont(.caption2)
                                     Text(String(format: "%.0f kcal", calories))
                                         .font(.system(size: 13, weight: .semibold))
                                 }
@@ -923,7 +923,7 @@ struct PostDetailView: View {
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.5)
                                 Text(String(format: "%.2f", distanceMeters / 1000))
-                                    .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                    .font(DS.Typography.custom(size: 36, weight: .heavy))
                                     .foregroundStyle(.white)
                                 Text("KM")
                                     .font(.system(size: 10, weight: .bold))
@@ -943,7 +943,7 @@ struct PostDetailView: View {
                                         .foregroundStyle(.white.opacity(0.5))
                                         .tracking(1.5)
                                     Text(formatCardioDuration(durationSec))
-                                        .font(.system(size: 36, weight: .heavy, design: .rounded))
+                                        .font(DS.Typography.custom(size: 36, weight: .heavy))
                                         .foregroundStyle(.white)
                                     Text("TIME")
                                         .font(.system(size: 10, weight: .bold))
@@ -1002,7 +1002,7 @@ struct PostDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 HStack {
                     Text("Heart Rate")
-                        .font(.headline.bold())
+                        .dsFont(.headline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
@@ -1018,7 +1018,7 @@ struct PostDetailView: View {
                                     Image(systemName: "arrow.clockwise")
                                     Text(workout.cardioHRZones == nil ? "Load" : "Refresh")
                                 }
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.brand)
                             }
                         }
@@ -1048,7 +1048,7 @@ struct PostDetailView: View {
                     }
                 } else {
                     Text("No heart rate data — swipe right to load")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
@@ -1073,7 +1073,7 @@ struct PostDetailView: View {
     private func bpmColumn(value: Double, label: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Text(String(format: "%.0f", value))
-                .font(.system(size: 40, weight: .heavy, design: .rounded))
+                .font(DS.Typography.custom(size: 40, weight: .heavy))
                 .foregroundStyle(color)
             Text(label)
                 .font(.system(size: 10, weight: .bold))
@@ -1107,7 +1107,7 @@ struct PostDetailView: View {
                                     Image(systemName: "arrow.clockwise")
                                     Text("Refresh")
                                 }
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.brand)
                             }
                         }
@@ -1159,15 +1159,15 @@ struct PostDetailView: View {
     private func statCard(icon: String, value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Semantic.brand)
 
             Text(value)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -1179,22 +1179,22 @@ struct PostDetailView: View {
     private func exerciseRow(entry: WorkoutEntry) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(entry.exerciseName)
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             ForEach(Array(entry.sets.enumerated()), id: \.offset) { index, set in
                 HStack {
                     Text("Set \(index + 1):")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     if set.weight > 0 {
                         Text("\(set.weight.safeInt) kg × \(set.reps) reps")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     } else {
                         Text("\(set.reps) reps")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
 
@@ -1202,7 +1202,7 @@ struct PostDetailView: View {
 
                     if set.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Status.success)
                     }
                 }
@@ -1232,13 +1232,13 @@ struct PostDetailView: View {
                         showingLikes = true
                     } label: {
                         Text("\(displayCount)")
-                            .font(.subheadline.bold())
+                            .dsFont(.subheadline, weight: .bold)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
                     .buttonStyle(.plain)
                 } else {
                     Text("0")
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
             }
@@ -1251,7 +1251,7 @@ struct PostDetailView: View {
                     .frame(width: 24, height: 24)
 
                 Text("\(viewModel.post.post.commentsCount)")
-                    .font(.subheadline.bold())
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
             }
 
@@ -1271,7 +1271,7 @@ struct PostDetailView: View {
                     .padding(.vertical, 24)
             } else if viewModel.comments.isEmpty {
                 Text("No comments yet")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
@@ -1313,7 +1313,7 @@ struct PostDetailView: View {
             if let replyingTo = viewModel.replyingTo {
                 HStack {
                     Text("Replying to @\(replyingTo.author?.username ?? "unknown")")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Spacer()
@@ -1322,7 +1322,7 @@ struct PostDetailView: View {
                         viewModel.cancelReply()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -1451,13 +1451,13 @@ struct CommentRow: View {
                 // Username outside bubble — naturally aligned with avatar top
                 if let author = comment.author {
                     Text(author.username)
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Semantic.brand)
                 }
 
                 // Chamfered bubble (content only)
                 MentionText(text: comment.content, mentions: comment.mentions)
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
@@ -1470,13 +1470,13 @@ struct CommentRow: View {
                 // Time + Reply (outside bubble)
                 HStack(spacing: 12) {
                     Text(relativeTime(for: comment.createdAt))
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     if !isReply {
                         Button(action: onReply) {
                             Text("Reply")
-                                .font(.caption2.weight(.semibold))
+                                .dsFont(.caption2, weight: .semibold)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -1533,4 +1533,3 @@ struct CommentRow: View {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
-

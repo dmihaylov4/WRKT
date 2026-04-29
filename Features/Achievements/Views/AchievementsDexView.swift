@@ -52,7 +52,7 @@ struct AchievementsDexView: View {
                             ProgressView()
                                 .controlSize(.regular)
                             Text("Searching...")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         .padding(.vertical, 40)
@@ -118,10 +118,10 @@ struct AchievementsDexView: View {
 
     private var header: some View {
         HStack {
-            Text("PR Dex").font(.headline)
+            Text("PR Dex").dsFont(.headline)
             Spacer()
             Text("\(vm.unlockedCount)/\(vm.totalCount)")
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
                 .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(DS.Theme.accent, in: Capsule())
                 .foregroundColor(.black)
@@ -131,7 +131,7 @@ struct AchievementsDexView: View {
 
     private var recordsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Records").font(.headline).padding(.top, 8)
+            Text("Records").dsFont(.headline).padding(.top, 8)
             RecordRow(icon: "figure.run", title: "Longest run",    value: "—")
             RecordRow(icon: "flame.fill",  title: "Longest streak", value: "—")
         }
@@ -350,9 +350,9 @@ private struct RecordRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: icon).symbolRenderingMode(.hierarchical).foregroundStyle(.tint)
-            Text(title).font(.subheadline.weight(.semibold))
+            Text(title).dsFont(.subheadline, weight: .semibold)
             Spacer()
-            Text(value).font(.footnote.monospacedDigit()).foregroundStyle(.secondary)
+            Text(value).dsFont(.footnote, monospacedDigits: true).foregroundStyle(.secondary)
         }
         .padding(10)
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -413,9 +413,9 @@ struct DexDetailView: View {
                 LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 4)) {
                     ForEach(ladder, id: \.r) { cell in
                         VStack(spacing: 4) {
-                            Text("\(cell.r) reps").font(.caption2).foregroundStyle(.secondary)
+                            Text("\(cell.r) reps").dsFont(.caption2).foregroundStyle(.secondary)
                             Text(cell.w.map { "\(Int($0)) kg" } ?? "—")
-                                .font(.footnote.weight(.semibold))
+                                .dsFont(.footnote, weight: .semibold)
                         }
                         .frame(maxWidth: .infinity).padding(8)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -471,13 +471,13 @@ struct DexDetailView: View {
             Image(systemName: item.isUnlocked ? "trophy.fill" : "trophy")
                 .foregroundStyle(item.isUnlocked ? DS.Theme.accent : .secondary)
             VStack(alignment: .leading) {
-                Text(item.name).font(.headline)
+                Text(item.name).dsFont(.headline)
                 if let when = item.unlockedAt {
                     Text("Unlocked \(when.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .dsFont(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("Log a working set to unlock")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .dsFont(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer()

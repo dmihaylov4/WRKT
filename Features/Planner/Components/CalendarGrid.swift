@@ -13,10 +13,13 @@ struct MonthHeader: View {
     let onBack: () -> Void
     let onForward: () -> Void
     let onToday: () -> Void
-    let onPlannerTap: () -> Void
+    let onProgramLibraryTap: () -> Void
+    let onManagePlanTap: () -> Void
     let weeklyStreak: Int
     let currentWeekProgress: WeeklyProgress?
     let selectedWeekProgress: WeeklyProgress?  // NEW: For showing selected week stats
+    let currentWeekFrozen: Bool
+    let selectedWeekFrozen: Bool
     var captureButtonFrame: ((CGRect) -> Void)? = nil
 
     private var showingCurrentMonth: Bool {
@@ -29,14 +32,14 @@ struct MonthHeader: View {
                 // Month name with Create Plan button
                 HStack(spacing: 8) {
                     Text(monthAnchor.formatted(.dateTime.year().month(.wide)))
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Button {
-                        onPlannerTap()
+                        onProgramLibraryTap()
                     } label: {
                         Text("PLAN")
-                            .font(.caption.weight(.bold))
+                            .dsFont(.caption, weight: .bold)
                             .foregroundStyle(.black)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -44,14 +47,25 @@ struct MonthHeader: View {
                             .frame(minHeight: 44)
                             .contentShape(Rectangle())
                     }
-                    .background(GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: PlannerButtonFrameKey.self,
-                            value: geometry.frame(in: .global)
-                        )
-                    })
-                    .onPreferenceChange(PlannerButtonFrameKey.self) { frame in
+                    .captureFrame(in: .global) { frame in
                         captureButtonFrame?(frame)
+                    }
+
+                    Button {
+                        onManagePlanTap()
+                    } label: {
+                        Text("MANAGE")
+                            .dsFont(.caption, weight: .bold)
+                            .foregroundStyle(DS.Theme.accent)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(DS.Theme.cardTop, in: ChamferedRectangle(.small))
+                            .overlay(
+                                ChamferedRectangle(.small)
+                                    .stroke(DS.Semantic.border, lineWidth: 1)
+                            )
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                 }
 
@@ -70,14 +84,14 @@ struct MonthHeader: View {
                     .disabled(!canGoForward)
                 }
                 .buttonStyle(.plain)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .background(DS.Theme.cardTop, in: Capsule())
                 .overlay(Capsule().stroke(DS.Semantic.border, lineWidth: 1))
 
                 if !showingCurrentMonth {
                     Button("Today", action: onToday)
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Color.black)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
@@ -94,7 +108,10 @@ struct MonthHeader: View {
 
             // Week progress - show selected week if tapped, otherwise current week
             if let progress = selectedWeekProgress ?? currentWeekProgress {
-                CurrentWeekProgressBanner(progress: progress)
+                CurrentWeekProgressBanner(
+                    progress: progress,
+                    isFrozenWeek: selectedWeekProgress != nil ? selectedWeekFrozen : currentWeekFrozen
+                )
                     .padding(.horizontal, 16)
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedWeekProgress)
@@ -113,7 +130,7 @@ struct WeekdayRow: View {
         HStack {
             ForEach(days, id: \.self) { d in
                 Text(d.uppercased())
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .frame(maxWidth: .infinity)
             }
@@ -202,7 +219,7 @@ struct DayCellV2: View {
                         }
 
                         Text("\(Calendar.current.component(.day, from: date))")
-                            .font(.footnote.weight(isToday ? .bold : .regular))
+                            .dsFont(.footnote, weight: isToday ? .bold : .regular)
                             .foregroundStyle(.white)
                     }
 
@@ -226,7 +243,7 @@ struct DayCellV2: View {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 11))
                 .foregroundStyle(DS.Theme.accent)
-        } else if stats.isPlannedScheduled {
+        } else if stats.isPlannedScheduled || stats.isPlannedRescheduled {
             // Scheduled: outlined circle
             Circle()
                 .stroke(DS.Theme.accent, lineWidth: 2)
@@ -255,10 +272,7 @@ struct DayCellV2: View {
                     ZStack {
                         Rectangle()
                             .fill(activityBarColor)
-                        Image(systemName: "dumbbell.fill")
-                            .font(.system(size: 6, weight: .semibold))
-                            .foregroundStyle(.black)
-                            .frame(width: 6, height: 6, alignment: .center)
+                        strengthActivityBarIcon
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
@@ -324,6 +338,8 @@ struct DayCellV2: View {
             return activityBarColor
         } else if stats.isPlannedScheduled {
             return isPastDay ? DS.Theme.accent.opacity(0.15) : DS.Theme.accent.opacity(0.25)
+        } else if stats.isPlannedRescheduled {
+            return .orange.opacity(isPastDay ? 0.2 : 0.35)
         } else if stats.isPlannedPartial {
             return .yellow.opacity(isPastDay ? 0.3 : 0.5)
         } else if stats.isPlannedSkipped {
@@ -333,12 +349,27 @@ struct DayCellV2: View {
     }
 
     @ViewBuilder
+    private var strengthActivityBarIcon: some View {
+        if isPlannedWorkoutCompleted {
+            Image(systemName: "checkmark")
+                .font(.system(size: 6, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 6, height: 6, alignment: .center)
+        } else {
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 6, weight: .semibold))
+                .foregroundStyle(.black)
+                .frame(width: 6, height: 6, alignment: .center)
+        }
+    }
+
+    @ViewBuilder
     private var plannedWorkoutBarIcon: some View {
         if isPlannedWorkoutCompleted {
             Image(systemName: "checkmark")
                 .font(.system(size: 6, weight: .bold))
                 .foregroundStyle(.black)
-        } else if stats.isPlannedScheduled {
+        } else if stats.isPlannedScheduled || stats.isPlannedRescheduled {
             Circle()
                 .stroke(.black, lineWidth: 1.5)
                 .frame(width: 5, height: 5)
@@ -362,6 +393,7 @@ struct WeekStatusIndicator: View {
     let isCompletedWeek: Bool
     let isSuperWeek: Bool
     let isCurrentWeek: Bool
+    let isFrozenWeek: Bool
     var onTap: (() -> Void)? = nil
 
     var body: some View {
@@ -369,24 +401,53 @@ struct WeekStatusIndicator: View {
             // Flame centered vertically to match day numbers
             if isSuperWeek {
                 // Super week: bright maroon flame with glow
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 18, weight: .bold))
+                Image("streak-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
                     .foregroundStyle(DS.Theme.accent)
                     .shadow(color: DS.Theme.accent.opacity(0.5), radius: 4)
+            } else if isFrozenWeek {
+                // Frozen week: solid blue flame
+                Image("streak-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 21, height: 21)
+                    .foregroundStyle(.blue)
             } else if isCompletedWeek {
                 // Completed week: solid maroon flame
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                Image("streak-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 21, height: 21)
                     .foregroundStyle(DS.Theme.accent)
             } else if isCurrentWeek {
-                // Current week in progress: outlined maroon flame
-                Image(systemName: "flame")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(DS.Theme.accent.opacity(0.6))
+                // Current week in progress: marone outline with dark center
+                ZStack {
+                    Image("streak-icon")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 21, height: 21)
+                        .foregroundStyle(DS.Palette.marone)
+
+                    Image("streak-icon")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 15, height: 15)
+                        .foregroundStyle(DS.Semantic.surface)
+                }
             } else {
                 // Incomplete week: grayed out flame
-                Image(systemName: "flame.fill")
-                    .font(.system(size: 15, weight: .regular))
+                Image("streak-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
                     .foregroundStyle(.gray.opacity(0.3))
             }
         }
@@ -398,13 +459,5 @@ struct WeekStatusIndicator: View {
                 handler()
             }
         }
-    }
-}
-
-// MARK: - Preference Key for Planner Button Frame
-struct PlannerButtonFrameKey: PreferenceKey {
-    static var defaultValue: CGRect = .zero
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
     }
 }

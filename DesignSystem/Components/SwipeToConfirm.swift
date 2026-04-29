@@ -83,7 +83,7 @@ struct SwipeToConfirm: View {
                 HStack(spacing: 8) {
                  
                     Text(text)
-                        .font(.headline)
+                        .dsFont(.headline)
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 .foregroundStyle(Theme.text)
@@ -95,7 +95,7 @@ struct SwipeToConfirm: View {
                     .fill(Theme.accent) // solid accent knob
                     .overlay(
                         Image(systemName: "chevron.right")
-                            .font(.headline.weight(.bold))
+                            .dsFont(.headline, weight: .bold)
                             .foregroundStyle(Color.black)
                     )
                     .shadow(color: Theme.accent.opacity(0.45), radius: isPressing ? 10 : 6, x: 0, y: 0)

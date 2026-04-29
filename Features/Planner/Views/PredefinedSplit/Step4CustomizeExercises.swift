@@ -35,7 +35,7 @@ struct Step4CustomizeExercises: View {
             // Header
             VStack(alignment: .leading, spacing: 8) {
                 Text("Customize exercises?")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
 
                 Text("You can use the default exercises or customize them to your preferences.")
                     .foregroundStyle(.secondary)
@@ -75,7 +75,7 @@ struct Step4CustomizeExercises: View {
             // Header
             VStack(alignment: .leading, spacing: 8) {
                 Text("Exercise preview")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
 
                 Text("These are the default exercises for your split. You can proceed or go back to customize.")
                     .foregroundStyle(.secondary)
@@ -129,7 +129,7 @@ struct Step4CustomizeExercises: View {
             // Header
             VStack(alignment: .leading, spacing: 8) {
                 Text("Customize exercises")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
 
                 Text("Modify the exercises for each workout day.")
                     .foregroundStyle(.secondary)
@@ -181,9 +181,9 @@ struct Step4CustomizeExercises: View {
                         } label: {
                             HStack {
                                 Image(systemName: "plus.circle.fill")
-                                    .font(.body)
+                                    .dsFont(.body)
                                 Text("Add Exercise")
-                                    .font(.subheadline.weight(.semibold))
+                                    .dsFont(.subheadline, weight: .semibold)
                             }
                             .foregroundStyle(DS.Palette.marone)
                             .frame(maxWidth: .infinity)
@@ -276,7 +276,7 @@ struct DayTab: View {
     var body: some View {
         Button(action: onTap) {
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(DS.Palette.marone)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
@@ -306,20 +306,20 @@ struct ExerciseRowEditable: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(exercise.exerciseName)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(.primary)
 
                     HStack(spacing: 8) {
                         Text("\(exercise.sets) sets × \(exercise.reps) reps")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
 
                         if let weight = exercise.startingWeight, weight > 0 {
                             Text("•")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
                             Text("\(String(format: "%.1f", weight)) kg")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Palette.marone)
                         }
                     }
@@ -328,12 +328,12 @@ struct ExerciseRowEditable: View {
                 Spacer()
 
                 Image(systemName: "pencil.circle.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Palette.marone.opacity(0.7))
 
                 Button(action: onRemove) {
                     Image(systemName: "minus.circle.fill")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(.red)
                 }
                 .buttonStyle(.plain)
@@ -376,7 +376,7 @@ struct ExerciseSearchSheet: View {
                     // Summary row
                     if repo.totalExerciseCount > 0 {
                         Text("\(repo.exercises.count) of \(repo.totalExerciseCount) exercises")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .dsFont(.caption).foregroundStyle(.secondary)
                             .listRowSeparator(.hidden)
                     }
 
@@ -464,7 +464,7 @@ struct PlannerExerciseRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(ex.name)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.white)
 
                 HStack(spacing: 8) {
@@ -485,7 +485,7 @@ struct PlannerExerciseRow: View {
             Spacer()
 
             Image(systemName: "plus.circle.fill")
-                .font(.title2)
+                .dsFont(.title2)
                 .foregroundStyle(DS.Palette.marone)
         }
         .padding(.vertical, 8)
@@ -509,20 +509,20 @@ struct ExerciseRowPreview: View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.exerciseName)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(.primary)
 
                 HStack(spacing: 8) {
                     Text("\(exercise.sets) sets × \(exercise.reps) reps")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
 
                     if let weight = exercise.startingWeight, weight > 0 {
                         Text("•")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                         Text("\(String(format: "%.1f", weight)) kg")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Palette.marone)
                     }
                 }
@@ -531,7 +531,7 @@ struct ExerciseRowPreview: View {
             Spacer()
 
             Image(systemName: "checkmark.circle.fill")
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Palette.marone.opacity(0.5))
         }
         .padding(12)

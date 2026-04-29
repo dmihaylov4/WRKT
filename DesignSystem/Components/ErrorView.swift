@@ -27,18 +27,18 @@ struct ErrorView: View {
             // Title and message
             VStack(spacing: 8) {
                 Text(error.title)
-                    .font(.title2)
+                    .dsFont(.title2)
                     .fontWeight(.semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text(error.message)
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .multilineTextAlignment(.center)
 
                 if let suggestion = error.suggestion {
                     Text(suggestion)
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 4)
@@ -53,7 +53,7 @@ struct ErrorView: View {
                     onRetry()
                 } label: {
                     Text("Try Again")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.black)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
@@ -92,11 +92,11 @@ struct InlineErrorView: View {
             // Message
             VStack(alignment: .leading, spacing: 4) {
                 Text(error.title)
-                    .font(.subheadline.bold())
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text(error.message)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
@@ -110,7 +110,7 @@ struct InlineErrorView: View {
                         onRetry()
                     } label: {
                         Image(systemName: "arrow.clockwise")
-                            .font(.body.bold())
+                            .dsFont(.body, weight: .bold)
                             .foregroundStyle(DS.Semantic.brand)
                     }
                 }
@@ -121,7 +121,7 @@ struct InlineErrorView: View {
                         onDismiss()
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.body)
+                            .dsFont(.body)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -145,7 +145,7 @@ struct CompactErrorView: View {
                 .foregroundStyle(DS.Status.error)
 
             Text(message)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Spacer()
@@ -155,7 +155,7 @@ struct CompactErrorView: View {
                     Haptics.light()
                     onRetry()
                 }
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.brand)
             }
         }
@@ -179,11 +179,11 @@ struct RetryingView: View {
 
             VStack(spacing: 4) {
                 Text("Retrying...")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("Attempt \(attemptNumber) of \(maxAttempts)")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         }

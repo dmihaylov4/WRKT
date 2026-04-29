@@ -31,7 +31,7 @@ struct CarouselStepperInt: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
                 .foregroundStyle(Theme.secondary)
                 .textCase(.uppercase)
 
@@ -52,7 +52,7 @@ struct CarouselStepperInt: View {
                             LazyHStack(spacing: 4) {
                                 ForEach(values, id: \.self) { v in
                                     Text("\(v)")
-                                        .font(.callout.monospacedDigit().weight(v == value ? .bold : .regular))
+                                        .dsFont(.callout, weight: v == value ? .bold : .regular, monospacedDigits: true)
                                         .foregroundStyle(v == value ? Theme.accent : Theme.secondary)
                                         .frame(width: 44, height: 36)
                                         .background {
@@ -127,7 +127,7 @@ struct CarouselStepperInt: View {
                         .keyboardType(.numberPad)
                         .focused($isFocused)
                         .multilineTextAlignment(.center)
-                        .font(.headline.monospacedDigit().weight(.bold))
+                        .dsFont(.headline, weight: .bold, monospacedDigits: true)
                         .foregroundStyle(Theme.accent)
                         .frame(height: 40)
                         .background(Theme.surface2)
@@ -193,13 +193,13 @@ struct CarouselStepperDouble: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 4) {
                 Text(label)
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .textCase(.uppercase)
 
                 if !suffix.isEmpty {
                     Text("(\(suffix))")
-                        .font(.caption2.weight(.medium))
+                        .dsFont(.caption2, weight: .medium)
                         .foregroundStyle(Theme.secondary.opacity(0.7))
                 }
             }
@@ -221,7 +221,7 @@ struct CarouselStepperDouble: View {
                             LazyHStack(spacing: 4) {
                                 ForEach(values, id: \.self) { v in
                                     Text("\(formatValue(v))")
-                                        .font(.callout.monospacedDigit().weight(abs(v - value) < 0.01 ? .bold : .regular))
+                                        .dsFont(.callout, weight: abs(v - value) < 0.01 ? .bold : .regular, monospacedDigits: true)
                                         .foregroundStyle(abs(v - value) < 0.01 ? Theme.accent : Theme.secondary)
                                         .frame(width: 52, height: 36)
                                         .background {
@@ -301,7 +301,7 @@ struct CarouselStepperDouble: View {
                         .keyboardType(.decimalPad)
                         .focused($isFocused)
                         .multilineTextAlignment(.center)
-                        .font(.headline.monospacedDigit().weight(.bold))
+                        .dsFont(.headline, weight: .bold, monospacedDigits: true)
                         .foregroundStyle(Theme.accent)
                         .frame(height: 40)
                         .background(Theme.surface2)
@@ -375,12 +375,12 @@ struct CompactStepperInt: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(Theme.secondary)
                 .frame(width: 30, alignment: .leading)
 
             HStack(spacing: 0) {
-                Button { bump(-1) } label: { Text("−").font(.headline) }
+                Button { bump(-1) } label: { Text("−").dsFont(.headline) }
                     .buttonStyle(CompactKnobStyle())
 
                 Group {
@@ -394,7 +394,7 @@ struct CompactStepperInt: View {
                             .onAppear { focused = true }
                     } else {
                         Text("\(value)")
-                            .font(.callout.monospacedDigit())
+                            .dsFont(.callout, monospacedDigits: true)
                             .foregroundStyle(Theme.text)
                             .frame(minWidth: 34, maxWidth: 48)
                             .onTapGesture { editing = true }
@@ -402,7 +402,7 @@ struct CompactStepperInt: View {
                 }
                 .padding(.horizontal, 6)
 
-                Button { bump(+1) } label: { Text("+").font(.headline) }
+                Button { bump(+1) } label: { Text("+").dsFont(.headline) }
                     .buttonStyle(CompactKnobStyle())
             }
             .pillBackground()
@@ -446,7 +446,7 @@ struct CompactStepperDouble: View {
     var body: some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(Theme.secondary)
                 .frame(width: 38, alignment: .leading)
 
@@ -454,7 +454,7 @@ struct CompactStepperDouble: View {
                 Button {
                     bump(-step)
                     onManualEdit()
-                } label: { Text("−").font(.headline) }
+                } label: { Text("−").dsFont(.headline) }
                 .buttonStyle(CompactKnobStyle())
 
                 Group {
@@ -471,7 +471,7 @@ struct CompactStepperDouble: View {
                             .onAppear { focused = true }
                     } else {
                         Text("\(valueDisplay, specifier: "%.1f")\(suffix.isEmpty ? "" : " \(suffix)")")
-                            .font(.callout.monospacedDigit())
+                            .dsFont(.callout, monospacedDigits: true)
                             .foregroundStyle(Theme.text)
                             .frame(minWidth: 56, maxWidth: 74)
                             .minimumScaleFactor(0.9)
@@ -484,7 +484,7 @@ struct CompactStepperDouble: View {
                 Button {
                     bump(+step)
                     onManualEdit()
-                } label: { Text("+").font(.headline) }
+                } label: { Text("+").dsFont(.headline) }
                 .buttonStyle(CompactKnobStyle())
             }
             .pillBackground()
@@ -534,7 +534,7 @@ private extension View {
 private struct CompactKnobStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.headline.weight(.semibold))
+            .dsFont(.headline, weight: .semibold)
             .foregroundStyle(Theme.text)
             .frame(width: 28, height: 28)
             .background(Theme.accent.opacity(configuration.isPressed ? 0.26 : 0.18), in: Circle())
@@ -554,7 +554,7 @@ struct StepCap: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.body.weight(.bold))
+                .dsFont(.body, weight: .bold)
                 .foregroundStyle(Theme.text)
                 .frame(width: width, height: height)
                 .background(Theme.accent.opacity(0.16), in: RoundedRectangle(cornerRadius: 8, style: .continuous))

@@ -35,14 +35,14 @@ struct RetrospectiveWorkoutBuilder: View {
                     // Workout Details Card
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Workout Details")
-                            .font(.headline.weight(.semibold))
+                            .dsFont(.headline, weight: .semibold)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .padding(.bottom, 4)
 
                         // Workout Name
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Workout Name")
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                             TextField("e.g., Upper Body, Leg Day", text: $workoutName)
                                 .textFieldStyle(.plain)
@@ -58,7 +58,7 @@ struct RetrospectiveWorkoutBuilder: View {
                         VStack(spacing: 12) {
                             HStack {
                                 Text("Started")
-                                    .font(.subheadline.weight(.medium))
+                                    .dsFont(.subheadline, weight: .medium)
                                     .foregroundStyle(DS.Semantic.textPrimary)
                                 Spacer()
                                 DatePicker("", selection: $startTime, displayedComponents: [.date, .hourAndMinute])
@@ -69,7 +69,7 @@ struct RetrospectiveWorkoutBuilder: View {
 
                             HStack {
                                 Text("Finished")
-                                    .font(.subheadline.weight(.medium))
+                                    .dsFont(.subheadline, weight: .medium)
                                     .foregroundStyle(DS.Semantic.textPrimary)
                                 Spacer()
                                 DatePicker("", selection: $endTime, displayedComponents: [.date, .hourAndMinute])
@@ -78,7 +78,7 @@ struct RetrospectiveWorkoutBuilder: View {
                         }
 
                         Text("If left blank, workout name will be auto-classified based on exercises")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                     .padding(16)
@@ -93,13 +93,13 @@ struct RetrospectiveWorkoutBuilder: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Exercises")
-                                .font(.headline.weight(.semibold))
+                                .dsFont(.headline, weight: .semibold)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             Spacer()
 
                             Text("\(entries.count)")
-                                .font(.subheadline.weight(.medium))
+                                .dsFont(.subheadline, weight: .medium)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -114,11 +114,11 @@ struct RetrospectiveWorkoutBuilder: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "plus.circle.fill")
-                                        .font(.title2)
+                                        .dsFont(.title2)
                                         .foregroundStyle(DS.Theme.accent)
 
                                     Text("Add First Exercise")
-                                        .font(.headline)
+                                        .dsFont(.headline)
                                         .foregroundStyle(DS.Semantic.textPrimary)
 
                                     Spacer()
@@ -154,11 +154,11 @@ struct RetrospectiveWorkoutBuilder: View {
                             } label: {
                                 HStack {
                                     Image(systemName: "plus.circle")
-                                        .font(.body.weight(.semibold))
+                                        .dsFont(.body, weight: .semibold)
                                         .foregroundStyle(DS.Theme.accent)
 
                                     Text("Add Exercise")
-                                        .font(.subheadline.weight(.medium))
+                                        .dsFont(.subheadline, weight: .medium)
                                         .foregroundStyle(DS.Theme.accent)
 
                                     Spacer()
@@ -297,14 +297,14 @@ private struct RetrospectiveExerciseRow: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(entry.exerciseName)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 // Sets preview
                 HStack(spacing: 4) {
                     ForEach(Array(entry.sets.prefix(3).enumerated()), id: \.offset) { _, set in
                         Text("\(set.reps)×\(set.weight.safeInt)kg")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -313,7 +313,7 @@ private struct RetrospectiveExerciseRow: View {
 
                     if entry.sets.count > 3 {
                         Text("+\(entry.sets.count - 3)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -322,7 +322,7 @@ private struct RetrospectiveExerciseRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .opacity(0.6)
         }

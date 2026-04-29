@@ -34,7 +34,7 @@ struct CompletedWorkoutEditor: View {
                     // Workout name (editable)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Workout Name")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                         TextField("e.g., Upper Body, Leg Day", text: $workoutName)
                             .foregroundStyle(DS.Semantic.textPrimary)
@@ -55,14 +55,14 @@ struct CompletedWorkoutEditor: View {
                     // HealthKit badge (if matched)
                     if workout.matchedHealthKitUUID != nil {
                         Label("Synced with Apple Watch", systemImage: "applewatch")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Theme.accent)
                     }
                 } header: {
                     Text("Workout Details")
                 } footer: {
                     Text("If left blank, workout name will be auto-classified based on exercises")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                 }
 
                 Section {
@@ -200,14 +200,14 @@ private struct WorkoutExerciseRow: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(entry.exerciseName)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 // Sets preview
                 HStack(spacing: 4) {
                     ForEach(Array(entry.sets.prefix(3).enumerated()), id: \.offset) { _, set in
                         Text("\(set.reps)×\(set.weight.safeInt)kg")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
@@ -216,7 +216,7 @@ private struct WorkoutExerciseRow: View {
 
                     if entry.sets.count > 3 {
                         Text("+\(entry.sets.count - 3)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -225,7 +225,7 @@ private struct WorkoutExerciseRow: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .opacity(0.6)
         }

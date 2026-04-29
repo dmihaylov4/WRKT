@@ -99,8 +99,8 @@ struct AppShellView: View {
 
     // Virtual run invite coordinator
     @State private var inviteCoordinator = VirtualRunInviteCoordinator.shared
-    @State private var isPerformingInitialLaunch = false
-    @State private var didCompleteInitialLaunch = false
+    @State private var isPerformingInitialLaunchSync = false
+    @State private var didCompleteInitialLaunchSync = false
     @State private var lastForegroundSyncAt: Date?
 
     // Convenience accessor for stats
@@ -120,6 +120,7 @@ struct AppShellView: View {
             }
         }
         .background(DS.Semantic.surface.ignoresSafeArea())
+        .font(DS.FontType.body)
         .withDependencies(dependencies)
         .onReceive(NotificationCenter.default.publisher(for: .hideShellTabBar)) { _ in
             isShellTabBarHidden = true
@@ -248,6 +249,12 @@ struct AppShellView: View {
                     handleNotificationNavigation(appNotification)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .didReceivePushNotification)) { notification in
+                handlePushNotificationTap(notification)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .openLiveWorkoutTab)) { _ in
+                handleOpenLiveWorkoutTab()
+            }
     }
 
     private var baseContent: some View {
@@ -363,7 +370,7 @@ struct AppShellView: View {
         } else if newPhase == .active {
             UserDefaults.standard.markActive()
             AppLogger.debug("App activated - marked as running", category: AppLogger.app)
-            guard didCompleteInitialLaunch, !isPerformingInitialLaunch else {
+            guard didCompleteInitialLaunchSync, !isPerformingInitialLaunchSync else {
                 AppLogger.info("⏭️ App became active during initial launch - skipping duplicate startup work", category: AppLogger.app)
                 return
             }
@@ -424,6 +431,19 @@ struct AppShellView: View {
         selectedTab = .train
     }
 
+    private func handleOpenLiveWorkoutTab() {
+        selectedTab = .train
+        NotificationCenter.default.post(name: .openHomeRoot, object: nil)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            guard hasActiveWorkout else { return }
+            withAnimation(ShellAnim.spring) {
+                showLiveOverlay = true
+                showContent = true
+            }
+        }
+    }
+
     private func handleWorkoutsCountChange(_ newCount: Int) {
         if newCount > 0 && !workoutsLoaded {
             workoutsLoaded = true
@@ -463,15 +483,17 @@ struct AppShellView: View {
 
     private func handleAppLaunch() async {
         AppLogger.info("📱 handleAppLaunch() called", category: AppLogger.app)
-        guard !didCompleteInitialLaunch, !isPerformingInitialLaunch else {
+        guard !didCompleteInitialLaunchSync, !isPerformingInitialLaunchSync else {
             AppLogger.info("⏭️ Initial launch already handled or in progress - skipping", category: AppLogger.app)
             return
         }
 
-        isPerformingInitialLaunch = true
-        defer { isPerformingInitialLaunch = false }
+        isPerformingInitialLaunchSync = true
+        defer { isPerformingInitialLaunchSync = false }
 
+        healthKit.beginRouteQueueLaunchProtection()
         dependencies.configure(with: modelContext)
+        NotificationCenter.default.post(name: .appDependenciesDidConfigure, object: nil)
         await dependencies.bootstrap()
 
         if healthKit.connectionState == .connected {
@@ -481,6 +503,8 @@ struct AppShellView: View {
         }
 
         RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
+        didCompleteInitialLaunchSync = true
+        healthKit.endRouteQueueLaunchProtection(bufferSeconds: 5)
 
         // Initialize Watch Connectivity
         WatchConnectivityManager.shared.connectToWorkoutStore(store)
@@ -507,6 +531,10 @@ struct AppShellView: View {
             AppLogger.warning("⚠️ Not starting real-time subscriptions in handleAppLaunch", category: AppLogger.app)
         }
 
+        if let launchNotification = PushNotificationService.shared.consumeLaunchNotification() {
+            handleNotificationNavigation(launchNotification)
+        }
+
         // Run initial pattern analysis if never done before
         if await WorkoutPatternAnalyzer.shared.needsInitialAnalysis() {
             AppLogger.info("📊 Running initial workout pattern analysis...", category: AppLogger.app)
@@ -528,8 +556,6 @@ struct AppShellView: View {
         #if DEBUG
         dependencies.logMemoryFootprint()
         #endif
-
-        didCompleteInitialLaunch = true
     }
 
     private func handleRepoReady(_ isEmpty: Bool) {
@@ -556,6 +582,17 @@ struct AppShellView: View {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             pendingNotificationNavigation = nil
         }
+    }
+
+    private func handlePushNotificationTap(_ notification: Notification) {
+        guard
+            let userInfo = notification.userInfo,
+            let appNotification = PushNotificationService.appNotification(from: userInfo)
+        else {
+            return
+        }
+
+        handleNotificationNavigation(appNotification)
     }
 
     // MARK: - Overlay Views

@@ -19,7 +19,7 @@ private struct InfoButton: View {
             showingAlert = true
         } label: {
             Image(systemName: "info.circle")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(.white.opacity(0.5))
         }
         .buttonStyle(.plain)
@@ -80,11 +80,11 @@ struct TrainingBalanceSection: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Training Balance")
-                        .font(.title3.weight(.bold))
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(.white)
 
                     Text("Last \(weeks) weeks")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                 }
 
@@ -134,11 +134,11 @@ struct TrainingBalanceSection: View {
                             .foregroundStyle(.white.opacity(0.3))
 
                         Text("No balance data yet")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(.white.opacity(0.9))
 
                         Text("Complete workouts to see balance analytics")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.white.opacity(0.5))
                             .multilineTextAlignment(.center)
                     }
@@ -166,11 +166,11 @@ private struct EmptyDataCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(.white.opacity(0.4))
 
             Text(message)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(.white.opacity(0.5))
 
             Spacer()
@@ -215,7 +215,7 @@ private struct PushPullBalanceCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Label("Push/Pull Balance", systemImage: "arrow.left.arrow.right")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
                             title: "Push/Pull Balance",
@@ -223,7 +223,7 @@ private struct PushPullBalanceCard: View {
                         )
                     }
                     Text("Optimal ratio: 1.0-1.5 (pull:push)")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
                 }
                 Spacer()
@@ -232,14 +232,14 @@ private struct PushPullBalanceCard: View {
                     VStack(alignment: .trailing, spacing: 2) {
                         HStack(spacing: 4) {
                             Image(systemName: ratioStatus.icon)
-                                .font(.caption)
+                                .dsFont(.caption)
                             Text(String(format: "%.2f", latest.ratio))
-                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .dsFont(.caption, weight: .semibold, monospacedDigits: true)
                         }
                         .foregroundStyle(ratioStatus.color)
 
                         Text(ratioStatus.message)
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(ratioStatus.color)
                     }
                 }
@@ -291,11 +291,11 @@ private struct BalanceBar: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text(label)
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.white.opacity(0.9))
                 Spacer()
                 Text(String(format: "%.0f%%", percentage))
-                    .font(.caption2.monospacedDigit())
+                    .dsFont(.caption2, monospacedDigits: true)
                     .foregroundStyle(.white.opacity(0.6))
             }
 
@@ -313,7 +313,7 @@ private struct BalanceBar: View {
             .frame(height: 8)
 
             Text(details)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(.white.opacity(0.5))
         }
     }
@@ -492,7 +492,7 @@ private struct MuscleFrequencyHeatMap: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Label("Muscle Recovery Status", systemImage: "clock.arrow.circlepath")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.9))
                     InfoButton(
                         title: "Muscle Recovery Status",
@@ -508,7 +508,7 @@ private struct MuscleFrequencyHeatMap: View {
                         }
                     } label: {
                         Image(systemName: selectedView == .enhanced ? "square.grid.3x3.fill" : "figure.stand")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.white.opacity(0.7))
                             .padding(6)
                             .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
@@ -517,7 +517,7 @@ private struct MuscleFrequencyHeatMap: View {
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(selectedView == .enhanced ? "Visual recovery map" : "Last trained (last 7 days)")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
 
                     // Debug: Show tracked muscle count
@@ -525,7 +525,7 @@ private struct MuscleFrequencyHeatMap: View {
                         showDebugSheet = true
                     } label: {
                         Text("Tracking \(muscles.count) muscle groups · Tap for details")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.white.opacity(0.4))
                     }
                     .buttonStyle(.plain)
@@ -555,15 +555,15 @@ private struct MuscleFrequencyHeatMap: View {
                         ForEach(sortedMuscles, id: \.muscleGroup) { muscle in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(muscle.muscleGroup)
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                 HStack {
                                     Text("Last trained: \(muscle.lastTrained, style: .date)")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(.secondary)
                                     Spacer()
                                     let daysSince = Calendar.current.dateComponents([.day], from: muscle.lastTrained, to: .now).day ?? 999
                                     Text("\(daysSince) days ago")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(.secondary)
                                 }
                             }
@@ -616,17 +616,17 @@ private struct MuscleTile: View {
     var body: some View {
         VStack(spacing: 4) {
             Text(muscle.muscleGroup)
-                .font(.caption.weight(.medium))
+                .dsFont(.caption, weight: .medium)
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(status.text)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(status.color)
 
             Text("\(muscle.weeklyFrequency)×")
-                .font(.caption2.monospacedDigit())
+                .dsFont(.caption2, monospacedDigits: true)
                 .foregroundStyle(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)
@@ -648,7 +648,7 @@ private struct MovementPatternCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Label("Movement Patterns", systemImage: "figure.walk")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.9))
                     InfoButton(
                         title: "Movement Patterns",
@@ -656,7 +656,7 @@ private struct MovementPatternCard: View {
                     )
                 }
                 Text("Exercise variety breakdown")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.white.opacity(0.5))
             }
 
@@ -724,7 +724,7 @@ private struct PatternRow: View {
             HStack {
                 Label {
                     Text(left)
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                         .foregroundStyle(.white.opacity(0.9))
                 } icon: {
                     Circle()
@@ -735,7 +735,7 @@ private struct PatternRow: View {
                 Spacer()
 
                 Text(String(format: "%.0f%%", leftPercent))
-                    .font(.caption2.monospacedDigit())
+                    .dsFont(.caption2, monospacedDigits: true)
                     .foregroundStyle(.white.opacity(0.6))
             }
 
@@ -756,7 +756,7 @@ private struct PatternRow: View {
             HStack {
                 Label {
                     Text(right)
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                         .foregroundStyle(.white.opacity(0.9))
                 } icon: {
                     Circle()
@@ -767,7 +767,7 @@ private struct PatternRow: View {
                 Spacer()
 
                 Text(String(format: "%.0f%%", rightPercent))
-                    .font(.caption2.monospacedDigit())
+                    .dsFont(.caption2, monospacedDigits: true)
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
@@ -837,7 +837,7 @@ private struct EnhancedRecoveryView: View {
                     }
                 } label: {
                     Text("Front")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(selectedSide == .front ? .white : .white.opacity(0.6))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -855,7 +855,7 @@ private struct EnhancedRecoveryView: View {
                     }
                 } label: {
                     Text("Back")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(selectedSide == .back ? .white : .white.opacity(0.6))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
@@ -1073,11 +1073,11 @@ private struct LegendItem: View {
                 .frame(width: 10, height: 10)
 
             Text(label)
-                .font(.caption.weight(.medium))
+                .dsFont(.caption, weight: .medium)
                 .foregroundStyle(.white.opacity(0.9))
 
             Text(detail)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(.white.opacity(0.5))
         }
         .frame(maxWidth: .infinity, alignment: .leading)

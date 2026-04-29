@@ -23,11 +23,22 @@ struct PlannerSetupCarouselView: View {
     @State private var selectedDayIndex = 0
 
     private let totalSteps = PlannerConstants.Steps.total
+    let launchMode: LaunchMode
+
+    enum LaunchMode {
+        case create
+        case replaceCurrent
+        case editCurrent
+    }
 
     struct ErrorAlert: Identifiable {
         let id = UUID()
         let title: String
         let message: String
+    }
+
+    init(launchMode: LaunchMode = .create) {
+        self.launchMode = launchMode
     }
 
     var body: some View {
@@ -40,7 +51,7 @@ struct PlannerSetupCarouselView: View {
 
             // Step indicator
             Text("Step \(currentStep + 1) of \(totalSteps)")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)
 
@@ -76,16 +87,18 @@ struct PlannerSetupCarouselView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            Divider()
-                .background(.white.opacity(0.08))
-
-            // Navigation buttons
-            navigationButtons
         }
         .navigationTitle(isEditingExistingSplit ? "Edit Workout Plan" : "Create Workout Plan")
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(currentStep > 0)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                Divider()
+                    .background(.white.opacity(0.08))
+
+                navigationButtons
+            }
+        }
         .toolbar {
             if currentStep > 0 {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -94,16 +107,32 @@ struct PlannerSetupCarouselView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
-                                .font(.body.weight(.semibold))
+                                .dsFont(.body, weight: .semibold)
                             Text("Back")
                         }
                         .foregroundStyle(DS.Palette.marone)
                     }
                 }
             }
+
+            if showsTopBarAdvanceAction {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        handleNextDayOrStep()
+                    } label: {
+                        Text(nextButtonTitle)
+                            .dsFont(.body, weight: .semibold)
+                            .foregroundStyle(DS.Palette.marone)
+                    }
+                }
+            }
         }
         .onAppear {
-            checkForExistingSplit()
+            NotificationCenter.default.post(name: .hideShellTabBar, object: nil)
+            configureLaunchMode()
+        }
+        .onDisappear {
+            NotificationCenter.default.post(name: .showShellTabBar, object: nil)
         }
         .alert("Active Plan Exists", isPresented: $showExistingSplitAlert) {
             Button("Replace with New Plan", role: .destructive) {
@@ -146,9 +175,9 @@ struct PlannerSetupCarouselView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Text(nextButtonTitle)
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                         Image(systemName: "chevron.right")
-                            .font(.title3.weight(.semibold))
+                            .dsFont(.title3, weight: .semibold)
                     }
                     .foregroundStyle(DS.Palette.marone)
                     .padding(.horizontal, 16)
@@ -168,7 +197,7 @@ struct PlannerSetupCarouselView: View {
                     }
                 } label: {
                     Image(systemName: "chevron.right")
-                        .font(.title3.weight(.semibold))
+                        .dsFont(.title3, weight: .semibold)
                         .foregroundStyle(canProceed ? DS.Palette.marone : DS.Palette.marone.opacity(0.3))
                         .frame(width: 44, height: 44)
                 }
@@ -180,9 +209,9 @@ struct PlannerSetupCarouselView: View {
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "calendar.badge.plus")
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                         Text("Save Split")
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                     }
                     .frame(height: 50)
                     .padding(.horizontal, 24)
@@ -219,6 +248,10 @@ struct PlannerSetupCarouselView: View {
         guard let template = config.selectedTemplate else { return "Next" }
         let totalDays = template.days.count
         return selectedDayIndex < totalDays - 1 ? "Next" : "Done"
+    }
+
+    private var showsTopBarAdvanceAction: Bool {
+        currentStep == 3 && !config.isCreatingCustom && config.wantsToCustomize != nil
     }
 
     private func handleNextDayOrStep() {
@@ -286,6 +319,30 @@ struct PlannerSetupCarouselView: View {
             }
         } catch {
             AppLogger.error("Error checking for existing split: \(error)", category: AppLogger.app)
+        }
+    }
+
+    private func configureLaunchMode() {
+        switch launchMode {
+        case .create:
+            checkForExistingSplit()
+        case .replaceCurrent:
+            do {
+                existingSplit = try dependencies.plannerStore.activeSplit()
+                isEditingExistingSplit = false
+            } catch {
+                AppLogger.error("Error loading existing split for replacement", error: error, category: AppLogger.app)
+            }
+        case .editCurrent:
+            do {
+                existingSplit = try dependencies.plannerStore.activeSplit()
+                if existingSplit != nil {
+                    isEditingExistingSplit = true
+                    loadExistingSplitIntoConfig()
+                }
+            } catch {
+                AppLogger.error("Error loading existing split for editing", error: error, category: AppLogger.app)
+            }
         }
     }
 
@@ -510,10 +567,12 @@ struct PlannerSetupCarouselView: View {
                 anchorDate: normalizedStartDate,
                 reschedulePolicy: .strict
             )
+            split.anchorDate = split.anchorDateAligningFirstWorkout(to: normalizedStartDate)
 
             context.insert(split)
             try context.save()
             try plannerStore.generatePlannedWorkouts(for: split, days: config.programWeeks * 7)
+            NotificationCenter.default.post(name: .plannedWorkoutsChanged, object: nil)
 
             Haptics.soft()
             AppLogger.success("Generated \(config.programWeeks)-week plan: \(template.name)", category: AppLogger.app)

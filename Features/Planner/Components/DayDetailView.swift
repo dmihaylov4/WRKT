@@ -150,22 +150,22 @@ struct DayDetail: View {
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: "map.fill")
-                                        .font(.caption.weight(.semibold))
+                                        .dsFont(.caption, weight: .semibold)
                                         .foregroundStyle(DS.Theme.accent)
                                         .frame(width: 22, height: 22)
 
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(timeOnly(r.date))
-                                            .font(.subheadline.weight(.semibold))
+                                            .dsFont(.subheadline, weight: .semibold)
                                             .foregroundStyle(DS.Semantic.textPrimary)
                                         HStack(spacing: 4) {
                                             Text(String(format: "%.2f km", max(0, r.distanceKm)))
-                                                .font(.caption.monospacedDigit())
+                                                .dsFont(.caption, monospacedDigits: true)
                                                 .foregroundStyle(DS.Semantic.textSecondary)
                                             Text("·")
                                                 .foregroundStyle(DS.Semantic.textSecondary)
                                             Text(hms(max(0, r.durationSec)))
-                                                .font(.caption.monospacedDigit())
+                                                .dsFont(.caption, monospacedDigits: true)
                                                 .foregroundStyle(DS.Semantic.textSecondary)
                                         }
                                     }
@@ -173,7 +173,7 @@ struct DayDetail: View {
                                     Spacer()
 
                                     Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.bold))
+                                        .dsFont(.caption, weight: .bold)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                         .opacity(0.6)
                                 }
@@ -242,13 +242,13 @@ struct DailySummaryCard: View {
             } label: {
                 HStack(alignment: .firstTextBaseline) {
                     Text(date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day().locale(Locale(identifier: "en_US"))))
-                        .font(.headline).foregroundStyle(DS.Semantic.textPrimary)
+                        .dsFont(.headline).foregroundStyle(DS.Semantic.textPrimary)
                     Spacer()
                     if workoutCount > 0 {
                         Text("Daily summary")
-                            .font(.caption).foregroundStyle(DS.Semantic.textSecondary)
+                            .dsFont(.caption).foregroundStyle(DS.Semantic.textSecondary)
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -289,9 +289,9 @@ private struct SummaryGrid: View {
     private func cell(_ t: DailySummaryCard.Tile?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(t?.title ?? "—")
-                .font(.caption2).foregroundStyle(DS.Semantic.textSecondary)
+                .dsFont(.caption2).foregroundStyle(DS.Semantic.textSecondary)
             Text(t?.value ?? "—")
-                .font(.footnote.weight(.semibold))
+                .dsFont(.footnote, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1).minimumScaleFactor(0.8)
         }
@@ -312,10 +312,10 @@ struct SectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title).font(.headline).foregroundStyle(DS.Semantic.textPrimary)
+            Text(title).dsFont(.headline).foregroundStyle(DS.Semantic.textPrimary)
             Spacer()
             Text("\(count)")
-                .font(.caption2.weight(.bold))
+                .dsFont(.caption2, weight: .bold)
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 8).padding(.vertical, 3)
                 .background(DS.Theme.accent, in: Capsule())
@@ -357,11 +357,11 @@ struct WorkoutRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(workoutTitle)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(workoutTime)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -370,12 +370,12 @@ struct WorkoutRow: View {
                 // Show Apple Health badge if matched
                 if hasHealthData {
                     Image(systemName: "heart.circle.fill")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.pink)
                 }
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
+                    .dsFont(.caption, weight: .bold)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .opacity(0.6)
             }
@@ -419,11 +419,11 @@ struct HealthKitWorkoutRow: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(workoutTitle)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(workoutTime)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -431,11 +431,11 @@ struct HealthKitWorkoutRow: View {
 
                 // Show Apple Health badge to indicate source
                 Image(systemName: "heart.circle.fill")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.pink)
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
+                    .dsFont(.caption, weight: .bold)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .opacity(0.6)
             }

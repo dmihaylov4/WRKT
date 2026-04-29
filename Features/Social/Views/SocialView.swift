@@ -163,6 +163,9 @@ struct SocialView: View {
             } else {
                 navigationPath.append(notification.actorId)
             }
+
+        case .programInvite:
+            break
         }
     }
 
@@ -221,7 +224,7 @@ struct SocialView: View {
 
             // Title based on selected section
             Text(selectedSection.rawValue)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Spacer()
@@ -241,7 +244,7 @@ struct SocialView: View {
         HStack(spacing: 0) {
             PillSegmentButton(
                 title: "Feed",
-                icon: "newspaper.fill",
+                iconAsset: "social-feed-icon",
                 isSelected: selectedSection == .feed,
                 badge: nil
             ) {
@@ -253,7 +256,7 @@ struct SocialView: View {
 
             PillSegmentButton(
                 title: "Compete",
-                icon: "flame.fill",
+                iconAsset: "streak-icon",
                 isSelected: selectedSection == .compete,
                 badge: nil
             ) {
@@ -265,7 +268,7 @@ struct SocialView: View {
 
             PillSegmentButton(
                 title: "Friends",
-                icon: "person.2.fill",
+                iconAsset: "social-friends-icon",
                 isSelected: selectedSection == .friends,
                 badge: badgeManager.friendRequestCount > 0 ? badgeManager.friendRequestCount : nil
             ) {
@@ -294,7 +297,7 @@ struct SocialView: View {
 
 struct PillSegmentButton: View {
     let title: String
-    let icon: String
+    let iconAsset: String
     let isSelected: Bool
     let badge: Int?
     let action: () -> Void
@@ -304,10 +307,12 @@ struct PillSegmentButton: View {
             VStack(spacing: 4) {
                 // Icon
                 ZStack {
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
+                    Image(iconAsset)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 21, height: 21)
                         .foregroundStyle(isSelected ? .black : DS.Semantic.textSecondary)
-                        .symbolEffect(.bounce, value: isSelected)
 
                     // Badge indicator (top-right corner)
                     if let count = badge {
@@ -410,7 +415,7 @@ struct CompactPillButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.footnote.weight(isSelected ? .semibold : .medium))
+                .dsFont(.footnote, weight: isSelected ? .semibold : .medium)
                 .foregroundStyle(isSelected ? DS.Semantic.textPrimary : DS.Semantic.textSecondary)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)

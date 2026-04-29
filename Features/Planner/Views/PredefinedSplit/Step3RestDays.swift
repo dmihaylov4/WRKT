@@ -14,7 +14,7 @@ struct Step3RestDays: View {
         VStack(spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("When do you want rest days?")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
 
                 Text("Choose how to schedule your recovery days.")
                     .foregroundStyle(.secondary)
@@ -48,7 +48,7 @@ struct Step3RestDays: View {
             if let placement = config.restDayPlacement {
                 VStack(spacing: 8) {
                     Text(restDayDescription(for: placement))
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }

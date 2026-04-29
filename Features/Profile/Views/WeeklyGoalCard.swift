@@ -42,8 +42,8 @@ struct WeeklyGoalCard: View {
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 2) {
                         Text("\(Int(progress.mvpaPct * 100))%")
-                            .font(.headline.monospacedDigit())
-                        Text("MVPA").font(.caption2).opacity(0.7)
+                            .dsFont(.headline, monospacedDigits: true)
+                        Text("MVPA").dsFont(.caption2).opacity(0.7)
                     }
                 }
                 .frame(width: 72, height: 72)
@@ -51,13 +51,13 @@ struct WeeklyGoalCard: View {
                 // Right: text + bar
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
-                        Text("This week").font(.headline)
+                        Text("This week").dsFont(.headline)
                         PaceChip(text: paceChip.label, color: paceChip.color)
                     }
 
                     // “112/150 min • 2/3 strength”
                     Text("\(progress.mvpaDone)/\(progress.mvpaTarget) min  •  \(progress.strengthDaysDone)/\(progress.strengthTarget) strength")
-                        .font(.subheadline.monospacedDigit())
+                        .dsFont(.subheadline, monospacedDigits: true)
                         .foregroundStyle(.secondary)
 
                     // bar for MVPA minutes
@@ -73,7 +73,7 @@ struct WeeklyGoalCard: View {
 
                     // Left to go (or done)
                     Text(leftLine)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                      
                 }
@@ -81,7 +81,7 @@ struct WeeklyGoalCard: View {
                 Spacer()
 
                 Image(systemName: "arrow.up.right.circle.fill")
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Theme.accent)
             }
             .padding(16)
@@ -100,7 +100,7 @@ private struct PaceChip: View {
     let text: String; let color: Color
     var body: some View {
         Text(text)
-            .font(.caption2.weight(.semibold))
+            .dsFont(.caption2, weight: .semibold)
             .padding(.horizontal, 8).padding(.vertical, 4)
             .background(color.opacity(0.15), in: Capsule())
             .overlay(Capsule().stroke(color.opacity(0.35), lineWidth: 1))
@@ -164,9 +164,9 @@ struct WeeklyStreakCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Weekly Goal Streak")
-                        .font(.headline)
+                        .dsFont(.headline)
                     Text(statusText)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
 
@@ -181,16 +181,16 @@ struct WeeklyStreakCard: View {
                 // Current streak
                 VStack(spacing: 6) {
                     Text("Current")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.8))
                         .textCase(.uppercase)
 
                     Text("\(currentStreak)")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 36, weight: .bold))
                         .foregroundStyle(DS.Theme.accent)
 
                     Text("week\(currentStreak == 1 ? "" : "s")")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -206,17 +206,17 @@ struct WeeklyStreakCard: View {
                             .font(.system(size: 9))
                             .foregroundStyle(DS.Theme.accent)
                         Text("Super")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(.white.opacity(0.8))
                             .textCase(.uppercase)
                     }
 
                     Text("\(RewardsEngine.shared.progress?.weeklySuperStreakCurrent ?? 0)")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 28, weight: .bold))
                         .foregroundStyle(DS.Theme.accent)
 
                     Text("week\(RewardsEngine.shared.progress?.weeklySuperStreakCurrent ?? 0 == 1 ? "" : "s")")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -228,16 +228,16 @@ struct WeeklyStreakCard: View {
                 // Longest streak
                 VStack(spacing: 6) {
                     Text("Longest")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.8))
                         .textCase(.uppercase)
 
                     Text("\(longestStreak)")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(DS.Typography.custom(size: 28, weight: .bold))
                         .foregroundStyle(.white.opacity(0.7))
 
                     Text("week\(longestStreak == 1 ? "" : "s")")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -251,10 +251,10 @@ struct WeeklyStreakCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text("Next milestone: \(nextMilestone) weeks")
-                            .font(.caption.weight(.medium))
+                            .dsFont(.caption, weight: .medium)
                         Spacer()
                         Text("\(currentStreak)/\(nextMilestone)")
-                            .font(.caption.monospacedDigit())
+                            .dsFont(.caption, monospacedDigits: true)
                             .foregroundStyle(.secondary)
                     }
 

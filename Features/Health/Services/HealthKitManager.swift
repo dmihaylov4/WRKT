@@ -13,6 +13,7 @@ import BackgroundTasks
 import Combine
 import OSLog
 import SwiftUI
+import UIKit
 // MARK: - Connection State
 
 enum HealthConnectionState: String, Codable {
@@ -81,6 +82,7 @@ final class HealthKitManager: ObservableObject {
     // Batch processing configuration
     private let batchSize = 100
     private let batchDelayMs: UInt64 = 50_000_000  // 50ms between batches
+    private let fullResyncInitialEnrichmentLimit = 5
 
     // SwiftData context (injected from app)
     var modelContext: ModelContext?
@@ -91,8 +93,36 @@ final class HealthKitManager: ObservableObject {
     // Observer queries (kept alive)
     private var workoutObserver: HKObserverQuery?
     private var exerciseTimeObserver: HKObserverQuery?
+    private var workoutRouteObserver: HKObserverQuery?
+    private var routeQueueProcessStartedAt: Date = .now
+    private var routeQueueLaunchWindowEndsAt: Date = .distantPast
 
     // MARK: - Authorization
+
+    var isInRouteQueueLaunchWindow: Bool {
+        Date.now < routeQueueLaunchWindowEndsAt
+    }
+
+    func beginRouteQueueLaunchProtection() {
+        routeQueueProcessStartedAt = .now
+        routeQueueLaunchWindowEndsAt = .distantFuture
+        AppLogger.info("Enabled route queue launch protection", category: AppLogger.health)
+    }
+
+    func endRouteQueueLaunchProtection(bufferSeconds: TimeInterval = 5) {
+        routeQueueLaunchWindowEndsAt = .now.addingTimeInterval(bufferSeconds)
+        AppLogger.info("Route queue launch protection will end at \(routeQueueLaunchWindowEndsAt)", category: AppLogger.health)
+    }
+
+    private var isProtectedHealthDataAvailable: Bool {
+        UIApplication.shared.isProtectedDataAvailable
+    }
+
+    private func isProtectedHealthDataError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        return (nsError.domain == HKErrorDomain && nsError.code == 6)
+            || nsError.localizedDescription.localizedCaseInsensitiveContains("protected health data")
+    }
 
     /// Check if HealthKit authorization needs to be requested
     var needsAuthorization: Bool {
@@ -289,6 +319,34 @@ final class HealthKitManager: ObservableObject {
                 }
             }
         }
+
+        // Observe workout route changes — GPS routes sync separately from workout summaries
+        // and can arrive minutes to hours later. This observer triggers the route fetch queue
+        // as soon as a route lands in HealthKit so posts get their map without waiting for BGProcessingTask.
+        let routeType = HKSeriesType.workoutRoute()
+        workoutRouteObserver = HKObserverQuery(sampleType: routeType, predicate: nil) { [weak self] _, completionHandler, error in
+            completionHandler()
+            guard let self, error == nil else { return }
+            Task { [weak self] in
+                guard let self else { return }
+                if await self.isInRouteQueueLaunchWindow {
+                    AppLogger.info("Skipping observer-triggered route queue during launch window", category: AppLogger.health)
+                    return
+                }
+                AppLogger.info("HealthKit route data changed - triggering route fetch queue", category: AppLogger.health)
+                await self.processRouteFetchQueue()
+            }
+        }
+        if let workoutRouteObserver {
+            store.execute(workoutRouteObserver)
+            store.enableBackgroundDelivery(for: routeType, frequency: .immediate) { success, error in
+                if let error {
+                    AppLogger.warning("Background delivery setup failed for workout routes: \(error)", category: AppLogger.health)
+                } else if success {
+                    AppLogger.success("Background delivery enabled for workout routes", category: AppLogger.health)
+                }
+            }
+        }
     }
 
     func stopBackgroundObservers() {
@@ -298,8 +356,12 @@ final class HealthKitManager: ObservableObject {
         if let exerciseTimeObserver {
             store.stop(exerciseTimeObserver)
         }
+        if let workoutRouteObserver {
+            store.stop(workoutRouteObserver)
+        }
         self.workoutObserver = nil
         self.exerciseTimeObserver = nil
+        self.workoutRouteObserver = nil
     }
 
     // MARK: - Incremental Sync (Anchored Queries)
@@ -636,8 +698,13 @@ final class HealthKitManager: ObservableObject {
 
             AppLogger.success("Batched full re-sync complete! Processed \(added.count) workouts in \(batches.count) batches", category: AppLogger.health)
 
-            // Queue route fetching for recent workouts
-            await queueRouteFetching(for: Array(added.prefix(20)), context: context)
+            let runsNeedingEnrichment = await MainActor.run {
+                store.runs.filter(\.needsHistoricalEnrichment)
+            }
+            AppLogger.info("Queueing historical cardio enrichment for \(runsNeedingEnrichment.count) run(s) needing detail repair", category: AppLogger.health)
+            await queueHistoricalEnrichment(for: runsNeedingEnrichment, context: context)
+            await processRouteFetchQueue(limit: fullResyncInitialEnrichmentLimit)
+            AppLogger.info("Historical cardio enrichment queued; full resync processed only the first \(fullResyncInitialEnrichmentLimit) route task(s) to keep the app responsive", category: AppLogger.health)
 
         } catch {
             AppLogger.error("Full re-sync failed: \(error)", category: AppLogger.health)
@@ -723,6 +790,8 @@ final class HealthKitManager: ObservableObject {
         guard let context = modelContext else { return }
 
         do {
+            await resetExerciseTimeAnchorIfNeeded()
+
             let anchorRecord = try fetchOrCreateAnchor(dataType: "exercise_time", context: context)
             let anchor = anchorRecord.anchor
 
@@ -730,8 +799,16 @@ final class HealthKitManager: ObservableObject {
 
             AppLogger.info("Syncing exercise time: \(samples.count) samples", category: AppLogger.health)
 
-            // Aggregate by week and update WeeklyTrainingSummary
-            await aggregateExerciseTimeIntoWeeklySummaries(samples: samples, context: context)
+            // Rebuild the affected date range from HealthKit's daily statistics query instead of
+            // summing raw appleExerciseTime samples. Raw samples can overlap and overcount.
+            let calendar = Calendar.current
+            let currentWeekStart = calendar.startOfWeek(for: .now, anchorWeekday: 2)
+            let affectedStart = samples
+                .map(\.startDate)
+                .min()
+                .map { calendar.startOfDay(for: $0) } ?? currentWeekStart
+
+            try await reconcileExerciseTimeSummaries(from: affectedStart, to: .now, context: context)
 
             // Update anchor
             anchorRecord.updateAnchor(newAnchor)
@@ -739,6 +816,40 @@ final class HealthKitManager: ObservableObject {
 
         } catch {
             AppLogger.error("Exercise time sync failed: \(error)", category: AppLogger.health)
+        }
+    }
+
+    /// One-time recovery: resets the exercise_time anchor so the next syncExerciseTimeIncremental()
+    /// call replays ALL historical Apple Exercise Time samples. Guarded by a UserDefaults flag so it
+    /// only runs once. After resetting the anchor, the caller is responsible for calling
+    /// syncExerciseTimeIncremental() -- do not call it inside this method to avoid a double-sync.
+    func resetExerciseTimeAnchorIfNeeded() async {
+        let flagKey = "wrkt_exercise_time_anchor_reset_v3"
+        guard !UserDefaults.standard.bool(forKey: flagKey) else { return }
+        guard let context = modelContext else { return }
+
+        do {
+            // Reset all exercise-time caches before replaying history so additive incremental
+            // aggregation cannot double-count old samples.
+            let summaryDescriptor = FetchDescriptor<WeeklyTrainingSummary>()
+            let summaries = try context.fetch(summaryDescriptor)
+            for summary in summaries {
+                summary.appleExerciseMinutes = nil
+            }
+
+            let dailyDescriptor = FetchDescriptor<DailyAppleExerciseSummary>()
+            let dailySummaries = try context.fetch(dailyDescriptor)
+            for daily in dailySummaries {
+                context.delete(daily)
+            }
+
+            let anchorRecord = try fetchOrCreateAnchor(dataType: "exercise_time", context: context)
+            anchorRecord.anchorData = nil
+            try context.save()
+            UserDefaults.standard.set(true, forKey: flagKey)
+            AppLogger.info("Reset exercise_time anchor and cleared daily/weekly exercise-time caches for full historical re-sync (v3)", category: AppLogger.health)
+        } catch {
+            AppLogger.error("Failed to reset exercise_time anchor: \(error)", category: AppLogger.health)
         }
     }
 
@@ -829,6 +940,126 @@ final class HealthKitManager: ObservableObject {
         let newAnchor = HealthSyncAnchor(dataType: dataType)
         context.insert(newAnchor)
         return newAnchor
+    }
+
+    // MARK: - Operational State Repair
+
+    /// Rebuilds low-value HealthKit operational SwiftData state from durable `Run` data.
+    /// Safe to run on startup. Does not modify durable workout/run history.
+    func repairOperationalStateIfNeeded(runs: [Run]) async {
+        guard let context = modelContext else { return }
+
+        let validWorkoutUUIDs = Set(runs.compactMap { $0.healthKitUUID?.uuidString })
+        let enrichmentCandidates = runs
+            .filter(\.needsHistoricalEnrichment)
+            .sorted { $0.date > $1.date }
+
+        var insertedTaskCount = 0
+        var removedTaskCount = 0
+        var resetTaskCount = 0
+        var removedSnapshotCount = 0
+        var insertedAnchorCount = 0
+        var removedAnchorCount = 0
+
+        let staleThreshold = Date.now.addingTimeInterval(-120)
+
+        // Repair route/enrichment tasks from durable runs.
+        let routeTaskDescriptor = FetchDescriptor<RouteFetchTask>()
+        let routeTasks = (try? context.fetch(routeTaskDescriptor)) ?? []
+        var routeTaskByUUID: [String: RouteFetchTask] = [:]
+
+        for task in routeTasks {
+            if !validWorkoutUUIDs.contains(task.workoutUUID) {
+                context.delete(task)
+                removedTaskCount += 1
+                continue
+            }
+
+            if let existing = routeTaskByUUID[task.workoutUUID] {
+                let keepCurrent = (task.lastAttemptDate ?? .distantPast) >= (existing.lastAttemptDate ?? .distantPast)
+                let duplicate = keepCurrent ? existing : task
+                let keeper = keepCurrent ? task : existing
+                context.delete(duplicate)
+                routeTaskByUUID[keeper.workoutUUID] = keeper
+                removedTaskCount += 1
+                continue
+            }
+
+            routeTaskByUUID[task.workoutUUID] = task
+        }
+
+        for (index, run) in enrichmentCandidates.enumerated() {
+            guard let workoutUUIDString = run.healthKitUUID?.uuidString else { continue }
+            if let existing = routeTaskByUUID[workoutUUIDString] {
+                if existing.status == "failed" || (existing.status == "fetching" && (existing.lastAttemptDate ?? .distantPast) < staleThreshold) {
+                    existing.status = "pending"
+                    existing.attemptCount = 0
+                    existing.priority = index < 5 ? 0 : 1
+                    existing.allowAutoPost = false
+                    resetTaskCount += 1
+                }
+                continue
+            }
+
+            let task = RouteFetchTask(
+                workoutUUID: workoutUUIDString,
+                workoutDate: run.date,
+                priority: index < 5 ? 0 : 1,
+                allowAutoPost: false
+            )
+            context.insert(task)
+            insertedTaskCount += 1
+        }
+
+        // Remove orphaned snapshot cache entries. They are always regenerable.
+        let snapshotDescriptor = FetchDescriptor<MapSnapshotCache>()
+        let snapshotEntries = (try? context.fetch(snapshotDescriptor)) ?? []
+        for snapshot in snapshotEntries where !validWorkoutUUIDs.contains(snapshot.workoutUUID) {
+            context.delete(snapshot)
+            removedSnapshotCount += 1
+        }
+
+        // Keep only expected HealthKit anchors and ensure the expected records exist.
+        let expectedAnchorTypes = Set(["all_workouts", "exercise_time"])
+        let anchorDescriptor = FetchDescriptor<HealthSyncAnchor>()
+        let anchors = (try? context.fetch(anchorDescriptor)) ?? []
+        var seenAnchorTypes: Set<String> = []
+        for anchor in anchors {
+            if !expectedAnchorTypes.contains(anchor.dataType) {
+                context.delete(anchor)
+                removedAnchorCount += 1
+                continue
+            }
+
+            if seenAnchorTypes.contains(anchor.dataType) {
+                context.delete(anchor)
+                removedAnchorCount += 1
+                continue
+            }
+
+            seenAnchorTypes.insert(anchor.dataType)
+        }
+
+        for anchorType in expectedAnchorTypes where !seenAnchorTypes.contains(anchorType) {
+            context.insert(HealthSyncAnchor(dataType: anchorType))
+            insertedAnchorCount += 1
+        }
+
+        if insertedTaskCount > 0 || removedTaskCount > 0 || resetTaskCount > 0 || removedSnapshotCount > 0 || insertedAnchorCount > 0 || removedAnchorCount > 0 {
+            try? context.save()
+            AppLogger.info(
+                "Repaired HealthKit operational state. tasks +\(insertedTaskCount)/-\(removedTaskCount)/reset \(resetTaskCount), snapshots -\(removedSnapshotCount), anchors +\(insertedAnchorCount)/-\(removedAnchorCount)",
+                category: AppLogger.health
+            )
+
+            if insertedTaskCount > 0 || resetTaskCount > 0 {
+                Task.detached { [weak self] in
+                    await self?.processRouteFetchQueue(limit: 10)
+                }
+            }
+        } else {
+            AppLogger.debug("HealthKit operational state already healthy", category: AppLogger.health)
+        }
     }
 
     // MARK: - Idempotent Workout Import
@@ -1034,6 +1265,7 @@ final class HealthKitManager: ObservableObject {
                 if existing.status == "failed" {
                     existing.status = "pending"
                     existing.attemptCount = 0
+                    existing.allowAutoPost = true
                     AppLogger.info("Reset failed route task to pending for re-queue: \(workoutUUIDString)", category: AppLogger.health)
                 }
                 // pending / fetching / completed tasks are left as-is
@@ -1042,7 +1274,8 @@ final class HealthKitManager: ObservableObject {
                 let task = RouteFetchTask(
                     workoutUUID: workout.uuid.uuidString,
                     workoutDate: workout.startDate,
-                    priority: priority
+                    priority: priority,
+                    allowAutoPost: true
                 )
                 context.insert(task)
             }
@@ -1054,6 +1287,38 @@ final class HealthKitManager: ObservableObject {
         Task.detached { [weak self] in
             await self?.processRouteFetchQueue()
         }
+    }
+
+    private func queueHistoricalEnrichment(for runs: [Run], context: ModelContext) async {
+        let sortedRuns = runs.sorted { $0.date > $1.date }
+
+        for (index, run) in sortedRuns.enumerated() {
+            guard let workoutUUID = run.healthKitUUID else { continue }
+            let workoutUUIDString = workoutUUID.uuidString
+            let descriptor = FetchDescriptor<RouteFetchTask>(
+                predicate: #Predicate { $0.workoutUUID == workoutUUIDString }
+            )
+
+            if let existing = try? context.fetch(descriptor).first {
+                if existing.status == "failed" {
+                    existing.status = "pending"
+                    existing.attemptCount = 0
+                    existing.priority = index < 5 ? 0 : 1
+                    existing.allowAutoPost = false
+                    AppLogger.info("Reset failed historical enrichment task to pending for \(workoutUUIDString)", category: AppLogger.health)
+                }
+            } else {
+                let task = RouteFetchTask(
+                    workoutUUID: workoutUUIDString,
+                    workoutDate: run.date,
+                    priority: index < 5 ? 0 : 1,
+                    allowAutoPost: false
+                )
+                context.insert(task)
+            }
+        }
+
+        try? context.save()
     }
 
     /// Resets a "failed" route task for the given workout UUID back to "pending" so the
@@ -1078,6 +1343,11 @@ final class HealthKitManager: ObservableObject {
     func processRouteFetchQueue(limit: Int = 10) async {
         guard let context = modelContext else { return }
 
+        guard isProtectedHealthDataAvailable else {
+            AppLogger.info("Protected health data is not available; pausing route fetch queue until the device is unlocked", category: AppLogger.health)
+            return
+        }
+
         // Reset any tasks that got stuck in "fetching" state (e.g., app killed mid-processing).
         // Use a 2-minute staleness window — legitimate fetches complete well within that.
         let staleThreshold = Date.now.addingTimeInterval(-120)
@@ -1093,21 +1363,37 @@ final class HealthKitManager: ObservableObject {
             if !stale.isEmpty { try? context.save() }
         }
 
-        // Fetch pending tasks (prioritized)
-        let descriptor = FetchDescriptor<RouteFetchTask>(
-            predicate: #Predicate { $0.status == "pending" },
-            sortBy: [SortDescriptor(\.priority), SortDescriptor(\.workoutDate, order: .reverse)]
-        )
+        let processStartedAt = routeQueueProcessStartedAt
+        let inLaunchWindow = isInRouteQueueLaunchWindow
+        let descriptor: FetchDescriptor<RouteFetchTask> = {
+            if inLaunchWindow {
+                return FetchDescriptor<RouteFetchTask>(
+                    predicate: #Predicate { $0.status == "pending" && $0.createdAt >= processStartedAt },
+                    sortBy: [SortDescriptor(\.priority), SortDescriptor(\.workoutDate, order: .reverse)]
+                )
+            } else {
+                return FetchDescriptor<RouteFetchTask>(
+                    predicate: #Predicate { $0.status == "pending" },
+                    sortBy: [SortDescriptor(\.priority), SortDescriptor(\.workoutDate, order: .reverse)]
+                )
+            }
+        }()
 
         guard let tasks = try? context.fetch(descriptor), !tasks.isEmpty else {
-            AppLogger.debug("No pending route fetch tasks", category: AppLogger.health)
+            AppLogger.debug("No pending route fetch tasks (launchWindow=\(inLaunchWindow))", category: AppLogger.health)
             return
         }
 
-        AppLogger.info("Processing \(tasks.count) route fetch tasks (limit: \(limit))", category: AppLogger.health)
+        let effectiveLimit = inLaunchWindow ? min(limit, 2) : limit
+        AppLogger.info("Processing \(tasks.count) route fetch tasks (limit: \(effectiveLimit), launchWindow=\(inLaunchWindow))", category: AppLogger.health)
 
-        let tasksToProcess = limit > 0 ? Array(tasks.prefix(limit)) : tasks
+        let tasksToProcess = effectiveLimit > 0 ? Array(tasks.prefix(effectiveLimit)) : tasks
         for task in tasksToProcess {
+            guard isProtectedHealthDataAvailable else {
+                AppLogger.info("Protected health data became unavailable; pausing route fetch queue", category: AppLogger.health)
+                return
+            }
+
             task.status = "fetching"
             task.lastAttemptDate = Date.now
 
@@ -1121,33 +1407,13 @@ final class HealthKitManager: ObservableObject {
                     continue
                 }
 
-                // Fetch route, splits, heart rate data, and running metrics
-                let locations = try await fetchRoute(for: workout)
-                let routeWithHR = try? await fetchRouteWithHeartRate(for: workout)
-                let splits = try? await fetchKilometerSplits(for: workout)
-                let runningMetrics = await fetchRunningMetrics(for: workout)
-
-                // Update Run with route, HR data, splits, and running metrics
-                let coords = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+                let enrichment = try await fetchDetailedRunEnrichment(for: workout)
+                let coords = enrichment.route ?? []
 
                 await MainActor.run {
                     if let store = workoutStore,
                        let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
-                        var updated = existing
-                        updated.route = coords.isEmpty ? nil : coords
-                        // Only store routeWithHR when we actually have route points.
-                        // fetchRouteWithHeartRate returns [] when fetchRoute returns empty,
-                        // and storing that empty array makes every downstream `== nil` check
-                        // silently pass, permanently blocking all retry paths.
-                        if !coords.isEmpty {
-                            updated.routeWithHR = routeWithHR
-                        }
-                        updated.splits = splits
-                        updated.avgRunningPower = runningMetrics.avgPower
-                        updated.avgCadence = runningMetrics.avgCadence
-                        updated.avgStrideLength = runningMetrics.avgStrideLength
-                        updated.avgGroundContactTime = runningMetrics.avgGroundContactTime
-                        updated.avgVerticalOscillation = runningMetrics.avgVerticalOscillation
+                        let updated = applyDetailedRunEnrichment(enrichment, to: existing)
                         store.updateRun(updated)
 
                         if coords.isEmpty {
@@ -1161,7 +1427,7 @@ final class HealthKitManager: ObservableObject {
                             AppLogger.warning("Route fetch returned no coordinates for \(uuid), attempt \(task.attemptCount), age \(String(format: "%.1f", ageHours))h → \(task.status)", category: AppLogger.health)
 
                             // After exhausting retries, still trigger auto-post without route
-                            if task.status == "failed" {
+                            if task.status == "failed" && (task.allowAutoPost ?? true) {
                                 let workoutType = updated.workoutType?.lowercased() ?? ""
                                 if workoutType.contains("run") && updated.distanceKm >= 1.0 {
                                     Task {
@@ -1171,16 +1437,16 @@ final class HealthKitManager: ObservableObject {
                             }
                         } else {
                             task.status = "completed"
-                            AppLogger.success("Fetched route for \(uuid): \(coords.count) points, HR: \(routeWithHR != nil), \(splits?.count ?? 0) splits", category: AppLogger.health)
+                            AppLogger.success("Fetched route for \(uuid): \(coords.count) points, HR: \(enrichment.routeWithHR != nil), \(enrichment.splits?.count ?? 0) splits", category: AppLogger.health)
 
                             // Trigger auto-post for cardio workouts with route data
                             let workoutType = updated.workoutType?.lowercased() ?? ""
-                            if workoutType.contains("run") && updated.distanceKm >= 1.0 {
+                            if (task.allowAutoPost ?? true) && workoutType.contains("run") && updated.distanceKm >= 1.0 {
                                 Task {
                                     await CardioAutoPostService.shared.handleRunIfNeeded(
                                         run: updated,
                                         route: coords,
-                                        routeWithHR: routeWithHR
+                                        routeWithHR: enrichment.routeWithHR
                                     )
                                 }
                             }
@@ -1192,12 +1458,20 @@ final class HealthKitManager: ObservableObject {
                 }
 
             } catch {
+                if isProtectedHealthDataError(error) {
+                    task.status = "pending"
+                    task.lastAttemptDate = Date.now
+                    try? context.save()
+                    AppLogger.info("Protected health data is inaccessible; route queue paused and will retry after unlock", category: AppLogger.health)
+                    return
+                }
+
                 task.attemptCount += 1
                 task.status = task.attemptCount >= 3 ? "failed" : "pending"
                 AppLogger.warning("Route fetch failed: \(error)", category: AppLogger.health)
 
                 // Still attempt auto-post even if route fetch failed (route is optional)
-                if task.status == "failed" {
+                if task.status == "failed" && (task.allowAutoPost ?? true) {
                     await MainActor.run {
                         if let store = workoutStore,
                            let uuid = UUID(uuidString: task.workoutUUID),
@@ -1214,6 +1488,23 @@ final class HealthKitManager: ObservableObject {
             }
 
             try? context.save()
+        }
+    }
+
+    func processRouteFetchQueueUntilEmpty(batchLimit: Int = 20) async {
+        guard let context = modelContext else { return }
+
+        while true {
+            let pendingDescriptor = FetchDescriptor<RouteFetchTask>(
+                predicate: #Predicate { $0.status == "pending" }
+            )
+
+            guard let pending = try? context.fetch(pendingDescriptor), !pending.isEmpty else {
+                AppLogger.info("Historical cardio enrichment queue drained", category: AppLogger.health)
+                break
+            }
+
+            await processRouteFetchQueue(limit: batchLimit)
         }
     }
 
@@ -1240,10 +1531,27 @@ final class HealthKitManager: ObservableObject {
         let timeBased = try await fetchRouteLocations(predicate: timePredicate, limit: 1)
         if !timeBased.isEmpty {
             AppLogger.debug("Route via time-window fallback: \(timeBased.count) pts", category: AppLogger.health)
-        } else {
-            AppLogger.warning("No route found via either predicate for \(workout.uuid) — check HealthKit route read permission in Settings > Health > Apps > WRKT", category: AppLogger.health)
+            return timeBased
         }
-        return timeBased
+
+        // Both predicates returned 0 — the most common cause is missing read permission for
+        // HKSeriesType.workoutRoute() (HK silently returns nothing instead of an error).
+        // Re-request authorization (no-op if already granted) then retry once.
+        AppLogger.warning("Both predicates returned 0 for \(workout.uuid) — re-requesting HK authorization and retrying", category: AppLogger.health)
+        try? await requestAuthorization()
+
+        let retryAssociated = try await fetchRouteLocations(predicate: HKQuery.predicateForObjects(from: workout))
+        if !retryAssociated.isEmpty {
+            AppLogger.debug("Route found after auth re-request (association): \(retryAssociated.count) pts", category: AppLogger.health)
+            return retryAssociated
+        }
+        let retryTimeBased = try await fetchRouteLocations(predicate: timePredicate, limit: 1)
+        if !retryTimeBased.isEmpty {
+            AppLogger.debug("Route found after auth re-request (time-window): \(retryTimeBased.count) pts", category: AppLogger.health)
+        } else {
+            AppLogger.warning("No route found after auth re-request for \(workout.uuid) — user may need to grant route access in Settings > Health > Apps > Volia", category: AppLogger.health)
+        }
+        return retryTimeBased
     }
 
     /// Shared helper: runs HKSampleQuery for a route then streams it via HKWorkoutRouteQuery.
@@ -1723,21 +2031,169 @@ final class HealthKitManager: ObservableObject {
         }
     }
 
+    private struct DetailedRunEnrichment {
+        let distanceKm: Double
+        let durationSec: Int
+        let calories: Double?
+        let workoutType: String
+        let workoutName: String?
+        let route: [Coordinate]?
+        let routeWithHR: [RoutePoint]?
+        let splits: [KilometerSplit]?
+        let avgHeartRate: Double?
+        let maxHeartRate: Double?
+        let minHeartRate: Double?
+        let hrSamples: [HeartRateSample]?
+        let avgRunningPower: Double?
+        let avgCadence: Double?
+        let avgStrideLength: Double?
+        let avgGroundContactTime: Double?
+        let avgVerticalOscillation: Double?
+    }
+
+    private func optionalHealthKitValue<T>(_ operation: () async throws -> T) async throws -> T? {
+        do {
+            return try await operation()
+        } catch {
+            if isProtectedHealthDataError(error) {
+                throw error
+            }
+            return nil
+        }
+    }
+
+    private func fetchDetailedRunEnrichment(for workout: HKWorkout) async throws -> DetailedRunEnrichment {
+        let workoutType = workoutActivityTypeName(workout.workoutActivityType)
+        let workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+        let distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
+        let durationSec = workout.duration.safeInt
+        let calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
+
+        let splits = try await optionalHealthKitValue {
+            try await fetchKilometerSplits(for: workout)
+        }
+        let routeWithHRResult = try await optionalHealthKitValue {
+            try await fetchRouteWithHeartRate(for: workout)
+        }
+
+        let routeWithHR = (routeWithHRResult?.count ?? 0) > 1 ? routeWithHRResult : nil
+        let route: [Coordinate]?
+        if let routeWithHR, !routeWithHR.isEmpty {
+            route = routeWithHR.map { Coordinate(lat: $0.lat, lon: $0.lon) }
+        } else if let locations = try await optionalHealthKitValue({ try await fetchRoute(for: workout) }), locations.count > 1 {
+            route = locations.map { Coordinate(lat: $0.coordinate.latitude, lon: $0.coordinate.longitude) }
+        } else {
+            route = nil
+        }
+
+        let hrTuple = try await optionalHealthKitValue {
+            try await fetchHeartRateSamples(for: workout)
+        }
+        let hrSamples = hrTuple?.0
+        let avgHeartRate: Double?
+        if let fetchedAvgHeartRate = hrTuple?.1 {
+            avgHeartRate = fetchedAvgHeartRate
+        } else {
+            do {
+                avgHeartRate = try await averageHeartRate(for: workout)
+            } catch {
+                if isProtectedHealthDataError(error) {
+                    throw error
+                }
+                avgHeartRate = nil
+            }
+        }
+        let maxHeartRate = hrTuple?.2
+        let minHeartRate = hrTuple?.3
+
+        let runningMetrics = await fetchRunningMetrics(for: workout)
+
+        return DetailedRunEnrichment(
+            distanceKm: distanceKm,
+            durationSec: durationSec,
+            calories: calories,
+            workoutType: workoutType,
+            workoutName: workoutName,
+            route: route,
+            routeWithHR: routeWithHR,
+            splits: splits,
+            avgHeartRate: avgHeartRate,
+            maxHeartRate: maxHeartRate,
+            minHeartRate: minHeartRate,
+            hrSamples: hrSamples,
+            avgRunningPower: runningMetrics.avgPower,
+            avgCadence: runningMetrics.avgCadence,
+            avgStrideLength: runningMetrics.avgStrideLength,
+            avgGroundContactTime: runningMetrics.avgGroundContactTime,
+            avgVerticalOscillation: runningMetrics.avgVerticalOscillation
+        )
+    }
+
+    private func applyDetailedRunEnrichment(_ enrichment: DetailedRunEnrichment, to run: Run) -> Run {
+        var updated = run
+        updated.distanceKm = enrichment.distanceKm
+        updated.durationSec = enrichment.durationSec
+        updated.calories = enrichment.calories
+        updated.workoutType = enrichment.workoutType
+        updated.workoutName = enrichment.workoutName
+        if let splits = enrichment.splits {
+            updated.splits = splits
+        }
+        if let avgHeartRate = enrichment.avgHeartRate {
+            updated.avgHeartRate = avgHeartRate
+        }
+        if let maxHeartRate = enrichment.maxHeartRate {
+            updated.maxHeartRate = maxHeartRate
+        }
+        if let minHeartRate = enrichment.minHeartRate {
+            updated.minHeartRate = minHeartRate
+        }
+        if let hrSamples = enrichment.hrSamples, !hrSamples.isEmpty {
+            updated.hrSamples = hrSamples
+        }
+        if let avgRunningPower = enrichment.avgRunningPower {
+            updated.avgRunningPower = avgRunningPower
+        }
+        if let avgCadence = enrichment.avgCadence {
+            updated.avgCadence = avgCadence
+        }
+        if let avgStrideLength = enrichment.avgStrideLength {
+            updated.avgStrideLength = avgStrideLength
+        }
+        if let avgGroundContactTime = enrichment.avgGroundContactTime {
+            updated.avgGroundContactTime = avgGroundContactTime
+        }
+        if let avgVerticalOscillation = enrichment.avgVerticalOscillation {
+            updated.avgVerticalOscillation = avgVerticalOscillation
+        }
+
+        if let route = enrichment.route, !route.isEmpty {
+            updated.route = route
+        }
+
+        if let routeWithHR = enrichment.routeWithHR, !routeWithHR.isEmpty {
+            updated.routeWithHR = routeWithHR
+            updated.route = routeWithHR.map { Coordinate(lat: $0.lat, lon: $0.lon) }
+        }
+
+        return updated
+    }
+
     // MARK: - Manual Data Refresh for Existing Run
 
     /// Manually fetch and update splits and HR data for an existing run
-    func refreshDetailedDataForRun(runId: UUID) async {
+    func refreshDetailedDataForRun(runId: UUID) async -> Run? {
 
         guard let store = workoutStore else {
             AppLogger.warning("Cannot refresh detailed data - WorkoutStore not set", category: AppLogger.health)
-            return
+            return nil
         }
 
         let run = await MainActor.run { store.runs.first(where: { $0.id == runId }) }
 
         guard let run = run, let workoutUUID = run.healthKitUUID else {
             AppLogger.warning("Cannot refresh detailed data - run not found or no HealthKit UUID", category: AppLogger.health)
-            return
+            return nil
         }
 
 
@@ -1746,33 +2202,20 @@ final class HealthKitManager: ObservableObject {
             let workouts = try await fetchWorkoutByUUID(workoutUUID)
             guard let workout = workouts.first else {
                 AppLogger.warning("Workout not found in HealthKit", category: AppLogger.health)
-                return
+                return nil
             }
-
-         
-
-            // Fetch detailed data
-          
-            let splits = try? await fetchKilometerSplits(for: workout)
-
-            let routeWithHR = try? await fetchRouteWithHeartRate(for: workout)
+            let enrichment = try await fetchDetailedRunEnrichment(for: workout)
+            let updated = applyDetailedRunEnrichment(enrichment, to: run)
 
             // Update run
             await MainActor.run {
-                var updated = run
-                updated.splits = splits
-                // Only persist routeWithHR when it actually contains points — an empty
-                // array means the underlying route fetch returned nothing (route not yet
-                // synced from Watch) and must NOT overwrite the existing nil value.
-                if let rhr = routeWithHR, !rhr.isEmpty {
-                    updated.routeWithHR = rhr
-                    updated.route = rhr.map { Coordinate(lat: $0.lat, lon: $0.lon) }
-                }
                 store.updateRun(updated)
-                AppLogger.success("Refreshed detailed data for run: \(splits?.count ?? 0) splits, route: \(updated.routeWithHR?.count ?? 0) pts", category: AppLogger.health)
+                AppLogger.success("Refreshed detailed data for run: \(updated.splits?.count ?? 0) splits, route: \(updated.route?.count ?? 0) pts, dynamics loaded: \(updated.avgCadence != nil || updated.avgRunningPower != nil)", category: AppLogger.health)
             }
+            return updated
         } catch {
             AppLogger.error("Failed to refresh detailed data: \(error)", category: AppLogger.health)
+            return nil
         }
     }
 
@@ -1941,6 +2384,153 @@ final class HealthKitManager: ObservableObject {
         }
 
         try? context.save()
+    }
+
+    private func aggregateExerciseTimeIntoDailySummaries(samples: [HKQuantitySample], context: ModelContext) async {
+        let calendar = Calendar.current
+        var dailyMinutes: [Date: Int] = [:]
+
+        for sample in samples {
+            let dayStart = calendar.startOfDay(for: sample.startDate)
+            let minutes = Int(sample.quantity.doubleValue(for: .minute()).rounded())
+            dailyMinutes[dayStart, default: 0] += minutes
+        }
+
+        for (dayStart, minutes) in dailyMinutes {
+            let key = dailyKey(for: dayStart, calendar: calendar)
+            let descriptor = FetchDescriptor<DailyAppleExerciseSummary>(
+                predicate: #Predicate { $0.key == key }
+            )
+
+            if let summary = try? context.fetch(descriptor).first {
+                summary.minutes += minutes
+                summary.lastHealthSync = .now
+            } else {
+                let summary = DailyAppleExerciseSummary(
+                    dayStart: dayStart,
+                    minutes: minutes,
+                    lastHealthSync: .now
+                )
+                context.insert(summary)
+            }
+        }
+
+        try? context.save()
+    }
+
+    private func reconcileExerciseTimeSummaries(from startDate: Date, to endDate: Date, context: ModelContext) async throws {
+        let dailyTotals = try await fetchExerciseTimeDailyTotals(from: startDate, to: endDate)
+        let calendar = Calendar.current
+        var weeklyTotals: [String: (weekStart: Date, minutes: Int)] = [:]
+        let fetchedDayStarts = Set(dailyTotals.map(\.dayStart))
+
+        for day in dailyTotals {
+            let key = dailyKey(for: day.dayStart, calendar: calendar)
+            let descriptor = FetchDescriptor<DailyAppleExerciseSummary>(
+                predicate: #Predicate { $0.key == key }
+            )
+
+            if let summary = try context.fetch(descriptor).first {
+                summary.minutes = day.minutes
+                summary.lastHealthSync = .now
+            } else {
+                context.insert(
+                    DailyAppleExerciseSummary(
+                        dayStart: day.dayStart,
+                        minutes: day.minutes,
+                        lastHealthSync: .now
+                    )
+                )
+            }
+
+            let isoWeekStart = calendar.startOfWeek(for: day.dayStart, anchorWeekday: 2)
+            let weekKey = ExerciseVolumeSummary.weekKey(from: isoWeekStart)
+            var weeklyTotal = weeklyTotals[weekKey] ?? (isoWeekStart, 0)
+            weeklyTotal.minutes += day.minutes
+            weeklyTotals[weekKey] = weeklyTotal
+        }
+
+        let existingDailyDescriptor = FetchDescriptor<DailyAppleExerciseSummary>(
+            predicate: #Predicate { $0.dayStart >= startDate && $0.dayStart < endDate }
+        )
+        let existingDailyRows = (try? context.fetch(existingDailyDescriptor)) ?? []
+        for row in existingDailyRows where !fetchedDayStarts.contains(calendar.startOfDay(for: row.dayStart)) {
+            row.minutes = 0
+            row.lastHealthSync = .now
+        }
+
+        for (weekKey, value) in weeklyTotals {
+            let descriptor = FetchDescriptor<WeeklyTrainingSummary>(
+                predicate: #Predicate { $0.key == weekKey }
+            )
+
+            if let summary = try context.fetch(descriptor).first {
+                summary.appleExerciseMinutes = value.minutes
+                summary.lastHealthSync = .now
+            } else if value.minutes > 0 {
+                context.insert(
+                    WeeklyTrainingSummary(
+                        key: weekKey,
+                        weekStart: value.weekStart,
+                        totalVolume: 0,
+                        sessions: 0,
+                        totalSets: 0,
+                        totalReps: 0,
+                        minutes: 0,
+                        appleExerciseMinutes: value.minutes,
+                        cardioSessions: 0,
+                        lastHealthSync: .now
+                    )
+                )
+            }
+        }
+
+        try context.save()
+    }
+
+    private func fetchExerciseTimeDailyTotals(from startDate: Date, to endDate: Date) async throws -> [(dayStart: Date, minutes: Int)] {
+        guard let exerciseType = HKQuantityType.quantityType(forIdentifier: .appleExerciseTime) else {
+            return []
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
+            let interval = DateComponents(day: 1)
+            let anchorDate = Calendar.current.startOfDay(for: startDate)
+
+            let query = HKStatisticsCollectionQuery(
+                quantityType: exerciseType,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum,
+                anchorDate: anchorDate,
+                intervalComponents: interval
+            )
+
+            query.initialResultsHandler = { _, collection, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+
+                var rows: [(dayStart: Date, minutes: Int)] = []
+                collection?.enumerateStatistics(from: startDate, to: endDate) { statistics, _ in
+                    let minutes = Int((statistics.sumQuantity()?.doubleValue(for: .minute()) ?? 0).rounded())
+                    rows.append((Calendar.current.startOfDay(for: statistics.startDate), minutes))
+                }
+                continuation.resume(returning: rows)
+            }
+
+            store.execute(query)
+        }
+    }
+
+    private func dailyKey(for date: Date, calendar: Calendar = .current) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: calendar.startOfDay(for: date))
     }
 
     private func weekStartFromKey(_ key: String) -> Date? {

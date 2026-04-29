@@ -18,127 +18,141 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        List {
-            // SOCIAL - only show when not in local mode and logged in
-            if !settings.isLocalMode && isLoggedIn {
-                Section("Social") {
-                    if let currentUser = authService.currentUser {
+        ScrollView {
+            VStack(spacing: 16) {
+                if !settings.isLocalMode && isLoggedIn {
+                    settingsCard(title: "Social") {
+                        if let currentUser = authService.currentUser {
+                            settingsRow {
+                                NavigationLink {
+                                    SocialProfileView(userId: currentUser.id)
+                                } label: {
+                                    Label("My Profile", systemImage: "person.circle")
+                                }
+                            }
+                        }
+
+                        settingsRow {
+                            NavigationLink {
+                                ActivityFeedView()
+                            } label: {
+                                HStack {
+                                    Label("Activity", systemImage: "bell.fill")
+                                    Spacer()
+                                    if badgeManager.notificationCount > 0 {
+                                        badgeCount(badgeManager.notificationCount)
+                                    }
+                                }
+                            }
+                        }
+
+                        settingsRow {
+                            NavigationLink {
+                                FriendsListView()
+                            } label: {
+                                Label("Friends", systemImage: "person.2.fill")
+                            }
+                        }
+
+                        settingsRow {
+                            NavigationLink {
+                                FriendRequestsView()
+                            } label: {
+                                HStack {
+                                    Label("Friend Requests", systemImage: "person.badge.plus")
+                                    Spacer()
+                                    if badgeManager.friendRequestCount > 0 {
+                                        badgeCount(badgeManager.friendRequestCount)
+                                    }
+                                }
+                            }
+                        }
+
+                        settingsRow(showsDivider: false) {
+                            NavigationLink {
+                                UserSearchView()
+                            } label: {
+                                Label("Find Friends", systemImage: "magnifyingglass")
+                            }
+                        }
+                    }
+                }
+
+                settingsCard(title: "Preferences") {
+                    settingsRow {
+                        NavigationLink("App Preferences") { PreferencesView() }
+                    }
+                    settingsRow {
+                        NavigationLink("Apple Health") { ConnectionsView() }
+                    }
+                    settingsRow {
                         NavigationLink {
-                            SocialProfileView(userId: currentUser.id)
+                            BarbellPreviewView()
                         } label: {
-                            Label("My Profile", systemImage: "person.circle")
+                            Label("My Barbell", systemImage: "scalemass.fill")
                         }
                     }
+                    settingsRow(showsDivider: false) {
+                        NavigationLink {
+                            DataPortabilityView()
+                        } label: {
+                            Label("Data Portability", systemImage: "arrow.up.arrow.down.circle")
+                        }
+                    }
+                }
 
-                    NavigationLink {
-                        ActivityFeedView()
-                    } label: {
-                        HStack {
-                            Label("Activity", systemImage: "bell.fill")
+                #if DEBUG
+                settingsCard(title: "Debug") {
+                    settingsRow {
+                        NavigationLink("Virtual Run Debug") {
+                            VirtualRunDebugView()
+                                .environmentObject(authService)
+                        }
+                    }
+                    settingsRow(showsDivider: false) {
+                        Button {
+                            BarbellProgressService.shared.needsWelcomeScreen = true
+                        } label: {
+                            Label("Show Barbell Welcome", systemImage: "barbell")
+                        }
+                    }
+                }
+                #endif
 
-                            Spacer()
-
-                            if badgeManager.notificationCount > 0 {
-                                Text("\(badgeManager.notificationCount)")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.black)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(DS.Semantic.brand)
-                                    .clipShape(Capsule())
+                settingsCard {
+                    if settings.isLocalMode {
+                        settingsRow(showsDivider: false) {
+                            Button {
+                                showLoginSheet = true
+                            } label: {
+                                Label("Log In to Enable Social Features", systemImage: "person.crop.circle.badge.plus")
+                            }
+                        }
+                    } else if isLoggedIn {
+                        settingsRow(showsDivider: false) {
+                            Button(role: .destructive) {
+                                Task {
+                                    try? await authService.signOut()
+                                }
+                            } label: {
+                                Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
                             }
                         }
                     }
-
-                    NavigationLink {
-                        FriendsListView()
-                    } label: {
-                        Label("Friends", systemImage: "person.2.fill")
-                    }
-
-                    NavigationLink {
-                        FriendRequestsView()
-                    } label: {
-                        HStack {
-                            Label("Friend Requests", systemImage: "person.badge.plus")
-
-                            Spacer()
-
-                            if badgeManager.friendRequestCount > 0 {
-                                Text("\(badgeManager.friendRequestCount)")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.black)
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(DS.Semantic.brand)
-                                    .clipShape(Capsule())
-                            }
-                        }
-                    }
-
-                    NavigationLink {
-                        UserSearchView()
-                    } label: {
-                        Label("Find Friends", systemImage: "magnifyingglass")
-                    }
                 }
             }
-
-            // PREFERENCES
-            Section("Preferences") {
-                NavigationLink("App Preferences") { PreferencesView() }
-                NavigationLink("Apple Health") { ConnectionsView() }
-                NavigationLink {
-                    BarbellPreviewView()
-                } label: {
-                    Label("My Barbell", systemImage: "scalemass.fill")
-                }
-                NavigationLink {
-                    DataPortabilityView()
-                } label: {
-                    Label("Data Portability", systemImage: "arrow.up.arrow.down.circle")
-                }
-            }
-
-            #if DEBUG
-            Section("Debug") {
-                NavigationLink("Virtual Run Debug") {
-                    VirtualRunDebugView()
-                        .environmentObject(authService)
-                }
-                Button {
-                    BarbellProgressService.shared.needsWelcomeScreen = true
-                } label: {
-                    Label("Show Barbell Welcome", systemImage: "barbell")
-                }
-            }
-            #endif
-
-            // ACCOUNT
-            Section {
-                if settings.isLocalMode {
-                    // Local mode - show Log In option
-                    Button {
-                        showLoginSheet = true
-                    } label: {
-                        Label("Log In to Enable Social Features", systemImage: "person.crop.circle.badge.plus")
-                    }
-                } else if isLoggedIn {
-                    // Logged in - show Log Out option
-                    Button(role: .destructive) {
-                        Task {
-                            try? await authService.signOut()
-                        }
-                    } label: {
-                        Label("Log Out", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                }
-            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .padding(.bottom, 32)
+        }
+        .background(DS.Semantic.surface.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: 24)
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // Refresh badges when view appears (only if not in local mode)
             if !settings.isLocalMode {
                 await badgeManager.refreshBadges()
             }
@@ -150,10 +164,63 @@ struct SettingsView: View {
             }
         }
         .onChange(of: isLoggedIn) { _, loggedIn in
-            // When user successfully logs in, disable local mode to show social tab
             if loggedIn && settings.isLocalMode {
                 settings.disableLocalMode()
             }
         }
+    }
+
+    @ViewBuilder
+    private func settingsCard<Content: View>(
+        title: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                Text(title)
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .padding(.horizontal, 4)
+            }
+
+            VStack(spacing: 0) {
+                content()
+            }
+            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .overlay(
+                ChamferedRectangle(.xl)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func settingsRow<Content: View>(
+        showsDivider: Bool = true,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+
+            if showsDivider {
+                Divider()
+                    .overlay(.white.opacity(0.08))
+                    .padding(.leading, 16)
+            }
+        }
+        .tint(DS.Semantic.textPrimary)
+    }
+
+    private func badgeCount(_ count: Int) -> some View {
+        Text("\(count)")
+            .dsFont(.caption, weight: .bold)
+            .foregroundStyle(.black)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(DS.Semantic.brand)
+            .clipShape(Capsule())
     }
 }

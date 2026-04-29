@@ -56,16 +56,26 @@ struct PreferencesView: View {
     }
 
     var body: some View {
-        Form {
-            profileSection
-            workoutPrefsSection
-            HeartRateZonesSection()
-            customExercisesSection
-            socialFeaturesSection
-            notificationsSection
-            dataManagementSection
-            aboutSection
-            appSettingsSection
+        ScrollView {
+            VStack(spacing: 16) {
+                profileSection
+                workoutPrefsSection
+                HeartRateZonesSection()
+                customExercisesSection
+                socialFeaturesSection
+                notificationsSection
+                dataManagementSection
+                aboutSection
+                appSettingsSection
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .padding(.bottom, 32)
+        }
+        .background(DS.Semantic.surface.ignoresSafeArea())
+        .safeAreaInset(edge: .bottom) {
+            Color.clear
+                .frame(height: 24)
         }
         .navigationTitle("Preferences")
         .alert("Clear all workout data?", isPresented: $showClearWorkoutsAlert) {
@@ -150,10 +160,45 @@ struct PreferencesView: View {
         }
     }
 
+    private func preferencesCard<Content: View>(
+        title: String,
+        footer: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .dsFont(.headline)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .padding(.horizontal, 4)
+
+            VStack(alignment: .leading, spacing: 14) {
+                content()
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .overlay(
+                ChamferedRectangle(.xl)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
+            )
+            .tint(DS.Semantic.brand)
+
+            if let footer {
+                Text(footer)
+                    .dsFont(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+            }
+        }
+    }
+
     // MARK: - Sections
 
     private var profileSection: some View {
-        Section {
+        preferencesCard(
+            title: "Profile",
+            footer: "Age is used for heart rate zones (Max HR = 220 - age) and updates automatically each year. Bodyweight is used for bodyweight exercise volume."
+        ) {
             if let birthYear = authService.currentUser?.profile?.birthYear {
                 // Age is set — show read-only; recalculates automatically each year
                 HStack {
@@ -169,7 +214,7 @@ struct PreferencesView: View {
                         Spacer()
                         Text("Not set").foregroundStyle(.secondary)
                         Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(.tertiary)
                     }
                 }
@@ -180,25 +225,25 @@ struct PreferencesView: View {
                     Spacer()
                     Text(String(format: "%.1f kg", userBodyweightKg)).foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.tertiary)
                 }
             }
-        } header: {
-            Text("Profile")
-        } footer: {
-            Text("Age is used for heart rate zones (Max HR = 220 - age) and updates automatically each year. Bodyweight is used for bodyweight exercise volume.")
-                .font(.caption)
         }
     }
 
     private var workoutPrefsSection: some View {
-        Section {
+        preferencesCard(
+            title: "Workout Preferences",
+            footer: timerPrefs.isEnabled
+                ? "Rest timer starts automatically after saving sets. Custom timers for specific exercises override these defaults."
+                : "Control haptic feedback and rest timer behavior during workouts."
+        ) {
             Toggle(isOn: $hapticsEnabled) {
                 Label("Haptic feedback", systemImage: "hand.tap.fill")
             }
             VStack(alignment: .leading, spacing: 8) {
-                Label("Weight increment", systemImage: "scalemass.fill").font(.subheadline)
+                Label("Weight increment", systemImage: "scalemass.fill").dsFont(.subheadline)
                 Picker("Weight increment", selection: $weightStepKg) {
                     Text("0.5 kg").tag(0.5)
                     Text("1 kg").tag(1.0)
@@ -213,65 +258,58 @@ struct PreferencesView: View {
                 Toggle(isOn: $autoAddSetOnRestTimer) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Auto-add next set").font(.body)
+                            Text("Auto-add next set").dsFont(.body)
                             Text("Add a new set row automatically when the rest timer finishes")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .dsFont(.caption).foregroundStyle(.secondary)
                         }
                     } icon: { Image(systemName: "plus.circle") }
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Compound exercises", systemImage: "dumbbell.fill").font(.subheadline)
+                    Label("Compound exercises", systemImage: "dumbbell.fill").dsFont(.subheadline)
                     TimeStepper(seconds: $timerPrefs.defaultCompoundSeconds, lowerBound: 30, upperBound: 600, step: 30)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Isolation exercises", systemImage: "figure.strengthtraining.traditional").font(.subheadline)
+                    Label("Isolation exercises", systemImage: "figure.strengthtraining.traditional").dsFont(.subheadline)
                     TimeStepper(seconds: $timerPrefs.defaultIsolationSeconds, lowerBound: 30, upperBound: 600, step: 30)
                 }
                 Button(role: .destructive) { showResetTimersAlert = true } label: {
                     Label("Reset all custom timers", systemImage: "arrow.counterclockwise")
                 }
             }
-        } header: {
-            Text("Workout Preferences")
-        } footer: {
-            if timerPrefs.isEnabled {
-                Text("Rest timer starts automatically after saving sets. Custom timers for specific exercises override these defaults.")
-                    .font(.caption)
-            } else {
-                Text("Control haptic feedback and rest timer behavior during workouts.")
-                    .font(.caption)
-            }
         }
     }
 
     private var customExercisesSection: some View {
-        Section {
+        preferencesCard(
+            title: "Custom Exercises",
+            footer: "Create custom exercises from the exercise browser by tapping the + button. Swipe left to delete."
+        ) {
             if customStore.customExercises.isEmpty {
                 Text("No custom exercises yet")
                     .foregroundStyle(.secondary)
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
             } else {
                 ForEach(customStore.customExercises, id: \.id) { exercise in
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(exercise.name).font(.body)
+                            Text(exercise.name).dsFont(.body)
                             HStack(spacing: 8) {
                                 Text(exercise.primaryMuscles.first ?? "Unknown")
-                                    .font(.caption).foregroundStyle(.secondary)
+                                    .dsFont(.caption).foregroundStyle(.secondary)
                                 if let mechanic = exercise.mechanic {
-                                    Text("•").font(.caption).foregroundStyle(.secondary)
-                                    Text(mechanic.capitalized).font(.caption).foregroundStyle(.secondary)
+                                    Text("•").dsFont(.caption).foregroundStyle(.secondary)
+                                    Text(mechanic.capitalized).dsFont(.caption).foregroundStyle(.secondary)
                                 }
                                 if let equipment = exercise.equipment {
-                                    Text("•").font(.caption).foregroundStyle(.secondary)
-                                    Text(equipment).font(.caption).foregroundStyle(.secondary)
+                                    Text("•").dsFont(.caption).foregroundStyle(.secondary)
+                                    Text(equipment).dsFont(.caption).foregroundStyle(.secondary)
                                 }
                             }
                         }
                         Spacer()
                         Button { editingExercise = exercise } label: {
                             Image(systemName: "pencil.circle.fill")
-                                .font(.title3)
+                                .dsFont(.title3)
                                 .foregroundStyle(DS.Palette.marone)
                         }
                         .buttonStyle(.plain)
@@ -286,27 +324,25 @@ struct PreferencesView: View {
                     }
                 }
             }
-        } header: {
-            Text("Custom Exercises")
-        } footer: {
-            Text("Create custom exercises from the exercise browser by tapping the + button. Swipe left to delete.")
-                .font(.caption)
         }
     }
 
     @ViewBuilder
     private var socialFeaturesSection: some View {
         if let user = SupabaseAuthService.shared.currentUser {
-            Section {
+            preferencesCard(
+                title: "Social Features",
+                footer: "When enabled, workouts will be automatically posted to your social feed for friends to see."
+            ) {
                 Toggle(isOn: Binding(
                     get: { user.profile?.autoPostPRs ?? true },
                     set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue) } }
                 )) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Auto-post PRs").font(.body)
+                            Text("Auto-post PRs").dsFont(.body)
                             Text("Automatically share Personal Records to your social feed")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .dsFont(.caption).foregroundStyle(.secondary)
                         }
                     } icon: { Image(systemName: "trophy.fill") }
                 }
@@ -316,29 +352,29 @@ struct PreferencesView: View {
                 )) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Auto-post runs").font(.body)
+                            Text("Auto-post runs").dsFont(.body)
                             Text("Automatically share runs over 1km with map, heart rate, and stats")
-                                .font(.caption).foregroundStyle(.secondary)
+                                .dsFont(.caption).foregroundStyle(.secondary)
                         }
                     } icon: { Image(systemName: "figure.run") }
                 }
-            } header: {
-                Text("Social Features")
-            } footer: {
-                Text("When enabled, workouts will be automatically posted to your social feed for friends to see.")
-                    .font(.caption)
             }
         }
     }
 
     private var notificationsSection: some View {
-        Section {
+        preferencesCard(
+            title: "Notifications & Reminders",
+            footer: smartNudgesEnabled
+                ? "You'll receive notifications when friends complete workouts to help keep you motivated and accountable."
+                : "Enable smart nudges to receive motivational notifications based on friend activity."
+        ) {
             Toggle(isOn: $smartNudgesEnabled) {
                 Label {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Smart nudges").font(.body)
+                        Text("Smart nudges").dsFont(.body)
                         Text("Get notifications when friends work out")
-                            .font(.caption).foregroundStyle(.secondary)
+                            .dsFont(.caption).foregroundStyle(.secondary)
                     }
                 } icon: { Image(systemName: "bell.badge.fill") }
             }
@@ -348,50 +384,40 @@ struct PreferencesView: View {
                     Label("Enable in Settings", systemImage: "gear").foregroundStyle(.orange)
                 }
             }
-        } header: {
-            Text("Notifications & Reminders")
-        } footer: {
-            if smartNudgesEnabled {
-                Text("You'll receive notifications when friends complete workouts to help keep you motivated and accountable.")
-                    .font(.caption)
-            } else {
-                Text("Enable smart nudges to receive motivational notifications based on friend activity.")
-                    .font(.caption)
-            }
         }
     }
 
     private var dataManagementSection: some View {
-        Section {
+        preferencesCard(
+            title: "Data Management",
+            footer: "Export your workout history to CSV for analysis in other apps."
+        ) {
             Button { exportWorkoutsToCSV() } label: {
                 Label("Export workouts as CSV", systemImage: "square.and.arrow.up")
             }
-        } header: {
-            Text("Data Management")
-        } footer: {
-            Text("Export your workout history to CSV for analysis in other apps.").font(.caption)
         }
     }
 
     private var aboutSection: some View {
-        Section {
+        preferencesCard(title: "About") {
             HStack {
                 Text("Version")
                 Spacer()
-                Text(appVersion).foregroundStyle(.secondary).font(.subheadline.monospacedDigit())
+                Text(appVersion).foregroundStyle(.secondary).dsFont(.subheadline, monospacedDigits: true)
             }
             if let privacyURL = URL(string: "https://dmihaylov4.github.io/trak-privacy/") {
                 Link(destination: privacyURL) {
                     Label("Privacy policy", systemImage: "lock.shield")
                 }
             }
-        } header: {
-            Text("About")
         }
     }
 
     private var appSettingsSection: some View {
-        Section {
+        preferencesCard(
+            title: "App Settings",
+            footer: "⚠️ Reset all data will permanently delete workouts, stats, XP, level, PR dex, favorites, and custom timers. Runs/cardio from HealthKit will be preserved."
+        ) {
             Button { showClearPlansAlert = true } label: {
                 Label("Clear all plans and workouts", systemImage: "calendar.badge.minus")
                     .foregroundStyle(.orange)
@@ -408,11 +434,6 @@ struct PreferencesView: View {
             Button(role: .destructive) { showResetAlert = true } label: {
                 Label("Reset all data", systemImage: "exclamationmark.triangle.fill")
             }
-        } header: {
-            Text("App Settings")
-        } footer: {
-            Text("⚠️ Reset all data will permanently delete workouts, stats, XP, level, PR dex, favorites, and custom timers. Runs/cardio from HealthKit will be preserved.")
-                .font(.caption)
         }
     }
 
@@ -501,6 +522,10 @@ struct PreferencesView: View {
         Task {
             AppLogger.info("Starting reset all data...", category: AppLogger.storage)
 
+            // Clear any active in-memory workout session so reset does not leave a live workout UI behind.
+            store.currentWorkout = nil
+            RestTimerManager.shared.stopTimer()
+
             // Clear workouts and PRs from store
             store.clearAllWorkouts()
             AppLogger.info("Workouts cleared", category: AppLogger.storage)
@@ -526,15 +551,15 @@ struct PreferencesView: View {
                 AppLogger.info("Stats reset complete", category: AppLogger.storage)
             }
 
-            // Delete persisted JSON files (old storage) to prevent reload on next launch
-            await Persistence.shared.wipeAllDevOnly()
-            AppLogger.success("Legacy persisted JSON files deleted", category: AppLogger.storage)
+            // Delete persisted workout files while preserving cardio/runs.
+            await Persistence.shared.wipeWorkoutDataPreservingRunsDevOnly()
+            AppLogger.success("Legacy workout files deleted, runs preserved", category: AppLogger.storage)
 
-            // Wipe all data from new unified storage (including PR index)
-            try? await WorkoutStorage.shared.wipeAllData()
-            AppLogger.success("New storage wiped (workouts, PRs, runs)", category: AppLogger.storage)
+            // Wipe workout data from new unified storage while preserving runs.
+            try? await WorkoutStorage.shared.wipeWorkoutDataPreservingRuns()
+            AppLogger.success("New storage wiped (workouts, PRs), runs preserved", category: AppLogger.storage)
 
-            // Reset HealthKit state
+            // Reset transient HealthKit sync state without disconnecting or deleting preserved cardio.
             await resetHealthKitState()
 
             // Reset weekly goal (optional - uncomment if you want to clear the goal setup)
@@ -588,18 +613,12 @@ struct PreferencesView: View {
     }
 
     private func resetHealthKitState() async {
-        // Note: iOS does not allow programmatic revocation of HealthKit permissions
-        // Users must manually revoke in Settings > Privacy > Health
-        // We can only reset our internal state
-
         await MainActor.run {
-            // Reset HealthKit manager connection state
-            HealthKitManager.shared.connectionState = .disconnected
+            HealthKitManager.shared.isSyncing = false
+            HealthKitManager.shared.syncError = nil
+            HealthKitManager.shared.lastSyncDate = nil
 
-            // Clear any cached health data
-            store.clearAllRuns()
-
-            AppLogger.success("HealthKit state reset (user must manually revoke permissions in Settings)", category: AppLogger.health)
+            AppLogger.success("HealthKit sync state reset; connection and runs preserved", category: AppLogger.health)
         }
     }
 }
@@ -624,7 +643,7 @@ private struct TimeStepper: View {
                 bump(-step)
             } label: {
                 Text("−")
-                    .font(.headline.weight(.semibold))
+                    .dsFont(.headline, weight: .semibold)
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
             }
@@ -637,7 +656,7 @@ private struct TimeStepper: View {
                         .keyboardType(.numbersAndPunctuation)
                         .focused($focused)
                         .multilineTextAlignment(.center)
-                        .font(.callout.monospacedDigit())
+                        .dsFont(.callout, monospacedDigits: true)
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .onAppear {
@@ -653,7 +672,7 @@ private struct TimeStepper: View {
                         }
                 } else {
                     Text(formatTime(seconds))
-                        .font(.callout.monospacedDigit())
+                        .dsFont(.callout, monospacedDigits: true)
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -670,7 +689,7 @@ private struct TimeStepper: View {
                 bump(+step)
             } label: {
                 Text("+")
-                    .font(.headline.weight(.semibold))
+                    .dsFont(.headline, weight: .semibold)
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
             }
@@ -769,41 +788,55 @@ private struct HeartRateZonesSection: View {
     @State private var showZoneDetails = false
 
     var body: some View {
-        Section {
-            // Max HR display
-            HStack {
-                Label("Max heart rate", systemImage: "heart.fill")
-                Spacer()
-                Text("\(calculator.maxHR) bpm")
-                    .foregroundStyle(.secondary)
-                    .font(.subheadline.monospacedDigit())
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Heart Rate Zones")
+                .dsFont(.headline)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .padding(.horizontal, 4)
 
-            // Zone boundaries (expandable)
-            DisclosureGroup("Zone boundaries", isExpanded: $showZoneDetails) {
-                ForEach(calculator.zoneBoundaries(), id: \.zone) { boundary in
-                    HStack {
-                        Circle()
-                            .fill(boundary.color)
-                            .frame(width: 10, height: 10)
-                        Text("Zone \(boundary.zone)")
-                            .font(.subheadline)
-                        Text("(\(boundary.name))")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Text(boundary.rangeString)
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 14) {
+            // Max HR display
+                HStack {
+                    Label("Max heart rate", systemImage: "heart.fill")
+                    Spacer()
+                    Text("\(calculator.maxHR) bpm")
+                        .foregroundStyle(.secondary)
+                        .dsFont(.subheadline, monospacedDigits: true)
+                }
+
+                // Zone boundaries (expandable)
+                DisclosureGroup("Zone boundaries", isExpanded: $showZoneDetails) {
+                    ForEach(calculator.zoneBoundaries(), id: \.zone) { boundary in
+                        HStack {
+                            Circle()
+                                .fill(boundary.color)
+                                .frame(width: 10, height: 10)
+                            Text("Zone \(boundary.zone)")
+                                .dsFont(.subheadline)
+                            Text("(\(boundary.name))")
+                                .dsFont(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(boundary.rangeString)
+                                .dsFont(.subheadline, monospacedDigits: true)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 2)
                 }
             }
-        } header: {
-            Text("Heart Rate Zones")
-        } footer: {
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .overlay(
+                ChamferedRectangle(.xl)
+                    .stroke(.white.opacity(0.08), lineWidth: 1)
+            )
+
             Text(calculator.methodDescription)
-                .font(.caption)
+                .dsFont(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
         }
     }
 }
@@ -870,7 +903,7 @@ private struct WeightPickerSheet: View {
                     .frame(maxWidth: .infinity)
 
                     Text(".")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(.secondary)
 
                     // Decimal picker
@@ -886,7 +919,7 @@ private struct WeightPickerSheet: View {
                     .frame(width: 60)
 
                     Text("kg")
-                        .font(.body)
+                        .dsFont(.body)
                         .foregroundStyle(.secondary)
                         .padding(.trailing, 16)
                 }

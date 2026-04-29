@@ -1,11 +1,11 @@
 import SwiftUI
-import CoreLocation
 
 /// View for editing a post's caption and visibility
 struct EditPostView: View {
     let post: PostWithAuthor
     let currentUserId: UUID?
     let onSave: @MainActor @Sendable (String?, PostVisibility) async -> Void
+    let onBackfillRoute: @MainActor @Sendable () async -> Bool
 
     @Environment(\.dismiss) private var dismiss
     @State private var caption: String
@@ -19,12 +19,16 @@ struct EditPostView: View {
         case unknown, hasMap, noMap, building, success, failed
     }
 
-    private let imageUploadService = ImageUploadService()
-
-    init(post: PostWithAuthor, currentUserId: UUID? = nil, onSave: @escaping @MainActor @Sendable (String?, PostVisibility) async -> Void) {
+    init(
+        post: PostWithAuthor,
+        currentUserId: UUID? = nil,
+        onSave: @escaping @MainActor @Sendable (String?, PostVisibility) async -> Void,
+        onBackfillRoute: @escaping @MainActor @Sendable () async -> Bool
+    ) {
         self.post = post
         self.currentUserId = currentUserId
         self.onSave = onSave
+        self.onBackfillRoute = onBackfillRoute
         _caption = State(initialValue: post.post.caption ?? "")
         _visibility = State(initialValue: post.post.visibility)
     }
@@ -40,7 +44,7 @@ struct EditPostView: View {
                     Text("Caption")
                 } footer: {
                     Text("You can only edit the caption and visibility. The workout details and photos cannot be changed.")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -64,31 +68,31 @@ struct EditPostView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Route Map")
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                 switch routeBackfillStatus {
                                 case .unknown:
                                     Text(post.post.images?.isEmpty == false ? "Map attached" : "No map yet")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                 case .hasMap:
                                     Text("Map attached")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                 case .noMap:
                                     Text("No route data in HealthKit yet")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                 case .building:
                                     Text("Building...")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                 case .success:
                                     Text("Route map added")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(.green)
                                 case .failed:
                                     Text("Could not build route — try again later")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(.red)
                                 }
                             }
@@ -101,7 +105,7 @@ struct EditPostView: View {
                                 Button("Rebuild") {
                                     Task { await backfillRoute() }
                                 }
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .disabled(isSaving)
                             }
                         }
@@ -109,7 +113,7 @@ struct EditPostView: View {
                         Text("Route")
                     } footer: {
                         Text("Fetches the GPS route from HealthKit and attaches it as a map image.")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -118,7 +122,7 @@ struct EditPostView: View {
                     Section {
                         Text(error)
                             .foregroundStyle(.red)
-                            .font(.caption)
+                            .dsFont(.caption)
                     }
                 }
             }
@@ -153,70 +157,23 @@ struct EditPostView: View {
 
     private func backfillRoute() async {
         guard !isBackfilling,
-              let userId = currentUserId,
-              let hkUUID = post.post.workoutData.matchedHealthKitUUID else { return }
+              currentUserId != nil,
+              post.post.workoutData.matchedHealthKitUUID != nil else { return }
 
         isBackfilling = true
         routeBackfillStatus = .building
 
-        // Fetch workout from HealthKit
-        guard let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(hkUUID).first else {
-            routeBackfillStatus = .noMap
-            isBackfilling = false
-            return
-        }
-
-        // Fetch route, preferring HR-enriched version
-        let routePoints = try? await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
-        let coordinates: [CLLocationCoordinate2D]
-        let hrValues: [Double]?
-
-        if let points = routePoints, points.count > 1 {
-            coordinates = points.map { $0.coordinate }
-            hrValues = points.compactMap { $0.hr }.isEmpty ? nil : points.map { $0.hr ?? .nan }
-        } else if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
-                  locations.count > 1 {
-            coordinates = locations.map { $0.coordinate }
-            hrValues = nil
-        } else {
-            routeBackfillStatus = .noMap
-            isBackfilling = false
-            return
-        }
-
-        guard let snapshot = try? await MapSnapshotService.shared.generateRouteSnapshot(
-            coordinates: coordinates,
-            hrValues: hrValues
-        ) else {
-            routeBackfillStatus = .failed
-            isBackfilling = false
-            return
-        }
-
-        guard let uploadedImages = try? await imageUploadService.uploadWorkoutImages(
-            images: [snapshot],
-            userId: userId,
-            isPublic: [true]
-        ), !uploadedImages.isEmpty else {
-            routeBackfillStatus = .failed
-            isBackfilling = false
-            return
-        }
-
-        let postRepo = PostRepository()
-        let allImages = (post.post.images ?? []) + uploadedImages
-        if (try? await postRepo.updatePostImages(post.post.id, images: allImages)) != nil {
-            routeBackfillStatus = .success
-        } else {
-            routeBackfillStatus = .failed
-        }
+        let success = await onBackfillRoute()
+        routeBackfillStatus = success ? .success : .failed
         isBackfilling = false
     }
 
     private var hasChanges: Bool {
         let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         let originalCaption = post.post.caption ?? ""
-        return trimmedCaption != originalCaption || visibility != post.post.visibility
+        return trimmedCaption != originalCaption
+            || visibility != post.post.visibility
+            || routeBackfillStatus == .success
     }
 
     private func saveChanges() async {

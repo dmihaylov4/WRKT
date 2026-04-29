@@ -58,10 +58,10 @@ private struct DeepFilterRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.turn.down.right")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.secondary)
                 Text("\(muscleGroup.uppercased()) REGION")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal)

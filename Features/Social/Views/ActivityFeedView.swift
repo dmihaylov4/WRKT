@@ -169,7 +169,7 @@ private struct NotificationRow: View {
                             .fill(DS.Semantic.brandSoft)
                             .overlay(
                                 Image(systemName: "person.fill")
-                                    .font(.title3)
+                                    .dsFont(.title3)
                                     .foregroundStyle(DS.Semantic.brand)
                             )
                     }
@@ -182,12 +182,12 @@ private struct NotificationRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     // Notification message
                     Text(notification.message)
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(notification.read ? .secondary : .primary)
 
                     // Time
                     Text(notification.timeText)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.tertiary)
                 }
 
@@ -196,7 +196,7 @@ private struct NotificationRow: View {
                 // Icon
                 Image(systemName: notification.type.icon)
                     .foregroundStyle(colorForType(notification.type))
-                    .font(.title3)
+                    .dsFont(.title3)
 
                 // Unread indicator
                 if !notification.read {
@@ -260,6 +260,14 @@ private struct NotificationRow: View {
                 SocialProfileView(userId: notification.actor.id)
                     .environment(\.dependencies, deps)
             }
+
+        case .programInvite:
+            if let inviteId = notification.targetId {
+                ProgramPreviewView(inviteID: inviteId, bottomActionPadding: 72)
+                    .environment(\.dependencies, deps)
+            } else {
+                Text("Program invite not found")
+            }
         }
     }
 
@@ -288,11 +296,11 @@ private struct EmptyNotificationsView: View {
                 .foregroundStyle(.secondary)
 
             Text("No Notifications")
-                .font(.title2)
+                .dsFont(.title2)
                 .fontWeight(.semibold)
 
             Text("When friends interact with you, you'll see their activity here")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
@@ -324,12 +332,12 @@ struct PostLoaderView: View {
                         .foregroundStyle(.secondary)
 
                     Text("Post Not Found")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .fontWeight(.semibold)
 
                     if let error = errorMessage {
                         Text(error)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -401,12 +409,12 @@ struct BattleLoaderView: View {
                         .foregroundStyle(.secondary)
 
                     Text("Battle Not Found")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .fontWeight(.semibold)
 
                     if let error = errorMessage {
                         Text(error)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
@@ -473,12 +481,12 @@ struct ChallengeLoaderView: View {
                         .foregroundStyle(.secondary)
 
                     Text("Challenge Not Found")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .fontWeight(.semibold)
 
                     if let error = errorMessage {
                         Text(error)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)

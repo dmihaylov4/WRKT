@@ -1,83 +1,62 @@
 // Features/Rewards/Views/BarbellMomentView.swift
 import SwiftUI
-import RealityKit
 import SwiftData
 
-// Minimal scene state for the moment view animation.
-private struct BarbellMomentSceneState {
-    var rotAngle: Float = 0
-    var lastTime: Double = 0
-    var root: Entity? = nil
-    var needsRebuild = true
-}
-
-/// WinScreen Page 2: plates animate onto the bar one by one.
+/// WinScreen Page 2: newly earned plates drop into the rack room.
 /// Shown only when earnedPlates is non-empty.
 struct BarbellMomentView: View {
     let plates: [EarnedPlateInfo]
     let onDismiss: () -> Void
 
-    // Previously racked plates (the existing barbell state shown as the base)
     @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
-    private var previouslyRackedPlates: [EarnedPlate]
+    private var rackedPlates: [EarnedPlate]
 
-    // Note: newly earned plates arrive via the `plates` prop, NOT via @Query.
-    // They have isRacked == false at this point. The scene renders the existing barbell
-    // state from @Query as the base, then the animation layer adds the new plates
-    // from the prop one by one (purely visual: no SwiftData read for the new plates).
-    @State private var seatedCount = 0
-    @State private var scene = BarbellMomentSceneState()
-    @State private var isDragging = false
-    @State private var lastTranslationX: CGFloat = 0
+    @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" && $0.isRacked == false })
+    private var floorPlates: [EarnedPlate]
+
+    @State private var sceneState = SceneState()
+    @State private var assetsReady = false
     @State private var showDoneButton = false
-    @State private var animationTask: Task<Void, Never>? = nil
+    @State private var dropTask: Task<Void, Never>? = nil
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
+            if assetsReady {
+                BarbellRealityView(
+                    mode: .rackRoom(
+                        rackedPlates: rackedPlates,
+                        floorPlates: momentFloorPlates,
+                        onRack: { plate in
+                            try? BarbellProgressService.shared.rackPlate(plate)
+                        },
+                        onUnrack: { plate in
+                            BarbellProgressService.shared.unrackPlate(plate)
+                        }
+                    ),
+                    sceneState: sceneState,
+                    allowsInteraction: true,
+                    showsStorage: false
+                )
+                .ignoresSafeArea()
+            } else {
+                ProgressView()
+                    .tint(DS.Theme.accent)
+            }
+
             VStack(spacing: 0) {
                 // Title
                 VStack(spacing: 6) {
                     Text("Added to your Barbell")
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(.white)
-                    Text("\(plates.count) new plate\(plates.count == 1 ? "" : "s")")
-                        .font(.subheadline)
+                    Text(subtitle)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.white.opacity(0.5))
                 }
                 .padding(.top, 48)
                 .padding(.bottom, 24)
-
-                // Barbell scene
-                ZStack {
-                    Color.black
-                    TimelineView(.animation) { _ in
-                        RealityView { _ in
-                            // Stub: real scene setup wired in Task 8 when BarbellPreviewView is refactored.
-                        } update: { _ in
-                            // Stub: wired in Task 8
-                            // No auto-spin: static by default
-                        }
-                        .gesture(
-                            DragGesture()
-                                .targetedToAnyEntity()
-                                .onChanged { value in
-                                    isDragging = true
-                                    let delta = Float(value.translation.width - lastTranslationX) * 0.008
-                                    scene.rotAngle -= delta
-                                    scene.root?.orientation = simd_quatf(angle: scene.rotAngle, axis: SIMD3(0, 1, 0))
-                                    lastTranslationX = value.translation.width
-                                }
-                                .onEnded { _ in
-                                    isDragging = false
-                                    lastTranslationX = 0
-                                }
-                        )
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 280)
 
                 Spacer()
 
@@ -87,12 +66,12 @@ struct BarbellMomentView: View {
                         onDismiss()
                     } label: {
                         Text("Done")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .frame(maxWidth: .infinity, minHeight: 48)
                     }
                     .background(DS.Semantic.brand)
                     .foregroundStyle(.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(ChamferedRectangle(.medium))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -100,30 +79,94 @@ struct BarbellMomentView: View {
             }
         }
         .onAppear {
-            animationTask = startPlateAnimation()
+            rebuildSceneState()
+            dropTask = startPlateDrop()
         }
         .onDisappear {
-            animationTask?.cancel()
+            dropTask?.cancel()
         }
     }
 
-    // MARK: - Animation sequence
+    private var subtitle: String {
+        return "\(plates.count) new plate\(plates.count == 1 ? "" : "s")"
+    }
+
+    private var sceneSignature: String {
+        (rackedPlates + floorPlates)
+            .map { "\($0.id):\($0.isRacked):\($0.rackPosition ?? -1)" }
+            .sorted()
+            .joined(separator: "|")
+    }
+
+    private var momentFloorPlates: [EarnedPlate] {
+        var usedIDs = Set<String>()
+        return plates.compactMap { info in
+            guard let plate = matchingFloorPlate(for: info, excluding: usedIDs) else { return nil }
+            usedIDs.insert(plate.id)
+            return plate
+        }
+    }
+
+    private func rebuildSceneState() {
+        let newState = SceneState()
+
+        for tierID in 0...6 {
+            newState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+            newState.materialCache[tierID] = buildMaterial(
+                forTierID: tierID,
+                textures: newState.plateTextureCache[tierID]
+            )
+        }
+        for tierID in 0...7 {
+            let cat = PlateAudioCategory.from(tierID: tierID)
+            _ = loadAudioResource(named: cat.clinkSoundName)
+            _ = loadAudioResource(named: cat.dropSoundName)
+        }
+
+        sceneState = newState
+        assetsReady = true
+    }
+
+    // MARK: - Drop sequence
 
     @discardableResult
-    private func startPlateAnimation() -> Task<Void, Never> {
+    private func startPlateDrop() -> Task<Void, Never> {
         Task { @MainActor in
-            for index in plates.indices {
-                try? await Task.sleep(for: .seconds(Double(index) * 0.6 + 0.3))
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                    seatedCount = index + 1
+            var consumedPlateIDs = Set<String>()
+            try? await Task.sleep(for: .milliseconds(250))
+
+            for (index, info) in plates.enumerated() {
+                guard let plate = matchingFloorPlate(for: info, excluding: consumedPlateIDs) else { continue }
+                consumedPlateIDs.insert(plate.id)
+
+                let didDrop = await sceneState.dropAwardPlateToFloor(
+                    plateID: plate.id,
+                    index: index,
+                    total: plates.count
+                )
+                if didDrop {
+                    BarbellProgressService.shared.playClinkHaptic()
                 }
-                BarbellProgressService.shared.playClinkHaptic()
+                try? await Task.sleep(for: .milliseconds(220))
             }
-            try? await Task.sleep(for: .seconds(0.8))
+            try? await Task.sleep(for: .seconds(1.0))
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                 showDoneButton = true
             }
         }
     }
 
+    private func matchingFloorPlate(for info: EarnedPlateInfo, excluding consumedPlateIDs: Set<String>) -> EarnedPlate? {
+        floorPlates
+            .filter {
+                !$0.isRacked &&
+                !consumedPlateIDs.contains($0.id) &&
+                $0.tierID == info.tierID &&
+                $0.weightKg == info.weightKg &&
+                $0.engravingText == info.engravingText &&
+                $0.earnedByEvent == info.earnedByEvent
+            }
+            .sorted { $0.earnedAt < $1.earnedAt }
+            .first
+    }
 }

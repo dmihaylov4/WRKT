@@ -81,7 +81,7 @@ struct VirtualRunMapComparisonView: View {
                             onDismiss()
                         } label: {
                             Text("Continue")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 48)
                                 .contentShape(Rectangle())
                         }
@@ -121,7 +121,7 @@ struct VirtualRunMapComparisonView: View {
             // Label
             if showLabel {
                 Text(label)
-                    .font(.caption.weight(.bold))
+                    .dsFont(.caption, weight: .bold)
                     .foregroundStyle(.white.opacity(0.6))
                     .padding(.horizontal, 20)
                     .transition(.opacity)
@@ -171,7 +171,7 @@ struct VirtualRunMapComparisonView: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Loading route...")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.4))
                 }
             }
@@ -184,10 +184,10 @@ struct VirtualRunMapComparisonView: View {
             .overlay {
                 VStack(spacing: 8) {
                     Image(systemName: "map")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(.white.opacity(0.3))
                     Text("No route recorded")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.4))
 
                     if isRetrying {
@@ -199,7 +199,7 @@ struct VirtualRunMapComparisonView: View {
                             onRetry()
                         } label: {
                             Label("Retry", systemImage: "arrow.clockwise")
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                                 .foregroundStyle(DS.Theme.accent)
                         }
                         .padding(.top, 4)
@@ -210,7 +210,7 @@ struct VirtualRunMapComparisonView: View {
 
     private func statPill(_ text: String) -> some View {
         Text(text)
-            .font(.caption.weight(.semibold))
+            .dsFont(.caption, weight: .semibold)
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)

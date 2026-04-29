@@ -179,6 +179,54 @@ extension Array where Element == Coordinate {
 // MARK: - Run to CompletedWorkout Conversion
 
 extension Run {
+    private var normalizedWorkoutType: String {
+        (workoutType ?? "").lowercased()
+    }
+
+    var isSupportedCardioForEnrichment: Bool {
+        normalizedWorkoutType.contains("run")
+            || normalizedWorkoutType.contains("walk")
+            || normalizedWorkoutType.contains("cycl")
+    }
+
+    var hasUsableRouteData: Bool {
+        (routeWithHR?.count ?? 0) > 1 || (route?.count ?? 0) > 1
+    }
+
+    var hasHeartRateDetailData: Bool {
+        (avgHeartRate ?? 0) > 0
+            || (maxHeartRate ?? 0) > 0
+            || (minHeartRate ?? 0) > 0
+            || !(hrSamples?.isEmpty ?? true)
+            || (routeWithHR?.contains { $0.hr != nil } ?? false)
+    }
+
+    var hasSplitData: Bool {
+        !(splits?.isEmpty ?? true)
+    }
+
+    var hasRunningDynamicsData: Bool {
+        avgRunningPower != nil
+            || avgCadence != nil
+            || avgStrideLength != nil
+            || avgGroundContactTime != nil
+            || avgVerticalOscillation != nil
+    }
+
+    var needsHistoricalEnrichment: Bool {
+        guard healthKitUUID != nil, isSupportedCardioForEnrichment else { return false }
+
+        if !hasUsableRouteData || !hasSplitData || !hasHeartRateDetailData {
+            return true
+        }
+
+        if normalizedWorkoutType.contains("run") && !hasRunningDynamicsData {
+            return true
+        }
+
+        return false
+    }
+
     /// Convert a Run to a CompletedWorkout for sharing.
     /// Strength-type workouts (functional training, strength training, etc.) will have
     /// isCardioWorkout == false because cardioWorkoutType is set and maps to .strength.

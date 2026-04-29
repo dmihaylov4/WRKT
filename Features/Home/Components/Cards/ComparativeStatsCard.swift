@@ -16,25 +16,25 @@ struct ComparativeStatsCard: View {
             // Header
             HStack {
                 Text("You vs. Friends")
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 24) // Space for arrow
 
                 Spacer()
 
                 Text(stats.weekRange)
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.secondary)
             }
 
             // Status badge
             HStack(spacing: 6) {
                 Image(systemName: stats.performanceStatus.icon)
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(stats.performanceStatus.color)
 
                 Text(stats.performanceStatus.message)
-                    .font(.title3.weight(.bold))
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(.primary)
             }
             .padding(.top, 2)
@@ -100,23 +100,23 @@ private struct ComparisonRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(label)
-                    .font(.subheadline.weight(isUser ? .semibold : .regular))
+                    .dsFont(.subheadline, weight: isUser ? .semibold : .regular)
                     .foregroundStyle(.primary)
 
                 Spacer()
 
                 if showDecimal {
                     Text(String(format: "%.1f", Double(value)))
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
                 } else {
                     Text("\(value)")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
                 }
 
                 Text("workouts")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
             }
 

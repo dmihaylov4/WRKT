@@ -96,9 +96,16 @@ struct FeedView: View {
         }
         .sheet(item: $postToEdit) { editPost in
             if let vm = viewModel {
-                EditPostView(post: editPost, currentUserId: deps.authService.currentUser?.id) { @MainActor @Sendable [editPost] caption, visibility in
-                    await vm.updatePost(editPost, caption: caption, visibility: visibility)
-                }
+                EditPostView(
+                    post: editPost,
+                    currentUserId: deps.authService.currentUser?.id,
+                    onSave: { @MainActor @Sendable [editPost] caption, visibility in
+                        await vm.updatePost(editPost, caption: caption, visibility: visibility)
+                    },
+                    onBackfillRoute: { @MainActor @Sendable [editPost] in
+                        await vm.backfillRouteMap(for: editPost)
+                    }
+                )
             }
         }
         .sheet(isPresented: $showingWorkoutSelector) {
@@ -257,7 +264,7 @@ struct FeedView: View {
                                 Image(systemName: "arrow.up.circle.fill")
                                     .foregroundStyle(DS.Semantic.brand)
                                 Text("\(viewModel.newPostsAvailable) new \(viewModel.newPostsAvailable == 1 ? "post" : "posts")")
-                                    .font(.subheadline.bold())
+                                    .dsFont(.subheadline, weight: .bold)
                                     .foregroundStyle(DS.Semantic.textPrimary)
                             }
                             .padding(.horizontal, 16)
@@ -304,6 +311,9 @@ struct FeedView: View {
                                     Task {
                                         await viewModel.deletePost(post)
                                     }
+                                },
+                                onBackfillRoute: {
+                                    await viewModel.backfillRouteMap(for: post)
                                 }
                             )
                             .onAppear {
@@ -320,7 +330,7 @@ struct FeedView: View {
                                 ProgressView()
                                     .padding(.vertical, 8)
                                 Text("Loading more...")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                                 Spacer()
                             }
@@ -332,7 +342,7 @@ struct FeedView: View {
                             HStack {
                                 Spacer()
                                 Text("You're all caught up!")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                                     .padding(.vertical, 16)
                                 Spacer()
@@ -378,11 +388,11 @@ struct FeedView: View {
 
             VStack(spacing: 8) {
                 Text("No Posts Yet")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("Add friends to see their workouts here")
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -391,7 +401,7 @@ struct FeedView: View {
                 showingUserSearch = true
             } label: {
                 Text("Find Friends")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.black)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)

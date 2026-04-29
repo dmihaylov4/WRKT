@@ -20,18 +20,18 @@ struct FriendActivityCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             // Header
             HStack {
                 Text("Friend Activity")
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.secondary)
 
                 Spacer()
 
                 if !dedupedActivities.isEmpty {
                     Text("\(dedupedActivities.count) recent")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -39,37 +39,37 @@ struct FriendActivityCard: View {
             // Title
             if summary.userWorkedOutToday {
                 Text("You're all crushing it!")
-                    .font(.title3.weight(.bold))
+                    .dsFont(.headline, weight: .bold)
                     .foregroundStyle(.primary)
-                    .padding(.top, 2)
+                    .padding(.top, 1)
             } else if summary.activities.isEmpty {
                 Text("Be the first to work out!")
-                    .font(.title3.weight(.bold))
+                    .dsFont(.headline, weight: .bold)
                     .foregroundStyle(.primary)
-                    .padding(.top, 2)
+                    .padding(.top, 1)
             } else {
                 Text("Your friends are working out")
-                    .font(.title3.weight(.bold))
+                    .dsFont(.headline, weight: .bold)
                     .foregroundStyle(.primary)
-                    .padding(.top, 2)
+                    .padding(.top, 1)
             }
 
             // Friend activities (1 per person, max 2 shown)
             if !dedupedActivities.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 7) {
                     ForEach(Array(dedupedActivities.prefix(2))) { activity in
                         FriendActivityRow(activity: activity)
                     }
 
                     if dedupedActivities.count > 2 {
                         Text("+ \(dedupedActivities.count - 2) more")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
             }
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(
             DS.card
@@ -86,6 +86,18 @@ struct FriendActivityCard: View {
         )
         .clipShape(ChamferedRectangle(.large))
         .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(.white.opacity(0.08))
+                .frame(height: 1)
+                .padding(.horizontal, 14)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(.white.opacity(0.08))
+                .frame(height: 1)
+                .padding(.horizontal, 14)
+        }
     }
 }
 
@@ -103,43 +115,43 @@ private struct FriendActivityRow: View {
                         .fill(Color(.systemGray5))
                         .overlay(
                             Text(String(activity.friendName.prefix(1)).uppercased())
-                                .font(.caption.bold())
+                                .dsFont(.caption, weight: .bold)
                                 .foregroundStyle(Color(.systemGray))
                         )
                 }
                 .resizable()
                 .scaledToFill()
-                .frame(width: 28, height: 28)
+                .frame(width: 26, height: 26)
                 .clipShape(Circle())
 
             // Info
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(activity.friendName)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.primary)
 
                     Text("•")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.tertiary)
 
                     Text(activity.timeAgoText)
-                        .font(.caption)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
                 HStack(spacing: 4) {
                     Text(activity.workoutName)
-                        .font(.caption)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
 
                     if let duration = activity.durationText {
                         Text("•")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.tertiary)
                         Text(duration)
-                            .font(.caption)
+                            .dsFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }

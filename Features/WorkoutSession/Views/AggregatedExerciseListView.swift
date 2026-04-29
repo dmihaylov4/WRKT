@@ -94,18 +94,18 @@ private struct ExerciseRowContent: View {
             // Favorite star
             if favs.ids.contains(exercise.id) {
                 Image(systemName: "star.fill")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Theme.accent)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(exercise.name)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 if !exercise.primaryMuscles.isEmpty {
                     Text(exercise.primaryMuscles.joined(separator: ", "))
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -113,7 +113,7 @@ private struct ExerciseRowContent: View {
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .opacity(0.6)
         }

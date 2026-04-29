@@ -1,10 +1,88 @@
+# REVIEW
+
+This revision resolves the previously identified execution risks. The plan now treats sharing as an explicit snapshot-per-send-batch model, avoids ghost local splits during accept races, preserves actionable network errors, closes notification lifecycle gaps, removes protocol leakage, avoids global `WorkoutSplit` initializer churn, and adds the missing test/audit/preflight work.
+
+## Key decisions in this revision
+
+1. **Snapshot-per-send-batch is explicit.** Each tap on Share creates a new immutable `shared_programs` snapshot plus its invite batch.
+2. **Creator and recipient ids are distinct.** `originProgramID` is for received/imported programs only. Creator-side tracking uses `lastSharedProgramID`.
+3. **Recipient accept is server-first.** The invite status transitions on the server before any local insert.
+4. **Terminal invite states clean up unread notifications.** Accept, decline, and revoke all remove unread invite notifications.
+5. **Planner defaults stay stable.** The plan no longer changes `WorkoutSplit.init` globally to save inactive by default.
+
+## Residual watchpoints
+
+- UI tasks now include a preflight grep/adaptation step for actual social/profile/avatar types in the repo.
+- A final DS/accessibility audit is explicitly required before merge.
+
+## Current implementation status (updated 2026-04-18)
+
+Implemented so far:
+
+- Phase A complete: Task 1, Task 2, Task 3, Task 4, Task 5, Task 5.5
+- Phase B mostly complete: Task 6, Task 7, Task 8
+- Phase C complete: Task 9
+- Phase D partially complete: Task 10 only
+- Wiring for `.programInvite` notification type exists at the model/routing placeholder level, but the actual planner preview flow from notification tap is not yet implemented
+
+Concrete files already landed:
+
+- `supabase/migrations/20260418100000_program_sharing.sql`
+- `Core/Models/SharedProgramStructure.swift`
+- `Features/Planner/Services/ProgramSerializer.swift`
+- `Features/Planner/Services/ProgramSharingRepository.swift`
+- `Features/Planner/ViewModels/ProgramLibraryViewModel.swift`
+- `Features/WorkoutSession/Models/PlannerModels.swift`
+- `Features/WorkoutSession/Services/PlannerStore.swift`
+- `Features/Social/Models/Notification.swift`
+- `Features/Social/Services/RealtimeService.swift`
+- `Core/Dependencies/AppDependencies.swift`
+- Planner-sharing tests under `WRKTTests/FeaturesTests/Planner`
+
+Important divergence from the original plan:
+
+- `shared_programs.creator_user_id` currently stores the authenticated sender, not the original creator attribution on a reshared split. Original attribution is preserved in `SharedProgramStructure.creator`. This was required to fit the current RLS insert model without breaking re-share authorization.
+
+What is not wired yet:
+
+- No visible planner library UI entry point yet
+- No in-app "Share split" button or sheet yet
+- No invite preview/accept screen yet
+- No activation sheet UI yet
+- No sent-invites UI yet
+
+User-reported blockers found while testing during this implementation:
+
+- Active-minutes regression outside this feature:
+  - week invalidation in stats could wipe `appleExerciseMinutes`
+  - launch recovery path for exercise minutes was incomplete
+  - user-week overlap logic could exclude valid weekly summary rows when `anchorWeekday != Monday`
+  - partial fixes were applied in:
+    - `Features/Statistics/Services/StatsAggregator.swift`
+    - `Features/Health/Services/HealthKitManager.swift`
+    - `Features/Profile/Models/WeeklyProgressTypes.swift`
+    - `Features/Rewards/Models/StreakResult.swift`
+    - `App/AppShellView.swift`
+- Planner setup flow layout bug outside program sharing:
+  - bottom chevron/advance CTA in `PlannerSetupCarouselView` can be hidden under the shell tab bar
+  - a temporary navbar fallback was added, but the shell/tab-bar overlap still needs a proper planner-flow-safe layout solution
+
+Execution note for the next slice:
+
+- Before continuing with Tasks 11-23, finish stabilizing the planner setup flow layout so plan creation is usable again.
+- Then proceed with Task 11 -> Task 13 first so there is an actual planner library entry point before building send/receive UI.
+
+---
+
 # Program Sharing Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let a user send a multi-week `WorkoutSplit` program to one or more friends. Friends preview, accept into a library, and later activate with customization (start date, rest days, starting weights). Attribution is permanent and re-share is allowed.
 
-**Architecture:** Snapshot fork model. Shared program is an immutable JSONB row on Supabase; each recipient creates an independent local `WorkoutSplit` on accept. Library equals the user's `WorkoutSplit` collection (active or not). Activation is a separate customization step.
+**Architecture:** Snapshot fork model with **snapshot-per-send-batch** semantics. Every time the sender taps Share, the app creates one new immutable `shared_programs` snapshot and one invite batch pointing at that snapshot. Recipients create independent local `WorkoutSplit` rows on accept. Library equals the user's `WorkoutSplit` collection (active or not). Activation is a separate customization step.
+
+**Important identity rule:** `originProgramID` is only for received/imported programs and points to the server snapshot a recipient accepted. Creator-side tracking of the latest sent batch uses a separate local field `lastSharedProgramID`. Do not treat a locally-authored split as having one canonical long-lived server program id.
 
 **Tech Stack:** Swift/SwiftUI, SwiftData, Supabase (Postgres + RLS + Realtime), Swift Testing framework.
 
@@ -69,6 +147,7 @@ Phases are large groupings; tasks are the commit units.
 - Task 3: Extend `WorkoutSplit` SwiftData model
 - Task 4: `ProgramSerializer` + round-trip tests
 - Task 5: Notification type `.programInvite`
+- Task 5.5: Preflight existing social/profile/planner shapes
 
 ### Phase B: Network layer
 
@@ -107,9 +186,13 @@ Phases are large groupings; tasks are the commit units.
 - Task 20: Edit-mode path in carousel with attribution preservation
 - Task 21: `SentInvitesSheet` (view recipients, revoke)
 
-### Phase I: Final
+### Phase I: Realtime polish
 
-- Task 22: End-to-end QA runbook
+- Task 22: Wire pending-invite realtime + notification refresh into library
+
+### Phase J: Final
+
+- Task 23: End-to-end QA runbook + DS/accessibility audit
 
 ---
 
@@ -294,13 +377,13 @@ create trigger notify_on_program_invite_insert
     for each row execute function public.notify_program_invite();
 
 -- Revocation cleanup: delete the unread notification for a revoked pending invite
-create or replace function public.cleanup_revoked_program_invite()
+create or replace function public.cleanup_program_invite_notification()
 returns trigger
 language plpgsql
 security definer
 as $$
 begin
-    if new.status = 'revoked' and old.status = 'pending' then
+    if old.status = 'pending' and new.status in ('accepted','declined','revoked') then
         delete from public.notifications
         where type = 'program_invite'
           and target_id = new.id
@@ -310,9 +393,9 @@ begin
 end;
 $$;
 
-create trigger cleanup_on_program_invite_revoke
+create trigger cleanup_on_program_invite_terminal_transition
     after update on public.program_invites
-    for each row execute function public.cleanup_revoked_program_invite();
+    for each row execute function public.cleanup_program_invite_notification();
 
 -- Realtime
 alter publication supabase_realtime add table public.program_invites;
@@ -337,6 +420,7 @@ Via Supabase SQL editor, run as an authenticated test user. Expected:
 - UPDATE attempting to mutate `program_id`, `sender_user_id`, `recipient_user_id`, or `created_at` (e.g., `update program_invites set program_id = '...' where id = ...`) fails with "program_invite identifying columns are immutable".
 - After the recipient accepts, then the sender soft-deletes the program (`update shared_programs set deleted_at = now() where id = ...`), the recipient's SELECT on that `shared_programs` row returns zero rows. The creator's SELECT still returns the row.
 - After the recipient declines an invite, the recipient's SELECT on the underlying `shared_programs` row returns zero rows.
+- After the recipient accepts, declines, or the sender revokes while the notification is still unread, the unread `program_invite` notification row is deleted. If the notification was already marked `read = true`, it remains as history.
 
 - [ ] **Step 1.4: Commit**
 
@@ -599,11 +683,12 @@ Do NOT change the `Schema([...])` registration shape in `App/WRKTApp.swift`. If 
 Locate the `@Model final class WorkoutSplit { ... }` block. Add these properties alongside the existing ones. All are optional with default `nil` so SwiftData's lightweight migration applies cleanly to existing rows.
 
 ```swift
-// Attribution (set when program arrives from a share; nil when user-created locally)
+// Attribution / sharing metadata
 var creatorUserID: String?
 var creatorUsername: String?
 var creatorDisplayName: String?
-var originProgramID: UUID?          // links back to shared_programs.id
+var originProgramID: UUID?          // received/imported shared_programs snapshot id
+var lastSharedProgramID: UUID?      // creator-side latest sent snapshot id
 var programDescription: String?
 var importedAt: Date?               // nil means "created here"
 var createdAt: Date?                // library sort order; nil for pre-feature rows
@@ -621,6 +706,7 @@ init(id: UUID = UUID(),
      creatorUsername: String? = nil,
      creatorDisplayName: String? = nil,
      originProgramID: UUID? = nil,
+     lastSharedProgramID: UUID? = nil,
      programDescription: String? = nil,
      importedAt: Date? = nil) {
     self.id = id
@@ -629,11 +715,12 @@ init(id: UUID = UUID(),
     self.anchorDate = anchorDate
     self.cursor = 0
     self.reschedulePolicy = reschedulePolicy.rawValue
-    self.isActive = true  // keep existing default for now; Task 19 will change this
+    self.isActive = true  // preserve existing app-wide default; planner flow opts out explicitly later
     self.creatorUserID = creatorUserID
     self.creatorUsername = creatorUsername
     self.creatorDisplayName = creatorDisplayName
     self.originProgramID = originProgramID
+    self.lastSharedProgramID = lastSharedProgramID
     self.programDescription = programDescription
     self.importedAt = importedAt
     self.createdAt = Date()
@@ -660,6 +747,16 @@ git commit -m "feat(planner): add attribution fields to WorkoutSplit"
 - Create: `Features/Planner/Services/ProgramSerializer.swift`
 - Test: `WRKTTests/FeaturesTests/Planner/ProgramSerializerTests.swift`
 - Test: `WRKTTests/FeaturesTests/Planner/ProgramAttributionTests.swift`
+
+- [ ] **Step 4.0: Confirm existing planner API assumptions before implementation**
+
+Run:
+
+```bash
+rg -n "var policy|func generatePlannedWorkouts\\(" Features/WorkoutSession
+```
+
+Expected: both `WorkoutSplit.policy` and `PlannerStore.generatePlannedWorkouts(for:days:)` already exist. If either differs, adapt Tasks 6/9 to the real signatures instead of adding duplicate APIs.
 
 - [ ] **Step 4.1: Write the failing tests**
 
@@ -1014,6 +1111,29 @@ git commit -m "feat(notifications): add programInvite notification type"
 
 ---
 
+## Task 5.5: Preflight existing social/profile/planner shapes
+
+**Files:**
+- No code changes required; this is a pre-implementation validation step.
+
+- [ ] **Step 5.5.1: Resolve real type/component names before UI tasks**
+
+Run:
+
+```bash
+rg -n "struct Friend|class FriendshipRepository|class ProfileRepository|fetchFriends\\(|fetchProfile\\(|avatar|Avatar|CalendarMonthView" Features Core App
+```
+
+Confirm the concrete names for:
+- friend model fields used in picker rows
+- profile model fields used in preview/sent-invites rows
+- avatar component, if any
+- planner root file hosting the library entry point
+
+If `ProfileAvatar` does not exist, substitute the actual avatar view or `KFImage` pattern used elsewhere in the app. Do not cargo-cult placeholder names from this plan into code.
+
+---
+
 ## Task 6: `ProgramSharingRepository` — scaffolding + send
 
 **Files:**
@@ -1104,8 +1224,10 @@ final class ProgramSharingRepository {
 
     // MARK: - Send
 
-    /// Serialize a local split, insert shared_programs, then fan-out program_invites.
-    /// Returns the created program and per-recipient invite results.
+    /// Serialize a local split, insert a new immutable shared_programs snapshot for THIS
+    /// send batch, then fan-out program_invites. Every tap on Share creates a fresh
+    /// snapshot row; creator-side UI should use `lastSharedProgramID` to track the most
+    /// recent sent batch, not `originProgramID`.
     struct SendResult {
         let program: SharedProgramRow
         let succeeded: [ProgramInviteRow]
@@ -1187,6 +1309,12 @@ final class ProgramSharingRepository {
             } catch {
                 failed.append((recipientId, error))
             }
+        }
+
+        // If every invite failed, remove the just-created snapshot so we do not leave
+        // unreachable orphan rows in shared_programs.
+        if succeeded.isEmpty {
+            try? await softDeleteProgram(id: program.id)
         }
 
         return SendResult(program: program, succeeded: succeeded, failed: failed)
@@ -1290,8 +1418,11 @@ Append to the class body:
                 .execute()
                 .value
             return updated
-        } catch {
+        } catch let error as PostgrestError
+            where error.message.contains("JSON object requested, multiple (or no) rows returned") {
             throw ProgramSharingError.inviteAlreadyResponded
+        } catch {
+            throw error
         }
     }
 
@@ -1309,8 +1440,11 @@ Append to the class body:
                 .execute()
                 .value
             return updated
-        } catch {
+        } catch let error as PostgrestError
+            where error.message.contains("JSON object requested, multiple (or no) rows returned") {
             throw ProgramSharingError.inviteAlreadyResponded
+        } catch {
+            throw error
         }
     }
 
@@ -1445,8 +1579,9 @@ struct ActivationCustomization: Sendable {
     var startDate: Date
     /// Optional per-block overrides for rest-day flag (indexed by PlanBlock.id).
     var restDayOverrides: [UUID: Bool]
-    /// Optional per-exercise starting weight (indexed by PlanBlockExercise.id). nil means leave unset.
-    var startingWeights: [UUID: Double?]
+    /// Optional per-exercise starting weight override (indexed by PlanBlockExercise.id).
+    /// Missing key means leave unchanged.
+    var startingWeights: [UUID: Double]
 }
 ```
 
@@ -1630,7 +1765,11 @@ At the end of `Features/Planner/Services/ProgramSharingRepository.swift`, add a 
 protocol ProgramSharingRepositoryInterface: AnyObject {
     func fetchProgram(id: UUID) async throws -> SharedProgramRow
     func fetchInvite(id: UUID) async throws -> ProgramInviteRow
+    func fetchPendingInvites(for userId: UUID) async throws -> [ProgramInviteRow]
+    func fetchSentInvites(for userId: UUID, programId: UUID?) async throws -> [ProgramInviteRow]
     func accept(inviteId: UUID) async throws -> ProgramInviteRow
+    func decline(inviteId: UUID) async throws -> ProgramInviteRow
+    func revoke(inviteId: UUID) async throws -> ProgramInviteRow
 }
 
 extension ProgramSharingRepository: ProgramSharingRepositoryInterface {
@@ -1723,9 +1862,10 @@ final class ProgramLibraryViewModel {
         senderUsername: String?,
         senderDisplayName: String?
     ) async throws {
-        // Fetch the invite to learn the program id
-        let invite = try await repo.fetchInvite(id: inviteId)
-        let program = try await repo.fetchProgram(id: invite.programId)
+        // Server-first: transition invite state before inserting a local split so a race
+        // with revoke/decline cannot leave a ghost program in the recipient library.
+        let acceptedInvite = try await repo.accept(inviteId: inviteId)
+        let program = try await repo.fetchProgram(id: acceptedInvite.programId)
 
         let creator = ProgramSerializer.CreatorAttribution(
             userID: program.creatorUserId.uuidString,
@@ -1743,7 +1883,6 @@ final class ProgramLibraryViewModel {
         )
 
         try plannerStore.insert(split)
-        _ = try await repo.accept(inviteId: inviteId)
 
         refreshLibrary()
     }
@@ -2075,18 +2214,21 @@ In the NavigationStack that contains `CalendarMonthView`:
 }
 ```
 
-Where `libraryViewModel` is constructed once in the owning view using `@State` and the injected `@Environment(\.dependencies)`:
+Where `libraryViewModel` is constructed once in the owning view and then reused:
 
 ```swift
-@State private var libraryViewModel: ProgramLibraryViewModel?
+@State private var libraryViewModel: ProgramLibraryViewModel
 
-// in .onAppear or init:
-let me = deps.authService.currentUser?.id ?? UUID()  // guard as appropriate
-libraryViewModel = ProgramLibraryViewModel(
-    repo: deps.programSharingRepository,
-    plannerStore: PlannerStore.shared,
-    currentUserID: me
-)
+init(deps: AppDependencies = .shared) {
+    let me = deps.authService.currentUser?.id ?? UUID()
+    _libraryViewModel = State(
+        initialValue: ProgramLibraryViewModel(
+            repo: deps.programSharingRepository,
+            plannerStore: deps.plannerStore,
+            currentUserID: me
+        )
+    )
+}
 ```
 
 - [ ] **Step 13.2: Expose `programSharingRepository` on `AppDependencies`**
@@ -2184,7 +2326,7 @@ struct FriendMultiPicker: View {
 }
 ```
 
-Note: `ProfileAvatar` is the existing avatar component in the codebase; if the name differs, swap in the actual component. `Friend` is the model returned by `FriendshipRepository.fetchFriends(userId:)`.
+Note: the avatar component and field names must be taken from the preflight step above. If no dedicated avatar component exists, use the repo's existing `KFImage`/placeholder pattern instead of inventing `ProfileAvatar`.
 
 - [ ] **Step 14.2: Build**
 
@@ -2474,6 +2616,8 @@ final class ProgramInviteViewModel {
     func accept() async -> Bool {
         guard let invite, let program else { return false }
         do {
+            _ = try await sharingRepo.accept(inviteId: invite.id)
+
             let creator = ProgramSerializer.CreatorAttribution(
                 userID: program.creatorUserId.uuidString,
                 username: senderProfile?.username,
@@ -2489,7 +2633,6 @@ final class ProgramInviteViewModel {
                 originProgramID: program.id
             )
             try plannerStore.insert(split)
-            _ = try await sharingRepo.accept(inviteId: invite.id)
             return true
         } catch {
             errorMessage = error.localizedDescription
@@ -2674,6 +2817,12 @@ git commit -m "feat(planner): add ProgramPreviewView + ViewModel"
 
 - [ ] **Step 17.1: Add the routing case**
 
+Landmark grep:
+
+```bash
+rg -n "case \\.virtualRunInvite|case \\.friendRequest" Features/Social
+```
+
 Find the notification tap handler and add:
 
 ```swift
@@ -2722,7 +2871,7 @@ final class ProgramActivationViewModel {
     let split: WorkoutSplit
     var startDate: Date = Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
     var restDayOverrides: [UUID: Bool] = [:]
-    var startingWeights: [UUID: Double?] = [:]
+    var startingWeights: [UUID: Double] = [:]
     var errorMessage: String?
 
     private let plannerStore: PlannerStore
@@ -2745,6 +2894,12 @@ final class ProgramActivationViewModel {
     }
 
     func activate() -> Bool {
+        for weight in startingWeights.values {
+            if !weight.isFinite || weight < 0 {
+                errorMessage = "Starting weights must be zero or greater."
+                return false
+            }
+        }
         do {
             let customization = ActivationCustomization(
                 startDate: startDate,
@@ -2813,8 +2968,14 @@ struct ProgramActivationSheet: View {
                                 Spacer()
                                 TextField("kg",
                                           value: Binding(
-                                            get: { viewModel.startingWeights[ex.id] ?? nil },
-                                            set: { viewModel.startingWeights[ex.id] = $0 }
+                                            get: { viewModel.startingWeights[ex.id] },
+                                            set: {
+                                                if let value = $0 {
+                                                    viewModel.startingWeights[ex.id] = value
+                                                } else {
+                                                    viewModel.startingWeights.removeValue(forKey: ex.id)
+                                                }
+                                            }
                                           ),
                                           format: .number)
                                 .keyboardType(.decimalPad)
@@ -2869,23 +3030,28 @@ git commit -m "feat(planner): add ProgramActivationSheet + ViewModel"
 
 **Files:**
 - Modify: `Features/Planner/PlannerSetupCarouselView.swift`
-- Modify: `Features/WorkoutSession/Models/PlannerModels.swift` — flip `isActive` default in `WorkoutSplit.init` from `true` to `false`
 
-- [ ] **Step 19.1: Change `WorkoutSplit.init` to default `isActive = false`**
+- [ ] **Step 19.1: Keep `WorkoutSplit.init` default unchanged; make the planner flow opt into inactive creation**
 
-In `Features/WorkoutSession/Models/PlannerModels.swift`, change:
+Do **not** change `WorkoutSplit.init` globally. That would alter every existing call site.
 
-```swift
-self.isActive = true  // keep existing default for now; Task 19 will change this
-```
-
-to:
+Instead, in `PlannerSetupCarouselView`, after creating the split and before saving:
 
 ```swift
-self.isActive = false
+split.isActive = false
 ```
 
-- [ ] **Step 19.2: Update the carousel final step to present an "Activate now" choice**
+- [ ] **Step 19.2: Audit `WorkoutSplit(` call sites for accidental behavior coupling**
+
+Run:
+
+```bash
+rg -n "WorkoutSplit\\(" Features App WRKTTests
+```
+
+Expected: planner creation flow is the only place that should now explicitly set `isActive = false`. Leave all other call sites untouched unless they also represent a library-only save path.
+
+- [ ] **Step 19.3: Update the carousel final step to present an "Activate now" choice**
 
 In `PlannerSetupCarouselView`'s save-and-finish path, after creating the `WorkoutSplit`, insert it (inactive), then present `ProgramActivationSheet` with the new split as a terminal step. If the user cancels the activation sheet, the split remains in the library, inactive.
 
@@ -2910,18 +3076,17 @@ Attach a sheet:
 
 Also add an explicit "Save for later" button in the final step that simply inserts + dismisses without showing the activation sheet.
 
-- [ ] **Step 19.3: Build + smoke run**
+- [ ] **Step 19.4: Build + smoke run**
 
 Run: `xcodebuild build -scheme WRKT -destination 'platform=iOS Simulator,name=iPhone 16'`
 Expected: BUILD SUCCEEDED.
 
 Manually: create a new split via the carousel. Expected: final step shows "Activate now" (opens activation sheet) and "Save for later" (dismisses, split appears in library as inactive).
 
-- [ ] **Step 19.4: Commit**
+- [ ] **Step 19.5: Commit**
 
 ```bash
-git add Features/Planner/PlannerSetupCarouselView.swift \
-        Features/WorkoutSession/Models/PlannerModels.swift
+git add Features/Planner/PlannerSetupCarouselView.swift
 git commit -m "feat(planner): save-inactive by default, optional activate-now"
 ```
 
@@ -3043,15 +3208,15 @@ struct SentInvitesSheet: View {
     }
 
     private func load() async {
-        guard let originId = split.originProgramID else {
-            // For self-created splits, program id must be derived from server.
-            // If no originProgramID, we have no way to scope; show empty state.
+        guard let batchId = split.lastSharedProgramID else {
+            // Snapshot-per-send-batch model: creator-side sent invites are scoped to the
+            // most recent share batch snapshot, not to originProgramID.
             return
         }
         do {
             let me = deps.authService.currentUser?.id ?? UUID()
             invites = try await deps.programSharingRepository.fetchSentInvites(
-                for: me, programId: originId
+                for: me, programId: batchId
             )
             let ids = Set(invites.map { $0.recipientUserId })
             var dict: [UUID: UserProfile] = [:]
@@ -3077,25 +3242,18 @@ struct SentInvitesSheet: View {
 }
 ```
 
-Note: for self-created splits, `originProgramID` is only set when the split is sent for the first time. Either:
-- (a) set `originProgramID` on the local split after `send()` completes, OR
-- (b) store a separate `sent_program_id` field.
+In the snapshot-per-send-batch model, creator-authored splits should persist the latest
+sent batch id into `lastSharedProgramID`. Received/imported splits continue to use
+`originProgramID`.
 
-Option (a) is simpler and semantically correct ("the id this split is associated with on the server"). Update `ProgramSharingRepository.send` to, after the insert, write `split.originProgramID = program.id` via the caller's `ModelContext.save()`.
+- [ ] **Step 21.2: Update send flow to persist `lastSharedProgramID` on creator-owned splits**
 
-- [ ] **Step 21.2: Update send flow to persist originProgramID on self-created splits**
-
-In `ProgramLibraryView`, after `viewModel.refreshLibrary()` post-share, the `ProgramShareViewModel.send` callback must write `split.originProgramID = result.program.id` and save context. Add this to the `ProgramShareViewModel.send` method:
+In `ProgramShareViewModel.send`, after a send with at least one success:
 
 ```swift
-if result.failed.isEmpty || !result.succeeded.isEmpty {
-    if split.originProgramID == nil {
-        split.originProgramID = result.program.id
-        // SwiftData context save is required; inject via initializer if the VM
-        // doesn't already have access to ModelContext. For simplicity use
-        // PlannerStore.shared.saveContext() exposed via a new helper.
-        try? PlannerStore.shared.saveContext()
-    }
+if !result.succeeded.isEmpty {
+    split.lastSharedProgramID = result.program.id
+    try? PlannerStore.shared.saveContext()
 }
 ```
 
@@ -3141,8 +3299,7 @@ Extend `ProgramLibraryViewModel` with `refreshPendingInvites()` and `startRealti
 
     func refreshPendingInvites() async {
         do {
-            let rows = try await (repo as? ProgramSharingRepository)?
-                .fetchPendingInvites(for: currentUserID) ?? []
+            let rows = try await repo.fetchPendingInvites(for: currentUserID)
             var displays: [PendingInviteDisplay] = []
             for row in rows {
                 let profile = try? await profileRepo.fetchProfile(userId: row.senderUserId)
@@ -3180,16 +3337,27 @@ Extend `ProgramLibraryViewModel` with `refreshPendingInvites()` and `startRealti
     }
 ```
 
+Also update the view model initializer in Task 10 / Task 13 so `realtime` and `profileRepo`
+are injected explicitly rather than fetched through a downcast or global singleton.
+
+- [ ] **Step 22.2: Use server-side realtime filter**
+
+In `RealtimeService.subscribeToProgramInvites`, pass:
+
+```swift
+filter: "recipient_user_id=eq.\(uid)"
+```
+
 Call `refreshPendingInvites()` and `startRealtime()` from `ProgramLibraryView.onAppear` (after `refreshLibrary()`).
 
-- [ ] **Step 22.2: Build + smoke**
+- [ ] **Step 22.3: Build + smoke**
 
 Run: `xcodebuild build -scheme WRKT -destination 'platform=iOS Simulator,name=iPhone 16'`
 Expected: BUILD SUCCEEDED.
 
 Manually with two accounts: A sends, B sees "Shared with me" section populate in real time on device B with the library view open.
 
-- [ ] **Step 22.3: Commit**
+- [ ] **Step 22.4: Commit**
 
 ```bash
 git commit -am "feat(planner): subscribe to pending invites in library"
@@ -3197,17 +3365,18 @@ git commit -am "feat(planner): subscribe to pending invites in library"
 
 ---
 
-## Task 23: End-to-end QA runbook
+## Task 23: End-to-end QA runbook + DS/accessibility audit
 
 No code changes. This is a manual pass to verify every flow end-to-end.
 
-- [ ] **23.1: Send** — Account A, library, Share on a split, pick friends B and C, optional description, Send. Verify: toast, library view shows split `originProgramID` set (via Sent invites sheet, which loads rows for that program).
+- [ ] **23.1: Send** — Account A, library, Share on a split, pick friends B and C, optional description, Send. Verify: toast, library view shows sent invites for the latest batch, and the local split persists `lastSharedProgramID` for that batch.
 
 - [ ] **23.2: Receive (notification)** — Account B: bell shows a new "A shared a program with you" notification. Tap. `ProgramPreviewView` opens with correct name, description, and block list. Weights are absent.
 
 - [ ] **23.3: Receive (section)** — Account B: open Planner > Programs. "Shared with me (2)" visible (if C also gets one, or with two senders). Tapping the invite opens the preview.
 
 - [ ] **23.4: Decline** — Account B declines C's invite. It disappears from Shared with me and is marked `declined`. No local split created. Account C's "Sent invites" shows status `declined`.
+- [ ] **23.4b: Accept race safety** — Account A revokes while Account B is on the preview screen. If B taps Accept after the revoke lands, accept fails cleanly and no local split is inserted.
 
 - [ ] **23.5: Accept** — Account B accepts A's invite. Library now shows the forked split with "Originally by A". It is inactive.
 
@@ -3218,8 +3387,10 @@ No code changes. This is a manual pass to verify every flow end-to-end.
 - [ ] **23.8: Re-share** — Account B re-shares to Account D. Account D accepts. Account D's library shows "Originally by A" (not B).
 
 - [ ] **23.9: Revoke** — Account A sends a new program to E (pending). From Sent invites, A revokes. E's bell notification (if unread) disappears. E's Shared with me updates live to remove the invite.
+- [ ] **23.10: Error semantics** — Force a network/auth failure during accept or decline. Verify the UI shows the actual error, not "already responded."
+- [ ] **23.11: DS / accessibility audit** — Run `/axiom:audit accessibility` on the new planner-sharing views and fix any contrast, hit-target, or voiceover issues before merge.
 
-- [ ] **23.10: RLS boundary** — Account F (not friends with A) tries to fetch A's shared_programs row directly via the Supabase client. Expected: zero rows.
+- [ ] **23.12: RLS boundary** — Account F (not friends with A) tries to fetch A's shared_programs row directly via the Supabase client. Expected: zero rows.
 
 - [ ] **23.11: Soft delete** — Account A soft-deletes a shared program (can be triggered via debug action or SQL). Existing accepted copies on B/C/D are untouched (splits still in their libraries, still usable). Any still-pending invites fetch fail with "This program is no longer available" on accept attempt.
 
@@ -3253,9 +3424,9 @@ Spec coverage check:
 - Edit flow with attribution preservation + active-split replan -> Task 20
 - Re-share (attribution preservation) -> Task 4 + Task 15 (uses `outgoingAttribution`)
 - Sent invites view + revoke -> Task 21
-- End-to-end QA -> Task 23
+- End-to-end QA + DS/accessibility audit -> Task 23
 
-Placeholder scan: No "TBD", "TODO", or vague instructions. Every code block is complete and compilable as written (subject to existing codebase types like `ProfileAvatar`, `Friend`, `UserProfile`, `ProfileRepository`, `deps.authService.currentUser` matching their real shapes; engineer should substitute exact member names where this plan's guesses are off by one character).
+Placeholder scan: No "TBD", "TODO", or vague instructions. Every code block is implementation-ready, with explicit preflight called out where UI component/type names depend on the current repo (`Friend`, avatar component, `UserProfile`, `ProfileRepository`, planner root view, `deps.authService.currentUser`).
 
 Type consistency:
 - `ProgramSerializer.CreatorAttribution` used consistently in Tasks 4, 10, 15, 16.
@@ -3277,8 +3448,3 @@ Two execution options:
 2. **Inline Execution** — Execute tasks in this session using executing-plans, batch execution with checkpoints.
 
 Which approach?
-
-
-
-
-

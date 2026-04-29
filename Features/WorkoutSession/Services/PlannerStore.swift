@@ -9,6 +9,27 @@ import SwiftData
 import Observation
 import OSLog
 
+enum PlannerScheduleError: LocalizedError {
+    case conflictingWorkout(date: Date, workoutName: String)
+    case missingSplit
+
+    var errorDescription: String? {
+        switch self {
+        case .conflictingWorkout(let date, let workoutName):
+            let formattedDate = date.formatted(date: .abbreviated, time: .omitted)
+            return "\"\(workoutName)\" is already planned for \(formattedDate). Choose a different date."
+        case .missingSplit:
+            return "The active plan for this workout could not be found."
+        }
+    }
+}
+
+struct ActivationCustomization: Sendable {
+    var startDate: Date
+    var restDayOverrides: [UUID: Bool]
+    var startingWeights: [UUID: Double]
+}
+
 @Observable
 @MainActor
 final class PlannerStore {
@@ -226,6 +247,20 @@ final class PlannerStore {
  
     }
 
+    /// Fetch and complete a planned workout by ID
+    func completePlannedWorkout(id: UUID, completed: CompletedWorkout) {
+        do {
+            guard let planned = try plannedWorkout(id: id) else {
+                AppLogger.warning("Planned workout not found for completion: \(id)", category: AppLogger.storage)
+                return
+            }
+
+            try completePlannedWorkout(planned, completed: completed)
+        } catch {
+            AppLogger.error("Failed to complete planned workout \(id): \(error)", category: AppLogger.storage)
+        }
+    }
+
     /// Fetch a split by ID
     private func fetchSplit(id: UUID) throws -> WorkoutSplit? {
         guard let context = context else { return nil }
@@ -262,9 +297,58 @@ final class PlannerStore {
     /// Reschedule a planned workout to a new date
     func reschedulePlannedWorkout(_ planned: PlannedWorkout, to newDate: Date) throws {
         guard let context = context else { return }
+        let normalizedDate = Calendar.current.startOfDay(for: newDate)
 
-        planned.scheduledDate = newDate
+        if let conflict = try conflictingPlannedWorkout(on: normalizedDate, excluding: [planned.id]) {
+            throw PlannerScheduleError.conflictingWorkout(
+                date: normalizedDate,
+                workoutName: conflict.splitDayName
+            )
+        }
+
+        planned.scheduledDate = normalizedDate
         planned.workoutStatus = .rescheduled
+        try context.save()
+    }
+
+    /// Shift all upcoming incomplete workouts for a split by a fixed number of days.
+    func shiftUpcomingPlannedWorkouts(for splitID: UUID, startingAt startDate: Date, by dayOffset: Int) throws {
+        guard let context = context else { return }
+        guard dayOffset != 0 else { return }
+
+        let calendar = Calendar.current
+        let normalizedStartDate = calendar.startOfDay(for: startDate)
+        let splitWorkouts = try upcomingPlannedWorkouts(for: splitID, startingAt: normalizedStartDate)
+        let movingIDs = Set(splitWorkouts.map(\.id))
+
+        for workout in splitWorkouts {
+            guard let shiftedDate = calendar.date(byAdding: .day, value: dayOffset, to: workout.scheduledDate) else {
+                continue
+            }
+
+            let normalizedShiftedDate = calendar.startOfDay(for: shiftedDate)
+            if let conflict = try conflictingPlannedWorkout(on: normalizedShiftedDate, excluding: movingIDs) {
+                throw PlannerScheduleError.conflictingWorkout(
+                    date: normalizedShiftedDate,
+                    workoutName: conflict.splitDayName
+                )
+            }
+        }
+
+        for workout in splitWorkouts {
+            guard let shiftedDate = calendar.date(byAdding: .day, value: dayOffset, to: workout.scheduledDate) else {
+                continue
+            }
+            workout.scheduledDate = calendar.startOfDay(for: shiftedDate)
+        }
+
+        guard let split = try fetchSplit(id: splitID) else {
+            throw PlannerScheduleError.missingSplit
+        }
+        if let shiftedAnchorDate = calendar.date(byAdding: .day, value: dayOffset, to: split.anchorDate) {
+            split.anchorDate = calendar.startOfDay(for: shiftedAnchorDate)
+        }
+
         try context.save()
     }
 
@@ -278,6 +362,17 @@ final class PlannerStore {
 
         let predicate = #Predicate<PlannedWorkout> { planned in
             planned.scheduledDate == targetDate
+        }
+
+        return try context.fetch(FetchDescriptor(predicate: predicate)).first
+    }
+
+    /// Fetch planned workout by ID
+    func plannedWorkout(id: UUID) throws -> PlannedWorkout? {
+        guard let context = context else { return nil }
+
+        let predicate = #Predicate<PlannedWorkout> { planned in
+            planned.id == id
         }
 
         return try context.fetch(FetchDescriptor(predicate: predicate)).first
@@ -308,6 +403,83 @@ final class PlannerStore {
 
         let predicate = #Predicate<WorkoutSplit> { $0.isActive == true }
         return try context.fetch(FetchDescriptor(predicate: predicate)).first
+    }
+
+    /// All workout splits sorted by newest available timestamp first.
+    func splitLibrary() throws -> [WorkoutSplit] {
+        guard let context = context else { return [] }
+
+        let splits = try context.fetch(FetchDescriptor<WorkoutSplit>())
+        return splits.sorted { lhs, rhs in
+            let lhsDate = lhs.createdAt ?? lhs.importedAt ?? .distantPast
+            let rhsDate = rhs.createdAt ?? rhs.importedAt ?? .distantPast
+            if lhsDate != rhsDate {
+                return lhsDate > rhsDate
+            }
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    func insert(_ split: WorkoutSplit) throws {
+        guard let context = context else { return }
+        context.insert(split)
+        try context.save()
+    }
+
+    func saveContext() throws {
+        try context?.save()
+    }
+
+    func activate(_ split: WorkoutSplit, customization: ActivationCustomization) throws {
+        guard let context = context else { return }
+
+        let activeSplits = try context.fetch(
+            FetchDescriptor<WorkoutSplit>(predicate: #Predicate { $0.isActive == true })
+        )
+        for other in activeSplits where other.id != split.id {
+            other.isActive = false
+        }
+
+        for block in split.planBlocks {
+            if let override = customization.restDayOverrides[block.id] {
+                block.isRestDay = override
+            }
+
+            for exercise in block.exercises {
+                if let weight = customization.startingWeights[exercise.id] {
+                    exercise.startingWeight = weight
+                }
+            }
+        }
+
+        split.anchorDate = split.anchorDateAligningFirstWorkout(to: customization.startDate)
+        split.cursor = 0
+        split.isActive = true
+
+        try context.save()
+        try replanUpcomingWorkouts(for: split, fromDate: split.anchorDate)
+    }
+
+    func replanUpcomingWorkouts(for split: WorkoutSplit, fromDate: Date = .now) throws {
+        guard let context = context else { return }
+
+        let splitID = split.id
+        let cutoff = Calendar.current.startOfDay(for: fromDate)
+        let descriptor = FetchDescriptor<PlannedWorkout>(
+            predicate: #Predicate {
+                $0.splitID == splitID &&
+                $0.scheduledDate >= cutoff &&
+                $0.completedWorkoutID == nil
+            }
+        )
+
+        let futurePlanned = try context.fetch(descriptor)
+        for workout in futurePlanned {
+            context.delete(workout)
+        }
+
+        try context.save()
+        try generatePlannedWorkouts(for: split, days: 30)
     }
 
     // MARK: - Data Migration Utilities
@@ -349,5 +521,43 @@ final class PlannerStore {
 
         AppLogger.success("✅ Deleted \(allWorkouts.count) planned workouts", category: AppLogger.storage)
     }
+
+    private func conflictingPlannedWorkout(on date: Date, excluding excludedIDs: Set<UUID>) throws -> PlannedWorkout? {
+        guard let context = context else { return nil }
+
+        let normalizedDate = Calendar.current.startOfDay(for: date)
+        let predicate = #Predicate<PlannedWorkout> { planned in
+            planned.scheduledDate == normalizedDate
+        }
+
+        return try context.fetch(FetchDescriptor(predicate: predicate))
+            .first(where: { !excludedIDs.contains($0.id) })
+    }
+
+    private func upcomingPlannedWorkouts(for splitID: UUID, startingAt startDate: Date) throws -> [PlannedWorkout] {
+        guard let context = context else { return [] }
+
+        let normalizedStartDate = Calendar.current.startOfDay(for: startDate)
+        let descriptor = FetchDescriptor<PlannedWorkout>(
+            predicate: #Predicate {
+                $0.splitID == splitID &&
+                $0.scheduledDate >= normalizedStartDate &&
+                $0.completedWorkoutID == nil
+            },
+            sortBy: [SortDescriptor(\PlannedWorkout.scheduledDate)]
+        )
+
+        return try context.fetch(descriptor)
+    }
 }
 
+@MainActor
+protocol PlannerStoreInterface: AnyObject {
+    func splitLibrary() throws -> [WorkoutSplit]
+    func insert(_ split: WorkoutSplit) throws
+    func activate(_ split: WorkoutSplit, customization: ActivationCustomization) throws
+    func replanUpcomingWorkouts(for split: WorkoutSplit, fromDate: Date) throws
+    func saveContext() throws
+}
+
+extension PlannerStore: PlannerStoreInterface {}

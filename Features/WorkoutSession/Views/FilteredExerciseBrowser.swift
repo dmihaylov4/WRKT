@@ -69,7 +69,7 @@ private struct SubregionRow: View {
                 .frame(width: 6, height: 6)
 
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
 
             Spacer()
         }

@@ -39,13 +39,13 @@ struct WeeklyProgressCard: View {
             // Header
             HStack {
                 Text("Weekly Progress")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.primary)
 
                 Spacer()
 
                 Text(statusMessage)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -56,18 +56,18 @@ struct WeeklyProgressCard: View {
                     .foregroundStyle(progressColor)
 
                 Text("/\(progress.targetDays)")
-                    .font(.title2.weight(.semibold))
+                    .dsFont(.title2, weight: .semibold)
                     .foregroundStyle(.secondary)
 
                 Text("workouts")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.tertiary)
 
                 Spacer()
 
                 // Percentage badge
                 Text("\(progress.percentage.safeInt)%")
-                    .font(.title2.weight(.bold))
+                    .dsFont(.title2, weight: .bold)
                     .foregroundStyle(progressColor)
             }
 

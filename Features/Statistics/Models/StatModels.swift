@@ -50,6 +50,28 @@ final class WeeklyTrainingSummary {
 }
 
 @Model
+final class DailyAppleExerciseSummary {
+    @Attribute(.unique) var key: String      // "yyyy-MM-dd" in local calendar
+    var dayStart: Date                       // normalized local start of day
+    var minutes: Int                         // Apple Exercise Time minutes for that exact day
+    var lastHealthSync: Date?
+
+    init(dayStart: Date, minutes: Int = 0, lastHealthSync: Date? = nil) {
+        let normalized = Calendar.current.startOfDay(for: dayStart)
+        self.dayStart = normalized
+        self.minutes = minutes
+        self.lastHealthSync = lastHealthSync
+
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = Calendar.current.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        self.key = formatter.string(from: normalized)
+    }
+}
+
+@Model
 final class ExerciseVolumeSummary {
     @Attribute(.unique) var key: String
     var exerciseID: String
@@ -69,6 +91,25 @@ final class ExerciseVolumeSummary {
         let y = comps.yearForWeekOfYear ?? 0
         let w = comps.weekOfYear ?? 0
         return "\(y)-\(w)"
+    }
+}
+
+enum HealthAggregationStore {
+    static func appleExerciseMinutes(
+        from start: Date,
+        to end: Date,
+        in context: ModelContext,
+        calendar: Calendar = .current
+    ) -> Int {
+        let descriptor = FetchDescriptor<DailyAppleExerciseSummary>(
+            predicate: #Predicate { $0.dayStart < end }
+        )
+        let rows = (try? context.fetch(descriptor)) ?? []
+        return rows.reduce(0) { total, row in
+            let dayEnd = calendar.date(byAdding: .day, value: 1, to: row.dayStart) ?? row.dayStart
+            guard row.dayStart < end && dayEnd > start else { return total }
+            return total + row.minutes
+        }
     }
 }
 

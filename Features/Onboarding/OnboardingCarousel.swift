@@ -43,24 +43,18 @@ struct OnboardingCarouselView: View {
 
     var body: some View {
         ZStack {
-            // Background
-            LinearGradient(
-                colors: [DS.Theme.cardBottom, DS.Theme.cardTop],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            DS.Semantic.surface
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Skip button
                 HStack {
                     Spacer()
                     Button {
                         onComplete()
                     } label: {
                         Text("Skip")
-                            .font(.subheadline.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.6))
+                            .dsFont(.subheadline, weight: .medium)
+                            .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 8)
                     }
@@ -68,7 +62,6 @@ struct OnboardingCarouselView: View {
                 .padding(.top, 16)
                 .padding(.trailing, 16)
 
-                // Page content
                 TabView(selection: $currentPage) {
                     ForEach(0..<pages.count, id: \.self) { index in
                         if pages[index].isBodyweightInput {
@@ -83,18 +76,16 @@ struct OnboardingCarouselView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: currentPage)
 
-                // Page indicators
                 HStack(spacing: 8) {
                     ForEach(0..<pages.count, id: \.self) { index in
-                        Circle()
-                            .fill(currentPage == index ? DS.Theme.accent : .white.opacity(0.3))
-                            .frame(width: currentPage == index ? 24 : 8, height: 8)
+                        Capsule()
+                            .fill(currentPage == index ? DS.Theme.accent : DS.Semantic.surface50)
+                            .frame(width: currentPage == index ? 22 : 8, height: 8)
                             .animation(.spring(response: 0.3), value: currentPage)
                     }
                 }
                 .padding(.bottom, 24)
 
-                // Action button
                 Button {
                     if currentPage < pages.count - 1 {
                         withAnimation {
@@ -105,12 +96,11 @@ struct OnboardingCarouselView: View {
                     }
                 } label: {
                     Text(currentPage < pages.count - 1 ? "Next" : "Get Started")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(DS.Theme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(DS.Theme.accent, in: ChamferedRectangle(.large))
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -141,33 +131,24 @@ private struct OnboardingPageView: View {
     let page: OnboardingPage
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 28) {
             Spacer()
 
-            // Icon - clean and professional with border
-            Image(systemName: page.icon)
-                .font(.system(size: 80, weight: .semibold))
-                .foregroundStyle(page.accentColor)
-                .padding(32)
-                .background(
-                    Circle()
-                        .stroke(page.accentColor.opacity(0.3), lineWidth: 2)
-                )
-                .padding(.bottom, 40)
+            OnboardingIcon(systemName: page.icon)
+                .padding(.bottom, 16)
 
-            // Title
             Text(page.title)
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .font(DS.Typography.custom(size: 30, weight: .bold))
+                .foregroundStyle(DS.Semantic.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            // Description
             Text(page.description)
-                .font(.system(size: 17, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(DS.Typography.custom(size: 17, weight: .regular))
+                .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 40)
 
             Spacer()
@@ -180,39 +161,29 @@ private struct BodyweightInputPageView: View {
     @Binding var bodyweight: Double
 
     var body: some View {
-        VStack(spacing: 32) {
+        VStack(spacing: 24) {
             Spacer()
 
-            // Icon - clean and professional with border
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 80, weight: .semibold))
-                .foregroundStyle(DS.Theme.accent)
-                .padding(32)
-                .background(
-                    Circle()
-                        .stroke(DS.Theme.accent.opacity(0.3), lineWidth: 2)
-                )
-                .padding(.bottom, 40)
+            OnboardingIcon(systemName: "figure.strengthtraining.traditional")
+                .padding(.bottom, 12)
 
-            // Title
             Text("Your Starting Point")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                .font(DS.Typography.custom(size: 30, weight: .bold))
+                .foregroundStyle(DS.Semantic.textPrimary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
 
-            // Description
             Text("Your bodyweight is required to calculate 1RM.")
-                .font(.system(size: 17, weight: .regular, design: .rounded))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(DS.Typography.custom(size: 17, weight: .regular))
+                .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 40)
 
-            // Bodyweight input
-            VStack(spacing: 12) {
+            VStack(spacing: 16) {
                 Text(String(format: "%.1f kg", bodyweight))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 54, weight: .bold))
                     .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
 
@@ -223,17 +194,7 @@ private struct BodyweightInputPageView: View {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                     } label: {
-                        ZStack {
-                            Circle()
-                                .fill(.white.opacity(0.15))
-                                .frame(width: 50, height: 50)
-                            Circle()
-                                .strokeBorder(.white.opacity(0.3), lineWidth: 1)
-                                .frame(width: 50, height: 50)
-                            Image(systemName: "minus")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
+                        OnboardingStepButton(systemImage: "minus")
                     }
                     .buttonStyle(.plain)
 
@@ -247,26 +208,50 @@ private struct BodyweightInputPageView: View {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
                     } label: {
-                        ZStack {
-                            Circle()
-                                .fill(.white.opacity(0.15))
-                                .frame(width: 50, height: 50)
-                            Circle()
-                                .strokeBorder(.white.opacity(0.3), lineWidth: 1)
-                                .frame(width: 50, height: 50)
-                            Image(systemName: "plus")
-                                .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
+                        OnboardingStepButton(systemImage: "plus")
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 32)
             }
+            .padding(18)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+            .padding(.horizontal, 24)
             .padding(.top, 16)
 
             Spacer()
         }
+    }
+}
+
+private struct OnboardingIcon: View {
+    let systemName: String
+
+    var body: some View {
+        ZStack {
+            ChamferedRectangle(.xl)
+                .fill(DS.Theme.accent.opacity(0.12))
+                .frame(width: 132, height: 132)
+                .overlay(ChamferedRectangle(.xl).stroke(DS.Theme.accent.opacity(0.35), lineWidth: 1.5))
+
+            Image(systemName: systemName)
+                .font(.system(size: 58, weight: .bold))
+                .foregroundStyle(DS.Theme.accent)
+        }
+    }
+}
+
+private struct OnboardingStepButton: View {
+    let systemImage: String
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 20, weight: .bold))
+            .foregroundStyle(DS.Semantic.textPrimary)
+            .frame(width: 50, height: 50)
+            .background(DS.Semantic.surface50.opacity(0.85), in: ChamferedRectangle(.medium))
+            .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 

@@ -159,7 +159,8 @@ final class ProfileViewModel {
 
         do {
             AppLogger.info("📤 Calling friendshipRepository.sendFriendRequest()", category: AppLogger.app)
-            try await friendshipRepository.sendFriendRequest(to: profile.id, from: currentUserId)
+            let friendship = try await friendshipRepository.sendFriendRequest(to: profile.id, from: currentUserId)
+            currentFriendship = friendship
             friendshipStatus = .pendingSent
             isLoadingFriendship = false
             Haptics.success()
@@ -235,6 +236,7 @@ final class ProfileViewModel {
         do {
             try await friendshipRepository.toggleMuteNotifications(friendshipId: friendshipId, muted: newMutedState)
             isMuted = newMutedState
+            currentFriendship?.mutedNotifications = newMutedState
             Haptics.soft()
         } catch {
             AppLogger.error("Failed to toggle mute notifications", error: error, category: AppLogger.app)

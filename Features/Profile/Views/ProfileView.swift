@@ -34,14 +34,7 @@ struct ProfileView: View {
     @State private var milestonesFrame: CGRect = .zero
     @State private var framesReady = false
     @State private var showSettings = false
-    @State private var allExercises: [Exercise] = []
-    @State private var dexPreviewCache: [DexItem] = []
-
-    // Cache expensive calculations
-    @State private var cachedWeekProgress: WeeklyProgress?
-    @State private var cachedMilestones: [Achievement] = []
-    @State private var lastSyncDate: Date?
-    @State private var statsRefreshTrigger = 0
+    @State private var viewModel = ProfileScreenViewModel()
 
     init() {
         // compute weekStart once for this view’s init
@@ -55,227 +48,85 @@ struct ProfileView: View {
         )
         _goals = Query(filter: #Predicate<WeeklyGoal> { $0.isSet == true })
     }
-    
-    private func syncHealthKitMinutes() async {
-        do {
-            // Request authorization if not already connected
-            if HealthKitManager.shared.connectionState != .connected {
-                try await HealthKitManager.shared.requestAuthorization()
-                await HealthKitManager.shared.setupBackgroundObservers()
-            }
 
-            // Trigger incremental sync (will update WeeklyTrainingSummary models)
-            await HealthKitManager.shared.syncExerciseTimeIncremental()
+    private var profileHeader: some View {
+        HStack {
+            Spacer()
 
-            // Check weekly goal streak after syncing and update cache
-            await MainActor.run {
-                checkWeeklyGoalStreak()
-                updateWeekProgressCache()
+            Button { showSettings = true } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("Settings")
+                        .dsFont(.caption, weight: .bold)
+                }
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .padding(.horizontal, 14)
+                .frame(height: 40)
+                .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
+                .overlay(
+                    ChamferedRectangle(.medium)
+                        .stroke(DS.Semantic.border, lineWidth: 1)
+                )
             }
-        } catch {
-            // Silently fail - authorization may not be granted yet
-            await MainActor.run {
-                checkWeeklyGoalStreak()
-                updateWeekProgressCache()
-            }
+            .buttonStyle(.plain)
         }
-    }
-
-    private func checkWeeklyGoalStreak() {
-        // NOTE: Don't validate/rebuild streak here - validation should only happen on app cold start
-        // to avoid recalculating and potentially corrupting the correct stored value.
-        // Just check current week's progress for potential streak increment.
-        guard let goal = goals.first else { return }
-        let weekProgress = store.currentWeekProgress(goal: goal, context: context)
-        RewardsEngine.shared.checkWeeklyGoalStreak(
-            weekStart: weekProgress.weekStart,
-            strengthDaysDone: weekProgress.strengthDaysDone,
-            strengthTarget: goal.targetStrengthDays,
-            mvpaMinutesDone: weekProgress.mvpaDone,
-            mvpaTarget: goal.targetActiveMinutes
-        )
+        .padding(.horizontal, 38)
     }
     
-    // MARK: - PR Dex preview items (unlocked first, then alpha; first 8)
-    private var dexPreview: [DexItem] {
-        Array(dexPreviewCache.prefix(8))
-    }
-
-    private var unlockedPRCount: Int {
-        dexPreviewCache.filter { $0.isUnlocked }.count
-    }
-
-    // MARK: - Cache Management
-
-    private func updateWeekProgressCache() {
-        guard let goal = goals.first else {
-            cachedWeekProgress = nil
-            return
-        }
-        cachedWeekProgress = store.currentWeekProgress(goal: goal, context: context)
-    }
-
-    private func updateMilestonesCache() {
-        cachedMilestones = achievements
-            .filter { !$0.id.hasPrefix("ach.pr.") }
-            .sorted { a, b in
-                // Sort completed achievements first
-                if (a.unlockedAt != nil) != (b.unlockedAt != nil) {
-                    return a.unlockedAt != nil
-                }
-                // Within same completion status, maintain original order
-                return false
-            }
-    }
-
-    private func refreshStats() {
-        // Increment trigger to force SwiftUI to refresh @Query views
-        statsRefreshTrigger += 1
-
-        // Also trigger a background recompute if needed
-        guard store.completedWorkouts.count > 0 else { return }
-
-        Task.detached(priority: .utility) {
-            // Small delay to ensure workout is fully saved
-            try? await Task.sleep(nanoseconds: 200_000_000) // 0.2 seconds
-
-            // Get stats aggregator and workouts from MainActor
-            let (statsAggregator, workouts) = await MainActor.run {
-                (store.stats, store.completedWorkouts)
-            }
-
-            if let stats = statsAggregator {
-                if let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -12, to: .now) {
-                    await stats.reindex(all: workouts, cutoff: cutoff)
-                    AppLogger.info("Stats refreshed from ProfileView", category: AppLogger.statistics)
-                }
-            }
-        }
-    }
-
-    private func shouldSyncHealthKit() -> Bool {
-        // Throttle syncs to max once per 5 minutes
-        guard let lastSync = lastSyncDate else { return true }
-        return Date().timeIntervalSince(lastSync) > 300 // 5 minutes
-    }
-
-    private func rebuildDexPreview() {
-        let unlockedDates: [String: Date] = Dictionary(
-            uniqueKeysWithValues: stamps.compactMap { s in
-                guard let d = s.unlockedAt else { return nil }
-                return (s.key, d)
-            }
-        )
-        let unlockedSet = Set(unlockedDates.keys)
-
-        // Split → sort → merge (using ALL exercises)
-        var unlocked: [DexItem] = []
-        var locked:   [DexItem] = []
-
-        unlocked.reserveCapacity(allExercises.count / 2)
-        locked.reserveCapacity(allExercises.count / 2)
-
-        for ex in allExercises {
-            let key = canonicalExerciseKey(from: ex.id)
-            let unlockedAt = unlockedDates[key]
-            let short = DexText.shortName(ex.name)
-
-            let item = DexItem(
-                id: ex.id,
-                name: ex.name,
-                short: short,
-                ruleId: "ach.pr.\(ex.id)",
-                progress: unlockedAt == nil ? 0 : 1,
-                target: 1,
-                unlockedAt: unlockedAt,
-                searchKey: DexItem.buildSearchKey(name: ex.name, short: short, id: ex.id)
-            )
-
-            if unlockedSet.contains(key) { unlocked.append(item) } else { locked.append(item) }
-        }
-
-        unlocked.sort { $0.short < $1.short }
-        locked.sort { $0.short < $1.short }
-
-        dexPreviewCache = unlocked + locked
-    }
-
     var body: some View {
         ScrollViewReader { proxy in
             List {
-                // SETTINGS BUTTON (top-right, compact)
-                Section {
-                    HStack {
-                        Spacer()
-                        Button { showSettings = true } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "gear")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(DS.Semantic.textSecondary)
-                                Text("Settings")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(DS.Semantic.textSecondary)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(
-                                ChamferedRectangle(.small)
-                                    .fill(Color.black)
-                                    .overlay(ChamferedRectangle(.small).stroke(.white.opacity(0.1), lineWidth: 1))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 0, trailing: 16))
-                .listRowBackground(Color.clear)
-
                 // UNIFIED PROGRESS OVERVIEW
                 if let p = progress.first {
                     Section {
                         if let goal = goals.first, goal.isSet {
                             // Use cached week progress instead of recalculating
-                            ProgressOverviewCard(
-                                level: p.level,
-                                xp: p.xp,
-                                prevXP: p.prevLevelXP,
-                                nextXP: p.nextLevelXP,
-                                streak: p.currentStreak,
-                                longest: p.longestStreak,
-                                progress: p,
-                                weekProgress: cachedWeekProgress,
-                                goal: goal
-                            )
-                            .task {
-                                // Only sync if enough time has passed
-                                if shouldSyncHealthKit() {
-                                    await syncHealthKitMinutes()
-                                    lastSyncDate = Date()
+                            VStack(spacing: 12) {
+                                profileHeader
+
+                                ProgressOverviewCard(
+                                    level: p.level,
+                                    xp: p.xp,
+                                    prevXP: p.prevLevelXP,
+                                    nextXP: p.nextLevelXP,
+                                    streak: p.currentStreak,
+                                    longest: p.longestStreak,
+                                    progress: p,
+                                    weekProgress: viewModel.cachedWeekProgress,
+                                    goal: goal
+                                )
+                                .task {
+                                    await viewModel.syncHealthKitIfNeeded(store: store, context: context, goals: goals)
+                                }
+                                .captureFrame(in: .global) { frame in
+                                    levelCardFrame = frame
+                                    checkFramesReady()
                                 }
                             }
-                            .captureFrame(in: .global) { frame in
-                                levelCardFrame = frame
-                                checkFramesReady()
-                            }
                         } else {
-                            ProgressOverviewCard(
-                                level: p.level,
-                                xp: p.xp,
-                                prevXP: p.prevLevelXP,
-                                nextXP: p.nextLevelXP,
-                                streak: p.currentStreak,
-                                longest: p.longestStreak,
-                                progress: p,
-                                weekProgress: nil,
-                                goal: nil
-                            )
-                            .captureFrame(in: .global) { frame in
-                                levelCardFrame = frame
-                                checkFramesReady()
+                            VStack(spacing: 12) {
+                                profileHeader
+
+                                ProgressOverviewCard(
+                                    level: p.level,
+                                    xp: p.xp,
+                                    prevXP: p.prevLevelXP,
+                                    nextXP: p.nextLevelXP,
+                                    streak: p.currentStreak,
+                                    longest: p.longestStreak,
+                                    progress: p,
+                                    weekProgress: nil,
+                                    goal: nil
+                                )
+                                .captureFrame(in: .global) { frame in
+                                    levelCardFrame = frame
+                                    checkFramesReady()
+                                }
                             }
                         }
                     }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 2, trailing: 0))
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 2, trailing: 0))
                     .listRowBackground(Color.clear)
                     .id("levelCard")
                 } else {
@@ -287,13 +138,13 @@ struct ProfileView: View {
                 }
 
                 // Weekly Goal Streak Card
-                if let p = progress.first, let goal = goals.first, goal.isSet, let weekProgress = cachedWeekProgress {
+                if let p = progress.first, let goal = goals.first, goal.isSet, let weekProgress = viewModel.cachedWeekProgress {
                     Section {
                         WeeklyStreakCard(
                             currentStreak: p.weeklyGoalStreakCurrent,
                             longestStreak: p.weeklyGoalStreakLongest,
                             progress: weekProgress,
-                            isFrozen: p.streakFrozen
+                            isFrozen: p.weeklyStreakFrozen
                         )
                     }
                     .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 4, trailing: 0))
@@ -310,7 +161,7 @@ struct ProfileView: View {
                         graphsFrame = frame
                         checkFramesReady()
                     }
-                    .id(statsRefreshTrigger) // Force refresh when this changes
+                    .id(viewModel.statsRefreshTrigger) // Force refresh when this changes
                 }
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
@@ -322,11 +173,11 @@ struct ProfileView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("PR Collection")
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                     .foregroundStyle(.white)
 
-                                Text("\(unlockedPRCount) / \(dexPreviewCache.count) unlocked")
-                                    .font(.caption)
+                                Text("\(viewModel.unlockedPRCount) / \(viewModel.dexPreviewCache.count) unlocked")
+                                    .dsFont(.caption)
                                     .foregroundStyle(.white.opacity(0.6))
                             }
 
@@ -339,7 +190,7 @@ struct ProfileView: View {
                         }
 
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
-                            ForEach(dexPreview) { item in
+                            ForEach(viewModel.dexPreview) { item in
                                 DexTile(item: item).equatable()
 
                             }
@@ -363,16 +214,16 @@ struct ProfileView: View {
                 .id("dex")
 
                 // MILESTONES (non-PR achievements) - use cached version
-                if !cachedMilestones.isEmpty {
+                if !viewModel.cachedMilestones.isEmpty {
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Milestones")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .foregroundStyle(.white)
 
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 10) {
-                                    ForEach(cachedMilestones.prefix(12)) { a in
+                                    ForEach(viewModel.cachedMilestones.prefix(12)) { a in
                                         MilestoneChip(a: a)
                                     }
                                 }
@@ -380,7 +231,7 @@ struct ProfileView: View {
                             }
 
                             NavigationLink("See all achievements") { AchievementsView() }
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                                 .padding(.top, 4)
                         }
                         .padding(16)
@@ -428,44 +279,36 @@ struct ProfileView: View {
             }
         }
         .task {
-            // Load ALL exercises for the dex preview
-            allExercises = await repo.getAllExercises()
-            rebuildDexPreview()
+            await viewModel.loadExercises(using: repo)
+            viewModel.rebuildDexPreview(stamps: stamps)
 
             // Refresh friend request badges
             await badgeManager.refreshBadges()
         }
         .onChange(of: stamps) { _ in
-            // Rebuild when stamps change (new PRs unlocked)
-            rebuildDexPreview()
+            viewModel.rebuildDexPreview(stamps: stamps)
         }
         .onChange(of: repo.exercises) { _ in
-            // Reload all exercises when exercises update
             Task {
-                allExercises = await repo.getAllExercises()
-                rebuildDexPreview()
+                await viewModel.loadExercises(using: repo)
+                viewModel.rebuildDexPreview(stamps: stamps)
             }
         }
         .onChange(of: store.completedWorkouts.count) { _, newCount in
-            // Update week progress cache when workouts change
-            updateWeekProgressCache()
+            viewModel.updateWeekProgress(goals: goals, store: store, context: context)
 
-            // Refresh stats when new workout is completed
             if newCount > 0 {
-                refreshStats()
+                viewModel.refreshStats(store: store)
             }
         }
         .onChange(of: achievements) { _, _ in
-            // Update milestones cache when achievements change
-            updateMilestonesCache()
+            viewModel.updateMilestones(achievements: achievements)
         }
         .onAppear {
-            // Initialize caches
-            updateWeekProgressCache()
-            updateMilestonesCache()
+            viewModel.updateWeekProgress(goals: goals, store: store, context: context)
+            viewModel.updateMilestones(achievements: achievements)
 
-            // Refresh stats when view appears
-            refreshStats()
+            viewModel.refreshStats(store: store)
 
             // Fallback: if frames haven't loaded after 1 second, show tutorial anyway
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -508,7 +351,7 @@ struct ProfileView: View {
         let graphsReady = graphsFrame != .zero && graphsFrame.width > minSize && graphsFrame.height > minSize
         let dexReady = dexFrame != .zero && dexFrame.width > minSize && dexFrame.height > minSize
         // Milestones are optional (might not exist for new users)
-        let milestonesReady = (milestonesFrame != .zero && milestonesFrame.width > minSize) || cachedMilestones.isEmpty
+        let milestonesReady = (milestonesFrame != .zero && milestonesFrame.width > minSize) || viewModel.cachedMilestones.isEmpty
 
         if levelReady && graphsReady && dexReady && milestonesReady && !framesReady {
             // Add a small delay to ensure frames are stable before showing tutorial
@@ -520,7 +363,7 @@ struct ProfileView: View {
 
     private func scrollToStep(_ step: Int, proxy: ScrollViewProxy) {
         // Map tutorial steps to section IDs
-        let hasMilestones = !cachedMilestones.isEmpty
+        let hasMilestones = !viewModel.cachedMilestones.isEmpty
 
         var sectionIDs: [String] = ["levelCard", "graphs", "dex"]
         if hasMilestones {
@@ -725,7 +568,7 @@ struct ProgressOverviewCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text("Level \(level)")
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(.white)
 
                     Spacer()
@@ -735,9 +578,13 @@ struct ProgressOverviewCard: View {
                     VStack(spacing: 2) {
                         Label {
                             Text("\(currentStreak)")
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                         } icon: {
-                            Image(systemName: "flame.fill")
+                            Image("streak-icon")
+                                .renderingMode(.template)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 17, height: 17)
                         }
                         .labelStyle(.titleAndIcon)
                     }
@@ -766,7 +613,7 @@ struct ProgressOverviewCard: View {
 
                 HStack {
                     Text(xpText)
-                        .font(.caption.monospacedDigit())
+                        .dsFont(.caption, monospacedDigits: true)
                         .foregroundStyle(.white.opacity(0.7))
 
                     Spacer()
@@ -779,13 +626,13 @@ struct ProgressOverviewCard: View {
                             return "Longest: \(longest) day\(longest == 1 ? "" : "s")"
                         }
                     }())
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.6))
                 }
             }
 
             // Streak Freeze Button
-            StreakFreezeButton(progress: progress)
+            StreakFreezeButton(progress: progress, hasWeeklyGoal: goal != nil)
 
             // Weekly Goals Section (if set)
             if let weekProgress = weekProgress, let goal = goal {
@@ -797,7 +644,7 @@ struct ProgressOverviewCard: View {
                         WeeklyGoalDetailView(progress: weekProgress, goal: goal)
                     } label: {
                         Text("Weekly Goals")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.white)
                     }
 
@@ -806,17 +653,17 @@ struct ProgressOverviewCard: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 4) {
                                 Image(systemName: "figure.run")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                 Text("Active Minutes")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                             }
                             .foregroundStyle(.white.opacity(0.7))
 
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
                                 Text("\(weekProgress.mvpaDone)")
-                                    .font(.title3.weight(.semibold))
+                                    .dsFont(.title3, weight: .semibold)
                                 Text("/ \(weekProgress.mvpaTarget)")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.white.opacity(0.6))
                             }
                             .foregroundStyle(.white)
@@ -833,17 +680,17 @@ struct ProgressOverviewCard: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 4) {
                                 Image(systemName: "dumbbell.fill")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                 Text("Strength Days")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                             }
                             .foregroundStyle(.white.opacity(0.7))
 
                             HStack(alignment: .firstTextBaseline, spacing: 2) {
                                 Text("\(weekProgress.strengthDaysDone)")
-                                    .font(.title3.weight(.semibold))
+                                    .dsFont(.title3, weight: .semibold)
                                 Text("/ \(weekProgress.strengthTarget)")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.white.opacity(0.6))
                             }
                             .foregroundStyle(.white)
@@ -864,15 +711,15 @@ struct ProgressOverviewCard: View {
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "target")
-                            .font(.body)
+                            .dsFont(.body)
                             .foregroundStyle(DS.Theme.accent)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Set Weekly Goals")
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(.white)
                             Text("Track active minutes & strength days")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.white.opacity(0.6))
                         }
 
@@ -927,12 +774,12 @@ private struct DexBadge: View {
                 Image(systemName: item.isUnlocked ? "trophy.fill" : "trophy")
                     .symbolRenderingMode(.monochrome)
                     .foregroundStyle(item.isUnlocked ? DS.Theme.accent : .secondary)
-                    .font(.title2.weight(.bold))
+                    .dsFont(.title2, weight: .bold)
             }
             .frame(height: 62)
 
             Text(item.short)
-                .font(.footnote.weight(.semibold))
+                .dsFont(.footnote, weight: .semibold)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.75)
@@ -957,12 +804,12 @@ private struct MilestoneChip: View {
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(a.unlockedAt == nil ? .secondary : DS.Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text(a.title).font(.subheadline.weight(.semibold))
+                Text(a.title).dsFont(.subheadline, weight: .semibold)
                 if let when = a.unlockedAt {
-                    Text(when, style: .date).font(.caption).foregroundStyle(.secondary)
+                    Text(when, style: .date).dsFont(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("\(a.progress)/\(a.target)")
-                        .font(.caption.monospacedDigit())
+                        .dsFont(.caption, monospacedDigits: true)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -991,19 +838,19 @@ private struct WeeklyGoalDetailView: View {
             Section {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("This Week's Progress")
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
 
                     HStack(spacing: 24) {
                         // MVPA Progress
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Active Minutes")
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(.secondary)
                             HStack(alignment: .firstTextBaseline, spacing: 4) {
                                 Text("\(progress.mvpaDone)")
-                                    .font(.title.weight(.semibold))
+                                    .dsFont(.title, weight: .semibold)
                                 Text("/ \(progress.mvpaTarget)")
-                                    .font(.title3)
+                                    .dsFont(.title3)
                                     .foregroundStyle(.secondary)
                             }
                             ProgressView(value: min(Double(progress.mvpaDone), Double(progress.mvpaTarget)), total: Double(max(progress.mvpaTarget, 1)))
@@ -1015,13 +862,13 @@ private struct WeeklyGoalDetailView: View {
                         // Strength Days Progress
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Strength Days")
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(.secondary)
                             HStack(alignment: .firstTextBaseline, spacing: 4) {
                                 Text("\(progress.strengthDaysDone)")
-                                    .font(.title.weight(.semibold))
+                                    .dsFont(.title, weight: .semibold)
                                 Text("/ \(progress.strengthTarget)")
-                                    .font(.title3)
+                                    .dsFont(.title3)
                                     .foregroundStyle(.secondary)
                             }
                             ProgressView(value: min(Double(progress.strengthDaysDone), Double(progress.strengthTarget)), total: Double(max(progress.strengthTarget, 1)))
@@ -1034,7 +881,7 @@ private struct WeeklyGoalDetailView: View {
                         Image(systemName: paceIcon)
                             .foregroundStyle(paceColor)
                         Text(progress.statusLine)
-                            .font(.subheadline.weight(.medium))
+                            .dsFont(.subheadline, weight: .medium)
                             .foregroundStyle(paceColor)
                     }
                     .padding(.vertical, 8)
@@ -1060,14 +907,14 @@ private struct WeeklyGoalDetailView: View {
                                 .foregroundStyle(DS.Theme.accent)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Start Strength Workout")
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                 Text("\(progress.strengthDaysLeft) day\(progress.strengthDaysLeft == 1 ? "" : "s") remaining")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(.tertiary)
                         }
                     }
@@ -1084,9 +931,9 @@ private struct WeeklyGoalDetailView: View {
                                 .foregroundStyle(.blue)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("View Cardio Activity")
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                 Text("\(progress.minutesLeft) min remaining")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -1103,14 +950,14 @@ private struct WeeklyGoalDetailView: View {
                                 .foregroundStyle(.pink)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Sync from Apple Health")
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                 Text("Import runs and exercise minutes")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(.tertiary)
                         }
                     }
@@ -1123,7 +970,7 @@ private struct WeeklyGoalDetailView: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                         Text("Weekly targets complete!")
-                            .font(.headline)
+                            .dsFont(.headline)
                     }
                 }
             }
@@ -1162,7 +1009,7 @@ private struct WeeklyGoalDetailView: View {
                     WeeklyGoalSetupView(goal: goal)
                 } label: {
                     Text("Edit")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                 }
             }
         }
@@ -1198,11 +1045,14 @@ private struct WeeklyGoalDetailView: View {
 
 private struct StreakFreezeButton: View {
     let progress: RewardProgress
+    let hasWeeklyGoal: Bool
 
     @State private var showActivateAlert = false
 
     private var freezeStatus: (canActivate: Bool, reason: String?) {
-        RewardsEngine.shared.canActivateStreakFreeze()
+        hasWeeklyGoal
+            ? RewardsEngine.shared.canActivateWeeklyStreakFreeze()
+            : RewardsEngine.shared.canActivateStreakFreeze()
     }
 
     var body: some View {
@@ -1212,33 +1062,33 @@ private struct StreakFreezeButton: View {
             showActivateAlert = true
         } label: {
             HStack(spacing: 6) {
-                Image(systemName: progress.streakFrozen ? "snowflake.circle.fill" : "snowflake.circle")
-                    .font(.subheadline)
+                Image(systemName: freezeIsActive ? "snowflake.circle.fill" : "snowflake.circle")
+                    .dsFont(.subheadline)
 
-                if progress.streakFrozen {
+                if freezeIsActive {
                     Text("Freeze Active")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                 } else if let reason = freezeStatus.reason {
                     Text(reason)
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                 } else {
                     Text("Freeze Streak")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .background(
-                progress.streakFrozen ? Color.blue.opacity(0.15) : Color.white.opacity(0.10),
+                freezeIsActive ? Color.blue.opacity(0.15) : Color.white.opacity(0.10),
                 in: Capsule()
             )
             .overlay(
                 Capsule().stroke(
-                    progress.streakFrozen ? Color.blue.opacity(0.3) : Color.white.opacity(0.15),
+                    freezeIsActive ? Color.blue.opacity(0.3) : Color.white.opacity(0.15),
                     lineWidth: 1
                 )
             )
-            .foregroundStyle(progress.streakFrozen ? .blue : .white.opacity(0.85))
+            .foregroundStyle(freezeIsActive ? .blue : .white.opacity(0.85))
             .contentShape(Capsule()) // Ensure tap target is only the capsule shape
         }
         .buttonStyle(.plain) // Prevent any default button animations that might trigger accidentally
@@ -1248,11 +1098,23 @@ private struct StreakFreezeButton: View {
                 showActivateAlert = false
             }
             Button("Activate") {
-                RewardsEngine.shared.activateStreakFreeze()
+                if hasWeeklyGoal {
+                    RewardsEngine.shared.activateWeeklyStreakFreeze()
+                } else {
+                    RewardsEngine.shared.activateStreakFreeze()
+                }
                 showActivateAlert = false
             }
         } message: {
-            Text("Protect your \(progress.currentStreak)-day streak. If you miss tomorrow, your streak won't break and you'll earn +50 XP bonus when you return!")
+            Text(
+                hasWeeklyGoal
+                    ? "Protect your \(progress.weeklyGoalStreakCurrent)-week streak. If you miss this week's goal, your streak will be preserved once."
+                    : "Protect your \(progress.currentStreak)-day streak. If you miss tomorrow, your streak won't break and you'll earn +50 XP bonus when you return!"
+            )
         }
+    }
+
+    private var freezeIsActive: Bool {
+        hasWeeklyGoal ? progress.weeklyStreakFrozen : progress.streakFrozen
     }
 }

@@ -62,11 +62,11 @@ struct ChallengeDetailView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(challengeTypeLabel)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Text(challenge.challenge.title)
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
@@ -75,7 +75,7 @@ struct ChallengeDetailView: View {
                 // Difficulty badge
                 if let difficulty = challenge.challenge.difficulty {
                     Text(difficulty.displayName)
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(difficultyTextColor)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -86,7 +86,7 @@ struct ChallengeDetailView: View {
 
             if let description = challenge.challenge.description {
                 Text(description)
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
@@ -98,7 +98,7 @@ struct ChallengeDetailView: View {
                     : "Challenge ended",
                 systemImage: "clock.fill"
             )
-            .font(.subheadline)
+            .dsFont(.subheadline)
             .foregroundStyle(daysRemaining > 0 ? DS.Semantic.brand : DS.Semantic.textSecondary)
         }
         .padding(16)
@@ -114,7 +114,7 @@ struct ChallengeDetailView: View {
     private func progressSection(progress: ChallengeParticipant) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Your Progress")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(spacing: 16) {
@@ -129,11 +129,11 @@ struct ChallengeDetailView: View {
                 // Progress text
                 VStack(spacing: 4) {
                     Text(progressValueText(progress: progress))
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.brand)
 
                     Text(progressTargetText)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -174,12 +174,12 @@ struct ChallengeDetailView: View {
     private var leaderboardSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Leaderboard")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             if challenge.topParticipants.isEmpty {
                 Text("No participants yet")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .padding()
                     .frame(maxWidth: .infinity)
@@ -210,7 +210,7 @@ struct ChallengeDetailView: View {
     private var detailsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Details")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(alignment: .leading, spacing: 12) {
@@ -273,7 +273,7 @@ struct ChallengeDetailView: View {
                 }
             } label: {
                 Text("Leave Challenge")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -288,7 +288,7 @@ struct ChallengeDetailView: View {
                 }
             } label: {
                 Text("Join Challenge")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
@@ -424,7 +424,7 @@ struct CircularProgressView: View {
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("Complete")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
@@ -439,15 +439,15 @@ struct ChallengeStatCard: View {
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(DS.Semantic.brand)
 
             Text(value)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity)
@@ -472,7 +472,7 @@ struct LeaderboardRow: View {
         HStack(spacing: 12) {
             // Rank badge
             Text("\(rank)")
-                .font(.headline.bold())
+                .dsFont(.headline, weight: .bold)
                 .foregroundStyle(rankColor)
                 .frame(width: 32, height: 32)
                 .background(rankColor.opacity(0.15))
@@ -481,11 +481,11 @@ struct LeaderboardRow: View {
             // User info (simplified - would need user lookup)
             VStack(alignment: .leading, spacing: 2) {
                 Text("User \(userId.prefix(8))")
-                    .font(.subheadline.bold())
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text(progressText)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
@@ -494,7 +494,7 @@ struct LeaderboardRow: View {
             // Progress percentage
             let percentage = (NSDecimalNumber(decimal: progress).doubleValue / NSDecimalNumber(decimal: target).doubleValue) * 100
             Text("\(Int(percentage))%")
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.brand)
         }
         .padding(12)
@@ -541,13 +541,13 @@ struct DetailRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Spacer()
 
             Text(value)
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
     }

@@ -46,13 +46,13 @@ struct RestTimerHeroContent: View {
                     .frame(width: 8, height: 8)
 
                 Text("REST")
-                    .font(.caption2.weight(.bold))
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(DS.Theme.accent)
             }
 
             // Exercise name
             Text(exerciseName)
-                .font(.caption.weight(.medium))
+                .dsFont(.caption, weight: .medium)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .lineLimit(1)
 
@@ -67,11 +67,11 @@ struct RestTimerHeroContent: View {
 
                 if h > 0 {
                     Text(String(format: "%d:%02d:%02d", h, m, s))
-                        .font(.caption.monospacedDigit().weight(.medium))
+                        .dsFont(.caption, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 } else {
                     Text(String(format: "%02d:%02d", m, s))
-                        .font(.caption.monospacedDigit().weight(.medium))
+                        .dsFont(.caption, weight: .medium, monospacedDigits: true)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -82,7 +82,7 @@ struct RestTimerHeroContent: View {
         VStack(spacing: 16) {
             // Large timer display
             Text(formatTime(restTimeRemaining))
-                .font(.system(size: 56, weight: .bold, design: .rounded))
+                .font(DS.Typography.custom(size: 56, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(DS.Theme.accent)
 
@@ -111,7 +111,7 @@ struct RestTimerHeroContent: View {
             // Skip rest
             Button(action: onSkipRest) {
                 Text("Skip")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -127,7 +127,7 @@ struct RestTimerHeroContent: View {
             // +15s extend
             Button { onExtendRest?() } label: {
                 Text("+15s")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
@@ -144,9 +144,9 @@ struct RestTimerHeroContent: View {
             Button(action: onAddExercise) {
                 HStack(spacing: 4) {
                     Image(systemName: "plus")
-                        .font(.caption.weight(.bold))
+                        .dsFont(.caption, weight: .bold)
                     Text("Add")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                 }
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .frame(maxWidth: .infinity)
@@ -164,9 +164,9 @@ struct RestTimerHeroContent: View {
             Button(action: onViewWorkout) {
                 HStack(spacing: 4) {
                     Text("View")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                     Image(systemName: "arrow.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                 }
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .frame(maxWidth: .infinity)

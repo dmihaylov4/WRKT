@@ -86,7 +86,7 @@ struct UserSearchView: View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Searching...")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -99,7 +99,7 @@ struct UserSearchView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text(error)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -114,11 +114,11 @@ struct UserSearchView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("Search for friends")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Enter a username to find people")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -131,11 +131,11 @@ struct UserSearchView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("No users found")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Try a different username")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -173,7 +173,7 @@ struct UserSearchResultRow: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(profile.username.prefix(1).uppercased())
-                                .font(.title3.bold())
+                                .dsFont(.title3, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
@@ -187,21 +187,21 @@ struct UserSearchResultRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 if let displayName = profile.displayName, !displayName.isEmpty {
                     Text(displayName)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("@\(profile.username)")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 } else {
                     Text("@\(profile.username)")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 if let bio = profile.bio, !bio.isEmpty {
                     Text(bio)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .lineLimit(1)
                 }
@@ -211,7 +211,7 @@ struct UserSearchResultRow: View {
 
             // Chevron
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
         .padding()

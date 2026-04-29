@@ -43,7 +43,7 @@ struct SplitsChart: View {
         VStack(alignment: .leading, spacing: 12) {
             if splits.isEmpty {
                 Text("No split data available")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
@@ -52,21 +52,21 @@ struct SplitsChart: View {
                 if let split = selectedSplit {
                     HStack(spacing: 8) {
                         Text("KM \(split.number)")
-                            .font(.subheadline.bold().monospacedDigit())
+                            .dsFont(.subheadline, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(DS.Semantic.brand)
 
                         Text("·")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(Color.white.opacity(0.35))
 
                         Text(paceString(split.paceSecPerKm) + " /km")
-                            .font(.subheadline.bold().monospacedDigit())
+                            .dsFont(.subheadline, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Color.white)
 
                         Spacer()
 
                         Text(formatDuration(split.durationSec))
-                            .font(.subheadline.monospacedDigit())
+                            .dsFont(.subheadline, monospacedDigits: true)
                             .foregroundStyle(Color.white.opacity(0.7))
                     }
                     .padding(.horizontal, 14)
@@ -215,7 +215,7 @@ struct HRZoneChart: View {
                 if !zones.isEmpty && totalMinutes > 0 {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Time in Zones")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         GeometryReader { geo in
@@ -238,30 +238,30 @@ struct HRZoneChart: View {
                                     .frame(width: 10, height: 10)
 
                                 Text("Z\(zone.zone)")
-                                    .font(.caption.bold())
+                                    .dsFont(.caption, weight: .bold)
                                     .foregroundStyle(DS.Semantic.textPrimary)
                                     .frame(width: 24, alignment: .leading)
 
                                 Text(zone.name)
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.textSecondary)
 
                                 Spacer()
 
                                 if totalMinutes > 0 {
                                     Text(String(format: "%.0f%%", (zone.minutes / totalMinutes) * 100))
-                                        .font(.caption.monospacedDigit())
+                                        .dsFont(.caption, monospacedDigits: true)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                         .frame(width: 36, alignment: .trailing)
                                 }
 
                                 Text(String(format: "%.0fm", zone.minutes))
-                                    .font(.caption.monospacedDigit())
+                                    .dsFont(.caption, monospacedDigits: true)
                                     .foregroundStyle(DS.Semantic.textPrimary)
                                     .frame(width: 32, alignment: .trailing)
 
                                 Text(zone.rangeDisplay)
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                                     .frame(width: 75, alignment: .trailing)
                             }
@@ -269,7 +269,7 @@ struct HRZoneChart: View {
                     }
                 } else {
                     Text("No heart rate zone data")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 20)
@@ -279,7 +279,7 @@ struct HRZoneChart: View {
             if showTimeSeriesSection, let samples = samples, samples.count > 2 {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Heart Rate Over Time")
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Chart {
@@ -299,7 +299,7 @@ struct HRZoneChart: View {
                             AxisValueLabel {
                                 if let intValue = value.as(Int.self) {
                                     Text("\(intValue)")
-                                        .font(.caption2)
+                                        .dsFont(.caption2)
                                 }
                             }
                         }
@@ -307,8 +307,12 @@ struct HRZoneChart: View {
                     .chartXAxis {
                         AxisMarks(values: .automatic(desiredCount: 4)) { value in
                             AxisGridLine()
-                            AxisValueLabel(format: .dateTime.hour().minute())
-                                .font(.caption2)
+                            AxisValueLabel {
+                                if let date = value.as(Date.self) {
+                                    Text(date, format: .dateTime.hour().minute())
+                                        .dsFont(.caption2)
+                                }
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -337,7 +341,7 @@ struct RunningDynamicsGrid: View {
         if hasAnyData {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Running Dynamics")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -393,14 +397,14 @@ struct RunningDynamicsGrid: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.brand)
                 Text(title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
             Text(value)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

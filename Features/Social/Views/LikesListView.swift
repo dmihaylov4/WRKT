@@ -17,7 +17,7 @@ struct LikesListView: View {
             // Header
             HStack {
                 Text("Liked by")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -26,7 +26,7 @@ struct LikesListView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -49,7 +49,7 @@ struct LikesListView: View {
                         .font(.system(size: 36))
                         .foregroundStyle(DS.Semantic.textSecondary)
                     Text("No likes yet")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
                 Spacer()
@@ -100,7 +100,7 @@ private struct LikerRow: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(user.username.prefix(1).uppercased())
-                                .font(.subheadline.bold())
+                                .dsFont(.subheadline, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
@@ -114,14 +114,14 @@ private struct LikerRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 if let displayName = user.displayName, !displayName.isEmpty {
                     Text(displayName)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Text("@\(user.username)")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 } else {
                     Text("@\(user.username)")
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
             }

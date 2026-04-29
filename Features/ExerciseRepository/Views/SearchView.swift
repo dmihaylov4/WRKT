@@ -132,7 +132,7 @@ struct SuggestionList: View {
                         NavigationLink(value: SearchDestination.exercise(ex)) {
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 8) {
-                                    Text(ex.name).font(.body)
+                                    Text(ex.name).dsFont(.body)
                                     if ex.isCustom {
                                         CustomExerciseBadge()
                                     }
@@ -141,7 +141,7 @@ struct SuggestionList: View {
                                     Text(ex.category.capitalized)
                                     if let equip = ex.equipment { Text(equip) }
                                 }
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
                             }
                         }

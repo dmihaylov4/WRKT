@@ -141,7 +141,7 @@ struct RegionExerciseListView: View {
             Haptics.light()
         } label: {
             Image(systemName: "magnifyingglass")
-                .font(.title3)
+                .dsFont(.title3)
         }
         .accessibilityLabel("Search exercises")
     }
@@ -151,7 +151,7 @@ struct RegionExerciseListView: View {
             showingCreateExercise = true
         } label: {
             Image(systemName: "plus.circle.fill")
-                .font(.title3)
+                .dsFont(.title3)
         }
         .accessibilityLabel("Create custom exercise")
     }
@@ -364,7 +364,7 @@ private struct ExerciseRow: View {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
                     Text(exercise.name)
-                        .font(.body)
+                        .dsFont(.body)
                     if exercise.isCustom {
                         CustomExerciseBadge()
                     }
@@ -394,24 +394,24 @@ private struct EmptyStateView: View {
                 .foregroundStyle(.secondary)
 
             Text("No Exercises Found")
-                .font(.headline)
+                .dsFont(.headline)
 
             if isSearching {
                 Text("No exercises match '\(searchText)'")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal)
             } else if hasFiltersApplied {
                 Text("Try adjusting your filters")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.secondary)
 
                 Button {
                     onClearFilters()
                 } label: {
                     Text("Clear All Filters")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Palette.marone)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 10)
@@ -421,7 +421,7 @@ private struct EmptyStateView: View {
                 .buttonStyle(.plain)
             } else {
                 Text("No exercises available")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }

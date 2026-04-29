@@ -139,6 +139,7 @@ struct DayStat: Identifiable, Hashable {
     var isPlannedCompleted: Bool { plannedWorkout?.workoutStatus == .completed }
     var isPlannedPartial: Bool { plannedWorkout?.workoutStatus == .partial }
     var isPlannedSkipped: Bool { plannedWorkout?.workoutStatus == .skipped }
+    var isPlannedRescheduled: Bool { plannedWorkout?.workoutStatus == .rescheduled }
     var isPlannedScheduled: Bool { plannedWorkout?.workoutStatus == .scheduled }
 
     // Has any strength activity (in-app or HealthKit)

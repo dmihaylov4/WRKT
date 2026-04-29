@@ -18,6 +18,7 @@
 import SwiftUI
 import UIKit
 import Combine
+
 // MARK: - Hex & Dynamic Helpers
 public extension Color {
     /// Initialize a Color with a hex string like "#6B21A8" or "6B21A8".
@@ -321,14 +322,235 @@ public enum DS {
         }
     }
 
-    // MARK: Typography (system, dynamic type friendly)
+    // MARK: Typography
+    public enum Typography {
+        public enum Weight {
+            case light
+            case regular
+            case medium
+            case semibold
+            case bold
+            case heavy
+            case black
+
+            fileprivate var fontName: String {
+                switch self {
+                case .light: "BarlowSemiCondensed-Light"
+                case .regular: "BarlowSemiCondensed-Regular"
+                case .medium: "BarlowSemiCondensed-Medium"
+                case .semibold: "BarlowSemiCondensed-SemiBold"
+                case .bold: "BarlowSemiCondensed-Bold"
+                case .heavy: "BarlowSemiCondensed-ExtraBold"
+                case .black: "BarlowSemiCondensed-Black"
+                }
+            }
+
+            fileprivate var swiftUIWeight: Font.Weight {
+                switch self {
+                case .light: .light
+                case .regular: .regular
+                case .medium: .medium
+                case .semibold: .semibold
+                case .bold: .bold
+                case .heavy: .heavy
+                case .black: .black
+                }
+            }
+
+            fileprivate var uiKitWeight: UIFont.Weight {
+                switch self {
+                case .light: .light
+                case .regular: .regular
+                case .medium: .medium
+                case .semibold: .semibold
+                case .bold: .bold
+                case .heavy: .heavy
+                case .black: .black
+                }
+            }
+        }
+
+        public enum Role {
+            case largeTitle
+            case title
+            case subtitle
+            case body
+            case bodyStrong
+            case footnote
+            case caption
+            case badge
+            case sectionTitle
+            case cardTitle
+            case screenTitle
+            case heroTitle
+            case statValue
+            case timer
+            case navigationTitle
+            case navigationLargeTitle
+            case tabLabel
+            case buttonCompact
+            case buttonRegular
+            case buttonLarge
+        }
+
+        private struct Spec {
+            let size: CGFloat
+            let fontStyle: Font.TextStyle
+            let uiTextStyle: UIFont.TextStyle
+            let weight: Weight
+        }
+
+        private static func spec(for role: Role) -> Spec {
+            switch role {
+            case .largeTitle:
+                Spec(size: 34, fontStyle: .largeTitle, uiTextStyle: .largeTitle, weight: .bold)
+            case .title:
+                Spec(size: 22, fontStyle: .title2, uiTextStyle: .title2, weight: .bold)
+            case .subtitle:
+                Spec(size: 15, fontStyle: .subheadline, uiTextStyle: .subheadline, weight: .semibold)
+            case .body:
+                Spec(size: 17, fontStyle: .body, uiTextStyle: .body, weight: .regular)
+            case .bodyStrong:
+                Spec(size: 17, fontStyle: .body, uiTextStyle: .body, weight: .semibold)
+            case .footnote:
+                Spec(size: 13, fontStyle: .footnote, uiTextStyle: .footnote, weight: .regular)
+            case .caption:
+                Spec(size: 12, fontStyle: .caption, uiTextStyle: .caption1, weight: .medium)
+            case .badge:
+                Spec(size: 12, fontStyle: .caption, uiTextStyle: .caption1, weight: .semibold)
+            case .sectionTitle:
+                Spec(size: 17, fontStyle: .headline, uiTextStyle: .headline, weight: .semibold)
+            case .cardTitle:
+                Spec(size: 20, fontStyle: .title3, uiTextStyle: .title3, weight: .semibold)
+            case .screenTitle:
+                Spec(size: 22, fontStyle: .title2, uiTextStyle: .title2, weight: .bold)
+            case .heroTitle:
+                Spec(size: 34, fontStyle: .largeTitle, uiTextStyle: .largeTitle, weight: .heavy)
+            case .statValue:
+                Spec(size: 28, fontStyle: .title, uiTextStyle: .title1, weight: .bold)
+            case .timer:
+                Spec(size: 22, fontStyle: .title2, uiTextStyle: .title2, weight: .bold)
+            case .navigationTitle:
+                Spec(size: 17, fontStyle: .headline, uiTextStyle: .headline, weight: .bold)
+            case .navigationLargeTitle:
+                Spec(size: 34, fontStyle: .largeTitle, uiTextStyle: .largeTitle, weight: .bold)
+            case .tabLabel:
+                Spec(size: 11, fontStyle: .caption, uiTextStyle: .caption1, weight: .medium)
+            case .buttonCompact:
+                Spec(size: 16, fontStyle: .callout, uiTextStyle: .callout, weight: .semibold)
+            case .buttonRegular:
+                Spec(size: 17, fontStyle: .body, uiTextStyle: .body, weight: .semibold)
+            case .buttonLarge:
+                Spec(size: 17, fontStyle: .headline, uiTextStyle: .headline, weight: .bold)
+            }
+        }
+
+        public static func font(_ role: Role, monospacedDigits: Bool = false) -> Font {
+            let spec = spec(for: role)
+            return custom(
+                size: spec.size,
+                weight: spec.weight,
+                relativeTo: spec.fontStyle,
+                monospacedDigits: monospacedDigits
+            )
+        }
+
+        public static func font(
+            _ textStyle: Font.TextStyle,
+            weight: Weight = .regular,
+            monospacedDigits: Bool = false
+        ) -> Font {
+            custom(
+                size: defaultSize(for: textStyle),
+                weight: weight,
+                relativeTo: textStyle,
+                monospacedDigits: monospacedDigits
+            )
+        }
+
+        public static func custom(
+            size: CGFloat,
+            weight: Weight = .regular,
+            relativeTo textStyle: Font.TextStyle = .body,
+            monospacedDigits: Bool = false
+        ) -> Font {
+            let fontName = weight.fontName
+            let resolvedFont: Font
+
+            if UIFont(name: fontName, size: size) != nil {
+                resolvedFont = .custom(fontName, size: size, relativeTo: textStyle)
+            } else {
+                resolvedFont = .system(size: size, weight: weight.swiftUIWeight, design: .default)
+            }
+
+            return monospacedDigits ? resolvedFont.monospacedDigit() : resolvedFont
+        }
+
+        public static func uiFont(_ role: Role) -> UIFont {
+            let spec = spec(for: role)
+            return uiFont(size: spec.size, weight: spec.weight, textStyle: spec.uiTextStyle)
+        }
+
+        public static func uiFont(
+            _ textStyle: Font.TextStyle,
+            weight: Weight = .regular
+        ) -> UIFont {
+            uiFont(size: defaultSize(for: textStyle), weight: weight, textStyle: uiTextStyle(for: textStyle))
+        }
+
+        public static func uiFont(
+            size: CGFloat,
+            weight: Weight = .regular,
+            textStyle: UIFont.TextStyle = .body
+        ) -> UIFont {
+            let base = UIFont(name: weight.fontName, size: size)
+                ?? UIFont.systemFont(ofSize: size, weight: weight.uiKitWeight)
+            return UIFontMetrics(forTextStyle: textStyle).scaledFont(for: base)
+        }
+
+        private static func defaultSize(for textStyle: Font.TextStyle) -> CGFloat {
+            switch textStyle {
+            case .largeTitle: 34
+            case .title: 28
+            case .title2: 22
+            case .title3: 20
+            case .headline: 17
+            case .subheadline: 15
+            case .body: 17
+            case .callout: 16
+            case .footnote: 13
+            case .caption: 12
+            case .caption2: 11
+            @unknown default: 17
+            }
+        }
+
+        private static func uiTextStyle(for textStyle: Font.TextStyle) -> UIFont.TextStyle {
+            switch textStyle {
+            case .largeTitle: .largeTitle
+            case .title: .title1
+            case .title2: .title2
+            case .title3: .title3
+            case .headline: .headline
+            case .subheadline: .subheadline
+            case .body: .body
+            case .callout: .callout
+            case .footnote: .footnote
+            case .caption: .caption1
+            case .caption2: .caption2
+            @unknown default: .body
+            }
+        }
+    }
+
+    // MARK: Typography (Space Grotesk, dynamic type friendly)
     public enum FontType {
-        public static var largeTitle: Font { .system(.largeTitle, design: .rounded).weight(.bold) }
-        public static var title: Font      { .system(.title2,     design: .rounded).weight(.semibold) }
-        public static var subtitle: Font   { .system(.subheadline,design: .rounded).weight(.semibold) }
-        public static var body: Font       { .system(.body,       design: .rounded) }
-        public static var footnote: Font   { .system(.footnote,   design: .rounded) }
-        public static var caption: Font    { .system(.caption,    design: .rounded) }
+        public static var largeTitle: Font { Typography.font(.largeTitle) }
+        public static var title: Font      { Typography.font(.title) }
+        public static var subtitle: Font   { Typography.font(.subtitle) }
+        public static var body: Font       { Typography.font(.body) }
+        public static var footnote: Font   { Typography.font(.footnote) }
+        public static var caption: Font    { Typography.font(.caption) }
         public static var mono: Font       { .system(.body,       design: .monospaced) }
     }
 
@@ -350,9 +572,9 @@ public enum DS {
         var hPadding: CGFloat { switch self { case .compact: 12; case .regular: 16; case .large: 20 } }
         var font: Font {
             switch self {
-            case .compact: .system(.callout, design: .rounded).weight(.semibold)
-            case .regular: .system(.body,    design: .rounded).weight(.semibold)
-            case .large:   .system(.headline,design: .rounded).weight(.semibold)
+            case .compact: Typography.font(.buttonCompact)
+            case .regular: Typography.font(.buttonRegular)
+            case .large:   Typography.font(.buttonLarge)
             }
         }
     }
@@ -464,7 +686,7 @@ public enum DS {
         public var body: some View {
             HStack(spacing: 6) {
                 if let s = systemImage { Image(systemName: s) }
-                Text(title).font(.caption).bold()
+                Text(title).dsFont(.caption).bold()
             }
             .padding(.vertical, 6)
             .padding(.horizontal, 10)
@@ -633,10 +855,39 @@ public struct TopLeftChamferedRectangle: Shape {
 public extension View {
     func dsCard() -> some View { modifier(DS.Card()) }
 
+    func dsFont(
+        _ role: DS.Typography.Role,
+        monospacedDigits: Bool = false
+    ) -> some View {
+        font(DS.Typography.font(role, monospacedDigits: monospacedDigits))
+    }
+
+    func dsFont(
+        _ textStyle: Font.TextStyle,
+        weight: DS.Typography.Weight = .regular,
+        monospacedDigits: Bool = false
+    ) -> some View {
+        font(DS.Typography.font(textStyle, weight: weight, monospacedDigits: monospacedDigits))
+    }
+
+    func dsFont(
+        size: CGFloat,
+        weight: DS.Typography.Weight = .regular,
+        relativeTo textStyle: Font.TextStyle = .body,
+        monospacedDigits: Bool = false
+    ) -> some View {
+        font(DS.Typography.custom(
+            size: size,
+            weight: weight,
+            relativeTo: textStyle,
+            monospacedDigits: monospacedDigits
+        ))
+    }
+
     func dsSectionHeader(_ title: String, subtitle: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(DS.FontType.subtitle).foregroundStyle(DS.Semantic.textPrimary)
-            if let s = subtitle { Text(s).font(.footnote).foregroundStyle(DS.Semantic.textSecondary) }
+            Text(title).dsFont(.subtitle).foregroundStyle(DS.Semantic.textPrimary)
+            if let s = subtitle { Text(s).dsFont(.footnote).foregroundStyle(DS.Semantic.textSecondary) }
         }
         .padding(.horizontal, DS.Space.l)
     }

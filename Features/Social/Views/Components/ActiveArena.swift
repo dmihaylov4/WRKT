@@ -82,7 +82,7 @@ private struct BattleArenaCard: View {
                 // Progress indicator
                 VStack(spacing: 2) {
                     Text(battle.battle.battleType.displayName)
-                        .font(.caption2.bold())
+                        .dsFont(.caption2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .lineLimit(1)
 
@@ -138,7 +138,7 @@ private struct BattleArenaCard: View {
                             .fill(DS.Semantic.brandSoft)
                             .overlay(
                                 Image(systemName: "person.fill")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.brand)
                             )
                     }
@@ -153,7 +153,7 @@ private struct BattleArenaCard: View {
                     .frame(width: size, height: size)
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.brand)
                     )
             }
@@ -203,7 +203,7 @@ private struct ChallengeArenaCard: View {
                 // Challenge info
                 VStack(spacing: 2) {
                     Text(challenge.challenge.title)
-                        .font(.caption2.bold())
+                        .dsFont(.caption2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .lineLimit(1)
 

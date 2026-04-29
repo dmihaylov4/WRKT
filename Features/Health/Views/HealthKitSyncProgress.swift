@@ -29,16 +29,16 @@ struct HealthKitSyncProgressView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Syncing Health Data")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(Theme.text)
 
                         if healthKit.syncTotalCount > 0 {
                             Text("Batch \(healthKit.syncCurrentBatch)/\(healthKit.syncTotalBatches) • \(healthKit.syncProcessedCount)/\(healthKit.syncTotalCount) workouts")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(Theme.secondary)
                         } else {
                             Text("Preparing...")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(Theme.secondary)
                         }
                     }
@@ -47,7 +47,7 @@ struct HealthKitSyncProgressView: View {
 
                     if healthKit.syncTotalCount > 0 {
                         Text("\((healthKit.syncProgress * 100).safeInt)%")
-                            .font(.subheadline.weight(.bold).monospacedDigit())
+                            .dsFont(.subheadline, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.accent)
                     }
                 }
@@ -95,7 +95,7 @@ struct HealthKitSyncProgressCompact: View {
 
                 if healthKit.syncTotalCount > 0 {
                     Text("\(healthKit.syncProcessedCount)/\(healthKit.syncTotalCount)")
-                        .font(.caption.monospacedDigit())
+                        .dsFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Theme.secondary)
                 }
             }

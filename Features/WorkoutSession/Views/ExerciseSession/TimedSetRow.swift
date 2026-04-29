@@ -36,7 +36,7 @@ struct TimedSetRow: View {
                 HStack(spacing: 6) {
                     if set.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                             .foregroundStyle(Theme.accent)
                     } else if isActive {
                         Circle()
@@ -49,7 +49,7 @@ struct TimedSetRow: View {
                     }
 
                     Text("Set \(index)")
-                        .font(.subheadline.weight(isActive ? .bold : .semibold))
+                        .dsFont(.subheadline, weight: isActive ? .bold : .semibold)
                         .foregroundStyle(
                             set.isCompleted && hasActiveTimer ? Theme.text.opacity(0.7) :
                             set.isCompleted ? Theme.secondary :
@@ -65,18 +65,18 @@ struct TimedSetRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "timer")
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                             Text(formatTime(timerManager.remainingSeconds))
-                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .dsFont(.caption, weight: .semibold, monospacedDigits: true)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                             Text("•")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                             Text("Cancel")
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .lineLimit(1)
                             Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                         }
                         .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 10)
@@ -109,13 +109,13 @@ struct TimedSetRow: View {
             VStack(spacing: 12) {
                 // Large timer display
                 Text(formatDuration(isRunningExercise ? elapsedSeconds : set.durationSeconds))
-                    .font(.system(size: 52, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 52, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(set.isCompleted ? Theme.secondary : Theme.text)
                     .frame(maxWidth: .infinity)
 
                 Text("DURATION")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
 
                 // Quick adjustment buttons (only when not running)
@@ -155,7 +155,7 @@ struct TimedSetRow: View {
                             Text(isRunningExercise ? "Stop Timer" : "Start Timer")
                                 .fontWeight(.semibold)
                         }
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(Color.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -186,7 +186,7 @@ struct TimedSetRow: View {
                         Text("Log This Set")
                             .fontWeight(.semibold)
                     }
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(Color.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
@@ -329,7 +329,7 @@ private struct QuickTimeButton: View {
     var body: some View {
         Button(action: action) {
             Text(label)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(disabled ? Theme.secondary.opacity(0.4) : Theme.text)
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)

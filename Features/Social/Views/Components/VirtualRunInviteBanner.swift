@@ -40,10 +40,10 @@ struct VirtualRunInviteBanner: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(inviterProfile.displayName ?? inviterProfile.username) wants to run!")
-                    .font(.subheadline.bold())
+                    .dsFont(.subheadline, weight: .bold)
 
                 Text("Virtual run invitation")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.secondary)
             }
 
@@ -86,7 +86,7 @@ struct VirtualRunInviteBanner: View {
 
     private var runBadge: some View {
         Image(systemName: "figure.run")
-            .font(.caption2)
+            .dsFont(.caption2)
             .foregroundStyle(.white)
             .padding(4)
             .background(Color.blue)

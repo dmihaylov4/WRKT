@@ -62,13 +62,14 @@ final class BarbellProgressService {
 
     enum RackError: Error { case barIsFull, notConfigured }
 
-    /// Racks a plate into the next available slot (0-3).
+    /// Racks a plate into the next available slot (0-3), or into `requestedSlot` when callers
+    /// (the WinScreen animation) need the persisted slot to match the slot they animated to.
     ///
     /// Bilateral rendering contract: `rackPosition` stores a slot index 0-3 only.
     /// The scene builder is responsible for rendering every racked plate on BOTH sides of the
     /// bar simultaneously. There is no separate right-side position: one EarnedPlate row = one
     /// visual pair. Positions 4-7 are reserved and unused.
-    func rackPlate(_ plate: EarnedPlate) throws {
+    func rackPlate(_ plate: EarnedPlate, at requestedSlot: Int? = nil) throws {
         guard let context else { throw RackError.notConfigured }
 
         let validPositions = [0, 1, 2, 3]   // innermost to outermost
@@ -76,9 +77,16 @@ final class BarbellProgressService {
         let racked = (try? context.fetch(fd)) ?? []
         let occupied = racked.compactMap(\.rackPosition).filter { validPositions.contains($0) }
 
-        guard occupied.count < 4 else { throw RackError.barIsFull }
-
-        let nextSlot = validPositions.filter { !occupied.contains($0) }.min()!
+        let nextSlot: Int
+        if let requestedSlot {
+            guard validPositions.contains(requestedSlot), !occupied.contains(requestedSlot) else {
+                throw RackError.barIsFull
+            }
+            nextSlot = requestedSlot
+        } else {
+            guard occupied.count < 4 else { throw RackError.barIsFull }
+            nextSlot = validPositions.filter { !occupied.contains($0) }.min()!
+        }
         plate.isRacked = true
         plate.rackPosition = nextSlot
         try? context.save()
@@ -225,7 +233,9 @@ final class BarbellProgressService {
         let sorted = completedWorkouts.sorted { $0.date < $1.date }
 
         // Fetch existing events once before the loop to avoid N full-table SwiftData fetches.
-        var existingEvents = (try? context.fetch(FetchDescriptor<EarnedPlate>()))?.map(\.earnedByEvent) ?? []
+        let existingPlates = (try? context.fetch(FetchDescriptor<EarnedPlate>())) ?? []
+        let existingEarnedCount = existingPlates.filter { $0.earnedByEvent != "starter" }.count
+        var existingEvents = existingPlates.map(\.earnedByEvent)
 
         for workout in sorted where !workout.isCardioWorkout {
             config.totalStrengthWorkouts += 1
@@ -242,8 +252,10 @@ final class BarbellProgressService {
         }
 
         try? context.save()
-        let hasStrengthWorkouts = sorted.contains { !$0.isCardioWorkout }
-        if hasStrengthWorkouts {
+        let updatedEarnedCount = ((try? context.fetch(FetchDescriptor<EarnedPlate>())) ?? [])
+            .filter { $0.earnedByEvent != "starter" }
+            .count
+        if updatedEarnedCount > existingEarnedCount {
             needsWelcomeScreen = true
         }
     }

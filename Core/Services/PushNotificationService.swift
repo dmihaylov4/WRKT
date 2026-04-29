@@ -11,6 +11,7 @@ final class PushNotificationService: NSObject, ObservableObject {
 
     @Published private(set) var deviceToken: String?
     @Published private(set) var isRegistered = false
+    private var pendingLaunchNotificationUserInfo: [AnyHashable: Any]?
 
     private override init() {
         super.init()
@@ -168,6 +169,80 @@ final class PushNotificationService: NSObject, ObservableObject {
         }
 
         completion(.newData)
+    }
+
+    func storeLaunchNotification(userInfo: [AnyHashable: Any]) {
+        pendingLaunchNotificationUserInfo = userInfo
+    }
+
+    func consumeLaunchNotification() -> AppNotification? {
+        guard let userInfo = pendingLaunchNotificationUserInfo else {
+            return nil
+        }
+
+        pendingLaunchNotificationUserInfo = nil
+        return Self.appNotification(from: userInfo)
+    }
+
+    static func appNotification(from userInfo: [AnyHashable: Any]) -> AppNotification? {
+        guard
+            let typeRaw = stringValue(userInfo["type"]),
+            let type = NotificationType(rawValue: typeRaw),
+            let actorIdRaw = stringValue(userInfo["actor_id"]),
+            let actorId = UUID(uuidString: actorIdRaw)
+        else {
+            return nil
+        }
+
+        let notificationId = stringValue(userInfo["notification_id"])
+            .flatMap(UUID.init(uuidString:)) ?? UUID()
+        let targetId = stringValue(userInfo["target_id"]).flatMap(UUID.init(uuidString:))
+        let userId = stringValue(userInfo["user_id"]).flatMap(UUID.init(uuidString:))
+            ?? SupabaseAuthService.shared.currentUser?.id
+
+        guard let userId else {
+            return nil
+        }
+
+        return AppNotification(
+            id: notificationId,
+            userId: userId,
+            type: type,
+            actorId: actorId,
+            targetId: targetId,
+            read: false,
+            createdAt: Date(),
+            metadata: nil
+        )
+    }
+
+    static func userInfo(for notification: AppNotification) -> [String: Any] {
+        var userInfo: [String: Any] = [
+            "notification_id": notification.id.uuidString,
+            "user_id": notification.userId.uuidString,
+            "type": notification.type.rawValue,
+            "actor_id": notification.actorId.uuidString
+        ]
+
+        if let targetId = notification.targetId {
+            userInfo["target_id"] = targetId.uuidString
+        }
+
+        if let metadata = notification.metadata {
+            userInfo["metadata"] = metadata
+        }
+
+        return userInfo
+    }
+
+    private static func stringValue(_ value: Any?) -> String? {
+        if let string = value as? String {
+            return string
+        }
+        if let number = value as? NSNumber {
+            return number.stringValue
+        }
+        return nil
     }
 }
 

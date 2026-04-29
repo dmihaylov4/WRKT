@@ -118,7 +118,7 @@ struct LastWorkoutCard: View {
             // Header with date - reserve space for arrow on left
             HStack {
                 Text(relativeDateString)
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 24) // Space for arrow
 
@@ -127,26 +127,26 @@ struct LastWorkoutCard: View {
                 // Compact stats
                 if let durationText = duration {
                     Text(durationText)
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                     Text("•")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.tertiary)
                 }
                 Text("\(totalSets) sets")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.secondary)
                 Text("•")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.tertiary)
                 Text(formatVolume(totalVolume) + " kg")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.secondary)
             }
 
             // Workout name
             Text(workoutName)
-                .font(.title3.weight(.bold))
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .padding(.top, 4) // Extra spacing from top row
@@ -156,7 +156,7 @@ struct LastWorkoutCard: View {
                 ForEach(Array(topExercises.prefix(2).enumerated()), id: \.offset) { index, entry in
                     HStack(spacing: 6) {
                         Text(entry.exerciseName)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.primary)
                             .lineLimit(1)
 
@@ -176,7 +176,7 @@ struct LastWorkoutCard: View {
                         // Show best set
                         if let bestSet = entry.sets.filter({ $0.isCompleted }).max(by: { $0.weight < $1.weight }) {
                             Text("\(bestSet.weight.safeInt) × \(bestSet.reps)")
-                                .font(.subheadline.weight(.medium))
+                                .dsFont(.subheadline, weight: .medium)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -185,7 +185,7 @@ struct LastWorkoutCard: View {
                 // Show exercise count if more than 2
                 if workout.entries.count > 2 {
                     Text("+ \(workout.entries.count - 2) more")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.tertiary)
                 }
             }

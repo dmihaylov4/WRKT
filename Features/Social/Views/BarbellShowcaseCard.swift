@@ -57,7 +57,7 @@ private struct OwnBarbellCard: View {
 
                 Button { showingPlateWall = true } label: {
                     Text("Customize")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Semantic.brand)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -68,18 +68,18 @@ private struct OwnBarbellCard: View {
 
             HStack {
                 Text("\(sessionCount) sessions")
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.white.opacity(0.5))
 
                 Spacer(minLength: 8)
 
                 Text("\(Int(totalWeight))kg loaded")
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.white.opacity(0.5))
 
                 if collectionCount > 0 {
                     Text("· \(collectionCount) more in collection")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.white.opacity(0.3))
                 }
             }
@@ -113,7 +113,7 @@ private struct FriendBarbellCard: View {
 
             HStack {
                 Text("\(Int(totalWeight))kg loaded")
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.white.opacity(0.5))
                 Spacer()
             }

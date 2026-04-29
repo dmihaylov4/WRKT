@@ -33,7 +33,7 @@ struct HealthAuthSheet: View {
 
             // Title
             Text("Connect Apple Health")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(DS.Typography.custom(size: 32, weight: .bold))
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
 
@@ -55,11 +55,11 @@ struct HealthAuthSheet: View {
             if let error {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(.red)
 
                     Text(error.localizedDescription)
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -89,7 +89,7 @@ struct HealthAuthSheet: View {
                         Text("Connect Health")
                     }
                 }
-                .font(.headline)
+                .dsFont(.headline)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
                 .foregroundStyle(.black)
@@ -106,7 +106,7 @@ struct HealthAuthSheet: View {
                     dismiss()
                 }
             }
-            .font(.subheadline.weight(.medium))
+            .dsFont(.subheadline, weight: .medium)
             .foregroundStyle(.white.opacity(0.6))
             .padding(.bottom, 40)
         }
@@ -136,11 +136,7 @@ struct HealthAuthSheet: View {
                 await healthKit.forceFullResync()
                 AppLogger.success("Full sync complete", category: AppLogger.health)
 
-                // Process route fetching queue immediately to load maps/heatmaps
-                // Fetch up to 20 most recent workouts (covers most users' visible runs)
-                AppLogger.info("Fetching routes for recent workouts...", category: AppLogger.health)
-                await healthKit.processRouteFetchQueue(limit: 20)
-                AppLogger.success("Route fetching complete", category: AppLogger.health)
+                AppLogger.success("Historical cardio enrichment complete", category: AppLogger.health)
 
                 await healthKit.syncExerciseTimeIncremental()
                 healthKit.setupBackgroundObservers()
@@ -169,17 +165,17 @@ private struct FeatureRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.title3)
+                .dsFont(.title3)
                 .foregroundStyle(.pink)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.9))
                     .fixedSize(horizontal: false, vertical: true)
                 Text(description)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }

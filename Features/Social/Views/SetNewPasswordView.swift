@@ -39,10 +39,10 @@ struct SetNewPasswordView: View {
                             .foregroundStyle(.green)
 
                         Text("Password Updated!")
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
 
                         Text("Your password has been successfully changed. You can now log in with your new password.")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
 
@@ -69,10 +69,10 @@ struct SetNewPasswordView: View {
                             .foregroundStyle(DS.Palette.marone)
 
                         Text("Set New Password")
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
 
                         Text("Enter your new password below. Make sure it's at least 8 characters long.")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 8)
@@ -93,20 +93,20 @@ struct SetNewPasswordView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
                                 Image(systemName: isValidPassword ? "checkmark.circle.fill" : "circle")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(isValidPassword ? .green : .secondary)
                                 Text("At least 8 characters")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(isValidPassword ? .primary : .secondary)
                             }
 
                             if !confirmPassword.isEmpty {
                                 HStack(spacing: 6) {
                                     Image(systemName: passwordsMatch ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(passwordsMatch ? Color.green : Color.red)
                                     Text(passwordsMatch ? "Passwords match" : "Passwords don't match")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundColor(passwordsMatch ? .primary : .red)
                                     
                 
@@ -118,7 +118,7 @@ struct SetNewPasswordView: View {
                         // Error message
                         if let errorMessage = errorMessage {
                             Text(errorMessage)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }

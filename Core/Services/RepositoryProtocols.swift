@@ -14,7 +14,7 @@ import Foundation
     ) async throws -> WorkoutPost
 
     /// Fetch paginated feed for current user
-    func fetchFeed(userId: UUID, limit: Int, cursor: String?) async throws -> (posts: [PostWithAuthor], hasMore: Bool)
+    func fetchFeed(userId: UUID, limit: Int, cursor: String?) async throws -> (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?)
 
     /// Fetch posts for a specific user
     func fetchUserPosts(userId: UUID, limit: Int, offset: Int) async throws -> [WorkoutPost]

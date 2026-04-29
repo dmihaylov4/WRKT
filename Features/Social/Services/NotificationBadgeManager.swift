@@ -285,6 +285,9 @@ final class NotificationBadgeManager {
                     return ("\(workoutType) Complete!", "\(actorName) completed a \(workoutType.lowercased()) workout", icon, .success)
                 }
                 return ("Workout Complete", "\(actorName) completed a strength workout", "figure.strengthtraining.traditional", .success)
+
+            case .programInvite:
+                return ("Program Shared", "\(actorName) shared a program with you", "doc.text", .info)
             }
         }()
 
@@ -315,7 +318,7 @@ final class NotificationBadgeManager {
         } else {
             // App is in background/inactive - send local push notification
             AppLogger.info("📱 App is inactive - sending local notification", category: AppLogger.app)
-            await sendLocalNotification(title: title, body: message)
+            await sendLocalNotification(title: title, body: message, notification: notification)
         }
     }
 
@@ -334,7 +337,7 @@ final class NotificationBadgeManager {
     }
 
     /// Send a local notification
-    private func sendLocalNotification(title: String, body: String) async {
+    private func sendLocalNotification(title: String, body: String, notification: AppNotification) async {
         // Check notification permission status
         let settings = await UNUserNotificationCenter.current().notificationSettings()
 
@@ -349,6 +352,7 @@ final class NotificationBadgeManager {
         content.title = title
         content.body = body
         content.sound = .default
+        content.userInfo = PushNotificationService.userInfo(for: notification)
 
         let request = UNNotificationRequest(
             identifier: UUID().uuidString,

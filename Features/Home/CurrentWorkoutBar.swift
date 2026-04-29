@@ -73,7 +73,7 @@ struct CurrentWorkoutSheet: View {
                             Text(e.exerciseName)
                             if e.sets.isEmpty {
                                 Text("No sets logged")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             } else {
                                 let setsText = e.sets.map { set in
@@ -83,7 +83,7 @@ struct CurrentWorkoutSheet: View {
                                 }.joined(separator: ", ")
 
                                 Text(setsText)
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         }

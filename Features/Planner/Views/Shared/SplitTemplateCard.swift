@@ -16,14 +16,14 @@ struct SplitTemplateCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Image(systemName: template.icon)
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(DS.Palette.marone)
                         .frame(width: 44, height: 44)
                         .background(DS.Palette.marone.opacity(0.1), in: Circle())
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(template.name)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(.primary)
 
                         HStack(spacing: 8) {
@@ -31,7 +31,7 @@ struct SplitTemplateCard: View {
                             Text("•")
                             Text(template.difficulty.rawValue)
                         }
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                     }
 
@@ -39,25 +39,25 @@ struct SplitTemplateCard: View {
 
                     if isSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.title3)
+                            .dsFont(.title3)
                             .foregroundStyle(DS.Palette.marone)
                     }
                 }
 
                 Text(template.description)
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack {
                     Label(template.focus, systemImage: "target")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
                     Text("\(template.days.count) workouts")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
             }

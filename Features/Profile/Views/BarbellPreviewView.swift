@@ -126,14 +126,6 @@ struct StickerOption: Identifiable {
     ]
 }
 
-// MARK: - Plate textures
-
-private struct PlateTextures {
-    var albedo: TextureResource?
-    var normal: TextureResource?
-    var roughness: TextureResource?
-    var metalness: TextureResource?
-}
 
 // MARK: - Scene state
 
@@ -141,10 +133,12 @@ private final class BarbellSceneState {
     var root: Entity?
     var rotAngle: Float = 0
     var lastTime: TimeInterval = 0
+    var lastDt: Float = 1.0 / 60.0
     var spinVelocity: Float = 0.35   // radians/sec; positive = auto-rotate initially
     var appliedTier = -1
     var appliedBar = -1
     var appliedSticker = -1
+    var appliedShowcaseSignature = ""
     var emojiTextures: [String: TextureResource] = [:]
     var plateTextures: [Int: PlateTextures] = [:]  // keyed by PlateTier.id
     var iblResource: EnvironmentResource?
@@ -159,6 +153,30 @@ enum BarbellDisplayMode {
     case showcase(plates: [EarnedPlateInfo]) // compact 240pt, read-only
 }
 
+func barbellPreviewSelectionInfo(
+    activeTab: Int,
+    selectedTier: Int,
+    selectedBar: Int,
+    selectedSticker: Int
+) -> (name: String, rarity: PlateTier.Rarity, earnedBy: String)? {
+    switch activeTab {
+    case 0:
+        guard PlateTier.all.indices.contains(selectedTier) else { return nil }
+        let tier = PlateTier.all[selectedTier]
+        return (tier.name, tier.rarity, tier.earnedBy)
+    case 1:
+        guard BarSkin.all.indices.contains(selectedBar) else { return nil }
+        let skin = BarSkin.all[selectedBar]
+        return (skin.name, skin.rarity, skin.earnedBy)
+    case 2:
+        guard StickerOption.all.indices.contains(selectedSticker) else { return nil }
+        let sticker = StickerOption.all[selectedSticker]
+        return (sticker.name, sticker.rarity, sticker.earnedBy)
+    default:
+        return nil
+    }
+}
+
 // MARK: - View
 
 struct BarbellPreviewView: View {
@@ -167,7 +185,6 @@ struct BarbellPreviewView: View {
     @State private var scene = BarbellSceneState()
     @State private var isDragging = false
     @State private var lastTranslationX: CGFloat = 0
-    @State private var lastDt: Float = 1.0 / 60.0
     @State private var selectedPlateTip: EarnedPlateInfo? = nil
 
     @State private var activeTab = 0
@@ -183,6 +200,13 @@ struct BarbellPreviewView: View {
     private var showcasePlates: [EarnedPlateInfo]? {
         if case .showcase(let plates) = mode { return plates }
         return nil
+    }
+
+    private var showcaseSignature: String {
+        guard let plates = showcasePlates else { return "" }
+        return plates
+            .map { "\($0.tierID):\($0.weightKg):\($0.engravingText):\($0.earnedByEvent)" }
+            .joined(separator: "|")
     }
 
     var body: some View {
@@ -201,7 +225,7 @@ struct BarbellPreviewView: View {
                         let now = timeline.date.timeIntervalSinceReferenceDate
                         let dt = scene.lastTime > 0 ? Float(now - scene.lastTime) : 0
                         scene.lastTime = now
-                        lastDt = dt > 0 ? dt : lastDt
+                        scene.lastDt = dt > 0 ? dt : scene.lastDt
 
                         if isDragging {
                             // Velocity is updated by drag gesture; no auto-advance
@@ -218,7 +242,7 @@ struct BarbellPreviewView: View {
                             .onChanged { value in
                                 isDragging = true
                                 let delta = Float(value.translation.width - lastTranslationX) * 0.012
-                                scene.spinVelocity = lastDt > 0 ? (-delta / lastDt) : -delta * 60
+                                scene.spinVelocity = scene.lastDt > 0 ? (-delta / scene.lastDt) : -delta * 60
                                 scene.rotAngle -= delta
                                 scene.root?.orientation = simd_quatf(angle: scene.rotAngle, axis: SIMD3(0, 1, 0))
                                 lastTranslationX = value.translation.width
@@ -234,13 +258,13 @@ struct BarbellPreviewView: View {
                 if let info = currentSelectionInfo() {
                     VStack(spacing: 3) {
                         Text(info.name)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(.white)
                         Text(info.rarity.rawValue)
-                            .font(.caption.bold())
+                            .dsFont(.caption, weight: .bold)
                             .foregroundStyle(info.rarity.color)
                         Text(info.earnedBy)
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.white.opacity(0.5))
                     }
                     .padding(.bottom, 16)
@@ -260,7 +284,7 @@ struct BarbellPreviewView: View {
                             withAnimation(.easeInOut(duration: 0.18)) { activeTab = i }
                         } label: {
                             Text(tabs[i])
-                                .font(.subheadline.bold())
+                                .dsFont(.subheadline, weight: .bold)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 11)
                                 .foregroundStyle(activeTab == i ? DS.Semantic.brand : DS.Semantic.textSecondary)
@@ -321,10 +345,10 @@ struct BarbellPreviewView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("\(2 + addedPairs * 2) plates loaded")
-                            .font(.subheadline.bold())
+                            .dsFont(.subheadline, weight: .bold)
                             .foregroundStyle(DS.Semantic.textPrimary)
                         Text("Max \(2 + maxExtraPairs * 2)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                     Spacer()
@@ -332,7 +356,7 @@ struct BarbellPreviewView: View {
                         addPlatePair()
                     } label: {
                         Label("Add Plates", systemImage: "plus.circle.fill")
-                            .font(.subheadline.bold())
+                            .dsFont(.subheadline, weight: .bold)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
                             .background(addedPairs < maxExtraPairs ? DS.Semantic.brand : DS.Semantic.border)
@@ -404,6 +428,7 @@ struct BarbellPreviewView: View {
         guard scene.appliedTier != selectedTier
             || scene.appliedBar != selectedBar
             || scene.appliedSticker != selectedSticker
+            || scene.appliedShowcaseSignature != showcaseSignature
             || scene.root == nil
         else { return }
 
@@ -412,7 +437,7 @@ struct BarbellPreviewView: View {
         let root: Entity
         if let plates = showcasePlates {
             root = makeBarbellShowcase(plates: plates, skin: BarSkin.all[selectedBar])
-            scene.spinVelocity = 0
+            scene.spinVelocity = 0.35   // allow auto-spin and drag in showcase
         } else {
             root = makeBarbell(
                 tier: PlateTier.all[selectedTier],
@@ -436,6 +461,7 @@ struct BarbellPreviewView: View {
         scene.appliedTier = selectedTier
         scene.appliedBar = selectedBar
         scene.appliedSticker = selectedSticker
+        scene.appliedShowcaseSignature = showcaseSignature
     }
 
     // MARK: - Barbell construction
@@ -906,12 +932,12 @@ struct BarbellPreviewView: View {
     // MARK: - Helpers
 
     private func currentSelectionInfo() -> (name: String, rarity: PlateTier.Rarity, earnedBy: String)? {
-        switch activeTab {
-        case 0: let t = PlateTier.all[selectedTier]; return (t.name, t.rarity, t.earnedBy)
-        case 1: let s = BarSkin.all[selectedBar];    return (s.name, s.rarity, s.earnedBy)
-        case 2: let s = StickerOption.all[selectedSticker]; return (s.name, s.rarity, s.earnedBy)
-        default: return nil
-        }
+        barbellPreviewSelectionInfo(
+            activeTab: activeTab,
+            selectedTier: selectedTier,
+            selectedBar: selectedBar,
+            selectedSticker: selectedSticker
+        )
     }
 }
 
@@ -938,7 +964,7 @@ private struct OptionCard: View {
                     }
                 }
                 Text(name)
-                    .font(.caption2.bold())
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(isSelected ? .white : DS.Semantic.textSecondary)
                     .lineLimit(1)
                 Text(rarity.rawValue)

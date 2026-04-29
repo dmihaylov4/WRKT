@@ -185,22 +185,22 @@ private struct HeaderCard: View {
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
                     Image(systemName: "dumbbell.fill")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(Theme.accent)
 
                     Text(workoutTitle)
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(Theme.text)
                 }
 
                 HStack(spacing: 6) {
                     Image(systemName: "applewatch")
-                        .font(.caption)
+                        .dsFont(.caption)
                     Text("Apple Watch")
-                        .font(.caption.weight(.medium))
+                        .dsFont(.caption, weight: .medium)
                     Text("•")
                     Text(run.date.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
+                        .dsFont(.caption)
                 }
                 .foregroundStyle(Theme.secondary)
             }
@@ -212,10 +212,10 @@ private struct HeaderCard: View {
             // Duration - Hero Display
             VStack(spacing: 6) {
                 Text(formatTime(run.durationSec))
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 48, weight: .bold))
                     .foregroundStyle(Theme.accent)
                 Text("DURATION")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .tracking(1.5)
             }
@@ -253,7 +253,7 @@ private struct MetricsGrid: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Workout Summary")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(Theme.text)
 
             LazyVGrid(columns: [
@@ -317,24 +317,24 @@ private struct MetricCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(color)
 
                 Text(title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.title3.weight(.semibold))
+                    .dsFont(.title3, weight: .semibold)
                     .foregroundStyle(Theme.text)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
                 if let unit = unit {
                     Text(unit)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(Theme.secondary)
                 }
             }
@@ -366,23 +366,23 @@ private struct AddExercisesCard: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.title2)
+                        .dsFont(.title2)
                         .foregroundStyle(Theme.accent)
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Add Exercise Details")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(Theme.text)
 
                         Text("Tap to add exercises, sets, and weights to this workout")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
 
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Theme.secondary)
                         .opacity(0.6)
                 }
@@ -392,11 +392,11 @@ private struct AddExercisesCard: View {
 
                 HStack(spacing: 4) {
                     Image(systemName: "applewatch")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.pink)
 
                     Text("HealthKit data will be preserved")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(Theme.secondary)
                 }
             }
@@ -425,26 +425,26 @@ private struct SourceInfoCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.green)
 
                 Text("Exercise Details Added")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
 
             Text("This Apple Watch workout now includes detailed exercise and set information.")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(Theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 4) {
                 Image(systemName: "applewatch")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(.pink)
 
                 Text("HealthKit data preserved")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(Theme.secondary)
             }
             .padding(.top, 4)
@@ -464,16 +464,16 @@ private struct NotesCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "note.text")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(Theme.accent)
 
                 Text("Notes")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
 
             Text(notes)
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(Theme.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

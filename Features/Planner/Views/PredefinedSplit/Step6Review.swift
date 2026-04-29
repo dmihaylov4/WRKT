@@ -14,13 +14,13 @@ struct Step6Review: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 Text("Review your plan")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
                     .padding(.horizontal)
 
                 // Start date picker
                 VStack(alignment: .leading, spacing: 12) {
                     Text("When do you want to start?")
-                        .font(.headline)
+                        .dsFont(.headline)
 
                     DatePicker(
                         "Start Date",
@@ -40,7 +40,7 @@ struct Step6Review: View {
                 if let template = config.selectedTemplate {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Summary")
-                            .font(.headline)
+                            .dsFont(.headline)
 
                         Divider()
 

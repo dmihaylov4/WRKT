@@ -15,7 +15,7 @@ struct HomeHeaderView: View {
         HStack(alignment: .center, spacing: 12) {
             // Greeting
             Text(greeting)
-                .font(.title2.weight(.semibold))
+                .font(DS.Typography.font(.title2, weight: .semibold))
                 .foregroundStyle(.primary)
                 .minimumScaleFactor(0.8)
                 .lineLimit(1)
@@ -27,7 +27,7 @@ struct HomeHeaderView: View {
             if currentStreak > 0 {
                 HStack(spacing: 6) {
                     Text("\(currentStreak) week\(currentStreak == 1 ? "" : "s")")
-                        .font(.callout.weight(.medium))
+                        .font(DS.Typography.font(.callout, weight: .medium))
                         .foregroundStyle(.primary)
                 }
                 .padding(.horizontal, 10)
@@ -44,4 +44,3 @@ struct HomeHeaderView: View {
         .padding(.bottom, 8)
     }
 }
-

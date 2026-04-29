@@ -91,4 +91,19 @@ extension Persistence {
         try? FileManager.default.removeItem(at: appDir.appendingPathComponent("runs.json"))
         try? FileManager.default.removeItem(at: appDir.appendingPathComponent("pr_index.json"))
     }
+
+    func wipeWorkoutDataPreservingRunsDevOnly() async {
+        // Delete legacy workout storage while preserving legacy runs.json
+        try? FileManager.default.removeItem(at: workoutsURL)
+        try? FileManager.default.removeItem(at: currentWorkoutURL)
+
+        guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            AppLogger.warning("Application Support directory not available, skipping old workout storage cleanup", category: AppLogger.storage)
+            return
+        }
+        let appDir = appSupport.appendingPathComponent("WRKT", isDirectory: true)
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("completed_workouts.json"))
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("current_workout.json"))
+        try? FileManager.default.removeItem(at: appDir.appendingPathComponent("pr_index.json"))
+    }
 }

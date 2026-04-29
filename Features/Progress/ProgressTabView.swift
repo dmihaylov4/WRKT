@@ -92,7 +92,7 @@ struct ProgressTabView: View {
                                 currentStreak: p.weeklyGoalStreakCurrent,
                                 longestStreak: p.weeklyGoalStreakLongest,
                                 progress: weekProgress,
-                                isFrozen: p.streakFrozen
+                                isFrozen: p.weeklyStreakFrozen
                             )
                             .padding(.horizontal, 4)
                         }
@@ -111,10 +111,10 @@ struct ProgressTabView: View {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("PR Collection")
-                                    .font(.headline)
+                                    .dsFont(.headline)
 
                                 Text("\(unlockedPRCount) / \(dexPreviewCache.count) unlocked")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
@@ -122,7 +122,7 @@ struct ProgressTabView: View {
 
                             NavigationLink(destination: AchievementsDexView()) {
                                 Text("View All")
-                                    .font(.caption.weight(.semibold))
+                                    .dsFont(.caption, weight: .semibold)
                                     .foregroundStyle(DS.Semantic.brand)
                             }
                         }
@@ -142,12 +142,12 @@ struct ProgressTabView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text("Milestones")
-                                    .font(.headline)
+                                    .dsFont(.headline)
 
                                 Spacer()
 
                                 NavigationLink("See All", destination: AchievementsView())
-                                    .font(.caption.weight(.semibold))
+                                    .dsFont(.caption, weight: .semibold)
                                     .foregroundStyle(DS.Semantic.brand)
                             }
                             .padding(.horizontal, 4)
@@ -167,12 +167,12 @@ struct ProgressTabView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
                             Text("Cardio Activity")
-                                .font(.headline)
+                                .dsFont(.headline)
 
                             Spacer()
 
                             NavigationLink("View All", destination: CardioView())
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(DS.Semantic.brand)
                         }
                         .padding(.horizontal, 4)
@@ -184,22 +184,22 @@ struct ProgressTabView: View {
                             HStack {
                                 Image(systemName: "heart.fill")
                                     .foregroundStyle(.pink)
-                                    .font(.title3)
+                                    .dsFont(.title3)
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text("View Runs & Activities")
-                                        .font(.subheadline.weight(.semibold))
+                                        .dsFont(.subheadline, weight: .semibold)
                                         .foregroundStyle(DS.Semantic.textPrimary)
 
                                     Text("Track cardio from Apple Health")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                 }
 
                                 Spacer()
 
                                 Image(systemName: "chevron.right")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                             }
                             .padding(16)
@@ -264,11 +264,13 @@ struct ProgressTabView: View {
             await HealthKitManager.shared.syncExerciseTimeIncremental()
 
             await MainActor.run {
+                RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
                 checkWeeklyGoalStreak()
                 updateWeekProgressCache()
             }
         } catch {
             await MainActor.run {
+                RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
                 checkWeeklyGoalStreak()
                 updateWeekProgressCache()
             }
@@ -276,9 +278,8 @@ struct ProgressTabView: View {
     }
 
     private func checkWeeklyGoalStreak() {
-        // NOTE: Don't validate/rebuild streak here - validation should only happen on app cold start
-        // to avoid recalculating and potentially corrupting the correct stored value.
-        // Just check current week's progress for potential streak increment.
+        // Validation/rebuild is handled by app lifecycle and sync completion paths.
+        // This only checks whether the current week has newly earned a streak increment.
         guard let goal = goals.first else { return }
         let weekProgress = store.currentWeekProgress(goal: goal, context: context)
         RewardsEngine.shared.checkWeeklyGoalStreak(
@@ -382,12 +383,12 @@ private struct MilestoneChip: View {
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(a.unlockedAt == nil ? .secondary : DS.Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
-                Text(a.title).font(.subheadline.weight(.semibold))
+                Text(a.title).dsFont(.subheadline, weight: .semibold)
                 if let when = a.unlockedAt {
-                    Text(when, style: .date).font(.caption).foregroundStyle(.secondary)
+                    Text(when, style: .date).dsFont(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("\(a.progress)/\(a.target)")
-                        .font(.caption.monospacedDigit())
+                        .dsFont(.caption, monospacedDigits: true)
                         .foregroundStyle(.secondary)
                 }
             }

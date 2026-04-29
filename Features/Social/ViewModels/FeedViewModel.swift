@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreLocation
 
 @MainActor
 @Observable
@@ -25,9 +26,17 @@ final class FeedViewModel {
     private let offlineQueue = OfflineQueueManager.shared
     private let retryManager = RetryManager.shared
     private let errorHandler = ErrorHandler.shared
-    private var cursor: String? = nil // Cursor for pagination (ISO8601 timestamp)
+    private let imageUploadService = ImageUploadService()
+    private var cursor: String? = nil // Composite cursor: created_at|id
     private let pageSize = 20
     private var realtimeChannelId: String?
+    private struct PendingDeletion {
+        let post: PostWithAuthor
+        let originalIndex: Int
+        let task: Task<Void, Never>
+    }
+    @ObservationIgnored private var pendingDeletions: [UUID: PendingDeletion] = [:]
+    @ObservationIgnored private var backfillTasks: Set<UUID> = []
 
     var isOnline: Bool {
         networkMonitor.isConnected
@@ -66,7 +75,9 @@ final class FeedViewModel {
     deinit {
         // Don't create async tasks in deinit as they create retain cycles
         // cleanup() will be called from the view's onDisappear
-       
+        for (_, pendingDeletion) in pendingDeletions {
+            pendingDeletion.task.cancel()
+        }
     }
 
     func loadInitialFeed() async {
@@ -90,11 +101,7 @@ final class FeedViewModel {
         case .success(let feedResult):
             posts = feedResult.posts
             hasMorePages = feedResult.hasMore
-
-            // Update cursor to the last post's timestamp
-            if let lastPost = feedResult.posts.last {
-                cursor = lastPost.post.createdAt.ISO8601Format()
-            }
+            cursor = feedResult.nextCursor
 
             error = nil
             isLoading = false
@@ -130,11 +137,7 @@ final class FeedViewModel {
         case .success(let feedResult):
             posts = feedResult.posts
             hasMorePages = feedResult.hasMore
-
-            // Update cursor to the last post's timestamp
-            if let lastPost = feedResult.posts.last {
-                cursor = lastPost.post.createdAt.ISO8601Format()
-            }
+            cursor = feedResult.nextCursor
 
             error = nil
             isRefreshing = false
@@ -179,11 +182,7 @@ final class FeedViewModel {
 
             posts.append(contentsOf: result.posts)
             hasMorePages = result.hasMore
-
-            // Update cursor to the last post's timestamp
-            if let lastPost = result.posts.last {
-                self.cursor = lastPost.post.createdAt.ISO8601Format()
-            }
+            self.cursor = result.nextCursor
 
             isLoadingMore = false
         } catch {
@@ -261,65 +260,60 @@ final class FeedViewModel {
 
         // Optimistically remove from UI
         posts.remove(at: index)
+        Haptics.warning()
 
-        do {
-            try await postRepository.deletePost(post.post.id)
-
-            // Show undo notification
-            AppNotificationManager.shared.showPostDeleted {
-                self.undoDeletePost(deletedPost, at: index)
-            }
-        } catch {
-            // Revert on error - put the post back
-            posts.insert(deletedPost, at: index)
-
-            self.error = UserFriendlyError(
-                title: "Delete Failed",
-                message: "Failed to delete post",
-                suggestion: "Try again",
-                isRetryable: true,
-                originalError: error
-            )
-            Haptics.error()
-        }
-    }
-
-    /// Restore deleted post (undo operation)
-    private func undoDeletePost(_ post: PostWithAuthor, at index: Int) {
-        // Re-insert the post at its original position
-        if index < posts.count {
-            posts.insert(post, at: index)
-        } else {
-            posts.append(post)
-        }
-
-        // Restore to backend
-        Task { [weak self] in
-            guard let self else { return }
+        let deleteTask = Task { @MainActor [weak self] in
             do {
-                // We need to re-create the post since it was deleted
-                // This requires posting the workout again
-                try await postRepository.createPost(
-                    workout: post.post.workoutData,
-                    caption: post.post.caption,
-                    images: post.post.images,
-                    visibility: post.post.visibility,
-                    userId: post.post.userId
-                )
-                Haptics.soft()
-            } catch {
-                // If restore fails, remove from UI again
-                posts.removeAll { $0.id == post.id }
+                try await Task.sleep(nanoseconds: 5_000_000_000)
+                guard !Task.isCancelled, let self else { return }
 
+                try await self.postRepository.deletePost(post.post.id)
+                self.pendingDeletions.removeValue(forKey: post.id)
+            } catch is CancellationError {
+                // Undo cancelled the pending delete.
+            } catch {
+                guard let self else { return }
+
+                self.pendingDeletions.removeValue(forKey: post.id)
+                self.restorePostInFeed(deletedPost, at: index)
                 self.error = UserFriendlyError(
-                    title: "Restore Failed",
-                    message: "Failed to restore post",
+                    title: "Delete Failed",
+                    message: "Failed to delete post",
                     suggestion: "Try again",
-                    isRetryable: false,
+                    isRetryable: true,
                     originalError: error
                 )
                 Haptics.error()
             }
+        }
+
+        pendingDeletions[post.id] = PendingDeletion(
+            post: deletedPost,
+            originalIndex: index,
+            task: deleteTask
+        )
+
+        AppNotificationManager.shared.showPostDeleted {
+            self.undoDeletePost(post.id)
+        }
+    }
+
+    /// Restore deleted post (undo operation)
+    private func undoDeletePost(_ postId: UUID) {
+        guard let pendingDeletion = pendingDeletions.removeValue(forKey: postId) else { return }
+
+        pendingDeletion.task.cancel()
+        restorePostInFeed(pendingDeletion.post, at: pendingDeletion.originalIndex)
+        Haptics.soft()
+    }
+
+    private func restorePostInFeed(_ post: PostWithAuthor, at index: Int) {
+        guard !posts.contains(where: { $0.id == post.id }) else { return }
+
+        if index <= posts.count {
+            posts.insert(post, at: index)
+        } else {
+            posts.append(post)
         }
     }
 
@@ -359,6 +353,79 @@ final class FeedViewModel {
             )
             Haptics.error()
         }
+    }
+
+    func backfillRouteMap(for post: PostWithAuthor) async -> Bool {
+        guard let currentUserId = authService.currentUser?.id,
+              post.post.userId == currentUserId,
+              post.post.workoutData.isCardioWorkout,
+              let healthKitUUID = post.post.workoutData.matchedHealthKitUUID else {
+            return false
+        }
+
+        guard !backfillTasks.contains(post.post.id) else {
+            return false
+        }
+
+        backfillTasks.insert(post.post.id)
+        defer { backfillTasks.remove(post.post.id) }
+
+        guard let hkWorkout = try? await HealthKitManager.shared.fetchWorkoutByUUID(healthKitUUID).first else {
+            return false
+        }
+
+        let routePoints = try? await HealthKitManager.shared.fetchRouteWithHeartRate(for: hkWorkout)
+        let coordinates: [CLLocationCoordinate2D]
+        let hrValues: [Double]?
+
+        if let points = routePoints, points.count > 1 {
+            coordinates = points.map { $0.coordinate }
+            hrValues = points.compactMap { $0.hr }.isEmpty ? nil : points.map { $0.hr ?? .nan }
+        } else if let locations = try? await HealthKitManager.shared.fetchRoute(for: hkWorkout),
+                  locations.count > 1 {
+            coordinates = locations.map { $0.coordinate }
+            hrValues = nil
+        } else {
+            return false
+        }
+
+        guard let snapshot = try? await MapSnapshotService.shared.generateRouteSnapshot(
+            coordinates: coordinates,
+            hrValues: hrValues
+        ) else {
+            return false
+        }
+
+        guard let uploadedImages = try? await imageUploadService.uploadWorkoutImages(
+            images: [snapshot],
+            userId: currentUserId,
+            isPublic: [true]
+        ), !uploadedImages.isEmpty else {
+            return false
+        }
+
+        let allImages = (post.post.images ?? []) + uploadedImages
+
+        do {
+            try await postRepository.updatePostImages(post.post.id, images: allImages)
+        } catch {
+            return false
+        }
+
+        if let index = posts.firstIndex(where: { $0.post.id == post.post.id }) {
+            var updatedWorkoutPost = posts[index].post
+            updatedWorkoutPost.images = allImages
+            updatedWorkoutPost.updatedAt = Date()
+
+            posts[index] = PostWithAuthor(
+                id: posts[index].id,
+                post: updatedWorkoutPost,
+                author: posts[index].author,
+                isLikedByCurrentUser: posts[index].isLikedByCurrentUser
+            )
+        }
+
+        return true
     }
 
     // MARK: - Offline Support

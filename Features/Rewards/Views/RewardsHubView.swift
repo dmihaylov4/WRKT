@@ -24,10 +24,10 @@ struct RewardsHubView: View {
                 Section("Profile") {
                     HStack {
                         VStack(alignment: .leading) {
-                            Text("Level \(p.level)").font(.headline)
+                            Text("Level \(p.level)").dsFont(.headline)
                             Text("XP \(p.xp) • Next at \(p.nextLevelXP)")
                                 .foregroundStyle(.secondary)
-                                .font(.footnote)
+                                .dsFont(.footnote)
                         }
                         Spacer()
                         HStack(spacing: 4) {
@@ -35,7 +35,7 @@ struct RewardsHubView: View {
                             Image(systemName: "flame.fill")
                                 .foregroundStyle(.orange)
                         }
-                        .font(.headline)
+                        .dsFont(.headline)
                     }
                 }
             }
@@ -44,15 +44,15 @@ struct RewardsHubView: View {
                 ForEach(achievements) { a in
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(a.title).font(.subheadline.weight(.semibold))
-                            Text(a.desc).font(.caption).foregroundStyle(.secondary)
+                            Text(a.title).dsFont(.subheadline, weight: .semibold)
+                            Text(a.desc).dsFont(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
                         if let when = a.unlockedAt {
-                            Text(when, style: .date).font(.caption).foregroundStyle(.secondary)
+                            Text(when, style: .date).dsFont(.caption).foregroundStyle(.secondary)
                         } else {
                             Text("\(a.progress)/\(a.target)")
-                                .font(.caption.monospacedDigit())
+                                .dsFont(.caption, monospacedDigits: true)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -64,16 +64,16 @@ struct RewardsHubView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(e.event.replacingOccurrences(of: "_", with: " ").capitalized)
-                                .font(.subheadline.weight(.medium))
+                                .dsFont(.subheadline, weight: .medium)
                             if let m = e.metadataJSON, !m.isEmpty {
-                                Text(m).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                                Text(m).dsFont(.caption2).foregroundStyle(.secondary).lineLimit(1)
                             }
                         }
                         Spacer()
                         let parts = [e.deltaXP != 0 ? "XP \(e.deltaXP)" : nil,
                                      e.deltaCoins != 0 ? "Coins \(e.deltaCoins)" : nil].compactMap { $0 }
                         Text(parts.joined(separator: " • "))
-                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                            .dsFont(.caption, monospacedDigits: true).foregroundStyle(.secondary)
                     }
                 }
             }

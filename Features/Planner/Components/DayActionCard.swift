@@ -17,6 +17,7 @@ struct DayActionCard: View {
 
     enum DayAction: Identifiable, Equatable {
         case startWorkout(Date)
+        case startPlannedWorkout(PlannedWorkout)
         case planWorkout(Date)
         case editPlannedWorkout(PlannedWorkout)
         case logWorkout(Date)
@@ -24,6 +25,7 @@ struct DayActionCard: View {
         var id: String {
             switch self {
             case .startWorkout: return "start"
+            case .startPlannedWorkout: return "start-planned"
             case .planWorkout: return "plan"
             case .editPlannedWorkout: return "edit"
             case .logWorkout: return "log"
@@ -34,6 +36,8 @@ struct DayActionCard: View {
             switch (lhs, rhs) {
             case (.startWorkout(let lDate), .startWorkout(let rDate)):
                 return lDate == rDate
+            case (.startPlannedWorkout(let lWorkout), .startPlannedWorkout(let rWorkout)):
+                return lWorkout.id == rWorkout.id
             case (.planWorkout(let lDate), .planWorkout(let rDate)):
                 return lDate == rDate
             case (.editPlannedWorkout(let lWorkout), .editPlannedWorkout(let rWorkout)):
@@ -71,23 +75,23 @@ struct DayActionCard: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Theme.accent)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Log Workout")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("Add a retrospective workout for this day")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .opacity(0.6)
             }
@@ -112,16 +116,16 @@ struct DayActionCard: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "calendar.badge.checkmark")
-                                .font(.title2)
+                                .dsFont(.title2)
                                 .foregroundStyle(DS.Theme.accent)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Today's Plan")
-                                    .font(.headline)
+                                    .dsFont(.headline)
                                     .foregroundStyle(DS.Semantic.textPrimary)
 
                                 Text("\(planned.exercises.count) exercises • \(planned.splitDayName)")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                             }
 
@@ -129,7 +133,7 @@ struct DayActionCard: View {
 
                             // Expand/collapse chevron
                             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                         .padding(.horizontal, 16)
@@ -146,20 +150,20 @@ struct DayActionCard: View {
                             ForEach(planned.exercises.prefix(3)) { exercise in
                                 HStack {
                                     Text(exercise.exerciseName)
-                                        .font(.subheadline)
+                                        .dsFont(.subheadline)
                                         .foregroundStyle(DS.Semantic.textPrimary)
 
                                     Spacer()
 
                                     Text("\(exercise.ghostSets.count) × \(exercise.ghostSets.first?.reps ?? 0)")
-                                        .font(.caption)
+                                        .dsFont(.caption)
                                         .foregroundStyle(DS.Semantic.textSecondary)
                                 }
                             }
 
                             if planned.exercises.count > 3 {
                                 Text("+\(planned.exercises.count - 3) more exercises")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                             }
                         }
@@ -179,9 +183,9 @@ struct DayActionCard: View {
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "pencil")
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                 Text("Edit")
-                                    .font(.subheadline.weight(.medium))
+                                    .dsFont(.subheadline, weight: .medium)
                             }
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .frame(maxWidth: .infinity)
@@ -192,14 +196,14 @@ struct DayActionCard: View {
 
                         // Start planned workout button
                         Button {
-                            selectedAction = .startWorkout(date)
+                            selectedAction = .startPlannedWorkout(planned)
                             Haptics.medium()
                         } label: {
                             HStack(spacing: 6) {
                                 Image(systemName: "play.circle.fill")
-                                    .font(.subheadline)
+                                    .dsFont(.subheadline)
                                 Text("Start")
-                                    .font(.subheadline.weight(.semibold))
+                                    .dsFont(.subheadline, weight: .semibold)
                             }
                             .foregroundStyle(Color.black)
                             .frame(maxWidth: .infinity)
@@ -218,25 +222,25 @@ struct DayActionCard: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "figure.strengthtraining.traditional")
-                            .font(.title2)
+                            .dsFont(.title2)
                             .foregroundStyle(.black)
                             .frame(width: 40, height: 40)
                             .background(DS.Theme.accent, in: Circle())
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Start Workout")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             Text("Begin training now")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .opacity(0.6)
                     }
@@ -260,23 +264,23 @@ struct DayActionCard: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "calendar.badge.checkmark")
-                            .font(.title2)
+                            .dsFont(.title2)
                             .foregroundStyle(DS.Theme.accent)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Edit Planned Workout")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             Text("\(planned.exercises.count) exercises planned")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .opacity(0.6)
                     }
@@ -292,23 +296,23 @@ struct DayActionCard: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: "calendar.badge.plus")
-                            .font(.title2)
+                            .dsFont(.title2)
                             .foregroundStyle(DS.Theme.accent)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Plan Workout")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             Text("Schedule exercises for this day")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .opacity(0.6)
                     }

@@ -110,6 +110,9 @@ extension RewardsEngine {
             progress.freezeUsedAt = nil
 
             // Reset weekly goal streaks
+            progress.weeklyStreakFrozen = false
+            progress.weeklyFreezeUsedAt = nil
+            progress.weeklyFreezeProtectedWeekStart = nil
             progress.weeklyGoalStreakCurrent = 0
             progress.weeklyGoalStreakLongest = 0
             progress.lastWeekGoalMet = nil
@@ -225,6 +228,18 @@ extension RewardsEngine {
 // MARK: - Streak Freeze
 
 extension RewardsEngine {
+    func isSameCalendarMonth(_ lhs: Date, _ rhs: Date, calendar: Calendar = .current) -> Bool {
+        let lhsComponents = calendar.dateComponents([.year, .month], from: lhs)
+        let rhsComponents = calendar.dateComponents([.year, .month], from: rhs)
+        return lhsComponents.year == rhsComponents.year && lhsComponents.month == rhsComponents.month
+    }
+
+    func hasWeeklyFreezeAvailable(_ prog: RewardProgress, now: Date = .now, calendar: Calendar = .current) -> Bool {
+        if prog.weeklyStreakFrozen { return false }
+        guard let lastUsed = prog.weeklyFreezeUsedAt else { return true }
+        return !isSameCalendarMonth(lastUsed, now, calendar: calendar)
+    }
+
     /// Activate streak freeze to protect against missing one day
     func activateStreakFreeze() {
         ensureSingletons()
@@ -252,13 +267,8 @@ extension RewardsEngine {
         ensureSingletons()
         guard let prog = progress else { return (false, "Progress not available") }
 
-        // Check if weekly goal is set - if so, use weekly streak
-        let hasWeeklyGoal = (try? context?.fetch(FetchDescriptor<WeeklyGoal>(predicate: #Predicate { $0.isSet == true })).first) != nil
-        let currentStreak = hasWeeklyGoal ? prog.weeklyGoalStreakCurrent : prog.currentStreak
-        let streakType = hasWeeklyGoal ? "week" : "day"
-
-        if currentStreak < 3 {
-            return (false, "Need 3+ \(streakType) streak to freeze")
+        if prog.currentStreak < 3 {
+            return (false, "Need 3+ day streak to freeze")
         }
 
         if prog.streakFrozen {
@@ -284,17 +294,13 @@ extension RewardsEngine {
         // Only allow freeze if:
         // 1. Streak is at least 3 weeks
         // 2. Not already frozen
-        // 3. Haven't used freeze in last 4 weeks
+        // 3. Haven't used freeze in the current calendar month
         guard prog.weeklyGoalStreakCurrent >= 3 else { return }
-        guard !prog.streakFrozen else { return }
+        guard hasWeeklyFreezeAvailable(prog) else { return }
 
-        if let lastUsed = prog.freezeUsedAt {
-            let weeksSinceLastUse = Calendar.current.dateComponents([.weekOfYear], from: lastUsed, to: .now).weekOfYear ?? 0
-            guard weeksSinceLastUse >= 4 else { return }
-        }
-
-        prog.streakFrozen = true
-        prog.freezeUsedAt = .now
+        prog.weeklyStreakFrozen = true
+        prog.weeklyFreezeUsedAt = .now
+        prog.weeklyFreezeProtectedWeekStart = nil
         try? context.save()
     }
 
@@ -307,16 +313,13 @@ extension RewardsEngine {
             return (false, "Need 3+ week streak to freeze")
         }
 
-        if prog.streakFrozen {
+        if prog.weeklyStreakFrozen {
             return (false, "Freeze already active")
         }
 
-        if let lastUsed = prog.freezeUsedAt {
-            let weeksSinceLastUse = Calendar.current.dateComponents([.weekOfYear], from: lastUsed, to: .now).weekOfYear ?? 0
-            if weeksSinceLastUse < 4 {
-                let weeksRemaining = 4 - weeksSinceLastUse
-                return (false, "Available in \(weeksRemaining) week\(weeksRemaining == 1 ? "" : "s")")
-            }
+        if let lastUsed = prog.weeklyFreezeUsedAt,
+           isSameCalendarMonth(lastUsed, .now) {
+            return (false, "Available next month")
         }
 
         return (true, nil)

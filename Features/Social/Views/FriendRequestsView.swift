@@ -58,13 +58,13 @@ struct FriendRequestsView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                     Text(error)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.red)
                     Spacer()
                     Button("Dismiss") {
                         viewModel.error = nil
                     }
-                    .font(.caption.bold())
+                    .dsFont(.caption, weight: .bold)
                 }
                 .padding()
                 .background(.red.opacity(0.1))
@@ -90,7 +90,7 @@ struct FriendRequestsView: View {
         VStack(spacing: 16) {
             ProgressView()
             Text("Loading requests...")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -168,11 +168,11 @@ struct FriendRequestsView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("No friend requests")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("You don't have any pending friend requests")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -187,11 +187,11 @@ struct FriendRequestsView: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("No outgoing requests")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("You haven't sent any friend requests")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -199,7 +199,7 @@ struct FriendRequestsView: View {
                 UserSearchView()
             } label: {
                 Text("Find Friends")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -232,7 +232,7 @@ struct IncomingRequestRow: View {
                             .fill(DS.Semantic.brandSoft)
                             .overlay(
                                 Text(request.profile.username.prefix(1).uppercased())
-                                    .font(.title3.bold())
+                                    .dsFont(.title3, weight: .bold)
                                     .foregroundStyle(DS.Semantic.brand)
                             )
                     }
@@ -249,15 +249,15 @@ struct IncomingRequestRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let displayName = request.profile.displayName, !displayName.isEmpty {
                         Text(displayName)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text("@\(request.profile.username)")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     } else {
                         Text("@\(request.profile.username)")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
                 }
@@ -270,7 +270,7 @@ struct IncomingRequestRow: View {
             HStack(spacing: 8) {
                 Button(action: onReject) {
                     Image(systemName: "xmark")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.white)
                         .frame(width: 36, height: 36)
                         .background(DS.Semantic.fillSubtle)
@@ -279,7 +279,7 @@ struct IncomingRequestRow: View {
 
                 Button(action: onAccept) {
                     Image(systemName: "checkmark")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.black)
                         .frame(width: 36, height: 36)
                         .background(DS.Palette.marone)
@@ -308,7 +308,7 @@ struct OutgoingRequestRow: View {
                             .fill(DS.Semantic.brandSoft)
                             .overlay(
                                 Text(request.profile.username.prefix(1).uppercased())
-                                    .font(.title3.bold())
+                                    .dsFont(.title3, weight: .bold)
                                     .foregroundStyle(DS.Semantic.brand)
                             )
                     }
@@ -325,20 +325,20 @@ struct OutgoingRequestRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let displayName = request.profile.displayName, !displayName.isEmpty {
                         Text(displayName)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text("@\(request.profile.username)")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     } else {
                         Text("@\(request.profile.username)")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
 
                     Text("Request pending")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
             }
@@ -349,7 +349,7 @@ struct OutgoingRequestRow: View {
             // Cancel Button
             Button(action: onCancel) {
                 Text("Cancel")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)

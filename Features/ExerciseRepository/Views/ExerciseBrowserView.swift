@@ -40,7 +40,7 @@ struct ExerciseBrowserView: View {
             // Summary row
             if repo.totalExerciseCount > 0 {
                 Text("\(repo.exercises.count) of \(repo.totalExerciseCount) exercises")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .dsFont(.caption).foregroundStyle(.secondary)
             }
 
             // Exercise rows
@@ -153,7 +153,7 @@ private struct ExerciseRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(ex.name)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(.white)
 
             HStack(spacing: 8) {

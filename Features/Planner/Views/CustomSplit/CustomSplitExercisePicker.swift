@@ -80,7 +80,7 @@ struct CustomSplitExercisePicker: View {
                 if !selectedExercises.isEmpty {
                     HStack {
                         Text("\(selectedExercises.count) exercise\(selectedExercises.count > 1 ? "s" : "") selected")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Theme.accent)
 
                         Spacer()
@@ -88,7 +88,7 @@ struct CustomSplitExercisePicker: View {
                         Button("Configure") {
                             // TODO: Show configuration sheet
                         }
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Theme.accent)
                     }
                     .padding(.horizontal)
@@ -100,7 +100,7 @@ struct CustomSplitExercisePicker: View {
                     // Summary row
                     if exerciseRepo.totalExerciseCount > 0 {
                         Text("\(displayedExercises.count) of \(exerciseRepo.totalExerciseCount) exercises")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                             .listRowSeparator(.hidden)
                     }
@@ -151,7 +151,7 @@ struct CustomSplitExercisePicker: View {
                         saveExercises()
                     }
                     .disabled(selectedExercises.isEmpty)
-                    .font(.body.weight(.semibold))
+                    .dsFont(.body, weight: .semibold)
                 }
             }
         }
@@ -284,13 +284,13 @@ private struct ExerciseRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(exercise.name)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     HStack(spacing: 8) {
                         if let mechanic = exercise.mechanic {
                             Text(mechanic)
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(DS.Theme.accent.opacity(0.1), in: Capsule())
@@ -299,7 +299,7 @@ private struct ExerciseRow: View {
 
                         if let primaryMuscle = exercise.primaryMuscles.first {
                             Text(primaryMuscle)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -310,7 +310,7 @@ private struct ExerciseRow: View {
                 // Always reserve space for checkmark to prevent layout shift
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(isSelected ? DS.Theme.accent : Color.clear)
-                    .font(.title3)
+                    .dsFont(.title3)
                     .frame(width: 28, height: 28) // Fixed size to prevent shift
             }
             .padding(.vertical, 8)

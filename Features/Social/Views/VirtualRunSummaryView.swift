@@ -75,12 +75,12 @@ struct VirtualRunSummaryView: View {
                 // Title + subtitle
                 if showTitle {
                     Text("Virtual Run Complete")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(.white)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
 
                     Text("You vs \(data.partnerName)")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.white.opacity(0.6))
                         .padding(.top, 4)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -124,7 +124,7 @@ struct VirtualRunSummaryView: View {
                             onDismiss()
                         } label: {
                             Text("Continue")
-                                .font(.headline)
+                                .dsFont(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 48)
                                 .contentShape(Rectangle())
                         }
@@ -136,7 +136,7 @@ struct VirtualRunSummaryView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     } else {
                         Text("Swipe for route maps →")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(.white.opacity(0.4))
                             .padding(.bottom, 16)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -251,17 +251,17 @@ private struct StatRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(row.label)
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(.white.opacity(0.5))
 
             HStack {
                 // My value
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.myValue)
-                        .font(.title3.weight(.bold))
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(row.myWins ? DS.Theme.accent : .white)
                     Text("You")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.4))
                 }
 
@@ -270,10 +270,10 @@ private struct StatRowView: View {
                 // Partner value
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(row.partnerValue)
-                        .font(.title3.weight(.bold))
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(row.partnerWins ? DS.Theme.accent : .white)
                     Text(partnerName)
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.4))
                 }
             }

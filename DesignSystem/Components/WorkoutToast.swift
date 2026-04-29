@@ -25,7 +25,7 @@ struct WorkoutToast: View {
 
                 // Message
                 Text(message)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 

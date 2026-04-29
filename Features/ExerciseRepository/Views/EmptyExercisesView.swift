@@ -21,11 +21,11 @@ struct EmptyExercisesView: View {
                 .foregroundStyle(.secondary.opacity(0.6))
 
             Text(title)
-                .font(.subheadline.weight(.medium))
+                .dsFont(.subheadline, weight: .medium)
                 .foregroundStyle(.secondary)
 
             Text(message)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(.secondary.opacity(0.8))
                 .multilineTextAlignment(.center)
 
@@ -34,9 +34,9 @@ struct EmptyExercisesView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal.decrease.circle")
-                        .font(.caption)
+                        .dsFont(.caption)
                     Text("Clear filters")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                 }
                 .foregroundStyle(Color.black)
                 .padding(.horizontal, 12)

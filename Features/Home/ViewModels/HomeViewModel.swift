@@ -34,6 +34,7 @@ final class HomeViewModel {
     var carouselCards: [HomeCardType] = []
     var hasActivePlan: Bool = false
     var todaysPlan: PlannedWorkout?
+    private var refreshGeneration = 0
 
     // MARK: - Init
     init(workoutStore: WorkoutStoreV2, plannerStore: PlannerStore, weeklyGoal: WeeklyGoal? = nil) {
@@ -51,8 +52,14 @@ final class HomeViewModel {
 
     /// Refresh all data and rebuild card priority
     func refresh() async {
+        refreshGeneration += 1
+        let generation = refreshGeneration
+
         checkTodaysPlan()
-        await rebuildCarousel()
+        let cards = await buildCarouselCards()
+
+        guard generation == refreshGeneration else { return }
+        carouselCards = cards
     }
 
     /// Set weekly goal (called from dependency injection)
@@ -60,7 +67,7 @@ final class HomeViewModel {
         self.weeklyGoal = goal
         recommendationEngine.setWeeklyGoal(goal)
         Task {
-            await rebuildCarousel()
+            await refresh()
         }
     }
 
@@ -68,12 +75,13 @@ final class HomeViewModel {
 
     /// Check if there's a planned workout for today
     private func checkTodaysPlan() {
-        todaysPlan = try? plannerStore.plannedWorkout(for: .now)
+        let plan = try? plannerStore.plannedWorkout(for: .now)
+        todaysPlan = plan?.workoutStatus == .completed ? nil : plan
         hasActivePlan = todaysPlan != nil
     }
 
     /// Rebuild carousel based on priority system (MAX 3 CARDS)
-    private func rebuildCarousel() async {
+    private func buildCarouselCards() async -> [HomeCardType] {
         var cards: [HomeCardType] = []
         let maxCards = 3 // Prevent overcrowding
 
@@ -128,7 +136,7 @@ final class HomeViewModel {
         // NOTE: Comparative Stats removed from carousel (redundant with Weekly Stats Card)
         // Weekly comparison data is already visible in UnifiedWeeklyStatsCard
 
-        self.carouselCards = cards
+        return cards
     }
 
     // MARK: - Data Fetching Methods
@@ -194,24 +202,57 @@ final class HomeViewModel {
 
     /// Check if an entry contains a PR
     private func checkForPR(entry: WorkoutEntry, workoutDate: Date) -> PRSummary? {
-        guard let exercise = ExerciseRepository.shared.exercise(byID: entry.exerciseID) else { return nil }
+        var bestCandidate: PRSummary?
 
-        // Get historical best for this exercise
-        let historicalBest = workoutStore.bestWeightForExactReps(exercise: exercise, reps: 10) ?? 0
+        for set in entry.sets where set.tag == .working && set.isCompleted && set.weight > 0 && set.reps > 0 {
+            let history = historicalWeightedPRs(
+                for: entry.exerciseID,
+                before: workoutDate,
+                reps: set.reps
+            )
+            let e1rm = set.weight * (1.0 + Double(set.reps) / 30.0)
+            let isFirstRecordedPR = history.bestWeightAtReps == nil && history.bestE1RM == nil
+            let beatsRepPR = set.weight > (history.bestWeightAtReps ?? 0)
+            let beatsE1RMPR = e1rm > (history.bestE1RM ?? 0)
 
-        // Check if any set beats the historical best
-        for set in entry.sets where set.tag == .working && set.isCompleted {
-            if set.weight > historicalBest && set.weight > 0 {
-                return PRSummary(
-                    exerciseName: entry.exerciseName,
-                    weight: set.weight,
-                    reps: set.reps,
-                    date: workoutDate
-                )
+            guard isFirstRecordedPR || beatsRepPR || beatsE1RMPR else { continue }
+
+            let candidate = PRSummary(
+                exerciseName: entry.exerciseName,
+                weight: set.weight,
+                reps: set.reps,
+                date: workoutDate
+            )
+
+            if bestCandidate == nil || set.weight > bestCandidate!.weight {
+                bestCandidate = candidate
             }
         }
 
-        return nil
+        return bestCandidate
+    }
+
+    private func historicalWeightedPRs(for exerciseID: String, before workoutDate: Date, reps: Int) -> (bestWeightAtReps: Double?, bestE1RM: Double?) {
+        var bestWeightAtReps: Double?
+        var bestE1RM: Double?
+
+        for workout in workoutStore.completedWorkouts where workout.date < workoutDate {
+            guard let entry = workout.entries.first(where: { $0.exerciseID == exerciseID }) else { continue }
+
+            for set in entry.sets where set.tag == .working && set.isCompleted && set.weight > 0 && set.reps > 0 {
+                if set.reps == reps {
+                    bestWeightAtReps = max(bestWeightAtReps ?? 0, set.weight)
+                }
+
+                let historicalE1RM = set.weight * (1.0 + Double(set.reps) / 30.0)
+                bestE1RM = max(bestE1RM ?? 0, historicalE1RM)
+            }
+        }
+
+        return (
+            bestWeightAtReps == 0 ? nil : bestWeightAtReps,
+            bestE1RM == 0 ? nil : bestE1RM
+        )
     }
 
     /// Get top active competition (battle or challenge)
@@ -401,18 +442,9 @@ final class HomeViewModel {
         // Only send notifications if user hasn't worked out and there's friend activity
         guard !activities.isEmpty else { return }
 
-        // Get most recent friend activity (already sorted)
-        if let mostRecent = activities.first {
-            // Check if this is a recent workout (within last hour) to avoid old notifications
-            let hoursSince = Date.now.timeIntervalSince(mostRecent.completedAt) / 3600
-            if hoursSince <= 1.0 {
-                // Send friend activity nudge
-                await SmartNudgeManager.shared.sendFriendActivityNudge(
-                    friendName: mostRecent.friendName,
-                    workoutName: mostRecent.workoutName
-                )
-            }
-        }
+        // Workout-completed pushes now come from Supabase notification rows.
+        // Do not also send generic local "just worked out" nudges here; those duplicate
+        // the per-workout social notifications and can stack when several posts sync at once.
 
         // Send comparative nudge if 2+ friends worked out TODAY (not from last 3 days)
         let calendar = Calendar.current
@@ -479,8 +511,8 @@ final class HomeViewModel {
         if let plan = todaysPlan {
             return HeroButtonContent(
                 icon: "calendar.badge.checkmark",
-                mainText: "Follow Today's Plan",
-                secondaryText: "\(plan.exercises.count) exercises • \(plan.splitDayName)",
+                mainText: "Start Today's Planned Workout",
+                secondaryText: plan.splitDayName,
                 hasPlan: true
             )
         }

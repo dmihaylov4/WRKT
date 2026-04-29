@@ -44,10 +44,10 @@ private struct TimingStat: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(Theme.secondary)
             Text(value)
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(Theme.text)
         }
     }
@@ -63,7 +63,7 @@ struct SetTimingRow: View {
         HStack(spacing: 12) {
             // Set number badge
             Text("\(setNumber)")
-                .font(.caption.weight(.bold).monospacedDigit())
+                .dsFont(.caption, weight: .bold, monospacedDigits: true)
                 .foregroundStyle(.black)
                 .frame(width: 24, height: 24)
                 .background(set.tag.color, in: Circle())
@@ -71,19 +71,19 @@ struct SetTimingRow: View {
             // Set details
             VStack(alignment: .leading, spacing: 2) {
                 Text(set.displayValue)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(Theme.text)
 
                 if set.workDuration != nil || set.restAfterSeconds != nil {
                     HStack(spacing: 8) {
                         if set.formattedWorkDuration != "—" {
                             Text("Work: \(set.formattedWorkDuration)")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(Theme.secondary)
                         }
                         if set.formattedRestDuration != "—" {
                             Text("Rest: \(set.formattedRestDuration)")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(Theme.secondary)
                         }
                     }
@@ -94,7 +94,7 @@ struct SetTimingRow: View {
 
             // Tag
             Text(set.tag.short)
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
                 .foregroundStyle(.black)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
@@ -172,14 +172,14 @@ private struct DurationPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(accentColor)
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.text)
                 Text(label)
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(Theme.secondary)
             }
         }
@@ -221,7 +221,7 @@ struct ExercisesSectionWithTiming: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Exercises")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(Theme.text)
 
             ForEach(entries) { entry in
@@ -265,7 +265,7 @@ private struct ExerciseCardContent: View {
             // Exercise name with stats button and chevron
             HStack {
                 Text(entry.exerciseName)
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.text)
 
                 Spacer()
@@ -276,9 +276,9 @@ private struct ExerciseCardContent: View {
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "chart.bar.fill")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                         Text("Stats")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                     }
                     .foregroundStyle(Theme.surface)
                     .padding(.horizontal, 12)
@@ -289,7 +289,7 @@ private struct ExerciseCardContent: View {
 
                 if isClickable {
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(Theme.secondary)
                         .padding(.leading, 4)
                 }
@@ -368,10 +368,10 @@ private struct StatItem: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(Theme.secondary)
             Text(value)
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(Theme.text)
         }
     }

@@ -104,19 +104,19 @@ struct SpotlightOverlay: View {
             // Header with progress
             HStack {
                 Text(currentStep.title)
-                    .font(.title3.weight(.bold))
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(.white)
 
                 Spacer()
 
                 Text("\(currentIndex + 1)/\(totalSteps)")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.6))
             }
 
             // Message
             Text(currentStep.message)
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(.white.opacity(0.9))
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -128,7 +128,7 @@ struct SpotlightOverlay: View {
                     onSkip()
                 } label: {
                     Text("Skip")
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.7))
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -142,11 +142,11 @@ struct SpotlightOverlay: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text(currentIndex + 1 < totalSteps ? "Next" : "Got it!")
-                            .font(.subheadline.weight(.bold))
+                            .dsFont(.subheadline, weight: .bold)
 
                         if currentIndex + 1 < totalSteps {
                             Image(systemName: "arrow.right")
-                                .font(.caption.weight(.bold))
+                                .dsFont(.caption, weight: .bold)
                         }
                     }
                     .foregroundStyle(.black)

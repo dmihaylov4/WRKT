@@ -128,7 +128,8 @@ actor WorkoutStorage {
 
     private let maxBackups = 5  // Keep last 5 backups
     private let backupInterval: TimeInterval = 300  // 5 minutes between automatic backups
-    private var lastBackupTime: Date = .distantPast
+    private var lastWorkoutsBackupTime: Date = .distantPast
+    private var lastRunsBackupTime: Date = .distantPast
 
     // MARK: - Initialization
 
@@ -187,6 +188,11 @@ actor WorkoutStorage {
         fileManager.fileExists(atPath: workoutsFileURL.path)
     }
 
+    /// Returns true if the main runs file exists on disk.
+    func hasRunsFile() -> Bool {
+        fileManager.fileExists(atPath: runsFileURL.path)
+    }
+
     /// Load workouts and PR index atomically
     func loadWorkouts() async throws -> (workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2]) {
         guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
@@ -216,7 +222,7 @@ actor WorkoutStorage {
     /// Save workouts and PR index atomically
     func saveWorkouts(_ workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2]) async throws {
         // Create backup before writing (debounced - only if enough time has passed)
-        try await createBackupIfNeeded()
+        try await createWorkoutsBackupIfNeeded()
 
         let container = WorkoutStorageContainer(workouts: workouts, prIndex: prIndex)
 
@@ -292,6 +298,7 @@ actor WorkoutStorage {
 
     func saveRuns(_ runs: [Run]) async throws {
         do {
+            try await createRunsBackupIfNeeded()
             let data = try encoder.encode(runs)
             try data.write(to: runsFileURL, options: [.atomic])
 
@@ -369,22 +376,34 @@ actor WorkoutStorage {
 
     // MARK: - Backup & Restore
 
-    /// Create backup only if enough time has passed since last backup (debounced)
-    private func createBackupIfNeeded() async throws {
+    /// Create workouts backup only if enough time has passed since the last workouts backup.
+    private func createWorkoutsBackupIfNeeded() async throws {
         let now = Date()
-        let timeSinceLastBackup = now.timeIntervalSince(lastBackupTime)
+        let timeSinceLastBackup = now.timeIntervalSince(lastWorkoutsBackupTime)
 
         guard timeSinceLastBackup >= backupInterval else {
-            // Skip backup - too soon since last one
             return
         }
 
-        try await createBackup()
-        lastBackupTime = now
+        try await createWorkoutsBackup()
+        lastWorkoutsBackupTime = now
     }
 
-    /// Force backup creation (for critical operations like migrations)
-    private func createBackup() async throws {
+    /// Create runs backup only if enough time has passed since the last runs backup.
+    private func createRunsBackupIfNeeded() async throws {
+        let now = Date()
+        let timeSinceLastBackup = now.timeIntervalSince(lastRunsBackupTime)
+
+        guard timeSinceLastBackup >= backupInterval else {
+            return
+        }
+
+        try await createRunsBackup()
+        lastRunsBackupTime = now
+    }
+
+    /// Force workouts backup creation (for critical operations like migrations)
+    private func createWorkoutsBackup() async throws {
         guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
             return  // Nothing to backup
         }
@@ -397,20 +416,38 @@ actor WorkoutStorage {
             try fileManager.copyItem(at: workoutsFileURL, to: backupURL)
             AppLogger.info("Created backup: \(backupURL.lastPathComponent)", category: AppLogger.storage)
 
-            // Rotate old backups
-            try await rotateBackups()
+            try await rotateBackups(prefix: "workouts_backup_")
         } catch {
             throw StorageError.backupFailed(error.localizedDescription)
         }
     }
 
-    private func rotateBackups() async throws {
+    /// Force runs backup creation.
+    private func createRunsBackup() async throws {
+        guard fileManager.fileExists(atPath: runsFileURL.path) else {
+            return
+        }
+
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        let backupURL = backupsDirectory.appendingPathComponent("runs_backup_\(timestamp).json")
+
+        do {
+            try fileManager.copyItem(at: runsFileURL, to: backupURL)
+            AppLogger.info("Created runs backup: \(backupURL.lastPathComponent)", category: AppLogger.storage)
+            try await rotateBackups(prefix: "runs_backup_")
+        } catch {
+            throw StorageError.backupFailed(error.localizedDescription)
+        }
+    }
+
+    private func rotateBackups(prefix: String) async throws {
         let backupFiles = try fileManager.contentsOfDirectory(
             at: backupsDirectory,
             includingPropertiesForKeys: [.creationDateKey],
             options: [.skipsHiddenFiles]
         )
-        .filter { $0.lastPathComponent.hasPrefix("workouts_backup_") }
+        .filter { $0.lastPathComponent.hasPrefix(prefix) }
         .sorted { url1, url2 in
             let date1 = (try? url1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
             let date2 = (try? url2.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
@@ -459,6 +496,36 @@ actor WorkoutStorage {
         }
 
         return backupFiles
+    }
+
+    /// Find and load the most recent runs backup that contains at least one run.
+    func loadMostRecentNonEmptyRunsBackup() async throws -> [Run]? {
+        let backupFiles = try fileManager.contentsOfDirectory(
+            at: backupsDirectory,
+            includingPropertiesForKeys: [.creationDateKey],
+            options: [.skipsHiddenFiles]
+        )
+        .filter { $0.lastPathComponent.hasPrefix("runs_backup_") }
+        .sorted { url1, url2 in
+            let date1 = (try? url1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            let date2 = (try? url2.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            return date1 > date2
+        }
+
+        for backupURL in backupFiles {
+            do {
+                let data = try Data(contentsOf: backupURL)
+                let runs = try decoder.decode([Run].self, from: data)
+                if !runs.isEmpty {
+                    AppLogger.info("Found non-empty runs backup: \(backupURL.lastPathComponent) with \(runs.count) runs", category: AppLogger.storage)
+                    return runs
+                }
+            } catch {
+                continue
+            }
+        }
+
+        return nil
     }
 
     func restoreFromBackup(at url: URL) async throws {
@@ -815,6 +882,28 @@ actor WorkoutStorage {
         try? await cleanupLegacyStorage()
 
         AppLogger.success("All data wiped", category: AppLogger.storage)
+    }
+
+    func wipeWorkoutDataPreservingRuns() async throws {
+        AppLogger.warning("WIPING WORKOUT DATA (preserving runs)...", category: AppLogger.storage)
+
+        try? fileManager.removeItem(at: workoutsFileURL)
+        try? fileManager.removeItem(at: currentWorkoutFileURL)
+        try? fileManager.removeItem(at: ignoredHealthKitUUIDsFileURL)
+        try? fileManager.removeItem(at: discardedWorkoutWindowsFileURL)
+        try? fileManager.removeItem(at: backupsDirectory)
+
+        // Also clean up legacy workout data while preserving legacy runs.json.
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            AppLogger.warning("Application Support directory not available, skipping legacy workout cleanup", category: AppLogger.storage)
+            return
+        }
+        let appDir = appSupport.appendingPathComponent("WRKT", isDirectory: true)
+        try? fileManager.removeItem(at: appDir.appendingPathComponent("completed_workouts.json"))
+        try? fileManager.removeItem(at: appDir.appendingPathComponent("current_workout.json"))
+        try? fileManager.removeItem(at: appDir.appendingPathComponent("pr_index.json"))
+
+        AppLogger.success("Workout data wiped, runs preserved", category: AppLogger.storage)
     }
 }
 

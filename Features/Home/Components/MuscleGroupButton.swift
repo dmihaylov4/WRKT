@@ -16,11 +16,11 @@ struct MuscleGroupButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: icon)
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(.primary)
 
                 Text(title)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(.primary)
             }
             .frame(maxWidth: .infinity)

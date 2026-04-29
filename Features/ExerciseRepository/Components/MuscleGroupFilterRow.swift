@@ -19,7 +19,7 @@ struct MuscleGroupFilterRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("MUSCLE GROUP")
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal)
 

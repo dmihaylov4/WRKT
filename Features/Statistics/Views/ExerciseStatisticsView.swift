@@ -169,21 +169,21 @@ private struct HeaderSection: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(lastPerformedText)
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     HStack(spacing: 8) {
                         Image(systemName: stats.progressData.trendDirection.iconName)
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(trendColor)
 
                         Text(stats.progressData.trendDirection.displayText)
-                            .font(.caption.weight(.medium))
+                            .dsFont(.caption, weight: .medium)
                             .foregroundStyle(trendColor)
 
                         if let change = stats.progressData.volumeChangePercent, abs(change) > 1 {
                             Text(String(format: "%+.1f%%", change))
-                                .font(.caption.monospacedDigit())
+                                .dsFont(.caption, monospacedDigits: true)
                                 .foregroundStyle(change > 0 ? DS.Charts.positive : DS.Charts.negative)
                         }
                     }
@@ -193,7 +193,7 @@ private struct HeaderSection: View {
 
                 // Tracking mode badge
                 Text(stats.trackingMode.label)
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(DS.Semantic.surface)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -316,10 +316,10 @@ private struct PRCardsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "trophy.fill")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(DS.Theme.accent)
                 Text("Personal Records")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
             }
 
@@ -351,23 +351,23 @@ private struct PRCard: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: pr.icon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(pr.color)
 
                 Text(pr.title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
             Text(pr.value)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(3)
                 .minimumScaleFactor(0.85)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(pr.date, style: .date)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -442,7 +442,7 @@ private struct ProgressChartsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Progress Over Time")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             // Chart selector - horizontal segmented style
@@ -455,7 +455,7 @@ private struct ProgressChartsSection: View {
                             }
                         } label: {
                             Text(chartType.label(for: stats.trackingMode).uppercased())
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(selectedChart == chartType ? DS.Semantic.surface : DS.Semantic.textSecondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
@@ -753,7 +753,7 @@ private struct StatisticsGridSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Statistics")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             LazyVGrid(columns: [
@@ -799,16 +799,16 @@ private struct StatCard: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: item.icon)
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Theme.accent.opacity(0.7))
 
                 Text(item.title)
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
             Text(item.value)
-                .font(.title3.weight(.semibold).monospacedDigit())
+                .dsFont(.title3, weight: .semibold, monospacedDigits: true)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -830,7 +830,7 @@ private struct RecentHistorySection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Recent History")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(spacing: 10) {
@@ -869,17 +869,17 @@ private struct AllTimeHistorySection: View {
             } label: {
                 HStack {
                     Text("All-Time History")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
 
                     Text("\(workouts.count) workouts")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Image(systemName: showAll ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -919,11 +919,11 @@ private struct WorkoutHistoryCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(workout.date, style: .date)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(workout.date, style: .time)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -932,9 +932,9 @@ private struct WorkoutHistoryCard: View {
                 if workout.isPR, let prType = workout.prType {
                     HStack(spacing: 4) {
                         Image(systemName: "trophy.fill")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                         Text(prType)
-                            .font(.caption2.weight(.semibold))
+                            .dsFont(.caption2, weight: .semibold)
                     }
                     .foregroundStyle(DS.Theme.accent)
                     .padding(.horizontal, 8)
@@ -949,17 +949,17 @@ private struct WorkoutHistoryCard: View {
                     ForEach(workout.sets.prefix(5)) { set in
                         HStack(spacing: 8) {
                             Text("Set \(set.setNumber)")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                                 .frame(width: 45, alignment: .leading)
 
                             Text(set.displayValue)
-                                .font(.caption.monospacedDigit())
+                                .dsFont(.caption, monospacedDigits: true)
                                 .foregroundStyle(DS.Semantic.textPrimary)
 
                             if set.isPR {
                                 Image(systemName: "star.fill")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                     .foregroundStyle(DS.Theme.accent)
                             }
 
@@ -967,7 +967,7 @@ private struct WorkoutHistoryCard: View {
 
                             if let rest = set.restAfter {
                                 Text("Rest: \(Int(rest))s")
-                                    .font(.caption2)
+                                    .dsFont(.caption2)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                             }
                         }
@@ -975,7 +975,7 @@ private struct WorkoutHistoryCard: View {
 
                     if workout.sets.count > 5 {
                         Text("+\(workout.sets.count - 5) more sets")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -983,14 +983,14 @@ private struct WorkoutHistoryCard: View {
                 // Compact view - just summary
                 HStack {
                     Text("\(workout.sets.count) sets")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     if workout.totalVolume > 0 {
                         Text("•")
                             .foregroundStyle(DS.Semantic.textSecondary)
                         Text(String(format: "%.0f kg", workout.totalVolume))
-                            .font(.caption.monospacedDigit())
+                            .dsFont(.caption, monospacedDigits: true)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -1027,11 +1027,11 @@ private struct InsufficientDataView: View {
                 .foregroundStyle(DS.Semantic.textSecondary.opacity(0.5))
 
             Text("Not enough data yet")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Perform \(exerciseName) in at least 2 workouts to see statistics")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -1056,11 +1056,11 @@ private struct ExerciseLogDetailSheet: View {
                     // Date and time header
                     VStack(alignment: .leading, spacing: 4) {
                         Text(workout.date, style: .date)
-                            .font(.title2.weight(.bold))
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text(workout.date, style: .time)
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                     .padding(.horizontal, 16)
@@ -1089,9 +1089,9 @@ private struct ExerciseLogDetailSheet: View {
                     if workout.isPR, let prType = workout.prType {
                         HStack(spacing: 6) {
                             Image(systemName: "trophy.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                             Text("PR: \(prType)")
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                         }
                         .foregroundStyle(DS.Theme.accent)
                         .padding(.horizontal, 12)
@@ -1103,7 +1103,7 @@ private struct ExerciseLogDetailSheet: View {
                     // Sets detail
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Sets")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .padding(.horizontal, 16)
 
@@ -1151,12 +1151,12 @@ private struct SummaryStatPill: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.title3.weight(.semibold))
+                .dsFont(.title3, weight: .semibold)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1173,7 +1173,7 @@ private struct SetDetailRow: View {
         HStack(spacing: 12) {
             // Set number badge
             Text("\(set.setNumber)")
-                .font(.caption.weight(.bold).monospacedDigit())
+                .dsFont(.caption, weight: .bold, monospacedDigits: true)
                 .foregroundStyle(DS.Semantic.surface)
                 .frame(width: 24, height: 24)
                 .background(set.tag.color, in: Circle())
@@ -1181,12 +1181,12 @@ private struct SetDetailRow: View {
             // Set details
             VStack(alignment: .leading, spacing: 2) {
                 Text(set.displayValue)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 if let rest = set.restAfter, rest > 0 {
                     Text("Rest: \(formatRestDuration(rest))")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -1196,13 +1196,13 @@ private struct SetDetailRow: View {
             // PR star if applicable
             if set.isPR {
                 Image(systemName: "star.fill")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Theme.accent)
             }
 
             // Tag
             Text(set.tag.short)
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
                 .foregroundStyle(DS.Semantic.surface)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)

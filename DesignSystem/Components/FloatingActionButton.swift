@@ -84,7 +84,7 @@ struct FloatingActionButton: View {
                         .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
 
                     Image(systemName: isExpanded ? "xmark" : "plus")
-                        .font(.title2.bold())
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(.black)
                         .rotationEffect(.degrees(isExpanded ? 0 : 0))
                 }
@@ -111,7 +111,7 @@ private struct FABActionButton: View {
             HStack(spacing: 12) {
                 if showLabel {
                     Text(label)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -128,7 +128,7 @@ private struct FABActionButton: View {
                         .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)
 
                     Image(systemName: icon)
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(.black)
                         .offset(iconOffset)
                 }

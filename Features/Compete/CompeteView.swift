@@ -79,11 +79,11 @@ struct SectionTab: View {
         Button(action: action) {
             VStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(isSelected ? DS.Semantic.brand : DS.Semantic.textSecondary)
 
                 Text(title)
-                    .font(.caption.bold())
+                    .dsFont(.caption, weight: .bold)
                     .foregroundStyle(isSelected ? DS.Semantic.brand : DS.Semantic.textSecondary)
             }
             .frame(maxWidth: .infinity)
@@ -195,7 +195,7 @@ struct OverviewSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Active Challenges")
-                    .font(.title3.bold())
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -204,7 +204,7 @@ struct OverviewSection: View {
                     ChallengesBrowseView()
                 } label: {
                     Text("View All")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.brand)
                 }
             }
@@ -220,7 +220,7 @@ struct OverviewSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Active Battles")
-                    .font(.title3.bold())
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -229,7 +229,7 @@ struct OverviewSection: View {
                     BattlesListView()
                 } label: {
                     Text("View All")
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.brand)
                 }
             }
@@ -245,7 +245,7 @@ struct OverviewSection: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Label("Action Needed", systemImage: "exclamationmark.circle.fill")
-                    .font(.title3.bold())
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(DS.Status.warning)
 
                 Spacer()
@@ -263,7 +263,7 @@ struct OverviewSection: View {
     private var quickActions: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Quick Actions")
-                .font(.title3.bold())
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(spacing: 12) {
@@ -309,15 +309,15 @@ struct CompeteStatTile: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.title2)
+                .dsFont(.title2)
                 .foregroundStyle(color)
 
             Text(value)
-                .font(.title.bold())
+                .dsFont(.title, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -345,11 +345,11 @@ struct CompactChallengeCard: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(challenge.challenge.title)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(progressText)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -357,13 +357,13 @@ struct CompactChallengeCard: View {
 
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("\(challenge.userProgressPercentage)%")
-                        .font(.headline.bold())
+                        .dsFont(.headline, weight: .bold)
                         .foregroundStyle(DS.Semantic.brand)
 
                     let daysRemaining = challenge.challenge.daysRemaining
                     if daysRemaining > 0 {
                         Text("\(daysRemaining)d left")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -411,11 +411,11 @@ struct CompactBattleCard: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(battleTypeLabel)
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(scoreText)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
@@ -424,18 +424,18 @@ struct CompactBattleCard: View {
                 VStack(alignment: .trailing, spacing: 4) {
                     if viewModel.isCurrentUserWinning(for: battle) {
                         Label("Winning", systemImage: "crown.fill")
-                            .font(.caption.bold())
+                            .dsFont(.caption, weight: .bold)
                             .foregroundStyle(DS.Semantic.brand)
                     } else {
                         Label("Behind", systemImage: "arrow.up")
-                            .font(.caption.bold())
+                            .dsFont(.caption, weight: .bold)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
 
                     let daysRemaining = battle.battle.daysRemaining
                     if daysRemaining > 0 {
                         Text("\(daysRemaining)d left")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -497,7 +497,7 @@ struct QuickActionCard: View {
     var body: some View {
         HStack(spacing: 16) {
             Image(systemName: icon)
-                .font(.title2)
+                .dsFont(.title2)
                 .foregroundStyle(color)
                 .frame(width: 48, height: 48)
                 .background(color.opacity(0.15))
@@ -505,18 +505,18 @@ struct QuickActionCard: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text(description)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
             Spacer()
 
             Image(systemName: "chevron.right")
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .padding(16)

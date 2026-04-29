@@ -18,7 +18,7 @@ struct Step1ChooseSplit: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Choose your training split")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
                     .padding(.horizontal)
 
                 Text("Select a program that matches your goals and schedule.")
@@ -45,7 +45,7 @@ struct Step1ChooseSplit: View {
                         .frame(height: 1)
                         .foregroundStyle(.secondary.opacity(0.3))
                     Text("OR")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
                     Rectangle()
@@ -69,7 +69,7 @@ struct Step1ChooseSplit: View {
                 // Existing custom splits
                 if !customSplitStore.customSplits.isEmpty {
                     Text("Your Custom Splits")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .padding(.horizontal)
                         .padding(.top, 8)
 

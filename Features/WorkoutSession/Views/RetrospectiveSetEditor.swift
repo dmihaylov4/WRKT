@@ -25,7 +25,7 @@ struct RetrospectiveSetEditor: View {
                         // Header
                         HStack {
                             Text("Sets (\(entry.sets.count))")
-                                .font(.headline.weight(.semibold))
+                                .dsFont(.headline, weight: .semibold)
                                 .foregroundStyle(DS.Semantic.textPrimary)
                             Spacer()
                         }
@@ -61,7 +61,7 @@ struct RetrospectiveSetEditor: View {
                                 Text("Add Set")
                                     .fontWeight(.semibold)
                             }
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(DS.Theme.accent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
@@ -132,7 +132,7 @@ private struct RetrospectiveSetRow: View {
             // Header
             HStack {
                 Text("Set \(setNumber)")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
@@ -143,7 +143,7 @@ private struct RetrospectiveSetRow: View {
                     Haptics.light()
                 } label: {
                     Image(systemName: "trash.circle.fill")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Semantic.textSecondary.opacity(0.5))
                 }
             }
@@ -155,7 +155,7 @@ private struct RetrospectiveSetRow: View {
                 // Reps input
                 VStack(spacing: 6) {
                     Text("REPS")
-                        .font(.caption2.weight(.semibold))
+                        .dsFont(.caption2, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     HStack(spacing: 8) {
@@ -173,13 +173,13 @@ private struct RetrospectiveSetRow: View {
                             TextField("", value: $set.reps, format: .number)
                                 .keyboardType(.numberPad)
                                 .focused($focusedField, equals: .reps)
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(DS.Semantic.textPrimary)
                                 .multilineTextAlignment(.center)
                                 .frame(minWidth: 40)
                         } else {
                             Text("\(set.reps)")
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(DS.Semantic.textPrimary)
                                 .frame(minWidth: 40)
                                 .contentShape(Rectangle())
@@ -208,7 +208,7 @@ private struct RetrospectiveSetRow: View {
                 // Weight input
                 VStack(spacing: 6) {
                     Text("WEIGHT (\(unit.rawValue))")
-                        .font(.caption2.weight(.semibold))
+                        .dsFont(.caption2, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     HStack(spacing: 8) {
@@ -232,13 +232,13 @@ private struct RetrospectiveSetRow: View {
                             ), format: .number)
                             .keyboardType(.decimalPad)
                             .focused($focusedField, equals: .weight)
-                            .font(.title2.monospacedDigit().weight(.bold))
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .multilineTextAlignment(.center)
                             .frame(minWidth: 70, maxWidth: 100)
                         } else {
                             Text(String(format: "%.1f", displayWeight))
-                                .font(.title2.monospacedDigit().weight(.bold))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
                                 .foregroundStyle(DS.Semantic.textPrimary)
                                 .frame(minWidth: 70, maxWidth: 100)
                                 .contentShape(Rectangle())
@@ -285,7 +285,7 @@ private struct StepperButton: View {
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.title2)
+            .dsFont(.title2)
             .foregroundStyle(isEnabled ? DS.Theme.accent : DS.Semantic.textSecondary.opacity(0.3))
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())

@@ -259,7 +259,7 @@ private struct RegionSquareLarge: View {
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(DS.Semantic.surface)
                     Text(title)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.surface)
                 }
                 .padding(.vertical, 18)
@@ -300,17 +300,17 @@ private struct ExpandedRegionPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: region == .upper ? "figure.strengthtraining.traditional" : "figure.step.training")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(accent)
                 Text(title)
-                    .font(.headline)
+                    .dsFont(.headline)
                 Spacer()
                 Button {
                     Haptics.soft()
                     onCollapse()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Theme.accent)
                 }
                 .buttonStyle(.plain)
@@ -366,14 +366,14 @@ private struct SubregionTile: View {
                 .frame(width: 6, height: 6)
 
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .lineLimit(1)
 
             Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
                 .foregroundStyle(.secondary)
-                .font(.footnote)
+                .dsFont(.footnote)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 56)

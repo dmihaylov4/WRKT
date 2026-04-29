@@ -17,9 +17,9 @@ struct MetaPill: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
-                .font(.caption.weight(.semibold))
+                .dsFont(.caption, weight: .semibold)
             Text(label)
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
         }
         .foregroundStyle(.white.opacity(0.92))
         .padding(.horizontal, 8)
@@ -85,7 +85,7 @@ struct MechanicPill: View {
 
     var body: some View {
         Text(displayText)
-            .font(.caption2.weight(.semibold))
+            .dsFont(.caption2, weight: .semibold)
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

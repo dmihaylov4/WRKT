@@ -17,7 +17,7 @@ struct RecentActivityCard: View {
             // Header with "Recent Activity" label (no arrow for this card)
             HStack {
                 Text("Recent Activity")
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.secondary)
 
                 Spacer()
@@ -85,30 +85,30 @@ struct RecentActivityCard: View {
             // Icon + Type + Chevron
             HStack(spacing: 4) {
                 Image(systemName: "dumbbell.fill")
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.tint)
 
                 Text("Strength")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(.primary)
 
                 Spacer()
 
                 // Chevron to indicate clickable
                 Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(DS.tint)
             }
 
             // Workout name (auto-classified)
             Text(workoutName(for: workout))
-                .font(.subheadline.weight(.bold))
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
             // Date
             Text(relativeDateString(for: workout.date))
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(.secondary)
 
             // Compact stats
@@ -116,7 +116,7 @@ struct RecentActivityCard: View {
                 // Sets
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(totalSets(for: workout))")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("sets")
                         .font(.system(size: 9))
@@ -126,7 +126,7 @@ struct RecentActivityCard: View {
                 // Volume
                 VStack(alignment: .leading, spacing: 2) {
                     Text(formatVolume(totalVolume(for: workout)))
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("kg")
                         .font(.system(size: 9))
@@ -144,30 +144,30 @@ struct RecentActivityCard: View {
             // Icon + Type + Chevron
             HStack(spacing: 4) {
                 Image(systemName: activityIcon(for: run))
-                    .font(.caption2)
+                    .dsFont(.caption2)
                     .foregroundStyle(DS.Semantic.warning)
 
                 Text("Cardio")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(.primary)
 
                 Spacer()
 
                 // Chevron to indicate clickable
                 Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(DS.Semantic.warning)
             }
 
             // Activity type
             Text(activityType(for: run))
-                .font(.subheadline.weight(.bold))
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
             // Date
             Text(relativeDateString(for: run.date))
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(.secondary)
 
             // Compact stats
@@ -175,7 +175,7 @@ struct RecentActivityCard: View {
                 // Distance
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: "%.1f", run.distanceKm))
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("km")
                         .font(.system(size: 9))
@@ -185,7 +185,7 @@ struct RecentActivityCard: View {
                 // Duration
                 VStack(alignment: .leading, spacing: 2) {
                     Text(durationFormatted(run: run))
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("time")
                         .font(.system(size: 9))

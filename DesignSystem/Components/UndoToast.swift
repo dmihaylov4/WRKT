@@ -17,7 +17,7 @@ struct UndoToast: View {
         if isShowing {
             HStack(spacing: 14) {
                 Text(message)
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -29,7 +29,7 @@ struct UndoToast: View {
                     }
                 } label: {
                     Text("Undo")
-                        .font(.subheadline.weight(.bold))
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Palette.marone)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)

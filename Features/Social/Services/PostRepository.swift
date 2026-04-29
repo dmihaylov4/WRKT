@@ -1,6 +1,29 @@
 import Foundation
 import Supabase
 
+private struct FeedCursor {
+    let createdAt: Date
+    let id: UUID
+
+    init?(rawValue: String) {
+        let parts = rawValue.split(separator: "|", maxSplits: 1).map(String.init)
+        guard parts.count == 2,
+              let createdAt = ISO8601DateFormatter().date(from: parts[0]),
+              let id = UUID(uuidString: parts[1]) else { return nil }
+        self.createdAt = createdAt
+        self.id = id
+    }
+
+    init(post: WorkoutPost) {
+        self.createdAt = post.createdAt
+        self.id = post.id
+    }
+
+    var rawValue: String {
+        "\(createdAt.ISO8601Format())|\(id.uuidString)"
+    }
+}
+
 /// Repository for managing workout posts with query optimization and offline support
 @MainActor
 final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol {
@@ -66,86 +89,65 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
     /// - Parameters:
     ///   - userId: Current user ID
     ///   - limit: Number of posts to fetch (default 20)
-    ///   - cursor: Optional cursor (ISO8601 timestamp) to fetch posts before this date
-    /// - Returns: Array of posts with author information and hasMore flag
-    func fetchFeed(userId: UUID, limit: Int = 20, cursor: String? = nil) async throws -> (posts: [PostWithAuthor], hasMore: Bool) {
+    ///   - cursor: Optional composite cursor (`created_at|id`) for stable pagination
+    /// - Returns: Array of posts with author information, `hasMore`, and next cursor
+    func fetchFeed(userId: UUID, limit: Int = 20, cursor: String? = nil) async throws -> (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?) {
         logInfo("Fetching feed for user: \(userId), limit: \(limit), cursor: \(cursor ?? "none")")
 
         // If offline and no cursor (initial page), return SwiftData cache
         if !networkMonitor.isConnected && cursor == nil {
             logInfo("Offline - returning SwiftData cached feed")
             let cachedPosts = swiftDataCache.fetchCachedPosts(limit: limit, includeExpired: true)
-            return (cachedPosts, false) // hasMore=false when offline
+            let nextCursor = cachedPosts.last.map { FeedCursor(post: $0.post).rawValue }
+            return (cachedPosts, false, nextCursor) // hasMore=false when offline
         }
 
         // Try in-memory cache first (only for initial page)
         let cacheKey = QueryCache.feedKey(userId: userId.uuidString, cursor: cursor)
-        if let cached: (posts: [PostWithAuthor], hasMore: Bool) = cache.get(cacheKey) {
+        if let cached: (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?) = cache.get(cacheKey) {
             logSuccess("Cache hit for feed")
             return cached
         }
 
         // Cutoff date to avoid very old/corrupted posts (30 days)
         let cutoffDate = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let parsedCursor = cursor.flatMap(FeedCursor.init(rawValue:))
 
-        // Build query for own posts
-        var ownQuery = client
+        // Single feed query. RLS is responsible for visibility/friend filtering.
+        var feedQuery = client
             .from("workout_posts")
             .select()
-            .eq("user_id", value: userId.uuidString)
             .gte("created_at", value: cutoffDate.ISO8601Format())
 
-        if let cursor = cursor {
-            // Use less than (not equal) to avoid duplicates
-            ownQuery = ownQuery.filter("created_at", operator: "lt", value: cursor)
+        if let parsedCursor {
+            let cursorDate = parsedCursor.createdAt.ISO8601Format()
+            feedQuery = feedQuery.or(
+                "created_at.lt.\(cursorDate),and(created_at.eq.\(cursorDate),id.lt.\(parsedCursor.id.uuidString))"
+            )
         }
 
-        let ownPosts: [WorkoutPost] = (try? await ownQuery
+        let fetchedPosts: [WorkoutPost] = (try? await feedQuery
             .order("created_at", ascending: false)
-            .limit(limit * 2) // Fetch more to ensure we have enough after merging
+            .order("id", ascending: false)
+            .limit(limit + 1)
             .execute()
             .value) ?? []
-        logInfo("Found \(ownPosts.count) own posts")
-
-        // Build query for other posts (RLS will filter based on visibility and friendships)
-        var otherQuery = client
-            .from("workout_posts")
-            .select()
-            .neq("user_id", value: userId.uuidString)
-            .gte("created_at", value: cutoffDate.ISO8601Format())
-
-        if let cursor = cursor {
-            // Use less than (not equal) to avoid duplicates
-            otherQuery = otherQuery.filter("created_at", operator: "lt", value: cursor)
-        }
-
-        let otherPosts: [WorkoutPost] = (try? await otherQuery
-            .order("created_at", ascending: false)
-            .limit(limit * 2) // Fetch more to ensure we have enough after merging
-            .execute()
-            .value) ?? []
-        logInfo("Found \(otherPosts.count) other posts")
+        logInfo("Fetched \(fetchedPosts.count) posts from merged feed query")
 
         // Log warning for posts with empty workout data (legacy data issue)
-        let postsWithEmptyData = otherPosts.filter { $0.workoutData.entries.isEmpty }
+        let postsWithEmptyData = fetchedPosts.filter { $0.workoutData.entries.isEmpty }
         if !postsWithEmptyData.isEmpty {
             logWarning("Found \(postsWithEmptyData.count) posts with empty workout data (legacy format)")
         }
 
-        // Merge and sort by date (most recent first)
-        let allPosts = (ownPosts + otherPosts)
-            .sorted(by: { $0.createdAt > $1.createdAt })
-            .prefix(limit)  // Take only the requested limit
-
-        let posts = Array(allPosts)
-
-        // Determine if there are more posts available
-        let hasMore = posts.count == limit
+        let hasMore = fetchedPosts.count > limit
+        let posts = Array(fetchedPosts.prefix(limit))
+        let nextCursor = posts.last.map { FeedCursor(post: $0).rawValue }
 
         logInfo("Total posts in page: \(posts.count), hasMore: \(hasMore)")
 
         guard !posts.isEmpty else {
-            let emptyResult: (posts: [PostWithAuthor], hasMore: Bool) = ([], false)
+            let emptyResult: (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?) = ([], false, nil)
             cache.set(cacheKey, value: emptyResult, ttl: .feedPosts)
             return emptyResult
         }
@@ -181,7 +183,7 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         }
 
         // Cache the result (in-memory)
-        let result = (postsWithAuthors, hasMore)
+        let result = (postsWithAuthors, hasMore, nextCursor)
         cache.set(cacheKey, value: result, ttl: .feedPosts)
 
         // Cache in SwiftData for offline support (only initial page)

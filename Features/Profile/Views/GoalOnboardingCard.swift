@@ -12,18 +12,18 @@ struct GoalOnboardingCard: View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Set your weekly goal")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(.white)
 
                 Text("Customize your fitness targets and track progress")
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(.white.opacity(0.7))
             }
 
             Spacer()
 
             Image(systemName: "arrow.right.circle.fill")
-                .font(.title2)
+                .dsFont(.title2)
                 .foregroundStyle(DS.Theme.accent)
         }
         .padding(16)

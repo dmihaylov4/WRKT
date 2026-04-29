@@ -25,13 +25,13 @@ struct MuscleGroupView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
                         Text(ex.name)
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                         if ex.isCustom {
                             CustomExerciseBadge()
                         }
                     }
                     Text(ex.equipment ?? ex.category.capitalized)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(.secondary)
                 }
             }

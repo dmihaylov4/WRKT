@@ -108,7 +108,7 @@ private struct RunningTimerBanner: View {
                         .symbolEffect(.pulse, options: .repeating)
 
                     Text(timeString)
-                        .font(.title2.monospacedDigit().weight(.bold))
+                        .dsFont(.title2, weight: .bold, monospacedDigits: true)
                         .foregroundStyle(Theme.accent)
                         .contentTransition(.numericText())
                 }
@@ -136,7 +136,7 @@ private struct RunningTimerBanner: View {
                             Image(systemName: "star.fill")
                                 .font(.system(size: 11, weight: .semibold))
                             Text("Save")
-                                .font(.caption2.weight(.semibold))
+                                .dsFont(.caption2, weight: .semibold)
                         }
                         .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 8)
@@ -235,12 +235,12 @@ private struct PausedTimerBanner: View {
             // Timer info
             VStack(alignment: .leading, spacing: 2) {
                 Text("Rest Timer Paused")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .textCase(.uppercase)
 
                 Text(timeString)
-                    .font(.title3.monospacedDigit().weight(.bold))
+                    .dsFont(.title3, weight: .bold, monospacedDigits: true)
                     .foregroundStyle(Theme.text)
             }
 
@@ -250,9 +250,9 @@ private struct PausedTimerBanner: View {
             Button(action: onResume) {
                 HStack(spacing: 4) {
                     Image(systemName: "play.fill")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                     Text("Resume")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                 }
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 12)
@@ -265,7 +265,7 @@ private struct PausedTimerBanner: View {
             // Stop button
             Button(action: onStop) {
                 Image(systemName: "xmark")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .frame(width: 28, height: 28)
                     .background(Theme.surface2, in: Circle())
@@ -295,11 +295,11 @@ private struct CompletedTimerBanner: View {
             // Message
             VStack(alignment: .leading, spacing: 2) {
                 Text("Rest Complete")
-                    .font(.subheadline.weight(.bold))
+                    .dsFont(.subheadline, weight: .bold)
                     .foregroundStyle(Theme.text)
 
                 Text("Ready for your next set")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
 
@@ -340,7 +340,7 @@ private struct AdjustButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.caption.weight(.bold))
+                .dsFont(.caption, weight: .bold)
                 .foregroundStyle(tint)
                 .frame(width: 28, height: 28)
                 .background(tint.opacity(0.15), in: Circle())
@@ -372,18 +372,18 @@ struct RestTimerCompact: View {
                         .opacity(0.9)
 
                     Text(timeString)
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold, monospacedDigits: true)
                         .foregroundStyle(Theme.accent.opacity(0.95))
                         .contentTransition(.numericText())
                 }
             } else if manager.isCompleted {
                 HStack(spacing: 5) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Theme.accent)
 
                     Text("Ready")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Theme.accent)
                 }
             }
@@ -445,11 +445,11 @@ struct RestTimerCompletionToast: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Rest Complete!")
-                            .font(.headline.weight(.bold))
+                            .dsFont(.headline, weight: .bold)
                             .foregroundStyle(Theme.text)
 
                         Text("Ready for \(exerciseName)")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundStyle(Theme.secondary)
                     }
 
@@ -457,7 +457,7 @@ struct RestTimerCompletionToast: View {
 
                     Button(action: { withAnimation(.spring(response: 0.3)) { showToast = false } }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
+                            .dsFont(.title3)
                             .foregroundStyle(Theme.secondary)
                     }
                     .buttonStyle(.plain)

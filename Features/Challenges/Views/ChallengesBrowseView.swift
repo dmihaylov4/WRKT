@@ -163,7 +163,7 @@ struct ChallengesBrowseView: View {
         if !viewModel.getFeaturedChallenges().isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Featured")
-                    .font(.title3.bold())
+                    .dsFont(.title3, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 ForEach(viewModel.getFeaturedChallenges(), id: \.title) { preset in
@@ -186,7 +186,7 @@ struct ChallengesBrowseView: View {
             VStack(alignment: .leading, spacing: 12) {
                 if !viewModel.availableChallenges.isEmpty {
                     Text("Community Challenges")
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     ForEach(viewModel.availableChallenges) { challenge in
@@ -232,11 +232,11 @@ struct ChallengesBrowseView: View {
                     .foregroundStyle(DS.Semantic.brand.opacity(0.3))
 
                 Text("No Active Challenges")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("Join a challenge to start competing!")
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -247,7 +247,7 @@ struct ChallengesBrowseView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Recommended for You")
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
@@ -257,9 +257,9 @@ struct ChallengesBrowseView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Text("View All")
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                             Image(systemName: "chevron.right")
-                                .font(.caption)
+                                .dsFont(.caption)
                         }
                         .foregroundStyle(DS.Semantic.brand)
                     }
@@ -284,11 +284,11 @@ struct ChallengesBrowseView: View {
                 .foregroundStyle(DS.Semantic.brand.opacity(0.3))
 
             Text("No Challenges Available")
-                .font(.title2.bold())
+                .dsFont(.title2, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Check back later for new challenges")
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -305,11 +305,11 @@ struct ChallengesBrowseView: View {
                     .foregroundStyle(DS.Semantic.brand.opacity(0.3))
 
                 Text("No Completed Challenges")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("Complete your first challenge to see it here")
-                    .font(.body)
+                    .dsFont(.body)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .multilineTextAlignment(.center)
             }
@@ -320,7 +320,7 @@ struct ChallengesBrowseView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     Text("Start a New Challenge")
-                        .font(.title3.bold())
+                        .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
@@ -330,9 +330,9 @@ struct ChallengesBrowseView: View {
                     } label: {
                         HStack(spacing: 4) {
                             Text("View All")
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                             Image(systemName: "chevron.right")
-                                .font(.caption)
+                                .dsFont(.caption)
                         }
                         .foregroundStyle(DS.Semantic.brand)
                     }
@@ -440,11 +440,11 @@ struct ChallengeCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(challenge.challenge.title)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text(challengeTypeLabel)
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
 
@@ -459,13 +459,13 @@ struct ChallengeCard: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text(progressText(progress: participation))
-                                .font(.caption.bold())
+                                .dsFont(.caption, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
 
                             Spacer()
 
                             Text("\(challenge.userProgressPercentage)%")
-                                .font(.caption.bold())
+                                .dsFont(.caption, weight: .bold)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
@@ -480,7 +480,7 @@ struct ChallengeCard: View {
                         "\(challenge.challenge.participantCount) \(challenge.challenge.participantCount == 1 ? "person" : "people")",
                         systemImage: "person.2.fill"
                     )
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
 
                     Spacer()
@@ -491,7 +491,7 @@ struct ChallengeCard: View {
                             "\(daysRemaining) \(daysRemaining == 1 ? "day" : "days") left",
                             systemImage: "clock.fill"
                         )
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
@@ -513,7 +513,7 @@ struct ChallengeCard: View {
                                 Text(isActive ? "Leave Challenge" : "Join Challenge")
                             }
                         }
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(isActive ? DS.Semantic.textPrimary : DS.Semantic.onBrand)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -553,7 +553,7 @@ struct ChallengeCard: View {
     private var difficultyBadge: some View {
         if let difficulty = challenge.challenge.difficulty {
             Text(difficulty.displayName)
-                .font(.caption2.bold())
+                .dsFont(.caption2, weight: .bold)
                 .foregroundStyle(difficultyTextColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
@@ -624,24 +624,24 @@ struct PresetChallengeCard: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(preset.title)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text(preset.description)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .lineLimit(2)
             }
 
             HStack {
                 Text("\(preset.duration) days")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
 
                 Spacer()
 
                 Text(preset.difficulty.rawValue.capitalized)
-                    .font(.caption2.bold())
+                    .dsFont(.caption2, weight: .bold)
                     .foregroundStyle(difficultyTextColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -664,7 +664,7 @@ struct PresetChallengeCard: View {
                         Text("Join Challenge")
                     }
                 }
-                .font(.subheadline.bold())
+                .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)

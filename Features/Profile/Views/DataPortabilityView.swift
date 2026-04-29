@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import UniformTypeIdentifiers
 
 // MARK: - Share Sheet bridge
 

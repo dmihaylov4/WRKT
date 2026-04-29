@@ -19,15 +19,15 @@ struct ForgotPasswordView: View {
                             .foregroundStyle(.green)
 
                         Text("Check Your Email")
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
 
                         Text("We've sent password reset instructions to:")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
 
                         Text(email)
-                            .font(.subheadline.bold())
+                            .dsFont(.subheadline, weight: .bold)
 
                         Button {
                             dismiss()
@@ -51,10 +51,10 @@ struct ForgotPasswordView: View {
                             .foregroundStyle(DS.Palette.marone)
 
                         Text("Reset Password")
-                            .font(.title2.bold())
+                            .dsFont(.title2, weight: .bold)
 
                         Text("Enter your email address and we'll send you instructions to reset your password.")
-                            .font(.subheadline)
+                            .dsFont(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 8)
@@ -70,7 +70,7 @@ struct ForgotPasswordView: View {
                         // Error message
                         if let errorMessage = errorMessage {
                             Text(errorMessage)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundColor(.red)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }

@@ -20,15 +20,15 @@ struct StatBadge: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.caption2.weight(.semibold))
+                .dsFont(.caption2, weight: .semibold)
                 .foregroundStyle(accent ? Theme.accent : Theme.secondary)
 
             Text(value)
-                .font(.caption.monospacedDigit().weight(.bold))
+                .dsFont(.caption, weight: .bold, monospacedDigits: true)
                 .foregroundStyle(accent ? Theme.accent : Theme.text)
 
             Text(label)
-                .font(.caption2.weight(.medium))
+                .dsFont(.caption2, weight: .medium)
                 .foregroundStyle(Theme.secondary)
         }
         .padding(.horizontal, 8)
@@ -50,10 +50,10 @@ struct PresetButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.title3.weight(.medium))
+                    .dsFont(.title3, weight: .medium)
                     .foregroundStyle(Theme.accent)
                 Text(title)
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(Theme.text)
             }
             .frame(minWidth: 60, maxWidth: .infinity)
@@ -79,10 +79,10 @@ struct SupersetToggleButton: View {
         Button(action: onToggle) {
             VStack(spacing: 4) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.title3.weight(.medium))
+                    .dsFont(.title3, weight: .medium)
                     .foregroundStyle(isActive ? .black : Theme.accent)
                 Text(isActive ? "In Superset" : "Superset")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(isActive ? .black : Theme.text)
             }
             .frame(minWidth: 60, maxWidth: .infinity)
@@ -110,7 +110,7 @@ struct PrimaryCTA: View {
             action()
         }) {
             Text(title)
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(Color.black)
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)

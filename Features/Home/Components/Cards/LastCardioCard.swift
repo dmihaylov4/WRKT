@@ -78,20 +78,20 @@ struct LastCardioCard: View {
             // Header with date and type icon - reserve space for arrow on left
             HStack {
                 Text(relativeDateString)
-                    .font(.caption.weight(.medium))
+                    .dsFont(.caption, weight: .medium)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 24) // Space for arrow
 
                 Spacer()
 
                 Image(systemName: activityIcon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.tint)
             }
 
             // Activity name
             Text(activityType)
-                .font(.title3.weight(.bold))
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .padding(.top, 4) // Extra spacing from top row
@@ -101,20 +101,20 @@ struct LastCardioCard: View {
                 // Distance
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(format: "%.2f", run.distanceKm))
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("km")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
                 // Duration
                 VStack(alignment: .leading, spacing: 2) {
                     Text(durationFormatted)
-                        .font(.subheadline.weight(.semibold))
+                        .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.primary)
                     Text("time")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.secondary)
                 }
 
@@ -122,10 +122,10 @@ struct LastCardioCard: View {
                 if let pace = paceFormatted {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(pace)
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.primary)
                         Text("pace")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -136,14 +136,14 @@ struct LastCardioCard: View {
                 if let hr = run.avgHeartRate {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text("\(Int(hr))")
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.red)
                         HStack(spacing: 2) {
                             Image(systemName: "heart.fill")
                                 .font(.system(size: 8))
                                 .foregroundStyle(.red)
                             Text("bpm")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(.secondary)
                         }
                     }

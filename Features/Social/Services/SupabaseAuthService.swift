@@ -16,6 +16,8 @@ final class SupabaseAuthService: ObservableObject {
     @Published var needsPasswordReset = false // Track if user is in password recovery flow
 
     private let client: SupabaseClient
+    private static let emailConfirmationRedirectURL = URL(string: "wrkt://auth/confirm")!
+    private static let passwordRecoveryRedirectURL = URL(string: "wrkt://auth/recovery")!
 
     private init() {
         self.client = SupabaseClientWrapper.shared.client
@@ -115,7 +117,8 @@ final class SupabaseAuthService: ObservableObject {
                 data: [
                     "username": .string(username),
                     "display_name": .string(displayName ?? username)
-                ]
+                ],
+                redirectTo: Self.emailConfirmationRedirectURL
             )
 
             // Store email for resend verification
@@ -246,7 +249,7 @@ final class SupabaseAuthService: ObservableObject {
         do {
             try await client.auth.resetPasswordForEmail(
                 email,
-                redirectTo: URL(string: "wrkt://auth/recovery")
+                redirectTo: Self.passwordRecoveryRedirectURL
             )
             self.error = nil
         } catch {
@@ -289,6 +292,47 @@ final class SupabaseAuthService: ObservableObject {
         }
     }
 
+    /// Handle the email confirmation deep link.
+    /// Confirmation creates a Supabase session, then restores the app user.
+    func handleEmailConfirmation(url: URL) async {
+        do {
+            let session = try await client.auth.session(from: url)
+
+            if session.user.emailConfirmedAt != nil {
+                AppLogger.success("Email confirmation accepted for user: \(session.user.id)", category: AppLogger.app)
+            } else {
+                AppLogger.info("Email confirmation link accepted for user: \(session.user.id)", category: AppLogger.app)
+            }
+
+            clearSignupState()
+            needsPasswordReset = false
+            error = nil
+            await restoreSessionAfterEmailConfirmation()
+            isCheckingSession = false
+        } catch {
+            AppLogger.error("Failed to handle email confirmation", error: error, category: AppLogger.app)
+            self.error = .networkError(error)
+            self.currentUser = nil
+            self.isCheckingSession = false
+        }
+    }
+
+    private func restoreSessionAfterEmailConfirmation() async {
+        for attempt in 1...3 {
+            await restoreSession()
+
+            if currentUser != nil {
+                return
+            }
+
+            if attempt < 3 {
+                try? await Task.sleep(for: .milliseconds(400))
+            }
+        }
+
+        AppLogger.warning("Email confirmed, but profile was not ready for automatic login", category: AppLogger.app)
+    }
+
     /// Clear signup state (call on verification success or cancellation)
     func clearSignupState() {
         signupEmail = nil
@@ -308,7 +352,8 @@ final class SupabaseAuthService: ObservableObject {
             // Resend confirmation email
             try await client.auth.resend(
                 email: email,
-                type: .signup
+                type: .signup,
+                emailRedirectTo: Self.emailConfirmationRedirectURL
             )
             self.error = nil
         } catch {
@@ -420,8 +465,22 @@ final class SupabaseAuthService: ObservableObject {
                 .value
 
             return profile
+        } catch let error as PostgrestError {
+            let details = [error.code, error.message, error.localizedDescription]
+                .compactMap { $0?.lowercased() }
+                .joined(separator: " ")
+
+            if details.contains("pgrst116") ||
+                details.contains("json object requested") ||
+                details.contains("no rows") {
+                throw SupabaseError.profileNotFound
+            }
+
+            throw SupabaseError.serverError(error.message)
+        } catch let error as SupabaseError {
+            throw error
         } catch {
-            throw SupabaseError.profileNotFound
+            throw SupabaseError.networkError(error)
         }
     }
 

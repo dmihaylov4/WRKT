@@ -69,7 +69,7 @@ struct HomeViewNew: View {
             if let vm = viewModel {
                 TimerIsolatedHeroButton(
                     viewModel: vm,
-                    onTap: { showWorkoutSelector = true },
+                    onTap: handleHeroTap,
                     showLiveWorkoutSheet: {
                         NotificationCenter.default.post(name: .openLiveOverlay, object: nil)
                     },
@@ -252,6 +252,44 @@ struct HomeViewNew: View {
         }
     }
 
+    private func refreshHome() {
+        Task {
+            await viewModel?.refresh()
+        }
+    }
+
+    private func handleHeroTap() {
+        if let planned = viewModel?.todaysPlan {
+            store.startPlannedWorkout(planned)
+            NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
+        } else {
+            showWorkoutSelector = true
+        }
+    }
+
+    private func handleAppear() {
+        initializeViewModelIfNeeded()
+        refreshHome()
+        updateBrowsingState()
+    }
+
+    private func initializeViewModelIfNeeded() {
+        guard viewModel == nil else { return }
+
+        let vm = HomeViewModel(
+            workoutStore: store,
+            plannerStore: deps.plannerStore,
+            weeklyGoal: goals.first
+        )
+        vm.postRepository = deps.postRepository
+        vm.authService = deps.authService
+        viewModel = vm
+    }
+
+    private func updateBrowsingState() {
+        isBrowsingExercises = (expandedRegion != nil) || !path.isEmpty
+    }
+
     // MARK: - Navigation Stack View
 
     private var navigationStackView: some View {
@@ -310,39 +348,32 @@ struct HomeViewNew: View {
         .onReceive(NotificationCenter.default.publisher(for: .tabSelectionChanged)) { _ in
             collapsePanel()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .plannedWorkoutsChanged)) { _ in
+            refreshHome()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .appDependenciesDidConfigure)) { _ in
+            refreshHome()
+        }
+        .onChange(of: store.isStorageLoaded) { _, _ in
+            refreshHome()
+        }
+        .onChange(of: store.completedWorkouts.count) { _, _ in
+            refreshHome()
+        }
+        .onChange(of: store.validRuns.count) { _, _ in
+            refreshHome()
+        }
         .onDisappear {
             collapsePanel(animated: false)
         }
         .onChange(of: expandedRegion) { _, newValue in
-            isBrowsingExercises = (newValue != nil) || !path.isEmpty
+            updateBrowsingState()
         }
         .onChange(of: path) { _, newValue in
-            isBrowsingExercises = (expandedRegion != nil) || !newValue.isEmpty
+            updateBrowsingState()
         }
         .onAppear {
-            // NOTE: Don't validate streak here - validation should only happen on app cold start
-            // to avoid recalculating and potentially corrupting the correct stored value.
-
-            // Initialize ViewModel if needed
-            if viewModel == nil {
-                let vm = HomeViewModel(
-                    workoutStore: store,
-                    plannerStore: PlannerStore.shared,
-                    weeklyGoal: goals.first
-                )
-                // Inject social dependencies
-                vm.postRepository = deps.postRepository
-                vm.authService = deps.authService
-                viewModel = vm
-            }
-
-            // Refresh data (async)
-            Task {
-                await viewModel?.refresh()
-            }
-
-            // Initialize browsing state
-            isBrowsingExercises = (expandedRegion != nil) || !path.isEmpty
+            handleAppear()
         }
         .onChange(of: goals.first) { _, newGoal in
             // Update ViewModel when goal changes
@@ -413,17 +444,17 @@ private struct ExpandedRegionPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: region == .upper ? "figure.strengthtraining.traditional" : "figure.step.training")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(accent)
                 Text(title)
-                    .font(.headline)
+                    .dsFont(.headline)
                 Spacer()
                 Button {
                     Haptics.soft()
                     onCollapse()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title3)
+                        .dsFont(.title3)
                         .foregroundStyle(DS.Theme.accent)
                 }
                 .buttonStyle(.plain)
@@ -474,14 +505,14 @@ private struct SubregionTile: View {
                 .frame(width: 6, height: 6)
 
             Text(title)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .lineLimit(1)
 
             Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
                 .foregroundStyle(.secondary)
-                .font(.footnote)
+                .dsFont(.footnote)
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 56)

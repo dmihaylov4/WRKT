@@ -34,7 +34,7 @@ struct MuscleChip: View {
             }
         }) {
             Text(title)
-                .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                .dsFont(.subheadline, weight: isSelected ? .semibold : .medium)
                 .foregroundStyle(isSelected ? DS.Palette.marone : DS.Semantic.textPrimary.opacity(0.8))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)

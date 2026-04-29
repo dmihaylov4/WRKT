@@ -42,7 +42,7 @@ struct BodyweightSetRow: View {
                 HStack(spacing: 6) {
                     if set.isCompleted {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.body.weight(.semibold))
+                            .dsFont(.body, weight: .semibold)
                             .foregroundStyle(Theme.accent)
                     } else if isActive {
                         Circle()
@@ -55,7 +55,7 @@ struct BodyweightSetRow: View {
                     }
 
                     Text("Set \(index)")
-                        .font(.subheadline.weight(isActive ? .bold : .semibold))
+                        .dsFont(.subheadline, weight: isActive ? .bold : .semibold)
                         .foregroundStyle(
                             set.isCompleted && hasActiveTimer ? Theme.text.opacity(0.7) :
                             set.isCompleted ? Theme.secondary :
@@ -71,18 +71,18 @@ struct BodyweightSetRow: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "timer")
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                             Text(formatTime(timerManager.remainingSeconds))
-                                .font(.caption.monospacedDigit().weight(.semibold))
+                                .dsFont(.caption, weight: .semibold, monospacedDigits: true)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                             Text("•")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                             Text("Cancel")
-                                .font(.caption.weight(.semibold))
+                                .dsFont(.caption, weight: .semibold)
                                 .lineLimit(1)
                             Image(systemName: "xmark.circle.fill")
-                                .font(.caption)
+                                .dsFont(.caption)
                         }
                         .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 10)
@@ -114,7 +114,7 @@ struct BodyweightSetRow: View {
             // Reps input (centered, larger for bodyweight focus)
             VStack(spacing: 8) {
                 Text("REPS")
-                    .font(.caption.weight(.semibold))
+                    .dsFont(.caption, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
 
                 HStack(spacing: 12) {
@@ -135,7 +135,7 @@ struct BodyweightSetRow: View {
                         TextField("", value: $set.reps, format: .number)
                             .keyboardType(.numberPad)
                             .focused($focusedField, equals: .reps)
-                            .font(.system(size: 52, weight: .bold, design: .rounded))
+                            .font(DS.Typography.custom(size: 52, weight: .bold))
                             .monospacedDigit()
                             .foregroundStyle(Theme.text)
                             .multilineTextAlignment(.center)
@@ -145,7 +145,7 @@ struct BodyweightSetRow: View {
                             }
                     } else {
                         Text("\(set.reps)")
-                            .font(.system(size: 52, weight: .bold, design: .rounded))
+                            .font(DS.Typography.custom(size: 52, weight: .bold))
                             .monospacedDigit()
                             .foregroundStyle(set.isCompleted ? Theme.secondary : Theme.text)
                             .frame(minWidth: 80)
@@ -174,16 +174,16 @@ struct BodyweightSetRow: View {
                     HStack(spacing: 12) {
                         if prReps > 0 {
                             Text("PR: \(prReps) reps")
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                                 .foregroundStyle(Theme.secondary)
                         }
 
                         if let last = store.lastWorkingSet(exercise: exercise), last.reps > 0 {
                             Text("•")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(Theme.secondary.opacity(0.5))
                             Text("Last: \(last.reps) reps")
-                                .font(.caption.weight(.medium))
+                                .dsFont(.caption, weight: .medium)
                                 .foregroundStyle(Theme.secondary)
                         }
                     }
@@ -205,7 +205,7 @@ struct BodyweightSetRow: View {
                         Text("Log This Set")
                             .fontWeight(.semibold)
                     }
-                    .font(.subheadline)
+                    .dsFont(.subheadline)
                     .foregroundStyle(Color.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
@@ -324,7 +324,7 @@ private struct StepperButton: View {
 
     var body: some View {
         Image(systemName: systemName)
-            .font(.title2)
+            .dsFont(.title2)
             .foregroundStyle(isEnabled ? color : Theme.secondary.opacity(0.3))
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())

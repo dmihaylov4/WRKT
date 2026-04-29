@@ -20,11 +20,10 @@ struct BarbellAudioBuilderTests {
         }
     }
 
-    @Test func physicsMaterialDefinedForAllCategories() {
-        // Compile-time guarantee -- if any case is missing, this won't build
-        for cat in [PlateAudioCategory.iron, .rubber, .brass, .starter] {
-            _ = cat.physicsMaterial
-        }
-        #expect(true)
+    @Test func physicsTuningDefinedForAllCategories() {
+        #expect(PlateAudioCategory.iron.physicsTuning == PlatePhysicsTuning(friction: 0.70, restitution: 0.30))
+        #expect(PlateAudioCategory.rubber.physicsTuning == PlatePhysicsTuning(friction: 0.92, restitution: 0.08))
+        #expect(PlateAudioCategory.brass.physicsTuning == PlatePhysicsTuning(friction: 0.65, restitution: 0.38))
+        #expect(PlateAudioCategory.starter.physicsTuning == PlatePhysicsTuning(friction: 0.85, restitution: 0.12))
     }
 }

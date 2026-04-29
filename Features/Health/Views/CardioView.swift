@@ -69,7 +69,6 @@ struct CardioView: View {
     @State private var isResyncing = false
     @State private var selectedType: CardioType = .running
     @State private var selectedWeekOffset: Int = 0  // 0 = current week, 1 = last week, 2 = 2 weeks ago, etc.
-    @State private var selectedWeekTag: Int = 0  // Tag for TabView (same as offset: swipe left = increase = past)
 
     // Track if we've prompted in this app session (persists across view appearances)
     @AppStorage("hasPromptedForHealthKitAuth") private var hasPromptedThisSession = false
@@ -137,12 +136,69 @@ struct CardioView: View {
         }
     }
 
-    // Maximum number of weeks to show in history (limit to 6 weeks)
-    private let maxWeeksHistory = 5  // 0-5 = 6 weeks total
+    private var maxWeekOffset: Int {
+        guard let oldestRunDate = cardioRuns.map(\.date).min() else { return 0 }
 
-    // Available week offsets (0 to maxWeeksHistory)
-    private var availableWeekOffsets: [Int] {
-        Array(0...maxWeeksHistory)
+        let cal = Calendar.current
+        var currentWeekComponents = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        currentWeekComponents.weekday = 2 // Monday
+        var oldestWeekComponents = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: oldestRunDate)
+        oldestWeekComponents.weekday = 2 // Monday
+
+        guard let currentWeekStart = cal.date(from: currentWeekComponents),
+              let oldestWeekStart = cal.date(from: oldestWeekComponents) else { return 0 }
+
+        let weeks = cal.dateComponents([.weekOfYear], from: oldestWeekStart, to: currentWeekStart).weekOfYear ?? 0
+        return max(0, weeks)
+    }
+
+    private var totalWeeksInHistory: Int {
+        maxWeekOffset + 1
+    }
+
+    private var canGoToNewerWeek: Bool {
+        selectedWeekOffset > 0
+    }
+
+    private var canGoToOlderWeek: Bool {
+        selectedWeekOffset < maxWeekOffset
+    }
+
+    private var historyPositionLabel: String {
+        if cardioRuns.isEmpty {
+            return "No history yet"
+        } else if selectedWeekOffset == 0 {
+            return totalWeeksInHistory == 1 ? "Only recorded week" : "Newest of \(totalWeeksInHistory) weeks"
+        } else if selectedWeekOffset == maxWeekOffset {
+            return "Oldest recorded week"
+        } else {
+            return "Week \(selectedWeekOffset + 1) of \(totalWeeksInHistory)"
+        }
+    }
+
+    private func clampSelectedWeekOffset() {
+        if selectedWeekOffset > maxWeekOffset {
+            selectedWeekOffset = maxWeekOffset
+        }
+    }
+
+    private func changeWeek(by delta: Int) {
+        let newOffset = min(max(selectedWeekOffset + delta, 0), maxWeekOffset)
+        guard newOffset != selectedWeekOffset else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            selectedWeekOffset = newOffset
+        }
+    }
+
+    private func handleWeekSwipe(_ value: DragGesture.Value) {
+        let horizontal = value.translation.width
+        let threshold: CGFloat = 40
+
+        if horizontal < -threshold, canGoToOlderWeek {
+            changeWeek(by: 1)
+        } else if horizontal > threshold, canGoToNewerWeek {
+            changeWeek(by: -1)
+        }
     }
 
     // Last 30 days for pace trend
@@ -169,26 +225,21 @@ struct CardioView: View {
                     HStack {
                         // Left arrow: go to future (decrease offset toward 0 = current week)
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                if selectedWeekOffset > 0 {
-                                    selectedWeekOffset -= 1
-                                    selectedWeekTag = selectedWeekOffset
-                                }
-                            }
+                            changeWeek(by: -1)
                         } label: {
                             Image(systemName: "chevron.left")
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(selectedWeekOffset > 0 ? Theme.accent : Theme.secondary.opacity(0.3))
+                                .dsFont(.body, weight: .semibold)
+                                .foregroundStyle(canGoToNewerWeek ? Theme.accent : Theme.secondary.opacity(0.3))
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
-                        .disabled(selectedWeekOffset == 0)
+                        .disabled(!canGoToNewerWeek)
 
                         Spacer()
 
                         // Week label
                         Text(weekLabel(offset: selectedWeekOffset))
-                            .font(.subheadline.weight(.semibold))
+                            .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(Theme.text)
                             .frame(minWidth: 120)
 
@@ -196,57 +247,47 @@ struct CardioView: View {
 
                         // Right arrow: go to past (increase offset away from 0)
                         Button {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                if selectedWeekOffset < maxWeeksHistory {
-                                    selectedWeekOffset += 1
-                                    selectedWeekTag = selectedWeekOffset
-                                }
-                            }
+                            changeWeek(by: 1)
                         } label: {
                             Image(systemName: "chevron.right")
-                                .font(.body.weight(.semibold))
-                                .foregroundStyle(selectedWeekOffset < maxWeeksHistory ? Theme.accent : Theme.secondary.opacity(0.3))
+                                .dsFont(.body, weight: .semibold)
+                                .foregroundStyle(canGoToOlderWeek ? Theme.accent : Theme.secondary.opacity(0.3))
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
-                        .disabled(selectedWeekOffset >= maxWeeksHistory)
+                        .disabled(!canGoToOlderWeek)
                     }
                     .padding(.horizontal, 16)
 
-                    TabView(selection: $selectedWeekTag) {
-                        ForEach(availableWeekOffsets, id: \.self) { offset in
-                            WeeklySummaryCard(
-                                thisWeek: runsForWeek(offset: offset),
-                                lastWeek: runsForWeek(offset: offset + 1),
-                                activityType: selectedType,
-                                weekLabel: weekLabel(offset: offset)
-                            )
-                            .padding(.horizontal, 16)  // Match padding of other sections
-                            .padding(.vertical, 4)      // Add vertical padding to prevent border cutoff
-                            .tag(offset)  // Positive tag: swipe LEFT increases tag = goes to past
-                        }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .never))
-                    .frame(height: 200)  // Increased height to accommodate padding
+                    WeeklySummaryCard(
+                        thisWeek: runsForWeek(offset: selectedWeekOffset),
+                        lastWeek: runsForWeek(offset: selectedWeekOffset + 1),
+                        activityType: selectedType,
+                        weekLabel: weekLabel(offset: selectedWeekOffset)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
+                    .id("\(selectedType.rawValue)-\(selectedWeekOffset)")
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded(handleWeekSwipe)
+                    )
                     .animation(.spring(response: 0.4, dampingFraction: 0.75), value: selectedWeekOffset)
-                    .onChange(of: selectedWeekTag) { _, newTag in
-                        selectedWeekOffset = newTag  // Tag equals offset
-                    }
 
-                    // Page dots (show all 6 weeks)
-                    HStack(spacing: 6) {
-                        ForEach(availableWeekOffsets, id: \.self) { offset in
-                            Circle()
-                                .fill(offset == selectedWeekOffset ? Theme.accent : Theme.secondary.opacity(0.3))
-                                .frame(width: 6, height: 6)
-                                .onTapGesture {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        selectedWeekOffset = offset
-                                        selectedWeekTag = offset
-                                    }
-                                }
+                    HStack(spacing: 8) {
+                        Text(historyPositionLabel)
+                            .dsFont(.caption, weight: .semibold)
+                            .foregroundStyle(Theme.secondary)
+
+                        Spacer()
+
+                        if totalWeeksInHistory > 1 {
+                            Label("Swipe to browse", systemImage: "arrow.left.and.right")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary.opacity(0.85))
                         }
                     }
+                    .padding(.horizontal, 16)
                 }
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: selectedType)
 
@@ -270,12 +311,12 @@ struct CardioView: View {
                 VStack(spacing: 10) {
                     HStack {
                         Text("\(selectedType.activityName) - \(weekLabel(offset: selectedWeekOffset))")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(Theme.text)
                         Spacer()
                         if selectedWeekRuns.count > 10 {
                             NavigationLink("See all", destination: AllRunsList(runs: selectedWeekRuns.sorted(by: { $0.date > $1.date }), activityType: selectedType))
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(Theme.accent)
                         }
                     }
@@ -290,7 +331,7 @@ struct CardioView: View {
                                 .font(.system(size: 32))
                                 .foregroundStyle(Theme.secondary.opacity(0.5))
                             Text("No \(selectedType.activityName.lowercased()) this week")
-                                .font(.subheadline)
+                                .dsFont(.subheadline)
                                 .foregroundStyle(Theme.secondary)
                         }
                         .frame(maxWidth: .infinity)
@@ -367,6 +408,8 @@ struct CardioView: View {
             print("✅ [CardioView] Recent workout sync completed")
         }
         .task {
+            clampSelectedWeekOffset()
+
             // Clear prompt flag if now connected (user authorized successfully)
             if healthKit.connectionState == .connected {
                 hasPromptedThisSession = false
@@ -393,6 +436,12 @@ struct CardioView: View {
                     store.matchAllWorkoutsWithHealthKit()
                 }
             }
+        }
+        .onChange(of: selectedType) { _, _ in
+            clampSelectedWeekOffset()
+        }
+        .onChange(of: cardioRuns.count) { _, _ in
+            clampSelectedWeekOffset()
         }
     }
 
@@ -472,7 +521,7 @@ private struct CardioTypeCarousel: View {
                             .symbolRenderingMode(.hierarchical)
 
                         Text(type.displayName)
-                            .font(.title3.weight(.semibold))
+                            .dsFont(.title3, weight: .semibold)
                             .foregroundStyle(Theme.text)
                     }
                     .frame(maxWidth: .infinity)
@@ -566,7 +615,7 @@ private struct WeeklySummaryCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text(weekLabel)
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(Theme.text)
 
                 Spacer()
@@ -574,9 +623,9 @@ private struct WeeklySummaryCard: View {
                 if let change = distanceChange {
                     HStack(spacing: 4) {
                         Image(systemName: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                         Text(String(format: "%.0f%%", abs(change)))
-                            .font(.caption.weight(.semibold))
+                            .dsFont(.caption, weight: .semibold)
                     }
                     .foregroundStyle(change >= 0 ? .green : .orange)
                     .padding(.horizontal, 8)
@@ -707,13 +756,13 @@ private struct PaceInsightsCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("\(activityType.metricLabel) Insights")
-                    .font(.headline)
+                    .dsFont(.headline)
                     .foregroundStyle(Theme.text)
 
                 Spacer()
 
                 Text(weekLabel)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
 
@@ -722,23 +771,23 @@ private struct PaceInsightsCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
                         Image(systemName: "gauge.medium")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                         Text("Average")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
 
                     if let pace = avgPace {
                         Text(activityType == .cycling ? speedString(pace) : paceString(pace))
-                            .font(.title2.weight(.bold).monospacedDigit())
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.text)
                         Text(activityType.metricUnit)
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     } else {
                         Text("—")
-                            .font(.title2.weight(.bold))
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(Theme.secondary)
                     }
                 }
@@ -750,23 +799,23 @@ private struct PaceInsightsCard: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
                         Image(systemName: "bolt.fill")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                         Text("Best")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
 
                     if let pace = bestPace {
                         Text(activityType == .cycling ? speedString(pace) : paceString(pace))
-                            .font(.title2.weight(.bold).monospacedDigit())
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.text)
                         Text(activityType.metricUnit)
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     } else {
                         Text("—")
-                            .font(.title2.weight(.bold))
+                            .dsFont(.title2, weight: .bold)
                             .foregroundStyle(Theme.secondary)
                     }
                 }
@@ -781,7 +830,7 @@ private struct PaceInsightsCard: View {
                     Image(systemName: trend.contains("faster") ? "arrow.up.right.circle.fill" : "minus.circle.fill")
                         .foregroundStyle(trend.contains("faster") ? .green : .orange)
                     Text(trend)
-                        .font(.subheadline.weight(.medium))
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(Theme.text)
                 }
                 .padding(.horizontal, 12)
@@ -813,93 +862,160 @@ private struct ConsistencyCard: View {
     let allRuns: [Run]
     let activityType: CardioType
 
-    // Calculate runs per week based on last 4 weeks for a meaningful recent average
-    private var runsPerWeek: Double {
-        let cal = Calendar.current
-        guard let fourWeeksAgo = cal.date(byAdding: .weekOfYear, value: -4, to: Date()) else { return 0 }
-        let recentRuns = allRuns.filter { $0.date >= fourWeeksAgo }
-        return Double(recentRuns.count) / 4.0
+    private var qualifyingRuns: [Run] {
+        allRuns.filter { $0.distanceKm >= 1.0 }
     }
 
+    private var totalRuns: Int {
+        qualifyingRuns.count
+    }
+
+    private var totalDistance: Double {
+        qualifyingRuns.reduce(0) { $0 + $1.distanceKm }
+    }
+
+    private var longestRun: Int {
+        Int(qualifyingRuns.map(\.distanceKm).max() ?? 0)
+    }
+
+    private var avgRunsPerWeek: Int {
+        let cal = Calendar.current
+        var weekStarts = Set<Date>()
+        for run in qualifyingRuns {
+            var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: run.date)
+            comps.weekday = 2
+            if let ws = cal.date(from: comps) { weekStarts.insert(ws) }
+        }
+        guard !weekStarts.isEmpty else { return 0 }
+        return Int(Double(qualifyingRuns.count) / Double(weekStarts.count))
+    }
+
+    // Consecutive weeks (going back from the current week) with at least one qualifying run
     private var currentStreak: Int {
-        let byDay = Set(allRuns.map { Calendar.current.startOfDay(for: $0.date) })
+        let cal = Calendar.current
+        var weekStarts = Set<Date>()
+        for run in qualifyingRuns {
+            var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: run.date)
+            comps.weekday = 2
+            if let ws = cal.date(from: comps) { weekStarts.insert(ws) }
+        }
+        var comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        comps.weekday = 2
+        guard var weekStart = cal.date(from: comps) else { return 0 }
         var streak = 0
-        var day = Calendar.current.startOfDay(for: Date())
-        while byDay.contains(day) {
+        while weekStarts.contains(weekStart) {
             streak += 1
-            day = Calendar.current.date(byAdding: .day, value: -1, to: day) ?? day
+            guard let prev = cal.date(byAdding: .weekOfYear, value: -1, to: weekStart) else { break }
+            weekStart = prev
         }
         return streak
-    }
-
-    private var longestRun: Double {
-        allRuns.map(\.distanceKm).max() ?? 0
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Training Consistency")
-                .font(.headline)
+                .dsFont(.headline)
                 .foregroundStyle(Theme.text)
 
             HStack(spacing: 12) {
-                // Runs per week
+                // Total runs
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
-                        Image(systemName: "calendar")
-                            .font(.caption)
+                        Image(systemName: "figure.run")
+                            .dsFont(.caption)
                             .foregroundStyle(.purple)
-                        Text("Per Week")
-                            .font(.caption)
+                        Text("Total Runs")
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
-                    Text(String(format: "%.1f", runsPerWeek))
-                        .font(.title2.weight(.bold))
+                    Text("\(totalRuns)")
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(Theme.text)
-                    Text(activityType.activityName.lowercased())
-                        .font(.caption2)
-                        .foregroundStyle(Theme.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                // Current streak
+                // Current streak (weekly)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.orange)
                         Text("Streak")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
                     Text("\(currentStreak)")
-                        .font(.title2.weight(.bold))
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(Theme.text)
-                    Text("days")
-                        .font(.caption2)
+                    Text("weeks")
+                        .dsFont(.caption2)
                         .foregroundStyle(Theme.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
+                // Total distance
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "map.fill")
+                            .dsFont(.caption)
+                            .foregroundStyle(Theme.accent)
+                        Text("Total Distance")
+                            .dsFont(.caption)
+                            .foregroundStyle(Theme.secondary)
+                    }
+                    Text(String(format: "%.1f", totalDistance))
+                        .dsFont(.title3, weight: .bold)
+                        .foregroundStyle(Theme.text)
+                    Text("km")
+                        .dsFont(.caption2)
+                        .foregroundStyle(Theme.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            HStack(spacing: 12) {
                 // Longest run
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
-                        Image(systemName: "trophy.fill")
-                            .font(.caption)
-                            .foregroundStyle(Theme.accent)
+                        Image(systemName: "arrow.up.right")
+                            .dsFont(.caption)
+                            .foregroundStyle(.blue)
                         Text("Longest")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
-                    Text(String(format: "%.1f", longestRun))
-                        .font(.title2.weight(.bold))
+                    Text("\(longestRun)")
+                        .dsFont(.title2, weight: .bold)
                         .foregroundStyle(Theme.text)
                     Text("km")
-                        .font(.caption2)
+                        .dsFont(.caption2)
+                        .foregroundStyle(Theme.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                // Average per week
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .dsFont(.caption)
+                            .foregroundStyle(.green)
+                        Text("Avg / Week")
+                            .dsFont(.caption)
+                            .foregroundStyle(Theme.secondary)
+                    }
+                    Text("\(avgRunsPerWeek)")
+                        .dsFont(.title2, weight: .bold)
+                        .foregroundStyle(Theme.text)
+                    Text("runs")
+                        .dsFont(.caption2)
                         .foregroundStyle(Theme.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -934,10 +1050,10 @@ private struct OdometerTile: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "map.fill")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
                 Text(title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
 
@@ -959,7 +1075,7 @@ private struct OdometerTile: View {
 
                 // Unit label
                 Text("km")
-                    .font(.caption2.weight(.semibold))
+                    .dsFont(.caption2, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
                     .padding(.leading, 4)
             }
@@ -1002,14 +1118,14 @@ private struct StatTile: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(iconColor)
                 Text(title)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(Theme.secondary)
             }
             Text(value)
-                .font(.subheadline.weight(.semibold))
+                .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -1048,6 +1164,16 @@ private struct RunRowCard: View {
         return false
     }
 
+    private var previewRoute: [Coordinate]? {
+        if let routeWithHR = run.routeWithHR, routeWithHR.count > 1 {
+            return routeWithHR.map { Coordinate(lat: $0.lat, lon: $0.lon) }
+        }
+        if let route = run.route, route.count > 1 {
+            return route
+        }
+        return nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top) {
@@ -1056,24 +1182,24 @@ private struct RunRowCard: View {
                     HStack(spacing: 4) {
                         if let workoutType = run.workoutType {
                             Text(workoutType)
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(Theme.text)
                         } else {
                             Text("Run")
-                                .font(.subheadline.weight(.semibold))
+                                .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(Theme.text)
                         }
 
                         if let name = run.workoutName, !name.isEmpty {
-                            Text("•").font(.caption).foregroundStyle(Theme.secondary)
+                            Text("•").dsFont(.caption).foregroundStyle(Theme.secondary)
                             Text(name)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(Theme.secondary)
                         }
                     }
 
                     Text(run.date.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(Theme.secondary)
                 }
 
@@ -1083,17 +1209,17 @@ private struct RunRowCard: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     if activityType == .cycling {
                         Text(speed)
-                            .font(.title3.weight(.bold).monospacedDigit())
+                            .dsFont(.title3, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.accent)
                         Text("km/h")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     } else {
                         Text(pace)
-                            .font(.title3.weight(.bold).monospacedDigit())
+                            .dsFont(.title3, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.accent)
                         Text("min/km")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     }
                 }
@@ -1103,29 +1229,29 @@ private struct RunRowCard: View {
             HStack(spacing: 16) {
                 HStack(spacing: 4) {
                     Image(systemName: "map")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.blue)
                     Text(String(format: "%.2f km", run.distanceKm))
-                        .font(.caption.monospacedDigit())
+                        .dsFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Theme.text)
                 }
 
                 HStack(spacing: 4) {
                     Image(systemName: "timer")
-                        .font(.caption2)
+                        .dsFont(.caption2)
                         .foregroundStyle(.orange)
                     Text(formatDuration(run.durationSec))
-                        .font(.caption.monospacedDigit())
+                        .dsFont(.caption, monospacedDigits: true)
                         .foregroundStyle(Theme.text)
                 }
 
                 if hasHeartRate {
                     HStack(spacing: 4) {
                         Image(systemName: "heart.fill")
-                            .font(.caption2)
+                            .dsFont(.caption2)
                             .foregroundStyle(.pink)
                         Text("\((run.avgHeartRate ?? 0).safeInt) bpm")
-                            .font(.caption.monospacedDigit())
+                            .dsFont(.caption, monospacedDigits: true)
                             .foregroundStyle(Theme.text)
                     }
                 }
@@ -1134,7 +1260,11 @@ private struct RunRowCard: View {
             }
 
             // Route map preview
-            if let route = run.route, route.count > 1 {
+            if let routeWithHR = run.routeWithHR, routeWithHR.count > 1 {
+                InteractiveRouteMapHeat(points: routeWithHR)
+                    .frame(height: 120)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            } else if let route = previewRoute {
                 InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
                     .frame(height: 120)
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))

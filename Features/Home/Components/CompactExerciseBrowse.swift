@@ -35,11 +35,11 @@ struct CompactExerciseBrowse: View {
             } label: {
                 HStack(spacing: 4) {
                     Text("Browse all exercises")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
 
                     Image(systemName: "arrow.right")
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.secondary)
                 }
             }

@@ -19,29 +19,25 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
+            VStack(spacing: 18) {
+                Spacer(minLength: 18)
 
-                // App logo/title
                 VStack(spacing: 12) {
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(DS.Palette.marone)
+                    Image("LaunchLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 82, height: 82)
 
-                    Text("WRKT Social")
-                        .font(.largeTitle.bold())
+                   
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 10)
 
-                // Login form
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     TextField("Email", text: $email)
                         .textContentType(.emailAddress)
-                        .autocapitalization(.none)
+                        .textInputAutocapitalization(.never)
                         .keyboardType(.emailAddress)
-                        .padding()
-                        .background(DS.Semantic.surface50)
-                        .cornerRadius(10)
+                        .loginFieldStyle(isFocused: focusedField == .email)
                         .focused($focusedField, equals: .email)
                         .submitLabel(.next)
                         .onSubmit {
@@ -50,9 +46,7 @@ struct LoginView: View {
 
                     SecureField("Password", text: $password)
                         .textContentType(.password)
-                        .padding()
-                        .background(DS.Semantic.surface50)
-                        .cornerRadius(10)
+                        .loginFieldStyle(isFocused: focusedField == .password)
                         .focused($focusedField, equals: .password)
                         .submitLabel(.go)
                         .onSubmit {
@@ -63,15 +57,13 @@ struct LoginView: View {
                             }
                         }
 
-                    // Error message
                     if let errorMessage = errorMessage {
                         Text(errorMessage)
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    // Login button
                     Button {
                         Task {
                             await handleLogin()
@@ -83,86 +75,83 @@ struct LoginView: View {
                                     .tint(.black)
                             } else {
                                 Text("Log In")
-                                    .fontWeight(.semibold)
+                                    .font(DS.Typography.custom(size: 20, weight: .bold))
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(canLogin ? DS.Palette.marone : Color.gray)
-                        .foregroundColor(.black)
-                        .cornerRadius(10)
+                        .frame(height: 58)
+                        .background(canLogin ? DS.Theme.accent : DS.Semantic.surface50, in: ChamferedRectangle(.large))
+                        .foregroundColor(canLogin ? .black : DS.Semantic.textSecondary)
+                        .overlay(ChamferedRectangle(.large).stroke(canLogin ? DS.Theme.accent : DS.Semantic.border, lineWidth: 1))
                     }
                     .disabled(!canLogin || authService.isLoading)
 
-                    // Forgot password
                     Button {
                         showForgotPassword = true
                     } label: {
                         Text("Forgot password?")
-                            .font(.subheadline)
+                            .dsFont(.subheadline, weight: .medium)
+                            .foregroundStyle(DS.Theme.accent)
                     }
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 38)
 
-                Spacer()
+                Spacer(minLength: 18)
 
-                // Divider
-                HStack {
+                HStack(spacing: 18) {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(DS.Semantic.border)
                         .frame(height: 1)
 
                     Text("or")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .dsFont(.caption, weight: .medium)
+                        .foregroundStyle(DS.Semantic.textSecondary)
 
                     Rectangle()
-                        .fill(Color.gray.opacity(0.3))
+                        .fill(DS.Semantic.border)
                         .frame(height: 1)
                 }
-                .padding(.horizontal, 32)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 38)
 
-                // Skip social features button
                 Button {
                     skipSocialFeatures()
                 } label: {
-                    HStack {
+                    HStack(spacing: 12) {
                         Image(systemName: "person.slash")
-                            .font(.body)
+                            .dsFont(.body)
 
                         Text("Don't use social features")
-                            .font(.subheadline.weight(.medium))
+                            .dsFont(.subheadline, weight: .bold)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(10)
+                    .frame(height: 56)
+                    .foregroundStyle(DS.Theme.accent)
+                    .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 38)
 
-                // Explanation text
                 Text("You can enable social features later in settings")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 38)
 
-                // Sign up link
-                HStack {
+                HStack(spacing: 8) {
                     Text("Don't have an account?")
-                        .foregroundColor(.secondary)
+                        .foregroundColor(DS.Semantic.textSecondary)
                     NavigationLink {
                         SignupView()
                     } label: {
                         Text("Sign Up")
-                            .fontWeight(.semibold)
+                            .fontWeight(.bold)
+                            .foregroundStyle(DS.Theme.accent)
                     }
                 }
-                .padding(.bottom, 32)
+                .font(DS.Typography.custom(size: 18, weight: .regular))
+                .padding(.bottom, 22)
             }
             .background(DS.Semantic.surface.ignoresSafeArea())
-            .scrollDismissesKeyboard(.interactively)
             .onTapGesture {
                 focusedField = nil // Dismiss keyboard on tap
             }
@@ -234,6 +223,30 @@ struct LoginView: View {
         settings.enableLocalMode()
         Haptics.success()
         dismiss()
+    }
+}
+
+private struct LoginFieldStyle: ViewModifier {
+    let isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .font(DS.Typography.custom(size: 18, weight: .regular))
+            .foregroundStyle(DS.Semantic.textPrimary)
+            .tint(DS.Theme.accent)
+            .padding(.horizontal, 18)
+            .frame(height: 58)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(isFocused ? DS.Theme.accent : DS.Semantic.border, lineWidth: isFocused ? 1.5 : 1)
+            )
+    }
+}
+
+private extension View {
+    func loginFieldStyle(isFocused: Bool) -> some View {
+        modifier(LoginFieldStyle(isFocused: isFocused))
     }
 }
 

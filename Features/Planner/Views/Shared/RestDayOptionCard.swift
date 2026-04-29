@@ -17,18 +17,18 @@ struct RestDayOptionCard: View {
         Button(action: onTap) {
             HStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .dsFont(.title2)
                     .foregroundStyle(DS.Palette.marone)
                     .frame(width: 50, height: 50)
                     .background(DS.Palette.marone.opacity(isSelected ? 0.15 : 0.1), in: Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.primary)
 
                     Text(description)
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -37,7 +37,7 @@ struct RestDayOptionCard: View {
 
                 // Always reserve space for checkmark to prevent text shifting
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Palette.marone)
                     .opacity(isSelected ? 1 : 0)
             }

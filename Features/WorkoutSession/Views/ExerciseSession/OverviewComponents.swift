@@ -33,7 +33,7 @@ struct OverviewCard: View {
             // Technique tips
             if !meta.cues.isEmpty {
                 Text("Technique tips")
-                    .font(.subheadline.weight(.semibold))
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(Theme.secondary)
 
                 let tips = Array(meta.cues.prefix(showAllTips ? meta.cues.count : 3))
@@ -41,12 +41,12 @@ struct OverviewCard: View {
                     ForEach(tips, id: \.self) { cue in
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             Image(systemName: "lightbulb")
-                                .font(.caption2.weight(.bold))
+                                .dsFont(.caption2, weight: .bold)
                                 .foregroundStyle(Theme.accent)
                                 .frame(width: 16)
                             Text(cue)
                                 .foregroundStyle(.white.opacity(0.92))
-                                .font(.footnote)
+                                .dsFont(.footnote)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -55,7 +55,7 @@ struct OverviewCard: View {
                         Button(showAllTips ? "Show less" : "Show more") {
                             withAnimation(.easeInOut(duration: 0.18)) { showAllTips.toggle() }
                         }
-                        .font(.caption.weight(.semibold))
+                        .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity, alignment: .trailing)
                         .padding(.top, 2)

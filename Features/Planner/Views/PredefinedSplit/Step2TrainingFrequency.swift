@@ -32,7 +32,7 @@ struct Step2TrainingFrequency: View {
         VStack(spacing: 24) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("How many days per week?")
-                    .font(.title2.bold())
+                    .dsFont(.title2, weight: .bold)
 
                 Text("Choose how often you want to train each week.")
                     .foregroundStyle(.secondary)
@@ -57,12 +57,12 @@ struct Step2TrainingFrequency: View {
             if config.trainingDaysPerWeek > 0 {
                 VStack(spacing: 8) {
                     Text("Rest days: \(7 - config.trainingDaysPerWeek) per week")
-                        .font(.subheadline)
+                        .dsFont(.subheadline)
                         .foregroundStyle(.secondary)
 
                     if let template = config.selectedTemplate {
                         Text(frequencyNote(for: template, days: config.trainingDaysPerWeek))
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal)
@@ -111,11 +111,11 @@ struct FrequencyButton: View {
         }) {
             VStack(spacing: 8) {
                 Text("\(days)")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(DS.Typography.custom(size: 40, weight: .bold))
                     .foregroundStyle(isSelected ? DS.Palette.marone : .primary)
 
                 Text(days == 1 ? "day" : "days")
-                    .font(.subheadline.weight(.medium))
+                    .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(isSelected ? DS.Palette.marone : .secondary)
             }
             .frame(maxWidth: .infinity)

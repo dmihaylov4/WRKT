@@ -34,7 +34,7 @@ struct PlannerDebugView: View {
                 Section {
                     Text(message)
                         .foregroundStyle(.secondary)
-                        .font(.caption)
+                        .dsFont(.caption)
                 }
             }
         }
@@ -292,10 +292,10 @@ private struct PlannedWorkoutsListView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(planned.splitDayName)
-                                .font(.headline)
+                                .dsFont(.headline)
                             Spacer()
                             Text(planned.workoutStatus.rawValue)
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 2)
                                 .background(statusColor(planned.workoutStatus))
@@ -304,16 +304,16 @@ private struct PlannedWorkoutsListView: View {
                         }
 
                         Text(planned.scheduledDate.formatted(date: .abbreviated, time: .omitted))
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
 
                         Text("\(planned.exercises.count) exercises")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
 
                         if let completion = planned.completionPercentage {
                             Text("Completion: \(Int(completion))%")
-                                .font(.caption)
+                                .dsFont(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -361,11 +361,11 @@ private struct SplitsListView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text(split.name)
-                                .font(.headline)
+                                .dsFont(.headline)
                             Spacer()
                             if split.isActive {
                                 Text("ACTIVE")
-                                    .font(.caption)
+                                    .dsFont(.caption)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 2)
                                     .background(.green)
@@ -375,15 +375,15 @@ private struct SplitsListView: View {
                         }
 
                         Text("\(split.planBlocks.count) days")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
 
                         Text("Policy: \(split.policy.rawValue)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
 
                         Text("Cursor: \(split.cursor)")
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 4)

@@ -32,7 +32,7 @@ struct LiveWorkoutGrabTab: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     Text(title)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(.white)
 
                     // Show rest timer OR workout timer, not both
@@ -40,12 +40,12 @@ struct LiveWorkoutGrabTab: View {
                         RestTimerCompact()
                     } else {
                         WorkoutTimerText(startDate: startDate)
-                            .font(.subheadline.monospacedDigit())
+                            .dsFont(.subheadline, monospacedDigits: true)
                             .foregroundStyle(brand.opacity(0.9))
                     }
                 }
                 Text(subtitle)
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.65))
             }
 

@@ -30,10 +30,13 @@ class TutorialState: ObservableObject {
 
 // MARK: - Calendar View
 struct CalendarMonthView: View {
+    @Environment(\.dependencies) private var dependencies
     @EnvironmentObject var store: WorkoutStoreV2
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var repo: ExerciseRepository
     @Environment(\.modelContext) private var context
+
+    let onProgramLibraryTap: () -> Void
 
     @State private var monthAnchor: Date = .now
     @State private var selectedDay: Date = .now
@@ -41,7 +44,10 @@ struct CalendarMonthView: View {
     @State private var selectedAction: DayActionCard.DayAction? = nil
     @State private var selectedWeekProgress: WeeklyProgress? = nil  // NEW: Track selected week stats
     @State private var showPlannerSetup = false  // NEW: For planner navigation
+    @State private var plannerLaunchMode: PlannerSetupCarouselView.LaunchMode = .create
     @State private var showHealthKitAuthAlert = false  // HealthKit authorization prompt
+    @State private var showManagePlanAlert = false
+    @State private var activeSplitName: String?
 
     // Phase 2: Today's workout flow
     @State private var showingWorkoutTypeSelector = false
@@ -165,7 +171,7 @@ struct CalendarMonthView: View {
         .opacity(isDragging ? 0.7 : 1.0)
         .animation(.interpolatingSpring(stiffness: 300, damping: 30), value: dragOffset)
         .animation(.easeOut(duration: 0.2), value: isDragging)
-        .gesture(monthSwipeGesture)
+        .simultaneousGesture(monthSwipeGesture)
         .captureFrame(in: .global) { frame in
             tutorialState.calendarGridFrame = frame
         }
@@ -283,6 +289,7 @@ struct CalendarMonthView: View {
 
     private func isPartOfCompletedWeek(_ date: Date) -> Bool {
         guard let goal = weeklyGoal() else { return false }
+        if isFrozenWeek(date) { return true }
         guard let progress = progressForWeek(containing: date) else { return false }
 
         // Check if this week met the goal (EITHER strength OR MVPA)
@@ -311,6 +318,16 @@ struct CalendarMonthView: View {
         return cachedWeeklyProgress
     }
 
+    private var selectedWeekIsFrozen: Bool {
+        guard let progress = selectedWeekProgress else { return false }
+        return isFrozenWeek(progress.weekStart)
+    }
+
+    private var currentWeekIsFrozen: Bool {
+        guard let progress = currentWeekProgress() else { return false }
+        return isFrozenWeek(progress.weekStart)
+    }
+
     private func isInCurrentWeek(_ date: Date) -> Bool {
         guard let goal = weeklyGoal() else { return false }
         let cal = Calendar.current
@@ -318,6 +335,26 @@ struct CalendarMonthView: View {
         guard let nowWeekEnd = cal.date(byAdding: .day, value: 7, to: nowWeekStart) else { return false }
         let dateDay = cal.startOfDay(for: date)
         return dateDay >= nowWeekStart && dateDay < nowWeekEnd
+    }
+
+    private func isFrozenWeek(_ date: Date) -> Bool {
+        guard let goal = weeklyGoal(),
+              let progress = RewardsEngine.shared.progress else { return false }
+
+        let cal = Calendar.current
+        let weekStart = cal.startOfWeek(for: date, anchorWeekday: goal.anchorWeekday)
+
+        if let protectedWeek = progress.weeklyFreezeProtectedWeekStart,
+           cal.isDate(weekStart, inSameDayAs: protectedWeek) {
+            return true
+        }
+
+        guard progress.weeklyStreakFrozen else { return false }
+        let currentWeekStart = cal.startOfWeek(for: .now, anchorWeekday: goal.anchorWeekday)
+        let frozenWeekStart = cal.date(byAdding: .day, value: -7, to: currentWeekStart)
+
+        guard let frozenWeekStart else { return false }
+        return cal.isDate(weekStart, inSameDayAs: frozenWeekStart)
     }
 
     // MARK: - Main Content View
@@ -385,10 +422,13 @@ struct CalendarMonthView: View {
             onBack: { bump(-1) },
             onForward: { bump(+1) },
             onToday: { jumpToToday() },
-            onPlannerTap: { showPlannerSetup = true },
+            onProgramLibraryTap: onProgramLibraryTap,
+            onManagePlanTap: { handleManagePlanTap() },
             weeklyStreak: weeklyGoalStreak,
             currentWeekProgress: currentWeekProgress(),
             selectedWeekProgress: selectedWeekProgress,
+            currentWeekFrozen: currentWeekIsFrozen,
+            selectedWeekFrozen: selectedWeekIsFrozen,
             captureButtonFrame: { frame in
                 tutorialState.plannerButtonFrame = frame
             }
@@ -517,10 +557,27 @@ struct CalendarMonthView: View {
                 .tint(DS.Theme.accent)
                 .safeAreaInset(edge: .bottom) { bottomInset }
                 .onChange(of: selectedAction, actionHandler)
+                .alert("Active Plan Exists", isPresented: $showManagePlanAlert) {
+                    Button("Replace with New Plan", role: .destructive) {
+                        plannerLaunchMode = .replaceCurrent
+                        showPlannerSetup = true
+                    }
+                    Button("Edit Current Split") {
+                        plannerLaunchMode = .editCurrent
+                        showPlannerSetup = true
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    if let activeSplitName {
+                        Text("You already have an active plan: \"\(activeSplitName)\". You can replace it, edit it, or cancel.")
+                    } else {
+                        Text("You already have an active plan. You can replace it, edit it, or cancel.")
+                    }
+                }
 
             // Hidden NavigationLink for planner setup
             NavigationLink(
-                destination: PlannerSetupCarouselView(),
+                destination: PlannerSetupCarouselView(launchMode: plannerLaunchMode),
                 isActive: $showPlannerSetup
             ) {
                 EmptyView()
@@ -605,6 +662,7 @@ struct CalendarMonthView: View {
         updateWeekProgressCache()
         updateDayStatsCache()
         updateStreakWindow()
+        refreshActiveSplitState()
     }
 
     private func handleDataChange() {
@@ -613,6 +671,7 @@ struct CalendarMonthView: View {
         updateDayStatsCache()
         updateWeekProgressCache()
         updateStreakWindow()
+        refreshActiveSplitState()
     }
 
     /// Debounced data update to prevent duplicate cache calculations when multiple data sources change simultaneously
@@ -646,6 +705,27 @@ struct CalendarMonthView: View {
         monthAnchor = .now
         selectedDay = .now
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func handleManagePlanTap() {
+        refreshActiveSplitState()
+
+        if activeSplitName != nil {
+            showManagePlanAlert = true
+        } else {
+            plannerLaunchMode = .create
+            showPlannerSetup = true
+        }
+    }
+
+    private func refreshActiveSplitState() {
+        do {
+            let activeSplit = try dependencies.plannerStore.activeSplit()
+            activeSplitName = activeSplit?.name
+        } catch {
+            AppLogger.error("Failed to load active split for plan management", error: error, category: AppLogger.app)
+            activeSplitName = nil
+        }
     }
 
     // MARK: - Data helpers
@@ -753,7 +833,7 @@ struct CalendarMonthView: View {
                     if let progress = weekProgress[weekStart] {
                         let strengthGoalMet = progress.strengthDaysDone >= goal.targetStrengthDays
                         let mvpaGoalMet = goal.targetActiveMinutes > 0 ? (progress.mvpaDone >= goal.targetActiveMinutes) : true
-                        isCompletedWeek = strengthGoalMet || mvpaGoalMet
+                        isCompletedWeek = strengthGoalMet || mvpaGoalMet || isFrozenWeek(day)
                         isSuperWeek = strengthGoalMet && mvpaGoalMet
                     }
 
@@ -947,6 +1027,7 @@ struct CalendarMonthView: View {
                 isCompletedWeek: stats.isPartOfCompletedWeek,
                 isSuperWeek: stats.isPartOfSuperWeek,
                 isCurrentWeek: stats.isInCurrentWeek,
+                isFrozenWeek: isFrozenWeek(weekDay),
                 onTap: {
                     // Show/hide stats for this week
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -996,6 +1077,10 @@ struct CalendarMonthView: View {
         case .startWorkout(let date):
             workoutStartDate = date
             showingWorkoutTypeSelector = true
+
+        case .startPlannedWorkout(let planned):
+            store.startPlannedWorkout(planned)
+            NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
 
         case .planWorkout(let date):
             plannedWorkoutEditorConfig = PlannedWorkoutEditorConfig(date: date, existingWorkout: nil)

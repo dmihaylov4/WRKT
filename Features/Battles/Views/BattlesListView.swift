@@ -34,7 +34,7 @@ struct BattlesListView: View {
                             viewModel.openCreateBattle()
                         } label: {
                             Image(systemName: "plus.circle.fill")
-                                .font(.title3)
+                                .dsFont(.title3)
                                 .foregroundStyle(DS.Semantic.brand)
                         }
                     }
@@ -215,11 +215,11 @@ struct BattlesListView: View {
                 .foregroundStyle(DS.Semantic.brand.opacity(0.3))
 
             Text("No Active Battles")
-                .font(.title2.bold())
+                .dsFont(.title2, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Challenge a friend to start battling!")
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
 
@@ -228,7 +228,7 @@ struct BattlesListView: View {
                     viewModel.openCreateBattle()
                 } label: {
                     Text("Create Battle")
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.onBrand)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
@@ -250,11 +250,11 @@ struct BattlesListView: View {
                 .foregroundStyle(DS.Semantic.brand.opacity(0.3))
 
             Text("No Pending Battles")
-                .font(.title2.bold())
+                .dsFont(.title2, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("You have no battle invitations")
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -270,11 +270,11 @@ struct BattlesListView: View {
                 .foregroundStyle(DS.Semantic.brand.opacity(0.3))
 
             Text("No Completed Battles")
-                .font(.title2.bold())
+                .dsFont(.title2, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Complete your first battle to see it here")
-                .font(.body)
+                .dsFont(.body)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .multilineTextAlignment(.center)
         }
@@ -309,11 +309,11 @@ struct BattleCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(battleTypeLabel)
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         Text("Battle")
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
 
@@ -324,11 +324,11 @@ struct BattleCard: View {
                     if daysRemaining > 0 {
                         VStack(alignment: .trailing, spacing: 2) {
                             Text("\(daysRemaining)")
-                                .font(.title3.bold())
+                                .dsFont(.title3, weight: .bold)
                                 .foregroundStyle(DS.Semantic.brand)
 
                             Text(daysRemaining == 1 ? "day left" : "days left")
-                                .font(.caption2)
+                                .dsFont(.caption2)
                                 .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
@@ -346,7 +346,7 @@ struct BattleCard: View {
 
                     // VS divider
                     Text("VS")
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .padding(.horizontal, 8)
 
@@ -362,11 +362,11 @@ struct BattleCard: View {
                 // Status indicator
                 if viewModel.isCurrentUserWinning(for: battle) {
                     Label("You're winning!", systemImage: "crown.fill")
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.brand)
                 } else {
                     Label("You're behind", systemImage: "arrow.up.circle.fill")
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
@@ -423,23 +423,23 @@ struct PendingBattleCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(battleTypeLabel)
-                        .font(.caption)
+                        .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     Text(invitationText)
-                        .font(.headline)
+                        .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 Spacer()
 
                 Image(systemName: "envelope.badge.fill")
-                    .font(.title3)
+                    .dsFont(.title3)
                     .foregroundStyle(DS.Semantic.brand)
             }
 
             Text("Duration: \(battle.battle.duration) days")
-                .font(.subheadline)
+                .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             // Action buttons
@@ -453,7 +453,7 @@ struct PendingBattleCard: View {
                         }
                     } label: {
                         Text("Decline")
-                            .font(.subheadline.bold())
+                            .dsFont(.subheadline, weight: .bold)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
@@ -477,7 +477,7 @@ struct PendingBattleCard: View {
                                 Text("Accept")
                             }
                         }
-                        .font(.subheadline.bold())
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.onBrand)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -488,7 +488,7 @@ struct PendingBattleCard: View {
                 }
             } else {
                 Text("Waiting for opponent to accept")
-                    .font(.caption)
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .padding(.vertical, 8)
             }
@@ -538,11 +538,11 @@ struct CompletedBattleCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(battleTypeLabel)
-                            .font(.caption)
+                            .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         Text(resultText)
-                            .font(.headline)
+                            .dsFont(.headline)
                             .foregroundStyle(didWin ? DS.Semantic.brand : DS.Semantic.textPrimary)
                     }
 
@@ -550,7 +550,7 @@ struct CompletedBattleCard: View {
 
                     if didWin {
                         Image(systemName: "trophy.fill")
-                            .font(.title3)
+                            .dsFont(.title3)
                             .foregroundStyle(DS.Semantic.brand)
                     }
                 }
@@ -565,7 +565,7 @@ struct CompletedBattleCard: View {
                     )
 
                     Text("VS")
-                        .font(.caption.bold())
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     ScoreColumn(
@@ -627,15 +627,15 @@ struct ScoreColumn: View {
     var body: some View {
         VStack(spacing: 6) {
             Text(label)
-                .font(.caption)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text(scoreText)
-                .font(.title2.bold())
+                .dsFont(.title2, weight: .bold)
                 .foregroundStyle(isWinning ? DS.Semantic.brand : DS.Semantic.textPrimary)
 
             Text(scoreLabel)
-                .font(.caption2)
+                .dsFont(.caption2)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity)

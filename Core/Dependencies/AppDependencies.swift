@@ -68,6 +68,9 @@ final class AppDependencies: ObservableObject {
     /// Realtime service - manages Supabase Realtime subscriptions for live updates
     let realtimeService: RealtimeService
 
+    /// Program sharing repository - manages shared programs and invite lifecycle
+    let programSharingRepository: ProgramSharingRepository
+
     /// Challenge repository - manages community challenges and user participation
     let challengeRepository: ChallengeRepository
 
@@ -111,6 +114,7 @@ final class AppDependencies: ObservableObject {
         self.imageUploadService = ImageUploadService()
         self.notificationRepository = NotificationRepository()
         self.realtimeService = RealtimeService()
+        self.programSharingRepository = ProgramSharingRepository()
         self.challengeRepository = ChallengeRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.battleRepository = BattleRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.virtualRunRepository = VirtualRunRepository()
@@ -146,6 +150,9 @@ final class AppDependencies: ObservableObject {
 
         // Configure planner store
         plannerStore.configure(container: modelContext.container, context: modelContext, workoutStore: workoutStore)
+        workoutStore.installPlannedWorkoutCompletionHandler { [plannerStore] plannedWorkoutID, completed in
+            plannerStore.completePlannedWorkout(id: plannedWorkoutID, completed: completed)
+        }
         AppLogger.success("Planner store configured", category: AppLogger.app)
 
         // Wire up competitive features to workout store

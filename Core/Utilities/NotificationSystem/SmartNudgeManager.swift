@@ -20,6 +20,7 @@ final class SmartNudgeManager {
         static let timeBasedNudge = "com.dmihaylov.wrkt.time_based_nudge"
         static let streakUrgency = "com.dmihaylov.wrkt.streak_urgency"
         static let dailyStreakCheck = "com.dmihaylov.wrkt.daily_streak_check"
+        static let weeklyFreezeUsed = "com.dmihaylov.wrkt.weekly_freeze_used"
     }
 
     // MARK: - Dependencies
@@ -291,6 +292,32 @@ final class SmartNudgeManager {
             AppLogger.success("Sent streak urgency notification (streak: \(currentStreak))", category: AppLogger.app)
         } catch {
             AppLogger.error("Failed to send streak urgency notification", error: error, category: AppLogger.app)
+        }
+    }
+
+    /// Notify user that a monthly weekly freeze was auto-used to preserve the streak.
+    func sendWeeklyFreezeUsedNotification(streak: Int) async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        guard settings.authorizationStatus == .authorized else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "Streak Saved"
+        content.body = "Your monthly freeze was used to protect your \(streak)-week streak."
+        content.sound = .default
+        content.categoryIdentifier = "TIME_BASED_NUDGE"
+        content.userInfo = ["type": "weekly_freeze_used", "streak": streak]
+
+        let request = UNNotificationRequest(
+            identifier: "\(NotificationID.weeklyFreezeUsed)_\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            AppLogger.success("Sent weekly freeze used notification (streak: \(streak))", category: AppLogger.app)
+        } catch {
+            AppLogger.error("Failed to send weekly freeze used notification", error: error, category: AppLogger.app)
         }
     }
 

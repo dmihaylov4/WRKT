@@ -22,6 +22,8 @@ extension Notification.Name {
        static let dismissLiveOverlay = Notification.Name("dismissLiveOverlay")
        static let rewardsDidSummarize = Notification.Name("rewardsDidSummarize")
        static let friendshipStatusChanged = Notification.Name("friendshipStatusChanged")
+       static let hideShellTabBar = Notification.Name("hideShellTabBar")
+       static let showShellTabBar = Notification.Name("showShellTabBar")
 }
 
 // MARK: - NotificationManager
@@ -83,8 +85,11 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         let userInfo = response.notification.request.content.userInfo
         AppLogger.debug("Notification tapped: \(userInfo)", category: AppLogger.app)
 
-        // Handle notification tap - route to appropriate view based on notification type
-        // This can be expanded based on different notification types
+        NotificationCenter.default.post(
+            name: .didReceivePushNotification,
+            object: nil,
+            userInfo: userInfo
+        )
 
         completionHandler()
     }
