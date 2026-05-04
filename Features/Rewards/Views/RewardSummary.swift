@@ -69,7 +69,8 @@ extension RewardSummary {
         (levelUpTo != nil) ||
         (streakNew > streakOld) ||
         !unlockedAchievements.isEmpty ||
-        !earnedPlates.isEmpty
+        !earnedPlates.isEmpty ||
+        rewardQueue.hasEvents
     }
 
     func merged(with other: RewardSummary) -> RewardSummary {
@@ -230,6 +231,10 @@ extension RewardSummary {
 }
 
 private extension BarbellRewardPresentationQueue {
+    var hasEvents: Bool {
+        primary != nil || !compactEvents.isEmpty
+    }
+
     var allEvents: [BarbellRewardEvent] {
         if let primary {
             return [primary] + compactEvents
