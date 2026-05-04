@@ -87,7 +87,7 @@ struct SettingsView: View {
                     }
                     settingsRow {
                         NavigationLink {
-                            BarbellPreviewView()
+                            BarbellEditorView()
                         } label: {
                             Label("My Barbell", systemImage: "scalemass.fill")
                         }

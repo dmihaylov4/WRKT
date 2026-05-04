@@ -31,6 +31,18 @@ final class SupabaseAuthService: ObservableObject {
 
     // MARK: - Session Management
 
+    private func assignCurrentUser(_ user: AuthUser?) async {
+        if currentUser?.id != user?.id {
+            await BarbellProgressService.shared.cancelAndAwaitRemoteSyncForAuthenticatedUserChange(to: user?.id)
+            await BarbellCustomizationService.shared.cancelAndAwaitRemoteSyncForAuthenticatedUserChange(to: user?.id)
+        }
+        currentUser = user
+        if user != nil {
+            try? await BarbellProgressService.shared.pullEarnedPlatesFromSupabase()
+            try? await BarbellCustomizationService.shared.pullFromSupabase()
+        }
+    }
+
     /// Restore existing session from storage (with offline support)
     func restoreSession() async {
         let networkMonitor = NetworkMonitor.shared
@@ -61,16 +73,16 @@ final class SupabaseAuthService: ObservableObject {
                     profile = cachedProfile
                 } else {
                     // No cache available, can't restore
-                    self.currentUser = nil
+                    await assignCurrentUser(nil)
                     return
                 }
             }
 
-            self.currentUser = AuthUser(
+            await assignCurrentUser(AuthUser(
                 id: user.id,
                 email: user.email ?? "",
                 profile: profile
-            )
+            ))
 
             // Sync birth year from Supabase profile into HR zone calculator
             if let birthYear = profile.birthYear {
@@ -93,7 +105,7 @@ final class SupabaseAuthService: ObservableObject {
             }
         } catch {
             // No session or error - user is logged out
-            self.currentUser = nil
+            await assignCurrentUser(nil)
         }
     }
 
@@ -130,7 +142,7 @@ final class SupabaseAuthService: ObservableObject {
             if user.emailConfirmedAt == nil {
                 // Email confirmation required
                 self.needsEmailVerification = true
-                self.currentUser = nil  // Don't log them in yet
+                await assignCurrentUser(nil)  // Don't log them in yet
                 self.error = nil
             } else {
                 // Email already verified (shouldn't happen with confirmation enabled, but handle it)
@@ -147,11 +159,11 @@ final class SupabaseAuthService: ObservableObject {
                 // Cache profile for offline use
                 CacheManager.shared.cacheProfile(profile)
 
-                self.currentUser = AuthUser(
+                await assignCurrentUser(AuthUser(
                     id: user.id,
                     email: email,
                     profile: profile
-                )
+                ))
 
                 self.needsEmailVerification = false
                 self.error = nil
@@ -187,6 +199,10 @@ final class SupabaseAuthService: ObservableObject {
         defer { isLoading = false }
 
         do {
+            if currentUser != nil {
+                await BarbellProgressService.shared.cancelAndAwaitRemoteSyncForAuthenticatedUserChange(to: nil)
+                await BarbellCustomizationService.shared.cancelAndAwaitRemoteSyncForAuthenticatedUserChange(to: nil)
+            }
 
             let response = try await client.auth.signIn(
                 email: email,
@@ -207,11 +223,11 @@ final class SupabaseAuthService: ObservableObject {
             // Cache profile for offline use
             CacheManager.shared.cacheProfile(profile)
 
-            self.currentUser = AuthUser(
+            await assignCurrentUser(AuthUser(
                 id: response.user.id,
                 email: email,
                 profile: profile
-            )
+            ))
 
             self.error = nil
 
@@ -231,9 +247,11 @@ final class SupabaseAuthService: ObservableObject {
         do {
             // Remove push token from server before signing out
             await PushNotificationService.shared.removeTokenFromServer()
+            await BarbellProgressService.shared.cancelAndAwaitRemoteSyncForAuthenticatedUserChange(to: nil)
+            await BarbellCustomizationService.shared.cancelAndAwaitRemoteSyncForAuthenticatedUserChange(to: nil)
 
             try await client.auth.signOut()
-            self.currentUser = nil
+            await assignCurrentUser(nil)
             self.error = nil
         } catch {
             self.error = .networkError(error)
@@ -312,7 +330,7 @@ final class SupabaseAuthService: ObservableObject {
         } catch {
             AppLogger.error("Failed to handle email confirmation", error: error, category: AppLogger.app)
             self.error = .networkError(error)
-            self.currentUser = nil
+            await assignCurrentUser(nil)
             self.isCheckingSession = false
         }
     }
@@ -431,11 +449,11 @@ final class SupabaseAuthService: ObservableObject {
 
             // Update local state
             if let email = currentUser?.email {
-                self.currentUser = AuthUser(
+                await assignCurrentUser(AuthUser(
                     id: userId,
                     email: email,
                     profile: updatedProfile
-                )
+                ))
             }
 
             self.error = nil

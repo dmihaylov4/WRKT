@@ -3,6 +3,7 @@ import Foundation
 @testable import WRKT
 
 @Suite("Merge logic")
+@MainActor
 struct MergeTests {
     @Test("merge workouts deduplicates by id")
     func mergeWorkoutsByID() {

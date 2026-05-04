@@ -218,6 +218,8 @@
 		2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */; };
 		2EBB00112FA0000000000001 /* BarbellAudioBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */; };
 		2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00122FA0000000000001 /* BarbellRealityView.swift */; };
+		2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00142FA0000000000001 /* PlateFaceView.swift */; };
+		2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00162FA0000000000001 /* PlateVisualDesign.swift */; };
 		2EBE3EF02EB6578B00A26355 /* CreateCustomSplitCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3EEE2EB6578B00A26355 /* CreateCustomSplitCard.swift */; };
 		2EBE3EF12EB6578B00A26355 /* SplitTemplateCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3EEF2EB6578B00A26355 /* SplitTemplateCard.swift */; };
 		2EBE3EF32EB6579900A26355 /* RestDayOptionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3EF22EB6579900A26355 /* RestDayOptionCard.swift */; };
@@ -391,6 +393,9 @@
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
 		2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */; };
 		353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */; };
+		ABCD1235ABCD1235ABCD1235 /* BarbellCatalogTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */; };
+		ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */; };
+		ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */; };
 		84BC9435E0674897A910D943 /* plate_clink.caf in Resources */ = {isa = PBXBuildFile; fileRef = 1848F2CE0BE744519C79CD42 /* plate_clink.caf */; };
 		86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414B41C8700743B3B70EF25D /* ExportBundle.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
@@ -676,6 +681,8 @@
 		2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEntityBuilder.swift; sourceTree = "<group>"; };
 		2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellAudioBuilder.swift; sourceTree = "<group>"; };
 		2EBB00122FA0000000000001 /* BarbellRealityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellRealityView.swift; sourceTree = "<group>"; };
+		2EBB00142FA0000000000001 /* PlateFaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateFaceView.swift; sourceTree = "<group>"; };
+		2EBB00162FA0000000000001 /* PlateVisualDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateVisualDesign.swift; sourceTree = "<group>"; };
 		2EBE3EEE2EB6578B00A26355 /* CreateCustomSplitCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateCustomSplitCard.swift; sourceTree = "<group>"; };
 		2EBE3EEF2EB6578B00A26355 /* SplitTemplateCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitTemplateCard.swift; sourceTree = "<group>"; };
 		2EBE3EF22EB6579900A26355 /* RestDayOptionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestDayOptionCard.swift; sourceTree = "<group>"; };
@@ -849,6 +856,9 @@
 		9045D7549B884EEA9A17C4BC /* WRKT-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Release.xcconfig"; sourceTree = "<group>"; };
 		A1F000022FA2000000F00001 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
+		ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCatalogTypes.swift; sourceTree = "<group>"; };
+		ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCustomizationService.swift; sourceTree = "<group>"; };
+		ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEditorView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1480,6 +1490,8 @@
 				2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */,
 				2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */,
 				2EBB00122FA0000000000001 /* BarbellRealityView.swift */,
+				2EBB00142FA0000000000001 /* PlateFaceView.swift */,
+				ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1488,6 +1500,8 @@
 			isa = PBXGroup;
 			children = (
 				DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */,
+				ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */,
+				2EBB00162FA0000000000001 /* PlateVisualDesign.swift */,
 				2E510B902E9AF1430089EE2C /* RewardsRules.swift */,
 				2E2F538C2E9D670700C81656 /* StreakResult.swift */,
 			);
@@ -1500,6 +1514,7 @@
 				2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */,
 				2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */,
 				2EBB00002FA0000000000001 /* BarbellProgressService.swift */,
+				ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */,
 				2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */,
 			);
 			path = Services;
@@ -2728,6 +2743,8 @@
 				2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */,
 				2EBB00112FA0000000000001 /* BarbellAudioBuilder.swift in Sources */,
 				2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */,
+				2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */,
+				2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */,
 				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,
 				2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */,
 				2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */,
@@ -2788,6 +2805,9 @@
 				2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */,
 				2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */,
 				353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */,
+				ABCD1235ABCD1235ABCD1235 /* BarbellCatalogTypes.swift in Sources */,
+				ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */,
+				ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */,
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
 				2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */,
 				2E695B8A2F017589002EA9FC /* SettingsView.swift in Sources */,
@@ -3243,7 +3263,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.0;
+				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3291,7 +3311,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.0.0;
+				MARKETING_VERSION = 5.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

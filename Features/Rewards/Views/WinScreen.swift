@@ -11,32 +11,6 @@ import Combine
 import RealityKit
 
 
-
-//REMOVE OLD
-struct WinScreenHost: View {
-    @StateObject private var coord = WinScreenCoordinator.shared
-
-    var body: some View {
-        EmptyView()
-            .fullScreenCover(
-                item: Binding(
-                    get: { coord.summary.map { Box(value: $0) } },
-                    set: { (box: Box?) in if box == nil { coord.summary = nil } }
-                )
-            ) { (box: Box) in
-                WinScreenView(summary: box.value) { coord.summary = nil }
-            }
-    }
-
-    private struct Box: Identifiable {
-        let id = UUID()
-        let value: RewardSummary
-    }
-}
-
-// ENDREMOVE OLD
-
-//NEW TEST
 struct WinScreenOverlay: View {
     @StateObject private var coord = WinScreenCoordinator.shared
     var body: some View {
@@ -52,8 +26,6 @@ struct WinScreenOverlay: View {
         .allowsHitTesting(coord.summary != nil)
     }
 }
-
-//END NEW TEST
 
 // WinScreenView.swift
 import SwiftUI
@@ -80,6 +52,10 @@ struct WinScreenView: View {
     // Plate reveal state
     @State private var revealedPlates: [Int] = []   // indices into summary.earnedPlates revealed so far
     @State private var showBarbellMoment = false
+
+    private var fullScreenBarbellPlate: EarnedPlateInfo? {
+        summary.rewardQueue.fullScreenPlate
+    }
 
     private var title: String {
         if summary.gotLuckyBonus { return "LUCKY!" }
@@ -235,7 +211,7 @@ struct WinScreenView: View {
                         if !summary.earnedPlates.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
                                 if !revealedPlates.isEmpty {
-                                    Text("New Plates")
+                                    Text(summary.rewardQueue.compactSummary.map { "New Plates, \($0)" } ?? "New Plates")
                                         .dsFont(.caption, weight: .semibold)
                                         .foregroundStyle(.white.opacity(0.7))
                                         .padding(.top, 4)
@@ -285,7 +261,7 @@ struct WinScreenView: View {
                         // Continue Button
                         Button {
                             Haptics.light()
-                            if !summary.earnedPlates.isEmpty && !showBarbellMoment {
+                            if fullScreenBarbellPlate != nil && !showBarbellMoment {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     showBarbellMoment = true
                                 }
@@ -293,7 +269,7 @@ struct WinScreenView: View {
                                 onDismiss()
                             }
                         } label: {
-                            Text(summary.earnedPlates.isEmpty || showBarbellMoment ? "Continue" : "See Your Barbell")
+                            Text(fullScreenBarbellPlate == nil || showBarbellMoment ? "Continue" : "See Your Barbell")
                                 .dsFont(.headline)
                                 .frame(maxWidth: .infinity, minHeight: 48)
                                 .contentShape(Rectangle())
@@ -315,13 +291,29 @@ struct WinScreenView: View {
             }
         }
         .fullScreenCover(isPresented: $showBarbellMoment) {
-            BarbellMomentView(plates: summary.earnedPlates, onDismiss: onDismiss)
+            if let fullScreenBarbellPlate {
+                BarbellMomentView(plates: [fullScreenBarbellPlate], onDismiss: onDismiss)
+            }
         }
         .task {
             guard !didStartReveal else { return }
             didStartReveal = true
+            playPrimaryBarbellRewardFeedback()
             try? await Task.sleep(for: .milliseconds(80))
             startStaggeredReveal()
+        }
+    }
+
+    private func playPrimaryBarbellRewardFeedback() {
+        switch summary.rewardQueue.primary?.kind {
+        case .tierUp:
+            BarbellProgressService.shared.playTierUpFeedback()
+        case .cosmeticUnlock:
+            BarbellProgressService.shared.playCosmeticEquipFeedback()
+        case .newPlate:
+            BarbellProgressService.shared.playClinkHaptic()
+        case .setBonus, .personalRecord, .agingMilestone, nil:
+            break
         }
     }
 
@@ -435,39 +427,20 @@ struct WinScreenView: View {
 private struct PlateRevealCard: View {
     let plate: EarnedPlateInfo
 
+    private var tier: PlateTier? {
+        PlateTier.all.first { $0.id == plate.tierID }
+    }
+
     private var tierName: String {
-        switch plate.tierID {
-        case 0: return "Raw Iron"
-        case 1: return "Cast Iron"
-        case 2: return "Black Bumper"
-        case 3: return "Brass"
-        case 4: return "Competition"
-        case 5: return "Polished Steel"
-        case 6: return "Gold"
-        default: return "Plate"
-        }
+        tier?.name ?? "Plate"
     }
 
     private var rarityLabel: String {
-        switch plate.tierID {
-        case 0, 1: return "Common"
-        case 2: return "Uncommon"
-        case 3, 4: return "Rare"
-        case 5: return "Epic"
-        case 6: return "Legendary"
-        default: return ""
-        }
+        tier?.rarity.rawValue ?? ""
     }
 
     private var rarityColor: Color {
-        switch plate.tierID {
-        case 0, 1: return .gray
-        case 2: return Color(red: 0.2, green: 0.7, blue: 0.3)
-        case 3, 4: return Color(red: 0.2, green: 0.4, blue: 0.9)
-        case 5: return Color(red: 0.6, green: 0.2, blue: 0.9)
-        case 6: return Color(red: 0.9, green: 0.65, blue: 0.1)
-        default: return .white
-        }
+        tier?.rarity.color ?? .white
     }
 
     var body: some View {
@@ -510,45 +483,17 @@ private struct RealityPlatePreview: View {
     let plate: EarnedPlateInfo
 
     var body: some View {
-        RealityView { content in
-            let root = Entity()
-            root.scale = SIMD3(repeating: 1.05)
-
-            let material = buildMaterial(forTierID: plate.tierID, textures: nil)
-            let entity = makePlateEntity(
+        ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(DS.Theme.cardBottom.opacity(0.55))
+            PlateFaceView(
                 tierID: plate.tierID,
-                material: material,
-                weightKg: plate.weightKg,
-                engravingText: plate.engravingText,
-                role: .bar
+                progressionTier: .iron,
+                liftTypeID: plate.liftTypeID,
+                weightKg: plate.weightKg
             )
-            entity.components.remove(InputTargetComponent.self)
-            entity.components.remove(CollisionComponent.self)
-            entity.components.remove(PhysicsBodyComponent.self)
-            entity.components.remove(PhysicsMotionComponent.self)
-            entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(1, 0, 0))
-            root.addChild(entity)
-
-            let keyLight = Entity()
-            var directional = DirectionalLightComponent()
-            directional.color = .white
-            directional.intensity = 2500
-            keyLight.components.set(directional)
-            keyLight.orientation = simd_quatf(angle: -.pi / 5, axis: SIMD3<Float>(1, 0, 0))
-
-            let fillLight = Entity()
-            fillLight.components[PointLightComponent.self] = PointLightComponent(
-                color: UIColor(white: 0.7, alpha: 1),
-                intensity: 450,
-                attenuationRadius: 2
-            )
-            fillLight.position = SIMD3(-0.25, 0.2, 0.45)
-
-            content.add(root)
-            content.add(keyLight)
-            content.add(fillLight)
+            .padding(6)
         }
-        .background(DS.Theme.cardBottom.opacity(0.55))
     }
 }
 

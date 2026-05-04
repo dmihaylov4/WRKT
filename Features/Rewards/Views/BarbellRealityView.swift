@@ -3,6 +3,9 @@ import SwiftUI
 import RealityKit
 import SwiftData
 
+private let plateBarOrientation = simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(0, 0, 1))
+private let plateDisplayOrientation = plateBarOrientation
+
 // MARK: - Debug logging
 
 #if DEBUG
@@ -10,6 +13,46 @@ func barbellLog(_ tag: String, _ msg: String) {
     print("[Barbell.\(tag)] \(msg)")
 }
 func v3(_ v: SIMD3<Float>) -> String { String(format: "(%.3f, %.3f, %.3f)", v.x, v.y, v.z) }
+
+private var isBarbellPlateDebugEnabled: Bool {
+    ProcessInfo.processInfo.arguments.contains("-BarbellPlateDebug")
+    || ProcessInfo.processInfo.environment["BARBELL_PLATE_DEBUG"] == "1"
+}
+
+private func attachPlateDebugAxes(to entity: Entity, label: String) {
+    guard isBarbellPlateDebugEnabled else { return }
+
+    let axisLength: Float = 0.34
+    let axisWidth: Float = 0.008
+    let red = SimpleMaterial(color: .red, isMetallic: false)
+    let green = SimpleMaterial(color: .green, isMetallic: false)
+    let blue = SimpleMaterial(color: .blue, isMetallic: false)
+    let white = SimpleMaterial(color: .white, isMetallic: false)
+
+    let xAxis = ModelEntity(mesh: .generateBox(size: SIMD3(axisLength, axisWidth, axisWidth)), materials: [red])
+    xAxis.name = "\(label)_debug_localX"
+    xAxis.position.x = axisLength * 0.5
+
+    let yAxis = ModelEntity(mesh: .generateBox(size: SIMD3(axisWidth, axisLength, axisWidth)), materials: [green])
+    yAxis.name = "\(label)_debug_faceNormalY"
+    yAxis.position.y = axisLength * 0.5
+
+    let zAxis = ModelEntity(mesh: .generateBox(size: SIMD3(axisWidth, axisWidth, axisLength)), materials: [blue])
+    zAxis.name = "\(label)_debug_localZ"
+    zAxis.position.z = axisLength * 0.5
+
+    let center = ModelEntity(mesh: .generateSphere(radius: 0.015), materials: [white])
+    center.name = "\(label)_debug_center"
+
+    entity.addChild(xAxis)
+    entity.addChild(yAxis)
+    entity.addChild(zAxis)
+    entity.addChild(center)
+
+    let matrix = entity.transformMatrix(relativeTo: nil)
+    let faceNormal = simd_normalize(SIMD3<Float>(matrix.columns.1.x, matrix.columns.1.y, matrix.columns.1.z))
+    barbellLog("PLATE_DEBUG", "\(label) localY(faceNormal)=\(v3(faceNormal)) worldPos=\(v3(entity.position(relativeTo: nil)))")
+}
 #endif
 
 // MARK: - BarbellRealityMode
@@ -219,11 +262,15 @@ final class SceneState {
             material: materialCache[plate.tierID],
             weightKg: plate.weightKg,
             engravingText: plate.engravingText,
+            renderProjection: BarbellPlateRenderProjection(plate: plate),
             role: .floor
         )
         entity.name = plate.id
-        entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        entity.orientation = plateDisplayOrientation
         entity.position = storageSlotPositions[slotIdx]
+        #if DEBUG
+        attachPlateDebugAxes(to: entity, label: "storage_add_\(slotIdx)")
+        #endif
         entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
         sceneRoot.addChild(entity)
         entityMap[plate.id] = entity
@@ -270,6 +317,23 @@ final class SceneState {
     }
 
     @MainActor
+    func pauseNonessentialRealityWork() {
+        barbellSpinVelocity = 0
+        for task in settleTasks.values {
+            task.cancel()
+        }
+        settleTasks.removeAll()
+        for entity in entityMap.values {
+            entity.stopAllAnimations(recursive: true)
+            if entity.components[PlateRoleComponent.self]?.role == .floor,
+               entity.components[PhysicsBodyComponent.self]?.mode == .dynamic {
+                entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+                entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
+            }
+        }
+    }
+
+    @MainActor
     func animateAwardPlateOntoBar(plateID: String, rackSlot: Int) async -> Bool {
         guard let entity = entityMap[plateID],
               entity.components[PlateRoleComponent.self]?.role == .floor else {
@@ -287,7 +351,7 @@ final class SceneState {
         }
 
         let offset = slotOffsets[rackSlot]
-        let targetRot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        let targetRot = plateBarOrientation
         let barLocal = barAnchor.position
         let rightHigh = SIMD3<Float>(offset + 0.42, barLocal.y + 0.62, barLocal.z + 0.12)
         let rightHover = SIMD3<Float>(offset + 0.12, barLocal.y + 0.22, barLocal.z + 0.05)
@@ -398,7 +462,7 @@ final class SceneState {
         }
 
         let targetPos = storageSlotPositions[slotIndex]
-        let targetRot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        let targetRot = plateDisplayOrientation
         entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
         if entity.parent !== sceneRoot {
             entity.setParent(sceneRoot, preservingWorldTransform: true)
@@ -458,7 +522,7 @@ final class SceneState {
         let spawnX = max(-0.58, min(0.58, t * 1.10))
         let spawnY = Float.random(in: 1.18...1.50)
         let spawnZ = Float.random(in: 0.16...0.34)
-        let targetRot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        let targetRot = plateDisplayOrientation
 
         entity.components.set(PlateRoleComponent(role: .floor))
         entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
@@ -489,9 +553,64 @@ final class SceneState {
 
 // MARK: - BarbellRealityView
 
+private struct RoomThemePreset {
+    let backdropColor: UIColor
+    let backdropMetallic: Float
+    let backdropRoughness: Float
+    let floorColor: UIColor
+    let floorMetallic: Float
+    let floorRoughness: Float
+    let stripColor: UIColor
+    let bumperColor: UIColor
+    let bumperMetallic: Float
+    let bumperRoughness: Float
+    let swiftUIBackground: Color
+
+    static func preset(for id: String) -> RoomThemePreset {
+        switch id {
+        case "concrete_room":
+            return RoomThemePreset(
+                backdropColor: UIColor(white: 0.40, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 0.96,
+                floorColor: UIColor(white: 0.36, alpha: 1),
+                floorMetallic: 0.02, floorRoughness: 0.94,
+                stripColor: UIColor(white: 0.48, alpha: 1),
+                bumperColor: UIColor(white: 0.52, alpha: 1),
+                bumperMetallic: 0.06, bumperRoughness: 0.72,
+                swiftUIBackground: Color(UIColor(white: 0.30, alpha: 1))
+            )
+        case "competition_platform":
+            return RoomThemePreset(
+                backdropColor: UIColor(white: 0.90, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 0.98,
+                floorColor: UIColor(red: 0.68, green: 0.50, blue: 0.30, alpha: 1),
+                floorMetallic: 0.05, floorRoughness: 0.65,
+                stripColor: UIColor(red: 0.76, green: 0.58, blue: 0.36, alpha: 1),
+                bumperColor: UIColor(white: 0.82, alpha: 1),
+                bumperMetallic: 0.04, bumperRoughness: 0.65,
+                swiftUIBackground: Color(UIColor(white: 0.72, alpha: 1))
+            )
+        default: // dark_gym
+            return RoomThemePreset(
+                backdropColor: UIColor(white: 0.09, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 1.0,
+                floorColor: UIColor(white: 0.22, alpha: 1),
+                floorMetallic: 0.05, floorRoughness: 0.85,
+                stripColor: UIColor(white: 0.32, alpha: 1),
+                bumperColor: UIColor(white: 0.42, alpha: 1),
+                bumperMetallic: 0.10, bumperRoughness: 0.65,
+                swiftUIBackground: Color(UIColor(white: 0.20, alpha: 1))
+            )
+        }
+    }
+}
+
 struct BarbellRealityView: View {
     let mode: BarbellRealityMode
     let sceneState: SceneState
+    var barSkinID: Int = 0
+    var rackStyleID: String = "matte_black"
+    var roomThemeID: String = "dark_gym"
     var allowsInteraction = true
     var showsStorage = true
     /// Floor plates use a 0.38m wide box collider. Keep their centers comfortably inside the
@@ -533,9 +652,9 @@ struct BarbellRealityView: View {
 
                 switch mode {
                 case .welcome(let plates):
-                    setupWelcomeScene(content: &content, plates: plates)
+                    setupWelcomeScene(content: &content, plates: plates, barSkinID: barSkinID)
                 case .rackRoom(let racked, let floor, _, _):
-                    setupRackRoomScene(content: &content, racked: racked, floor: floor)
+                    setupRackRoomScene(content: &content, racked: racked, floor: floor, barSkinID: barSkinID, rackStyleID: rackStyleID, roomThemeID: roomThemeID)
                 }
 
                 sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
@@ -561,20 +680,21 @@ struct BarbellRealityView: View {
             .task {
                 switch mode {
                 case .welcome:
+                    guard !BarbellRealityPerformanceBudget.requiresStaticOnlyRendering else { return }
                     sceneState.barbellSpinVelocity = sceneState.barbellSpinVelocity == 0 ? 0.18 : sceneState.barbellSpinVelocity
                     await sceneState.runWelcomeSpinLoop()
                 case .rackRoom:
                     await runRackBoundaryLoop()
                 }
             }
+            .onDisappear {
+                sceneState.pauseNonessentialRealityWork()
+            }
 
             overlayView
 
-            // Shader warm-up: forces Metal PSO compilation during the loading spinner
-            // so the first plate drag is smooth. Self-destructs after 1 second.
-            ShaderWarmUpView()
-                .frame(width: 1, height: 1)
-                .allowsHitTesting(false)
+            // Keep this view to one RealityView. Extra hidden RealityViews can trip
+            // RealityKit/Metal debug validation during win-screen presentation.
         }
         // RealityKit's near-clip plane (~0.5m from camera) prevents geometry from reaching
         // the very bottom of the viewport. Fill that gap with a matching floor color so the
@@ -583,10 +703,8 @@ struct BarbellRealityView: View {
     }
 
     private var realityBackgroundColor: Color {
-        if case .welcome = mode {
-            return .clear
-        }
-        return Color(UIColor(white: 0.20, alpha: 1))
+        if case .welcome = mode { return .clear }
+        return RoomThemePreset.preset(for: roomThemeID).swiftUIBackground
     }
 
     @MainActor
@@ -661,15 +779,15 @@ struct BarbellRealityView: View {
 
     // MARK: Welcome scene setup
 
-    private func setupWelcomeScene(content: inout RealityViewCameraContent, plates: [EarnedPlateInfo]) {
+    private func setupWelcomeScene(content: inout RealityViewCameraContent, plates: [EarnedPlateInfo], barSkinID: Int = 0) {
         let barbellRoot = Entity()
         barbellRoot.position = SIMD3(0, 0.00, -0.02)
         barbellRoot.scale = SIMD3(repeating: 1.78)
 
-        let bar = makeBarEntity(skinID: 0)
+        let bar = makeBarEntity(skinID: barSkinID)
         barbellRoot.addChild(bar)
         for xSign: Float in [-1, 1] {
-            let collar = makeCollarEntity()
+            let collar = makeCollarEntity(skinID: barSkinID)
             collar.position = SIMD3(xSign * 0.475, 0, 0)
             barbellRoot.addChild(collar)
         }
@@ -694,6 +812,9 @@ struct BarbellRealityView: View {
                 entity.components.remove(PhysicsBodyComponent.self)
                 entity.components.remove(PhysicsMotionComponent.self)
                 entity.position = SIMD3(xSign * offset, 0, 0)
+                #if DEBUG
+                attachPlateDebugAxes(to: entity, label: "welcome_\(i)_\(xSign)")
+                #endif
                 barbellRoot.addChild(entity)
                 if xSign == 1 {
                     sceneState.entityMap["welcome_plate_\(i)"] = entity
@@ -1118,7 +1239,7 @@ struct BarbellRealityView: View {
         }
         let offset = slotOffsets[nextSlot]
         let slotPos = SIMD3<Float>(offset, 0, 0) // bar-anchor local space: y=0 is bar centerline
-        let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        let rot = plateBarOrientation
 
         entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
         entity.components.set(PlateRoleComponent(role: .bar))
@@ -1267,8 +1388,8 @@ struct BarbellRealityView: View {
         let slotPos = sceneState.storageSlotPositions[slotIndex]
         // Plate floats at slot Y (1.60) -- same height as the bracket markers.
         let targetPos = SIMD3<Float>(slotPos.x, slotPos.y, slotPos.z)
-        // .pi/2 around Z: cylinder axis along X, disc face toward camera (Z direction).
-        let targetRot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+        // Storage slots present plates side-on, matching how plates hang on the bar sleeves.
+        let targetRot = plateDisplayOrientation
         let target = Transform(scale: entity.scale, rotation: targetRot, translation: targetPos)
 
         if sceneState.isReduceMotionEnabled {
@@ -1289,7 +1410,7 @@ struct BarbellRealityView: View {
            let barPos = sceneState.barPositionMap[plateID] {
             // Return bar plate to its slot
             entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
-            let rot = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            let rot = plateBarOrientation
             let target = Transform(scale: SIMD3(repeating: 1), rotation: rot, translation: barPos)
             if sceneState.isReduceMotionEnabled {
                 entity.position = barPos
@@ -1447,8 +1568,12 @@ struct BarbellRealityView: View {
 
     private func setupRackRoomScene(
         content: inout RealityViewCameraContent,
-        racked: [EarnedPlate], floor: [EarnedPlate]
+        racked: [EarnedPlate], floor: [EarnedPlate],
+        barSkinID: Int = 0,
+        rackStyleID: String = "matte_black",
+        roomThemeID: String = "dark_gym"
     ) {
+        let theme = RoomThemePreset.preset(for: roomThemeID)
         // Performance budget: 4 racked (bilateral = 8 entities) + 24 floor = 32 plate entities.
         // With shared materialCache, this stays under 150 draw calls on A15+ at 60fps.
         // Plates beyond index 24 are in SwiftData but not rendered.
@@ -1472,29 +1597,24 @@ struct BarbellRealityView: View {
         floorCollider.position = SIMD3(0, -0.094, 0)
         sceneState.sceneRoot.addChild(floorCollider)
 
-        // Wall backdrop -- dark matte behind the rack.
-        // Height 6.5 + center at y=0.5 gives local y range -2.75 to +3.75, covering the full
-        // camera viewport so there is no black gap at screen bottom.
+        // Wall backdrop
         let backdrop = ModelEntity(
             mesh: cachedBox(size: SIMD3(6.0, 6.5, 0.025)),
-            materials: [pbrMaterial(color: UIColor(white: 0.09, alpha: 1), metallic: 0, roughness: 1.0)]
+            materials: [pbrMaterial(color: theme.backdropColor, metallic: theme.backdropMetallic, roughness: theme.backdropRoughness)]
         )
         backdrop.position = SIMD3(0, 0.5, -0.13)
         sceneState.sceneRoot.addChild(backdrop)
 
-        // Floor plane -- visual only. Keep it slightly below the invisible physics floor
-        // (top surface y=0) so resting plates never appear to clip into the rendered slab.
-        // z=-0.5 biases it behind the scene center toward the backdrop; depth 4.0 covers the
-        // full perspective extent visible to the camera.
+        // Floor plane -- visual only.
         let floorLine = ModelEntity(
             mesh: cachedBox(size: SIMD3(20.0, 0.008, 4.0)),
-            materials: [pbrMaterial(color: UIColor(white: 0.22, alpha: 1), metallic: 0.05, roughness: 0.85)]
+            materials: [pbrMaterial(color: theme.floorColor, metallic: theme.floorMetallic, roughness: theme.floorRoughness)]
         )
         floorLine.position = SIMD3(0, -0.006, -0.5)
         sceneState.sceneRoot.addChild(floorLine)
 
-        // Subtle platform strips make sliding/falling easier to read against the dark floor.
-        let stripMat = pbrMaterial(color: UIColor(white: 0.32, alpha: 1), metallic: 0.03, roughness: 0.9)
+        // Subtle platform strips make sliding/falling easier to read against the floor.
+        let stripMat = pbrMaterial(color: theme.stripColor, metallic: 0.03, roughness: 0.9)
         for x in stride(from: -0.72, through: 0.72, by: 0.24) {
             let strip = ModelEntity(
                 mesh: cachedBox(size: SIMD3(0.010, 0.004, 3.2)),
@@ -1512,9 +1632,8 @@ struct BarbellRealityView: View {
             sceneState.sceneRoot.addChild(seam)
         }
 
-        // Low visible bumpers communicate the playable area. The real physics walls below are
-        // taller and invisible; these are just enough affordance to explain why plates bounce back.
-        let bumperMat = pbrMaterial(color: UIColor(white: 0.42, alpha: 1), metallic: 0.10, roughness: 0.65)
+        // Low visible bumpers communicate the playable area.
+        let bumperMat = pbrMaterial(color: theme.bumperColor, metallic: theme.bumperMetallic, roughness: theme.bumperRoughness)
         var bumperBody = PhysicsBodyComponent()
         bumperBody.mode = .static
         bumperBody.material = PhysicsMaterialResource.generate(friction: 0.34, restitution: 0.18)
@@ -1583,13 +1702,13 @@ struct BarbellRealityView: View {
 
         // Rack stands
         for xSign: Float in [-1, 1] {
-            let stand = makeRackStandEntity()
+            let stand = makeRackStandEntity(rackStyleID: rackStyleID)
             stand.position = SIMD3(xSign * 0.40, 0.3, barbellZ)
             sceneState.sceneRoot.addChild(stand)
         }
 
         // Bar
-        let bar = makeBarEntity(skinID: 0)
+        let bar = makeBarEntity(skinID: barSkinID)
         bar.position = SIMD3(0, 0.6, barbellZ)
         sceneState.sceneRoot.addChild(bar)
         sceneState.barAnchor.position = SIMD3(0, 0.6, barbellZ)
@@ -1598,7 +1717,7 @@ struct BarbellRealityView: View {
         // Collars sit just inside the plate stack, marking the inner boundary of the loading zone.
         // Layout: stands(±0.40) → collar(±0.54) → plates(0.60-0.72) → bar end(±0.80).
         for xSign: Float in [-1, 1] {
-            let collar = makeCollarEntity()
+            let collar = makeCollarEntity(skinID: barSkinID)
             collar.position = SIMD3(xSign * 0.54, 0.6, barbellZ)
             sceneState.sceneRoot.addChild(collar)
         }
@@ -1657,10 +1776,14 @@ struct BarbellRealityView: View {
                     material: sceneState.materialCache[plate.tierID],
                     weightKg: plate.weightKg,
                     engravingText: plate.engravingText,
+                    renderProjection: BarbellPlateRenderProjection(plate: plate),
                     role: .bar
                 )
                 entity.name = xSign == 1 ? plate.id : plate.id + "_mirror"
                 entity.position = SIMD3(xSign * offset, 0, 0)
+                #if DEBUG
+                attachPlateDebugAxes(to: entity, label: "bar_\(rackPosition)_\(xSign)")
+                #endif
                 if xSign == -1 {
                     // Strip all interaction and physics from the mirror -- visual only.
                     entity.components.remove(InputTargetComponent.self)
@@ -1690,11 +1813,12 @@ struct BarbellRealityView: View {
                 material: sceneState.materialCache[plate.tierID],
                 weightKg: plate.weightKg,
                 engravingText: plate.engravingText,
+                renderProjection: BarbellPlateRenderProjection(plate: plate),
                 role: .floor
             )
             entity.name = plate.id
-            // Same orientation as snapToStorageSlot: cylinder axis along X, disc faces viewer.
-            entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            // Same orientation as snapToStorageSlot: side-on like hanging plates.
+            entity.orientation = plateDisplayOrientation
             if showsStorage {
                 entity.position = sceneState.storageSlotPositions[idx]
             } else {
@@ -1706,6 +1830,9 @@ struct BarbellRealityView: View {
                     0.22 + Float(idx % 3) * 0.05
                 )
             }
+            #if DEBUG
+            attachPlateDebugAxes(to: entity, label: showsStorage ? "storage_initial_\(idx)" : "reward_initial_\(idx)")
+            #endif
             entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
             sceneState.sceneRoot.addChild(entity)
             sceneState.entityMap[plate.id] = entity
@@ -1933,3 +2060,45 @@ private struct ShaderWarmUpView: View {
         }
     }
 }
+
+#if DEBUG
+struct BarbellRealityStressScene_Previews: PreviewProvider {
+    static var previews: some View {
+        BarbellRealityView(
+            mode: .rackRoom(
+                rackedPlates: stressPlates.prefix(4).map { $0 },
+                floorPlates: stressPlates.dropFirst(4).map { $0 },
+                onRack: { _ in },
+                onUnrack: { _ in }
+            ),
+            sceneState: {
+                let state = SceneState()
+                for tierID in 0...7 {
+                    state.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+                    state.materialCache[tierID] = buildMaterial(
+                        forTierID: tierID,
+                        textures: state.plateTextureCache[tierID]
+                    )
+                }
+                return state
+            }(),
+            allowsInteraction: true,
+            showsStorage: true
+        )
+        .previewDisplayName("Barbell stress: 6 Gold+ plates")
+    }
+
+    private static var stressPlates: [EarnedPlate] {
+        (0..<6).map { index in
+            EarnedPlate(
+                tierID: 6,
+                weightKg: 20,
+                engravingText: "Stress \(index + 1)",
+                earnedByEvent: "stress_gold_\(index)",
+                isRacked: index < 4,
+                rackPosition: index < 4 ? index : nil
+            )
+        }
+    }
+}
+#endif

@@ -146,10 +146,20 @@ extension RewardsEngine {
 
         // 4) Barbell plate evaluation: evaluate only, inserts are deferred until after shouldNotify guard
         var earnedPlates: [EarnedPlateInfo] = []
+        var earnedPlateSyncPayloads: [EarnedPlateSyncPayload] = []
+        var barbellPlateEventSyncPayloads: [BarbellPlateEventSyncPayload] = []
+        var cosmeticUnlockDrafts: [BarbellCosmeticUnlockDraft] = []
+        var cosmeticUnlockSyncPayloads: [BarbellCosmeticUnlockSyncPayload] = []
+        var earnedPlateDate: Date = .now
         let earnedPlatesWorkoutID: String? = payload["workoutId"] as? String
+        let completedWorkoutsForProjection = payload["completedWorkouts"] as? [CompletedWorkout]
+        let rewardPresentationSource = BarbellRewardPresentationSource(
+            rawValue: payload["rewardPresentationSource"] as? String ?? ""
+        ) ?? .syncRepair
         if name == "workout_completed",
            let workout = payload["completedWorkout"] as? CompletedWorkout,
            !workout.isCardioWorkout {   // only strength workouts earn plates
+            earnedPlateDate = workout.date
 
             let configFD = FetchDescriptor<BarbellConfig>(predicate: #Predicate { $0.id == "global" })
             let bgConfig: BarbellConfig
@@ -166,8 +176,14 @@ extension RewardsEngine {
             let existingFD = FetchDescriptor<EarnedPlate>()
             let existingPlates = (try? bgContext.fetch(existingFD)) ?? []
             let existingEvents = existingPlates.map(\.earnedByEvent)
+            let existingUnlocks = (try? bgContext.fetch(FetchDescriptor<BarbellCosmeticUnlock>())) ?? []
 
             var plates = BarbellUnlockRules.evaluate(workout: workout, config: bgConfig, existingEvents: existingEvents)
+            cosmeticUnlockDrafts = BarbellUnlockRules.evaluateSeasonalCosmetics(
+                workout: workout,
+                config: bgConfig,
+                existingCosmeticUnlockIDs: existingUnlocks.map(\.cosmeticID)
+            )
 
             // Gold streak: append to plates array, then re-sort so rarity order is always correct
             if bgProgress.currentStreak >= 90 {
@@ -181,10 +197,48 @@ extension RewardsEngine {
             let rarityForTier: [Int: Int] = [6: 5, 5: 4, 4: 3, 3: 3, 2: 2, 1: 1, 0: 0]
             earnedPlates = plates.sorted { (rarityForTier[$0.tierID] ?? 0) > (rarityForTier[$1.tierID] ?? 0) }
         }
+        var barbellRewardEvents = earnedPlates.map { info in
+            BarbellRewardEvent(
+                id: "plate_\(info.earnedByEvent)",
+                kind: .newPlate,
+                title: info.engravingText.isEmpty ? "New plate" : info.engravingText,
+                detail: "\(Int(info.weightKg))kg plate",
+                occurredAt: earnedPlateDate,
+                workoutID: earnedPlatesWorkoutID,
+                plate: info
+            )
+        }
+        if prCount > 0 {
+            barbellRewardEvents.append(BarbellRewardEvent(
+                id: "pr_\(earnedPlatesWorkoutID ?? UUID().uuidString)",
+                kind: .personalRecord,
+                title: "\(prCount) PR\(prCount == 1 ? "" : "s")",
+                detail: "Added to plate biography",
+                occurredAt: earnedPlateDate,
+                workoutID: earnedPlatesWorkoutID
+            ))
+        }
+        for draft in cosmeticUnlockDrafts {
+            let item = BarbellCosmeticCatalog.current.item(id: draft.cosmeticID)
+            barbellRewardEvents.append(BarbellRewardEvent(
+                id: "cosmetic_\(draft.cosmeticID)",
+                kind: .cosmeticUnlock,
+                title: item?.name ?? "New cosmetic",
+                detail: "Seasonal unlock",
+                occurredAt: draft.unlockedAt,
+                workoutID: draft.sourceWorkoutID
+            ))
+        }
+        let rewardQueue = BarbellUnlockRules.makePresentationQueue(
+            events: barbellRewardEvents,
+            occurredAt: earnedPlateDate,
+            source: rewardPresentationSource
+        )
 
         // 5) Persist
         let shouldNotify = (totalXP != 0 || totalCoins != 0 || !newLedger.isEmpty
-                            || prCount > 0 || newExerciseCount > 0 || !earnedPlates.isEmpty)
+                            || prCount > 0 || newExerciseCount > 0 || !earnedPlates.isEmpty
+                            || !cosmeticUnlockDrafts.isEmpty)
         guard shouldNotify else { return }
 
         // Persist earned plates (after guard: bgContext.save() is guaranteed to run from here)
@@ -193,10 +247,40 @@ extension RewardsEngine {
                 tierID: info.tierID,
                 weightKg: info.weightKg,
                 engravingText: info.engravingText,
+                earnedAt: earnedPlateDate,
                 earnedByEvent: info.earnedByEvent,
-                sourceWorkoutID: earnedPlatesWorkoutID
+                sourceWorkoutID: earnedPlatesWorkoutID,
+                liftTypeID: BarbellPlateProgressionScope.normalizedLiftTypeID(info.liftTypeID)
             )
             bgContext.insert(plate)
+            earnedPlateSyncPayloads.append(EarnedPlateSyncPayload(
+                info: info,
+                earnedAt: earnedPlateDate,
+                sourceWorkoutID: earnedPlatesWorkoutID
+            ))
+        }
+        for draft in cosmeticUnlockDrafts {
+            bgContext.insert(draft.toModel())
+            cosmeticUnlockSyncPayloads.append(BarbellCosmeticUnlockSyncPayload(draft: draft))
+        }
+
+        if name == "workout_completed",
+           let completedWorkoutsForProjection,
+           !completedWorkoutsForProjection.isEmpty {
+            BarbellProgressService.applyProgressionProjection(
+                completedWorkouts: completedWorkoutsForProjection,
+                context: bgContext
+            )
+
+            let allPlates = (try? bgContext.fetch(FetchDescriptor<EarnedPlate>())) ?? []
+            let syncedPlates = allPlates.filter { $0.earnedByEvent != "starter" }
+            earnedPlateSyncPayloads = syncedPlates.map(EarnedPlateSyncPayload.init(plate:))
+            let earnedEventByPlateID = Dictionary(uniqueKeysWithValues: syncedPlates.map { ($0.id, $0.earnedByEvent) })
+            let allPlateEvents = (try? bgContext.fetch(FetchDescriptor<BarbellPlateEvent>())) ?? []
+            barbellPlateEventSyncPayloads = allPlateEvents.compactMap { event in
+                guard let earnedByEvent = earnedEventByPlateID[event.plateID] else { return nil }
+                return BarbellPlateEventSyncPayload(event: event, earnedByEvent: earnedByEvent)
+            }
         }
 
         for entry in newLedger { bgContext.insert(entry) }
@@ -207,7 +291,14 @@ extension RewardsEngine {
             progress: bgProgress,
             wallet: bgWallet
         )
-        try? bgContext.save()
+        let didSave: Bool
+        do {
+            try bgContext.save()
+            didSave = true
+        } catch {
+            didSave = false
+            AppLogger.error("Failed to save reward processing result: \(error)", category: AppLogger.rewards)
+        }
         let newLevel = bgProgress.level
         let leveled = (newLevel > prevLevel) ? newLevel : nil
 
@@ -236,11 +327,19 @@ extension RewardsEngine {
             xpLineItems: xpLineItems,
             streakFrozen: bgProgress.streakFrozen,
             streakBonusXP: streakBonusXP,
-            earnedPlates: earnedPlates
+            earnedPlates: earnedPlates,
+            rewardQueue: rewardQueue
         )
 
         // Post notification on main thread
         DispatchQueue.main.async {
+            if didSave {
+                BarbellProgressService.shared.syncEarnedPlateAwardsToSupabase(
+                    earnedPlateSyncPayloads,
+                    eventPayloads: barbellPlateEventSyncPayloads
+                )
+                BarbellProgressService.shared.syncBarbellCosmeticUnlocksToSupabase(cosmeticUnlockSyncPayloads)
+            }
             NotificationCenter.default.post(
                 name: .rewardsDidSummarize,
                 object: summary

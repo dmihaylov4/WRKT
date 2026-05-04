@@ -34,6 +34,9 @@ struct MonthHeader: View {
                     Text(monthAnchor.formatted(.dateTime.year().month(.wide)))
                         .dsFont(.title3, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.82)
+                        .layoutPriority(0)
 
                     Button {
                         onProgramLibraryTap()
@@ -41,12 +44,16 @@ struct MonthHeader: View {
                         Text("PLAN")
                             .dsFont(.caption, weight: .bold)
                             .foregroundStyle(.black)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(DS.Theme.accent, in: ChamferedRectangle(.small))
-                            .frame(minHeight: 44)
+                            .frame(minWidth: 64, minHeight: 44)
                             .contentShape(Rectangle())
                     }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(2)
                     .captureFrame(in: .global) { frame in
                         captureButtonFrame?(frame)
                     }
@@ -57,6 +64,8 @@ struct MonthHeader: View {
                         Text("MANAGE")
                             .dsFont(.caption, weight: .bold)
                             .foregroundStyle(DS.Theme.accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.68)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
                             .background(DS.Theme.cardTop, in: ChamferedRectangle(.small))
@@ -64,10 +73,13 @@ struct MonthHeader: View {
                                 ChamferedRectangle(.small)
                                     .stroke(DS.Semantic.border, lineWidth: 1)
                             )
-                            .frame(minHeight: 44)
+                            .frame(minWidth: 84, minHeight: 44)
                             .contentShape(Rectangle())
                     }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(2)
                 }
+                .layoutPriority(1)
 
                 Spacer()
 
@@ -93,9 +105,14 @@ struct MonthHeader: View {
                     Button("Today", action: onToday)
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(Color.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
+                        .frame(minWidth: 68, minHeight: 44)
                         .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(2)
                 }
             }
             .padding(.horizontal, 16)

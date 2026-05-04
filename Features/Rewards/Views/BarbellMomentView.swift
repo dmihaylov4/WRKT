@@ -2,7 +2,7 @@
 import SwiftUI
 import SwiftData
 
-/// WinScreen Page 2: newly earned plates drop into the rack room.
+/// WinScreen Page 2: newly earned plates are shown as collection additions.
 /// Shown only when earnedPlates is non-empty.
 struct BarbellMomentView: View {
     let plates: [EarnedPlateInfo]
@@ -29,10 +29,10 @@ struct BarbellMomentView: View {
                         rackedPlates: rackedPlates,
                         floorPlates: momentFloorPlates,
                         onRack: { plate in
-                            try? BarbellProgressService.shared.rackPlate(plate)
+                            try? BarbellProgressService.shared.addToBar(plate: plate, replacing: nil)
                         },
                         onUnrack: { plate in
-                            BarbellProgressService.shared.unrackPlate(plate)
+                            BarbellProgressService.shared.removeFromBar(plate: plate)
                         }
                     ),
                     sceneState: sceneState,
@@ -48,7 +48,7 @@ struct BarbellMomentView: View {
             VStack(spacing: 0) {
                 // Title
                 VStack(spacing: 6) {
-                    Text("Added to your Barbell")
+                    Text("Added to your collection")
                         .dsFont(.title2, weight: .bold)
                         .foregroundStyle(.white)
                     Text(subtitle)

@@ -83,6 +83,9 @@ final class AppDependencies: ObservableObject {
     /// Barbell progress service - manages plate earn/rack state
     let barbellProgressService: BarbellProgressService
 
+    /// Barbell customization service - manages room/editor settings
+    let barbellCustomizationService: BarbellCustomizationService
+
     // MARK: - Computed Services
 
     /// Stats aggregator - created lazily with model context
@@ -119,6 +122,7 @@ final class AppDependencies: ObservableObject {
         self.battleRepository = BattleRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.virtualRunRepository = VirtualRunRepository()
         self.barbellProgressService = BarbellProgressService.shared
+        self.barbellCustomizationService = BarbellCustomizationService.shared
 
         AppLogger.success("AppDependencies initialized", category: AppLogger.app)
     }
@@ -169,6 +173,10 @@ final class AppDependencies: ObservableObject {
         barbellProgressService.configure(context: modelContext)
         AppLogger.success("BarbellProgressService configured", category: AppLogger.rewards)
 
+        // Configure BarbellCustomizationService
+        barbellCustomizationService.configure(context: modelContext, supabaseAuthService: authService)
+        AppLogger.success("BarbellCustomizationService configured", category: AppLogger.rewards)
+
         // Run backfill once WorkoutStoreV2 has finished loading from disk.
         // We subscribe to isStorageLoaded and fire as soon as it becomes true.
         backfillCancellable = workoutStore.$isStorageLoaded
@@ -178,6 +186,7 @@ final class AppDependencies: ObservableObject {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.barbellProgressService.runBackfillIfNeeded(completedWorkouts: self.workoutStore.completedWorkouts)
+                self.barbellProgressService.backfillMissingLiftSpecificPlates(completedWorkouts: self.workoutStore.completedWorkouts)
                 self.backfillCancellable = nil
             }
 

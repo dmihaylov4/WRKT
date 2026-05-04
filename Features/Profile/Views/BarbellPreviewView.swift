@@ -10,137 +10,25 @@ import SwiftUI
 import RealityKit
 import UIKit
 
-// MARK: - Data models
-
-struct PlateTier: Identifiable {
-    let id: Int
-    let name: String
-    let rarity: Rarity
-    let earnedBy: String
-    let plateColor: UIColor
-    let metallic: Float
-    let roughness: Float
-    let clearcoat: Float
-    let clearcoatRoughness: Float
-    let style: PlateStyle
-
-    enum PlateStyle { case rawIron, castIron, bumper, brass, competition, polishedSteel, gold, starter }
-
-    enum Rarity: String {
-        case common = "Common", uncommon = "Uncommon", rare = "Rare"
-        case epic = "Epic", legendary = "Legendary"
-
-        var color: Color {
-            switch self {
-            case .common:    return .gray
-            case .uncommon:  return Color(red: 0.2, green: 0.7, blue: 0.3)
-            case .rare:      return Color(red: 0.2, green: 0.4, blue: 0.9)
-            case .epic:      return Color(red: 0.6, green: 0.2, blue: 0.9)
-            case .legendary: return Color(red: 0.9, green: 0.65, blue: 0.1)
-            }
-        }
-    }
-
-    static let all: [PlateTier] = [
-        PlateTier(id: 0, name: "Raw Iron", rarity: .common,
-                  earnedBy: "Complete your first workout",
-                  plateColor: UIColor(red: 0.40, green: 0.18, blue: 0.07, alpha: 1),
-                  metallic: 0.12, roughness: 0.97, clearcoat: 0, clearcoatRoughness: 0,
-                  style: .rawIron),
-        PlateTier(id: 1, name: "Cast Iron", rarity: .common,
-                  earnedBy: "Complete 5 workouts",
-                  plateColor: UIColor(red: 0.14, green: 0.14, blue: 0.14, alpha: 1),
-                  metallic: 0.06, roughness: 0.94, clearcoat: 0, clearcoatRoughness: 0,
-                  style: .castIron),
-        PlateTier(id: 2, name: "Black Bumper", rarity: .uncommon,
-                  earnedBy: "Complete 15 workouts",
-                  plateColor: UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1),
-                  metallic: 0, roughness: 0.78, clearcoat: 0.3, clearcoatRoughness: 0.25,
-                  style: .bumper),
-        PlateTier(id: 3, name: "Brass", rarity: .rare,
-                  earnedBy: "Complete 25 workouts",
-                  plateColor: UIColor(red: 0.75, green: 0.60, blue: 0.25, alpha: 1),
-                  metallic: 0.85, roughness: 0.35, clearcoat: 0.2, clearcoatRoughness: 0.15,
-                  style: .brass),
-        PlateTier(id: 4, name: "Competition", rarity: .rare,
-                  earnedBy: "Hit a personal record",
-                  plateColor: UIColor(red: 0.82, green: 0.09, blue: 0.09, alpha: 1),
-                  metallic: 0, roughness: 0.70, clearcoat: 0.45, clearcoatRoughness: 0.2,
-                  style: .competition),
-        PlateTier(id: 5, name: "Polished Steel", rarity: .epic,
-                  earnedBy: "Complete 50 workouts",
-                  plateColor: UIColor(red: 0.72, green: 0.76, blue: 0.80, alpha: 1),
-                  metallic: 0.98, roughness: 0.10, clearcoat: 0, clearcoatRoughness: 0,
-                  style: .polishedSteel),
-        PlateTier(id: 6, name: "Gold", rarity: .legendary,
-                  earnedBy: "Complete a 90-day streak",
-                  plateColor: UIColor(red: 0.88, green: 0.68, blue: 0.12, alpha: 1),
-                  metallic: 1.0, roughness: 0.05, clearcoat: 0.6, clearcoatRoughness: 0.05,
-                  style: .gold),
-        PlateTier(id: 7, name: "Starter", rarity: .common,
-                  earnedBy: "Awarded at account creation",
-                  plateColor: UIColor(red: 0.2, green: 0.7, blue: 0.3, alpha: 1),
-                  metallic: 0, roughness: 0.9, clearcoat: 0, clearcoatRoughness: 0,
-                  style: .starter),
-    ]
-}
-
-struct BarSkin: Identifiable {
-    let id: Int
-    let name: String
-    let rarity: PlateTier.Rarity
-    let earnedBy: String
-    let barColor: UIColor
-    let metallic: Float
-    let roughness: Float
-
-    static let all: [BarSkin] = [
-        BarSkin(id: 0, name: "Chrome", rarity: .common, earnedBy: "Default",
-                barColor: UIColor(white: 0.85, alpha: 1), metallic: 1.0, roughness: 0.12),
-        BarSkin(id: 1, name: "Matte Black", rarity: .uncommon, earnedBy: "10 workouts",
-                barColor: UIColor(red: 0.08, green: 0.08, blue: 0.08, alpha: 1),
-                metallic: 0.15, roughness: 0.92),
-        BarSkin(id: 2, name: "Gold", rarity: .epic, earnedBy: "100 workouts",
-                barColor: UIColor(red: 0.88, green: 0.68, blue: 0.12, alpha: 1),
-                metallic: 1.0, roughness: 0.08),
-        BarSkin(id: 3, name: "Cerakote", rarity: .rare, earnedBy: "30-day streak",
-                barColor: UIColor(red: 0.20, green: 0.28, blue: 0.17, alpha: 1),
-                metallic: 0.25, roughness: 0.80),
-    ]
-}
-
-struct StickerOption: Identifiable {
-    let id: Int
-    let name: String
-    let rarity: PlateTier.Rarity
-    let earnedBy: String
-    let emoji: String?  // nil = no sticker
-
-    static let all: [StickerOption] = [
-        StickerOption(id: 0, name: "None",      rarity: .common,    earnedBy: "Default",             emoji: nil),
-        StickerOption(id: 1, name: "Fire",       rarity: .uncommon,  earnedBy: "5 workouts in a week", emoji: "🔥"),
-        StickerOption(id: 2, name: "Lightning",  rarity: .rare,      earnedBy: "Hit a PR",             emoji: "⚡"),
-        StickerOption(id: 3, name: "Diamond",    rarity: .epic,      earnedBy: "50 workouts",          emoji: "💎"),
-        StickerOption(id: 4, name: "Crown",      rarity: .legendary, earnedBy: "90-day streak",        emoji: "👑"),
-        StickerOption(id: 5, name: "Gains",      rarity: .uncommon,  earnedBy: "First strength workout", emoji: "💪"),
-    ]
-}
-
 
 // MARK: - Scene state
 
 private final class BarbellSceneState {
     var root: Entity?
-    var rotAngle: Float = 0
+    var rotAngle: Float = -0.42
     var lastTime: TimeInterval = 0
     var lastDt: Float = 1.0 / 60.0
     var spinVelocity: Float = 0.35   // radians/sec; positive = auto-rotate initially
     var appliedTier = -1
     var appliedBar = -1
     var appliedSticker = -1
+    var appliedRoomThemeID = ""
+    var appliedRackStyleID = ""
+    var appliedShowPlateEngravings = true
     var appliedShowcaseSignature = ""
     var emojiTextures: [String: TextureResource] = [:]
     var plateTextures: [Int: PlateTextures] = [:]  // keyed by PlateTier.id
+    var competitionFaceTextures: [String: TextureResource] = [:]
     var iblResource: EnvironmentResource?
     var weightDiscCache: [String: ModelEntity] = [:]   // key: "\(tierID)_\(Int(weightKg))"
     var engravingDiscCache: [String: ModelEntity] = [:]  // key: "\(tierID)_\(engravingText)"
@@ -177,10 +65,47 @@ func barbellPreviewSelectionInfo(
     }
 }
 
+func barbellShowcaseVisualHalfDepth(for tier: PlateTier) -> Float {
+    let profile = PlateVisualDesign.profile(for: tier.style)
+    // Face labels, lips, and outer bands sit proud of the base plate. The showcase
+    // stack must reserve that depth or adjacent faces z-fight when thick red plates
+    // sit next to another plate.
+    return profile.thickness * 0.5 + 0.012
+}
+
+func barbellShowcaseRightSideOffsets(for plates: [EarnedPlateInfo]) -> [Float] {
+    let tiers = plates.prefix(4).compactMap { info in
+        PlateTier.all.first(where: { $0.id == info.tierID })
+    }
+    guard !tiers.isEmpty else { return [] }
+
+    let minimumInnerOffset: Float = 0.34
+    let clearance: Float = 0.004
+    var offsets: [Float] = []
+    var previousHalfDepth: Float = 0
+
+    for tier in tiers {
+        let halfDepth = barbellShowcaseVisualHalfDepth(for: tier)
+        if offsets.isEmpty {
+            offsets.append(minimumInnerOffset)
+        } else if let previousOffset = offsets.last {
+            offsets.append(previousOffset + previousHalfDepth + halfDepth + clearance)
+        }
+        previousHalfDepth = halfDepth
+    }
+
+    return offsets
+}
+
+let barbellPreviewBackWallZ: Float = -0.34
+
 // MARK: - View
 
 struct BarbellPreviewView: View {
     var mode: BarbellDisplayMode = .editor
+    private let selectedRoomThemeID: String
+    private let selectedRackStyleID: String
+    private let showPlateEngravings: Bool
 
     @State private var scene = BarbellSceneState()
     @State private var isDragging = false
@@ -192,6 +117,20 @@ struct BarbellPreviewView: View {
     @State private var selectedBar = 0
     @State private var selectedSticker = 0
     @State private var addedPairs = 0
+
+    init(
+        mode: BarbellDisplayMode = .editor,
+        selectedBarID: Int = 0,
+        selectedRoomThemeID: String = BarbellCustomizationDefaults.roomThemeID,
+        selectedRackStyleID: String = BarbellCustomizationDefaults.rackStyleID,
+        showPlateEngravings: Bool = BarbellCustomizationDefaults.showPlateEngravings
+    ) {
+        self.mode = mode
+        self.selectedRoomThemeID = selectedRoomThemeID
+        self.selectedRackStyleID = selectedRackStyleID
+        self.showPlateEngravings = showPlateEngravings
+        _selectedBar = State(initialValue: max(0, min(selectedBarID, BarSkin.all.count - 1)))
+    }
 
     private let tabs = ["Plates", "Bar", "Stickers"]
     private let plateThickness: Float = 0.03
@@ -215,6 +154,7 @@ struct BarbellPreviewView: View {
             // MARK: 3D scene
             ZStack(alignment: .bottom) {
                 Color.black
+                    .overlay(roomBackgroundColor)
 
                 TimelineView(.animation) { timeline in
                     RealityView { content in
@@ -428,6 +368,9 @@ struct BarbellPreviewView: View {
         guard scene.appliedTier != selectedTier
             || scene.appliedBar != selectedBar
             || scene.appliedSticker != selectedSticker
+            || scene.appliedRoomThemeID != selectedRoomThemeID
+            || scene.appliedRackStyleID != selectedRackStyleID
+            || scene.appliedShowPlateEngravings != showPlateEngravings
             || scene.appliedShowcaseSignature != showcaseSignature
             || scene.root == nil
         else { return }
@@ -461,10 +404,90 @@ struct BarbellPreviewView: View {
         scene.appliedTier = selectedTier
         scene.appliedBar = selectedBar
         scene.appliedSticker = selectedSticker
+        scene.appliedRoomThemeID = selectedRoomThemeID
+        scene.appliedRackStyleID = selectedRackStyleID
+        scene.appliedShowPlateEngravings = showPlateEngravings
         scene.appliedShowcaseSignature = showcaseSignature
     }
 
     // MARK: - Barbell construction
+
+    private var roomBackgroundColor: Color {
+        switch selectedRoomThemeID {
+        case "concrete_room":
+            return Color(red: 0.18, green: 0.18, blue: 0.17)
+        case "competition_platform":
+            return Color(red: 0.03, green: 0.05, blue: 0.08)
+        default:
+            return Color(red: 0.02, green: 0.02, blue: 0.025)
+        }
+    }
+
+    private func addRoomAndRack(to root: Entity) {
+        let floor = ModelEntity(
+            mesh: .generateBox(width: 1.18, height: 0.018, depth: 0.42),
+            materials: [roomFloorMaterial()]
+        )
+        floor.position = SIMD3(0, -0.20, 0.03)
+        root.addChild(floor)
+
+        let backPanel = ModelEntity(
+            mesh: .generateBox(width: 1.10, height: 0.30, depth: 0.012),
+            materials: [roomWallMaterial()]
+        )
+        backPanel.position = SIMD3(0, -0.02, barbellPreviewBackWallZ)
+        root.addChild(backPanel)
+
+        let rackMat = rackMaterial()
+        for xOffset: Float in [-0.53, 0.53] {
+            let upright = ModelEntity(
+                mesh: .generateBox(width: 0.018, height: 0.28, depth: 0.018),
+                materials: [rackMat]
+            )
+            upright.position = SIMD3(xOffset, -0.05, -0.035)
+            root.addChild(upright)
+
+            let hook = ModelEntity(
+                mesh: .generateBox(width: 0.045, height: 0.018, depth: 0.025),
+                materials: [rackMat]
+            )
+            hook.position = SIMD3(xOffset - (xOffset.sign == .minus ? -0.014 : 0.014), 0.02, -0.01)
+            root.addChild(hook)
+        }
+    }
+
+    private func roomFloorMaterial() -> PhysicallyBasedMaterial {
+        switch selectedRoomThemeID {
+        case "concrete_room":
+            return pbrMaterial(color: UIColor(white: 0.34, alpha: 1), metallic: 0, roughness: 0.88)
+        case "competition_platform":
+            return pbrMaterial(color: UIColor(red: 0.10, green: 0.19, blue: 0.30, alpha: 1), metallic: 0, roughness: 0.62)
+        default:
+            return pbrMaterial(color: UIColor(white: 0.055, alpha: 1), metallic: 0, roughness: 0.82)
+        }
+    }
+
+    private func roomWallMaterial() -> PhysicallyBasedMaterial {
+        switch selectedRoomThemeID {
+        case "concrete_room":
+            return pbrMaterial(color: UIColor(white: 0.24, alpha: 1), metallic: 0, roughness: 0.92)
+        case "competition_platform":
+            return pbrMaterial(color: UIColor(red: 0.015, green: 0.025, blue: 0.045, alpha: 1), metallic: 0, roughness: 0.75)
+        default:
+            return pbrMaterial(color: UIColor(white: 0.025, alpha: 1), metallic: 0, roughness: 0.86)
+        }
+    }
+
+    private func rackMaterial() -> PhysicallyBasedMaterial {
+        switch selectedRackStyleID {
+        case "brushed_steel":
+            return pbrMaterial(color: UIColor(white: 0.70, alpha: 1), metallic: 0.9, roughness: 0.22)
+        case "brass_accent_rack":
+            return pbrMaterial(color: UIColor(red: 0.78, green: 0.58, blue: 0.24, alpha: 1), metallic: 0.82, roughness: 0.30)
+        default:
+            return pbrMaterial(color: UIColor(white: 0.055, alpha: 1), metallic: 0.25, roughness: 0.68)
+        }
+    }
 
     private func makeBarbell(tier: PlateTier, skin: BarSkin, sticker: StickerOption) -> Entity {
         let root = Entity()
@@ -474,6 +497,7 @@ struct BarbellPreviewView: View {
         root.components.set(InputTargetComponent())
 
         let barMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+        addRoomAndRack(to: root)
 
         let bar = ModelEntity(mesh: .generateCylinder(height: 1.1, radius: 0.012), materials: [barMat])
         bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
@@ -506,38 +530,42 @@ struct BarbellPreviewView: View {
         root.components.set(InputTargetComponent())
 
         let barMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+        addRoomAndRack(to: root)
 
-        let bar = ModelEntity(mesh: .generateCylinder(height: 1.1, radius: 0.012), materials: [barMat])
+        let rightOffsets = barbellShowcaseRightSideOffsets(for: plates)
+        let outermostPlateEdge = zip(rightOffsets, plates.prefix(4)).reduce(Float(0.43)) { result, pair in
+            guard let tier = PlateTier.all.first(where: { $0.id == pair.1.tierID }) else { return result }
+            return max(result, pair.0 + barbellShowcaseVisualHalfDepth(for: tier))
+        }
+        let collarOffset = max(Float(0.46), outermostPlateEdge + 0.030)
+        let barLength = max(Float(1.1), (collarOffset + 0.10) * 2)
+
+        let bar = ModelEntity(mesh: .generateCylinder(height: barLength, radius: 0.012), materials: [barMat])
         bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
         root.addChild(bar)
 
-        for xOffset: Float in [-0.46, 0.46] {
+        for xOffset in [-collarOffset, collarOffset] {
             let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.022), materials: [barMat])
             collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             collar.position = SIMD3(xOffset, 0, 0)
             root.addChild(collar)
         }
 
-        // Standard bilateral offsets: slot 0=innermost, slot 3=outermost.
-        // Each entry maps to a left/right pair of x-offsets.
-        let slotOffsets: [[Float]] = [
-            [-0.34, 0.34],
-            [-0.37, 0.37],
-            [-0.40, 0.40],
-            [-0.43, 0.43],
-        ]
+        // Bilateral offsets are depth-aware. Thick tiers, especially red bumper/competition
+        // plates with raised face details, need more than the old fixed 0.03m spacing.
         let noSticker = StickerOption(id: 0, name: "None", rarity: .common, earnedBy: "", emoji: nil)
 
         for (index, info) in plates.prefix(4).enumerated() {
             guard let tier = PlateTier.all.first(where: { $0.id == info.tierID }) else { continue }
-            let offsets = slotOffsets[index]
-            for xOffset in offsets {
+            guard rightOffsets.indices.contains(index) else { continue }
+            let offset = rightOffsets[index]
+            for xOffset in [-offset, offset] {
                 let plate = makePlate(
                     tier: tier,
                     thickness: plateThickness,
                     sticker: noSticker,
                     weightKg: info.weightKg,
-                    engravingText: info.engravingText
+                    engravingText: showPlateEngravings ? info.engravingText : ""
                 )
                 plate.position = SIMD3(xOffset, 0, 0)
                 root.addChild(plate)
@@ -551,31 +579,14 @@ struct BarbellPreviewView: View {
 
     private func makePlate(tier: PlateTier, thickness: Float, sticker: StickerOption,
                            weightKg: Double = 0, engravingText: String = "") -> ModelEntity {
-        let plateEntity: ModelEntity
-        switch tier.style {
-        case .rawIron:  plateEntity = makeRustyIronPlate(tier: tier, thickness: thickness, sticker: sticker)
-        case .castIron: plateEntity = makeCastIronPlate(tier: tier, thickness: thickness, sticker: sticker)
-        case .bumper:   plateEntity = makeBumperPlate(tier: tier, thickness: thickness, sticker: sticker)
-        case .brass:    plateEntity = makeBrassPlate(tier: tier, thickness: thickness, sticker: sticker)
-        default:        plateEntity = makeCompetitionPlate(tier: tier, thickness: thickness, sticker: sticker)
-        }
-
-        // Attach weight disc (skip starter plates)
-        if tier.style != .starter && weightKg > 0 {
-            let key = "\(tier.id)_\(Int(weightKg))"
-            let weightDisc = scene.weightDiscCache[key] ?? makeWeightDisc(weightKg: weightKg, tierID: tier.id)
-            scene.weightDiscCache[key] = weightDisc
-            plateEntity.addChild(weightDisc.clone(recursive: false))
-        }
-
-        // Attach engraving disc
-        if tier.style != .starter && !engravingText.isEmpty {
-            let key = "\(tier.id)_\(engravingText)"
-            let engravingDisc = scene.engravingDiscCache[key] ?? makeEngravingDisc(text: engravingText, tierID: tier.id)
-            scene.engravingDiscCache[key] = engravingDisc
-            plateEntity.addChild(engravingDisc.clone(recursive: false))
-        }
-
+        let plateEntity = makePlateEntity(
+            tierID: tier.id,
+            textures: scene.plateTextures[tier.id],
+            weightKg: weightKg,
+            engravingText: engravingText,
+            showEngravings: showPlateEngravings
+        )
+        applyStickerIfNeeded(sticker, to: plateEntity, thickness: PlateVisualDesign.profile(for: tier.style).thickness)
         return plateEntity
     }
 
@@ -709,7 +720,7 @@ struct BarbellPreviewView: View {
     }
 
     /// Competition / polished / gold: chrome face rings + hub
-    private func makeCompetitionPlate(tier: PlateTier, thickness: Float, sticker: StickerOption) -> ModelEntity {
+    private func makeCompetitionPlate(tier: PlateTier, thickness: Float, sticker: StickerOption, weightKg: Double = 0) -> ModelEntity {
         let radius: Float = 0.18
         let plate = ModelEntity(
             mesh: .generateCylinder(height: thickness, radius: radius),
@@ -719,28 +730,55 @@ struct BarbellPreviewView: View {
         )
         plate.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
 
-        // Chrome hub
+        // Branded competition faces on both sides. The artwork is generated in-app so
+        // the surface stays original while taking cues from real competition plates.
+        for faceSign: Float in [1, -1] {
+            let face = makeCompetitionFaceDisc(tier: tier, weightKg: weightKg, thickness: thickness, radius: radius, faceSign: faceSign)
+            plate.addChild(face)
+        }
+
         let hub = ModelEntity(
-            mesh: .generateCylinder(height: thickness + 0.003, radius: 0.028),
+            mesh: .generateCylinder(height: thickness + 0.008, radius: 0.030),
             materials: [chromeMaterial()]
         )
         plate.addChild(hub)
 
-        // Chrome face rings on both sides
-        for faceSign: Float in [1, -1] {
-            let yPos = faceSign * (thickness / 2 + 0.003)
-            for ringRadius: Float in [radius * 0.82, radius * 0.42] {
-                let ring = ModelEntity(
-                    mesh: .generateCylinder(height: 0.004, radius: ringRadius),
-                    materials: [chromeMaterial()]
-                )
-                ring.position = SIMD3(0, yPos, 0)
-                plate.addChild(ring)
-            }
-        }
-
         applyStickerIfNeeded(sticker, to: plate, thickness: thickness)
         return plate
+    }
+
+    private func makeCompetitionFaceDisc(
+        tier: PlateTier,
+        weightKg: Double,
+        thickness: Float,
+        radius: Float,
+        faceSign: Float
+    ) -> ModelEntity {
+        let key = "\(tier.id)_\(Int(weightKg.rounded()))"
+        let texture: TextureResource?
+        if let cached = scene.competitionFaceTextures[key] {
+            texture = cached
+        } else {
+            texture = makeCompetitionPlateFaceTexture(tier: tier, weightKg: weightKg)
+            if let texture { scene.competitionFaceTextures[key] = texture }
+        }
+
+        var material = PhysicallyBasedMaterial()
+        if let texture {
+            material.baseColor = .init(tint: .white, texture: .init(texture))
+        } else {
+            material.baseColor = .init(tint: tier.plateColor)
+        }
+        material.roughness = .init(floatLiteral: 0.62)
+        material.clearcoat = .init(floatLiteral: 0.25)
+        material.clearcoatRoughness = .init(floatLiteral: 0.18)
+
+        let face = ModelEntity(
+            mesh: .generateCylinder(height: 0.004, radius: radius * 0.985),
+            materials: [material]
+        )
+        face.position = SIMD3(0, faceSign * (thickness / 2 + 0.004), 0)
+        return face
     }
 
     // MARK: - Sticker
@@ -843,6 +881,154 @@ struct BarbellPreviewView: View {
         }
         guard let cg = image.cgImage else { return nil }
         return try? TextureResource.generate(from: cg, options: .init(semantic: .color))
+    }
+
+    private func makeCompetitionPlateFaceTexture(tier: PlateTier, weightKg: Double) -> TextureResource? {
+        let side: CGFloat = 768
+        let center = CGPoint(x: side / 2, y: side / 2)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+        let image = renderer.image { ctx in
+            let cg = ctx.cgContext
+            let bounds = CGRect(x: 0, y: 0, width: side, height: side)
+            let plateRect = bounds.insetBy(dx: 22, dy: 22)
+            let color = tier.plateColor
+            let dark = color.adjustedBrightness(0.62)
+            let mid = color.adjustedBrightness(0.92)
+            let light = color.adjustedBrightness(1.28)
+
+            cg.setFillColor(dark.cgColor)
+            cg.fill(bounds)
+
+            let platePath = UIBezierPath(ovalIn: plateRect)
+            cg.saveGState()
+            platePath.addClip()
+            let colors = [light.cgColor, mid.cgColor, dark.cgColor] as CFArray
+            let locations: [CGFloat] = [0.0, 0.58, 1.0]
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            if let gradient = CGGradient(colorsSpace: colorSpace, colors: colors, locations: locations) {
+                cg.drawRadialGradient(
+                    gradient,
+                    startCenter: CGPoint(x: side * 0.34, y: side * 0.28),
+                    startRadius: 24,
+                    endCenter: center,
+                    endRadius: side * 0.55,
+                    options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+                )
+            }
+
+            cg.setStrokeColor(color.adjustedBrightness(0.50).withAlphaComponent(0.85).cgColor)
+            cg.setLineWidth(18)
+            cg.strokeEllipse(in: plateRect.insetBy(dx: 16, dy: 16))
+            cg.setStrokeColor(color.adjustedBrightness(1.38).withAlphaComponent(0.30).cgColor)
+            cg.setLineWidth(8)
+            cg.strokeEllipse(in: plateRect.insetBy(dx: 42, dy: 42))
+            cg.restoreGState()
+
+            let ringRadii: [CGFloat] = [246, 182, 120]
+            for radius in ringRadii {
+                cg.setStrokeColor(color.adjustedBrightness(radius == 246 ? 0.72 : 0.58).withAlphaComponent(0.72).cgColor)
+                cg.setLineWidth(radius == 246 ? 10 : 7)
+                cg.strokeEllipse(in: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+                cg.setStrokeColor(color.adjustedBrightness(1.28).withAlphaComponent(0.28).cgColor)
+                cg.setLineWidth(3)
+                cg.strokeEllipse(in: CGRect(x: center.x - radius + 12, y: center.y - radius + 12, width: (radius - 12) * 2, height: (radius - 12) * 2))
+            }
+
+            drawMetalHub(in: cg, center: center, radius: 96)
+
+            let brandAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 76, weight: .black),
+                .foregroundColor: UIColor.white.withAlphaComponent(0.94),
+                .kern: 10.0
+            ]
+            drawCentered("VOLIA", at: CGPoint(x: center.x, y: center.y - 246), attributes: brandAttrs)
+
+            cg.saveGState()
+            cg.translateBy(x: center.x, y: center.y + 246)
+            cg.rotate(by: .pi)
+            drawCentered("VOLIA", at: .zero, attributes: brandAttrs)
+            cg.restoreGState()
+
+            let weightLabel = weightKg.truncatingRemainder(dividingBy: 1) == 0
+                ? "\(Int(weightKg))\nKG"
+                : String(format: "%.1f\nKG", weightKg)
+            let weightParagraph = NSMutableParagraphStyle()
+            weightParagraph.alignment = .center
+            weightParagraph.lineSpacing = -4
+            let weightAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 58, weight: .black),
+                .foregroundColor: UIColor.white.withAlphaComponent(0.92),
+                .paragraphStyle: weightParagraph
+            ]
+            drawMultilineCentered(weightLabel, center: CGPoint(x: center.x - 236, y: center.y + 4), attributes: weightAttrs)
+
+            cg.saveGState()
+            cg.translateBy(x: center.x + 236, y: center.y - 4)
+            cg.rotate(by: .pi)
+            drawMultilineCentered(weightLabel, center: .zero, attributes: weightAttrs)
+            cg.restoreGState()
+        }
+
+        guard let cgImage = image.cgImage else { return nil }
+        return try? TextureResource.generate(from: cgImage, options: .init(semantic: .color))
+    }
+
+    private func drawMetalHub(in cg: CGContext, center: CGPoint, radius: CGFloat) {
+        let rect = CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)
+        let colors = [
+            UIColor(white: 0.98, alpha: 1).cgColor,
+            UIColor(white: 0.70, alpha: 1).cgColor,
+            UIColor(white: 0.96, alpha: 1).cgColor,
+            UIColor(white: 0.48, alpha: 1).cgColor
+        ] as CFArray
+        let locations: [CGFloat] = [0, 0.36, 0.66, 1]
+        if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: locations) {
+            cg.drawRadialGradient(
+                gradient,
+                startCenter: CGPoint(x: center.x - 30, y: center.y - 36),
+                startRadius: 8,
+                endCenter: center,
+                endRadius: radius,
+                options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
+            )
+        }
+        cg.setStrokeColor(UIColor(white: 0.20, alpha: 0.42).cgColor)
+        cg.setLineWidth(5)
+        cg.strokeEllipse(in: rect)
+        cg.setFillColor(UIColor(white: 0.06, alpha: 1).cgColor)
+        cg.fillEllipse(in: rect.insetBy(dx: radius * 0.63, dy: radius * 0.63))
+        cg.setStrokeColor(UIColor.white.withAlphaComponent(0.28).cgColor)
+        cg.setLineWidth(2)
+        cg.strokeEllipse(in: rect.insetBy(dx: radius * 0.64, dy: radius * 0.64))
+    }
+
+    private func drawCentered(_ text: String, at point: CGPoint, attributes: [NSAttributedString.Key: Any]) {
+        let string = text as NSString
+        let size = string.size(withAttributes: attributes)
+        string.draw(
+            at: CGPoint(x: point.x - size.width / 2, y: point.y - size.height / 2),
+            withAttributes: attributes
+        )
+    }
+
+    private func drawMultilineCentered(_ text: String, center: CGPoint, attributes: [NSAttributedString.Key: Any]) {
+        let string = text as NSString
+        let size = string.boundingRect(
+            with: CGSize(width: 150, height: 160),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        ).size
+        string.draw(
+            with: CGRect(x: center.x - size.width / 2, y: center.y - size.height / 2, width: size.width, height: size.height),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: attributes,
+            context: nil
+        )
     }
 
     // MARK: - Weight and engraving disc rendering
@@ -976,5 +1162,30 @@ private struct OptionCard: View {
             .background(RoundedRectangle(cornerRadius: 10).fill(isSelected ? DS.Semantic.border : Color.clear))
         }
         .buttonStyle(.plain)
+    }
+}
+
+private extension UIColor {
+    func adjustedBrightness(_ multiplier: CGFloat) -> UIColor {
+        var hue: CGFloat = 0
+        var saturation: CGFloat = 0
+        var brightness: CGFloat = 0
+        var alpha: CGFloat = 0
+
+        if getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: &alpha) {
+            return UIColor(
+                hue: hue,
+                saturation: saturation,
+                brightness: min(max(brightness * multiplier, 0), 1),
+                alpha: alpha
+            )
+        }
+
+        var white: CGFloat = 0
+        if getWhite(&white, alpha: &alpha) {
+            return UIColor(white: min(max(white * multiplier, 0), 1), alpha: alpha)
+        }
+
+        return self
     }
 }

@@ -6,6 +6,7 @@ struct BarbellWelcomeView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var ownedPlates: [EarnedPlate]
     @State private var showPlateWall = false
+    @State private var showCollection = false
     @State private var sceneState = SceneState()
     @State private var assetsReady = false
 
@@ -89,6 +90,9 @@ struct BarbellWelcomeView: View {
         .fullScreenCover(isPresented: $showPlateWall) {
             PlateWallView()
                 .onDisappear { dismiss() }
+        }
+        .sheet(isPresented: $showCollection) {
+            PlateCollectionView()
         }
         .task { @MainActor in
             guard !assetsReady else { return }
@@ -218,6 +222,8 @@ struct BarbellWelcomeView: View {
             }
             .background(DS.Semantic.brand)
             .clipShape(ChamferedRectangle(.large))
+
+            viewCollectionButton
         }
         .padding(16)
         .background(
@@ -233,6 +239,22 @@ struct BarbellWelcomeView: View {
         )
         .overlay(
             ChamferedRectangle(.xl)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var viewCollectionButton: some View {
+        Button {
+            showCollection = true
+        } label: {
+            Label("View Collection", systemImage: "square.grid.2x2.fill")
+                .font(DS.ButtonSize.regular.font)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 46)
+        }
+        .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+        .overlay(
+            ChamferedRectangle(.medium)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }

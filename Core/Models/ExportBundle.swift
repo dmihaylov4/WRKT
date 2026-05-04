@@ -33,6 +33,15 @@ struct EarnedPlateExport: Codable {
     let isRacked: Bool
     let rackPosition: Int?
     let displayOrder: Int
+    var liftTypeID: String? = nil
+    var currentTierRaw: String? = nil
+    var workoutsUsedCount: Int? = nil
+    var prCount: Int? = nil
+    var chalkUseCount: Int? = nil
+    var gripWearCount: Int? = nil
+    var pressUseCount: Int? = nil
+    var firstEarnedAt: Date? = nil
+    var lastUsedAt: Date? = nil
 }
 
 extension EarnedPlateExport {
@@ -47,7 +56,16 @@ extension EarnedPlateExport {
             sourceWorkoutID: plate.sourceWorkoutID,
             isRacked: plate.isRacked,
             rackPosition: plate.rackPosition,
-            displayOrder: plate.displayOrder
+            displayOrder: plate.displayOrder,
+            liftTypeID: plate.liftTypeID,
+            currentTierRaw: plate.currentTierRaw,
+            workoutsUsedCount: plate.workoutsUsedCount,
+            prCount: plate.prCount,
+            chalkUseCount: plate.chalkUseCount,
+            gripWearCount: plate.gripWearCount,
+            pressUseCount: plate.pressUseCount,
+            firstEarnedAt: plate.effectiveFirstEarnedAt,
+            lastUsedAt: plate.lastUsedAt
         )
     }
 
@@ -61,7 +79,16 @@ extension EarnedPlateExport {
             earnedByEvent: earnedByEvent,
             sourceWorkoutID: sourceWorkoutID,
             isRacked: isRacked,
-            rackPosition: rackPosition
+            rackPosition: rackPosition,
+            liftTypeID: liftTypeID,
+            currentTier: BarbellPlateProgressionTier(rawValue: currentTierRaw ?? "") ?? .iron,
+            workoutsUsedCount: workoutsUsedCount ?? 0,
+            prCount: prCount ?? 0,
+            chalkUseCount: chalkUseCount ?? 0,
+            gripWearCount: gripWearCount ?? 0,
+            pressUseCount: pressUseCount ?? 0,
+            firstEarnedAt: firstEarnedAt ?? earnedAt,
+            lastUsedAt: lastUsedAt
         )
         plate.displayOrder = displayOrder != 0 ? displayOrder : Int(earnedAt.timeIntervalSince1970)
         return plate

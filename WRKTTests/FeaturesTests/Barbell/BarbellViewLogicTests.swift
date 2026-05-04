@@ -51,10 +51,38 @@ struct BarbellViewLogicTests {
         #expect(barbellPreviewSelectionInfo(activeTab: 42, selectedTier: 0, selectedBar: 0, selectedSticker: 0) == nil)
     }
 
+    @Test func showcaseOffsetsLeaveDepthClearanceAroundRedPlates() throws {
+        let plates = [
+            EarnedPlateInfo(tierID: 0, weightKg: 10, engravingText: "", earnedByEvent: "first_workout"),
+            EarnedPlateInfo(tierID: 4, weightKg: 20, engravingText: "", earnedByEvent: "squat_20"),
+            EarnedPlateInfo(tierID: 2, weightKg: 15, engravingText: "", earnedByEvent: "bench_15")
+        ]
+        let offsets = barbellShowcaseRightSideOffsets(for: plates)
+
+        #expect(offsets.count == plates.count)
+
+        for index in 1..<offsets.count {
+            let previousTier = try #require(PlateTier.all.first { $0.id == plates[index - 1].tierID })
+            let currentTier = try #require(PlateTier.all.first { $0.id == plates[index].tierID })
+            let requiredDistance = barbellShowcaseVisualHalfDepth(for: previousTier)
+                + barbellShowcaseVisualHalfDepth(for: currentTier)
+
+            #expect(offsets[index] - offsets[index - 1] > requiredDistance)
+        }
+    }
+
+    @Test func previewBackWallSitsBehindLargestPlateDepth() {
+        let largestPlateDepth = PlateTier.all
+            .map { PlateVisualDesign.profile(for: $0.style).outerRadius }
+            .max() ?? 0
+
+        #expect(barbellPreviewBackWallZ < -(largestPlateDepth + 0.08))
+    }
+
     @Test func barbellRealityCameraPositionUsesWelcomeDefaults() {
         let position = barbellRealityCameraPosition(for: .welcome(plates: []), sizeClass: .compact)
 
-        #expect(position == SIMD3(0, 0.15, -1.2))
+        #expect(position == SIMD3(0, 0.16, -1.22))
     }
 
     @Test func barbellRealityCameraPositionUsesRackRoomRegularWidthDepth() {
@@ -71,6 +99,32 @@ struct BarbellViewLogicTests {
         #expect(clampFloorPlateX(0.90) == 0.64)
         #expect(clampFloorPlateX(-0.90) == -0.64)
         #expect(clampFloorPlateX(0.90, maxAbsX: 0.50) == 0.50)
+    }
+
+    @Test func barbellEditorBottomPaddingClearsCustomTabBar() {
+        #expect(barbellEditorScrollBottomPadding >= 120)
+    }
+
+    @Test func plateCollectionFallbackSummaryKeepsLiftIdentityAfterSourceWorkoutDelete() {
+        let plate = EarnedPlate(
+            tierID: 0,
+            weightKg: 5,
+            engravingText: "Bench Press",
+            earnedByEvent: "lift_first_bench-press",
+            sourceWorkoutID: UUID().uuidString,
+            liftTypeID: "bench-press"
+        )
+
+        let summary = plateCollectionFallbackSummary(for: plate)
+
+        #expect(summary?.title == "Bench Press")
+        #expect(summary?.detail == "SOURCE WORKOUT DELETED")
+    }
+
+    @Test func friendShowcaseCancelledRequestIsRecognizedAsCancellation() {
+        let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
+
+        #expect(BarbellProgressService.isCancelledRequestError(error))
     }
 
 }

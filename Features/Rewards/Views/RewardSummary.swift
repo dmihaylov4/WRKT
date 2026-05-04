@@ -57,6 +57,7 @@ public struct RewardSummary: Equatable {
 
     // Barbell plates earned this workout
     let earnedPlates: [EarnedPlateInfo]   // empty array = no plates earned
+    let rewardQueue: BarbellRewardPresentationQueue
 }
 
 extension RewardSummary {
@@ -111,7 +112,12 @@ extension RewardSummary {
             streakBonusXP: streakBonusXP + other.streakBonusXP,
             gotLuckyBonus: gotLuckyBonus || other.gotLuckyBonus,
             bonusMultiplier: max(bonusMultiplier, other.bonusMultiplier),
-            earnedPlates: earnedPlates + other.earnedPlates
+            earnedPlates: earnedPlates + other.earnedPlates,
+            rewardQueue: BarbellUnlockRules.makePresentationQueue(
+                events: rewardQueue.allEvents + other.rewardQueue.allEvents,
+                occurredAt: .now,
+                source: .liveWorkoutCompletion
+            )
         )
     }
 
@@ -135,13 +141,15 @@ extension RewardSummary {
         self.gotLuckyBonus = false
         self.bonusMultiplier = 1.0
         self.earnedPlates = []
+        self.rewardQueue = BarbellRewardPresentationQueue(primary: nil, compactEvents: [])
     }
 
     // Full init with XP breakdown (lucky bonus defaults to false)
     init(xp: Int, coins: Int, levelUpTo: Int?, streakOld: Int, streakNew: Int,
          hitStreakMilestone: Bool, unlockedAchievements: [String], prCount: Int,
          newExerciseCount: Int, xpSnapshot: XPSnapshot?, xpLineItems: [XPLineItem],
-         streakFrozen: Bool, streakBonusXP: Int, earnedPlates: [EarnedPlateInfo] = []) {
+         streakFrozen: Bool, streakBonusXP: Int, earnedPlates: [EarnedPlateInfo] = [],
+         rewardQueue: BarbellRewardPresentationQueue = BarbellRewardPresentationQueue(primary: nil, compactEvents: [])) {
         self.xp = xp
         self.coins = coins
         self.levelUpTo = levelUpTo
@@ -158,6 +166,7 @@ extension RewardSummary {
         self.gotLuckyBonus = false
         self.bonusMultiplier = 1.0
         self.earnedPlates = earnedPlates
+        self.rewardQueue = rewardQueue
     }
 
 
@@ -214,8 +223,18 @@ extension RewardSummary {
             streakBonusXP: streakBonusXP,
             gotLuckyBonus: true,
             bonusMultiplier: multiplier,
-            earnedPlates: earnedPlates
+            earnedPlates: earnedPlates,
+            rewardQueue: rewardQueue
         )
+    }
+}
+
+private extension BarbellRewardPresentationQueue {
+    var allEvents: [BarbellRewardEvent] {
+        if let primary {
+            return [primary] + compactEvents
+        }
+        return compactEvents
     }
 }
 

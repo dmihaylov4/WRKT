@@ -44,6 +44,7 @@ struct SocialProfileView: View {
 
     // Barbell showcase
     @State private var friendRackedPlates: [EarnedPlateInfo] = []
+    @State private var friendBarbellShowcase: BarbellFriendShowcase?
     @Query(filter: #Predicate<BarbellConfig> { $0.id == "global" })
     private var barbellConfigs: [BarbellConfig]
 
@@ -100,17 +101,37 @@ struct SocialProfileView: View {
             // Refresh notification badges
             await badgeManager.refreshBadges()
 
-            // Load friend's racked plates for barbell showcase
-            if userId != deps.authService.currentUser?.id {
-                do {
-                    friendRackedPlates = try await deps.barbellProgressService.rackedPlatesForFriend(userID: userId)
-                } catch {
-                    // Non-fatal: show empty barbell for friend
-                    friendRackedPlates = []
-                }
-            }
+            await loadFriendBarbellShowcase()
 
             // NOTE: Don't validate streak here - validation should only happen on app cold start
+        }
+    }
+
+    private func loadFriendBarbellShowcase() async {
+        guard userId != deps.authService.currentUser?.id else { return }
+
+        do {
+            let showcase = try await deps.barbellProgressService.friendBarbellShowcase(userID: userId)
+            if showcase.plates.isEmpty,
+               let existingShowcase = friendBarbellShowcase,
+               !existingShowcase.plates.isEmpty {
+                AppLogger.warning(
+                    "Ignored empty friend barbell showcase refresh for user=\(userId) while existing showcase has plates",
+                    category: AppLogger.rewards
+                )
+                return
+            }
+            friendBarbellShowcase = showcase
+            friendRackedPlates = showcase.plates
+        } catch {
+            if let showcaseError = error as? BarbellShowcaseLoadError,
+               showcaseError == .cancelled {
+                return
+            }
+
+            if friendBarbellShowcase == nil {
+                friendRackedPlates = []
+            }
         }
     }
 
@@ -261,7 +282,8 @@ struct SocialProfileView: View {
                         isOwnProfile: false,
                         ownerId: userId,
                         sessionCount: 0,
-                        friendRackedPlates: friendRackedPlates
+                        friendRackedPlates: friendRackedPlates,
+                        friendShowcase: friendBarbellShowcase
                     )
 
                     postsSection(viewModel: viewModel)
@@ -272,7 +294,8 @@ struct SocialProfileView: View {
         .refreshable {
             async let posts: () = viewModel.loadUserPosts()
             async let friends: () = viewModel.loadFriendCount()
-            _ = await (posts, friends)
+            async let barbell: () = loadFriendBarbellShowcase()
+            _ = await (posts, friends, barbell)
         }
         .sheet(isPresented: $showingEditProfile) {
             EditProfileView(profile: viewModel.profile) { updatedProfile in
