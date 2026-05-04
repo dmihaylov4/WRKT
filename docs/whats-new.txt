@@ -1,9 +1,0 @@
-Virtual Runs — Partner data now keeps updating even when your phone screen is locked, so you stay connected throughout the entire run without having to keep the screen on.
-
-Audio cues — WRKT now speaks km milestones, lead changes, and partner-finished alerts through your AirPods or speaker during a Virtual Run, so you never have to glance at your phone mid-run.
-
-Exercise filters — Chest, Back, Abs, Obliques, and Forearms filters now correctly show all matching exercises. Compound movements like Bench Press and Push Up now appear under Chest as expected.
-
-Heart rate zones — Zone calculations now use your resting heart rate (Karvonen method) for more accurate, personalised zones.
-
-Polish — Navigation icons are now always shown in colour, not just when selected.

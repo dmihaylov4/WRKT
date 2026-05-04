@@ -73,6 +73,26 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 
 # ============================================================
+# Docs, planning, and local tooling — not part of the app
+# ============================================================
+docs/
+database_migrations/
+Screenshots/
+Space_Grotesk/
+scratch/
+tools/
+make_media_json.py
+xlsx_links_to_json.py
+privacy.html
+
+# ============================================================
+# Claude / AI assistant files
+# ============================================================
+CLAUDE.md
+.superpowers/
+.claude/
+
+# ============================================================
 # Scratch / notes / personal files
 # ============================================================
 *.rtf
