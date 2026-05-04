@@ -191,6 +191,8 @@ private struct FriendBarbellCard: View {
     let showcase: BarbellFriendShowcase?
     let fallbackPlates: [EarnedPlateInfo]
 
+    @State private var showingFriendRoom = false
+
     private var plates: [EarnedPlateInfo] {
         showcase?.plates ?? fallbackPlates
     }
@@ -223,15 +225,27 @@ private struct FriendBarbellCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BarbellPreviewView(
-                mode: .showcase(plates: plates),
-                selectedBarID: selectedBarSkinIndex,
-                selectedRoomThemeID: selectedRoomThemeID,
-                selectedRackStyleID: selectedRackStyleID,
-                showPlateEngravings: showPlateEngravings
-            )
-                .frame(height: 240)
-                .clipped()
+            ZStack(alignment: .topTrailing) {
+                BarbellPreviewView(
+                    mode: .showcase(plates: plates),
+                    selectedBarID: selectedBarSkinIndex,
+                    selectedRoomThemeID: selectedRoomThemeID,
+                    selectedRackStyleID: selectedRackStyleID,
+                    showPlateEngravings: showPlateEngravings
+                )
+                    .frame(height: 240)
+                    .clipped()
+
+                Button { showingFriendRoom = true } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DS.Semantic.brand)
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.1), in: Capsule())
+                }
+                .accessibilityLabel("Open barbell room")
+                .padding(12)
+            }
 
             HStack {
                 Text("\(Int(totalWeight))kg loaded")
@@ -245,5 +259,91 @@ private struct FriendBarbellCard: View {
         .background(DS.Semantic.card)
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.Semantic.border, lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .onTapGesture {
+            showingFriendRoom = true
+        }
+        .sheet(isPresented: $showingFriendRoom) {
+            FriendBarbellRoomView(
+                showcase: showcase,
+                plates: plates,
+                selectedBarSkinIndex: selectedBarSkinIndex,
+                selectedRoomThemeID: selectedRoomThemeID,
+                selectedRackStyleID: selectedRackStyleID,
+                showPlateEngravings: showPlateEngravings,
+                totalWeight: totalWeight
+            )
+        }
+    }
+}
+
+private struct FriendBarbellRoomView: View {
+    let showcase: BarbellFriendShowcase?
+    let plates: [EarnedPlateInfo]
+    let selectedBarSkinIndex: Int
+    let selectedRoomThemeID: String
+    let selectedRackStyleID: String
+    let showPlateEngravings: Bool
+    let totalWeight: Double
+
+    @Environment(\.dismiss) private var dismiss
+
+    private var roomTitle: String {
+        let trimmed = showcase?.roomName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "Barbell Room" : trimmed
+    }
+
+    private var motto: String? {
+        let trimmed = showcase?.roomMotto?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                BarbellPreviewView(
+                    mode: .showcase(plates: plates),
+                    selectedBarID: selectedBarSkinIndex,
+                    selectedRoomThemeID: selectedRoomThemeID,
+                    selectedRackStyleID: selectedRackStyleID,
+                    showPlateEngravings: showPlateEngravings
+                )
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 420)
+                    .clipped()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    if let motto {
+                        Text(motto)
+                            .dsFont(.body, weight: .medium)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                            .lineLimit(2)
+                    }
+
+                    HStack(spacing: 12) {
+                        Text("\(Int(totalWeight))kg loaded")
+                        Text("\(plates.filter { $0.earnedByEvent != "starter" }.count) plates")
+                    }
+                    .dsFont(.caption, weight: .medium)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+
+                Spacer(minLength: 0)
+            }
+            .background(DS.Semantic.surface)
+            .navigationTitle(roomTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .accessibilityLabel("Close")
+                }
+            }
+        }
     }
 }

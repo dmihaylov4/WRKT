@@ -345,6 +345,43 @@ struct BarbellUnlockRulesTests {
             existingCosmeticUnlockIDs: ["may_2026_brass_accent"]
         ).isEmpty)
     }
+
+    @Test func rewardSummaryPresentsSeasonalCosmeticOnlyQueue() {
+        let now = Date()
+        let queue = BarbellUnlockRules.makePresentationQueue(
+            events: [
+                BarbellRewardEvent(
+                    id: "cosmetic_may_2026_brass_accent",
+                    kind: .cosmeticUnlock,
+                    title: "May Brass Accent",
+                    detail: "Seasonal unlock",
+                    occurredAt: now
+                )
+            ],
+            occurredAt: now,
+            now: now,
+            source: .liveWorkoutCompletion
+        )
+        let summary = RewardSummary(
+            xp: 0,
+            coins: 0,
+            levelUpTo: nil,
+            streakOld: 0,
+            streakNew: 0,
+            hitStreakMilestone: false,
+            unlockedAchievements: [],
+            prCount: 0,
+            newExerciseCount: 0,
+            xpSnapshot: nil,
+            xpLineItems: [],
+            streakFrozen: false,
+            streakBonusXP: 0,
+            earnedPlates: [],
+            rewardQueue: queue
+        )
+
+        #expect(summary.shouldPresent)
+    }
 }
 
 @MainActor
