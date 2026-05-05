@@ -349,14 +349,7 @@ final class WorkoutStoreV2: ObservableObject {
         completedWorkouts.append(completed)
         completedWorkouts.sort(by: { $0.date < $1.date })
 
-        // Analyze workout patterns for smart notifications
-        Task {
-            await WorkoutPatternAnalyzer.shared.analyzeAndUpdatePattern(
-                workouts: completedWorkouts
-            )
-            // Reschedule daily notification with updated preferred hour
-            await SmartNudgeManager.shared.scheduleDailyStreakCheck()
-        }
+        refreshSmartNotificationLearningAfterWorkoutCompletion()
 
         // Handle PR auto-posting
         handlePRAutoPost(for: completed)
@@ -996,12 +989,14 @@ final class WorkoutStoreV2: ObservableObject {
 
     func addWorkout(_ workout: CompletedWorkout) {
         completedWorkouts.insert(workout, at: 0)
+        rebuildPRIndexFromCompletedWorkouts()
         persistWorkouts()
     }
 
     func deleteWorkouts(at offsets: IndexSet) {
         let removed = offsets.map { completedWorkouts[$0] }
         completedWorkouts.remove(atOffsets: offsets)
+        rebuildPRIndexFromCompletedWorkouts()
         persistWorkouts()
 
         let weeks = Set(removed.map { startOfWeek(for: $0.date) })
@@ -1020,6 +1015,7 @@ final class WorkoutStoreV2: ObservableObject {
         // Add workouts back and maintain sorted order
         completedWorkouts.append(contentsOf: workouts)
         completedWorkouts.sort(by: { $0.date < $1.date })
+        rebuildPRIndexFromCompletedWorkouts()
         persistWorkouts()
 
         // Re-aggregate stats for affected weeks
@@ -1040,6 +1036,7 @@ final class WorkoutStoreV2: ObservableObject {
     func updateWorkout(_ workout: CompletedWorkout) {
         if let idx = completedWorkouts.firstIndex(where: { $0.id == workout.id }) {
             completedWorkouts[idx] = workout
+            rebuildPRIndexFromCompletedWorkouts()
             persistWorkouts()
             let week = startOfWeek(for: workout.date)
             Task.detached(priority: .utility) { [_stats, completedWorkouts] in
@@ -1372,6 +1369,17 @@ final class WorkoutStoreV2: ObservableObject {
 
 // MARK: - Weight Suggestions
 
+struct PersonalRecordAttempt: Equatable {
+    let reps: Int
+    let weightKg: Double
+    let previousWeightAtReps: Double?
+    let previousE1RM: Double?
+
+    var estimatedOneRepMax: Double {
+        weightKg * (1.0 + Double(reps) / 30.0)
+    }
+}
+
 extension WorkoutStoreV2 {
 
     private func allWorkingSets(for exerciseID: String) -> [(date: Date, set: SetInput)] {
@@ -1414,17 +1422,11 @@ extension WorkoutStoreV2 {
     }
 
     func lastWorkingSet(exercise: Exercise) -> (reps: Int, weightKg: Double)? {
-        if let last = prIndex[exercise.id]?.lastWorking {
-            return (last.reps, last.weightKg)
-        }
-        // Use completedWorkingSets to exclude current workout
         let sets = completedWorkingSets(for: exercise.id).sorted { $0.date > $1.date }
         return sets.first.map { ($0.set.reps, $0.set.weight) }
     }
 
     func bestWeightForExactReps(exercise: Exercise, reps: Int) -> Double? {
-        if let w = prIndex[exercise.id]?.bestPerReps[reps] { return w }
-        // Use completedWorkingSets to exclude current workout
         let sets = completedWorkingSets(for: exercise.id)
             .filter { $0.set.reps == reps }
             .map { $0.set.weight }
@@ -1432,22 +1434,7 @@ extension WorkoutStoreV2 {
     }
 
     func bestWeightForNearbyReps(exercise: Exercise, targetReps: Int, window: Int = 2) -> (reps: Int, weightKg: Double)? {
-        if let dict = prIndex[exercise.id]?.bestPerReps {
-            var best: (r: Int, w: Double, d: Int)? = nil
-            for (r, w) in dict {
-                let d = abs(r - targetReps)
-                guard d <= window else { continue }
-                if let currentBest = best {
-                    if d < currentBest.d || (d == currentBest.d && w > currentBest.w) {
-                        best = (r, w, d)
-                    }
-                } else {
-                    best = (r, w, d)
-                }
-            }
-            if let b = best { return (b.r, b.w) }
-        }
-        let candidates = allWorkingSets(for: exercise.id).map { $0.set }
+        let candidates = completedWorkingSets(for: exercise.id).map { $0.set }
         var best: (reps: Int, weight: Double, delta: Int)? = nil
         for s in candidates {
             let d = abs(s.reps - targetReps)
@@ -1464,8 +1451,7 @@ extension WorkoutStoreV2 {
     }
 
     func bestE1RM(exercise: Exercise) -> Double? {
-        if let e = prIndex[exercise.id]?.bestE1RM { return e }
-        let sets = allWorkingSets(for: exercise.id).map { $0.set }
+        let sets = completedWorkingSets(for: exercise.id).map { $0.set }
         let e1rms = sets.map { s in s.weight * (1.0 + Double(s.reps) / 30.0) }
         return e1rms.max()
     }
@@ -1487,6 +1473,28 @@ extension WorkoutStoreV2 {
         if let last = lastWorkingWeight(exercise: exercise) { return last }
         if let e1rm = bestE1RM(exercise: exercise) { return weight(forE1RM: e1rm, reps: targetReps) }
         return nil
+    }
+
+    func personalRecordAttempt(for exercise: Exercise, incrementKg: Double = 2.5) -> PersonalRecordAttempt? {
+        guard let last = lastWorkingSet(exercise: exercise) else { return nil }
+        guard let baseWeight = suggestedWorkingWeight(for: exercise, targetReps: last.reps) else { return nil }
+
+        let proposedWeight = baseWeight + incrementKg
+        let previousWeightAtReps = bestWeightForExactReps(exercise: exercise, reps: last.reps)
+        let previousE1RM = bestE1RM(exercise: exercise)
+        let proposedE1RM = proposedWeight * (1.0 + Double(last.reps) / 30.0)
+
+        let beatsExactRepRecord = previousWeightAtReps.map { proposedWeight > $0 } ?? true
+        let beatsEstimatedOneRepMax = previousE1RM.map { proposedE1RM > $0 } ?? false
+
+        guard beatsExactRepRecord || beatsEstimatedOneRepMax else { return nil }
+
+        return PersonalRecordAttempt(
+            reps: last.reps,
+            weightKg: proposedWeight,
+            previousWeightAtReps: previousWeightAtReps,
+            previousE1RM: previousE1RM
+        )
     }
 
     /// Personal best reps for bodyweight exercises (max reps achieved)
@@ -1594,6 +1602,13 @@ extension WorkoutStoreV2 {
         return prCount
     }
 
+    private func rebuildPRIndexFromCompletedWorkouts() {
+        prIndex.removeAll()
+        for workout in completedWorkouts.sorted(by: { $0.date < $1.date }) {
+            updatePRIndex(with: workout)
+        }
+    }
+
     private func updateLastWorkingFromCurrent() {
         guard let w = currentWorkout else { return }
         for e in w.entries {
@@ -1669,6 +1684,7 @@ extension WorkoutStoreV2 {
         lastCompletedWorkout = completed
         completedWorkouts.sort(by: { $0.date < $1.date })
         updatePRIndex(with: completed)
+        refreshSmartNotificationLearningAfterWorkoutCompletion()
 
         // Handle PR auto-posting
         handlePRAutoPost(for: completed)
@@ -1692,6 +1708,15 @@ extension WorkoutStoreV2 {
         persistCurrentWorkout()
 
         return (completed.id.uuidString, newPRs)
+    }
+
+    private func refreshSmartNotificationLearningAfterWorkoutCompletion() {
+        let workouts = completedWorkouts
+
+        Task {
+            await WorkoutPatternAnalyzer.shared.analyzeAndUpdatePattern(workouts: workouts)
+            await SmartNudgeManager.shared.scheduleDailyStreakCheck()
+        }
     }
 
     private func countPRs(in workout: CompletedWorkout) -> Int {

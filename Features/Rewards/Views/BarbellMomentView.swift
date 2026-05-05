@@ -110,14 +110,14 @@ struct BarbellMomentView: View {
     private func rebuildSceneState() {
         let newState = SceneState()
 
-        for tierID in 0...6 {
+        for tierID in PlateTier.all.map(\.id) where tierID != 7 {
             newState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
             newState.materialCache[tierID] = buildMaterial(
                 forTierID: tierID,
                 textures: newState.plateTextureCache[tierID]
             )
         }
-        for tierID in 0...7 {
+        for tierID in PlateTier.all.map(\.id) {
             let cat = PlateAudioCategory.from(tierID: tierID)
             _ = loadAudioResource(named: cat.clinkSoundName)
             _ = loadAudioResource(named: cat.dropSoundName)

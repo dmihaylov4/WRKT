@@ -2,14 +2,13 @@
 //  HomeHeaderView.swift
 //  WRKT
 //
-//  Compact header with greeting and optional streak
+//  Compact header with greeting
 //
 
 import SwiftUI
 
 struct HomeHeaderView: View {
     let greeting: String
-    let currentStreak: Int
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -22,22 +21,6 @@ struct HomeHeaderView: View {
                 .layoutPriority(1)
 
             Spacer(minLength: 8)
-
-            // Weekly Streak (only if > 0)
-            if currentStreak > 0 {
-                HStack(spacing: 6) {
-                    Text("\(currentStreak) week\(currentStreak == 1 ? "" : "s")")
-                        .font(DS.Typography.font(.callout, weight: .medium))
-                        .foregroundStyle(.primary)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-                .fixedSize()
-                .accessibilityLabel("\(currentStreak)-week streak")
-                .accessibilityAddTraits(.isStaticText)
-            }
         }
         .padding(.horizontal)
         .padding(.top, 16)

@@ -104,33 +104,134 @@ struct BarbellUnlockRulesTests {
         return c
     }
 
+    private func evaluateNoBumperDrop(
+        workout: CompletedWorkout,
+        config: BarbellConfig,
+        existingEvents: [String]
+    ) -> [EarnedPlateInfo] {
+        BarbellUnlockRules.evaluate(
+            workout: workout,
+            config: config,
+            existingEvents: existingEvents,
+            bumperVariantRoll: { 0 }
+        )
+    }
+
     @Test func firstWorkoutEarnsRawIron() {
         let workout = makeWorkout()
         let config = makeConfig(totalWorkouts: 1)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: [])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: [])
         #expect(plates.contains { $0.tierID == 0 && $0.engravingText == "First Lift" })
     }
 
     @Test func milestone5EarnsCastIron() {
         let workout = makeWorkout()
         let config = makeConfig(totalWorkouts: 5)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: [])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: [])
         #expect(plates.contains { $0.tierID == 1 && $0.earnedByEvent == "strength_milestone_5" })
+    }
+
+    @Test func premiumMilestonesEarnNewColorwayPlates() {
+        let cases: [(count: Int, tierID: Int, event: String)] = [
+            (75, 8, "strength_milestone_75"),
+            (100, 9, "strength_milestone_100"),
+            (125, 13, "strength_milestone_125"),
+            (150, 10, "strength_milestone_150"),
+            (200, 11, "strength_milestone_200"),
+            (250, 12, "strength_milestone_250")
+        ]
+
+        for testCase in cases {
+            let workout = makeWorkout()
+            let config = makeConfig(totalWorkouts: testCase.count)
+            let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: [])
+
+            #expect(plates.contains { $0.tierID == testCase.tierID && $0.earnedByEvent == testCase.event })
+        }
     }
 
     @Test func milestone5NotAwardedTwice() {
         let workout = makeWorkout()
         let config = makeConfig(totalWorkouts: 5)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: ["strength_milestone_5"])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: ["strength_milestone_5"])
         #expect(!plates.contains { $0.earnedByEvent == "strength_milestone_5" })
     }
 
     @Test func prEarnsCompetitionPlate() {
         let workout = makeWorkout(prCount: 1)
         let config = makeConfig(totalWorkouts: 3)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: [])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: [])
         #expect(plates.contains { $0.tierID == 4 })
         #expect(plates.contains { $0.earnedByEvent == BarbellUnlockRules.prEventKey(for: workout.id) })
+    }
+
+    @Test func bumperDropDoesNotReplaceCompetitionPlate() {
+        // Competition is a metallic plate — not eligible for bumper color upgrade.
+        let workout = makeWorkout(prCount: 1)
+        let config = makeConfig(totalWorkouts: 3)
+
+        let plates = BarbellUnlockRules.evaluate(
+            workout: workout,
+            config: config,
+            existingEvents: [],
+            bumperVariantRoll: { 0.96 }
+        )
+
+        #expect(plates.contains { $0.tierID == 4 })
+        #expect(!plates.contains { $0.earnedByEvent == BarbellUnlockRules.prEventKey(for: workout.id) && $0.tierID != 4 })
+    }
+
+    @Test func bumperDropDoesNotReplaceBrassMilestonePlate() {
+        // Brass is a metallic milestone plate — not eligible for bumper color upgrade.
+        let workout = makeWorkout()
+        let config = makeConfig(totalWorkouts: 25)
+
+        let plates = BarbellUnlockRules.evaluate(
+            workout: workout,
+            config: config,
+            existingEvents: [],
+            bumperVariantRoll: { 0.74 }
+        )
+
+        #expect(plates.contains { $0.tierID == 3 && $0.earnedByEvent == "strength_milestone_25" })
+    }
+
+    @Test func bumperDropUpgradesBlackBumperMilestonePlate() {
+        // Black Bumper (tier 2) is bumper-style — eligible for a colored variant upgrade.
+        let workout = makeWorkout()
+        let config = makeConfig(totalWorkouts: 15)
+
+        let plates = BarbellUnlockRules.evaluate(
+            workout: workout,
+            config: config,
+            existingEvents: [],
+            bumperVariantRoll: { 0.75 }  // 0.74-0.78 -> Blue Bumper (15)
+        )
+
+        #expect(plates.contains {
+            $0.tierID == 15 &&
+            $0.earnedByEvent == "strength_milestone_15" &&
+            $0.engravingText == "15 Workouts"
+        })
+        #expect(!plates.contains { $0.tierID == 2 })
+    }
+
+    @Test func bumperDropNeverDropsPurple() {
+        // Purple (10) is a milestone plate — not in the random drop table.
+        let rolls: [Double] = [0, 0.35, 0.70, 0.74, 0.78, 0.82, 0.86, 0.89, 0.92, 0.94, 0.96, 0.98, 0.9999]
+        for roll in rolls {
+            #expect(BarbellUnlockRules.randomBumperVariantTierID(roll: roll) != 10,
+                    "Purple must not be randomly droppable (roll=\(roll))")
+        }
+    }
+
+    @Test func bumperDropTableCovers10ColorVariants() {
+        let expectedIDs: Set<Int> = [14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+        // Sample across the full range to verify all 10 colored bumpers appear.
+        let samples = stride(from: 0.70, through: 0.9999, by: 0.003).compactMap {
+            BarbellUnlockRules.randomBumperVariantTierID(roll: $0)
+        }
+        #expect(Set(samples) == expectedIDs)
     }
 
     @Test func prExistingLegacyPrefixDoesNotEarnDuplicateFullUUIDPlate() {
@@ -139,7 +240,8 @@ struct BarbellUnlockRulesTests {
         let plates = BarbellUnlockRules.evaluate(
             workout: workout,
             config: config,
-            existingEvents: [BarbellUnlockRules.legacyPREventKey(for: workout.id)]
+            existingEvents: [BarbellUnlockRules.legacyPREventKey(for: workout.id)],
+            bumperVariantRoll: { 0 }
         )
 
         #expect(!plates.contains { $0.earnedByEvent == BarbellUnlockRules.prEventKey(for: workout.id) })
@@ -148,7 +250,7 @@ struct BarbellUnlockRulesTests {
     @Test func multipleRulesReturnMultiplePlates() {
         let workout = makeWorkout(prCount: 1)
         let config = makeConfig(totalWorkouts: 5)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: [])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: [])
         // Both Cast Iron (milestone 5) and Competition (PR) should fire
         #expect(plates.count >= 2)
     }
@@ -156,7 +258,7 @@ struct BarbellUnlockRulesTests {
     @Test func platesOrderedByRarityDescending() {
         let workout = makeWorkout(prCount: 1)
         let config = makeConfig(totalWorkouts: 5)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: [])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: [])
         // Competition (rare, tierID 4) should come before Cast Iron (common, tierID 1)
         let ids = plates.map(\.tierID)
         let competitionIdx = ids.firstIndex(of: 4)!
@@ -168,7 +270,7 @@ struct BarbellUnlockRulesTests {
         // Workout 3: totalWorkouts = 3, 3 % 3 == 0, existing Raw Iron count < 4
         let workout = makeWorkout()
         let config = makeConfig(totalWorkouts: 3)
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: ["first_workout"])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: ["first_workout"])
         #expect(plates.contains { $0.tierID == 0 })
     }
 
@@ -177,7 +279,7 @@ struct BarbellUnlockRulesTests {
         let config = makeConfig(totalWorkouts: 12)
         // Already have 4 raw iron plates
         let existing = ["first_workout", "raw_iron_3", "raw_iron_6", "raw_iron_9"]
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: existing)
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: existing)
         #expect(!plates.contains { $0.tierID == 0 })
     }
 
@@ -185,7 +287,7 @@ struct BarbellUnlockRulesTests {
         let workout = makeWorkout(exerciseID: "barbell-bench-press", exerciseName: "Barbell Bench Press")
         let config = makeConfig(totalWorkouts: 2)
 
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: ["first_workout"])
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: ["first_workout"])
 
         #expect(plates.contains {
             $0.earnedByEvent == BarbellUnlockRules.liftFirstEventKey(for: "bench-press") &&
@@ -199,7 +301,7 @@ struct BarbellUnlockRulesTests {
         let config = makeConfig(totalWorkouts: 3)
         let existing = ["first_workout", BarbellUnlockRules.liftFirstEventKey(for: "bench-press")]
 
-        let plates = BarbellUnlockRules.evaluate(workout: workout, config: config, existingEvents: existing)
+        let plates = evaluateNoBumperDrop(workout: workout, config: config, existingEvents: existing)
 
         #expect(!plates.contains { $0.liftTypeID == "bench-press" })
     }

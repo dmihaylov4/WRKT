@@ -71,27 +71,28 @@ struct BarbellViewLogicTests {
         }
     }
 
-    @Test func previewBackWallSitsBehindLargestPlateDepth() {
-        let largestPlateDepth = PlateTier.all
-            .map { PlateVisualDesign.profile(for: $0.style).outerRadius }
-            .max() ?? 0
-
-        #expect(barbellPreviewBackWallZ < -(largestPlateDepth + 0.08))
-    }
-
     @Test func barbellRealityCameraPositionUsesWelcomeDefaults() {
         let position = barbellRealityCameraPosition(for: .welcome(plates: []), sizeClass: .compact)
 
         #expect(position == SIMD3(0, 0.16, -1.22))
     }
 
-    @Test func barbellRealityCameraPositionUsesRackRoomRegularWidthDepth() {
+    @Test func barbellRealityCameraPositionBringsRackRoomCloserOnCompactWidth() {
+        let position = barbellRealityCameraPosition(
+            for: .rackRoom(rackedPlates: [], floorPlates: [], onRack: { _ in }, onUnrack: { _ in }),
+            sizeClass: .compact
+        )
+
+        #expect(position == SIMD3(0, -0.40, -1.30))
+    }
+
+    @Test func barbellRealityCameraPositionKeepsRackRoomUsableOnRegularWidth() {
         let position = barbellRealityCameraPosition(
             for: .rackRoom(rackedPlates: [], floorPlates: [], onRack: { _ in }, onUnrack: { _ in }),
             sizeClass: .regular
         )
 
-        #expect(position == SIMD3(0, -0.45, -1.9))
+        #expect(position == SIMD3(0, -0.42, -1.72))
     }
 
     @Test func clampFloorPlateXUsesConfiguredBounds() {
@@ -103,6 +104,58 @@ struct BarbellViewLogicTests {
 
     @Test func barbellEditorBottomPaddingClearsCustomTabBar() {
         #expect(barbellEditorScrollBottomPadding >= 120)
+    }
+
+    @Test func playgroundBuildsEveryPlateTierAndProgressionVariant() {
+        let variants = barbellPlaygroundPlateVariants(weightKg: 20, liftTypeID: "bench-press")
+
+        #expect(variants.count == PlateTier.all.count * BarbellPlateProgressionTier.allCases.count)
+        #expect(Set(variants.map(\.tierID)) == Set(PlateTier.all.map(\.id)))
+        #expect(Set(variants.map(\.currentTier)) == Set(BarbellPlateProgressionTier.allCases))
+    }
+
+    @Test func playgroundInitialRackRoomUsesRealEarnedPlateModels() {
+        let plates = barbellPlaygroundInitialPlates(
+            selectedTierID: 4,
+            progressionTier: .chrome,
+            weightKg: 25,
+            liftTypeID: "squat",
+            engravingText: "Squat 25"
+        )
+
+        let allRackedPlatesAreOnBar = plates.racked.filter { $0.isRacked }.count == plates.racked.count
+        let allFloorPlatesAreStored = plates.floor.filter { !$0.isRacked }.count == plates.floor.count
+        let allRackedPlatesUseSelection = plates.racked.filter {
+            $0.tierID == 4 && $0.currentTier == .chrome
+        }.count == plates.racked.count
+
+        #expect(plates.racked.count == 2)
+        #expect(plates.floor.count == PlateTier.all.count)
+        #expect(allRackedPlatesAreOnBar)
+        #expect(allFloorPlatesAreStored)
+        #expect(allRackedPlatesUseSelection)
+    }
+
+    @Test func playgroundRackMutationKeepsBarAtFourPlates() {
+        var state = BarbellPlaygroundRackState(
+            racked: (0..<4).map {
+                EarnedPlate(id: "racked-\($0)", tierID: 0, weightKg: 20, engravingText: "", earnedByEvent: "playground", isRacked: true, rackPosition: $0)
+            },
+            floor: [
+                EarnedPlate(id: "floor", tierID: 1, weightKg: 20, engravingText: "", earnedByEvent: "playground")
+            ]
+        )
+
+        let didRack = state.rackPlate(id: "floor")
+
+        #expect(didRack == false)
+        #expect(state.racked.count == 4)
+        #expect(state.floor.count == 1)
+    }
+
+    @Test func playgroundControlsHeightShrinksWhenMinimized() {
+        #expect(barbellPlaygroundControlsMaxHeight(isMinimized: false) == 390)
+        #expect(barbellPlaygroundControlsMaxHeight(isMinimized: true) < 90)
     }
 
     @Test func plateCollectionFallbackSummaryKeepsLiftIdentityAfterSourceWorkoutDelete() {

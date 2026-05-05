@@ -73,9 +73,7 @@ struct TrainingBalanceSection: View {
                     .frame(width: 44, height: 44)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    Image(systemName: "scale.3d")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(DS.Theme.accent)
+                    ProfileSectionIcon(kind: .trainingBalance)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -446,43 +444,30 @@ private struct MuscleFrequencyHeatMap: View {
     private var muscleRecoveryMap: [String: RecoveryStatus] {
         var map: [String: RecoveryStatus] = [:]
 
-        // First, set all muscles to ready (default green for untrained muscles)
-        for (groupName, rawMuscles) in Self.muscleGroupToRawMuscles {
+        for (_, rawMuscles) in Self.muscleGroupToRawMuscles {
             for rawMuscle in rawMuscles {
                 map[rawMuscle] = .ready
             }
         }
 
-        // Debug: Log tracked muscles
-        AppLogger.debug("TrainingBalance: Found \(muscles.count) tracked muscle groups (will override default green)", category: AppLogger.statistics)
-        for muscle in muscles {
-            AppLogger.debug("  - \(muscle.muscleGroup): last trained \(muscle.lastTrained.formatted(date: .abbreviated, time: .omitted))", category: AppLogger.statistics)
-        }
-
-        // Then override with actual training data for muscles that have been worked
         for muscle in muscles {
             let daysSince = Calendar.current.dateComponents([.day], from: muscle.lastTrained, to: .now).day ?? 999
             let status: RecoveryStatus = {
                 switch daysSince {
-                case 0...1: return .fatigued  // 0-1 days: still fatigued (0-48h)
-                case 2: return .recovering    // 2 days ago: 48-72h recovery
-                case 3: return .recovered     // 3 days ago: 72-96h mostly recovered
-                default: return .ready        // 4+ days: fully recovered
+                case 0...1: return .fatigued
+                case 2: return .recovering
+                case 3: return .recovered
+                default: return .ready
                 }
             }()
 
-            // Map normalized muscle group name to raw muscle names
             if let rawMuscles = Self.muscleGroupToRawMuscles[muscle.muscleGroup] {
-                AppLogger.debug("  → Mapping '\(muscle.muscleGroup)' to \(rawMuscles.count) raw muscles with status \(status.label)", category: AppLogger.statistics)
                 for rawMuscle in rawMuscles {
                     map[rawMuscle] = status
                 }
-            } else {
-                AppLogger.warning("  ⚠️ No mapping found for muscle group '\(muscle.muscleGroup)'", category: AppLogger.statistics)
             }
         }
 
-        AppLogger.debug("TrainingBalance: Final recovery map has \(map.count) entries", category: AppLogger.statistics)
         return map
     }
 

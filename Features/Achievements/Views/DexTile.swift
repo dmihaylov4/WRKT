@@ -9,7 +9,6 @@ import SwiftUI
 
 // MARK: - Design tokens
 private enum DexTileMetrics {
-    static let corner: CGFloat = 16
     static let pad: CGFloat = 12
     static let badgeSize: CGFloat = 44
     static let iconFont: Font = .title3.weight(.bold)
@@ -18,9 +17,9 @@ private enum DexTileMetrics {
 }
 
 private enum DexTileColors {
-    static let cardFill: Material = .ultraThinMaterial
-    static var cardStroke: some ShapeStyle { .quaternary }   // ← computed
-    static let lockedFill = Color(.tertiarySystemFill)
+    static let cardFill = DS.Theme.cardTop
+    static let cardStroke = DS.Semantic.border
+    static let lockedFill = Color.white.opacity(0.05)
     static let unlockedIcon = DS.Theme.accent
     static let lockedIcon = Color.secondary
     static let title = Color.primary
@@ -48,12 +47,22 @@ struct DexTile: View, Equatable {
         }
         .padding(DexTileMetrics.pad)
         .frame(minHeight: DexTileMetrics.minHeight)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: DexTileMetrics.corner, style: .continuous))
+        .background {
+            DexTileColors.cardFill
+                .overlay(
+                    LinearGradient(
+                        colors: [DS.Theme.accent.opacity(item.isUnlocked ? 0.06 : 0.02), .clear],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .clipShape(ChamferedRectangle(.large))
+        }
         .overlay(
-            RoundedRectangle(cornerRadius: DexTileMetrics.corner, style: .continuous)
+            ChamferedRectangle(.large)
                 .stroke(DexTileColors.cardStroke, lineWidth: 1)
         )
-        .contentShape(RoundedRectangle(cornerRadius: DexTileMetrics.corner, style: .continuous))
+        .contentShape(ChamferedRectangle(.large))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -73,19 +82,17 @@ private struct TrophyBadge: View {
 
     var body: some View {
         ZStack {
-            Circle()
+            ChamferedRectangleAlt(.medium)
                 .fill(badgeFill)
                 .overlay(
-                    Circle().strokeBorder(borderColor, lineWidth: unlocked ? 1.5 : 1)
+                    ChamferedRectangleAlt(.medium)
+                        .stroke(borderColor, lineWidth: unlocked ? 1.5 : 1)
                 )
                 .shadow(color: shadowColor, radius: unlocked ? 6 : 3, y: unlocked ? 3 : 1)
 
-            Image(systemName: unlocked ? "trophy.fill" : "trophy")
-                .dsFont(.title3, weight: .bold)
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(trophyColor)
+            ProfileSectionIcon(kind: .achievementCup, color: trophyColor)
         }
-        .frame(width: 44, height: 44)
+        .frame(width: DexTileMetrics.badgeSize, height: DexTileMetrics.badgeSize)
         .accessibilityHidden(true)
     }
 
@@ -146,14 +153,15 @@ private struct MetaRow: View {
                 // Subtle progress bar (keeps same layout slot)
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        Rectangle()
                             .fill(Color.secondary.opacity(0.18))
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        Rectangle()
                             .fill(DexTileColors.progressTint)
                             .frame(width: max(6, geo.size.width * item.frac))
                     }
                 }
                 .frame(height: 6)
+                .clipShape(ChamferedRectangle(.micro))
             }
         }
         .frame(height: 16) // fixed row height → identical tiles

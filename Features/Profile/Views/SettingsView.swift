@@ -110,10 +110,10 @@ struct SettingsView: View {
                         }
                     }
                     settingsRow(showsDivider: false) {
-                        Button {
-                            BarbellProgressService.shared.needsWelcomeScreen = true
+                        NavigationLink {
+                            BarbellPlaygroundView()
                         } label: {
-                            Label("Show Barbell Welcome", systemImage: "barbell")
+                            Label("Barbell Playground", systemImage: "barbell")
                         }
                     }
                 }

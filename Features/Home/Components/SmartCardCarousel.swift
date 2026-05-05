@@ -19,11 +19,12 @@ struct SmartCardCarousel: View {
     var body: some View {
         // Only show carousel if cards exist
         if !cards.isEmpty {
-            VStack(spacing: 0) {
+            ZStack(alignment: .bottom) {
                 TabView(selection: $selectedCardID) {
                     ForEach(cards) { card in
                         cardView(for: card)
                             .padding(.horizontal, 16)
+                            .padding(.bottom, cards.count > 1 ? 14 : 1)
                             .tag(Optional(card.id))
                     }
                 }
@@ -46,8 +47,7 @@ struct SmartCardCarousel: View {
                                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedCardID)
                         }
                     }
-                    .padding(.top, 10)
-                    .padding(.bottom, 16)
+                    .padding(.bottom, 3)
                 }
             }
         }

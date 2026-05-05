@@ -48,6 +48,16 @@ struct PlateSideWeightTextSpec: Equatable {
     let rotationDegrees: CGFloat
 }
 
+struct PlateFaceRingSpec: Equatable {
+    let outerRadius: Float
+    let innerRadius: Float
+}
+
+struct PlateFaceRingDrawingMetrics: Equatable {
+    let pathDiameterRatio: CGFloat
+    let strokeWidthRatio: CGFloat
+}
+
 enum PlateVisualDesign {
     static func profile(for style: PlateTier.PlateStyle) -> PlateVisualProfile {
         switch style {
@@ -197,6 +207,35 @@ enum PlateVisualDesign {
             PlateSideWeightTextSpec(rotationDegrees: -90),
             PlateSideWeightTextSpec(rotationDegrees: 90)
         ]
+    }
+
+    static func faceRingSpecs(for style: PlateTier.PlateStyle) -> [PlateFaceRingSpec] {
+        let profile = profile(for: style)
+        switch style {
+        case .bumper:
+            return [
+                PlateFaceRingSpec(outerRadius: profile.rimOuterRadius, innerRadius: profile.rimInnerRadius),
+                PlateFaceRingSpec(outerRadius: profile.bossOuterRadius + 0.030, innerRadius: profile.bossOuterRadius)
+            ]
+        case .competition:
+            return [
+                PlateFaceRingSpec(outerRadius: profile.rimOuterRadius, innerRadius: profile.rimInnerRadius),
+                PlateFaceRingSpec(outerRadius: profile.bossOuterRadius + 0.036, innerRadius: profile.bossOuterRadius)
+            ]
+        default:
+            return []
+        }
+    }
+
+    static func faceRingDrawingMetrics(
+        for spec: PlateFaceRingSpec,
+        profile: PlateVisualProfile
+    ) -> PlateFaceRingDrawingMetrics {
+        let pathRadius = (spec.outerRadius + spec.innerRadius) * 0.5
+        return PlateFaceRingDrawingMetrics(
+            pathDiameterRatio: CGFloat(pathRadius / profile.outerRadius),
+            strokeWidthRatio: CGFloat((spec.outerRadius - spec.innerRadius) / profile.outerRadius)
+        )
     }
 
     static func previewWeightKg(for style: PlateTier.PlateStyle) -> Double {

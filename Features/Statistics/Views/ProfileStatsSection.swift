@@ -7,6 +7,181 @@ import SwiftUI
 import SwiftData
 import Charts   // iOS 16+
 
+enum ProfileSectionIconKind: CaseIterable {
+    case trainingTrends
+    case trainingBalance
+    case achievementCup
+
+    var accessibilityLabel: String {
+        switch self {
+        case .trainingTrends:
+            return "Training trends"
+        case .trainingBalance:
+            return "Training balance"
+        case .achievementCup:
+            return "Achievement cup"
+        }
+    }
+}
+
+struct ProfileSectionIcon: View {
+    let kind: ProfileSectionIconKind
+    var color: Color = DS.Theme.accent
+    var size: CGFloat = 24
+
+    var body: some View {
+        icon
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+            .accessibilityLabel(kind.accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var icon: some View {
+        switch kind {
+        case .trainingTrends:
+            TrainingTrendsIcon()
+        case .trainingBalance:
+            TrainingBalanceIcon()
+        case .achievementCup:
+            AchievementCupIcon()
+                .offset(y: -2)
+        }
+    }
+}
+
+private struct TrainingTrendsIcon: View {
+    var body: some View {
+        ZStack {
+            HStack(alignment: .bottom, spacing: 3) {
+                Capsule()
+                    .frame(width: 3, height: 7)
+                Capsule()
+                    .frame(width: 3, height: 11)
+                Capsule()
+                    .frame(width: 3, height: 16)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .padding(.leading, 3)
+            .padding(.bottom, 3)
+            .opacity(0.75)
+
+            Path { path in
+                path.move(to: CGPoint(x: 5, y: 16))
+                path.addLine(to: CGPoint(x: 10, y: 11))
+                path.addLine(to: CGPoint(x: 14, y: 13))
+                path.addLine(to: CGPoint(x: 20, y: 6))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+            Circle()
+                .frame(width: 3.5, height: 3.5)
+                .position(x: 20, y: 6)
+        }
+    }
+}
+
+private struct TrainingBalanceIcon: View {
+    var body: some View {
+        ZStack {
+            Path { path in
+                path.move(to: CGPoint(x: 4, y: 8))
+                path.addLine(to: CGPoint(x: 20, y: 8))
+                path.move(to: CGPoint(x: 12, y: 8))
+                path.addLine(to: CGPoint(x: 12, y: 16))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+
+            Path { path in
+                path.move(to: CGPoint(x: 12, y: 15))
+                path.addLine(to: CGPoint(x: 17, y: 21))
+                path.addLine(to: CGPoint(x: 7, y: 21))
+                path.closeSubpath()
+            }
+            .fill()
+
+            HStack(spacing: 10) {
+                VStack(spacing: 2) {
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .frame(width: 5, height: 9)
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .frame(width: 7, height: 3)
+                }
+
+                VStack(spacing: 2) {
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .frame(width: 5, height: 9)
+                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                        .frame(width: 7, height: 3)
+                }
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .padding(.top, 9)
+        }
+    }
+}
+
+private struct AchievementCupIcon: View {
+    var body: some View {
+        ZStack {
+            Path { path in
+                path.move(to: CGPoint(x: 8, y: 7))
+                path.addLine(to: CGPoint(x: 16, y: 7))
+                path.addCurve(
+                    to: CGPoint(x: 14, y: 16),
+                    control1: CGPoint(x: 16, y: 12),
+                    control2: CGPoint(x: 15.4, y: 14.8)
+                )
+                path.addLine(to: CGPoint(x: 10, y: 16))
+                path.addCurve(
+                    to: CGPoint(x: 8, y: 7),
+                    control1: CGPoint(x: 8.6, y: 14.8),
+                    control2: CGPoint(x: 8, y: 12)
+                )
+                path.closeSubpath()
+            }
+            .fill()
+
+            Path { path in
+                path.move(to: CGPoint(x: 8.3, y: 9.2))
+                path.addCurve(
+                    to: CGPoint(x: 4.5, y: 10.2),
+                    control1: CGPoint(x: 6.2, y: 8.2),
+                    control2: CGPoint(x: 4.5, y: 8.7)
+                )
+                path.addCurve(
+                    to: CGPoint(x: 9, y: 14),
+                    control1: CGPoint(x: 4.5, y: 12.4),
+                    control2: CGPoint(x: 6.8, y: 14)
+                )
+
+                path.move(to: CGPoint(x: 15.7, y: 9.2))
+                path.addCurve(
+                    to: CGPoint(x: 19.5, y: 10.2),
+                    control1: CGPoint(x: 17.8, y: 8.2),
+                    control2: CGPoint(x: 19.5, y: 8.7)
+                )
+                path.addCurve(
+                    to: CGPoint(x: 15, y: 14),
+                    control1: CGPoint(x: 19.5, y: 12.4),
+                    control2: CGPoint(x: 17.2, y: 14)
+                )
+            }
+            .stroke(style: StrokeStyle(lineWidth: 2.3, lineCap: .round, lineJoin: .round))
+
+            Path { path in
+                path.move(to: CGPoint(x: 12, y: 15))
+                path.addLine(to: CGPoint(x: 12, y: 19))
+                path.move(to: CGPoint(x: 8.5, y: 20))
+                path.addLine(to: CGPoint(x: 15.5, y: 20))
+                path.move(to: CGPoint(x: 6.5, y: 22))
+                path.addLine(to: CGPoint(x: 17.5, y: 22))
+            }
+            .stroke(style: StrokeStyle(lineWidth: 2.8, lineCap: .round, lineJoin: .round))
+        }
+    }
+}
+
 // MARK: - Public wrapper (easy to embed in ProfileView)
 struct ProfileStatsView: View {
     @EnvironmentObject private var store: WorkoutStoreV2
@@ -31,9 +206,7 @@ struct ProfileStatsView: View {
                     .frame(width: 44, height: 44)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(DS.Theme.accent)
+                    ProfileSectionIcon(kind: .trainingTrends)
                 }
 
                 VStack(alignment: .leading, spacing: 2) {

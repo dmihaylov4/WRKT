@@ -45,25 +45,29 @@ struct AchievementsView: View {
     private var unlocked:   [Achievement] { filtered.filter { $0.unlockedAt != nil } }
 
     var body: some View {
-        List {
-            if filtered.isEmpty {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 22) {
+                if filtered.isEmpty {
                 ContentUnavailableView("No achievements",
                                        systemImage: "trophy",
                                        description: Text("Log more workouts or adjust your filters."))
-            } else {
-                if !inProgress.isEmpty {
-                    Section("In progress") {
-                        ForEach(inProgress) { a in AchievementRow(a) }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 48)
+                } else {
+                    if !inProgress.isEmpty {
+                        AchievementSection(title: "In progress", achievements: inProgress)
                     }
-                }
-                if !unlocked.isEmpty {
-                    Section("Unlocked") {
-                        ForEach(unlocked) { a in AchievementRow(a) }
+                    if !unlocked.isEmpty {
+                        AchievementSection(title: "Unlocked", achievements: unlocked)
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
         }
+        .background(Color.black.ignoresSafeArea())
         .navigationTitle("Achievements")
+        .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .always))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -92,6 +96,36 @@ struct AchievementsView: View {
     }
 }
 
+private struct AchievementSection: View {
+    let title: String
+    let achievements: [Achievement]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .dsFont(.title3, weight: .medium)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+
+            VStack(spacing: 0) {
+                ForEach(Array(achievements.enumerated()), id: \.element.id) { index, achievement in
+                    AchievementRow(achievement)
+
+                    if index < achievements.count - 1 {
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(height: 1)
+                            .padding(.leading, 72)
+                    }
+                }
+            }
+            .padding(.vertical, 12)
+            .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
+            .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+        }
+    }
+}
+
 private struct AchievementRow: View {
     let a: Achievement
 
@@ -103,37 +137,57 @@ private struct AchievementRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: a.unlockedAt == nil ? "trophy" : "trophy.fill")
-                .symbolRenderingMode(.monochrome) // optional, but nice with styles
-                .foregroundStyle(
-                    a.unlockedAt == nil
-                    ? AnyShapeStyle(.secondary)
-                    : AnyShapeStyle(DS.Theme.accent)
-                )
-                .frame(width: 24)
+        HStack(alignment: .top, spacing: 14) {
+            ProfileSectionIcon(
+                kind: .achievementCup,
+                color: a.unlockedAt == nil ? .secondary : DS.Theme.accent
+            )
+            .frame(width: 40, height: 40)
+            .background(
+                (a.unlockedAt == nil ? Color.white.opacity(0.04) : DS.Theme.accent.opacity(0.12)),
+                in: ChamferedRectangleAlt(.small)
+            )
+            .overlay(
+                ChamferedRectangleAlt(.small)
+                    .stroke(a.unlockedAt == nil ? DS.Semantic.border : DS.Theme.accent.opacity(0.35), lineWidth: 1)
+            )
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(a.title).dsFont(.subheadline, weight: .semibold)
-                Text(a.desc).dsFont(.caption).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 7) {
+                Text(a.title)
+                    .dsFont(.headline, weight: .semibold)
+                    .foregroundStyle(.primary)
+                Text(a.desc)
+                    .dsFont(.subheadline, weight: .medium)
+                    .foregroundStyle(.secondary)
 
                 if let unlockedDate = a.unlockedAt {
                     Text(unlockedDate, style: .date)
-                        .dsFont(.caption)
+                        .dsFont(.subheadline, weight: .medium)
                         .foregroundStyle(.secondary)
                 } else {
-                    ProgressView(value: progressFrac) {
-                        EmptyView()
-                    } currentValueLabel: {
+                    VStack(alignment: .leading, spacing: 8) {
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.16))
+                                Rectangle()
+                                    .fill(DS.Theme.accent)
+                                    .frame(width: geo.size.width * progressFrac)
+                            }
+                        }
+                        .frame(height: 6)
+                        .clipShape(ChamferedRectangle(.micro))
+
                         Text("\(a.progress)/\(a.target)")
-                            .dsFont(.caption, monospacedDigits: true)
+                            .dsFont(.subheadline, weight: .semibold, monospacedDigits: true)
                             .foregroundStyle(.secondary)
                     }
-                    .tint(DS.Theme.accent)
                 }
             }
             Spacer(minLength: 0)
         }
-        .contentShape(Rectangle())
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .contentShape(ChamferedRectangle(.medium))
     }
 }

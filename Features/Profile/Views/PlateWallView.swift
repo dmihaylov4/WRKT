@@ -8,6 +8,107 @@ func plateWallTotalWeight(rackedPlates: [EarnedPlate]) -> Double {
     return 20 + earnedRackedPlates.reduce(0) { $0 + $1.weightKg } * 2
 }
 
+func barbellPlaygroundPlateVariants(
+    weightKg: Double,
+    liftTypeID: String?,
+    engravingText: String = "Playground"
+) -> [EarnedPlate] {
+    PlateTier.all.flatMap { tier in
+        BarbellPlateProgressionTier.allCases.map { progressionTier in
+            EarnedPlate(
+                id: "playground-\(tier.id)-\(progressionTier.rawValue)",
+                tierID: tier.id,
+                weightKg: weightKg,
+                engravingText: engravingText,
+                earnedByEvent: "playground",
+                isRacked: false,
+                liftTypeID: liftTypeID,
+                currentTier: progressionTier,
+                workoutsUsedCount: 50,
+                prCount: 3
+            )
+        }
+    }
+}
+
+func barbellPlaygroundInitialPlates(
+    selectedTierID: Int,
+    progressionTier: BarbellPlateProgressionTier,
+    weightKg: Double,
+    liftTypeID: String?,
+    engravingText: String
+) -> (racked: [EarnedPlate], floor: [EarnedPlate]) {
+    let selectedTier = PlateTier.all.first { $0.id == selectedTierID } ?? PlateTier.all[0]
+    let racked = (0..<2).map { slot in
+        EarnedPlate(
+            id: "playground-racked-\(slot)-\(selectedTier.id)-\(progressionTier.rawValue)-\(Int(weightKg))",
+            tierID: selectedTier.id,
+            weightKg: weightKg,
+            engravingText: engravingText,
+            earnedByEvent: "playground",
+            isRacked: true,
+            rackPosition: slot,
+            liftTypeID: liftTypeID,
+            currentTier: progressionTier,
+            workoutsUsedCount: 50,
+            prCount: 3
+        )
+    }
+    let floor = PlateTier.all.map { tier in
+        EarnedPlate(
+            id: "playground-floor-\(tier.id)-\(progressionTier.rawValue)-\(Int(weightKg))",
+            tierID: tier.id,
+            weightKg: weightKg,
+            engravingText: tier.name,
+            earnedByEvent: "playground",
+            isRacked: false,
+            liftTypeID: liftTypeID,
+            currentTier: progressionTier,
+            workoutsUsedCount: 50,
+            prCount: 3
+        )
+    }
+    return (racked, floor)
+}
+
+func barbellPlaygroundControlsMaxHeight(isMinimized: Bool) -> CGFloat {
+    isMinimized ? 58 : 390
+}
+
+struct BarbellPlaygroundRackState {
+    var racked: [EarnedPlate]
+    var floor: [EarnedPlate]
+
+    mutating func rackPlate(id: String) -> Bool {
+        guard racked.count < 4,
+              let floorIndex = floor.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        let plate = floor.remove(at: floorIndex)
+        plate.isRacked = true
+        plate.rackPosition = firstOpenRackPosition()
+        racked.append(plate)
+        racked.sort { ($0.rackPosition ?? Int.max) < ($1.rackPosition ?? Int.max) }
+        return true
+    }
+
+    mutating func unrackPlate(id: String) -> Bool {
+        guard let rackedIndex = racked.firstIndex(where: { $0.id == id }) else {
+            return false
+        }
+        let plate = racked.remove(at: rackedIndex)
+        plate.isRacked = false
+        plate.rackPosition = nil
+        floor.insert(plate, at: 0)
+        return true
+    }
+
+    private func firstOpenRackPosition() -> Int {
+        let occupied = Set(racked.compactMap(\.rackPosition))
+        return (0..<4).first { !occupied.contains($0) } ?? racked.count
+    }
+}
+
 struct PlateWallView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
@@ -61,7 +162,8 @@ struct PlateWallView: View {
                     sceneState: sceneState,
                     barSkinID: configs.first?.barSkinIndex ?? 0,
                     rackStyleID: configs.first?.effectiveSelectedRackStyleID ?? "matte_black",
-                    roomThemeID: configs.first?.effectiveSelectedRoomThemeID ?? "dark_gym"
+                    roomThemeID: configs.first?.effectiveSelectedRoomThemeID ?? "dark_gym",
+                    roomWallText: configs.first?.roomName
                 )
                 .ignoresSafeArea()
             } else {
@@ -71,7 +173,7 @@ struct PlateWallView: View {
 
             Color.clear.task { @MainActor in
                 // Populate caches, then set assetsReady = true before RealityView renders
-                for tierID in 0...6 {
+                for tierID in PlateTier.all.map(\.id) where tierID != 7 {
                     sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
                     sceneState.materialCache[tierID] = buildMaterial(
                         forTierID: tierID,
@@ -79,7 +181,7 @@ struct PlateWallView: View {
                     )
                 }
                 // Preload audio into process-level cache so first interaction has no latency
-                for tierID in 0...7 {
+                for tierID in PlateTier.all.map(\.id) {
                     let cat = PlateAudioCategory.from(tierID: tierID)
                     _ = loadAudioResource(named: cat.clinkSoundName)
                     _ = loadAudioResource(named: cat.dropSoundName)
@@ -1058,3 +1160,439 @@ private struct PlateMedallionView: View {
         .accessibilityHidden(true)
     }
 }
+
+#if DEBUG
+struct BarbellPlaygroundView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var sceneState = SceneState()
+    @State private var assetsReady = false
+    @State private var sceneRevision = 0
+
+    @State private var selectedTierID = PlateTier.all[0].id
+    @State private var selectedProgressionTier: BarbellPlateProgressionTier = .iron
+    @State private var selectedWeightKg = 20.0
+    @State private var liftTypeID = "bench-press"
+    @State private var engravingText = "Playground"
+    @State private var selectedBarSkinID = 0
+    @State private var selectedRoomThemeID = BarbellCustomizationDefaults.roomThemeID
+    @State private var roomWallText = "WRKT"
+    @State private var selectedRackStyleID = BarbellCustomizationDefaults.rackStyleID
+    @State private var isControlsMinimized = false
+    @State private var rackState = BarbellPlaygroundRackState(
+        racked: barbellPlaygroundInitialPlates(
+            selectedTierID: PlateTier.all[0].id,
+            progressionTier: .iron,
+            weightKg: 20,
+            liftTypeID: "bench-press",
+            engravingText: "Playground"
+        ).racked,
+        floor: barbellPlaygroundInitialPlates(
+            selectedTierID: PlateTier.all[0].id,
+            progressionTier: .iron,
+            weightKg: 20,
+            liftTypeID: "bench-press",
+            engravingText: "Playground"
+        ).floor
+    )
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if assetsReady {
+                BarbellRealityView(
+                    mode: .rackRoom(
+                        rackedPlates: rackState.racked,
+                        floorPlates: rackState.floor,
+                        onRack: { plate in _ = rackState.rackPlate(id: plate.id) },
+                        onUnrack: { plate in _ = rackState.unrackPlate(id: plate.id) }
+                    ),
+                    sceneState: sceneState,
+                    barSkinID: selectedBarSkinID,
+                    rackStyleID: selectedRackStyleID,
+                    roomThemeID: selectedRoomThemeID,
+                    roomWallText: roomWallText
+                )
+                .id(sceneRevision)
+                .ignoresSafeArea()
+            } else {
+                ProgressView()
+                    .tint(.white)
+            }
+
+            VStack(spacing: 0) {
+                topBar
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+
+                Spacer()
+
+                controls
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+            }
+        }
+        .task { @MainActor in
+            await loadAssetsIfNeeded()
+        }
+        .onChange(of: selectedBarSkinID) { _, _ in rebuildScene() }
+        .onChange(of: selectedRoomThemeID) { _, _ in rebuildScene() }
+        .onChange(of: selectedRackStyleID) { _, _ in rebuildScene() }
+        .navigationBarBackButtonHidden()
+    }
+
+    private var topBar: some View {
+        HStack(spacing: 10) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            }
+            .accessibilityLabel("Close")
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Barbell Playground")
+                    .font(DS.Typography.font(.headline, weight: .bold))
+                    .foregroundStyle(.white)
+                Text("RealityKit rack-room preview")
+                    .dsFont(.caption, weight: .semibold)
+                    .foregroundStyle(.white.opacity(0.58))
+            }
+
+            Spacer()
+
+            loadStat("\(rackState.racked.count)/4", "bar")
+            loadStat("\(Int(plateWallTotalWeight(rackedPlates: rackState.racked)))kg", "load")
+        }
+        .padding(10)
+        .background(Color.black.opacity(0.66), in: ChamferedRectangle(.large))
+        .overlay(
+            ChamferedRectangle(.large)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var controls: some View {
+        Group {
+            if isControlsMinimized {
+                minimizedControls
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            } else {
+                expandedControls
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isControlsMinimized)
+    }
+
+    private var minimizedControls: some View {
+        Button {
+            isControlsMinimized = false
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(DS.Semantic.brand)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Controls")
+                        .font(DS.Typography.font(.subheadline, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text("\(selectedPlateTierName) - \(Int(selectedWeightKg))kg")
+                        .font(DS.Typography.custom(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.58))
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .frame(width: 38, height: 38)
+                    .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            }
+            .padding(.horizontal, 14)
+            .frame(height: barbellPlaygroundControlsMaxHeight(isMinimized: true))
+        }
+        .buttonStyle(.plain)
+        .background(Color.black.opacity(0.72), in: ChamferedRectangle(.xl))
+        .overlay(
+            ChamferedRectangle(.xl)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .accessibilityLabel("Show playground controls")
+    }
+
+    private var expandedControls: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 10) {
+                    sectionTitle("Controls")
+
+                    Spacer()
+
+                    Button {
+                        isControlsMinimized = true
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 14, weight: .heavy))
+                    }
+                    .buttonStyle(PlaygroundIconButtonStyle())
+                    .accessibilityLabel("Minimize playground controls")
+                }
+
+                plateControls
+                barControls
+                roomControls
+
+                HStack(spacing: 10) {
+                    Button {
+                        resetRackRoom()
+                    } label: {
+                        Label("Reset Scene", systemImage: "arrow.clockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PlaygroundButtonStyle(isPrimary: true))
+
+                    Button {
+                        clearBar()
+                    } label: {
+                        Label("Clear Bar", systemImage: "minus.circle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(PlaygroundButtonStyle(isPrimary: false))
+                }
+            }
+            .padding(14)
+        }
+        .frame(maxHeight: barbellPlaygroundControlsMaxHeight(isMinimized: false))
+        .background(Color.black.opacity(0.72), in: ChamferedRectangle(.xl))
+        .overlay(
+            ChamferedRectangle(.xl)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+    }
+
+    private var plateControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Plates")
+
+            Picker("Tier", selection: $selectedTierID) {
+                ForEach(PlateTier.all) { tier in
+                    Text(tier.name).tag(tier.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(.white)
+
+            Picker("Progression", selection: $selectedProgressionTier) {
+                ForEach(BarbellPlateProgressionTier.allCases, id: \.self) { tier in
+                    Text(tier.rawValue.capitalized).tag(tier)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            HStack(spacing: 10) {
+                Stepper("\(Int(selectedWeightKg))kg", value: $selectedWeightKg, in: 5...50, step: 5)
+                    .foregroundStyle(.white)
+                Button {
+                    addSelectedPlateToFloor()
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 19, weight: .bold))
+                }
+                .buttonStyle(PlaygroundIconButtonStyle())
+            }
+
+            TextField("Engraving", text: $engravingText)
+                .textFieldStyle(PlaygroundTextFieldStyle())
+
+            TextField("Lift type ID", text: $liftTypeID)
+                .textInputAutocapitalization(.never)
+                .textFieldStyle(PlaygroundTextFieldStyle())
+        }
+    }
+
+    private var barControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Bar")
+            Picker("Bar skin", selection: $selectedBarSkinID) {
+                ForEach(BarSkin.all) { skin in
+                    Text(skin.name).tag(skin.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(.white)
+        }
+    }
+
+    private var roomControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Room And Rack")
+            Picker("Room", selection: $selectedRoomThemeID) {
+                ForEach(BarbellCosmeticCatalog.current.items.filter { $0.kind == .roomTheme }) { item in
+                    Text(item.name).tag(item.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(.white)
+
+            TextField("Wall text", text: $roomWallText)
+                .textInputAutocapitalization(.characters)
+                .textFieldStyle(PlaygroundTextFieldStyle())
+                .onChange(of: roomWallText) { _, newValue in
+                    roomWallText = barbellNormalizedRoomWallText(newValue) ?? ""
+                    rebuildScene()
+                }
+
+            Picker("Rack", selection: $selectedRackStyleID) {
+                ForEach(BarbellCosmeticCatalog.current.items.filter { $0.kind == .rackStyle }) { item in
+                    Text(item.name).tag(item.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .tint(.white)
+        }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(DS.Typography.custom(size: 11, weight: .bold))
+            .foregroundStyle(DS.Semantic.brand)
+            .tracking(0.9)
+    }
+
+    private func loadStat(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(DS.Typography.font(.subheadline, weight: .bold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(label.uppercased())
+                .font(DS.Typography.custom(size: 9, weight: .bold))
+                .foregroundStyle(.white.opacity(0.52))
+        }
+        .padding(.horizontal, 10)
+        .frame(height: 38)
+        .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+    }
+
+    private var selectedPlateTierName: String {
+        PlateTier.all.first { $0.id == selectedTierID }?.name ?? "Plate"
+    }
+
+    @MainActor
+    private func loadAssetsIfNeeded() async {
+        guard !assetsReady else { return }
+        for tierID in PlateTier.all.map(\.id) {
+            sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+            sceneState.materialCache[tierID] = buildMaterial(
+                forTierID: tierID,
+                textures: sceneState.plateTextureCache[tierID]
+            )
+        }
+        assetsReady = true
+    }
+
+    private func resetRackRoom() {
+        let plates = barbellPlaygroundInitialPlates(
+            selectedTierID: selectedTierID,
+            progressionTier: selectedProgressionTier,
+            weightKg: selectedWeightKg,
+            liftTypeID: normalizedLiftTypeID,
+            engravingText: engravingText
+        )
+        rackState = BarbellPlaygroundRackState(racked: plates.racked, floor: plates.floor)
+        rebuildScene()
+    }
+
+    private func clearBar() {
+        for plate in rackState.racked {
+            plate.isRacked = false
+            plate.rackPosition = nil
+        }
+        rackState.floor.insert(contentsOf: rackState.racked, at: 0)
+        rackState.racked = []
+        rebuildScene()
+    }
+
+    private func rebuildScene() {
+        sceneState = SceneState()
+        assetsReady = false
+        sceneRevision += 1
+        Task { @MainActor in
+            await loadAssetsIfNeeded()
+        }
+    }
+
+    private func addSelectedPlateToFloor() {
+        let tier = PlateTier.all.first { $0.id == selectedTierID } ?? PlateTier.all[0]
+        let plate = EarnedPlate(
+            id: "playground-custom-\(UUID().uuidString)",
+            tierID: tier.id,
+            weightKg: selectedWeightKg,
+            engravingText: engravingText.isEmpty ? tier.name : engravingText,
+            earnedByEvent: "playground",
+            isRacked: false,
+            liftTypeID: normalizedLiftTypeID,
+            currentTier: selectedProgressionTier,
+            workoutsUsedCount: 50,
+            prCount: 3
+        )
+        rackState.floor.insert(plate, at: 0)
+        sceneState.addPlate(plate)
+    }
+
+    private var normalizedLiftTypeID: String? {
+        let trimmed = liftTypeID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
+
+private struct PlaygroundButtonStyle: ButtonStyle {
+    let isPrimary: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(DS.Typography.font(.subheadline, weight: .bold))
+            .foregroundStyle(isPrimary ? Color.black : .white)
+            .frame(height: 42)
+            .background(
+                isPrimary ? DS.Semantic.brand : Color.white.opacity(0.08),
+                in: ChamferedRectangle(.medium)
+            )
+            .opacity(configuration.isPressed ? 0.75 : 1)
+    }
+}
+
+private struct PlaygroundIconButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .foregroundStyle(DS.Semantic.brand)
+            .frame(width: 40, height: 40)
+            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            .opacity(configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+private struct PlaygroundTextFieldStyle: TextFieldStyle {
+    func _body(configuration: TextField<Self._Label>) -> some View {
+        configuration
+            .font(DS.Typography.font(.subheadline, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            .overlay(
+                ChamferedRectangle(.medium)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
+    }
+}
+#endif

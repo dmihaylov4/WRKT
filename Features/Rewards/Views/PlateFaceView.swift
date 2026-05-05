@@ -73,9 +73,13 @@ struct PlateFaceView: View {
                 rimSheen
                 faceGradient(s: s, profile: profile)
                 raisedOuterLip(s: s, profile: profile)
-                if !isRubberStyle { rings(s: s, profile: profile) }
+                if isRubberStyle {
+                    rubberRings(s: s, profile: profile, style: style)
+                } else {
+                    rings(s: s, profile: profile)
+                }
                 chromeBossRing(s: s, profile: profile)
-                brandText(s: s, artwork: artwork, layout: layout)
+                faceMarkings(s: s, artwork: artwork, layout: layout)
                 glossHighlight(s: s, profile: profile)
                 glyphLayer(s: s, artwork: artwork, layout: layout)
                 collarHole(s: s, profile: profile)
@@ -201,24 +205,94 @@ struct PlateFaceView: View {
     }
 
     @ViewBuilder
-    private func brandText(s: CGFloat, artwork: PlateFaceArtworkPolicy, layout: PlateMarkingLayout) -> some View {
-        ZStack {
-            if artwork.showsBrandText {
-                Text(artwork.brandText)
-                .font(.system(size: s * layout.brandScaleRatio, weight: .black, design: .rounded))
-                .tracking(0)
-                .foregroundStyle(markColor.opacity(0.86))
-                .shadow(color: Color.black.opacity(isLightBase ? 0 : 0.28), radius: 0.5, x: 0, y: 0.5)
-                .offset(y: s * layout.brandYOffsetRatio * 0.5)
-            }
-            if artwork.showsWeightText {
-                Text(weightLabel)
-                    .font(.system(size: s * layout.weightScaleRatio, weight: .black, design: .rounded))
-                    .tracking(0)
-                    .foregroundStyle(mutedMarkColor.opacity(0.78))
-                    .offset(y: s * layout.weightYOffsetRatio * 0.5)
+    private func rubberRings(s: CGFloat, profile: PlateVisualProfile, style: PlateTier.PlateStyle) -> some View {
+        ForEach(Array(PlateVisualDesign.faceRingSpecs(for: style).enumerated()), id: \.offset) { _, spec in
+            let metrics = PlateVisualDesign.faceRingDrawingMetrics(for: spec, profile: profile)
+            let pathDiameter = metrics.pathDiameterRatio * s
+            let lineWidth = metrics.strokeWidthRatio * s
+            ZStack {
+                Circle()
+                    .stroke(baseColor.darkened(by: 0.26), lineWidth: lineWidth)
+                    .frame(width: pathDiameter, height: pathDiameter)
+                Circle()
+                    .stroke(Color.white.opacity(0.42), lineWidth: max(1, lineWidth * 0.18))
+                    .frame(width: pathDiameter + lineWidth * 0.30, height: pathDiameter + lineWidth * 0.30)
+                Circle()
+                    .stroke(Color.black.opacity(0.55), lineWidth: max(1, lineWidth * 0.22))
+                    .frame(width: pathDiameter - lineWidth * 0.38, height: pathDiameter - lineWidth * 0.38)
             }
         }
+    }
+
+    @ViewBuilder
+    private func faceMarkings(s: CGFloat, artwork: PlateFaceArtworkPolicy, layout: PlateMarkingLayout) -> some View {
+        ZStack {
+            if artwork.showsBrandText {
+                ForEach(PlateVisualDesign.arcBrandTextSpecs(artwork: artwork, layout: layout), id: \.startDegrees) { spec in
+                    arcText(
+                        spec.text,
+                        s: s,
+                        radiusRatio: spec.radiusRatio,
+                        startDegrees: spec.startDegrees,
+                        endDegrees: spec.endDegrees,
+                        fontRatio: layout.brandScaleRatio,
+                        outward: spec.startDegrees < 0,
+                        color: markColor.opacity(0.86)
+                    )
+                }
+            }
+            if artwork.showsWeightText {
+                ForEach(PlateVisualDesign.sideWeightTextSpecs(layout: layout), id: \.rotationDegrees) { spec in
+                    sideWeightText(
+                        s: s,
+                        layout: layout,
+                        rotationDegrees: spec.rotationDegrees
+                    )
+                }
+            }
+        }
+    }
+
+    private func arcText(
+        _ text: String,
+        s: CGFloat,
+        radiusRatio: CGFloat,
+        startDegrees: CGFloat,
+        endDegrees: CGFloat,
+        fontRatio: CGFloat,
+        outward: Bool,
+        color: Color
+    ) -> some View {
+        let characters = Array(text)
+        return ZStack {
+            ForEach(Array(characters.enumerated()), id: \.offset) { index, character in
+                let progress = characters.count > 1 ? CGFloat(index) / CGFloat(characters.count - 1) : 0
+                let degrees = startDegrees + (endDegrees - startDegrees) * progress
+                let radians = degrees * .pi / 180
+                let x = cos(radians) * s * radiusRatio
+                let y = sin(radians) * s * radiusRatio
+                let rotation = outward ? degrees + 90 : degrees - 90
+
+                Text(String(character))
+                    .font(.system(size: s * fontRatio, weight: .black, design: .rounded))
+                    .tracking(0)
+                    .foregroundStyle(color)
+                    .shadow(color: Color.black.opacity(isLightBase ? 0 : 0.30), radius: 0.5, x: 0, y: 0.5)
+                    .rotationEffect(.degrees(rotation))
+                    .position(x: s * 0.5 + x, y: s * 0.5 + y)
+            }
+        }
+        .frame(width: s, height: s)
+    }
+
+    private func sideWeightText(s: CGFloat, layout: PlateMarkingLayout, rotationDegrees: CGFloat) -> some View {
+        Text(weightLabel)
+            .font(.system(size: s * layout.weightScaleRatio, weight: .black, design: .rounded))
+            .tracking(0)
+            .foregroundStyle(mutedMarkColor.opacity(0.78))
+            .shadow(color: Color.black.opacity(isLightBase ? 0 : 0.22), radius: 0.5, x: 0, y: 0.5)
+            .rotationEffect(.degrees(rotationDegrees))
+            .offset(x: rotationDegrees < 0 ? -s * layout.markingRadiusRatio * 0.42 : s * layout.markingRadiusRatio * 0.42)
     }
 
     @ViewBuilder

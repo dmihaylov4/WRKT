@@ -69,6 +69,35 @@ struct PlateFaceViewDesignTests {
         #expect(Set(weightSpecs.map(\.rotationDegrees)) == Set([-90, 90]))
     }
 
+    @Test func rubberPlateFacesExposeOuterAndInnerRingsForTwoDimensionalArtwork() {
+        for style in [PlateTier.PlateStyle.bumper, .competition] {
+            let profile = PlateVisualDesign.profile(for: style)
+            let rings = PlateVisualDesign.faceRingSpecs(for: style)
+
+            #expect(rings.count == 2)
+            #expect(rings[0].outerRadius == profile.rimOuterRadius)
+            #expect(rings[0].innerRadius == profile.rimInnerRadius)
+            let expectedInnerRingOuter = style == .bumper
+                ? profile.bossOuterRadius + 0.030
+                : profile.bossOuterRadius + 0.036
+            #expect(rings[1].outerRadius == expectedInnerRingOuter)
+            #expect(rings[1].innerRadius == profile.bossOuterRadius)
+        }
+    }
+
+    @Test func rubberPlateRingDrawingMetricsFitInsidePlateBounds() {
+        for style in [PlateTier.PlateStyle.bumper, .competition] {
+            let profile = PlateVisualDesign.profile(for: style)
+            for spec in PlateVisualDesign.faceRingSpecs(for: style) {
+                let metrics = PlateVisualDesign.faceRingDrawingMetrics(for: spec, profile: profile)
+
+                #expect(metrics.pathDiameterRatio <= 1)
+                #expect(metrics.strokeWidthRatio > 0)
+                #expect(metrics.pathDiameterRatio + metrics.strokeWidthRatio <= 1)
+            }
+        }
+    }
+
     @Test func editorPreviewPlatesUseVisibleSampleWeightArtwork() {
         for tier in PlateTier.all where tier.style != .starter {
             #expect(PlateVisualDesign.previewWeightKg(for: tier.style) > 0)

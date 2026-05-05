@@ -495,6 +495,7 @@ struct BarbellEditorView: View {
                     showEngravings: config?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings
                 )
                 .frame(width: 64, height: 64)
+                .clipped()
 
                 Circle()
                     .fill(DS.Semantic.card)
@@ -661,7 +662,7 @@ struct BarbellEditorView: View {
         Binding {
             config.roomName ?? ""
         } set: { value in
-            config.roomName = normalizedText(value, maximumLength: 32)
+            config.roomName = barbellNormalizedRoomWallText(value)
             persistAndSync(config)
         }
     }
@@ -705,6 +706,14 @@ struct BarbellEditorView: View {
             return Color(hex: "#101010")
         case "competition_platform":
             return Color(hex: "#244C89")
+        case "neon_garage":
+            return Color(hex: "#2EDBFF")
+        case "iron_basement":
+            return Color(hex: "#565149")
+        case "daylight_studio":
+            return Color(hex: "#D7DDE3")
+        case "brick_powerhouse":
+            return Color(hex: "#8F3A28")
         default:
             return DS.Semantic.brand
         }

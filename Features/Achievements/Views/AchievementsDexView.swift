@@ -81,8 +81,10 @@ struct AchievementsDexView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        .background(Color.black.ignoresSafeArea())
         .animation(.easeInOut(duration: 0.2), value: vm.isSearching)
         .navigationTitle("Achievements")
+        .navigationBarTitleDisplayMode(.inline)
         .searchable(text: $vm.search, placement: .navigationBarDrawer(displayMode: .always))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -123,7 +125,7 @@ struct AchievementsDexView: View {
             Text("\(vm.unlockedCount)/\(vm.totalCount)")
                 .dsFont(.caption2, weight: .semibold)
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(DS.Theme.accent, in: Capsule())
+                .background(DS.Theme.accent, in: ChamferedRectangle(.small))
                 .foregroundColor(.black)
         }
         .accessibilityLabel("Unlocked \(vm.unlockedCount) of \(vm.totalCount)")
@@ -329,7 +331,7 @@ private struct TinyProgressBar: View {
             let w = geo.size.width * clamped
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.secondary.opacity(0.18))
-                Capsule()
+                Rectangle()
                     .fill(
                         LinearGradient(
                             colors: [DS.Theme.accent.opacity(0.95), DS.Charts.pull.opacity(0.90)],
@@ -340,6 +342,7 @@ private struct TinyProgressBar: View {
             }
         }
         .frame(height: 6)
+        .clipShape(ChamferedRectangle(.micro))
         .accessibilityLabel("Progress")
         .accessibilityValue("\((clamped * 100).safeInt) percent")
     }
@@ -354,9 +357,9 @@ private struct RecordRow: View {
             Spacer()
             Text(value).dsFont(.footnote, monospacedDigits: true).foregroundStyle(.secondary)
         }
-        .padding(10)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.quaternary))
+        .padding(12)
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
+        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -389,77 +392,96 @@ struct DexDetailView: View {
     @State private var ladder: [(r: Int, w: Double?)] = []
 
     var body: some View {
-        List {
-            header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                header
 
-            if let bestE1RM {
-                Section("Records") {
-                    HStack {
-                        Label("Best est. 1RM", systemImage: "star.circle.fill")
-                        Spacer()
-                        Text(String(format: "%.1f kg", bestE1RM)).monospacedDigit()
-                    }
-                    if let last = lastWorking {
-                        HStack {
-                            Label("Last working", systemImage: "clock.arrow.circlepath")
-                            Spacer()
-                            Text("\(last.reps) × \(last.weight.safeInt) kg").monospacedDigit()
+                if let bestE1RM {
+                    DexDetailSection(title: "Records") {
+                        DexMetricRow(icon: "star.circle.fill", title: "Best est. 1RM", value: String(format: "%.1f kg", bestE1RM))
+                        if let last = lastWorking {
+                            DexMetricRow(icon: "clock.arrow.circlepath", title: "Last working", value: "\(last.reps) x \(last.weight.safeInt) kg")
                         }
                     }
                 }
-            }
 
-            Section("Rep ladder (best)") {
-                LazyVGrid(columns: Array(repeating: .init(.flexible()), count: 4)) {
-                    ForEach(ladder, id: \.r) { cell in
-                        VStack(spacing: 4) {
-                            Text("\(cell.r) reps").dsFont(.caption2).foregroundStyle(.secondary)
-                            Text(cell.w.map { "\(Int($0)) kg" } ?? "—")
-                                .dsFont(.footnote, weight: .semibold)
+                DexDetailSection(title: "Rep ladder (best)") {
+                    LazyVGrid(columns: Array(repeating: .init(.flexible(), spacing: 10), count: 4), spacing: 10) {
+                        ForEach(ladder, id: \.r) { cell in
+                            VStack(spacing: 6) {
+                                Text("\(cell.r) reps")
+                                    .dsFont(.caption2, weight: .medium)
+                                    .foregroundStyle(.secondary)
+                                Text(cell.w.map { "\(Int($0)) kg" } ?? "-")
+                                    .dsFont(.footnote, weight: .semibold)
+                                    .foregroundStyle(.primary)
+                                    .monospacedDigit()
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 56)
+                            .background(Color.white.opacity(0.045), in: ChamferedRectangle(.small))
+                            .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
                         }
-                        .frame(maxWidth: .infinity).padding(8)
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     }
                 }
-            }
 
-            if let ex = exercise {
-                Section {
-                    if let nxt = nextAttempt(for: ex) {
+                if let ex = exercise {
+                    VStack(spacing: 16) {
+                        if let nxt = store.personalRecordAttempt(for: ex) {
+                            Button {
+                                store.startWorkoutIfNeeded()
+                                let entryID = store.addExerciseToCurrent(ex)
+                                store.updateEntrySets(entryID: entryID, sets: [
+                                    SetInput(reps: nxt.reps, weight: nxt.weightKg, tag: .working, autoWeight: false)
+                                ])
+                                NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Label("Try a PR", systemImage: "bolt.fill")
+                                    Spacer()
+                                    Text("\(nxt.reps) × \(nxt.weightKg.safeInt) kg").monospacedDigit()
+                                }
+                                .dsFont(.headline, weight: .semibold)
+                                .foregroundStyle(.black)
+                                .padding(.horizontal, 18)
+                                .frame(maxWidth: .infinity, minHeight: 54)
+                                .background(DS.Theme.accent, in: ChamferedRectangle(.medium))
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(height: 1)
+
                         Button {
                             store.startWorkoutIfNeeded()
-                            let entryID = store.addExerciseToCurrent(ex)
-                            store.updateEntrySets(entryID: entryID, sets: [
-                                SetInput(reps: nxt.reps, weight: nxt.weightKg, tag: .working, autoWeight: false)
-                            ])
+                            _ = store.addExerciseToCurrent(ex)
                             NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
                             dismiss()
                         } label: {
-                            HStack {
-                                Label("Try a PR", systemImage: "bolt.fill")
-                                Spacer()
-                                Text("\(nxt.reps) × \(nxt.weightKg.safeInt) kg").monospacedDigit()
-                            }
+                            Label("Add to current workout", systemImage: "plus.circle.fill")
+                                .dsFont(.headline, weight: .medium)
+                                .foregroundStyle(DS.Theme.accent)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(.plain)
                     }
+                    .padding(18)
+                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
+                    .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
 
-                    Button {
-                        store.startWorkoutIfNeeded()
-                        _ = store.addExerciseToCurrent(ex)
-                        NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
-                        dismiss()
-                    } label: {
-                        Label("Add to current workout", systemImage: "plus.circle.fill")
+                    DexDetailSection(title: "Exercise") {
+                        ExerciseMusclesSection(exercise: ex, focus: .full)
                     }
-                }
-
-                Section("Exercise") {
-                    ExerciseMusclesSection(exercise: ex, focus: .full)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 18)
         }
+        .background(Color.black.ignoresSafeArea())
         .navigationTitle(shortName(item.name))
+        .navigationBarTitleDisplayMode(.inline)
         .task { rebuildLadder() }                 // build once
         .onChange(of: exercise?.id) { _ in        // rebuild when switching items
             rebuildLadder()
@@ -468,8 +490,19 @@ struct DexDetailView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Image(systemName: item.isUnlocked ? "trophy.fill" : "trophy")
-                .foregroundStyle(item.isUnlocked ? DS.Theme.accent : .secondary)
+            ProfileSectionIcon(
+                kind: .achievementCup,
+                color: item.isUnlocked ? DS.Theme.accent : .secondary
+            )
+            .frame(width: 48, height: 48)
+            .background(
+                (item.isUnlocked ? DS.Theme.accent.opacity(0.14) : Color.white.opacity(0.05)),
+                in: ChamferedRectangleAlt(.medium)
+            )
+            .overlay(
+                ChamferedRectangleAlt(.medium)
+                    .stroke(item.isUnlocked ? DS.Theme.accent.opacity(0.35) : DS.Semantic.border, lineWidth: 1)
+            )
             VStack(alignment: .leading) {
                 Text(item.name).dsFont(.headline)
                 if let when = item.unlockedAt {
@@ -482,18 +515,14 @@ struct DexDetailView: View {
             }
             Spacer()
         }
+        .padding(18)
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
+        .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func rebuildLadder() {
         guard let ex = exercise else { ladder = []; return }
         ladder = (1...12).map { r in (r, store.bestWeightForExactReps(exercise: ex, reps: r)) }
-    }
-
-    private func nextAttempt(for ex: Exercise) -> (reps: Int, weightKg: Double)? {
-        let reps = lastWorking?.reps ?? 5
-        guard var w = store.suggestedWorkingWeight(for: ex, targetReps: reps) else { return nil }
-        w += 2.5
-        return (reps, max(0, w))
     }
 
     private func shortName(_ s: String) -> String {
@@ -502,5 +531,52 @@ struct DexDetailView: View {
         let map = ["Barbell":"BB","Dumbbell":"DB","Kettlebell":"KB","Machine":"Mch","Cable":"Cbl","Smith Machine":"Smith","Incline":"Inc","Decline":"Dec","Seated":"Seat","Single-Arm":"SA","Single Arm":"SA","Single-Leg":"SL","Single Leg":"SL"]
         for (k,v) in map { x = x.replacingOccurrences(of: k, with: v) }
         return x.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+private struct DexDetailSection<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .dsFont(.title3, weight: .medium)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 2)
+
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
+            .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+        }
+    }
+}
+
+private struct DexMetricRow: View {
+    let icon: String
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .foregroundStyle(DS.Theme.accent)
+            Text(title)
+                .dsFont(.subheadline, weight: .medium)
+                .foregroundStyle(.primary)
+            Spacer()
+            Text(value)
+                .dsFont(.subheadline, weight: .semibold, monospacedDigits: true)
+                .foregroundStyle(.secondary)
+        }
     }
 }

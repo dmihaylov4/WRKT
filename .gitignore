@@ -24,6 +24,7 @@ DerivedData/
 *.ipa
 *.dSYM.zip
 *.dSYM
+*.xcappdata/
 
 # Crash data
 *.xccrashpoint/

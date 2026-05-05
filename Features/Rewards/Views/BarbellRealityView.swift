@@ -2,6 +2,7 @@
 import SwiftUI
 import RealityKit
 import SwiftData
+import UIKit
 
 private let plateBarOrientation = simd_quatf(angle: .pi / 2, axis: SIMD3<Float>(0, 0, 1))
 private let plateDisplayOrientation = plateBarOrientation
@@ -76,7 +77,7 @@ func barbellRealityCameraPosition(
     case .welcome:
         return SIMD3(0, 0.16, isWide ? -1.62 : -1.22)
     case .rackRoom:
-        return SIMD3(0, -0.45, isWide ? -1.9 : -1.4)
+        return SIMD3(0, isWide ? -0.42 : -0.40, isWide ? -1.72 : -1.30)
     }
 }
 
@@ -192,6 +193,12 @@ final class SceneState {
     /// Floor plates now remain dynamic; new code does not schedule settle timers.
     var settleTasks: [String: Task<Void, Never>] = [:]
 
+    // MARK: Unrack guard
+    /// Plate IDs currently inside a bar→floor unrack animation (200ms slide + 16ms physics delay).
+    /// The bar-swipe handler rejects any plate in this set so rapid repeat swipes on the same
+    /// plate don't spawn multiple concurrent snapToFloor Tasks.
+    var platesBeingUnracked: Set<String> = []
+
     // MARK: Welcome spin state
     var plateSpinStates: [String: PlateSpinState] = [:]
     var barbellSpinAngle: Float    = 0
@@ -262,6 +269,7 @@ final class SceneState {
             material: materialCache[plate.tierID],
             weightKg: plate.weightKg,
             engravingText: plate.engravingText,
+            prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
             renderProjection: BarbellPlateRenderProjection(plate: plate),
             role: .floor
         )
@@ -553,7 +561,70 @@ final class SceneState {
 
 // MARK: - BarbellRealityView
 
-private struct RoomThemePreset {
+struct RackRoomLightingPreset {
+    let keyIntensity: Float
+    let keyPosition: SIMD3<Float>
+    let fillIntensity: Float
+    let fillPosition: SIMD3<Float>
+    let frontWashIntensity: Float
+    let frontWashPosition: SIMD3<Float>
+    let barWashIntensity: Float
+    let barSideWashIntensity: Float
+    let barSideWashX: Float
+    let storageWashIntensity: Float
+    let storageWashY: Float
+    let storageFaceWashIntensity: Float
+    let storageFaceWashX: Float
+    let storageSideWashIntensity: Float
+    let storageSideWashX: Float
+    let storageSideWashY: Float
+    let rimWashIntensity: Float
+    let rimWashPosition: SIMD3<Float>
+    let imageBasedLightIntensityExponent: Float
+    let castsObjectShadows: Bool
+    let usesDirectionalKey: Bool
+
+    static let readability = RackRoomLightingPreset(
+        keyIntensity: 6_200,
+        keyPosition: SIMD3(0, 2.10, 1.90),
+        fillIntensity: 3_400,
+        fillPosition: SIMD3(0, 0.42, 0.88),
+        frontWashIntensity: 3_800,
+        frontWashPosition: SIMD3(0, 0.92, 0.88),
+        barWashIntensity: 6_800,
+        barSideWashIntensity: 4_600,
+        barSideWashX: 0.82,
+        storageWashIntensity: 6_400,
+        storageWashY: 1.62,
+        storageFaceWashIntensity: 4_800,
+        storageFaceWashX: 0.78,
+        storageSideWashIntensity: 5_000,
+        storageSideWashX: 1.10,
+        storageSideWashY: 1.58,
+        rimWashIntensity: 1_400,
+        rimWashPosition: SIMD3(0, 0.92, 0.35),
+        imageBasedLightIntensityExponent: 1.95,
+        castsObjectShadows: false,
+        usesDirectionalKey: false
+    )
+}
+
+let barbellRoomWallTextMaximumLength = 12
+
+func barbellNormalizedRoomWallText(_ value: String?) -> String? {
+    guard let value else { return nil }
+    let allowed = CharacterSet.alphanumerics.union(.whitespaces)
+    let filteredScalars = value.uppercased().unicodeScalars.map { scalar in
+        allowed.contains(scalar) ? Character(scalar) : " "
+    }
+    let collapsed = String(filteredScalars)
+        .split(whereSeparator: \.isWhitespace)
+        .joined(separator: " ")
+    guard !collapsed.isEmpty else { return nil }
+    return String(collapsed.prefix(barbellRoomWallTextMaximumLength))
+}
+
+struct RoomThemePreset {
     let backdropColor: UIColor
     let backdropMetallic: Float
     let backdropRoughness: Float
@@ -564,44 +635,140 @@ private struct RoomThemePreset {
     let bumperColor: UIColor
     let bumperMetallic: Float
     let bumperRoughness: Float
+    let plateZoneColor: UIColor
+    let plateZoneMetallic: Float
+    let plateZoneRoughness: Float
+    let wallTextColor: UIColor
     let swiftUIBackground: Color
+
+    var floorLuminance: CGFloat {
+        floorColor.barbellRelativeLuminance
+    }
+
+    var backdropLuminance: CGFloat {
+        backdropColor.barbellRelativeLuminance
+    }
+
+    var stripLuminance: CGFloat {
+        stripColor.barbellRelativeLuminance
+    }
+
+    var plateZoneLuminance: CGFloat {
+        plateZoneColor.barbellRelativeLuminance
+    }
 
     static func preset(for id: String) -> RoomThemePreset {
         switch id {
         case "concrete_room":
             return RoomThemePreset(
-                backdropColor: UIColor(white: 0.40, alpha: 1),
+                backdropColor: UIColor(white: 0.46, alpha: 1),
                 backdropMetallic: 0, backdropRoughness: 0.96,
-                floorColor: UIColor(white: 0.36, alpha: 1),
-                floorMetallic: 0.02, floorRoughness: 0.94,
-                stripColor: UIColor(white: 0.48, alpha: 1),
+                floorColor: UIColor(white: 0.42, alpha: 1),
+                floorMetallic: 0.02, floorRoughness: 0.88,
+                stripColor: UIColor(white: 0.56, alpha: 1),
                 bumperColor: UIColor(white: 0.52, alpha: 1),
                 bumperMetallic: 0.06, bumperRoughness: 0.72,
-                swiftUIBackground: Color(UIColor(white: 0.30, alpha: 1))
+                plateZoneColor: UIColor(white: 0.50, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.94,
+                wallTextColor: UIColor(white: 0.30, alpha: 1),
+                swiftUIBackground: Color(UIColor(white: 0.34, alpha: 1))
             )
         case "competition_platform":
             return RoomThemePreset(
                 backdropColor: UIColor(white: 0.90, alpha: 1),
                 backdropMetallic: 0, backdropRoughness: 0.98,
-                floorColor: UIColor(red: 0.68, green: 0.50, blue: 0.30, alpha: 1),
+                floorColor: UIColor(red: 0.76, green: 0.58, blue: 0.35, alpha: 1),
                 floorMetallic: 0.05, floorRoughness: 0.65,
-                stripColor: UIColor(red: 0.76, green: 0.58, blue: 0.36, alpha: 1),
+                stripColor: UIColor(red: 0.86, green: 0.68, blue: 0.43, alpha: 1),
                 bumperColor: UIColor(white: 0.82, alpha: 1),
                 bumperMetallic: 0.04, bumperRoughness: 0.65,
+                plateZoneColor: UIColor(white: 0.96, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.94,
+                wallTextColor: UIColor(red: 0.18, green: 0.30, blue: 0.52, alpha: 1),
                 swiftUIBackground: Color(UIColor(white: 0.72, alpha: 1))
+            )
+        case "neon_garage":
+            return RoomThemePreset(
+                backdropColor: UIColor(red: 0.09, green: 0.10, blue: 0.13, alpha: 1),
+                backdropMetallic: 0.02, backdropRoughness: 0.72,
+                floorColor: UIColor(red: 0.13, green: 0.15, blue: 0.18, alpha: 1),
+                floorMetallic: 0.08, floorRoughness: 0.68,
+                stripColor: UIColor(red: 0.16, green: 0.78, blue: 0.94, alpha: 1),
+                bumperColor: UIColor(red: 0.18, green: 0.18, blue: 0.24, alpha: 1),
+                bumperMetallic: 0.10, bumperRoughness: 0.56,
+                plateZoneColor: UIColor(red: 0.16, green: 0.17, blue: 0.22, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.90,
+                wallTextColor: UIColor(red: 0.18, green: 0.86, blue: 1.0, alpha: 1),
+                swiftUIBackground: Color(UIColor(red: 0.06, green: 0.07, blue: 0.10, alpha: 1))
+            )
+        case "iron_basement":
+            return RoomThemePreset(
+                backdropColor: UIColor(red: 0.22, green: 0.21, blue: 0.20, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 0.98,
+                floorColor: UIColor(red: 0.18, green: 0.17, blue: 0.16, alpha: 1),
+                floorMetallic: 0.03, floorRoughness: 0.90,
+                stripColor: UIColor(red: 0.40, green: 0.38, blue: 0.34, alpha: 1),
+                bumperColor: UIColor(red: 0.34, green: 0.32, blue: 0.29, alpha: 1),
+                bumperMetallic: 0.04, bumperRoughness: 0.78,
+                plateZoneColor: UIColor(red: 0.29, green: 0.28, blue: 0.26, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.96,
+                wallTextColor: UIColor(red: 0.52, green: 0.50, blue: 0.45, alpha: 1),
+                swiftUIBackground: Color(UIColor(red: 0.14, green: 0.13, blue: 0.12, alpha: 1))
+            )
+        case "daylight_studio":
+            return RoomThemePreset(
+                backdropColor: UIColor(white: 0.78, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 0.92,
+                floorColor: UIColor(white: 0.68, alpha: 1),
+                floorMetallic: 0.02, floorRoughness: 0.74,
+                stripColor: UIColor(white: 0.88, alpha: 1),
+                bumperColor: UIColor(white: 0.74, alpha: 1),
+                bumperMetallic: 0.03, bumperRoughness: 0.68,
+                plateZoneColor: UIColor(white: 0.86, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.92,
+                wallTextColor: UIColor(white: 0.48, alpha: 1),
+                swiftUIBackground: Color(UIColor(white: 0.66, alpha: 1))
+            )
+        case "brick_powerhouse":
+            return RoomThemePreset(
+                backdropColor: UIColor(red: 0.34, green: 0.16, blue: 0.11, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 0.94,
+                floorColor: UIColor(red: 0.24, green: 0.20, blue: 0.18, alpha: 1),
+                floorMetallic: 0.04, floorRoughness: 0.82,
+                stripColor: UIColor(red: 0.62, green: 0.42, blue: 0.30, alpha: 1),
+                bumperColor: UIColor(red: 0.42, green: 0.24, blue: 0.18, alpha: 1),
+                bumperMetallic: 0.06, bumperRoughness: 0.70,
+                plateZoneColor: UIColor(red: 0.44, green: 0.22, blue: 0.16, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.94,
+                wallTextColor: UIColor(red: 0.78, green: 0.58, blue: 0.44, alpha: 1),
+                swiftUIBackground: Color(UIColor(red: 0.22, green: 0.11, blue: 0.08, alpha: 1))
             )
         default: // dark_gym
             return RoomThemePreset(
-                backdropColor: UIColor(white: 0.09, alpha: 1),
-                backdropMetallic: 0, backdropRoughness: 1.0,
-                floorColor: UIColor(white: 0.22, alpha: 1),
-                floorMetallic: 0.05, floorRoughness: 0.85,
-                stripColor: UIColor(white: 0.32, alpha: 1),
-                bumperColor: UIColor(white: 0.42, alpha: 1),
-                bumperMetallic: 0.10, bumperRoughness: 0.65,
-                swiftUIBackground: Color(UIColor(white: 0.20, alpha: 1))
+                backdropColor: UIColor(white: 0.27, alpha: 1),
+                backdropMetallic: 0, backdropRoughness: 0.88,
+                floorColor: UIColor(white: 0.38, alpha: 1),
+                floorMetallic: 0.04, floorRoughness: 0.70,
+                stripColor: UIColor(white: 0.52, alpha: 1),
+                bumperColor: UIColor(white: 0.56, alpha: 1),
+                bumperMetallic: 0.08, bumperRoughness: 0.62,
+                plateZoneColor: UIColor(white: 0.32, alpha: 1),
+                plateZoneMetallic: 0, plateZoneRoughness: 0.96,
+                wallTextColor: UIColor(white: 0.50, alpha: 1),
+                swiftUIBackground: Color(UIColor(white: 0.29, alpha: 1))
             )
         }
+    }
+}
+
+private extension UIColor {
+    var barbellRelativeLuminance: CGFloat {
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 1
+        getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 }
 
@@ -611,6 +778,7 @@ struct BarbellRealityView: View {
     var barSkinID: Int = 0
     var rackStyleID: String = "matte_black"
     var roomThemeID: String = "dark_gym"
+    var roomWallText: String?
     var allowsInteraction = true
     var showsStorage = true
     /// Floor plates use a 0.38m wide box collider. Keep their centers comfortably inside the
@@ -627,22 +795,23 @@ struct BarbellRealityView: View {
     var body: some View {
         ZStack {
             RealityView { content in
-                setupLighting(content: &content)
                 sceneState.sceneRoot   = Entity()
                 sceneState.floorAnchor = Entity()
                 sceneState.barAnchor   = Entity()
                 sceneState.sceneRoot.addChild(sceneState.floorAnchor)
                 sceneState.sceneRoot.addChild(sceneState.barAnchor)
                 content.add(sceneState.sceneRoot)
+                setupLighting(in: sceneState.sceneRoot)
 
                 // IBL: load async after sceneRoot is wired to content.
                 // Nested Task so make{} is not blocked -- IBL enhances lighting when available.
                 Task { @MainActor in
                     if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
                         let iblEntity = Entity()
-                        iblEntity.components.set(
-                            ImageBasedLightComponent(source: .single(ibl), intensityExponent: 0.5)
-                        )
+                        iblEntity.components.set(ImageBasedLightComponent(
+                            source: .single(ibl),
+                            intensityExponent: RackRoomLightingPreset.readability.imageBasedLightIntensityExponent
+                        ))
                         sceneState.sceneRoot.addChild(iblEntity)
                         sceneState.sceneRoot.components.set(
                             ImageBasedLightReceiverComponent(imageBasedLight: iblEntity)
@@ -654,7 +823,7 @@ struct BarbellRealityView: View {
                 case .welcome(let plates):
                     setupWelcomeScene(content: &content, plates: plates, barSkinID: barSkinID)
                 case .rackRoom(let racked, let floor, _, _):
-                    setupRackRoomScene(content: &content, racked: racked, floor: floor, barSkinID: barSkinID, rackStyleID: rackStyleID, roomThemeID: roomThemeID)
+                    setupRackRoomScene(content: &content, racked: racked, floor: floor, barSkinID: barSkinID, rackStyleID: rackStyleID, roomThemeID: roomThemeID, roomWallText: roomWallText)
                 }
 
                 sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
@@ -738,7 +907,9 @@ struct BarbellRealityView: View {
             )
             guard clamped != scenePos else { continue }
 
-            entity.setPosition(clamped, relativeTo: sceneState.sceneRoot)
+            // Write in floorAnchor-local space: floorAnchor is a child of sceneRoot with
+            // identity rotation and only X translation, so local = sceneRoot_local - floorAnchor.position.
+            entity.position = clamped - sceneState.floorAnchor.position
             var motion = entity.components[PhysicsMotionComponent.self] ?? PhysicsMotionComponent()
             if scenePos.x < -floorPhysicsMaxAbsX, motion.linearVelocity.x < 0 { motion.linearVelocity.x *= -0.35 }
             if scenePos.x >  floorPhysicsMaxAbsX, motion.linearVelocity.x > 0 { motion.linearVelocity.x *= -0.35 }
@@ -751,30 +922,107 @@ struct BarbellRealityView: View {
     }
 
     // MARK: Lighting
-    // DirectionalLightComponent is required for shadow casting in RealityKit.
-    // Point lights do not cast shadows. One directional key light + one point fill.
 
-    private func setupLighting(content: inout RealityViewCameraContent) {
-        // Key light -- directional, casts contact shadows
+    private func setupLighting(in sceneRoot: Entity) {
+        let lighting = RackRoomLightingPreset.readability
+
+        // Match BarbellPreviewView's camera-side point light rig so storage plates are lit
+        // from the user's viewing direction instead of by a wall-casting directional key.
         let keyEntity = Entity()
-        var keyLight = DirectionalLightComponent()
-        keyLight.color = .white
-        keyLight.intensity = 3500
-        keyEntity.components.set(keyLight)
-        // Shadow is a separate component in the current RealityKit API.
-        keyEntity.components.set(DirectionalLightComponent.Shadow(maximumDistance: 4, depthBias: 2.0))
-        // 45-degree down, 30-degree from front-left
-        keyEntity.orientation = simd_quatf(angle: -.pi / 4, axis: SIMD3(1, 0, 0))
-            * simd_quatf(angle: .pi / 6, axis: SIMD3(0, 1, 0))
-        content.add(keyEntity)
+        if lighting.usesDirectionalKey {
+            var keyLight = DirectionalLightComponent()
+            keyLight.color = .white
+            keyLight.intensity = lighting.keyIntensity
+            keyEntity.components.set(keyLight)
+            keyEntity.components.set(DirectionalLightComponent.Shadow(maximumDistance: 2.6, depthBias: 4.5))
+            keyEntity.orientation = simd_quatf(angle: -.pi / 4, axis: SIMD3(1, 0, 0))
+                * simd_quatf(angle: .pi / 6, axis: SIMD3(0, 1, 0))
+        } else {
+            keyEntity.components[PointLightComponent.self] = PointLightComponent(
+                color: .white, intensity: lighting.keyIntensity, attenuationRadius: 10
+            )
+            keyEntity.position = lighting.keyPosition
+        }
+        sceneRoot.addChild(keyEntity)
 
         // Fill light -- point, no shadow, reduces harsh key-side darkness
         let fillEntity = Entity()
         fillEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 0.75, alpha: 1), intensity: 600, attenuationRadius: 8
+            color: UIColor(white: 0.92, alpha: 1), intensity: lighting.fillIntensity, attenuationRadius: 8
         )
-        fillEntity.position = SIMD3(-1.5, -0.5, 0.8)
-        content.add(fillEntity)
+        fillEntity.position = lighting.fillPosition
+        sceneRoot.addChild(fillEntity)
+
+        let frontWashEntity = Entity()
+        frontWashEntity.components[PointLightComponent.self] = PointLightComponent(
+            color: UIColor(white: 1.0, alpha: 1), intensity: lighting.frontWashIntensity, attenuationRadius: 7
+        )
+        frontWashEntity.position = lighting.frontWashPosition
+        sceneRoot.addChild(frontWashEntity)
+
+        // Bar wash -- dedicated light at barbell height so racked plates match storage vibrancy.
+        // Positioned above and camera-side of the bar (sceneRoot-local y=1.0, z=0.95).
+        let barWashEntity = Entity()
+        barWashEntity.components[PointLightComponent.self] = PointLightComponent(
+            color: .white, intensity: lighting.barWashIntensity, attenuationRadius: 4.5
+        )
+        barWashEntity.position = SIMD3(0, 1.0, 0.95)
+        sceneRoot.addChild(barWashEntity)
+
+        for xSign in [-1.0 as Float, 1.0 as Float] {
+            let barSideWashEntity = Entity()
+            barSideWashEntity.components[PointLightComponent.self] = PointLightComponent(
+                color: UIColor(white: 1.0, alpha: 1),
+                intensity: lighting.barSideWashIntensity,
+                attenuationRadius: 1.9
+            )
+            barSideWashEntity.position = SIMD3(xSign * lighting.barSideWashX, 0.92, 0.72)
+            sceneRoot.addChild(barSideWashEntity)
+        }
+
+        // Storage plates hang high on the wall and are mostly edge-on to camera.
+        // Put unshadowed washes at their height so color remains readable.
+        let storageWashEntity = Entity()
+        storageWashEntity.components[PointLightComponent.self] = PointLightComponent(
+            color: UIColor(white: 1.0, alpha: 1), intensity: lighting.storageWashIntensity, attenuationRadius: 5
+        )
+        storageWashEntity.position = SIMD3(0, lighting.storageWashY, 1.20)
+        sceneRoot.addChild(storageWashEntity)
+
+        for xSign in [-1.0 as Float, 1.0 as Float] {
+            let storageFaceWashEntity = Entity()
+            storageFaceWashEntity.components[PointLightComponent.self] = PointLightComponent(
+                color: UIColor(white: 1.0, alpha: 1),
+                intensity: lighting.storageFaceWashIntensity,
+                attenuationRadius: 1.8
+            )
+            storageFaceWashEntity.position = SIMD3(xSign * lighting.storageFaceWashX, lighting.storageWashY, 0.82)
+            sceneRoot.addChild(storageFaceWashEntity)
+        }
+
+        for xSign in [-1.0 as Float, 1.0 as Float] {
+            let sideWashEntity = Entity()
+            sideWashEntity.components[PointLightComponent.self] = PointLightComponent(
+                color: UIColor(white: 1.0, alpha: 1),
+                intensity: lighting.storageSideWashIntensity,
+                attenuationRadius: 4.5
+            )
+            sideWashEntity.position = SIMD3(
+                xSign * lighting.storageSideWashX,
+                lighting.storageSideWashY,
+                0.65
+            )
+            sceneRoot.addChild(sideWashEntity)
+        }
+
+        let rimWashEntity = Entity()
+        rimWashEntity.components[PointLightComponent.self] = PointLightComponent(
+            color: UIColor(red: 0.78, green: 0.88, blue: 1.0, alpha: 1),
+            intensity: lighting.rimWashIntensity,
+            attenuationRadius: 4.0
+        )
+        rimWashEntity.position = lighting.rimWashPosition
+        sceneRoot.addChild(rimWashEntity)
     }
 
     // MARK: Welcome scene setup
@@ -804,6 +1052,7 @@ struct BarbellRealityView: View {
                     material: sceneState.materialCache[info.tierID],
                     weightKg: info.weightKg,
                     engravingText: info.engravingText,
+                    prominentEngraving: info.earnedByEvent.hasPrefix("strength_milestone_"),
                     role: .bar
                 )
                 entity.name = xSign == 1 ? "welcome_plate_\(i)" : "welcome_plate_\(i)_mirror"
@@ -1016,6 +1265,7 @@ struct BarbellRealityView: View {
                     // below) so the slide animation never fights the drag position update loop.
                     let outermostPlate = allRackedPlates.max(by: { ($0.rackPosition ?? -1) < ($1.rackPosition ?? -1) })
                     guard let outermostID = outermostPlate?.id,
+                          !sceneState.platesBeingUnracked.contains(outermostID),
                           let outermostEntity = sceneState.entityMap[outermostID] else { return }
                     guard sceneState.transition(to: .draggingPlate(outermostEntity, plateID: outermostID, originRole: .bar)) else { return }
                     #if DEBUG
@@ -1136,6 +1386,7 @@ struct BarbellRealityView: View {
                     // setParent cancels in-flight animations, so we must wait.
                     // Reduce Motion: skip delay.
                     let delay = sceneState.isReduceMotionEnabled ? 0 : 200
+                    sceneState.platesBeingUnracked.insert(plateID)
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(delay))
                         if let slot = targetSlot {
@@ -1144,8 +1395,10 @@ struct BarbellRealityView: View {
                             entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
                             snapToStorageSlot(entity: entity, plateID: plateID, slotIndex: slot)
                             finishUnrack(plateID: plateID, plate: plateToUnrack)
+                            sceneState.platesBeingUnracked.remove(plateID)
                         } else {
                             snapToFloor(entity: entity, plateID: plateID)
+                            // snapToFloor clears platesBeingUnracked after its own 16ms physics task
                         }
                     }
                 } else if let slotIdx = capturedOriginSlot {
@@ -1300,22 +1553,32 @@ struct BarbellRealityView: View {
         #if DEBUG
         barbellLog("SNAP_FLOOR", "id=\(plateID) BEFORE setParent: pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil))) phys=\(String(describing:entity.components[PhysicsBodyComponent.self]?.mode))")
         #endif
-        let finalWorldTransform = entity.transformMatrix(relativeTo: nil)
-        entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
-        // Re-assert the slide-end world transform after reparenting so physics handoff starts
-        // from the visual endpoint, not a stale kinematic body pose from bar space.
-        entity.setTransformMatrix(finalWorldTransform, relativeTo: nil)
+        // Reparent to sceneRoot (not floorAnchor) for bar→floor transitions.
+        // floorAnchor is always at local (0,0,0) inside sceneRoot — floor panning is
+        // disabled (floorMinX == floorMaxX == 0) so the two are positionally identical.
+        // sceneRoot is the grandparent of barAnchor; reparenting child→grandparent is
+        // cheaper in RealityKit than sibling→sibling (barAnchor→floorAnchor), which
+        // triggers a full render graph re-evaluation and 19 AR material re-resolves.
+        // Using local-space setters after setParent(preservingWorldTransform: false)
+        // avoids setTransformMatrix(relativeTo: nil) (see earlier fix in this function).
+        let worldPos = entity.position(relativeTo: nil)
+        let worldRot = entity.orientation(relativeTo: nil)
+        let anchorWorldPos = sceneState.sceneRoot.position(relativeTo: nil)
+        entity.setParent(sceneState.sceneRoot, preservingWorldTransform: false)
+        entity.position = worldPos - anchorWorldPos
+        entity.orientation = worldRot
         entity.components.set(PlateRoleComponent(role: .floor))
         #if DEBUG
         barbellLog("SNAP_FLOOR", "id=\(plateID) AFTER  setParent: pos=\(v3(entity.position)) floorAnchor=\(v3(sceneState.floorAnchor.position))")
         #endif
 
         if sceneState.isReduceMotionEnabled {
-            let xPos = Float(sceneState.floorAnchor.children.count) * 0.15
+            let xPos = Float(sceneState.sceneRoot.children.count) * 0.15
             entity.position = SIMD3(xPos, 0, 0)
             entity.orientation = simd_quatf(angle: Float.random(in: 0 ..< .pi * 2), axis: SIMD3(0, 1, 0))
             let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
             finishUnrack(plateID: plateID, plate: plateToUnrack)
+            sceneState.platesBeingUnracked.remove(plateID)
         } else {
             // Preserve upright bar orientation -- plate tumbles naturally under physics.
             // Hand physics a clean release pose in front of the bar path. If the dynamic body
@@ -1325,7 +1588,11 @@ struct BarbellRealityView: View {
             let releaseX = max(-floorPhysicsMaxAbsX, min(floorPhysicsMaxAbsX, wPos.x))
             let releaseY = max(wPos.y, sceneState.barAnchor.position(relativeTo: nil).y + 0.04)
             let releaseZ = max(wPos.z, 0.30)
-            entity.setPosition(SIMD3(releaseX, releaseY, releaseZ), relativeTo: nil)
+            // Write in floorAnchor-local space to avoid setPosition(relativeTo: nil),
+            // which marks the RealityKit render graph dirty and triggers 19 AR material
+            // re-resolves per call (confirmed in the setParent fix above).
+            let anchorWPos = sceneState.sceneRoot.position(relativeTo: nil)
+            entity.position = SIMD3(releaseX - anchorWPos.x, releaseY - anchorWPos.y, releaseZ - anchorWPos.z)
 
             // Enable physics on the next frame. RealityKit can otherwise start dynamics from an
             // older kinematic body pose even though the visual move() finished at slideTargetX.
@@ -1353,6 +1620,7 @@ struct BarbellRealityView: View {
                 motion.linearVelocity = SIMD3(spreadDir * Float.random(in: 0.30 ..< 0.65), -0.20, 0.18)
                 entity.components[PhysicsMotionComponent.self] = motion
                 entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+                sceneState.platesBeingUnracked.remove(plateID)
                 if let audio = entity.components[PlateAudioCategoryComponent.self] {
                     scheduleDropFeedback(on: entity, category: audio.category, delay: 0.42)
                 }
@@ -1566,12 +1834,36 @@ struct BarbellRealityView: View {
 
     // MARK: RackRoom scene setup
 
+    private func makeRoomWallText(_ text: String?, theme: RoomThemePreset) -> ModelEntity? {
+        guard let normalized = barbellNormalizedRoomWallText(text) else { return nil }
+        let mesh = MeshResource.generateText(
+            normalized,
+            extrusionDepth: 0.006,
+            font: .systemFont(ofSize: 0.28, weight: .heavy),
+            containerFrame: CGRect(x: -1.45, y: -0.16, width: 2.90, height: 0.34),
+            alignment: .center,
+            lineBreakMode: .byClipping
+        )
+        let material = pbrMaterial(
+            color: theme.wallTextColor,
+            metallic: 0,
+            roughness: 0.88,
+            clearcoat: 0.05,
+            clearcoatRoughness: 0.42
+        )
+        let entity = ModelEntity(mesh: mesh, materials: [material])
+        entity.name = "roomWallText"
+        entity.position = SIMD3(0, 1.12, -0.100)
+        return entity
+    }
+
     private func setupRackRoomScene(
         content: inout RealityViewCameraContent,
         racked: [EarnedPlate], floor: [EarnedPlate],
         barSkinID: Int = 0,
         rackStyleID: String = "matte_black",
-        roomThemeID: String = "dark_gym"
+        roomThemeID: String = "dark_gym",
+        roomWallText: String? = nil
     ) {
         let theme = RoomThemePreset.preset(for: roomThemeID)
         // Performance budget: 4 racked (bilateral = 8 entities) + 24 floor = 32 plate entities.
@@ -1604,6 +1896,24 @@ struct BarbellRealityView: View {
         )
         backdrop.position = SIMD3(0, 0.5, -0.13)
         sceneState.sceneRoot.addChild(backdrop)
+
+        if let wallText = makeRoomWallText(roomWallText, theme: theme) {
+            sceneState.sceneRoot.addChild(wallText)
+        }
+
+        let plateZoneBacking = ModelEntity(
+            mesh: cachedRoundedBox(size: SIMD3(1.72, 1.08, 0.010), cornerRadius: 0.018),
+            materials: [
+                pbrMaterial(
+                    color: theme.plateZoneColor,
+                    metallic: theme.plateZoneMetallic,
+                    roughness: theme.plateZoneRoughness
+                )
+            ]
+        )
+        plateZoneBacking.name = "plateZoneBacking"
+        plateZoneBacking.position = SIMD3(0, 0.90, -0.108)
+        sceneState.sceneRoot.addChild(plateZoneBacking)
 
         // Floor plane -- visual only.
         let floorLine = ModelEntity(
@@ -1776,6 +2086,7 @@ struct BarbellRealityView: View {
                     material: sceneState.materialCache[plate.tierID],
                     weightKg: plate.weightKg,
                     engravingText: plate.engravingText,
+                    prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
                     renderProjection: BarbellPlateRenderProjection(plate: plate),
                     role: .bar
                 )
@@ -1813,6 +2124,7 @@ struct BarbellRealityView: View {
                 material: sceneState.materialCache[plate.tierID],
                 weightKg: plate.weightKg,
                 engravingText: plate.engravingText,
+                prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
                 renderProjection: BarbellPlateRenderProjection(plate: plate),
                 role: .floor
             )
@@ -2073,7 +2385,7 @@ struct BarbellRealityStressScene_Previews: PreviewProvider {
             ),
             sceneState: {
                 let state = SceneState()
-                for tierID in 0...7 {
+                for tierID in PlateTier.all.map(\.id) {
                     state.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
                     state.materialCache[tierID] = buildMaterial(
                         forTierID: tierID,

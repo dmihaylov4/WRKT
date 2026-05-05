@@ -128,6 +128,10 @@ struct AppShellView: View {
         .onReceive(NotificationCenter.default.publisher(for: .showShellTabBar)) { _ in
             isShellTabBarHidden = false
         }
+        .onReceive(NotificationCenter.default.publisher(for: .weeklyStreakUpdated)) { note in
+            guard let streak = note.object as? Int else { return }
+            Task { await dependencies.authService.syncStreak(streak) }
+        }
         .fullScreenCover(isPresented: $authService.needsPasswordReset) {
             SetNewPasswordView()
                 .environmentObject(authService)
@@ -398,6 +402,8 @@ struct AppShellView: View {
                 }
 
                 RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
+                let currentStreak = RewardsEngine.shared.weeklyGoalStreak()
+                Task { await dependencies.authService.syncStreak(currentStreak) }
             }
         }
     }
@@ -503,6 +509,8 @@ struct AppShellView: View {
         }
 
         RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
+        let currentStreak = RewardsEngine.shared.weeklyGoalStreak()
+        Task { await dependencies.authService.syncStreak(currentStreak) }
         didCompleteInitialLaunchSync = true
         healthKit.endRouteQueueLaunchProtection(bufferSeconds: 5)
 

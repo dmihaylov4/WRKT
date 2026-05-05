@@ -4,6 +4,22 @@ enum BarbellUnlockRules {
 
     // Tier rarity order for sorting results (higher = returned first)
     private static let rarityOrder: [Int: Int] = [
+        12: 5,  // Diamond: legendary
+        11: 5,  // Royal Gold: legendary
+        13: 4,  // Copper: epic
+        10: 5,  // Purple: legendary
+        22: 4,  // Lime Bumper: epic
+        21: 4,  // Teal Bumper: epic
+        18: 4,  // Pink Bumper: epic
+        17: 4,  // Yellow Bumper: epic
+        16: 3,  // Green Bumper: rare
+        23: 3,  // Navy Bumper: rare
+        20: 3,  // White Bumper: rare
+        15: 3,  // Blue Bumper: rare
+        19: 3,  // Orange Bumper: rare
+        14: 3,  // Red Bumper: rare
+        9: 4,   // Emerald: epic
+        8: 4,   // Rose Gold: epic
         6: 5,   // Gold: legendary
         5: 4,   // Polished Steel: epic
         4: 3,   // Competition: rare
@@ -25,7 +41,8 @@ enum BarbellUnlockRules {
     static func evaluate(
         workout: CompletedWorkout,
         config: BarbellConfig,
-        existingEvents: [String]
+        existingEvents: [String],
+        bumperVariantRoll: () -> Double = { Double.random(in: 0..<1) }
     ) -> [EarnedPlateInfo] {
         var results: [EarnedPlateInfo] = []
         let total = config.totalStrengthWorkouts
@@ -60,6 +77,12 @@ enum BarbellUnlockRules {
 
         // Rule: Milestone thresholds (one-time each)
         let milestones: [(count: Int, tierID: Int, weightKg: Double, engraving: String, event: String)] = [
+            (250, 12, 55, "250 Workouts", "strength_milestone_250"),
+            (200, 11, 50, "200 Workouts", "strength_milestone_200"),
+            (150, 10, 35, "150 Workouts", "strength_milestone_150"),
+            (125, 13, 32.5, "125 Workouts", "strength_milestone_125"),
+            (100, 9, 30, "100 Workouts", "strength_milestone_100"),
+            (75, 8, 25, "75 Workouts", "strength_milestone_75"),
             (50, 5, 25, "50 Workouts",  "strength_milestone_50"),
             (25, 3, 15, "25 Workouts",  "strength_milestone_25"),
             (15, 2, 10, "15 Workouts",  "strength_milestone_15"),
@@ -97,18 +120,59 @@ enum BarbellUnlockRules {
         }
 
         // Sort by rarity descending
-        return results.sorted { (rarityOrder[$0.tierID] ?? 0) > (rarityOrder[$1.tierID] ?? 0) }
+        let colorized = results.map { applyRandomBumperVariant(to: $0, roll: bumperVariantRoll()) }
+        return sortByRarity(colorized)
     }
 
     /// Evaluate the 90-day streak Gold plate.
     /// Call separately only when streak >= 90 is confirmed by RewardsEngine.
-    static func evaluateGoldStreak(existingEvents: [String]) -> EarnedPlateInfo? {
+    static func evaluateGoldStreak(
+        existingEvents: [String],
+        bumperVariantRoll: () -> Double = { Double.random(in: 0..<1) }
+    ) -> EarnedPlateInfo? {
         guard !existingEvents.contains("streak_90_day") else { return nil }
-        return EarnedPlateInfo(
+        let plate = EarnedPlateInfo(
             tierID: 6,
             weightKg: 45,
             engravingText: "90-Day Streak",
             earnedByEvent: "streak_90_day"
+        )
+        return applyRandomBumperVariant(to: plate, roll: bumperVariantRoll())
+    }
+
+    // Only the 10 colored bumpers (14-23) are randomly droppable.
+    // Purple (10) and all metallic/mineral plates are milestone-only.
+    static func randomBumperVariantTierID(roll: Double) -> Int? {
+        switch roll {
+        case ..<0.70: return nil  // 70%: no drop
+        case ..<0.74: return 14  //  4%: Red Bumper   (rare)
+        case ..<0.78: return 15  //  4%: Blue Bumper  (rare)
+        case ..<0.82: return 16  //  4%: Green Bumper (rare)
+        case ..<0.86: return 19  //  4%: Orange Bumper (rare)
+        case ..<0.89: return 23  //  3%: Navy Bumper  (rare)
+        case ..<0.92: return 20  //  3%: White Bumper (rare)
+        case ..<0.94: return 17  //  2%: Yellow Bumper (epic)
+        case ..<0.96: return 21  //  2%: Teal Bumper  (epic)
+        case ..<0.98: return 22  //  2%: Lime Bumper  (epic)
+        default:      return 18  //  2%: Pink Bumper  (epic)
+        }
+    }
+
+    static func sortByRarity(_ plates: [EarnedPlateInfo]) -> [EarnedPlateInfo] {
+        plates.sorted { (rarityOrder[$0.tierID] ?? 0) > (rarityOrder[$1.tierID] ?? 0) }
+    }
+
+    private static func applyRandomBumperVariant(to plate: EarnedPlateInfo, roll: Double) -> EarnedPlateInfo {
+        // Only bumper-style base plates are eligible for a color upgrade.
+        // Metallic and mineral plates (Brass, Competition, Gold, etc.) are never replaced.
+        guard PlateTier.all.first(where: { $0.id == plate.tierID })?.style == .bumper else { return plate }
+        guard let bumperTierID = randomBumperVariantTierID(roll: roll) else { return plate }
+        return EarnedPlateInfo(
+            tierID: bumperTierID,
+            weightKg: plate.weightKg,
+            engravingText: plate.engravingText,
+            earnedByEvent: plate.earnedByEvent,
+            liftTypeID: plate.liftTypeID
         )
     }
 

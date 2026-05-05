@@ -6,7 +6,7 @@ import RealityKit
 struct BarbellAudioBuilderTests {
 
     @Test func audioResourceLoadsForEveryTier() {
-        for tierID in 0...7 {
+        for tierID in PlateTier.all.map(\.id) {
             let cat = PlateAudioCategory.from(tierID: tierID)
             let resource = loadAudioResource(named: cat.clinkSoundName)
             #expect(resource != nil, "clink sound missing for tier \(tierID): \(cat.clinkSoundName)")

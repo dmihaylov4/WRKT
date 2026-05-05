@@ -379,9 +379,11 @@ private struct MilestoneChip: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: a.unlockedAt == nil ? "trophy" : "trophy.fill")
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(a.unlockedAt == nil ? .secondary : DS.Theme.accent)
+            ProfileSectionIcon(
+                kind: .achievementCup,
+                color: a.unlockedAt == nil ? .secondary : DS.Theme.accent,
+                size: 18
+            )
             VStack(alignment: .leading, spacing: 2) {
                 Text(a.title).dsFont(.subheadline, weight: .semibold)
                 if let when = a.unlockedAt {

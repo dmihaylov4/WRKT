@@ -471,6 +471,16 @@ final class SupabaseAuthService: ObservableObject {
         }
     }
 
+    func syncStreak(_ streak: Int) async {
+        guard let userId = currentUser?.id else { return }
+
+        _ = try? await client
+            .from("profiles")
+            .update(["weekly_goal_streak": AnyJSON.integer(streak)])
+            .eq("id", value: userId.uuidString)
+            .execute()
+    }
+
     /// Fetch a user profile by ID
     func fetchProfile(userId: UUID) async throws -> UserProfile {
         do {

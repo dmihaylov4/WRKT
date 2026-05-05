@@ -96,7 +96,7 @@ struct BarbellWelcomeView: View {
         }
         .task { @MainActor in
             guard !assetsReady else { return }
-            for tierID in 0...7 {
+            for tierID in PlateTier.all.map(\.id) {
                 sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
                 sceneState.materialCache[tierID] = buildMaterial(
                     forTierID: tierID,

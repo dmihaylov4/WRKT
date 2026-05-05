@@ -21,6 +21,7 @@ extension Notification.Name {
        static let openLiveOverlay = Notification.Name("openLiveOverlay")
        static let dismissLiveOverlay = Notification.Name("dismissLiveOverlay")
        static let rewardsDidSummarize = Notification.Name("rewardsDidSummarize")
+       static let weeklyStreakUpdated = Notification.Name("weeklyStreakUpdated")
        static let friendshipStatusChanged = Notification.Name("friendshipStatusChanged")
        static let hideShellTabBar = Notification.Name("hideShellTabBar")
        static let showShellTabBar = Notification.Name("showShellTabBar")

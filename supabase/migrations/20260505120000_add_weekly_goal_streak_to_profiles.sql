@@ -1,0 +1,2 @@
+ALTER TABLE profiles
+ADD COLUMN IF NOT EXISTS weekly_goal_streak INT NOT NULL DEFAULT 0;

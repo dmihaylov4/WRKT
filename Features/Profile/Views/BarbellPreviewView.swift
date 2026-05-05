@@ -49,8 +49,7 @@ func barbellPreviewSelectionInfo(
 ) -> (name: String, rarity: PlateTier.Rarity, earnedBy: String)? {
     switch activeTab {
     case 0:
-        guard PlateTier.all.indices.contains(selectedTier) else { return nil }
-        let tier = PlateTier.all[selectedTier]
+        guard let tier = barbellPreviewTier(forSelection: selectedTier) else { return nil }
         return (tier.name, tier.rarity, tier.earnedBy)
     case 1:
         guard BarSkin.all.indices.contains(selectedBar) else { return nil }
@@ -63,6 +62,14 @@ func barbellPreviewSelectionInfo(
     default:
         return nil
     }
+}
+
+func barbellPreviewTier(forSelection selectedTier: Int) -> PlateTier? {
+    if let tier = PlateTier.all.first(where: { $0.id == selectedTier }) {
+        return tier
+    }
+    guard PlateTier.all.indices.contains(selectedTier) else { return nil }
+    return PlateTier.all[selectedTier]
 }
 
 func barbellShowcaseVisualHalfDepth(for tier: PlateTier) -> Float {
@@ -96,8 +103,6 @@ func barbellShowcaseRightSideOffsets(for plates: [EarnedPlateInfo]) -> [Float] {
 
     return offsets
 }
-
-let barbellPreviewBackWallZ: Float = -0.34
 
 // MARK: - View
 
@@ -323,13 +328,13 @@ struct BarbellPreviewView: View {
 
     private func addPlatePair() {
         guard addedPairs < maxExtraPairs, let root = scene.root else { return }
-        let tier = PlateTier.all[selectedTier]
+        guard let tier = barbellPreviewTier(forSelection: selectedTier) else { return }
         let sticker = StickerOption.all[selectedSticker]
         let targetX = 0.37 + Float(addedPairs + 1) * plateThickness
         let plateOrientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
 
         for sign: Float in [-1, 1] {
-            let plate = makePlate(tier: tier, thickness: plateThickness, sticker: sticker)
+            let plate = makePlate(tier: tier, thickness: plateThickness, sticker: sticker, weightKg: 20.0)
             plate.position = SIMD3(sign * 0.8, 0, 0)
             root.addChild(plate)
             plate.move(
@@ -351,17 +356,24 @@ struct BarbellPreviewView: View {
     private func setupLights(in content: inout RealityViewCameraContent) {
         let key = Entity()
         key.components[PointLightComponent.self] = PointLightComponent(
-            color: .white, intensity: 3000, attenuationRadius: 10
+            color: .white, intensity: 6_200, attenuationRadius: 12
         )
         key.position = SIMD3(0, 2, 2)
         content.add(key)
 
         let fill = Entity()
         fill.components[PointLightComponent.self] = PointLightComponent(
-            color: .white, intensity: 800, attenuationRadius: 8
+            color: UIColor(white: 0.94, alpha: 1), intensity: 4_400, attenuationRadius: 10
         )
-        fill.position = SIMD3(-2, -1, 1)
+        fill.position = SIMD3(-1.2, 0.18, 0.95)
         content.add(fill)
+
+        let frontWash = Entity()
+        frontWash.components[PointLightComponent.self] = PointLightComponent(
+            color: .white, intensity: 3_800, attenuationRadius: 8
+        )
+        frontWash.position = SIMD3(0.65, 0.85, 1.45)
+        content.add(frontWash)
     }
 
     private func rebuildIfNeeded(content: inout RealityViewCameraContent) {
@@ -382,8 +394,9 @@ struct BarbellPreviewView: View {
             root = makeBarbellShowcase(plates: plates, skin: BarSkin.all[selectedBar])
             scene.spinVelocity = 0.35   // allow auto-spin and drag in showcase
         } else {
+            guard let selectedPlateTier = barbellPreviewTier(forSelection: selectedTier) else { return }
             root = makeBarbell(
-                tier: PlateTier.all[selectedTier],
+                tier: selectedPlateTier,
                 skin: BarSkin.all[selectedBar],
                 sticker: StickerOption.all[selectedSticker]
             )
@@ -392,7 +405,7 @@ struct BarbellPreviewView: View {
         // Apply image-based lighting if the HDRI has been loaded
         if let ibl = scene.iblResource {
             let iblEntity = Entity()
-            iblEntity.components.set(ImageBasedLightComponent(source: .single(ibl), intensityExponent: 0.5))
+            iblEntity.components.set(ImageBasedLightComponent(source: .single(ibl), intensityExponent: 1.55))
             root.addChild(iblEntity)
             root.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
         }
@@ -424,20 +437,6 @@ struct BarbellPreviewView: View {
     }
 
     private func addRoomAndRack(to root: Entity) {
-        let floor = ModelEntity(
-            mesh: .generateBox(width: 1.18, height: 0.018, depth: 0.42),
-            materials: [roomFloorMaterial()]
-        )
-        floor.position = SIMD3(0, -0.20, 0.03)
-        root.addChild(floor)
-
-        let backPanel = ModelEntity(
-            mesh: .generateBox(width: 1.10, height: 0.30, depth: 0.012),
-            materials: [roomWallMaterial()]
-        )
-        backPanel.position = SIMD3(0, -0.02, barbellPreviewBackWallZ)
-        root.addChild(backPanel)
-
         let rackMat = rackMaterial()
         for xOffset: Float in [-0.53, 0.53] {
             let upright = ModelEntity(
@@ -453,28 +452,6 @@ struct BarbellPreviewView: View {
             )
             hook.position = SIMD3(xOffset - (xOffset.sign == .minus ? -0.014 : 0.014), 0.02, -0.01)
             root.addChild(hook)
-        }
-    }
-
-    private func roomFloorMaterial() -> PhysicallyBasedMaterial {
-        switch selectedRoomThemeID {
-        case "concrete_room":
-            return pbrMaterial(color: UIColor(white: 0.34, alpha: 1), metallic: 0, roughness: 0.88)
-        case "competition_platform":
-            return pbrMaterial(color: UIColor(red: 0.10, green: 0.19, blue: 0.30, alpha: 1), metallic: 0, roughness: 0.62)
-        default:
-            return pbrMaterial(color: UIColor(white: 0.055, alpha: 1), metallic: 0, roughness: 0.82)
-        }
-    }
-
-    private func roomWallMaterial() -> PhysicallyBasedMaterial {
-        switch selectedRoomThemeID {
-        case "concrete_room":
-            return pbrMaterial(color: UIColor(white: 0.24, alpha: 1), metallic: 0, roughness: 0.92)
-        case "competition_platform":
-            return pbrMaterial(color: UIColor(red: 0.015, green: 0.025, blue: 0.045, alpha: 1), metallic: 0, roughness: 0.75)
-        default:
-            return pbrMaterial(color: UIColor(white: 0.025, alpha: 1), metallic: 0, roughness: 0.86)
         }
     }
 
@@ -503,15 +480,24 @@ struct BarbellPreviewView: View {
         bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
         root.addChild(bar)
 
+        // Sleeves fill the plate bore (radius 0.034) so plates rest on them visually.
+        // Covers from x=±0.28 to x=±0.46 (all possible plate positions including max addedPairs).
+        for xSign: Float in [-1, 1] {
+            let sleeve = ModelEntity(mesh: .generateCylinder(height: 0.18, radius: 0.034), materials: [barMat])
+            sleeve.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            sleeve.position = SIMD3(xSign * 0.37, 0, 0)
+            root.addChild(sleeve)
+        }
+
         for xOffset: Float in [-0.46, 0.46] {
-            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.022), materials: [barMat])
+            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.036), materials: [barMat])
             collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             collar.position = SIMD3(xOffset, 0, 0)
             root.addChild(collar)
         }
 
         for xOffset: Float in [-0.37, -0.34, 0.34, 0.37] {
-            let plate = makePlate(tier: tier, thickness: plateThickness, sticker: sticker)
+            let plate = makePlate(tier: tier, thickness: plateThickness, sticker: sticker, weightKg: 20.0)
             plate.position = SIMD3(xOffset, 0, 0)
             root.addChild(plate)
         }
@@ -544,8 +530,19 @@ struct BarbellPreviewView: View {
         bar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
         root.addChild(bar)
 
+        // Sleeves fill the plate bore so plates rest on them when viewed from the side.
+        let sleeveOuter = collarOffset + 0.02
+        let sleeveHeight = sleeveOuter - 0.28
+        let sleeveCenterAbs = (0.28 + sleeveOuter) / 2
+        for xSign: Float in [-1, 1] {
+            let sleeve = ModelEntity(mesh: .generateCylinder(height: sleeveHeight, radius: 0.034), materials: [barMat])
+            sleeve.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+            sleeve.position = SIMD3(xSign * sleeveCenterAbs, 0, 0)
+            root.addChild(sleeve)
+        }
+
         for xOffset in [-collarOffset, collarOffset] {
-            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.022), materials: [barMat])
+            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.036), materials: [barMat])
             collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             collar.position = SIMD3(xOffset, 0, 0)
             root.addChild(collar)
@@ -584,7 +581,8 @@ struct BarbellPreviewView: View {
             textures: scene.plateTextures[tier.id],
             weightKg: weightKg,
             engravingText: engravingText,
-            showEngravings: showPlateEngravings
+            showEngravings: showPlateEngravings,
+            options: .visualOnly(role: .bar)
         )
         applyStickerIfNeeded(sticker, to: plateEntity, thickness: PlateVisualDesign.profile(for: tier.style).thickness)
         return plateEntity
@@ -804,15 +802,11 @@ struct BarbellPreviewView: View {
     // MARK: - Texture preloading
 
     private func preloadTextures() async {
-        // Real PBR textures from bundle
-        let bundleSets: [(id: Int, prefix: String)] = [
-            (0, "RustyIron"),   // Metal041C
-            (1, "CastIron"),    // Metal046B
-            (2, "Rubber"),      // Rubber003
-            (6, "Brass"),       // Metal048C
-        ]
-        for entry in bundleSets where scene.plateTextures[entry.id] == nil {
-            scene.plateTextures[entry.id] = loadBundleTextures(prefix: entry.prefix)
+        // Use shared prefix-level cache from BarbellEntityBuilder to avoid duplicate GPU texture
+        // uploads. Tier IDs 1=CastIron, 2=Rubber, 3=Brass map to the same source files used by
+        // PlateWallView; sharing TextureResource objects halves GPU memory for PBR textures.
+        for tierID in [1, 2, 3] where scene.plateTextures[tierID] == nil {
+            scene.plateTextures[tierID] = loadPlateTextures(forTierID: tierID)
         }
 
         // IBL from HDRI
@@ -820,7 +814,7 @@ struct BarbellPreviewView: View {
             scene.iblResource = try? await EnvironmentResource(named: "IndoorHDRI")
         }
 
-        if [0, 1, 2, 6].contains(selectedTier) || scene.iblResource != nil {
+        if [1, 2, 3].contains(selectedTier) || scene.iblResource != nil {
             scene.appliedTier = -1
         }
 
@@ -832,41 +826,6 @@ struct BarbellPreviewView: View {
             }
         }
         scene.appliedSticker = -1
-    }
-
-    private func loadBundleTextures(prefix: String) -> PlateTextures {
-        func load(_ suffix: String, semantic: TextureResource.Semantic) -> TextureResource? {
-            let name = "\(prefix)_\(suffix)"
-            guard let url = Bundle.main.url(forResource: name, withExtension: "jpg") else {
-                AppLogger.debug("Plate texture URL not found: \(name).jpg", category: AppLogger.ui)
-                return nil
-            }
-            guard let uiImage = UIImage(contentsOfFile: url.path),
-                  let sourceCG = uiImage.cgImage else {
-                AppLogger.debug("Plate texture decode failed: \(name).jpg", category: AppLogger.ui)
-                return nil
-            }
-            let w = sourceCG.width, h = sourceCG.height
-            guard let ctx = CGContext(
-                data: nil, width: w, height: h,
-                bitsPerComponent: 8, bytesPerRow: w * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else { return nil }
-            ctx.draw(sourceCG, in: CGRect(x: 0, y: 0, width: w, height: h))
-            guard let rgba = ctx.makeImage() else { return nil }
-            guard let tex = try? TextureResource.generate(from: rgba, options: .init(semantic: semantic)) else {
-                AppLogger.debug("Plate texture generation failed: \(name).jpg", category: AppLogger.ui)
-                return nil
-            }
-            return tex
-        }
-        return PlateTextures(
-            albedo:    load("Color",     semantic: .color),
-            normal:    load("Normal",    semantic: .normal),
-            roughness: load("Roughness", semantic: .color),
-            metalness: load("Metalness", semantic: .color)
-        )
     }
 
     private func makeEmojiTexture(_ emoji: String) -> TextureResource? {

@@ -277,7 +277,7 @@ private struct FriendBarbellCard: View {
     }
 }
 
-private struct FriendBarbellRoomView: View {
+struct FriendBarbellRoomView: View {
     let showcase: BarbellFriendShowcase?
     let plates: [EarnedPlateInfo]
     let selectedBarSkinIndex: Int

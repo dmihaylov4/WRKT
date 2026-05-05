@@ -116,9 +116,11 @@ final class BarbellCustomizationService {
 
     func enqueueSyncCurrentSettingsToSupabase() {
         guard let userID = authService?.currentUser?.id else { return }
-        let previousTask = syncTask
-        syncTask = Task { @MainActor [weak self, previousTask, userID] in
-            await previousTask?.value
+        syncTask?.cancel()
+        syncTask = Task { @MainActor [weak self, userID] in
+            // Debounce: coalesce rapid operations (e.g. swiping all plates off the bar)
+            // into a single network call instead of N sequential upserts.
+            try? await Task.sleep(for: .seconds(0.8))
             guard !Task.isCancelled else { return }
             guard self?.authService?.currentUser?.id == userID else { return }
             await self?.syncCurrentSettingsToSupabase()
@@ -143,7 +145,7 @@ final class BarbellCustomizationService {
         config.selectedCollarIDRaw = row.collarID
         config.selectedBannerIDRaw = row.bannerID
         config.showPlateEngravingsRaw = row.showPlateEngravings
-        config.roomName = normalizedRemoteText(row.roomName, maximumLength: 32)
+        config.roomName = barbellNormalizedRoomWallText(row.roomName)
         config.roomMotto = normalizedRemoteText(row.roomMotto, maximumLength: 64)
         config.displayLoadoutData = try? JSONEncoder().encode(localDisplayLoadout(from: row.displayLoadout ?? DisplayLoadout()))
     }
@@ -243,7 +245,7 @@ private struct BarbellCustomizationSettingsUpsertRow: Encodable {
         self.collarID = config.selectedCollarIDRaw
         self.bannerID = config.selectedBannerIDRaw
         self.showPlateEngravings = config.showPlateEngravings
-        self.roomName = Self.normalizedText(config.roomName, maximumLength: 32)
+        self.roomName = barbellNormalizedRoomWallText(config.roomName)
         self.roomMotto = Self.normalizedText(config.roomMotto, maximumLength: 64)
         self.displayLoadout = remoteDisplayLoadout
         self.updatedAt = ISO8601DateFormatter().string(from: .now)

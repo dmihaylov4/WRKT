@@ -376,6 +376,13 @@ extension RewardsEngine {
             // Save
             try? context.save()
 
+            if streakResult.didIncrease {
+                NotificationCenter.default.post(
+                    name: .weeklyStreakUpdated,
+                    object: streakResult.new
+                )
+            }
+
             // Post notification if milestone hit and XP was actually awarded
             if streakResult.hitMilestone && xpAwarded > 0 {
                 NotificationCenter.default.post(

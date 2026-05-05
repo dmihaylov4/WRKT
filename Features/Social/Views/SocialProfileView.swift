@@ -34,6 +34,7 @@ struct SocialProfileView: View {
     @State private var isLoading = false
     @State private var battle: BattleWithParticipants?
     @State private var isBattleLoading = false
+    @State private var showingFriendBarbellRoom = false
 
     // Badge manager for notifications
     @State private var badgeManager = NotificationBadgeManager.shared
@@ -255,7 +256,6 @@ struct SocialProfileView: View {
             if viewModel.isOwnProfile {
                 VStack(spacing: 24) {
                     profileHeader(viewModel: viewModel)
-                    statsRow(viewModel: viewModel)
                     activityLink
                     BarbellShowcaseCard(
                         isOwnProfile: true,
@@ -269,7 +269,7 @@ struct SocialProfileView: View {
                 .padding()
             } else {
                 VStack(spacing: 20) {
-                    profileHeader(viewModel: viewModel)
+                    friendProfileTopCard(viewModel: viewModel)
                     headToHeadCard(viewModel: viewModel)
                     accountabilitySnapshot(viewModel: viewModel)
                     actionButtons(viewModel: viewModel)
@@ -277,14 +277,6 @@ struct SocialProfileView: View {
                     if let battle = battle, battle.battle.status == .pending {
                         battleInviteCard(battle: battle, viewModel: viewModel)
                     }
-
-                    BarbellShowcaseCard(
-                        isOwnProfile: false,
-                        ownerId: userId,
-                        sessionCount: 0,
-                        friendRackedPlates: friendRackedPlates,
-                        friendShowcase: friendBarbellShowcase
-                    )
 
                     postsSection(viewModel: viewModel)
                 }
@@ -310,7 +302,48 @@ struct SocialProfileView: View {
     }
 
     private func profileHeader(viewModel: ProfileViewModel) -> some View {
-        return VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 18) {
+            profileHeaderContent(viewModel: viewModel)
+
+            if viewModel.isOwnProfile {
+                Rectangle()
+                    .fill(DS.Semantic.border.opacity(0.5))
+                    .frame(height: 1)
+
+                HStack(spacing: 0) {
+                    statItem(value: "\(viewModel.posts.count)", label: "Recent Posts")
+                        .frame(maxWidth: .infinity)
+
+                    Rectangle()
+                        .fill(DS.Semantic.border)
+                        .frame(width: 1, height: 32)
+
+                    statItem(value: "\(viewModel.friendCount)", label: "Friends")
+                        .frame(maxWidth: .infinity)
+
+                    Rectangle()
+                        .fill(DS.Semantic.border)
+                        .frame(width: 1, height: 32)
+
+                    statItem(value: "\(progress.first?.weeklyGoalStreakCurrent ?? 0)", label: "Streak")
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .background(
+            ChamferedRectangle(.xl)
+                .fill(DS.Semantic.fillSubtle)
+        )
+        .overlay(
+            ChamferedRectangle(.xl)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+    }
+
+    private func profileHeaderContent(viewModel: ProfileViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 16) {
                 profileAvatar(viewModel: viewModel)
 
@@ -333,16 +366,96 @@ struct SocialProfileView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(20)
         .frame(maxWidth: .infinity)
+    }
+
+    private var friendBarSkinIndex: Int {
+        switch friendBarbellShowcase?.barSkinID {
+        case "black_oxide": return 1
+        case "gold", "brass_accent", "may_2026_brass_accent": return 2
+        case "cerakote": return 3
+        default: return 0
+        }
+    }
+
+    private var friendRoomThemeID: String {
+        friendBarbellShowcase?.roomThemeID ?? BarbellCustomizationDefaults.roomThemeID
+    }
+
+    private var friendRackStyleID: String {
+        friendBarbellShowcase?.rackStyleID ?? BarbellCustomizationDefaults.rackStyleID
+    }
+
+    private var friendShowPlateEngravings: Bool {
+        friendBarbellShowcase?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings
+    }
+
+    private var friendTotalWeight: Double {
+        let earned = friendRackedPlates.filter { $0.earnedByEvent != "starter" }
+        return 20 + earned.reduce(0) { $0 + $1.weightKg } * 2
+    }
+
+    private func friendProfileTopCard(viewModel: ProfileViewModel) -> some View {
+        VStack(spacing: 0) {
+            profileHeaderContent(viewModel: viewModel)
+                .padding(20)
+
+            Rectangle()
+                .fill(DS.Semantic.border.opacity(0.5))
+                .frame(height: 1)
+
+            ZStack(alignment: .topTrailing) {
+                BarbellPreviewView(
+                    mode: .showcase(plates: friendRackedPlates),
+                    selectedBarID: friendBarSkinIndex,
+                    selectedRoomThemeID: friendRoomThemeID,
+                    selectedRackStyleID: friendRackStyleID,
+                    showPlateEngravings: friendShowPlateEngravings
+                )
+                .frame(height: 240)
+                .clipped()
+
+                Button { showingFriendBarbellRoom = true } label: {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(DS.Semantic.brand)
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.1), in: Capsule())
+                }
+                .accessibilityLabel("Open barbell room")
+                .padding(12)
+            }
+
+            HStack {
+                Text("\(Int(friendTotalWeight))kg loaded")
+                    .dsFont(.caption, weight: .medium)
+                    .foregroundStyle(.white.opacity(0.5))
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
         .background(
             ChamferedRectangle(.xl)
                 .fill(DS.Semantic.fillSubtle)
         )
+        .clipShape(ChamferedRectangle(.xl))
         .overlay(
             ChamferedRectangle(.xl)
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
+        .sheet(isPresented: $showingFriendBarbellRoom) {
+            FriendBarbellRoomView(
+                showcase: friendBarbellShowcase,
+                plates: friendRackedPlates,
+                selectedBarSkinIndex: friendBarSkinIndex,
+                selectedRoomThemeID: friendRoomThemeID,
+                selectedRackStyleID: friendRackStyleID,
+                showPlateEngravings: friendShowPlateEngravings,
+                totalWeight: friendTotalWeight
+            )
+        }
     }
 
     private func profileAvatar(viewModel: ProfileViewModel) -> some View {
@@ -430,10 +543,14 @@ struct SocialProfileView: View {
 
             profileMetaRow(
                 label: "Streak",
-                value: "x weeks"
+                value: streakText(viewModel.profile.weeklyGoalStreak)
             )
         }
         .padding(.top, 2)
+    }
+
+    private func streakText(_ streak: Int) -> String {
+        streak == 0 ? "No streak yet" : "\(streak) week\(streak == 1 ? "" : "s")"
     }
 
     private func profileMetaRow(label: String, value: String) -> some View {
@@ -448,20 +565,6 @@ struct SocialProfileView: View {
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .multilineTextAlignment(.leading)
         }
-    }
-
-    private func statsRow(viewModel: ProfileViewModel) -> some View {
-        HStack(spacing: 32) {
-            statItem(value: "\(viewModel.posts.count)", label: "Recent Posts")
-            statItem(value: "\(viewModel.friendCount)", label: "Friends")
-            // Only show streak for own profile - other users' streaks are not available
-            if viewModel.isOwnProfile {
-                statItem(value: "\(progress.first?.weeklyGoalStreakCurrent ?? 0)", label: "Streak")
-            }
-        }
-        .padding()
-        .background(DS.Semantic.fillSubtle)
-        .clipShape(ChamferedRectangle(.medium))
     }
 
     private func statItem(value: String, label: String) -> some View {
@@ -583,7 +686,7 @@ struct SocialProfileView: View {
                 HStack(spacing: 12) {
                     compactTrendStat(label: "You 14d", value: "\(yourActiveDays) active days")
                     compactTrendStat(label: "\(friendName) 14d", value: "\(friendActiveDays) active days")
-                    compactTrendStat(label: "Streak", value: "x weeks")
+                    compactTrendStat(label: "Streak", value: streakText(viewModel.profile.weeklyGoalStreak))
                 }
             }
         }

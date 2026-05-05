@@ -193,9 +193,8 @@ extension RewardsEngine {
                 }
             }
 
-            // Re-sort after merging so Gold (legendary) always leads regardless of insertion order
-            let rarityForTier: [Int: Int] = [6: 5, 5: 4, 4: 3, 3: 3, 2: 2, 1: 1, 0: 0]
-            earnedPlates = plates.sorted { (rarityForTier[$0.tierID] ?? 0) > (rarityForTier[$1.tierID] ?? 0) }
+            // Re-sort after merging so high-rarity plates lead regardless of insertion order.
+            earnedPlates = BarbellUnlockRules.sortByRarity(plates)
         }
         var barbellRewardEvents = earnedPlates.map { info in
             BarbellRewardEvent(

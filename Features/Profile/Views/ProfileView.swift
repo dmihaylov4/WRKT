@@ -771,10 +771,11 @@ private struct DexBadge: View {
                     .fill(item.isUnlocked ? DS.Theme.accent.opacity(0.18) : Color.gray.opacity(0.12))
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(.quaternary)
-                Image(systemName: item.isUnlocked ? "trophy.fill" : "trophy")
-                    .symbolRenderingMode(.monochrome)
-                    .foregroundStyle(item.isUnlocked ? DS.Theme.accent : .secondary)
-                    .dsFont(.title2, weight: .bold)
+                ProfileSectionIcon(
+                    kind: .achievementCup,
+                    color: item.isUnlocked ? DS.Theme.accent : .secondary,
+                    size: 26
+                )
             }
             .frame(height: 62)
 
@@ -800,9 +801,12 @@ private struct MilestoneChip: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: a.unlockedAt == nil ? "trophy" : "trophy.fill")
-                .symbolRenderingMode(.monochrome)
-                .foregroundStyle(a.unlockedAt == nil ? .secondary : DS.Theme.accent)
+            ProfileSectionIcon(
+                kind: .achievementCup,
+                color: a.unlockedAt == nil ? .secondary : DS.Theme.accent,
+                size: 18
+            )
+            .frame(width: 28, height: 28, alignment: .center)
             VStack(alignment: .leading, spacing: 2) {
                 Text(a.title).dsFont(.subheadline, weight: .semibold)
                 if let when = a.unlockedAt {

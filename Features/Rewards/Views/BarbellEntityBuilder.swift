@@ -50,6 +50,36 @@ struct PlateAudioCategoryComponent: Component {
     let category: PlateAudioCategory
 }
 
+// MARK: - Plate entity build options
+
+struct PlateEntityBuildOptions {
+    var includesInput: Bool
+    var includesCollision: Bool
+    var includesPhysics: Bool
+    var includesAudio: Bool
+    var role: PlateRoleComponent.Role
+
+    static func interactive(role: PlateRoleComponent.Role = .floor) -> PlateEntityBuildOptions {
+        PlateEntityBuildOptions(
+            includesInput: true,
+            includesCollision: true,
+            includesPhysics: true,
+            includesAudio: true,
+            role: role
+        )
+    }
+
+    static func visualOnly(role: PlateRoleComponent.Role = .floor) -> PlateEntityBuildOptions {
+        PlateEntityBuildOptions(
+            includesInput: false,
+            includesCollision: false,
+            includesPhysics: false,
+            includesAudio: false,
+            role: role
+        )
+    }
+}
+
 // MARK: - Progression render projection
 
 struct BarbellPlateRenderProjection: Equatable {
@@ -273,6 +303,256 @@ struct PlateTextures {
     var metalness: TextureResource?
 }
 
+struct PlateSidewallSurface: Equatable {
+    let color: UIColor
+    let metallic: Float
+    let roughness: Float
+    let clearcoat: Float
+    let clearcoatRoughness: Float
+
+    static func sidewall(for tier: PlateTier) -> PlateSidewallSurface {
+        if usesShinyMetalSidewall(tier) {
+            return PlateSidewallSurface(
+                color: PlateDisplaySurface.sidewallColor(for: tier),
+                metallic: PlateDisplaySurface.metallic(for: tier),
+                roughness: PlateDisplaySurface.sidewallRoughness(for: tier),
+                clearcoat: PlateDisplaySurface.clearcoat(for: tier),
+                clearcoatRoughness: min(0.08, tier.clearcoatRoughness)
+            )
+        }
+
+        let color: UIColor
+        switch tier.style {
+        case .bumper where tier.id == 2:
+            color = UIColor(white: 0.18, alpha: 1)
+        case .bumper:
+            color = PlateDisplaySurface.sidewallColor(for: tier).barbellDimmed(by: 0.18)
+        case .castIron, .starter:
+            color = UIColor(white: 0.18, alpha: 1)
+        case .rawIron:
+            color = tier.plateColor.withAlphaComponent(0.95)
+        default:
+            color = tier.plateColor
+        }
+        return PlateSidewallSurface(
+            color: color,
+            metallic: tier.style == .bumper ? 0 : max(0, tier.metallic * 0.75),
+            roughness: min(1, max(0.50, tier.roughness + 0.10)),
+            clearcoat: max(0.14, tier.clearcoat * 0.72),
+            clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.20)
+        )
+    }
+
+    static func lip(for tier: PlateTier) -> PlateSidewallSurface {
+        if usesShinyMetalSidewall(tier) {
+            return PlateSidewallSurface(
+                color: PlateDisplaySurface.lipColor(for: tier),
+                metallic: min(0.72, max(0.42, PlateDisplaySurface.metallic(for: tier) + 0.04)),
+                roughness: max(0.18, min(0.30, tier.roughness + 0.17)),
+                clearcoat: PlateDisplaySurface.clearcoat(for: tier),
+                clearcoatRoughness: min(0.06, tier.clearcoatRoughness)
+            )
+        }
+
+        let lipColor: UIColor
+        switch tier.style {
+        case .rawIron:
+            lipColor = UIColor(red: 0.18, green: 0.08, blue: 0.03, alpha: 1)
+        case .castIron:
+            lipColor = PlateDisplaySurface.sidewallColor(for: tier).barbellBrightened(by: 0.16)
+        case .bumper:
+            lipColor = PlateDisplaySurface.sidewallColor(for: tier).barbellBrightened(by: tier.id == 2 ? 0.18 : 0.10)
+        case .polishedSteel, .gold, .brass:
+            lipColor = tier.plateColor.withAlphaComponent(0.96)
+        case .competition:
+            lipColor = tier.plateColor.withAlphaComponent(0.96)
+        default:
+            lipColor = UIColor(white: 0.08, alpha: 1)
+        }
+        return PlateSidewallSurface(
+            color: lipColor,
+            metallic: tier.style == .bumper ? 0 : tier.metallic,
+            roughness: min(1, max(0.52, tier.roughness + 0.10)),
+            clearcoat: tier.clearcoat * 0.62,
+            clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.22)
+        )
+    }
+
+    private static func usesShinyMetalSidewall(_ tier: PlateTier) -> Bool {
+        tier.id != 2 && tier.id != 4 && tier.id != 7 && tier.metallic >= 0.15
+    }
+}
+
+struct PlateDisplaySurface {
+    typealias HSB = (hue: CGFloat, saturation: CGFloat, brightness: CGFloat, alpha: CGFloat)
+
+    static func usesReadableMetal(_ tier: PlateTier) -> Bool {
+        tier.id != 2 && tier.id != 4 && tier.id != 7 && tier.metallic >= 0.85
+    }
+
+    static func faceColor(for tier: PlateTier) -> UIColor {
+        readableColor(for: tier, saturationBoost: saturationBoost(for: tier), brightnessBoost: brightnessBoost(for: tier), minimumBrightness: minimumFaceBrightness(for: tier))
+    }
+
+    static func sidewallColor(for tier: PlateTier) -> UIColor {
+        readableColor(for: tier, saturationBoost: saturationBoost(for: tier) + 0.05, brightnessBoost: brightnessBoost(for: tier) + 0.03, minimumBrightness: minimumSidewallBrightness(for: tier))
+    }
+
+    static func lipColor(for tier: PlateTier) -> UIColor {
+        readableColor(for: tier, saturationBoost: saturationBoost(for: tier) + 0.08, brightnessBoost: brightnessBoost(for: tier) + 0.05, minimumBrightness: minimumSidewallBrightness(for: tier))
+    }
+
+    static func metallic(for tier: PlateTier) -> Float {
+        guard usesReadableMetal(tier) else { return tier.metallic }
+        return min(0.58, max(0.38, tier.metallic * 0.58))
+    }
+
+    static func roughness(for tier: PlateTier) -> Float {
+        guard usesReadableMetal(tier) else { return tier.roughness }
+        return max(0.18, min(0.34, tier.roughness + 0.18))
+    }
+
+    static func sidewallRoughness(for tier: PlateTier) -> Float {
+        guard usesReadableMetal(tier) else { return tier.roughness }
+        return max(0.12, min(0.26, tier.roughness + 0.10))
+    }
+
+    static func clearcoat(for tier: PlateTier) -> Float {
+        guard usesReadableMetal(tier) else { return tier.clearcoat }
+        return min(0.72, max(0.48, tier.clearcoat * 0.70))
+    }
+
+    private static func saturationBoost(for tier: PlateTier) -> CGFloat {
+        switch tier.style {
+        case .competition, .gold, .brass, .rawIron:
+            return 0.24
+        case .bumper where tier.id != 2:
+            return 0.24
+        default:
+            return 0.12
+        }
+    }
+
+    private static func brightnessBoost(for tier: PlateTier) -> CGFloat {
+        switch tier.style {
+        case .competition, .gold, .brass, .rawIron:
+            return 0.22
+        case .bumper where tier.id != 2:
+            return 0.22
+        default:
+            return 0.14
+        }
+    }
+
+    private static func minimumFaceBrightness(for tier: PlateTier) -> CGFloat {
+        switch tier.style {
+        case .castIron:
+            return 0.32
+        case .bumper:
+            return tier.id == 2 ? 0.32 : 0.42
+        case .starter:
+            return 0
+        default:
+            return usesReadableMetal(tier) ? 0.72 : 0
+        }
+    }
+
+    private static func minimumSidewallBrightness(for tier: PlateTier) -> CGFloat {
+        switch tier.style {
+        case .castIron:
+            return 0.34
+        case .bumper:
+            return tier.id == 2 ? 0.34 : 0.44
+        case .starter:
+            return 0
+        default:
+            return usesReadableMetal(tier) ? 0.74 : 0
+        }
+    }
+
+    private static func readableColor(
+        for tier: PlateTier,
+        saturationBoost: CGFloat,
+        brightnessBoost: CGFloat,
+        minimumBrightness: CGFloat
+    ) -> UIColor {
+        let hsb = tier.plateColor.barbellHSB
+        return UIColor(
+            hue: hsb.hue,
+            saturation: min(1, hsb.saturation + saturationBoost),
+            brightness: min(1, max(minimumBrightness, hsb.brightness + brightnessBoost)),
+            alpha: hsb.alpha
+        )
+    }
+}
+
+struct BumperPlateSurface: Equatable {
+    let color: UIColor
+    let metallic: Float
+    let roughness: Float
+    let clearcoat: Float
+    let clearcoatRoughness: Float
+
+    static func centerHub(for tier: PlateTier) -> BumperPlateSurface {
+        BumperPlateSurface(
+            color: PlateDisplaySurface.faceColor(for: tier).barbellDimmed(by: tier.id == 2 ? 0.55 : 0.34),
+            metallic: 0,
+            roughness: 0.90,
+            clearcoat: 0.08,
+            clearcoatRoughness: 0.78
+        )
+    }
+
+    var material: PhysicallyBasedMaterial {
+        pbrMaterial(
+            color: color,
+            metallic: metallic,
+            roughness: roughness,
+            clearcoat: clearcoat,
+            clearcoatRoughness: clearcoatRoughness
+        )
+    }
+}
+
+extension UIColor {
+    var barbellHSB: PlateDisplaySurface.HSB {
+        var h: CGFloat = 0
+        var s: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 1
+        guard getHue(&h, saturation: &s, brightness: &b, alpha: &a) else {
+            var white: CGFloat = 0
+            getWhite(&white, alpha: &a)
+            return (0, 0, white, a)
+        }
+        return (h, s, b, a)
+    }
+
+    func barbellBrightened(by amount: CGFloat) -> UIColor {
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 1
+        guard getRed(&r, green: &g, blue: &b, alpha: &a) else { return self }
+        return UIColor(
+            red: min(1, r + (1 - r) * amount),
+            green: min(1, g + (1 - g) * amount),
+            blue: min(1, b + (1 - b) * amount),
+            alpha: a
+        )
+    }
+
+    func barbellDimmed(by amount: CGFloat) -> UIColor {
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 1
+        guard getRed(&r, green: &g, blue: &b, alpha: &a) else { return self }
+        let factor = max(0, min(1, 1 - amount))
+        return UIColor(red: r * factor, green: g * factor, blue: b * factor, alpha: a)
+    }
+}
+
 // MARK: - PBR helpers
 
 // doubleSided defaults to true because ring meshes have cylindrical walls that face all directions.
@@ -330,16 +610,11 @@ private nonisolated(unsafe) var _dishMaterialCache: [String: PhysicallyBasedMate
 private func shadowDishMaterial(from base: PlateTier, factor: CGFloat = 0.72) -> PhysicallyBasedMaterial {
     let key = "\(base.id)_\(factor)"
     if let cached = _dishMaterialCache[key] { return cached }
-    var r: CGFloat = 0
-    var g: CGFloat = 0
-    var b: CGFloat = 0
-    var a: CGFloat = 1
-    base.plateColor.getRed(&r, green: &g, blue: &b, alpha: &a)
     let mat = pbrMaterial(
-        color: UIColor(red: max(0, r * factor), green: max(0, g * factor), blue: max(0, b * factor), alpha: a),
-        metallic: base.metallic,
-        roughness: min(1.0, base.roughness + 0.12),
-        clearcoat: max(0, base.clearcoat - 0.12),
+        color: PlateDisplaySurface.faceColor(for: base).barbellDimmed(by: base.style == .castIron || base.style == .bumper ? 0.18 : 1 - factor),
+        metallic: PlateDisplaySurface.metallic(for: base),
+        roughness: min(1.0, PlateDisplaySurface.roughness(for: base) + 0.10),
+        clearcoat: max(0, PlateDisplaySurface.clearcoat(for: base) - 0.08),
         clearcoatRoughness: min(1.0, base.clearcoatRoughness + 0.20)
     )
     _dishMaterialCache[key] = mat
@@ -348,19 +623,27 @@ private func shadowDishMaterial(from base: PlateTier, factor: CGFloat = 0.72) ->
 
 // MARK: - Texture loading
 
+// Prefix-level cache so all tiers that share the same source images (e.g. every Rubber-family
+// tier) reuse identical TextureResource objects. Without this, 12 Rubber tiers each create 4
+// separate GPU texture uploads from the same pixel data, exhausting Metal's drawable budget
+// and causing CAMetalLayer nextDrawable to return nil.
+@MainActor var _bundleTexturesByPrefix: [String: PlateTextures] = [:]
+
+@MainActor
 func loadPlateTextures(forTierID tierID: Int) -> PlateTextures {
     let prefix: String
     switch tierID {
-    case 0: prefix = "RustyIron"
     case 1: prefix = "CastIron"
-    case 2: prefix = "Rubber"
-    case 3, 6: prefix = "Brass"
+    case 2, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23: prefix = "Rubber"
+    case 3: prefix = "Brass"
     default: return PlateTextures()
     }
     return loadBundleTextures(prefix: prefix)
 }
 
+@MainActor
 private func loadBundleTextures(prefix: String) -> PlateTextures {
+    if let cached = _bundleTexturesByPrefix[prefix] { return cached }
     func load(_ suffix: String, semantic: TextureResource.Semantic) -> TextureResource? {
         let name = "\(prefix)_\(suffix)"
         guard let url = Bundle.main.url(forResource: name, withExtension: "jpg"),
@@ -377,12 +660,14 @@ private func loadBundleTextures(prefix: String) -> PlateTextures {
         guard let rgba = ctx.makeImage() else { return nil }
         return try? TextureResource.generate(from: rgba, options: .init(semantic: semantic))
     }
-    return PlateTextures(
+    let textures = PlateTextures(
         albedo:    load("Color",     semantic: .color),
         normal:    load("Normal",    semantic: .normal),
         roughness: load("Roughness", semantic: .raw),
         metalness: load("Metalness", semantic: .raw)
     )
+    _bundleTexturesByPrefix[prefix] = textures
+    return textures
 }
 
 // MARK: - Per-style plate helpers
@@ -427,6 +712,38 @@ private func makeCenterBoss(profile: PlateVisualProfile, material: PhysicallyBas
     return boss
 }
 
+private func makeGlossAccentRing(profile: PlateVisualProfile, tier: PlateTier) -> ModelEntity {
+    var r: CGFloat = 0
+    var g: CGFloat = 0
+    var b: CGFloat = 0
+    var a: CGFloat = 1
+    tier.plateColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+    let highlight = UIColor(
+        red: min(1, r * 1.18 + 0.16),
+        green: min(1, g * 1.18 + 0.16),
+        blue: min(1, b * 1.18 + 0.16),
+        alpha: 1
+    )
+    let ring = ModelEntity(
+        mesh: cachedPlateRing(
+            height: 0.001,
+            outerRadius: min(profile.outerRadius - 0.012, profile.rimOuterRadius + 0.004),
+            innerRadius: max(profile.bossOuterRadius + 0.026, profile.rimInnerRadius - 0.010)
+        ),
+        materials: [pbrMaterial(
+            color: highlight,
+            metallic: tier.style == .bumper ? 0 : max(0.25, tier.metallic),
+            roughness: tier.style == .bumper ? max(0.74, tier.roughness) : max(0.018, min(0.12, tier.roughness * 0.38)),
+            clearcoat: tier.style == .bumper ? min(0.18, tier.clearcoat) : max(0.68, tier.clearcoat),
+            clearcoatRoughness: tier.style == .bumper ? max(0.55, tier.clearcoatRoughness) : min(0.08, tier.clearcoatRoughness),
+            doubleSided: true
+        )]
+    )
+    ring.name = "glossAccentRing"
+    ring.position.y = profile.thickness * 0.5 + 0.006
+    return ring
+}
+
 private func makeBackFaceCopy(of entity: ModelEntity, profile: PlateVisualProfile) -> ModelEntity {
     let copy = entity.clone(recursive: true)
     copy.name = "\(entity.name)_back"
@@ -439,35 +756,49 @@ private func addFaceDetailPair(_ detail: ModelEntity, to plate: ModelEntity, pro
     plate.addChild(makeBackFaceCopy(of: detail, profile: profile))
 }
 
-private func makeOuterRubberBand(profile: PlateVisualProfile, cache: PlateMaterialCache) -> ModelEntity {
+private func makeOuterRubberBand(profile: PlateVisualProfile, tier: PlateTier, cache: PlateMaterialCache) -> ModelEntity {
+    let materials: [RealityKit.Material]
+    if tier.metallic >= 0.15 && tier.id != 2 && tier.id != 4 && tier.id != 7 {
+        let surface = PlateSidewallSurface.sidewall(for: tier)
+        materials = [pbrMaterial(
+            color: surface.color,
+            metallic: surface.metallic,
+            roughness: surface.roughness,
+            clearcoat: surface.clearcoat,
+            clearcoatRoughness: surface.clearcoatRoughness
+        )]
+    } else if tier.style == .competition {
+        // Colored competition plates: darkened plate color instead of near-black rubber
+        materials = [pbrMaterial(
+            color: tier.plateColor.barbellDimmed(by: 0.28),
+            metallic: 0.04,
+            roughness: 0.72,
+            clearcoat: tier.clearcoat * 0.5,
+            clearcoatRoughness: tier.clearcoatRoughness + 0.25
+        )]
+    } else {
+        materials = [cache.darkRubber]
+    }
     let band = ModelEntity(
         mesh: cachedPlateRing(
             height: profile.thickness + 0.010,
             outerRadius: profile.outerBandRadius,
             innerRadius: max(profile.rimInnerRadius, profile.outerRadius - 0.020)
         ),
-        materials: [cache.darkRubber]
+        materials: materials
     )
     band.name = "outerRubberBand"
     return band
 }
 
 private func makeOuterSidewallBand(profile: PlateVisualProfile, tier: PlateTier) -> ModelEntity {
-    let color: UIColor
-    switch tier.style {
-    case .bumper, .castIron, .starter:
-        color = UIColor(white: 0.18, alpha: 1)
-    case .rawIron:
-        color = tier.plateColor.withAlphaComponent(0.95)
-    default:
-        color = tier.plateColor
-    }
+    let surface = PlateSidewallSurface.sidewall(for: tier)
     let material = pbrMaterial(
-        color: color,
-        metallic: max(0, tier.metallic * 0.75),
-        roughness: min(1, max(0.70, tier.roughness + 0.12)),
-        clearcoat: max(0.08, tier.clearcoat * 0.6),
-        clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.32),
+        color: surface.color,
+        metallic: surface.metallic,
+        roughness: surface.roughness,
+        clearcoat: surface.clearcoat,
+        clearcoatRoughness: surface.clearcoatRoughness,
         doubleSided: true
     )
     let band = ModelEntity(
@@ -483,15 +814,7 @@ private func makeOuterSidewallBand(profile: PlateVisualProfile, tier: PlateTier)
 }
 
 private func makeOuterSidewallLip(profile: PlateVisualProfile, tier: PlateTier) -> ModelEntity {
-    let lipColor: UIColor
-    switch tier.style {
-    case .rawIron:
-        lipColor = UIColor(red: 0.18, green: 0.08, blue: 0.03, alpha: 1)
-    case .polishedSteel, .gold, .brass:
-        lipColor = tier.plateColor.withAlphaComponent(0.96)
-    default:
-        lipColor = UIColor(white: 0.08, alpha: 1)
-    }
+    let surface = PlateSidewallSurface.lip(for: tier)
     let lip = ModelEntity(
         mesh: cachedPlateRing(
             height: 0.006,
@@ -499,11 +822,11 @@ private func makeOuterSidewallLip(profile: PlateVisualProfile, tier: PlateTier) 
             innerRadius: max(plateBoreRadius, profile.outerRadius - 0.030)
         ),
         materials: [pbrMaterial(
-            color: lipColor,
-            metallic: tier.metallic,
-            roughness: min(1, max(0.74, tier.roughness + 0.10)),
-            clearcoat: tier.clearcoat * 0.5,
-            clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.35),
+            color: surface.color,
+            metallic: surface.metallic,
+            roughness: surface.roughness,
+            clearcoat: surface.clearcoat,
+            clearcoatRoughness: surface.clearcoatRoughness,
             doubleSided: true
         )]
     )
@@ -548,14 +871,14 @@ private func makeRawIronEntity(
 ) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
     var mat = material ?? pbrMaterial(
-        color: tier.plateColor,
-        metallic: tier.metallic,
-        roughness: min(1, tier.roughness + 0.08),
-        clearcoat: tier.clearcoat,
+        color: PlateDisplaySurface.faceColor(for: tier),
+        metallic: PlateDisplaySurface.metallic(for: tier),
+        roughness: min(1, PlateDisplaySurface.roughness(for: tier) + 0.04),
+        clearcoat: PlateDisplaySurface.clearcoat(for: tier),
         clearcoatRoughness: tier.clearcoatRoughness
     )
     if material == nil, let tex = textures {
-        if let a = tex.albedo    { mat.baseColor  = .init(tint: .white, texture: .init(a)) }
+        if let a = tex.albedo    { mat.baseColor  = .init(tint: PlateDisplaySurface.faceColor(for: tier), texture: .init(a)) }
         if let n = tex.normal    { mat.normal     = .init(texture: .init(n)) }
         if let r = tex.roughness { mat.roughness  = .init(texture: .init(r)) }
         if let m = tex.metalness { mat.metallic   = .init(texture: .init(m)) }
@@ -580,12 +903,18 @@ private func makeCastIronEntity(
     material: PhysicallyBasedMaterial?
 ) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
-    var outerMat = material ?? pbrMaterial(color: tier.plateColor, metallic: tier.metallic, roughness: 0.98)
+    var outerMat = material ?? pbrMaterial(
+        color: PlateDisplaySurface.faceColor(for: tier),
+        metallic: PlateDisplaySurface.metallic(for: tier),
+        roughness: PlateDisplaySurface.usesReadableMetal(tier) ? PlateDisplaySurface.roughness(for: tier) : 0.98,
+        clearcoat: PlateDisplaySurface.clearcoat(for: tier),
+        clearcoatRoughness: tier.clearcoatRoughness
+    )
     var dishMat = shadowDishMaterial(from: tier, factor: 0.58)
     if material == nil, let tex = textures {
         if let a = tex.albedo {
-            outerMat.baseColor = .init(tint: .white, texture: .init(a))
-            dishMat.baseColor = .init(tint: UIColor(white: 0.55, alpha: 1), texture: .init(a))
+            outerMat.baseColor = .init(tint: PlateDisplaySurface.faceColor(for: tier), texture: .init(a))
+            dishMat.baseColor = .init(tint: PlateDisplaySurface.faceColor(for: tier).barbellDimmed(by: 0.12), texture: .init(a))
         }
         if let n = tex.normal    { outerMat.normal = .init(texture: .init(n)); dishMat.normal = .init(texture: .init(n)) }
         if let r = tex.roughness { outerMat.roughness = .init(texture: .init(r)); dishMat.roughness = .init(texture: .init(r)) }
@@ -613,14 +942,14 @@ private func makeBumperEntity(
 ) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
     var faceMat = material ?? pbrMaterial(
-        color: tier.plateColor,
-        metallic: tier.metallic,
-        roughness: max(0.78, tier.roughness),
-        clearcoat: tier.clearcoat,
+        color: PlateDisplaySurface.faceColor(for: tier),
+        metallic: PlateDisplaySurface.metallic(for: tier),
+        roughness: PlateDisplaySurface.usesReadableMetal(tier) ? PlateDisplaySurface.roughness(for: tier) : max(0.78, tier.roughness),
+        clearcoat: PlateDisplaySurface.clearcoat(for: tier),
         clearcoatRoughness: max(0.35, tier.clearcoatRoughness)
     )
     if material == nil, let tex = textures {
-        if let a = tex.albedo    { faceMat.baseColor = .init(tint: .white, texture: .init(a)) }
+        if let a = tex.albedo    { faceMat.baseColor = .init(tint: PlateDisplaySurface.faceColor(for: tier), texture: .init(a)) }
         if let n = tex.normal    { faceMat.normal    = .init(texture: .init(n)) }
         if let r = tex.roughness { faceMat.roughness = .init(texture: .init(r)) }
     }
@@ -631,10 +960,13 @@ private func makeBumperEntity(
     plate.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
     plate.addChild(makeOuterSidewallBand(profile: profile, tier: tier))
     addFaceDetailPair(makeOuterSidewallLip(profile: profile, tier: tier), to: plate, profile: profile)
-    plate.addChild(makeOuterRubberBand(profile: profile, cache: cache))
-    addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_outer", outerRadius: profile.rimOuterRadius, innerRadius: profile.rimInnerRadius, profile: profile, material: faceMat), to: plate, profile: profile)
-    addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_inner", outerRadius: profile.bossOuterRadius + 0.030, innerRadius: profile.bossOuterRadius, profile: profile, material: faceMat), to: plate, profile: profile)
-    addFaceDetailPair(makeCenterBoss(profile: profile, material: cache.chrome), to: plate, profile: profile)
+    plate.addChild(makeOuterRubberBand(profile: profile, tier: tier, cache: cache))
+    let ringSpecs = PlateVisualDesign.faceRingSpecs(for: tier.style)
+    if ringSpecs.count == 2 {
+        addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_outer", outerRadius: ringSpecs[0].outerRadius, innerRadius: ringSpecs[0].innerRadius, profile: profile, material: faceMat), to: plate, profile: profile)
+        addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_inner", outerRadius: ringSpecs[1].outerRadius, innerRadius: ringSpecs[1].innerRadius, profile: profile, material: faceMat), to: plate, profile: profile)
+    }
+    addFaceDetailPair(makeCenterBoss(profile: profile, material: BumperPlateSurface.centerHub(for: tier).material), to: plate, profile: profile)
     return plate
 }
 
@@ -653,10 +985,10 @@ private func makeCompetitionEntity(
 ) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
     let faceMat = material ?? pbrMaterial(
-        color: tier.plateColor,
-        metallic: tier.metallic,
-        roughness: max(0.68, tier.roughness),
-        clearcoat: tier.clearcoat,
+        color: PlateDisplaySurface.faceColor(for: tier),
+        metallic: PlateDisplaySurface.metallic(for: tier),
+        roughness: PlateDisplaySurface.usesReadableMetal(tier) ? PlateDisplaySurface.roughness(for: tier) : max(0.68, tier.roughness),
+        clearcoat: PlateDisplaySurface.clearcoat(for: tier),
         clearcoatRoughness: tier.clearcoatRoughness
     )
     let chromeMat = cache.chrome
@@ -667,9 +999,12 @@ private func makeCompetitionEntity(
     plate.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
     plate.addChild(makeOuterSidewallBand(profile: profile, tier: tier))
     addFaceDetailPair(makeOuterSidewallLip(profile: profile, tier: tier), to: plate, profile: profile)
-    plate.addChild(makeOuterRubberBand(profile: profile, cache: cache))
-    addFaceDetailPair(makeMoldedFaceRing(name: "competitionChromeRing_outer", outerRadius: profile.rimOuterRadius, innerRadius: profile.rimInnerRadius, profile: profile, material: chromeMat), to: plate, profile: profile)
-    addFaceDetailPair(makeMoldedFaceRing(name: "competitionChromeRing_inner", outerRadius: profile.bossOuterRadius + 0.036, innerRadius: profile.bossOuterRadius, profile: profile, material: chromeMat), to: plate, profile: profile)
+    plate.addChild(makeOuterRubberBand(profile: profile, tier: tier, cache: cache))
+    let ringSpecs = PlateVisualDesign.faceRingSpecs(for: tier.style)
+    if ringSpecs.count == 2 {
+        addFaceDetailPair(makeMoldedFaceRing(name: "competitionChromeRing_outer", outerRadius: ringSpecs[0].outerRadius, innerRadius: ringSpecs[0].innerRadius, profile: profile, material: chromeMat), to: plate, profile: profile)
+        addFaceDetailPair(makeMoldedFaceRing(name: "competitionChromeRing_inner", outerRadius: ringSpecs[1].outerRadius, innerRadius: ringSpecs[1].innerRadius, profile: profile, material: chromeMat), to: plate, profile: profile)
+    }
     addFaceDetailPair(makeCenterBoss(profile: profile, material: chromeMat), to: plate, profile: profile)
     return plate
 }
@@ -677,9 +1012,9 @@ private func makeCompetitionEntity(
 private func makeStarterEntity(tier: PlateTier) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
     let mat = pbrMaterial(
-        color: tier.plateColor,
-        metallic: tier.metallic,
-        roughness: tier.roughness,
+        color: PlateDisplaySurface.faceColor(for: tier),
+        metallic: PlateDisplaySurface.metallic(for: tier),
+        roughness: PlateDisplaySurface.roughness(for: tier),
         doubleSided: true
     )
     let plate = ModelEntity(
@@ -734,24 +1069,42 @@ private func drawArcText(
     }
 }
 
+private nonisolated(unsafe) var _weightDiscMaterialCache: [String: UnlitMaterial] = [:]
+private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: UnlitMaterial] = [:]
+
 private func makeWeightDisc(weightKg: Double, tier: PlateTier) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
     let artwork = PlateVisualDesign.faceArtwork(for: tier.style)
     let layout = PlateVisualDesign.markingLayout(for: tier.style)
+    let label = weightKg.truncatingRemainder(dividingBy: 1) == 0
+        ? "\(Int(weightKg))" : String(format: "%.1f", weightKg)
+    let cacheKey = "\(tier.id)_\(label)"
+    let material: UnlitMaterial
+    if let cached = _weightDiscMaterialCache[cacheKey] {
+        material = cached
+    } else {
+        material = makeWeightDiscMaterial(label: label, tier: tier, artwork: artwork)
+        _weightDiscMaterialCache[cacheKey] = material
+    }
+
+    let outerRadius = min(profile.faceOuterRadius * 0.72, Float(layout.markingRadiusRatio) * profile.outerRadius)
+    let disc = ModelEntity(mesh: cachedPlateRing(height: 0.001, outerRadius: outerRadius, innerRadius: plateBoreRadius), materials: [material])
+    // Sit above hub/progression detail layers to avoid label z-fighting shimmer in RealityKit.
+    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.010, 0)
+    return disc
+}
+
+private func makeWeightDiscMaterial(
+    label: String,
+    tier: PlateTier,
+    artwork: PlateFaceArtworkPolicy
+) -> UnlitMaterial {
     let side: CGFloat = 128
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side))
     let image = renderer.image { ctx in
         UIColor.clear.setFill()
         ctx.fill(CGRect(x: 0, y: 0, width: side, height: side))
-        let label = weightKg.truncatingRemainder(dividingBy: 1) == 0
-            ? "\(Int(weightKg))" : String(format: "%.1f", weightKg)
-        let textColor: UIColor
-        switch tier.style {
-        case .brass, .polishedSteel, .gold:
-            textColor = .black
-        default:
-            textColor = .white
-        }
+        let textColor = bumperPlateTextColor(for: tier)
         if artwork.showsBrandText {
             let attrs: [NSAttributedString.Key: Any] = [
                 .font: UIFont.systemFont(ofSize: side * 0.145, weight: .black),
@@ -801,11 +1154,113 @@ private func makeWeightDisc(weightKg: Double, tier: PlateTier) -> ModelEntity {
        let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .color)) {
         mat.color = .init(texture: .init(tex))
     }
+    return mat
+}
+
+// MARK: - Engraving disc
+
+private func bumperPlateTextColor(for tier: PlateTier) -> UIColor {
+    // White Bumper and any other light-colored plate need dark text.
+    let face = PlateDisplaySurface.faceColor(for: tier)
+    var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
+    face.getRed(&r, green: &g, blue: &b, alpha: &a)
+    let luminance = 0.299 * r + 0.587 * g + 0.114 * b
+    return luminance > 0.65 ? UIColor(white: 0.12, alpha: 1) : .white
+}
+
+private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent: Bool) -> ModelEntity {
+    let profile = PlateVisualDesign.profile(for: tier.style)
+    let layout = PlateVisualDesign.markingLayout(for: tier.style)
+    let cacheKey = "\(tier.id)_\(prominent)_\(engravingText)"
+    let material: UnlitMaterial
+    if let cached = _engravingDiscMaterialCache[cacheKey] {
+        material = cached
+    } else {
+        let built = makeEngravingDiscMaterial(engravingText: engravingText, tier: tier, prominent: prominent)
+        _engravingDiscMaterialCache[cacheKey] = built
+        material = built
+    }
     let outerRadius = min(profile.faceOuterRadius * 0.72, Float(layout.markingRadiusRatio) * profile.outerRadius)
-    let disc = ModelEntity(mesh: cachedPlateRing(height: 0.001, outerRadius: outerRadius, innerRadius: plateBoreRadius), materials: [mat])
-    // Sit above hub/progression detail layers to avoid label z-fighting shimmer in RealityKit.
-    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.010, 0)
+    let disc = ModelEntity(
+        mesh: cachedPlateRing(height: 0.001, outerRadius: outerRadius, innerRadius: plateBoreRadius),
+        materials: [material]
+    )
+    disc.name = "engravingDisc"
+    // Sit 3 mm above the weight disc (+0.010) to avoid z-fighting.
+    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.013, 0)
     return disc
+}
+
+private func makeEngravingDiscMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> UnlitMaterial {
+    let side: CGFloat = 128
+    let format = UIGraphicsImageRendererFormat()
+    format.opaque = false
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+    let textColor = bumperPlateTextColor(for: tier)
+
+    let image = renderer.image { _ in
+        if prominent {
+            // Milestone plates: split "25 Workouts" -> large "25" over smaller "WORKOUTS".
+            let parts = engravingText.split(separator: " ", maxSplits: 1)
+            if parts.count == 2 {
+                let numStr = String(parts[0])
+                let labelStr = String(parts[1]).uppercased()
+                let numAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: side * 0.30, weight: .black),
+                    .foregroundColor: textColor.withAlphaComponent(0.92)
+                ]
+                let labelAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: side * 0.145, weight: .heavy),
+                    .foregroundColor: textColor.withAlphaComponent(0.78)
+                ]
+                let numSz = (numStr as NSString).size(withAttributes: numAttrs)
+                let labelSz = (labelStr as NSString).size(withAttributes: labelAttrs)
+                let totalH = numSz.height + 2 + labelSz.height
+                (numStr as NSString).draw(
+                    at: CGPoint(x: (side - numSz.width) / 2, y: (side - totalH) / 2),
+                    withAttributes: numAttrs
+                )
+                (labelStr as NSString).draw(
+                    at: CGPoint(x: (side - labelSz.width) / 2, y: (side + totalH) / 2 - labelSz.height),
+                    withAttributes: labelAttrs
+                )
+            } else {
+                drawFittedEngravingText(engravingText, side: side, maxFontSize: side * 0.165, weight: .black, color: textColor.withAlphaComponent(0.92))
+            }
+        } else {
+            drawFittedEngravingText(engravingText, side: side, maxFontSize: side * 0.115, weight: .bold, color: textColor.withAlphaComponent(0.80))
+        }
+    }
+
+    var mat = UnlitMaterial()
+    if let cg = image.cgImage,
+       let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .color)) {
+        mat.color = .init(texture: .init(tex))
+        mat.blending = .transparent(opacity: .init(floatLiteral: 1.0))
+    }
+    return mat
+}
+
+private func drawFittedEngravingText(
+    _ text: String,
+    side: CGFloat,
+    maxFontSize: CGFloat,
+    weight: UIFont.Weight,
+    color: UIColor
+) {
+    var fontSize = maxFontSize
+    var font = UIFont.systemFont(ofSize: fontSize, weight: weight)
+    var sz = (text as NSString).size(withAttributes: [.font: font])
+    let maxWidth = side * 0.88
+    while sz.width > maxWidth && fontSize > 7 {
+        fontSize -= 1
+        font = UIFont.systemFont(ofSize: fontSize, weight: weight)
+        sz = (text as NSString).size(withAttributes: [.font: font])
+    }
+    (text as NSString).draw(
+        at: CGPoint(x: (side - sz.width) / 2, y: (side - sz.height) / 2),
+        withAttributes: [.font: font, .foregroundColor: color]
+    )
 }
 
 // MARK: - makePlateEntity
@@ -820,8 +1275,10 @@ private func makeWeightDisc(weightKg: Double, tier: PlateTier) -> ModelEntity {
 ///               creating duplicate GPU material objects per plate.
 ///   - weightKg: Renders weight number on a face disc when > 0.
 ///   - role: .floor (default) or .bar -- stored in PlateRoleComponent for gesture routing.
+///   - options: Controls whether runtime-only components are attached. Defaults to a fully
+///              interactive plate using `role`; preview/showcase surfaces can pass `.visualOnly`.
 ///
-/// Physics: PhysicsBodyComponent is always set with mode .kinematic.
+/// Physics: when enabled, PhysicsBodyComponent is set with mode .kinematic.
 /// Gesture handlers switch to .dynamic on release so the plate settles via physics,
 /// then back to .kinematic after ~800ms settling time.
 func makePlateEntity(
@@ -830,14 +1287,17 @@ func makePlateEntity(
     material: PhysicallyBasedMaterial? = nil,
     weightKg: Double = 0,
     engravingText: String = "",
+    prominentEngraving: Bool = false,
     showEngravings: Bool = true,
     renderProjection: BarbellPlateRenderProjection = BarbellPlateRenderProjection(),
-    role: PlateRoleComponent.Role = .floor
+    role: PlateRoleComponent.Role = .floor,
+    options: PlateEntityBuildOptions? = nil
 ) -> ModelEntity {
     guard let tier = PlateTier.all.first(where: { $0.id == tierID }) else {
         return ModelEntity()
     }
 
+    let buildOptions = options ?? .interactive(role: role)
     let profile = PlateVisualDesign.profile(for: tier.style)
     let plateThickness = profile.thickness
     let materialCache = PlateMaterialCache()
@@ -869,33 +1329,44 @@ func makePlateEntity(
     if artwork.showsWeightText && weightKg > 0 && tierID != 7 {
         addFaceDetailPair(makeWeightDisc(weightKg: weightKg, tier: tier), to: entity, profile: profile)
     }
-    _ = engravingText
+    if tierID != 7 {
+        addFaceDetailPair(makeGlossAccentRing(profile: profile, tier: tier), to: entity, profile: profile)
+    }
+    if showEngravings && !engravingText.isEmpty && tierID != 7 {
+        addFaceDetailPair(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving), to: entity, profile: profile)
+    }
     if tierID != 7 {
         addProgressionDetails(to: entity, projection: renderProjection, plateThickness: plateThickness)
     }
 
     // Gesture + physics collider. Use four ring segments instead of one solid box so the
     // barbell can occupy the real center hole instead of colliding with an invisible plug.
-    let collisionRadius = profile.outerRadius
-    let collisionShapes = plateRingCollisionShapes(
-        outerRadius: collisionRadius,
-        innerRadius: plateBoreRadius,
-        thickness: plateThickness
-    )
-    entity.components.set(InputTargetComponent())
-    entity.components.set(CollisionComponent(shapes: collisionShapes, filter: plateCollisionFilter))
+    if buildOptions.includesInput {
+        entity.components.set(InputTargetComponent())
+    }
+    if buildOptions.includesCollision {
+        let collisionRadius = profile.outerRadius
+        let collisionShapes = plateRingCollisionShapes(
+            outerRadius: collisionRadius,
+            innerRadius: plateBoreRadius,
+            thickness: plateThickness
+        )
+        entity.components.set(CollisionComponent(shapes: collisionShapes, filter: plateCollisionFilter))
+    }
 
     // Physics -- kinematic by default; gesture handlers switch to .dynamic on release
     let audioCategory = PlateAudioCategory.from(tierID: tierID)
-    var physicsBody = PhysicsBodyComponent()
-    physicsBody.massProperties = .init(mass: Float(max(weightKg, 1.25)))
-    physicsBody.material = audioCategory.physicsMaterial
-    physicsBody.mode = .kinematic
-    entity.components.set(physicsBody)
-    entity.components.set(PhysicsMotionComponent())
+    if buildOptions.includesPhysics {
+        var physicsBody = PhysicsBodyComponent()
+        physicsBody.massProperties = .init(mass: Float(max(weightKg, 1.25)))
+        physicsBody.material = audioCategory.physicsMaterial
+        physicsBody.mode = .kinematic
+        entity.components.set(physicsBody)
+        entity.components.set(PhysicsMotionComponent())
+    }
 
     // Metadata components
-    entity.components.set(PlateRoleComponent(role: role))
+    entity.components.set(PlateRoleComponent(role: buildOptions.role))
     entity.components.set(TierIDComponent(tierID: tierID))
     entity.components.set(PlateAudioCategoryComponent(category: audioCategory))
 
@@ -907,7 +1378,9 @@ func makePlateEntity(
     }
 
     // Spatial audio source -- must be set before playAudio() is called
-    attachSpatialAudio(to: entity, category: audioCategory)
+    if buildOptions.includesAudio {
+        attachSpatialAudio(to: entity, category: audioCategory)
+    }
 
     return entity
 }
@@ -979,14 +1452,14 @@ func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> Physicall
     }
     let useStaticFallback = BarbellRealityPerformanceBudget.shouldUseStaticFallback(forTierID: tierID)
     var mat = pbrMaterial(
-        color: tier.plateColor,
-        metallic: tier.metallic,
-        roughness: useStaticFallback ? max(tier.roughness, 0.45) : tier.roughness,
-        clearcoat: useStaticFallback ? 0 : tier.clearcoat,
+        color: PlateDisplaySurface.faceColor(for: tier),
+        metallic: PlateDisplaySurface.metallic(for: tier),
+        roughness: useStaticFallback ? max(PlateDisplaySurface.roughness(for: tier), 0.45) : PlateDisplaySurface.roughness(for: tier),
+        clearcoat: useStaticFallback ? 0 : PlateDisplaySurface.clearcoat(for: tier),
         clearcoatRoughness: useStaticFallback ? 1 : tier.clearcoatRoughness
     )
     if !useStaticFallback, let tex = textures {
-        if let a = tex.albedo    { mat.baseColor  = .init(tint: .white, texture: .init(a)) }
+        if let a = tex.albedo    { mat.baseColor  = .init(tint: PlateDisplaySurface.faceColor(for: tier), texture: .init(a)) }
         if let n = tex.normal    { mat.normal     = .init(texture: .init(n)) }
         if let r = tex.roughness { mat.roughness  = .init(texture: .init(r)) }
         if let m = tex.metalness { mat.metallic   = .init(texture: .init(m)) }

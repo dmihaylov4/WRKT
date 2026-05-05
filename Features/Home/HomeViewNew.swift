@@ -57,8 +57,7 @@ struct HomeViewNew: View {
             // Header (compact)
             if let vm = viewModel {
                 HomeHeaderView(
-                    greeting: vm.getGreeting(userName: vm.getUserDisplayName()),
-                    currentStreak: vm.getCurrentStreak()
+                    greeting: vm.getGreeting(userName: vm.getUserDisplayName())
                 )
                 .padding(.top, 8)
             }

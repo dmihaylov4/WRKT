@@ -6,7 +6,7 @@ import SwiftData
 
 @Model final class EarnedPlate {
     @Attribute(.unique) var id: String
-    var tierID: Int          // 0-6 = earned tiers, 7 = starter plate
+    var tierID: Int          // PlateTier.id; 7 = starter plate
     var weightKg: Double
     var engravingText: String
     var earnedAt: Date

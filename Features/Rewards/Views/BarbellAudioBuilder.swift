@@ -16,8 +16,8 @@ extension PlateAudioCategory {
     static func from(tierID: Int) -> PlateAudioCategory {
         switch tierID {
         case 0, 1: return .iron
-        case 2:    return .rubber
-        case 3, 6: return .brass
+        case 2, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23: return .rubber
+        case 3, 6, 8, 9, 11, 12, 13: return .brass
         case 7:    return .starter
         default:   return .iron
         }
