@@ -68,8 +68,8 @@ struct PlateFaceView: View {
             let artwork = PlateVisualDesign.faceArtwork(for: style, showEngravings: showEngravings)
             let layout = PlateVisualDesign.markingLayout(for: style)
             ZStack {
-                dropShadow
                 outerRim(s: s, profile: profile)
+                    .shadow(color: .black.opacity(0.38), radius: 2, x: 0, y: 2)
                 rimSheen
                 faceGradient(s: s, profile: profile)
                 raisedOuterLip(s: s, profile: profile)
@@ -86,16 +86,10 @@ struct PlateFaceView: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
+        .drawingGroup()
     }
 
     // MARK: - Layers
-
-    private var dropShadow: some View {
-        Circle()
-            .fill(Color.black.opacity(0.38))
-            .blur(radius: 2)
-            .offset(x: 0, y: 2)
-    }
 
     private func radiusPadding(s: CGFloat, visualRadius: Float, profile: PlateVisualProfile) -> CGFloat {
         let normalized = CGFloat(visualRadius / profile.outerRadius)

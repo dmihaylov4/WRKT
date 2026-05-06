@@ -3,6 +3,21 @@ import SwiftUI
 
 let barbellEditorScrollBottomPadding: CGFloat = 128
 
+func configuredBarbellDisplayPlates(
+    loadout: DisplayLoadout?,
+    earnedPlates: [EarnedPlate],
+    maximumBarPlateCount: Int = 4
+) -> [EarnedPlate]? {
+    guard let loadout else { return nil }
+    let sanitizedLoadout = loadout.sanitized(
+        earnedPlateIDs: Set(earnedPlates.map(\.id)),
+        maximumBarPlateCount: maximumBarPlateCount
+    )
+    let platesByID = Dictionary(grouping: earnedPlates, by: \.id)
+        .compactMapValues { $0.first }
+    return sanitizedLoadout.onBar.compactMap { platesByID[$0] }
+}
+
 struct BarbellEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(filter: #Predicate<BarbellConfig> { $0.id == "global" })
@@ -579,7 +594,7 @@ struct BarbellEditorView: View {
     }
 
     private var previewPlates: [EarnedPlate] {
-        if let configured = configuredBarPlates, !configured.isEmpty {
+        if let configured = configuredBarPlates {
             return configured
         }
 
@@ -602,12 +617,7 @@ struct BarbellEditorView: View {
 
     private var configuredBarPlates: [EarnedPlate]? {
         guard let config else { return nil }
-        let loadout = config.displayLoadout
-            .sanitized(earnedPlateIDs: Set(earnedPlates.map(\.id)), maximumBarPlateCount: 4)
-        guard !loadout.onBar.isEmpty else { return nil }
-
-        let platesByID = Dictionary(uniqueKeysWithValues: earnedPlates.map { ($0.id, $0) })
-        return loadout.onBar.compactMap { platesByID[$0] }
+        return configuredBarbellDisplayPlates(loadout: config.displayLoadout, earnedPlates: earnedPlates)
     }
 
     private var previewPlateInfos: [EarnedPlateInfo] {

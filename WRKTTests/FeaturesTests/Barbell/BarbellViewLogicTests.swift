@@ -106,6 +106,20 @@ struct BarbellViewLogicTests {
         #expect(barbellEditorScrollBottomPadding >= 120)
     }
 
+    @Test func configuredDisplayPlatesPreservesEmptyConfiguredBar() {
+        let plates = [
+            EarnedPlate(id: "earned", tierID: 0, weightKg: 10, engravingText: "", earnedByEvent: "first_workout", isRacked: true)
+        ]
+
+        let configured = configuredBarbellDisplayPlates(
+            loadout: DisplayLoadout(onBar: [], onWall: ["earned"]),
+            earnedPlates: plates
+        )
+
+        #expect(configured != nil)
+        #expect(configured?.isEmpty == true)
+    }
+
     @Test func playgroundBuildsEveryPlateTierAndProgressionVariant() {
         let variants = barbellPlaygroundPlateVariants(weightKg: 20, liftTypeID: "bench-press")
 

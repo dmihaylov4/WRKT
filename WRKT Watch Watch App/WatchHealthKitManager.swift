@@ -86,8 +86,10 @@ final class WatchHealthKitManager: NSObject {
             return
         }
 
-        // Request authorization if needed
-        try await requestAuthorization()
+        // Request authorization only if not yet determined
+        if healthStore.authorizationStatus(for: HKObjectType.workoutType()) == .notDetermined {
+            try await requestAuthorization()
+        }
 
         // Configure workout
         let configuration = HKWorkoutConfiguration()

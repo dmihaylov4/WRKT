@@ -34,8 +34,6 @@
 		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
 		2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2E196EA32EAD398900EB4780 /* Assets.xcassets */; };
 		2E196EAD2EAD3A0B00EB4780 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EAC2EAD3A0600EB4780 /* AppShellView.swift */; };
-		2EAA00032FA1000000000001 /* WhatsNewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00012FA1000000000001 /* WhatsNewManager.swift */; };
-		2EAA00042FA1000000000001 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00022FA1000000000001 /* WhatsNewView.swift */; };
 		2E196EC52EAE2F9D00EB4780 /* CompletedWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC42EAE2F9A00EB4780 /* CompletedWorkout.swift */; };
 		2E196EC72EAE2FA500EB4780 /* CurrentWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC62EAE2FA000EB4780 /* CurrentWorkout.swift */; };
 		2E196EC92EAE2FAC00EB4780 /* WorkoutEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC82EAE2FA800EB4780 /* WorkoutEntry.swift */; };
@@ -206,6 +204,8 @@
 		2EA7DABE2EEDCFA30017683B /* BattlesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DABD2EEDCFA30017683B /* BattlesListView.swift */; };
 		2EA7DABF2EEDCFA30017683B /* BattleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DABC2EEDCFA30017683B /* BattleDetailView.swift */; };
 		2EA7DAC22EEDCFAE0017683B /* CompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */; };
+		2EAA00032FA1000000000001 /* WhatsNewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00012FA1000000000001 /* WhatsNewManager.swift */; };
+		2EAA00042FA1000000000001 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00022FA1000000000001 /* WhatsNewView.swift */; };
 		2EAB3EF32EBC89C900F1A7CA /* WorkoutDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3EF22EBC89C900F1A7CA /* WorkoutDetailComponents.swift */; };
 		2EAB3EF52EBCA5D700F1A7CA /* MuscleGroupClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3EF42EBCA5D700F1A7CA /* MuscleGroupClassifier.swift */; };
 		2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3F2B2EC0AB6300F1A7CA /* LocationManager.swift */; };
@@ -669,6 +669,8 @@
 		2EA7DABC2EEDCFA30017683B /* BattleDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleDetailView.swift; sourceTree = "<group>"; };
 		2EA7DABD2EEDCFA30017683B /* BattlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlesListView.swift; sourceTree = "<group>"; };
 		2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompeteView.swift; sourceTree = "<group>"; };
+		2EAA00012FA1000000000001 /* WhatsNewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewManager.swift; sourceTree = "<group>"; };
+		2EAA00022FA1000000000001 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
 		2EAB3EF22EBC89C900F1A7CA /* WorkoutDetailComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailComponents.swift; sourceTree = "<group>"; };
 		2EAB3EF42EBCA5D700F1A7CA /* MuscleGroupClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupClassifier.swift; sourceTree = "<group>"; };
 		2EAB3F2B2EC0AB6300F1A7CA /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
@@ -861,8 +863,6 @@
 		ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCustomizationService.swift; sourceTree = "<group>"; };
 		ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEditorView.swift; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
-		2EAA00012FA1000000000001 /* WhatsNewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewManager.swift; sourceTree = "<group>"; };
-		2EAA00022FA1000000000001 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1095,15 +1095,6 @@
 				2E196EB62EAD3C8700EB4780 /* Onboarding */,
 			);
 			path = Features;
-			sourceTree = "<group>";
-		};
-		2EAA00002FA1000000000001 /* WhatsNew */ = {
-			isa = PBXGroup;
-			children = (
-				2EAA00012FA1000000000001 /* WhatsNewManager.swift */,
-				2EAA00022FA1000000000001 /* WhatsNewView.swift */,
-			);
-			path = WhatsNew;
 			sourceTree = "<group>";
 		};
 		2E196EB62EAD3C8700EB4780 /* Onboarding */ = {
@@ -1882,6 +1873,15 @@
 				2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */,
 			);
 			path = Compete;
+			sourceTree = "<group>";
+		};
+		2EAA00002FA1000000000001 /* WhatsNew */ = {
+			isa = PBXGroup;
+			children = (
+				2EAA00012FA1000000000001 /* WhatsNewManager.swift */,
+				2EAA00022FA1000000000001 /* WhatsNewView.swift */,
+			);
+			path = WhatsNew;
 			sourceTree = "<group>";
 		};
 		2EBE3EE62EB6569B00A26355 /* Views */ = {
@@ -3279,7 +3279,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.1.1;
+				MARKETING_VERSION = 5.1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3327,7 +3327,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.1.1;
+				MARKETING_VERSION = 5.1.5;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

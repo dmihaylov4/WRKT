@@ -38,8 +38,15 @@ final class WhatsNewManager {
         releases: [WhatsNewRelease] = WhatsNewManager.releases
     ) {
         self.currentVersion = currentVersion
-        guard hasCompletedOnboarding else { return }
-        guard lastSeenVersion != currentVersion else { return }
+        AppLogger.info("[WhatsNew] configure: version=\(currentVersion) lastSeen='\(lastSeenVersion)' hasOnboarding=\(hasCompletedOnboarding) fromOnboarding=\(fromOnboardingCompletion)", category: AppLogger.ui)
+        guard hasCompletedOnboarding else {
+            AppLogger.info("[WhatsNew] skipped: onboarding not complete", category: AppLogger.ui)
+            return
+        }
+        guard lastSeenVersion != currentVersion else {
+            AppLogger.info("[WhatsNew] skipped: version already seen", category: AppLogger.ui)
+            return
+        }
 
         if fromOnboardingCompletion {
             lastSeenVersion = currentVersion
@@ -47,8 +54,10 @@ final class WhatsNewManager {
         }
 
         if releases.first(where: { $0.version == currentVersion }) != nil {
+            AppLogger.info("[WhatsNew] showing sheet for version \(currentVersion)", category: AppLogger.ui)
             needsWhatsNew = true
         } else {
+            AppLogger.info("[WhatsNew] no release entry for version \(currentVersion), marking seen", category: AppLogger.ui)
             lastSeenVersion = currentVersion
         }
     }

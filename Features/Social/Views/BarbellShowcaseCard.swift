@@ -49,7 +49,7 @@ private struct OwnBarbellCard: View {
     }
 
     private var displaySourcePlates: [EarnedPlate] {
-        if let configured = configuredBarPlates, !configured.isEmpty {
+        if let configured = configuredBarPlates {
             return configured
         }
 
@@ -67,12 +67,7 @@ private struct OwnBarbellCard: View {
             Dictionary(grouping: ownRackedPlates + ownAllEarnedPlates, by: \.id)
                 .compactMap { $0.value.first }
         )
-        let loadout = config.displayLoadout
-            .sanitized(earnedPlateIDs: Set(availablePlates.map(\.id)), maximumBarPlateCount: 4)
-        guard !loadout.onBar.isEmpty else { return nil }
-
-        let platesByID = Dictionary(uniqueKeysWithValues: availablePlates.map { ($0.id, $0) })
-        return loadout.onBar.compactMap { platesByID[$0] }
+        return configuredBarbellDisplayPlates(loadout: config.displayLoadout, earnedPlates: availablePlates)
     }
 
     private var selectedBarSkinIndex: Int {
