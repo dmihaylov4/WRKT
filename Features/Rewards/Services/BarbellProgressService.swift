@@ -946,6 +946,68 @@ final class BarbellProgressService {
 
     // MARK: - Backfill for existing users
 
+    func evaluateAndAwardFunctionalHK(run: Run) async {
+        guard let context else { return }
+        guard run.countsAsStrengthDay, let hkUUID = run.healthKitUUID else { return }
+
+        let uuid = hkUUID.uuidString
+        let processedDescriptor = FetchDescriptor<BarbellProcessedHKWorkout>(
+            predicate: #Predicate { $0.healthKitUUID == uuid }
+        )
+        guard (try? context.fetch(processedDescriptor).isEmpty) == true else { return }
+
+        let config = fetchOrCreateConfig(context: context)
+        config.totalFunctionalHKWorkouts += 1
+        context.insert(BarbellProcessedHKWorkout(healthKitUUID: uuid, processedAt: run.date))
+
+        let existingEvents = ((try? context.fetch(FetchDescriptor<EarnedPlate>())) ?? [])
+            .map(\.earnedByEvent)
+        let plates = BarbellUnlockRules.evaluateFunctionalHK(
+            config: config,
+            existingEvents: existingEvents
+        )
+
+        var syncPayloads: [EarnedPlateSyncPayload] = []
+        for info in plates {
+            let plate = EarnedPlate(
+                tierID: info.tierID,
+                weightKg: info.weightKg,
+                engravingText: info.engravingText,
+                earnedAt: run.date,
+                earnedByEvent: info.earnedByEvent,
+                sourceWorkoutID: uuid,
+                liftTypeID: BarbellPlateProgressionScope.normalizedLiftTypeID(info.liftTypeID)
+            )
+            context.insert(plate)
+            syncPayloads.append(EarnedPlateSyncPayload(
+                info: info,
+                earnedAt: run.date,
+                sourceWorkoutID: uuid
+            ))
+        }
+
+        do {
+            try context.save()
+            if !plates.isEmpty {
+                needsWelcomeScreen = true
+                syncEarnedPlateAwardsToSupabase(syncPayloads)
+            }
+        } catch {
+            context.rollback()
+            AppLogger.error("Failed to award HealthKit functional strength barbell plate: \(error)", category: AppLogger.rewards)
+        }
+    }
+
+    func backfillFunctionalHKPlatesIfNeeded(runs: [Run]) async {
+        let sorted = runs
+            .filter { $0.countsAsStrengthDay && $0.healthKitUUID != nil }
+            .sorted { $0.date < $1.date }
+
+        for run in sorted {
+            await evaluateAndAwardFunctionalHK(run: run)
+        }
+    }
+
     func runBackfillIfNeeded(completedWorkouts: [CompletedWorkout]) {
         // Guard before consuming the flag: if the store has not finished loading yet
         // this returns without touching backfillCompletedV1, allowing a retry on next launch.
@@ -1107,6 +1169,10 @@ final class BarbellProgressService {
         let configFetch = FetchDescriptor<BarbellConfig>()
         if let configs = try? context.fetch(configFetch) {
             for c in configs { context.delete(c) }
+        }
+        let processedHKFetch = FetchDescriptor<BarbellProcessedHKWorkout>()
+        if let processedWorkouts = try? context.fetch(processedHKFetch) {
+            for processed in processedWorkouts { context.delete(processed) }
         }
         try? context.save()
         ensureBarbellConfig()

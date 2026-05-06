@@ -140,6 +140,35 @@ enum BarbellUnlockRules {
         return applyRandomBumperVariant(to: plate, roll: bumperVariantRoll())
     }
 
+    static func evaluateFunctionalHK(
+        config: BarbellConfig,
+        existingEvents: [String],
+        bumperVariantRoll: () -> Double = { Double.random(in: 0..<1) }
+    ) -> [EarnedPlateInfo] {
+        let total = config.totalFunctionalHKWorkouts
+        let milestones: [(count: Int, tierID: Int, weightKg: Double, engraving: String, event: String)] = [
+            (100, 9, 30, "100 Sessions", "hk_milestone_100"),
+            (50, 5, 25, "50 Sessions", "hk_milestone_50"),
+            (25, 3, 15, "25 Sessions", "hk_milestone_25"),
+            (15, 2, 10, "15 Sessions", "hk_milestone_15"),
+            (5, 1, 5, "5 Sessions", "hk_milestone_5")
+        ]
+
+        let plates = milestones.compactMap { milestone -> EarnedPlateInfo? in
+            guard total == milestone.count else { return nil }
+            guard !existingEvents.contains(milestone.event) else { return nil }
+            return EarnedPlateInfo(
+                tierID: milestone.tierID,
+                weightKg: milestone.weightKg,
+                engravingText: milestone.engraving,
+                earnedByEvent: milestone.event
+            )
+        }
+
+        let colorized = plates.map { applyRandomBumperVariant(to: $0, roll: bumperVariantRoll()) }
+        return sortByRarity(colorized)
+    }
+
     // Only the 10 colored bumpers (14-23) are randomly droppable.
     // Purple (10) and all metallic/mineral plates are milestone-only.
     static func randomBumperVariantTierID(roll: Double) -> Int? {

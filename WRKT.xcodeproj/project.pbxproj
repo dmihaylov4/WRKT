@@ -2906,8 +2906,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				GENERATE_INFOPLIST_FILE = YES;
-					INFOPLIST_FILE = WRKTTests/Info.plist;
-					MARKETING_VERSION = 1.0;
+				INFOPLIST_FILE = WRKTTests/Info.plist;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trakTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -2928,8 +2928,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				GENERATE_INFOPLIST_FILE = YES;
-					INFOPLIST_FILE = WRKTTests/Info.plist;
-					MARKETING_VERSION = 1.0;
+				INFOPLIST_FILE = WRKTTests/Info.plist;
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trakTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -3263,7 +3263,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.1.0;
+				MARKETING_VERSION = 5.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3311,7 +3311,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.1.0;
+				MARKETING_VERSION = 5.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3347,8 +3347,8 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-					MARKETING_VERSION = 5.1.0;
-					PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
+				MARKETING_VERSION = 5.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -3378,8 +3378,8 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-					MARKETING_VERSION = 5.1.0;
-					PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
+				MARKETING_VERSION = 5.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

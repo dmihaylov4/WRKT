@@ -636,10 +636,24 @@ struct PlateCollectionView: View {
     }
 
     private func workoutSummary(for plate: EarnedPlate) -> PlateWorkoutSummary? {
-        guard let workout = sourceWorkout(for: plate) else {
-            return plateCollectionFallbackSummary(for: plate).map(PlateWorkoutSummary.init(fallback:))
+        if let workout = sourceWorkout(for: plate) {
+            return PlateWorkoutSummary(plate: plate, workout: workout)
         }
-        return PlateWorkoutSummary(plate: plate, workout: workout)
+
+        if let run = sourceRun(for: plate),
+           let summary = plateCollectionHealthKitSummary(for: plate, run: run) {
+            return PlateWorkoutSummary(fallback: summary)
+        }
+
+        return plateCollectionFallbackSummary(for: plate).map(PlateWorkoutSummary.init(fallback:))
+    }
+
+    private func sourceRun(for plate: EarnedPlate) -> Run? {
+        guard let sourceWorkoutID = plate.sourceWorkoutID,
+              let uuid = UUID(uuidString: sourceWorkoutID) else { return nil }
+        return store.runs.first { run in
+            run.healthKitUUID == uuid || run.id == uuid
+        }
     }
 
 }
@@ -647,6 +661,14 @@ struct PlateCollectionView: View {
 struct PlateCollectionFallbackSummary: Equatable {
     let title: String
     let detail: String
+}
+
+func plateCollectionHealthKitSummary(for plate: EarnedPlate, run: Run) -> PlateCollectionFallbackSummary? {
+    guard plate.earnedByEvent.hasPrefix("hk_") || run.countsAsStrengthDay else { return nil }
+    return PlateCollectionFallbackSummary(
+        title: run.category.displayName,
+        detail: (run.workoutType ?? run.workoutName ?? "HealthKit Workout").uppercased()
+    )
 }
 
 func plateCollectionFallbackSummary(for plate: EarnedPlate) -> PlateCollectionFallbackSummary? {
@@ -659,14 +681,35 @@ func plateCollectionFallbackSummary(for plate: EarnedPlate) -> PlateCollectionFa
             .split(separator: "-")
             .map { $0.capitalized }
             .joined(separator: " ")
+    } else if plate.earnedByEvent.hasPrefix("hk_") {
+        title = "HealthKit Strength"
     } else {
         return nil
     }
 
+    let detail: String
+    if plate.earnedByEvent.hasPrefix("hk_") {
+        detail = plate.sourceWorkoutID == nil ? "HEALTHKIT HISTORY" : "HEALTHKIT SOURCE UNAVAILABLE"
+    } else {
+        detail = plate.sourceWorkoutID == nil ? "EARNED HISTORY" : "SOURCE WORKOUT DELETED"
+    }
+
     return PlateCollectionFallbackSummary(
         title: title,
-        detail: plate.sourceWorkoutID == nil ? "EARNED HISTORY" : "SOURCE WORKOUT DELETED"
+        detail: detail
     )
+}
+
+private extension HealthKitWorkoutCategory {
+    var displayName: String {
+        switch self {
+        case .strength: return "Strength"
+        case .hybrid: return "Hybrid"
+        case .cardio: return "Cardio"
+        case .flexibility: return "Flexibility"
+        case .other: return "HealthKit"
+        }
+    }
 }
 
 private struct PlateDetailView: View {
@@ -1156,7 +1199,6 @@ private struct PlateMedallionView: View {
             weightKg: plate.weightKg
         )
         .frame(width: 44, height: 44)
-        .shadow(color: accentColor.opacity(0.30), radius: 10, x: 0, y: 4)
         .accessibilityHidden(true)
     }
 }

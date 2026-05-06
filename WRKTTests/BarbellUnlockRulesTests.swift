@@ -23,6 +23,7 @@ struct BarbellModelsTests {
         config.roomMotto = "Lift heavy"
         config.displayLoadoutData = try? JSONEncoder().encode(DisplayLoadout(onBar: ["a"], onWall: ["b"]))
         config.totalStrengthWorkouts = 99
+        config.totalFunctionalHKWorkouts = 42
         config.lastStreakCheckDate = Date(timeIntervalSince1970: 1_700_000_000)
         config.needsSupabaseSync = true
         config.backfillCompletedV1 = true
@@ -101,6 +102,12 @@ struct BarbellUnlockRulesTests {
         let c = BarbellConfig()
         c.totalStrengthWorkouts = totalWorkouts
         c.lastStreakCheckDate = lastStreakCheckDate
+        return c
+    }
+
+    private func makeFunctionalHKConfig(totalWorkouts: Int) -> BarbellConfig {
+        let c = BarbellConfig()
+        c.totalFunctionalHKWorkouts = totalWorkouts
         return c
     }
 
@@ -232,6 +239,86 @@ struct BarbellUnlockRulesTests {
             BarbellUnlockRules.randomBumperVariantTierID(roll: $0)
         }
         #expect(Set(samples) == expectedIDs)
+    }
+
+    @Test func functionalHKMilestonesAwardExpectedPlates() {
+        let cases: [(count: Int, tierID: Int, weightKg: Double, event: String)] = [
+            (5, 1, 5, "hk_milestone_5"),
+            (15, 2, 10, "hk_milestone_15"),
+            (25, 3, 15, "hk_milestone_25"),
+            (50, 5, 25, "hk_milestone_50"),
+            (100, 9, 30, "hk_milestone_100")
+        ]
+
+        for testCase in cases {
+            let plates = BarbellUnlockRules.evaluateFunctionalHK(
+                config: makeFunctionalHKConfig(totalWorkouts: testCase.count),
+                existingEvents: [],
+                bumperVariantRoll: { 0 }
+            )
+
+            #expect(plates.contains {
+                $0.tierID == testCase.tierID &&
+                $0.weightKg == testCase.weightKg &&
+                $0.earnedByEvent == testCase.event
+            })
+        }
+    }
+
+    @Test func functionalHKMilestoneDoesNotAwardDuplicateEvent() {
+        let plates = BarbellUnlockRules.evaluateFunctionalHK(
+            config: makeFunctionalHKConfig(totalWorkouts: 5),
+            existingEvents: ["hk_milestone_5"],
+            bumperVariantRoll: { 0 }
+        )
+
+        #expect(!plates.contains { $0.earnedByEvent == "hk_milestone_5" })
+    }
+
+    @Test func functionalHKCastIronIsNotBumperUpgraded() {
+        let plates = BarbellUnlockRules.evaluateFunctionalHK(
+            config: makeFunctionalHKConfig(totalWorkouts: 5),
+            existingEvents: [],
+            bumperVariantRoll: { 0.75 }
+        )
+
+        #expect(plates.contains { $0.tierID == 1 && $0.earnedByEvent == "hk_milestone_5" })
+        #expect(!plates.contains { $0.earnedByEvent == "hk_milestone_5" && $0.tierID != 1 })
+    }
+
+    @Test func functionalHKBlackBumperCanBeColorUpgraded() {
+        let plates = BarbellUnlockRules.evaluateFunctionalHK(
+            config: makeFunctionalHKConfig(totalWorkouts: 15),
+            existingEvents: [],
+            bumperVariantRoll: { 0.75 }
+        )
+
+        #expect(plates.contains {
+            $0.tierID == 15 &&
+            $0.earnedByEvent == "hk_milestone_15" &&
+            $0.engravingText == "15 Sessions"
+        })
+        #expect(!plates.contains { $0.tierID == 2 })
+    }
+
+    @Test func actualCardioRunsDoNotCountAsFunctionalHKStrength() {
+        let running = Run(
+            date: .now,
+            distanceKm: 5,
+            durationSec: 1_800,
+            healthKitUUID: UUID(),
+            workoutType: "Running"
+        )
+        let functionalStrength = Run(
+            date: .now,
+            distanceKm: 0,
+            durationSec: 1_800,
+            healthKitUUID: UUID(),
+            workoutType: "Functional Training"
+        )
+
+        #expect(!running.countsAsStrengthDay)
+        #expect(functionalStrength.countsAsStrengthDay)
     }
 
     @Test func prExistingLegacyPrefixDoesNotEarnDuplicateFullUUIDPlate() {

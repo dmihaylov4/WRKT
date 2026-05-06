@@ -174,6 +174,29 @@ struct BarbellViewLogicTests {
         #expect(summary?.detail == "SOURCE WORKOUT DELETED")
     }
 
+    @Test func plateCollectionHealthKitSummaryShowsWorkoutCategoryAndType() {
+        let healthKitUUID = UUID()
+        let plate = EarnedPlate(
+            tierID: 1,
+            weightKg: 5,
+            engravingText: "5 Sessions",
+            earnedByEvent: "hk_milestone_5",
+            sourceWorkoutID: healthKitUUID.uuidString
+        )
+        let run = Run(
+            date: Date(timeIntervalSince1970: 1_700_000_000),
+            distanceKm: 0,
+            durationSec: 1_800,
+            healthKitUUID: healthKitUUID,
+            workoutType: "High Intensity Interval Training"
+        )
+
+        let summary = plateCollectionHealthKitSummary(for: plate, run: run)
+
+        #expect(summary?.title == "Hybrid")
+        #expect(summary?.detail == "HIGH INTENSITY INTERVAL TRAINING")
+    }
+
     @Test func friendShowcaseCancelledRequestIsRecognizedAsCancellation() {
         let error = NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
 

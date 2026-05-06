@@ -308,6 +308,7 @@ enum BarbellCustomizationDefaults {
     var roomMotto: String?
     var displayLoadoutData: Data?
     var totalStrengthWorkouts: Int
+    var totalFunctionalHKWorkouts: Int = 0
     var lastStreakCheckDate: Date?
     var needsSupabaseSync: Bool
     var backfillCompletedV1: Bool
@@ -325,6 +326,7 @@ enum BarbellCustomizationDefaults {
         self.roomMotto = nil
         self.displayLoadoutData = nil
         self.totalStrengthWorkouts = 0
+        self.totalFunctionalHKWorkouts = 0
         self.lastStreakCheckDate = nil
         self.needsSupabaseSync = false
         self.backfillCompletedV1 = false
@@ -342,6 +344,7 @@ enum BarbellCustomizationDefaults {
         let roomMotto: String?
         let displayLoadoutData: Data?
         let totalStrengthWorkouts: Int
+        let totalFunctionalHKWorkouts: Int
         let lastStreakCheckDate: Date?
         let needsSupabaseSync: Bool
         let backfillCompletedV1: Bool
@@ -360,6 +363,7 @@ enum BarbellCustomizationDefaults {
             roomMotto: roomMotto,
             displayLoadoutData: displayLoadoutData,
             totalStrengthWorkouts: totalStrengthWorkouts,
+            totalFunctionalHKWorkouts: totalFunctionalHKWorkouts,
             lastStreakCheckDate: lastStreakCheckDate,
             needsSupabaseSync: needsSupabaseSync,
             backfillCompletedV1: backfillCompletedV1
@@ -437,9 +441,20 @@ enum BarbellCustomizationDefaults {
         roomMotto = defaults.roomMotto
         displayLoadoutData = defaults.displayLoadoutData
         totalStrengthWorkouts = defaults.totalStrengthWorkouts
+        totalFunctionalHKWorkouts = defaults.totalFunctionalHKWorkouts
         lastStreakCheckDate = defaults.lastStreakCheckDate
         needsSupabaseSync = defaults.needsSupabaseSync
         backfillCompletedV1 = defaults.backfillCompletedV1
+    }
+}
+
+@Model final class BarbellProcessedHKWorkout {
+    @Attribute(.unique) var healthKitUUID: String
+    var processedAt: Date
+
+    init(healthKitUUID: String, processedAt: Date = .now) {
+        self.healthKitUUID = healthKitUUID
+        self.processedAt = processedAt
     }
 }
 

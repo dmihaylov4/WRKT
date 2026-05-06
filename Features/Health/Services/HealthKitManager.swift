@@ -669,6 +669,9 @@ final class HealthKitManager: ObservableObject {
 
                     for newRun in batchResults.newRuns {
                         store.addRun(newRun)
+                        Task { @MainActor in
+                            await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: newRun)
+                        }
                     }
 
                     syncProcessedCount += batch.count
@@ -1181,6 +1184,9 @@ final class HealthKitManager: ObservableObject {
 
         await MainActor.run {
             store.addRun(run)
+            Task { @MainActor in
+                await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: run)
+            }
         }
 
         // Note: Auto-post for cardio is triggered in processRouteFetchQueue
