@@ -56,6 +56,7 @@ struct AppShellView: View {
     @State private var showLiveOverlay = false
     @State private var showContent = false
     @State private var isShellTabBarHidden = false
+    @State private var whatsNewManager = WhatsNewManager.shared
     @AppStorage("is_browsing_exercises") private var isBrowsingExercises = false
 
     // Notification navigation
@@ -188,7 +189,21 @@ struct AppShellView: View {
                 }
             }
             .sheet(isPresented: Binding(
-                get: { dependencies.barbellProgressService.needsWelcomeScreen },
+                get: { whatsNewManager.needsWhatsNew },
+                set: { if !$0 { whatsNewManager.dismiss() } }
+            )) {
+                if let release = WhatsNewManager.releases.first(where: { $0.version == whatsNewManager.currentVersion }) {
+                    WhatsNewView(
+                        release: release,
+                        currentVersion: whatsNewManager.currentVersion,
+                        onDismiss: { whatsNewManager.dismiss() }
+                    )
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { dependencies.barbellProgressService.needsWelcomeScreen && !whatsNewManager.needsWhatsNew },
                 set: { if !$0 { dependencies.barbellProgressService.needsWelcomeScreen = false } }
             )) {
                 BarbellWelcomeView()
@@ -499,6 +514,7 @@ struct AppShellView: View {
 
         healthKit.beginRouteQueueLaunchProtection()
         dependencies.configure(with: modelContext)
+        whatsNewManager.configure(hasCompletedOnboarding: hasCompletedOnboarding)
         NotificationCenter.default.post(name: .appDependenciesDidConfigure, object: nil)
         await dependencies.bootstrap()
 
@@ -658,6 +674,7 @@ struct AppShellView: View {
     private func completeOnboarding() {
         hasCompletedOnboarding = true
         onboardingStep = .completed
+        whatsNewManager.configure(hasCompletedOnboarding: true, fromOnboardingCompletion: true)
 
         // Show goal setup after onboarding if needed
         if needsGoalSetup {

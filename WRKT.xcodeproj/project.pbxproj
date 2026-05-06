@@ -34,6 +34,8 @@
 		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
 		2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2E196EA32EAD398900EB4780 /* Assets.xcassets */; };
 		2E196EAD2EAD3A0B00EB4780 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EAC2EAD3A0600EB4780 /* AppShellView.swift */; };
+		2EAA00032FA1000000000001 /* WhatsNewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00012FA1000000000001 /* WhatsNewManager.swift */; };
+		2EAA00042FA1000000000001 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00022FA1000000000001 /* WhatsNewView.swift */; };
 		2E196EC52EAE2F9D00EB4780 /* CompletedWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC42EAE2F9A00EB4780 /* CompletedWorkout.swift */; };
 		2E196EC72EAE2FA500EB4780 /* CurrentWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC62EAE2FA000EB4780 /* CurrentWorkout.swift */; };
 		2E196EC92EAE2FAC00EB4780 /* WorkoutEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC82EAE2FA800EB4780 /* WorkoutEntry.swift */; };
@@ -859,6 +861,8 @@
 		ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCustomizationService.swift; sourceTree = "<group>"; };
 		ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEditorView.swift; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
+		2EAA00012FA1000000000001 /* WhatsNewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewManager.swift; sourceTree = "<group>"; };
+		2EAA00022FA1000000000001 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1071,6 +1075,7 @@
 		2E196EB52EAD3C7B00EB4780 /* Features */ = {
 			isa = PBXGroup;
 			children = (
+				2EAA00002FA1000000000001 /* WhatsNew */,
 				2EC201DC2EEF234C00D6BAEF /* Plan */,
 				2EC201D92EEF233800D6BAEF /* Progress */,
 				2EA7DAC12EEDCFAE0017683B /* Compete */,
@@ -1090,6 +1095,15 @@
 				2E196EB62EAD3C8700EB4780 /* Onboarding */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		2EAA00002FA1000000000001 /* WhatsNew */ = {
+			isa = PBXGroup;
+			children = (
+				2EAA00012FA1000000000001 /* WhatsNewManager.swift */,
+				2EAA00022FA1000000000001 /* WhatsNewView.swift */,
+			);
+			path = WhatsNew;
 			sourceTree = "<group>";
 		};
 		2E196EB62EAD3C8700EB4780 /* Onboarding */ = {
@@ -2723,6 +2737,8 @@
 				2E510B752E995BE30089EE2C /* SVGMuscleIDMapper.swift in Sources */,
 				2EA7DA222EEC15EC0017683B /* OfflineBanner.swift in Sources */,
 				2E196EAD2EAD3A0B00EB4780 /* AppShellView.swift in Sources */,
+				2EAA00032FA1000000000001 /* WhatsNewManager.swift in Sources */,
+				2EAA00042FA1000000000001 /* WhatsNewView.swift in Sources */,
 				2EC2023A2EF1A04200D6BAEF /* MetricExamples.swift in Sources */,
 				2EBE3F952EB7D37B00A26355 /* SmartSearch.swift in Sources */,
 				2E196EFB2EAE4CC400EB4780 /* AppResetReason.swift in Sources */,
@@ -3347,7 +3363,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.1.0;
+				MARKETING_VERSION = 5.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -3378,7 +3394,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.1.0;
+				MARKETING_VERSION = 5.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
