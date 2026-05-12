@@ -174,66 +174,111 @@ struct SocialView: View {
     @ViewBuilder
     private var profileHeader: some View {
         HStack {
-            // Profile button
             if let currentUser = deps.authService.currentUser {
-                Button {
-                    navigationPath.append(currentUser.id)
-                } label: {
-                    ZStack(alignment: .topTrailing) {
-                        // Profile Picture with chamfered logo shape
-                        KFImage(URL(string: currentUser.profile?.avatarUrl ?? ""))
-                            .placeholder {
-                                ChamferedRectangleAlt(.small)
-                                    .fill(DS.Semantic.brandSoft)
-                                    .overlay(
-                                        Image(systemName: "person.fill")
-                                            .font(.system(size: 14))
-                                            .foregroundStyle(DS.Semantic.brand)
-                                    )
-                            }
-                            .fade(duration: 0.25)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 40, height: 40)
-                            .clipShape(ChamferedRectangleAlt(.small))
-                            .overlay(
-                                ChamferedRectangleAlt(.small)
-                                    .stroke(DS.Semantic.brand, lineWidth: 2)
-                            )
-
-                        // Notification badge
-                        if badgeManager.notificationCount > 0 {
-                            ChamferedRectangleAlt(.micro)
-                                .fill(DS.Palette.marone)
-                                .frame(width: 14, height: 14)
-                                .overlay(
-                                    ChamferedRectangleAlt(.micro)
-                                        .stroke(Color.black, lineWidth: 2)
-                                )
-                                .offset(x: 4, y: -4)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
+                profileToolbarButton(currentUser: currentUser)
             } else {
-                // Placeholder for alignment
-                Color.clear.frame(width: 40, height: 40)
+                toolbarPlaceholder
             }
 
             Spacer()
 
-            // Title based on selected section
             Text(selectedSection.rawValue)
                 .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             Spacer()
 
-            // Right side spacer for centering
-            Color.clear.frame(width: 40, height: 40)
+            activityToolbarButton
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
+    }
+
+    private var toolbarPlaceholder: some View {
+        Color.clear
+            .frame(width: 48, height: 48)
+    }
+
+    private func profileToolbarButton(currentUser: AuthUser) -> some View {
+        Button {
+            navigationPath.append(currentUser.id)
+        } label: {
+            ZStack {
+                ChamferedRectangleAlt(.small)
+                    .fill(DS.Semantic.card.opacity(0.78))
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        ChamferedRectangleAlt(.small)
+                            .stroke(DS.Semantic.brand.opacity(0.88), lineWidth: 2)
+                    )
+
+                KFImage(URL(string: currentUser.profile?.avatarUrl ?? ""))
+                    .placeholder {
+                        ChamferedRectangleAlt(.micro)
+                            .fill(DS.Semantic.brandSoft)
+                            .overlay(
+                                Image("tab-profile")
+                                    .renderingMode(.template)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 18, height: 18)
+                                    .foregroundStyle(DS.Semantic.brand)
+                            )
+                    }
+                    .fade(duration: 0.25)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 38, height: 38)
+                    .clipShape(ChamferedRectangleAlt(.micro))
+            }
+            .contentShape(ChamferedRectangleAlt(.small))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open profile")
+    }
+
+    private var activityToolbarButton: some View {
+        NavigationLink {
+            ActivityFeedView()
+                .environment(\.dependencies, deps)
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                ZStack {
+                    ChamferedRectangle(.small)
+                        .fill(DS.Semantic.card.opacity(0.78))
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            ChamferedRectangle(.small)
+                                .stroke(DS.Semantic.border.opacity(0.75), lineWidth: 1)
+                        )
+
+                    Image("social-activity-icon")
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 22, height: 22)
+                        .foregroundStyle(DS.Semantic.brand)
+                }
+
+                if badgeManager.notificationCount > 0 {
+                    Text("\(min(badgeManager.notificationCount, 99))")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.black)
+                        .frame(minWidth: 18, minHeight: 18)
+                        .padding(.horizontal, badgeManager.notificationCount > 9 ? 3 : 0)
+                        .background(DS.Semantic.brand)
+                        .clipShape(ChamferedRectangleAlt(.micro))
+                        .overlay(
+                            ChamferedRectangleAlt(.micro)
+                                .stroke(DS.Semantic.surface, lineWidth: 2)
+                        )
+                        .offset(x: 5, y: -5)
+                }
+            }
+            .contentShape(ChamferedRectangle(.small))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open activity")
     }
 
     // MARK: - Section Picker

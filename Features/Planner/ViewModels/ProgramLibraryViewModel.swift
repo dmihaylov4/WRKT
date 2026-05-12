@@ -142,6 +142,16 @@ final class ProgramLibraryViewModel {
         }
     }
 
+    func deleteAllPlannedWorkouts() {
+        do {
+            try plannerStore.deleteAllPlannedWorkouts()
+            refreshLibrary()
+            NotificationCenter.default.post(name: .plannedWorkoutsChanged, object: nil)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func pendingInvite(id: UUID) -> PendingInviteDisplay? {
         pendingInvites.first(where: { $0.id == id })
     }

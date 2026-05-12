@@ -56,6 +56,14 @@ private func attachPlateDebugAxes(to entity: Entity, label: String) {
 }
 #endif
 
+private func barbellDiagnosticsV3(_ v: SIMD3<Float>) -> String {
+    String(format: "(%.3f, %.3f, %.3f)", v.x, v.y, v.z)
+}
+
+private func barbellDiagnosticsLog(_ event: String, _ message: String) {
+    DiagnosticsLogStore.shared.append("\(event) \(message)", category: "Barbell")
+}
+
 // MARK: - BarbellRealityMode
 
 enum BarbellRealityMode {
@@ -83,6 +91,11 @@ func barbellRealityCameraPosition(
 
 func clampFloorPlateX(_ x: Float, maxAbsX: Float = 0.64) -> Float {
     max(-maxAbsX, min(maxAbsX, x))
+}
+
+func barbellRackRoomSlideOutDuration(isReduceMotionEnabled: Bool) -> TimeInterval {
+    _ = isReduceMotionEnabled
+    return 0.2
 }
 
 // MARK: - DragPhase
@@ -1271,6 +1284,10 @@ struct BarbellRealityView: View {
                     #if DEBUG
                     barbellLog("DRAG_START", "id=\(outermostID) role=bar(outermost) touched=\(entity.name) world=\(v3(outermostEntity.position(relativeTo: nil)))")
                     #endif
+                    barbellDiagnosticsLog(
+                        "UNRACK_START",
+                        "id=\(outermostID) touched=\(entity.name) dx=\(String(format: "%.1f", dx)) dy=\(String(format: "%.1f", dy)) world=\(barbellDiagnosticsV3(outermostEntity.position(relativeTo: nil)))"
+                    )
                     // Target world X = ±0.84: safely inside the wall inner face (±0.85) so
                     // neither plate overshoots the wall. Fixed target instead of +offset because
                     // the offset varies by slot (0.60-0.72) and a relative offset can overshoot.
@@ -1282,14 +1299,11 @@ struct BarbellRealityView: View {
                         rotation: outermostEntity.orientation,
                         translation: SIMD3(slideTargetX, outerWorldPos.y - 0.02, slideTargetZ)
                     )
+                    let slideOutDuration = barbellRackRoomSlideOutDuration(isReduceMotionEnabled: sceneState.isReduceMotionEnabled)
                     // DO NOT call setParent here. Reparenting cancels any in-flight move() animation.
                     // Entity stays on barAnchor so the slide runs to completion.
                     // snapToFloor (called from onEnded) does the setParent(floorAnchor).
-                    if sceneState.isReduceMotionEnabled {
-                        outermostEntity.position = slideTarget.translation
-                    } else {
-                        outermostEntity.move(to: slideTarget, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
-                    }
+                    outermostEntity.move(to: slideTarget, relativeTo: nil, duration: slideOutDuration, timingFunction: .easeOut)
                     // Mirror slides to -slideTargetX and is removed after the animation.
                     // Removing at 200ms (animation end) prevents the ghost-plate-behind-wall
                     // problem: the mirror has no physics, so it would sit past the wall until
@@ -1302,17 +1316,12 @@ struct BarbellRealityView: View {
                             rotation: mirrorEntity.orientation,
                             translation: SIMD3(-slideTargetX, mirrorWorldPos.y - 0.02, slideTargetZ)
                         )
-                        if sceneState.isReduceMotionEnabled {
-                            mirrorEntity.removeFromParent()
+                        mirrorEntity.move(to: mirrorSlideTarget, relativeTo: nil, duration: slideOutDuration, timingFunction: .easeOut)
+                        let capturedMirror = mirrorEntity
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(Int(slideOutDuration * 1000)))
+                            capturedMirror.removeFromParent()
                             sceneState.barMirrorMap.removeValue(forKey: outermostID)
-                        } else {
-                            mirrorEntity.move(to: mirrorSlideTarget, relativeTo: nil, duration: 0.2, timingFunction: .easeOut)
-                            let capturedMirror = mirrorEntity
-                            Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(200))
-                                capturedMirror.removeFromParent()
-                                sceneState.barMirrorMap.removeValue(forKey: outermostID)
-                            }
                         }
                     }
                     outermostEntity.components.set(PlateRoleComponent(role: .floor))
@@ -1370,6 +1379,20 @@ struct BarbellRealityView: View {
                 barbellLog("DRAG_END", "id=\(plateID) fromFloor=\(isFromFloor) entityY=\(String(format:"%.3f",entityY)) barWorldY=\(String(format:"%.3f",barWorldY)) -> \(decision)")
                 barbellLog("DRAG_END", "  entity.pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil))) phys=\(String(describing:entity.components[PhysicsBodyComponent.self]?.mode))")
                 #endif
+                let diagnosticDecision: String
+                if isFromFloor, pendingSlot != nil {
+                    diagnosticDecision = "snapToStorage"
+                } else if isFromFloor && entityY > barWorldY - 0.15 && entityY < barWorldY + 0.50 {
+                    diagnosticDecision = "snapToBar"
+                } else if !isFromFloor {
+                    diagnosticDecision = "snapToFloor"
+                } else {
+                    diagnosticDecision = "freeDrop"
+                }
+                barbellDiagnosticsLog(
+                    "DRAG_END",
+                    "id=\(plateID) origin=\(originRole) decision=\(diagnosticDecision) translation=(\(String(format: "%.1f", value.translation.width)),\(String(format: "%.1f", value.translation.height))) velocity=(\(String(format: "%.1f", value.velocity.width)),\(String(format: "%.1f", value.velocity.height))) entityY=\(String(format: "%.3f", entityY)) barY=\(String(format: "%.3f", barWorldY)) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) physics=\(String(describing: entity.components[PhysicsBodyComponent.self]?.mode)) pendingSlot=\(pendingSlot.map(String.init) ?? "nil")"
+                )
                 if isFromFloor, let slotIdx = pendingSlot {
                     snapToStorageSlot(entity: entity, plateID: plateID, slotIndex: slotIdx)
                 } else if isFromFloor && entityY > barWorldY - 0.15 && entityY < barWorldY + 0.50 {
@@ -1384,8 +1407,7 @@ struct BarbellRealityView: View {
                     let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
                     // Delay 200ms to let the slide animation finish before reparenting.
                     // setParent cancels in-flight animations, so we must wait.
-                    // Reduce Motion: skip delay.
-                    let delay = sceneState.isReduceMotionEnabled ? 0 : 200
+                    let delay = Int(barbellRackRoomSlideOutDuration(isReduceMotionEnabled: sceneState.isReduceMotionEnabled) * 1000)
                     sceneState.platesBeingUnracked.insert(plateID)
                     Task { @MainActor in
                         try? await Task.sleep(for: .milliseconds(delay))
@@ -1481,6 +1503,7 @@ struct BarbellRealityView: View {
         #if DEBUG
         barbellLog("SNAP_BAR", "id=\(plateID) pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil)))")
         #endif
+        barbellDiagnosticsLog("SNAP_BAR", "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil)))")
         let slotOffsets: [Float] = [0.60, 0.64, 0.68, 0.72]
         let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
         guard let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }) else {
@@ -1553,6 +1576,10 @@ struct BarbellRealityView: View {
         #if DEBUG
         barbellLog("SNAP_FLOOR", "id=\(plateID) BEFORE setParent: pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil))) phys=\(String(describing:entity.components[PhysicsBodyComponent.self]?.mode))")
         #endif
+        barbellDiagnosticsLog(
+            "SNAP_FLOOR_BEGIN",
+            "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) physics=\(String(describing: entity.components[PhysicsBodyComponent.self]?.mode))"
+        )
         // Reparent to sceneRoot (not floorAnchor) for bar→floor transitions.
         // floorAnchor is always at local (0,0,0) inside sceneRoot — floor panning is
         // disabled (floorMinX == floorMaxX == 0) so the two are positionally identical.
@@ -1571,68 +1598,79 @@ struct BarbellRealityView: View {
         #if DEBUG
         barbellLog("SNAP_FLOOR", "id=\(plateID) AFTER  setParent: pos=\(v3(entity.position)) floorAnchor=\(v3(sceneState.floorAnchor.position))")
         #endif
+        barbellDiagnosticsLog(
+            "SNAP_FLOOR_REPARENTED",
+            "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) sceneRoot=\(barbellDiagnosticsV3(sceneState.sceneRoot.position))"
+        )
 
-        if sceneState.isReduceMotionEnabled {
-            let xPos = Float(sceneState.sceneRoot.children.count) * 0.15
-            entity.position = SIMD3(xPos, 0, 0)
-            entity.orientation = simd_quatf(angle: Float.random(in: 0 ..< .pi * 2), axis: SIMD3(0, 1, 0))
-            let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
-            finishUnrack(plateID: plateID, plate: plateToUnrack)
-            sceneState.platesBeingUnracked.remove(plateID)
-        } else {
-            // Preserve upright bar orientation -- plate tumbles naturally under physics.
-            // Hand physics a clean release pose in front of the bar path. If the dynamic body
-            // starts too close to the sleeve/wall/floor, RealityKit can resolve the overlap by
-            // pinning the plate at a strange leaning angle.
-            let wPos = entity.position(relativeTo: nil)
-            let releaseX = max(-floorPhysicsMaxAbsX, min(floorPhysicsMaxAbsX, wPos.x))
-            let releaseY = max(wPos.y, sceneState.barAnchor.position(relativeTo: nil).y + 0.04)
-            let releaseZ = max(wPos.z, 0.30)
-            // Write in floorAnchor-local space to avoid setPosition(relativeTo: nil),
-            // which marks the RealityKit render graph dirty and triggers 19 AR material
-            // re-resolves per call (confirmed in the setParent fix above).
-            let anchorWPos = sceneState.sceneRoot.position(relativeTo: nil)
-            entity.position = SIMD3(releaseX - anchorWPos.x, releaseY - anchorWPos.y, releaseZ - anchorWPos.z)
+        // Preserve upright bar orientation -- plate tumbles naturally under physics.
+        // Hand physics a clean release pose in front of the bar path. If the dynamic body
+        // starts too close to the sleeve/wall/floor, RealityKit can resolve the overlap by
+        // pinning the plate at a strange leaning angle.
+        let wPos = entity.position(relativeTo: nil)
+        let releaseX = max(-floorPhysicsMaxAbsX, min(floorPhysicsMaxAbsX, wPos.x))
+        let releaseY = max(wPos.y, sceneState.barAnchor.position(relativeTo: nil).y + 0.04)
+        let releaseZ = max(wPos.z, 0.30)
+        // Write in floorAnchor-local space to avoid setPosition(relativeTo: nil),
+        // which marks the RealityKit render graph dirty and triggers 19 AR material
+        // re-resolves per call (confirmed in the setParent fix above).
+        let anchorWPos = sceneState.sceneRoot.position(relativeTo: nil)
+        entity.position = SIMD3(releaseX - anchorWPos.x, releaseY - anchorWPos.y, releaseZ - anchorWPos.z)
 
-            // Enable physics on the next frame. RealityKit can otherwise start dynamics from an
-            // older kinematic body pose even though the visual move() finished at slideTargetX.
-            // Clearing motion here avoids drag/animation velocity bleed into the fall.
-            entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
-            entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
-            let spinDir: Float = Bool.random() ? 1 : -1
-            let spreadDir: Float = Bool.random() ? 1 : -1
-            sceneState.settleTasks[plateID]?.cancel()
-            sceneState.settleTasks[plateID] = nil
-            let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
-            finishUnrack(plateID: plateID, plate: plateToUnrack)
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(16))
-                guard entity.components[PlateRoleComponent.self]?.role == .floor else { return }
-                var motion = PhysicsMotionComponent()
-                motion.angularVelocity = SIMD3(
-                    Float.random(in: -0.35 ..< 0.35),
-                    spinDir * Float.random(in: 1.2 ..< 2.2),
-                    Float.random(in: -0.25 ..< 0.25)
+        // Enable physics on the next frame. RealityKit can otherwise start dynamics from an
+        // older kinematic body pose even though the visual move() finished at slideTargetX.
+        // Clearing motion here avoids drag/animation velocity bleed into the fall.
+        entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
+        entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+        let spinDir: Float = Bool.random() ? 1 : -1
+        let spreadDir: Float = Bool.random() ? 1 : -1
+        sceneState.settleTasks[plateID]?.cancel()
+        sceneState.settleTasks[plateID] = nil
+        let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(16))
+            guard entity.components[PlateRoleComponent.self]?.role == .floor else {
+                barbellDiagnosticsLog(
+                    "SNAP_FLOOR_DYNAMIC_SKIPPED",
+                    "id=\(plateID) reason=roleChanged role=\(String(describing: entity.components[PlateRoleComponent.self]?.role))"
                 )
-                // Spread unracked plates so they don't all land in the same spot.
-                // Every plate slides to the same slideTargetX, so without a lateral nudge
-                // they stack on top of each other when multiple plates are removed.
-                motion.linearVelocity = SIMD3(spreadDir * Float.random(in: 0.30 ..< 0.65), -0.20, 0.18)
-                entity.components[PhysicsMotionComponent.self] = motion
-                entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+                finishUnrack(plateID: plateID, plate: plateToUnrack)
                 sceneState.platesBeingUnracked.remove(plateID)
-                if let audio = entity.components[PlateAudioCategoryComponent.self] {
-                    scheduleDropFeedback(on: entity, category: audio.category, delay: 0.42)
-                }
-                #if DEBUG
-                barbellLog("SNAP_FLOOR", "id=\(plateID) physics=dynamic pos_after_clamp=\(v3(entity.position))")
-                #endif
+                return
             }
+            var motion = PhysicsMotionComponent()
+            motion.angularVelocity = SIMD3(
+                Float.random(in: -0.35 ..< 0.35),
+                spinDir * Float.random(in: 1.2 ..< 2.2),
+                Float.random(in: -0.25 ..< 0.25)
+            )
+            // Spread unracked plates so they don't all land in the same spot.
+            // Every plate slides to the same slideTargetX, so without a lateral nudge
+            // they stack on top of each other when multiple plates are removed.
+            motion.linearVelocity = SIMD3(spreadDir * Float.random(in: 0.30 ..< 0.65), -0.20, 0.18)
+            entity.components[PhysicsMotionComponent.self] = motion
+            entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+            sceneState.platesBeingUnracked.remove(plateID)
+            if let audio = entity.components[PlateAudioCategoryComponent.self] {
+                scheduleDropFeedback(on: entity, category: audio.category, delay: 0.42)
+            }
+            #if DEBUG
+            barbellLog("SNAP_FLOOR", "id=\(plateID) physics=dynamic pos_after_clamp=\(v3(entity.position))")
+            #endif
+            barbellDiagnosticsLog(
+                "SNAP_FLOOR_DYNAMIC",
+                "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) motionLinear=\(barbellDiagnosticsV3(motion.linearVelocity))"
+            )
+            finishUnrack(plateID: plateID, plate: plateToUnrack)
         }
     }
 
     /// plate is pre-captured by the caller before any async gap to avoid stale allRackedPlates reads.
     private func finishUnrack(plateID: String, plate: EarnedPlate?) {
+        barbellDiagnosticsLog(
+            "FINISH_UNRACK",
+            "id=\(plateID) plateFound=\(plate != nil) mirrorFound=\(sceneState.barMirrorMap[plateID] != nil) barPositionFound=\(sceneState.barPositionMap[plateID] != nil)"
+        )
         if let plate { onUnrackCallback?(plate) }
         sceneState.barMirrorMap[plateID]?.removeFromParent()
         sceneState.barMirrorMap.removeValue(forKey: plateID)
@@ -1718,13 +1756,6 @@ struct BarbellRealityView: View {
         entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
         entity.components.set(PlateRoleComponent(role: .floor))
 
-        if sceneState.isReduceMotionEnabled {
-            // Reduce Motion: place flat immediately, no animation.
-            entity.orientation = simd_quatf(angle: Float.random(in: 0 ..< .pi * 2), axis: SIMD3(0, 1, 0))
-            if entity.position.y < 0 { entity.position.y = 0.015 }
-            sceneState.originalTransforms[plateID] = Transform(matrix: entity.transformMatrix(relativeTo: nil))
-            return
-        }
         // Physics path: preserve orientation at release so the plate tumbles naturally.
         // Angular velocity is applied below when fling speed is significant.
         // Clamp in sceneRoot space, where floor/walls actually exist.

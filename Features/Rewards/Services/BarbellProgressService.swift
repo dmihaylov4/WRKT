@@ -175,10 +175,18 @@ final class BarbellProgressService {
         existing?.rackPosition = nil
         plate.isRacked = true
         plate.rackPosition = nextSlot
+        DiagnosticsLogStore.shared.append(
+            "ADD_TO_BAR id=\(plate.id) slot=\(nextSlot) replacing=\(existing?.id ?? "nil")",
+            category: "Barbell"
+        )
         do {
             try context.save()
         } catch {
             context.rollback()
+            DiagnosticsLogStore.shared.append(
+                "ADD_TO_BAR_SAVE_FAILED id=\(plate.id) slot=\(nextSlot) error=\(error.localizedDescription)",
+                category: "Barbell"
+            )
             throw error
         }
         updateDisplayLoadoutFromRackedPlates(context: context)
@@ -246,14 +254,26 @@ final class BarbellProgressService {
     func removeFromBar(plate: EarnedPlate) {
         guard let context else { return }
         let pos = plate.rackPosition
+        DiagnosticsLogStore.shared.append(
+            "REMOVE_FROM_BAR_BEGIN id=\(plate.id) oldIsRacked=\(plate.isRacked) oldPos=\(pos.map(String.init) ?? "nil")",
+            category: "Barbell"
+        )
         plate.isRacked = false
         plate.rackPosition = nil
         do {
             try context.save()
         } catch {
             context.rollback()
+            DiagnosticsLogStore.shared.append(
+                "REMOVE_FROM_BAR_SAVE_FAILED id=\(plate.id) oldPos=\(pos.map(String.init) ?? "nil") error=\(error.localizedDescription)",
+                category: "Barbell"
+            )
             return
         }
+        DiagnosticsLogStore.shared.append(
+            "REMOVE_FROM_BAR_SAVED id=\(plate.id) oldPos=\(pos.map(String.init) ?? "nil")",
+            category: "Barbell"
+        )
         updateDisplayLoadoutFromRackedPlates(context: context)
         let snapshot = RackedPlateMutation(
             earnedByEvent: plate.earnedByEvent,

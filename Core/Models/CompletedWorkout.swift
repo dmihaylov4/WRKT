@@ -61,13 +61,17 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
     var cardioAvgGroundContactTime: Double? // Milliseconds
     var cardioAvgVerticalOscillation: Double? // Centimeters
 
-    init(id: UUID = UUID(), date: Date = .now, startedAt: Date? = nil, entries: [WorkoutEntry], plannedWorkoutID: UUID? = nil, workoutName: String? = nil) {
+    /// Planned exercise IDs that were intentionally removed during the live session.
+    var excusedPlannedExerciseIDs: Set<UUID> = []
+
+    init(id: UUID = UUID(), date: Date = .now, startedAt: Date? = nil, entries: [WorkoutEntry], plannedWorkoutID: UUID? = nil, workoutName: String? = nil, excusedPlannedExerciseIDs: Set<UUID> = []) {
         self.id = id
         self.date = date
         self.startedAt = startedAt
         self.entries = entries
         self.plannedWorkoutID = plannedWorkoutID
         self.workoutName = workoutName
+        self.excusedPlannedExerciseIDs = excusedPlannedExerciseIDs
     }
 
     // MARK: - Computed Properties
@@ -151,6 +155,7 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
         case cardioAvgStrideLength
         case cardioAvgGroundContactTime
         case cardioAvgVerticalOscillation
+        case excusedPlannedExerciseIDs
     }
 
     // Custom decoder to handle missing fields (legacy data)
@@ -192,6 +197,7 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
         cardioAvgStrideLength = try? container.decode(Double.self, forKey: .cardioAvgStrideLength)
         cardioAvgGroundContactTime = try? container.decode(Double.self, forKey: .cardioAvgGroundContactTime)
         cardioAvgVerticalOscillation = try? container.decode(Double.self, forKey: .cardioAvgVerticalOscillation)
+        excusedPlannedExerciseIDs = (try? container.decode(Set<UUID>.self, forKey: .excusedPlannedExerciseIDs)) ?? []
     }
 
     // Custom encoder to ensure all fields are properly saved
@@ -222,6 +228,7 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(cardioAvgStrideLength, forKey: .cardioAvgStrideLength)
         try container.encodeIfPresent(cardioAvgGroundContactTime, forKey: .cardioAvgGroundContactTime)
         try container.encodeIfPresent(cardioAvgVerticalOscillation, forKey: .cardioAvgVerticalOscillation)
+        try container.encode(excusedPlannedExerciseIDs, forKey: .excusedPlannedExerciseIDs)
     }
 }
 

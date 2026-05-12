@@ -172,12 +172,19 @@ final class HomeViewModel {
 
         // Calculate days remaining in week
         let daysRemaining = calendar.dateComponents([.day], from: .now, to: weekEnd).day ?? 0
+        let weekEnded = Date() >= weekEnd
+
+        // Attach plan adherence if an active plan has sessions scheduled this week
+        let adherence = plannerStore.adherence(forWeek: weekStart)
+        let planAdherence = adherence.plannedSessions > 0 ? adherence : nil
 
         return WeeklyProgressData(
             completedDays: completedDays,
             targetDays: targetDays,
             percentage: percentage,
-            daysRemaining: max(0, daysRemaining)
+            daysRemaining: max(0, daysRemaining),
+            weekEnded: weekEnded,
+            planAdherence: planAdherence
         )
     }
 
@@ -629,6 +636,9 @@ final class HomeViewModel {
             currentStreak: currentStreak
         )
 
+        let adherence = plannerStore.adherence(forWeek: weekStart)
+        let planAdherence = adherence.plannedSessions > 0 ? adherence : nil
+
         return UnifiedWeeklyStatsWithStreak(
             strengthCompleted: weekProgress.strengthDaysDone,
             strengthTarget: goal.targetStrengthDays,
@@ -639,7 +649,9 @@ final class HomeViewModel {
             nextMilestone: nextMilestone,
             milestoneProgress: milestoneProgress,
             urgencyLevel: urgencyLevel,
-            urgencyMessage: urgencyMessage
+            urgencyMessage: urgencyMessage,
+            planAdherence: planAdherence,
+            weekEnded: Date() >= weekEnd
         )
     }
 
@@ -769,6 +781,8 @@ struct WeeklyProgressData {
     let targetDays: Int
     let percentage: Double
     let daysRemaining: Int
+    let weekEnded: Bool
+    let planAdherence: PlanAdherence?
 }
 
 struct PRSummary {
@@ -936,14 +950,18 @@ struct UnifiedWeeklyStatsWithStreak {
     let cardioTarget: Int
     let daysRemaining: Int
 
-    // NEW: Streak data
+    // Streak data
     let currentStreak: Int
     let nextMilestone: Int?
     let milestoneProgress: Double  // 0.0 to 1.0
 
-    // NEW: Urgency data
+    // Urgency data
     let urgencyLevel: StreakUrgencyLevel
     let urgencyMessage: String?
+
+    // Plan adherence
+    let planAdherence: PlanAdherence?
+    let weekEnded: Bool
 }
 
 struct ComparativeStats {

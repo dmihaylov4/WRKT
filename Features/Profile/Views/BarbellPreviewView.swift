@@ -104,6 +104,28 @@ func barbellShowcaseRightSideOffsets(for plates: [EarnedPlateInfo]) -> [Float] {
     return offsets
 }
 
+func barbellPreviewSceneIdentity(
+    selectedTier: Int,
+    selectedBar: Int,
+    selectedSticker: Int,
+    selectedRoomThemeID: String,
+    selectedRackStyleID: String,
+    showPlateEngravings: Bool,
+    showcaseSignature: String,
+    assetRevision: Int = 0
+) -> String {
+    _ = assetRevision
+    return [
+        "\(selectedTier)",
+        "\(selectedBar)",
+        "\(selectedSticker)",
+        selectedRoomThemeID,
+        selectedRackStyleID,
+        "\(showPlateEngravings)",
+        showcaseSignature
+    ].joined(separator: "|")
+}
+
 // MARK: - View
 
 struct BarbellPreviewView: View {
@@ -116,12 +138,14 @@ struct BarbellPreviewView: View {
     @State private var isDragging = false
     @State private var lastTranslationX: CGFloat = 0
     @State private var selectedPlateTip: EarnedPlateInfo? = nil
+    @State private var assetRevision = 0
 
     @State private var activeTab = 0
     @State private var selectedTier = 0
     @State private var selectedBar = 0
     @State private var selectedSticker = 0
     @State private var addedPairs = 0
+    @State private var isViewVisible = false
 
     init(
         mode: BarbellDisplayMode = .editor,
@@ -161,10 +185,12 @@ struct BarbellPreviewView: View {
                 Color.black
                     .overlay(roomBackgroundColor)
 
-                TimelineView(.animation) { timeline in
+                TimelineView(.animation(minimumInterval: nil, paused: !isViewVisible)) { timeline in
                     RealityView { content in
                         setupLights(in: &content)
+                        installSceneRoot(content: &content)
                     } update: { content in
+                        _ = assetRevision
                         rebuildIfNeeded(content: &content)
 
                         let now = timeline.date.timeIntervalSinceReferenceDate
@@ -319,6 +345,8 @@ struct BarbellPreviewView: View {
         .ignoresSafeArea(edges: .top)
         .navigationTitle("Barbell")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { isViewVisible = true }
+        .onDisappear { isViewVisible = false }
         .task {
             await preloadTextures()
         }
@@ -388,11 +416,17 @@ struct BarbellPreviewView: View {
         else { return }
 
         scene.root?.removeFromParent()
+        installSceneRoot(content: &content)
+    }
+
+    private func installSceneRoot(content: inout RealityViewCameraContent) {
+        scene.root = nil
+        scene.lastTime = 0
 
         let root: Entity
         if let plates = showcasePlates {
             root = makeBarbellShowcase(plates: plates, skin: BarSkin.all[selectedBar])
-            scene.spinVelocity = 0.35   // allow auto-spin and drag in showcase
+            scene.spinVelocity = 0.35
         } else {
             guard let selectedPlateTier = barbellPreviewTier(forSelection: selectedTier) else { return }
             root = makeBarbell(
@@ -402,7 +436,6 @@ struct BarbellPreviewView: View {
             )
         }
 
-        // Apply image-based lighting if the HDRI has been loaded
         if let ibl = scene.iblResource {
             let iblEntity = Entity()
             iblEntity.components.set(ImageBasedLightComponent(source: .single(ibl), intensityExponent: 1.55))
@@ -412,7 +445,6 @@ struct BarbellPreviewView: View {
 
         content.add(root)
         root.orientation = simd_quatf(angle: scene.rotAngle, axis: SIMD3(0, 1, 0))
-
         scene.root = root
         scene.appliedTier = selectedTier
         scene.appliedBar = selectedBar
@@ -802,16 +834,20 @@ struct BarbellPreviewView: View {
     // MARK: - Texture preloading
 
     private func preloadTextures() async {
+        var didLoadAsset = false
+
         // Use shared prefix-level cache from BarbellEntityBuilder to avoid duplicate GPU texture
         // uploads. Tier IDs 1=CastIron, 2=Rubber, 3=Brass map to the same source files used by
         // PlateWallView; sharing TextureResource objects halves GPU memory for PBR textures.
         for tierID in [1, 2, 3] where scene.plateTextures[tierID] == nil {
             scene.plateTextures[tierID] = loadPlateTextures(forTierID: tierID)
+            didLoadAsset = true
         }
 
         // IBL from HDRI
         if scene.iblResource == nil {
             scene.iblResource = try? await EnvironmentResource(named: "IndoorHDRI")
+            didLoadAsset = scene.iblResource != nil || didLoadAsset
         }
 
         if [1, 2, 3].contains(selectedTier) || scene.iblResource != nil {
@@ -823,9 +859,14 @@ struct BarbellPreviewView: View {
             guard let emoji = option.emoji, scene.emojiTextures[emoji] == nil else { continue }
             if let texture = makeEmojiTexture(emoji) {
                 scene.emojiTextures[emoji] = texture
+                didLoadAsset = true
             }
         }
         scene.appliedSticker = -1
+
+        if didLoadAsset {
+            assetRevision += 1
+        }
     }
 
     private func makeEmojiTexture(_ emoji: String) -> TextureResource? {

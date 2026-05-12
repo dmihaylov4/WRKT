@@ -20,6 +20,14 @@ struct LiveWorkoutOverlayCard: View {
     @State private var showDiscardConfirmation = false
     @State private var showShareWorkout = false
     @State private var completedWorkoutToShare: CompletedWorkout?
+    @State private var swappingEntry: WorkoutEntry? = nil
+    @State private var pendingPermanentSwap: PendingSwap? = nil
+
+    private struct PendingSwap {
+        let plannedExerciseID: UUID
+        let newExerciseID: String
+        let newExerciseName: String
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -87,6 +95,31 @@ struct LiveWorkoutOverlayCard: View {
             if let workout = completedWorkoutToShare {
                 PostCreationView(workout: workout)
             }
+        }
+        .sheet(item: $swappingEntry) { entry in
+            ExercisePickerView(onSelect: { exercise in
+                performSwap(entry: entry, newExercise: exercise)
+            })
+        }
+        .confirmationDialog(
+            "Update your plan?",
+            isPresented: Binding(get: { pendingPermanentSwap != nil }, set: { if !$0 { pendingPermanentSwap = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Just for today") { pendingPermanentSwap = nil }
+            Button("Update plan permanently") {
+                if let swap = pendingPermanentSwap {
+                    AppDependencies.shared.plannerStore.updatePlannedExercise(
+                        id: swap.plannedExerciseID,
+                        newExerciseID: swap.newExerciseID,
+                        newExerciseName: swap.newExerciseName
+                    )
+                }
+                pendingPermanentSwap = nil
+            }
+            Button("Cancel", role: .cancel) { pendingPermanentSwap = nil }
+        } message: {
+            Text("Do you want this swap to apply to future workouts in your plan too?")
         }
         .onChange(of: restTimer.state) { oldState, newState in
             handleTimerStateChange(newState: newState)
@@ -215,6 +248,22 @@ struct LiveWorkoutOverlayCard: View {
         store.updateEntrySetsAndActiveIndex(entryID: entry.id, sets: updatedSets, activeSetIndex: updatedSets.count - 1)
 
         AppLogger.debug("Auto-generated new set for \(entry.exerciseName) after rest timer completed", category: AppLogger.workout)
+    }
+
+    // MARK: - Swap Helpers
+
+    private func performSwap(entry: WorkoutEntry, newExercise: Exercise) {
+        store.replaceEntryExercise(entryID: entry.id, newExerciseID: newExercise.id)
+        swappingEntry = nil
+
+        // Offer permanent update only when the session is tied to a plan
+        guard store.currentWorkout?.plannedWorkoutID != nil,
+              let pid = entry.plannedExerciseID else { return }
+        pendingPermanentSwap = PendingSwap(
+            plannedExerciseID: pid,
+            newExerciseID: newExercise.id,
+            newExerciseName: newExercise.name
+        )
     }
 
     // MARK: Header
@@ -453,6 +502,11 @@ struct LiveWorkoutOverlayCard: View {
                         },
                         onRemove: { entryID in
                             store.removeEntry(entryID: entryID)
+                        },
+                        onSwap: { entryID in
+                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
+                                swappingEntry = entry
+                            }
                         }
                     )
                     .padding(.top, 12)
@@ -482,7 +536,8 @@ struct LiveWorkoutOverlayCard: View {
                             onOpen: {
                                 store.setActiveEntry(hero.id)
                                 editingEntry = hero
-                            }
+                            },
+                            onSwap: { swappingEntry = hero }
                         )
                         .padding(.horizontal, 16)
                         .padding(.top, completedGroups.isEmpty ? 12 : 16)
@@ -518,6 +573,11 @@ struct LiveWorkoutOverlayCard: View {
                         },
                         onRemove: { entryID in
                             store.removeEntry(entryID: entryID)
+                        },
+                        onSwap: { entryID in
+                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
+                                swappingEntry = entry
+                            }
                         }
                     )
                     .padding(.top, 16)
@@ -534,6 +594,11 @@ struct LiveWorkoutOverlayCard: View {
                         },
                         onRemove: { entryID in
                             store.removeEntry(entryID: entryID)
+                        },
+                        onSwap: { entryID in
+                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
+                                swappingEntry = entry
+                            }
                         }
                     )
                     .padding(.top, 16)
@@ -888,6 +953,9 @@ private struct CurrentExerciseHeroCard: View {
     let entry: WorkoutEntry
     let state: LiveWorkoutOverlayCard.ExerciseState
     let onOpen: () -> Void
+    let onSwap: () -> Void
+
+    @State private var swipeOffsetX: CGFloat = 0
 
     private var stateLabel: String {
         switch state {
@@ -971,11 +1039,32 @@ private struct CurrentExerciseHeroCard: View {
                         .stroke(stateColor.opacity(0.4), lineWidth: 2)
                 )
         )
+        .offset(x: swipeOffsetX)
         .contentShape(Rectangle())
         .onTapGesture { onOpen() }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onChanged { v in
+                    guard abs(v.translation.width) > abs(v.translation.height) else { return }
+                    swipeOffsetX = v.translation.width * 0.25
+                }
+                .onEnded { v in
+                    let isHorizontal = abs(v.translation.width) > abs(v.translation.height)
+                    let didSwipe = isHorizontal && abs(v.translation.width) > 60
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { swipeOffsetX = 0 }
+                    if didSwipe {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        onSwap()
+                    }
+                }
+        )
         .contextMenu {
             Button(action: onOpen) {
                 Label("Edit Exercise", systemImage: "pencil")
+            }
+
+            Button(action: onSwap) {
+                Label("Swap Exercise", systemImage: "arrow.left.arrow.right")
             }
 
             if entry.isInSuperset {
@@ -996,6 +1085,7 @@ private struct SupersetGroupSection: View {
     let groups: [LiveWorkoutOverlayCard.SupersetGroup]
     let onOpen: (WorkoutEntry) -> Void
     let onRemove: (UUID) -> Void
+    let onSwap: (UUID) -> Void
 
     @State private var isExpanded = false
 
@@ -1042,13 +1132,15 @@ private struct SupersetGroupSection: View {
                             SupersetGroupRow(
                                 entries: group.entries,
                                 onOpen: onOpen,
-                                onRemove: onRemove
+                                onRemove: onRemove,
+                                onSwap: onSwap
                             )
                         } else if let entry = group.entries.first {
                             ExerciseGroupRow(
                                 entry: entry,
                                 onOpen: { onOpen(entry) },
-                                onRemove: { onRemove(entry.id) }
+                                onRemove: { onRemove(entry.id) },
+                                onSwap: { onSwap(entry.id) }
                             )
                         }
                     }
@@ -1064,6 +1156,7 @@ private struct SupersetGroupRow: View {
     let entries: [WorkoutEntry]
     let onOpen: (WorkoutEntry) -> Void
     let onRemove: (UUID) -> Void
+    let onSwap: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1123,6 +1216,18 @@ private struct SupersetGroupRow: View {
                 .padding(.horizontal, 12)
                 .contentShape(Rectangle())
                 .onTapGesture { onOpen(entry) }
+                .contextMenu {
+                    Button { onOpen(entry) } label: {
+                        Label("Edit Exercise", systemImage: "pencil")
+                    }
+                    Button { onSwap(entry.id) } label: {
+                        Label("Swap Exercise", systemImage: "arrow.left.arrow.right")
+                    }
+                    Divider()
+                    Button(role: .destructive) { onRemove(entry.id) } label: {
+                        Label("Remove", systemImage: "trash")
+                    }
+                }
             }
         }
         .padding(.bottom, 10)
@@ -1304,7 +1409,8 @@ private struct ExerciseGroupSection: View {
                         ExerciseGroupRow(
                             entry: entry,
                             onOpen: { onOpen(entry) },
-                            onRemove: { onRemove(entry.id) }
+                            onRemove: { onRemove(entry.id) },
+                            onSwap: {}
                         )
                     }
                 }
@@ -1319,6 +1425,7 @@ private struct ExerciseGroupRow: View {
     let entry: WorkoutEntry
     let onOpen: () -> Void
     let onRemove: () -> Void
+    let onSwap: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1363,6 +1470,10 @@ private struct ExerciseGroupRow: View {
         .contextMenu {
             Button(action: onOpen) {
                 Label("Edit Exercise", systemImage: "pencil")
+            }
+
+            Button(action: onSwap) {
+                Label("Swap Exercise", systemImage: "arrow.left.arrow.right")
             }
 
             if entry.isInSuperset {

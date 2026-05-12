@@ -26,6 +26,23 @@ struct ProgramLibraryViewModelTests {
         #expect(split.originProgramID == programID)
         #expect(split.isActive == false)
     }
+
+    @Test func deleteAllPlannedWorkoutsDelegatesToPlannerStoreAndRefreshesLibrary() {
+        let plannerStore = InMemoryPlannerStore()
+        let activeSplit = WorkoutSplit(name: "Full Body", planBlocks: [], anchorDate: .now)
+        activeSplit.isActive = true
+        plannerStore.splits = [activeSplit]
+        let vm = ProgramLibraryViewModel(
+            repo: StubSharingRepo(programID: UUID()),
+            plannerStore: plannerStore,
+            currentUserID: UUID()
+        )
+
+        vm.deleteAllPlannedWorkouts()
+
+        #expect(plannerStore.didDeleteAllPlannedWorkouts)
+        #expect(vm.activeSplit?.id == activeSplit.id)
+    }
 }
 
 @MainActor
@@ -98,6 +115,7 @@ private final class StubSharingRepo: ProgramSharingRepositoryInterface {
 @MainActor
 private final class InMemoryPlannerStore: PlannerStoreInterface {
     var splits: [WorkoutSplit] = []
+    var didDeleteAllPlannedWorkouts = false
 
     func splitLibrary() throws -> [WorkoutSplit] { splits }
 
@@ -107,5 +125,9 @@ private final class InMemoryPlannerStore: PlannerStoreInterface {
 
     func activate(_ split: WorkoutSplit, customization: ActivationCustomization) throws {}
     func replanUpcomingWorkouts(for split: WorkoutSplit, fromDate: Date) throws {}
+    func deleteUpcomingPlannedWorkouts(for split: WorkoutSplit) throws {}
+    func deleteAllPlannedWorkouts() throws {
+        didDeleteAllPlannedWorkouts = true
+    }
     func saveContext() throws {}
 }

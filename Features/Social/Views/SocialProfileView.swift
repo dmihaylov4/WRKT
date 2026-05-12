@@ -36,9 +36,6 @@ struct SocialProfileView: View {
     @State private var isBattleLoading = false
     @State private var showingFriendBarbellRoom = false
 
-    // Badge manager for notifications
-    @State private var badgeManager = NotificationBadgeManager.shared
-
     // Virtual run invite
     @State private var isInvitingToRun = false
     @State private var runInviteSent = false
@@ -98,9 +95,6 @@ struct SocialProfileView: View {
             } else if battleId == nil {
                 AppLogger.info("⚠️ No battleId provided to SocialProfileView", category: AppLogger.battles)
             }
-
-            // Refresh notification badges
-            await badgeManager.refreshBadges()
 
             await loadFriendBarbellShowcase()
 
@@ -256,14 +250,12 @@ struct SocialProfileView: View {
             if viewModel.isOwnProfile {
                 VStack(spacing: 24) {
                     profileHeader(viewModel: viewModel)
-                    activityLink
                     BarbellShowcaseCard(
                         isOwnProfile: true,
                         ownerId: userId,
                         sessionCount: barbellConfigs.first?.totalStrengthWorkouts ?? 0,
                         friendRackedPlates: []
                     )
-                    actionButtons(viewModel: viewModel)
                     postsSection(viewModel: viewModel)
                 }
                 .padding()
@@ -349,10 +341,16 @@ struct SocialProfileView: View {
 
                 VStack(alignment: .leading, spacing: 14) {
                     profileIdentity(viewModel: viewModel)
+                        .padding(.trailing, viewModel.isOwnProfile ? 92 : 0)
                     profileStatusStack(viewModel: viewModel)
                 }
-
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+            }
+            .overlay(alignment: .topTrailing) {
+                if viewModel.isOwnProfile {
+                    profileEditChip
+                }
             }
 
             if let bio = viewModel.profile.bio, !bio.isEmpty {
@@ -367,6 +365,30 @@ struct SocialProfileView: View {
             }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var profileEditChip: some View {
+        Button {
+            showingEditProfile = true
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "pencil")
+                    .font(.system(size: 11, weight: .bold))
+                Text("Edit")
+            }
+            .dsFont(.caption, weight: .semibold)
+            .foregroundStyle(DS.Semantic.brand)
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .background(DS.Semantic.surface.opacity(0.58))
+            .clipShape(ChamferedRectangle(.small))
+            .overlay(
+                ChamferedRectangle(.small)
+                    .stroke(DS.Semantic.brand.opacity(0.32), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Edit profile")
     }
 
     private var friendBarSkinIndex: Int {
@@ -405,8 +427,9 @@ struct SocialProfileView: View {
                 .frame(height: 1)
 
             ZStack(alignment: .topTrailing) {
-                BarbellPreviewView(
-                    mode: .showcase(plates: friendRackedPlates),
+                BarbellShowcasePreviewSurface(
+                    context: .socialProfileCard,
+                    plates: friendRackedPlates,
                     selectedBarID: friendBarSkinIndex,
                     selectedRoomThemeID: friendRoomThemeID,
                     selectedRackStyleID: friendRackStyleID,
@@ -554,17 +577,35 @@ struct SocialProfileView: View {
     }
 
     private func profileMetaRow(label: String, value: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text("\(label):")
-                .dsFont(.subheadline, weight: .semibold)
-                .foregroundStyle(DS.Semantic.textSecondary)
-                .frame(width: 88, alignment: .leading)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                profileMetaLabel(label)
+                    .frame(width: 88, alignment: .leading)
 
-            Text(value)
-                .dsFont(.subheadline, weight: .semibold)
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .multilineTextAlignment(.leading)
+                profileMetaValue(value)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                profileMetaLabel(label)
+                profileMetaValue(value)
+            }
         }
+    }
+
+    private func profileMetaLabel(_ label: String) -> some View {
+        Text("\(label):")
+            .dsFont(.subheadline, weight: .semibold)
+            .foregroundStyle(DS.Semantic.textSecondary)
+    }
+
+    private func profileMetaValue(_ value: String) -> some View {
+        Text(value)
+            .dsFont(.subheadline, weight: .semibold)
+            .foregroundStyle(DS.Semantic.textPrimary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func statItem(value: String, label: String) -> some View {
@@ -978,52 +1019,9 @@ struct SocialProfileView: View {
         return formatter.localizedString(for: date, relativeTo: .now)
     }
 
-    private var activityLink: some View {
-        NavigationLink {
-            ActivityFeedView()
-                .environment(\.dependencies, deps)
-        } label: {
-            HStack {
-                Label("Activity", systemImage: "bell.fill")
-                    .foregroundStyle(DS.Semantic.textPrimary)
-
-                Spacer()
-
-                if badgeManager.notificationCount > 0 {
-                    Text("\(badgeManager.notificationCount)")
-                        .dsFont(.caption, weight: .bold)
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(DS.Semantic.brand)
-                        .clipShape(Capsule())
-                }
-
-                Image(systemName: "chevron.right")
-                    .dsFont(.caption, weight: .semibold)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-            }
-            .padding()
-            .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.medium))
-        }
-    }
-
     private func actionButtons(viewModel: ProfileViewModel) -> some View {
         return Group {
-            if viewModel.isOwnProfile {
-                Button {
-                    showingEditProfile = true
-                } label: {
-                    Text("Edit Profile")
-                        .dsFont(.headline)
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(DS.Palette.marone)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-            } else {
+            if !viewModel.isOwnProfile {
                 friendActionButton(viewModel: viewModel)
             }
         }
@@ -1497,7 +1495,15 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - Edit Profile View (Placeholder)
+// MARK: - Edit Profile View
+
+func editProfileBioUpdateValue(_ rawValue: String) -> String {
+    rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+}
+
+func editProfileDisplayNameUpdateValue(_ rawValue: String) -> String {
+    rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+}
 
 struct EditProfileView: View {
     @Environment(\.dismiss) private var dismiss
@@ -1521,50 +1527,210 @@ struct EditProfileView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Profile Information") {
-                    TextField("Display Name", text: $displayName)
-                    TextField("Bio", text: $bio, axis: .vertical)
-                        .lineLimit(3...6)
-                }
+            VStack(spacing: 0) {
+                editHeader
 
-                Section {
-                    Toggle("Private Profile", isOn: $isPrivate)
-                } header: {
-                    Text("Privacy")
-                } footer: {
-                    Text("When enabled, your profile won't appear in search results. People can only find you if they already know your username.")
-                        .dsFont(.caption)
-                }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        profileFieldsSection
+                        privacySection
 
-                if let error = error {
-                    Section {
-                        Text(error)
-                            .foregroundStyle(.red)
-                            .dsFont(.caption)
-                    }
-                }
-            }
-            .navigationTitle("Edit Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .disabled(isSaving)
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task {
-                            await saveProfile()
+                        if let error {
+                            errorSection(error)
                         }
                     }
-                    .disabled(isSaving)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                    .padding(.bottom, 28)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
+            .background(DS.Semantic.surface.ignoresSafeArea())
+            .toolbar(.hidden, for: .navigationBar)
         }
+    }
+
+    private var editHeader: some View {
+        HStack(spacing: 12) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .frame(width: 42, height: 42)
+                    .background(DS.Semantic.fillSubtle)
+                    .clipShape(ChamferedRectangle(.medium))
+                    .overlay(
+                        ChamferedRectangle(.medium)
+                            .stroke(DS.Semantic.border, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(isSaving)
+            .accessibilityLabel("Cancel")
+
+            Spacer()
+
+            Text("Edit Profile")
+                .dsFont(.headline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Spacer()
+
+            Button {
+                Task {
+                    await saveProfile()
+                }
+            } label: {
+                HStack(spacing: 7) {
+                    if isSaving {
+                        ProgressView()
+                            .tint(.black)
+                            .scaleEffect(0.72)
+                    } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+
+                    Text("Save")
+                }
+                .dsFont(.caption, weight: .bold)
+                .foregroundStyle(.black)
+                .padding(.horizontal, 13)
+                .frame(height: 42)
+                .background(DS.Semantic.brand)
+                .clipShape(ChamferedRectangle(.medium))
+            }
+            .buttonStyle(.plain)
+            .disabled(isSaving)
+            .opacity(isSaving ? 0.72 : 1)
+            .accessibilityLabel("Save profile")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 14)
+        .padding(.bottom, 16)
+        .background(DS.Semantic.surface)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DS.Semantic.border.opacity(0.65))
+                .frame(height: 1)
+        }
+    }
+
+    private var profileFieldsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            editSectionTitle("Profile Information")
+
+            VStack(spacing: 0) {
+                editTextField(
+                    title: "Display Name",
+                    placeholder: "Add your name",
+                    text: $displayName,
+                    axis: .horizontal,
+                    lineLimit: 1...1
+                )
+
+                Rectangle()
+                    .fill(DS.Semantic.border.opacity(0.65))
+                    .frame(height: 1)
+                    .padding(.horizontal, 16)
+
+                editTextField(
+                    title: "Bio",
+                    placeholder: "Add a short training note",
+                    text: $bio,
+                    axis: .vertical,
+                    lineLimit: 3...6
+                )
+            }
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
+            )
+        }
+    }
+
+    private var privacySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            editSectionTitle("Privacy")
+
+            VStack(alignment: .leading, spacing: 14) {
+                Toggle(isOn: $isPrivate) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Private Profile")
+                            .dsFont(.body, weight: .semibold)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+
+                        Text("Hide from search. People can only find you if they already know your username.")
+                            .dsFont(.caption)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .tint(DS.Semantic.brand)
+            }
+            .padding(16)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
+            )
+        }
+    }
+
+    private func editSectionTitle(_ title: String) -> some View {
+        Text(title.uppercased())
+            .dsFont(.caption, weight: .semibold)
+            .foregroundStyle(DS.Semantic.textSecondary)
+            .padding(.horizontal, 2)
+    }
+
+    private func editTextField(
+        title: String,
+        placeholder: String,
+        text: Binding<String>,
+        axis: Axis,
+        lineLimit: ClosedRange<Int>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title.uppercased())
+                .dsFont(.caption, weight: .semibold)
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            TextField(placeholder, text: text, axis: axis)
+                .lineLimit(lineLimit)
+                .dsFont(.body, weight: .medium)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .textFieldStyle(.plain)
+                .tint(DS.Semantic.brand)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func errorSection(_ error: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(DS.Palette.marone)
+
+            Text(error)
+                .dsFont(.caption, weight: .medium)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Palette.marone.opacity(0.12))
+        .clipShape(ChamferedRectangle(.medium))
+        .overlay(
+            ChamferedRectangle(.medium)
+                .stroke(DS.Palette.marone.opacity(0.35), lineWidth: 1)
+        )
     }
 
     private func saveProfile() async {
@@ -1574,8 +1740,8 @@ struct EditProfileView: View {
         do {
             // Update profile in database
             try await deps.authService.updateProfile(
-                displayName: displayName.isEmpty ? nil : displayName,
-                bio: bio.isEmpty ? nil : bio,
+                displayName: editProfileDisplayNameUpdateValue(displayName),
+                bio: editProfileBioUpdateValue(bio),
                 isPrivate: isPrivate
             )
 

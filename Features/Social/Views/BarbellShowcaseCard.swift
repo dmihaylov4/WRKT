@@ -20,6 +20,45 @@ struct BarbellShowcaseCard: View {
     }
 }
 
+enum BarbellShowcasePreviewRenderer: Equatable {
+    case realityKit
+}
+
+enum BarbellShowcasePreviewContext {
+    case socialProfileCard
+    case socialProfileRoom
+    case editor
+}
+
+func barbellShowcasePreviewRenderer(for context: BarbellShowcasePreviewContext) -> BarbellShowcasePreviewRenderer {
+    switch context {
+    case .socialProfileCard, .socialProfileRoom, .editor:
+        return .realityKit
+    }
+}
+
+struct BarbellShowcasePreviewSurface: View {
+    let context: BarbellShowcasePreviewContext
+    let plates: [EarnedPlateInfo]
+    let selectedBarID: Int
+    let selectedRoomThemeID: String
+    let selectedRackStyleID: String
+    let showPlateEngravings: Bool
+
+    var body: some View {
+        switch barbellShowcasePreviewRenderer(for: context) {
+        case .realityKit:
+            BarbellPreviewView(
+                mode: .showcase(plates: plates),
+                selectedBarID: selectedBarID,
+                selectedRoomThemeID: selectedRoomThemeID,
+                selectedRackStyleID: selectedRackStyleID,
+                showPlateEngravings: showPlateEngravings
+            )
+        }
+    }
+}
+
 // MARK: - Own Profile Card
 
 private struct OwnBarbellCard: View {
@@ -53,12 +92,15 @@ private struct OwnBarbellCard: View {
             return configured
         }
 
-        return ownRackedPlates.sorted {
+        let racked = ownRackedPlates.sorted {
             let leftPosition = $0.rackPosition ?? Int.max
             let rightPosition = $1.rackPosition ?? Int.max
             if leftPosition != rightPosition { return leftPosition < rightPosition }
             return $0.earnedAt > $1.earnedAt
         }
+        if !racked.isEmpty { return racked }
+
+        return ownAllEarnedPlates.sorted { $0.earnedAt > $1.earnedAt }
     }
 
     private var configuredBarPlates: [EarnedPlate]? {
@@ -115,8 +157,9 @@ private struct OwnBarbellCard: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topTrailing) {
-                BarbellPreviewView(
-                    mode: .showcase(plates: plates),
+                BarbellShowcasePreviewSurface(
+                    context: .socialProfileCard,
+                    plates: plates,
                     selectedBarID: selectedBarSkinIndex,
                     selectedRoomThemeID: selectedRoomThemeID,
                     selectedRackStyleID: selectedRackStyleID,
@@ -221,8 +264,9 @@ private struct FriendBarbellCard: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topTrailing) {
-                BarbellPreviewView(
-                    mode: .showcase(plates: plates),
+                BarbellShowcasePreviewSurface(
+                    context: .socialProfileCard,
+                    plates: plates,
                     selectedBarID: selectedBarSkinIndex,
                     selectedRoomThemeID: selectedRoomThemeID,
                     selectedRackStyleID: selectedRackStyleID,
@@ -296,8 +340,9 @@ struct FriendBarbellRoomView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                BarbellPreviewView(
-                    mode: .showcase(plates: plates),
+                BarbellShowcasePreviewSurface(
+                    context: .socialProfileRoom,
+                    plates: plates,
                     selectedBarID: selectedBarSkinIndex,
                     selectedRoomThemeID: selectedRoomThemeID,
                     selectedRackStyleID: selectedRackStyleID,

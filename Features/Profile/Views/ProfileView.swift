@@ -49,82 +49,13 @@ struct ProfileView: View {
         _goals = Query(filter: #Predicate<WeeklyGoal> { $0.isSet == true })
     }
 
-    private var profileHeader: some View {
-        HStack {
-            Spacer()
-
-            Button { showSettings = true } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 14, weight: .bold))
-                    Text("Settings")
-                        .dsFont(.caption, weight: .bold)
-                }
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .padding(.horizontal, 14)
-                .frame(height: 40)
-                .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
-                .overlay(
-                    ChamferedRectangle(.medium)
-                        .stroke(DS.Semantic.border, lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 38)
-    }
-    
     var body: some View {
         ScrollViewReader { proxy in
             List {
                 // UNIFIED PROGRESS OVERVIEW
                 if let p = progress.first {
                     Section {
-                        if let goal = goals.first, goal.isSet {
-                            // Use cached week progress instead of recalculating
-                            VStack(spacing: 12) {
-                                profileHeader
-
-                                ProgressOverviewCard(
-                                    level: p.level,
-                                    xp: p.xp,
-                                    prevXP: p.prevLevelXP,
-                                    nextXP: p.nextLevelXP,
-                                    streak: p.currentStreak,
-                                    longest: p.longestStreak,
-                                    progress: p,
-                                    weekProgress: viewModel.cachedWeekProgress,
-                                    goal: goal
-                                )
-                                .task {
-                                    await viewModel.syncHealthKitIfNeeded(store: store, context: context, goals: goals)
-                                }
-                                .captureFrame(in: .global) { frame in
-                                    levelCardFrame = frame
-                                    checkFramesReady()
-                                }
-                            }
-                        } else {
-                            VStack(spacing: 12) {
-                                profileHeader
-
-                                ProgressOverviewCard(
-                                    level: p.level,
-                                    xp: p.xp,
-                                    prevXP: p.prevLevelXP,
-                                    nextXP: p.nextLevelXP,
-                                    streak: p.currentStreak,
-                                    longest: p.longestStreak,
-                                    progress: p,
-                                    weekProgress: nil,
-                                    goal: nil
-                                )
-                                .captureFrame(in: .global) { frame in
-                                    levelCardFrame = frame
-                                    checkFramesReady()
-                                }
-                            }
-                        }
+                        progressOverview(for: p)
                     }
                     .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 2, trailing: 0))
                     .listRowBackground(Color.clear)
@@ -135,21 +66,6 @@ struct ProfileView: View {
                                                systemImage: "person.crop.circle.badge.questionmark",
                                                description: Text("Start a workout to earn XP and level up."))
                     }
-                }
-
-                // Weekly Goal Streak Card
-                if let p = progress.first, let goal = goals.first, goal.isSet, let weekProgress = viewModel.cachedWeekProgress {
-                    Section {
-                        WeeklyStreakCard(
-                            currentStreak: p.weeklyGoalStreakCurrent,
-                            longestStreak: p.weeklyGoalStreakLongest,
-                            progress: weekProgress,
-                            isFrozen: p.weeklyStreakFrozen
-                        )
-                    }
-                    .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 4, trailing: 0))
-                    .listRowBackground(Color.clear)
-                    .id("weeklyStreak")
                 }
 
                 Section {
@@ -167,88 +83,31 @@ struct ProfileView: View {
                 .listRowBackground(Color.clear)
                 .id("graphs")
 
-                // "DEX" PREVIEW — same tiles as the Dex screen (compact variant)
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("PR Collection")
-                                    .dsFont(.headline)
-                                    .foregroundStyle(.white)
-
-                                Text("\(viewModel.unlockedPRCount) / \(viewModel.dexPreviewCache.count) unlocked")
-                                    .dsFont(.caption)
-                                    .foregroundStyle(.white.opacity(0.6))
-                            }
-
-                            Spacer()
-
-                            NavigationLink(destination: AchievementsDexView()) {
-
+                    VStack(spacing: 10) {
+                        ForEach(ProfileCollectionDestination.allCases) { destination in
+                            NavigationLink {
+                                collectionDestinationView(for: destination)
+                            } label: {
+                                ProfileCollectionDestinationButton(destination: destination)
                             }
                             .buttonStyle(.plain)
-                        }
-
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
-                            ForEach(viewModel.dexPreview) { item in
-                                DexTile(item: item).equatable()
-
+                            .captureFrame(in: .global) { frame in
+                                switch destination {
+                                case .prCollection:
+                                    dexFrame = frame
+                                case .milestones:
+                                    milestonesFrame = frame
+                                }
+                                checkFramesReady()
                             }
+                            .id(destination.scrollID)
                         }
-                        .padding(.top, 2)
-                        .transaction { $0.animation = nil } // snappy scrolling
-                    }
-                    .padding(16)
-                    .background(
-                        ChamferedRectangle(.xl)
-                            .fill(Color.black)
-                            .overlay(ChamferedRectangle(.xl).stroke(.white.opacity(0.08), lineWidth: 1))
-                    )
-                    .captureFrame(in: .global) { frame in
-                        dexFrame = frame
-                        checkFramesReady()
                     }
                 }
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
                 .listRowBackground(Color.clear)
-                .id("dex")
-
-                // MILESTONES (non-PR achievements) - use cached version
-                if !viewModel.cachedMilestones.isEmpty {
-                    Section {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Milestones")
-                                .dsFont(.headline)
-                                .foregroundStyle(.white)
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(viewModel.cachedMilestones.prefix(12)) { a in
-                                        MilestoneChip(a: a)
-                                    }
-                                }
-                                .padding(.horizontal, 2)
-                            }
-
-                            NavigationLink("See all achievements") { AchievementsView() }
-                                .dsFont(.subheadline, weight: .semibold)
-                                .padding(.top, 4)
-                        }
-                        .padding(16)
-                        .background(
-                            ChamferedRectangle(.xl)
-                                .fill(Color.black)
-                                .overlay(ChamferedRectangle(.xl).stroke(.white.opacity(0.08), lineWidth: 1))
-                        )
-                        .captureFrame(in: .global) { frame in
-                            milestonesFrame = frame
-                            checkFramesReady()
-                        }
-                    }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                    .listRowBackground(Color.clear)
-                    .id("milestones")
-                }
+                .id("profileCollections")
 
                 // Bottom spacer for custom tab bar (UITabBar.isHidden breaks safe area propagation)
                 Section {
@@ -258,6 +117,8 @@ struct ProfileView: View {
                 .listRowInsets(.init())
             }
             .listStyle(.insetGrouped)
+            .listSectionSpacing(0)
+            .contentMargins(.top, 0, for: .scrollContent)
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showSettings) {
                 SettingsView()
@@ -277,6 +138,12 @@ struct ProfileView: View {
                     }
                 }
             }
+        }
+        .safeAreaInset(edge: .top) {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 0)
+                .background(DS.Semantic.surface.ignoresSafeArea(edges: .top))
         }
         .task {
             await viewModel.loadExercises(using: repo)
@@ -341,6 +208,62 @@ struct ProfileView: View {
         }
     }
 
+    @ViewBuilder
+    private func progressOverview(for progress: RewardProgress) -> some View {
+        if let goal = goals.first, goal.isSet {
+            // Use cached week progress instead of recalculating
+            ProgressOverviewCard(
+                level: progress.level,
+                xp: progress.xp,
+                prevXP: progress.prevLevelXP,
+                nextXP: progress.nextLevelXP,
+                streak: progress.currentStreak,
+                longest: progress.longestStreak,
+                progress: progress,
+                weekProgress: viewModel.cachedWeekProgress,
+                goal: goal,
+                onSettingsTapped: openSettings
+            )
+            .task {
+                await viewModel.syncHealthKitIfNeeded(store: store, context: context, goals: goals)
+            }
+            .captureFrame(in: .global, onChange: updateLevelCardFrame)
+        } else {
+            ProgressOverviewCard(
+                level: progress.level,
+                xp: progress.xp,
+                prevXP: progress.prevLevelXP,
+                nextXP: progress.nextLevelXP,
+                streak: progress.currentStreak,
+                longest: progress.longestStreak,
+                progress: progress,
+                weekProgress: nil,
+                goal: nil,
+                onSettingsTapped: openSettings
+            )
+            .captureFrame(in: .global, onChange: updateLevelCardFrame)
+        }
+    }
+
+    private func openSettings() {
+        showSettings = true
+    }
+
+    private func updateLevelCardFrame(_ frame: CGRect) {
+        levelCardFrame = frame
+        checkFramesReady()
+    }
+
+    @ViewBuilder
+    private func collectionDestinationView(for destination: ProfileCollectionDestination) -> some View {
+        switch destination {
+        case .prCollection:
+            AchievementsDexView()
+        case .milestones:
+            AchievementsView()
+        }
+    }
+
     // MARK: - Tutorial Logic
 
     private func checkFramesReady() {
@@ -350,8 +273,7 @@ struct ProfileView: View {
         let levelReady = levelCardFrame != .zero && levelCardFrame.width > minSize && levelCardFrame.height > minSize
         let graphsReady = graphsFrame != .zero && graphsFrame.width > minSize && graphsFrame.height > minSize
         let dexReady = dexFrame != .zero && dexFrame.width > minSize && dexFrame.height > minSize
-        // Milestones are optional (might not exist for new users)
-        let milestonesReady = (milestonesFrame != .zero && milestonesFrame.width > minSize) || viewModel.cachedMilestones.isEmpty
+        let milestonesReady = milestonesFrame != .zero && milestonesFrame.width > minSize && milestonesFrame.height > minSize
 
         if levelReady && graphsReady && dexReady && milestonesReady && !framesReady {
             // Add a small delay to ensure frames are stable before showing tutorial
@@ -363,24 +285,19 @@ struct ProfileView: View {
 
     private func scrollToStep(_ step: Int, proxy: ScrollViewProxy) {
         // Map tutorial steps to section IDs
-        let hasMilestones = !viewModel.cachedMilestones.isEmpty
-
-        var sectionIDs: [String] = ["levelCard", "graphs", "dex"]
-        if hasMilestones {
-            sectionIDs.append("milestones")
-        }
+        let sectionIDs: [String] = ["levelCard", "graphs", "dex"]
 
         guard step < sectionIDs.count else { return }
 
         let sectionID = sectionIDs[step]
 
-        // Custom anchor for steps 2+ (Dex, Milestones, Settings): slightly above center
+        // Custom anchor for scrollable tutorial sections: slightly above center
         let higherAnchor = UnitPoint(x: 0.5, y: 0.35)
 
         // Determine if we need to scroll based on step
         // Step 0 (Level Card) - no scroll needed (top of screen)
         // Step 1 (Training Trends) - check if visible, scroll to top if needed
-        // Step 2+ (Dex, Milestones, Settings) - always scroll to higher position
+        // Step 2 (PR Collection) - always scroll to higher position
 
         if step == 0 {
             // No scroll for first step (already at top)
@@ -396,7 +313,7 @@ struct ProfileView: View {
                 }
             }
         } else {
-            // Always scroll for Dex, Milestones, Settings to ensure they're rendered
+            // Always scroll for PR Collection to ensure it's rendered
             // Use higher anchor (35% from top) for better visibility
             withAnimation(.easeInOut(duration: 0.4)) {
                 proxy.scrollTo(sectionID, anchor: higherAnchor)
@@ -431,23 +348,6 @@ struct ProfileView: View {
     }
 
     private var tutorialSteps: [TutorialStep] {
-        let screenHeight = UIScreen.main.bounds.height
-        let screenWidth = UIScreen.main.bounds.width
-        let padding: CGFloat = 8
-
-        // For scrollable sections, calculate position based on scroll anchor (35% from top)
-        let scrolledAnchorY = screenHeight * 0.35
-
-        // Helper to create frame at scrolled position with optional Y offset
-        func scrolledFrame(width: CGFloat, height: CGFloat, padding: CGFloat = 8, yOffset: CGFloat = 0) -> CGRect {
-            return CGRect(
-                x: padding,
-                y: scrolledAnchorY - padding + yOffset,
-                width: screenWidth - (padding * 2),
-                height: height + (padding * 2)
-            )
-        }
-
         var steps: [TutorialStep] = [
             TutorialStep(
                 title: "Level & Progress",
@@ -470,18 +370,11 @@ struct ProfileView: View {
             TutorialStep(
                 title: "PR Collection",
                 message: "Unlock personal records by achieving new max weights for each exercise. Build your collection!",
-                spotlightFrame: {
-                    var frame = scrolledFrame(
-                        width: dexFrame.width,
-                        height: 550,
-                        padding: padding,
-                        yOffset: -180  // Move up to start earlier on screen
-                    )
-                    frame.origin.y += 5  // Move upper border down by 5
-                    frame.size.height += 20  // Extend lower border by 20
-                    return frame
-                }(),
-                tooltipPosition: .bottom,
+                spotlightFrame: clampedFrame(
+                    dexFrame,
+                    insetBy: UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+                ),
+                tooltipPosition: .top,
                 highlightCornerRadius: 16
             ),
         ]
@@ -499,7 +392,7 @@ struct ProfileView: View {
 
             // Different delays based on which step we're moving to
             // Step 1 (Training Trends) - shorter delay since it's already visible
-            // Step 2+ (Dex, Milestones, Settings) - longer delay for scroll and render
+            // Step 2 (PR Collection) - longer delay for scroll and render
             let delay: Double = (currentTutorialStep == 1) ? 0.15 : 0.5
 
             // Wait for scroll and frame updates, then show spotlight
@@ -527,6 +420,51 @@ struct ProfileView: View {
 
 // MARK: - Unified Progress Overview Card
 
+private struct ProfileCollectionDestinationButton: View {
+    let destination: ProfileCollectionDestination
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                ChamferedRectangle(.medium)
+                    .fill(DS.Semantic.brand.opacity(0.16))
+
+                Image(systemName: destination.iconName)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(DS.Semantic.brand)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(LocalizedStringKey(destination.titleLocalizationKey))
+                    .dsFont(.subheadline, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                Text(LocalizedStringKey(destination.subtitleLocalizationKey))
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+
+            Spacer(minLength: 12)
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .overlay(
+            ChamferedRectangle(.large)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+        .contentShape(ChamferedRectangle(.large))
+        .accessibilityIdentifier(destination.accessibilityIdentifier)
+    }
+}
+
 struct ProgressOverviewCard: View {
     let level: Int
     let xp: Int
@@ -537,6 +475,7 @@ struct ProgressOverviewCard: View {
     let progress: RewardProgress
     let weekProgress: WeeklyProgress?
     let goal: WeeklyGoal?
+    var onSettingsTapped: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var context
 
@@ -562,37 +501,87 @@ struct ProgressOverviewCard: View {
         max(prevXP, nextXP - delta(level))
     }
 
+    private var currentStreakValue: Int {
+        goal != nil ? progress.weeklyGoalStreakCurrent : streak
+    }
+
+    private var streakStatusText: String {
+        let current = progress.weeklyGoalStreakCurrent
+        if current == 0 { return "Start your streak!" }
+        if progress.weeklyStreakFrozen { return "Freeze active" }
+        if let wp = weekProgress {
+            let strengthMet = wp.strengthDaysDone >= wp.strengthTarget
+            let mvpaMet = wp.mvpaTarget > 0 ? (wp.mvpaDone >= wp.mvpaTarget) : true
+            if strengthMet && mvpaMet { return "Super week complete!" }
+            if strengthMet { return "Finish active minutes for super streak" }
+            if mvpaMet { return "Finish strength days for super streak" }
+        }
+        return "Complete this week to continue"
+    }
+
+    private var levelHeader: some View {
+        HStack {
+            Text("Level \(level)")
+                .dsFont(.title2, weight: .bold)
+                .foregroundStyle(.white)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                streakChip
+                settingsButton
+            }
+        }
+    }
+
+    private var streakChip: some View {
+        VStack(spacing: 2) {
+            Label {
+                Text("\(currentStreakValue)")
+                    .dsFont(.subheadline, weight: .semibold)
+            } icon: {
+                Image("streak-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 17, height: 17)
+            }
+            .labelStyle(.titleAndIcon)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.black.opacity(0.15), in: Capsule())
+        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
+        .foregroundStyle(currentStreakValue > 0 ? DS.Theme.accent : .white.opacity(0.50))
+    }
+
+    @ViewBuilder
+    private var settingsButton: some View {
+        if let onSettingsTapped {
+            Button(action: onSettingsTapped) {
+                Image("settings-wheel-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 17, height: 17)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .frame(width: 32, height: 32)
+                    .background(.black.opacity(0.15), in: ChamferedRectangle(.small))
+                    .overlay(
+                        ChamferedRectangle(.small)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Level & XP Section
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Level \(level)")
-                        .dsFont(.title2, weight: .bold)
-                        .foregroundStyle(.white)
-
-                    Spacer()
-
-                    // Streak chip - shows weekly goal streak if goal is set, otherwise daily streak
-                    let currentStreak = goal != nil ? progress.weeklyGoalStreakCurrent : streak
-                    VStack(spacing: 2) {
-                        Label {
-                            Text("\(currentStreak)")
-                                .dsFont(.subheadline, weight: .semibold)
-                        } icon: {
-                            Image("streak-icon")
-                                .renderingMode(.template)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 17, height: 17)
-                        }
-                        .labelStyle(.titleAndIcon)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 5)
-                    .background(.black.opacity(0.15), in: Capsule())
-                    .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 1))
-                    .foregroundStyle(currentStreak > 0 ? DS.Theme.accent : .white.opacity(0.50))
-                }
+                levelHeader
 
                 // XP Progress Bar
                 GeometryReader { geo in
@@ -698,6 +687,104 @@ struct ProgressOverviewCard: View {
                             ProgressView(value: min(Double(weekProgress.strengthDaysDone), Double(weekProgress.strengthTarget)), total: Double(max(weekProgress.strengthTarget, 1)))
                                 .tint(DS.Theme.accent)
                                 .scaleEffect(y: 0.8)
+                        }
+                    }
+
+                    Divider()
+                        .background(.white.opacity(0.12))
+
+                    // Weekly Goal Streak
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Weekly Goal Streak")
+                            .dsFont(.subheadline, weight: .semibold)
+                            .foregroundStyle(.white)
+                        Text(streakStatusText)
+                            .dsFont(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 0) {
+                        VStack(spacing: 4) {
+                            Text("Current")
+                                .dsFont(.caption, weight: .semibold)
+                                .foregroundStyle(.white.opacity(0.8))
+                                .textCase(.uppercase)
+                            Text("\(progress.weeklyGoalStreakCurrent)")
+                                .font(DS.Typography.custom(size: 32, weight: .bold))
+                                .foregroundStyle(DS.Theme.accent)
+                            Text("week\(progress.weeklyGoalStreakCurrent == 1 ? "" : "s")")
+                                .dsFont(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(width: 1, height: 60)
+
+                        VStack(spacing: 4) {
+                            HStack(spacing: 2) {
+                                Image(systemName: "star.fill")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(DS.Theme.accent)
+                                Text("Super")
+                                    .dsFont(.caption, weight: .semibold)
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .textCase(.uppercase)
+                            }
+                            Text("\(RewardsEngine.shared.progress?.weeklySuperStreakCurrent ?? 0)")
+                                .font(DS.Typography.custom(size: 28, weight: .bold))
+                                .foregroundStyle(DS.Theme.accent)
+                            Text("week\(RewardsEngine.shared.progress?.weeklySuperStreakCurrent ?? 0 == 1 ? "" : "s")")
+                                .dsFont(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(width: 1, height: 60)
+
+                        VStack(spacing: 4) {
+                            Text("Longest")
+                                .dsFont(.caption, weight: .semibold)
+                                .foregroundStyle(.white.opacity(0.8))
+                                .textCase(.uppercase)
+                            Text("\(progress.weeklyGoalStreakLongest)")
+                                .font(DS.Typography.custom(size: 28, weight: .bold))
+                                .foregroundStyle(.white.opacity(0.7))
+                            Text("week\(progress.weeklyGoalStreakLongest == 1 ? "" : "s")")
+                                .dsFont(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+
+                    if progress.weeklyGoalStreakCurrent > 0 {
+                        let current = progress.weeklyGoalStreakCurrent
+                        let nextMilestone = [2, 4, 8, 12, 26, 52].first { $0 > current } ?? 52
+                        let milestonePct = Double(current) / Double(nextMilestone)
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text("Next milestone: \(nextMilestone) weeks")
+                                    .dsFont(.caption, weight: .medium)
+                                Spacer()
+                                Text("\(current)/\(nextMilestone)")
+                                    .dsFont(.caption, monospacedDigits: true)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    Capsule()
+                                        .fill(.white.opacity(0.15))
+                                    Capsule()
+                                        .fill(DS.Theme.accent)
+                                        .frame(width: max(8, geo.size.width * milestonePct))
+                                }
+                            }
+                            .frame(height: 8)
                         }
                     }
                 }

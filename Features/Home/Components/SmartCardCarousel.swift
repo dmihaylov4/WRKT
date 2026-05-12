@@ -147,7 +147,9 @@ struct SmartCardCarousel: View {
         completedDays: 2,
         targetDays: 4,
         percentage: 50,
-        daysRemaining: 3
+        daysRemaining: 3,
+        weekEnded: false,
+        planAdherence: nil
     )
 
     let mockPR = PRSummary(
@@ -173,7 +175,9 @@ struct SmartCardCarousel: View {
         completedDays: 3,
         targetDays: 4,
         percentage: 75,
-        daysRemaining: 2
+        daysRemaining: 2,
+        weekEnded: false,
+        planAdherence: nil
     )
 
     return VStack {

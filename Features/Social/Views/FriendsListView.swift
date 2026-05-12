@@ -57,117 +57,33 @@ struct FriendsListView: View {
     }
 
     private func searchBar(viewModel: FriendsListViewModel) -> some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(DS.Semantic.textSecondary)
-
-            TextField("Search friends...", text: Binding(
-                get: { viewModel.searchQuery },
-                set: { newValue in
-                    viewModel.searchQuery = newValue
-                    viewModel.filterFriends()
-                }
-            ))
-            .textFieldStyle(.plain)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-
-            if !viewModel.searchQuery.isEmpty {
-                Button {
-                    viewModel.searchQuery = ""
-                    viewModel.filterFriends()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                }
+        FriendPickerSearchBar(searchText: Binding(
+            get: { viewModel.searchQuery },
+            set: { newValue in
+                viewModel.searchQuery = newValue
+                viewModel.filterFriends()
             }
-        }
-        .padding()
-        .background(DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding()
+        ))
     }
 
     private func loadingState() -> some View {
-        VStack(spacing: 16) {
-            ProgressView()
-            Text("Loading friends...")
-                .dsFont(.subheadline)
-                .foregroundStyle(DS.Semantic.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        FriendsLoadingState()
     }
 
     private func errorState(error: String, viewModel: FriendsListViewModel) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 50))
-                .foregroundStyle(DS.Semantic.textSecondary)
-
-            Text(error)
-                .dsFont(.subheadline)
-                .foregroundStyle(DS.Semantic.textSecondary)
-                .multilineTextAlignment(.center)
-
-            Button("Try Again") {
-                Task {
-                    await viewModel.loadFriends()
-                }
+        FriendsErrorState(message: error) {
+            Task {
+                await viewModel.loadFriends()
             }
-            .buttonStyle(.borderedProminent)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
     }
 
     private func emptyState() -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "person.2.slash")
-                .font(.system(size: 50))
-                .foregroundStyle(DS.Semantic.textSecondary)
-
-            Text("No friends yet")
-                .dsFont(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            Text("Find people and send friend requests to connect")
-                .dsFont(.subheadline)
-                .foregroundStyle(DS.Semantic.textSecondary)
-                .multilineTextAlignment(.center)
-
-            NavigationLink {
-                UserSearchView()
-            } label: {
-                Text("Find Friends")
-                    .dsFont(.headline)
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(DS.Palette.marone)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-            }
-            .padding(.horizontal, 40)
-            .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        FriendsEmptyState()
     }
 
     private func noResultsState() -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 50))
-                .foregroundStyle(DS.Semantic.textSecondary)
-
-            Text("No results")
-                .dsFont(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            Text("No friends match '\(viewModel?.searchQuery ?? "")'")
-                .dsFont(.subheadline)
-                .foregroundStyle(DS.Semantic.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        FriendsNoResultsState(searchQuery: viewModel?.searchQuery ?? "")
     }
 
     private func friendsList(viewModel: FriendsListViewModel) -> some View {
@@ -209,6 +125,140 @@ struct FriendsListView: View {
                 }
             }
         }
+    }
+}
+
+struct FriendPickerSearchBar: View {
+    @Binding var searchText: String
+
+    var body: some View {
+        HStack {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            TextField("Search friends...", text: $searchText)
+                .textFieldStyle(.plain)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                }
+            }
+        }
+        .padding()
+        .background(DS.Semantic.fillSubtle)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding()
+    }
+}
+
+struct FriendsLoadingState: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView()
+            Text("Loading friends...")
+                .dsFont(.subheadline)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct FriendsErrorState: View {
+    let message: String
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.system(size: 50))
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text(message)
+                .dsFont(.subheadline)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .multilineTextAlignment(.center)
+
+            Button("Try Again", action: retry)
+                .buttonStyle(.borderedProminent)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+struct FriendsEmptyState: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "person.2.slash")
+                .font(.system(size: 50))
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text("No friends yet")
+                .dsFont(.headline)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Text("Find people and send friend requests to connect")
+                .dsFont(.subheadline)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .multilineTextAlignment(.center)
+
+            NavigationLink {
+                UserSearchView()
+            } label: {
+                Text("Find Friends")
+                    .dsFont(.headline)
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(DS.Palette.marone)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .padding(.horizontal, 40)
+            .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+struct FriendsNoResultsState: View {
+    let searchQuery: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 50))
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text("No results")
+                .dsFont(.headline)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Text("No friends match '\(searchQuery)'")
+                .dsFont(.subheadline)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+struct SelectableFriendRow: View {
+    let friend: Friend
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            FriendRow(friend: friend)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isSelected ? Text("Selected") : Text(""))
     }
 }
 

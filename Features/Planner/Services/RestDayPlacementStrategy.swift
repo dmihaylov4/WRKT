@@ -82,20 +82,24 @@ struct AfterEverySecondWorkoutStrategy: RestDayPlacementStrategy {
 
 struct WeekendsStrategy: RestDayPlacementStrategy {
     func generateWeek(workoutBlocks: [PlanBlock], trainingDaysPerWeek: Int) -> [PlanBlock] {
-        var blocks: [PlanBlock] = []
+        // Spread training evenly across weekdays (0=Mon ... 4=Fri); rest on weekends (5=Sat, 6=Sun)
+        let trainingIndices: Set<Int>
+        switch trainingDaysPerWeek {
+        case 2: trainingIndices = [0, 3]           // Mon, Thu
+        case 3: trainingIndices = [0, 2, 4]        // Mon, Wed, Fri
+        case 4: trainingIndices = [0, 1, 3, 4]     // Mon, Tue, Thu, Fri
+        case 5: trainingIndices = [0, 1, 2, 3, 4]  // Mon-Fri
+        default: trainingIndices = Set(0..<min(trainingDaysPerWeek, 6))
+        }
 
-        // Build a 7-day week: train on weekdays, rest on weekends
-        // Days 0-4 are Mon-Fri (training), 5-6 are Sat-Sun (rest)
+        var blocks: [PlanBlock] = []
+        var workoutIndex = 0
+
         for dayIndex in 0..<7 {
-            if dayIndex == 5 || dayIndex == 6 {
-                // Weekend - add rest
-                blocks.append(createRestBlock())
-            } else if blocks.filter({ !$0.isRestDay }).count < trainingDaysPerWeek {
-                // Weekday with remaining training days - add workout
-                let workoutCount = blocks.filter { !$0.isRestDay }.count
-                blocks.append(workoutBlocks[workoutCount % workoutBlocks.count])
+            if trainingIndices.contains(dayIndex) {
+                blocks.append(workoutBlocks[workoutIndex % workoutBlocks.count])
+                workoutIndex += 1
             } else {
-                // Weekday but all training days used - add rest
                 blocks.append(createRestBlock())
             }
         }

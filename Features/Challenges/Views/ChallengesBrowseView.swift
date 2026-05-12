@@ -16,26 +16,28 @@ struct ChallengesBrowseView: View {
         case active, browse, completed
     }
 
+    private enum Layout {
+        static let standardVerticalPadding: CGFloat = 8
+        static let browseBottomPadding: CGFloat = 24
+        static let activeCompletedBottomNavigationClearance: CGFloat = 96
+    }
+
     var body: some View {
-        NavigationStack {
-            Group {
-                if let viewModel = viewModel {
-                    content(viewModel: viewModel)
-                } else {
-                    loadingState
-                }
+        Group {
+            if let viewModel = viewModel {
+                content(viewModel: viewModel)
+            } else {
+                loadingState
             }
-            .navigationTitle("Challenges")
-            .navigationBarTitleDisplayMode(.large)
-            .task {
-                if viewModel == nil {
-                    let vm = ChallengesViewModel(
-                        challengeRepository: deps.challengeRepository,
-                        authService: deps.authService
-                    )
-                    viewModel = vm
-                    await vm.onAppear()
-                }
+        }
+        .task {
+            if viewModel == nil {
+                let vm = ChallengesViewModel(
+                    challengeRepository: deps.challengeRepository,
+                    authService: deps.authService
+                )
+                viewModel = vm
+                await vm.onAppear()
             }
         }
     }
@@ -60,7 +62,8 @@ struct ChallengesBrowseView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .padding(.top, Layout.standardVerticalPadding)
+                .padding(.bottom, tabContentBottomPadding)
             }
             .refreshable {
                 await viewModel.refresh()
@@ -86,13 +89,22 @@ struct ChallengesBrowseView: View {
         }
     }
 
+    private var tabContentBottomPadding: CGFloat {
+        switch selectedTab {
+        case .active, .completed:
+            return Layout.activeCompletedBottomNavigationClearance
+        case .browse:
+            return Layout.browseBottomPadding
+        }
+    }
+
     @ViewBuilder
     private var tabPicker: some View {
         // Premium segmented control with frosted glass effect (matching Social view)
         HStack(spacing: 0) {
             ChallengePillButton(
                 title: "Active",
-                icon: "flame.fill",
+                iconAsset: "streak-icon",
                 isSelected: selectedTab == .active
             ) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -103,7 +115,7 @@ struct ChallengesBrowseView: View {
 
             ChallengePillButton(
                 title: "Browse",
-                icon: "magnifyingglass",
+                iconAsset: "challenge-browse-icon",
                 isSelected: selectedTab == .browse
             ) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -114,7 +126,7 @@ struct ChallengesBrowseView: View {
 
             ChallengePillButton(
                 title: "Completed",
-                icon: "checkmark.seal.fill",
+                iconAsset: "challenge-completed-icon",
                 isSelected: selectedTab == .completed
             ) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -125,13 +137,13 @@ struct ChallengesBrowseView: View {
         }
         .padding(4)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            ChamferedRectangleAlt(.large)
                 .fill(DS.Semantic.card.opacity(0.5))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(DS.Semantic.border.opacity(0.3), lineWidth: 1)
+            ChamferedRectangleAlt(.large)
+                .stroke(DS.Semantic.border.opacity(0.3), lineWidth: 1)
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -227,9 +239,11 @@ struct ChallengesBrowseView: View {
     private func emptyActiveChallengesState(viewModel: ChallengesViewModel) -> some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(spacing: 16) {
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(DS.Semantic.brand.opacity(0.3))
+                ChallengeAssetIcon(
+                    asset: "challenge-trophy-icon",
+                    size: 68,
+                    color: DS.Semantic.brand.opacity(0.32)
+                )
 
                 Text("No Active Challenges")
                     .dsFont(.title2, weight: .bold)
@@ -258,8 +272,11 @@ struct ChallengesBrowseView: View {
                         HStack(spacing: 4) {
                             Text("View All")
                                 .dsFont(.subheadline)
-                            Image(systemName: "chevron.right")
-                                .dsFont(.caption)
+                            ChallengeAssetIcon(
+                                asset: "angular-chevron-right-icon",
+                                size: 14,
+                                color: DS.Semantic.brand
+                            )
                         }
                         .foregroundStyle(DS.Semantic.brand)
                     }
@@ -279,9 +296,11 @@ struct ChallengesBrowseView: View {
     @ViewBuilder
     private var emptyBrowseState: some View {
         VStack(spacing: 16) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 60))
-                .foregroundStyle(DS.Semantic.brand.opacity(0.3))
+            ChallengeAssetIcon(
+                asset: "challenge-browse-icon",
+                size: 68,
+                color: DS.Semantic.brand.opacity(0.32)
+            )
 
             Text("No Challenges Available")
                 .dsFont(.title2, weight: .bold)
@@ -300,9 +319,11 @@ struct ChallengesBrowseView: View {
     private func emptyCompletedState(viewModel: ChallengesViewModel) -> some View {
         VStack(alignment: .leading, spacing: 24) {
             VStack(spacing: 16) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(DS.Semantic.brand.opacity(0.3))
+                ChallengeAssetIcon(
+                    asset: "challenge-completed-icon",
+                    size: 68,
+                    color: DS.Semantic.brand.opacity(0.32)
+                )
 
                 Text("No Completed Challenges")
                     .dsFont(.title2, weight: .bold)
@@ -331,8 +352,11 @@ struct ChallengesBrowseView: View {
                         HStack(spacing: 4) {
                             Text("View All")
                                 .dsFont(.subheadline)
-                            Image(systemName: "chevron.right")
-                                .dsFont(.caption)
+                            ChallengeAssetIcon(
+                                asset: "angular-chevron-right-icon",
+                                size: 14,
+                                color: DS.Semantic.brand
+                            )
                         }
                         .foregroundStyle(DS.Semantic.brand)
                     }
@@ -363,20 +387,79 @@ struct ChallengesBrowseView: View {
     }
 }
 
+struct ChallengeAssetIcon: View {
+    let asset: String
+    let size: CGFloat
+    let color: Color
+
+    var body: some View {
+        Image(asset)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
+struct ChallengeMetaPill: View {
+    let asset: String
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ChallengeAssetIcon(
+                asset: asset,
+                size: 14,
+                color: DS.Semantic.textSecondary
+            )
+
+            Text(text)
+                .dsFont(.caption)
+        }
+        .foregroundStyle(DS.Semantic.textSecondary)
+    }
+}
+
 // MARK: - Challenge Pill Button (matching Social view design)
 struct ChallengePillButton: View {
     let title: String
-    let icon: String
+    let iconAsset: String
     let isSelected: Bool
     let badge: Int?
     let action: () -> Void
 
-    init(title: String, icon: String, isSelected: Bool, badge: Int? = nil, action: @escaping () -> Void) {
+    init(title: String, iconAsset: String, isSelected: Bool, badge: Int? = nil, action: @escaping () -> Void) {
         self.title = title
-        self.icon = icon
+        self.iconAsset = iconAsset
         self.isSelected = isSelected
         self.badge = badge
         self.action = action
+    }
+
+    init(title: String, icon: String, isSelected: Bool, badge: Int? = nil, action: @escaping () -> Void) {
+        self.title = title
+        self.iconAsset = Self.assetName(for: icon)
+        self.isSelected = isSelected
+        self.badge = badge
+        self.action = action
+    }
+
+    private static func assetName(for systemIcon: String) -> String {
+        switch systemIcon {
+        case "bolt.fill", "flame.fill":
+            return "streak-icon"
+        case "magnifyingglass":
+            return "challenge-browse-icon"
+        case "checkmark.seal.fill":
+            return "challenge-completed-icon"
+        case "trophy.fill":
+            return "challenge-trophy-icon"
+        case "envelope.fill":
+            return "social-feed-icon"
+        default:
+            return systemIcon
+        }
     }
 
     var body: some View {
@@ -384,10 +467,11 @@ struct ChallengePillButton: View {
             VStack(spacing: 4) {
                 // Icon with optional badge
                 ZStack {
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
-                        .foregroundStyle(isSelected ? .black : DS.Semantic.textSecondary)
-                        .symbolEffect(.bounce, value: isSelected)
+                    ChallengeAssetIcon(
+                        asset: iconAsset,
+                        size: 20,
+                        color: isSelected ? .black : DS.Semantic.textSecondary
+                    )
 
                     // Badge indicator (top-right corner)
                     if let count = badge, count > 0 {
@@ -397,7 +481,7 @@ struct ChallengePillButton: View {
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(DS.Semantic.accentWarm)
-                            .clipShape(Circle())
+                            .clipShape(ChamferedRectangleAlt(.micro))
                             .offset(x: 12, y: -10)
                     }
                 }
@@ -413,12 +497,13 @@ struct ChallengePillButton: View {
             .background(
                 Group {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        ChamferedRectangleAlt(.small)
                             .fill(DS.Semantic.brand)
                             .shadow(color: DS.Semantic.brand.opacity(0.3), radius: 6, x: 0, y: 2)
                     }
                 }
             )
+            .contentShape(ChamferedRectangleAlt(.small))
         }
         .buttonStyle(.plain)
     }
@@ -475,24 +560,20 @@ struct ChallengeCard: View {
                 }
 
                 // Footer
-                HStack {
-                    Label(
-                        "\(challenge.challenge.participantCount) \(challenge.challenge.participantCount == 1 ? "person" : "people")",
-                        systemImage: "person.2.fill"
+                HStack(spacing: 8) {
+                    ChallengeMetaPill(
+                        asset: "challenge-people-icon",
+                        text: "\(challenge.challenge.participantCount) \(challenge.challenge.participantCount == 1 ? "person" : "people")"
                     )
-                    .dsFont(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
 
                     Spacer()
 
                     let daysRemaining = challenge.challenge.daysRemaining
                     if daysRemaining > 0 {
-                        Label(
-                            "\(daysRemaining) \(daysRemaining == 1 ? "day" : "days") left",
-                            systemImage: "clock.fill"
+                        ChallengeMetaPill(
+                            asset: "challenge-clock-icon",
+                            text: "\(daysRemaining) \(daysRemaining == 1 ? "day" : "days") left"
                         )
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
                     }
                 }
 
@@ -508,28 +589,30 @@ struct ChallengeCard: View {
                         HStack {
                             if isProcessing {
                                 ProgressView()
-                                    .tint(.white)
+                                    .tint(isActive ? .white : .black)
                             } else {
                                 Text(isActive ? "Leave Challenge" : "Join Challenge")
                             }
                         }
                         .dsFont(.subheadline, weight: .bold)
-                        .foregroundStyle(isActive ? DS.Semantic.textPrimary : DS.Semantic.onBrand)
+                        .foregroundStyle(isActive ? DS.Semantic.textPrimary : .black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(isActive ? DS.Semantic.surface50 : DS.Semantic.brand)
-                        .clipShape(Capsule())
+                        .background(
+                            isActive ? DS.Semantic.surface50 : DS.Semantic.brand,
+                            in: ChamferedRectangle(.medium)
+                        )
                     }
                     .disabled(isProcessing)
                 }
             }
             .padding(16)
-            .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                ChamferedRectangle(.large)
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
+            .contentShape(ChamferedRectangle(.large))
         }
         .buttonStyle(.plain)
     }
@@ -557,8 +640,7 @@ struct ChallengeCard: View {
                 .foregroundStyle(difficultyTextColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(difficultyColor)
-                .clipShape(Capsule())
+                .background(difficultyColor, in: ChamferedRectangle(.small))
         }
     }
 
@@ -645,8 +727,7 @@ struct PresetChallengeCard: View {
                     .foregroundStyle(difficultyTextColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(difficultyBackgroundColor)
-                    .clipShape(Capsule())
+                    .background(difficultyBackgroundColor, in: ChamferedRectangle(.small))
             }
 
             Button {
@@ -668,16 +749,14 @@ struct PresetChallengeCard: View {
                 .foregroundStyle(.black)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(DS.Semantic.brand)
-                .clipShape(Capsule())
+                .background(DS.Semantic.brand, in: ChamferedRectangle(.medium))
             }
             .disabled(isJoining)
         }
         .padding(16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            ChamferedRectangle(.large)
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -716,17 +795,17 @@ struct SkeletonChallengeCard: View {
                     Rectangle()
                         .fill(DS.Semantic.fillSubtle)
                         .frame(width: 150, height: 16)
-                        .clipShape(Capsule())
+                        .clipShape(ChamferedRectangle(.micro))
 
                     Rectangle()
                         .fill(DS.Semantic.fillSubtle)
                         .frame(width: 100, height: 12)
-                        .clipShape(Capsule())
+                        .clipShape(ChamferedRectangle(.micro))
                 }
 
                 Spacer()
 
-                Circle()
+                ChamferedRectangle(.small)
                     .fill(DS.Semantic.fillSubtle)
                     .frame(width: 60, height: 24)
             }
@@ -734,11 +813,10 @@ struct SkeletonChallengeCard: View {
             Rectangle()
                 .fill(DS.Semantic.fillSubtle)
                 .frame(height: 40)
-                .clipShape(Capsule())
+                .clipShape(ChamferedRectangle(.medium))
         }
         .padding(16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isAnimating)
         .onAppear { isAnimating = true }

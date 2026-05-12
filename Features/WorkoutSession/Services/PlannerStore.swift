@@ -30,6 +30,12 @@ struct ActivationCustomization: Sendable {
     var startingWeights: [UUID: Double]
 }
 
+struct PlanAdherence {
+    let plannedSessions: Int
+    let completedOnPlan: Int
+    var rate: Double { plannedSessions > 0 ? Double(completedOnPlan) / Double(plannedSessions) : 1.0 }
+}
+
 @Observable
 @MainActor
 final class PlannerStore {
@@ -228,9 +234,12 @@ final class PlannerStore {
         planned.actualVolume = actualVolume
         planned.completionPercentage = planned.targetVolume > 0 ? (actualVolume / planned.targetVolume * 100) : 0
 
-        // Determine status
+        // Determine status: a planned exercise is satisfied if the user completed it
+        // (via its original or a swapped entry that carries the plannedExerciseID), or
+        // intentionally removed it during the session (excused set).
         let allExercisesCompleted = planned.exercises.allSatisfy { plannedEx in
-            completed.entries.contains { $0.exerciseID == plannedEx.exerciseID }
+            completed.entries.contains { $0.plannedExerciseID == plannedEx.id }
+                || completed.excusedPlannedExerciseIDs.contains(plannedEx.id)
         }
 
         planned.workoutStatus = allExercisesCompleted ? .completed : .partial
@@ -259,6 +268,16 @@ final class PlannerStore {
         } catch {
             AppLogger.error("Failed to complete planned workout \(id): \(error)", category: AppLogger.storage)
         }
+    }
+
+    /// Permanently update a planned exercise's target exercise (for "make this swap permanent").
+    func updatePlannedExercise(id: UUID, newExerciseID: String, newExerciseName: String) {
+        guard let context else { return }
+        let predicate = #Predicate<PlannedExercise> { $0.id == id }
+        guard let ex = try? context.fetch(FetchDescriptor(predicate: predicate)).first else { return }
+        ex.exerciseID = newExerciseID
+        ex.exerciseName = newExerciseName
+        try? context.save()
     }
 
     /// Fetch a split by ID
@@ -397,6 +416,17 @@ final class PlannerStore {
         return try context.fetch(descriptor)
     }
 
+    /// Compute plan adherence for a given week (starts at weekStart, spans 7 days)
+    func adherence(forWeek weekStart: Date) -> PlanAdherence {
+        let calendar = Calendar.current
+        guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) else {
+            return PlanAdherence(plannedSessions: 0, completedOnPlan: 0)
+        }
+        let planned = (try? plannedWorkouts(from: weekStart, to: weekEnd)) ?? []
+        let completedCount = planned.filter { $0.workoutStatus == .completed }.count
+        return PlanAdherence(plannedSessions: planned.count, completedOnPlan: completedCount)
+    }
+
     /// Get active split
     func activeSplit() throws -> WorkoutSplit? {
         guard let context = context else { return nil }
@@ -458,6 +488,24 @@ final class PlannerStore {
 
         try context.save()
         try replanUpcomingWorkouts(for: split, fromDate: split.anchorDate)
+    }
+
+    func deleteUpcomingPlannedWorkouts(for split: WorkoutSplit) throws {
+        guard let context = context else { return }
+        let splitID = split.id
+        let cutoff = Calendar.current.startOfDay(for: .now)
+        let descriptor = FetchDescriptor<PlannedWorkout>(
+            predicate: #Predicate {
+                $0.splitID == splitID &&
+                $0.scheduledDate >= cutoff &&
+                $0.completedWorkoutID == nil
+            }
+        )
+        let workouts = try context.fetch(descriptor)
+        for workout in workouts {
+            context.delete(workout)
+        }
+        try context.save()
     }
 
     func replanUpcomingWorkouts(for split: WorkoutSplit, fromDate: Date = .now) throws {
@@ -557,6 +605,8 @@ protocol PlannerStoreInterface: AnyObject {
     func insert(_ split: WorkoutSplit) throws
     func activate(_ split: WorkoutSplit, customization: ActivationCustomization) throws
     func replanUpcomingWorkouts(for split: WorkoutSplit, fromDate: Date) throws
+    func deleteUpcomingPlannedWorkouts(for split: WorkoutSplit) throws
+    func deleteAllPlannedWorkouts() throws
     func saveContext() throws
 }
 

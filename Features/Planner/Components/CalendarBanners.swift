@@ -5,6 +5,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - Streak Banner (Daily Streak - Legacy)
 struct StreakBanner: View {
@@ -214,5 +215,73 @@ struct CurrentWeekProgressBanner: View {
         .padding(12)
         .background(DS.Theme.cardTop, in: ChamferedRectangleAlt(.large))
         .overlay(ChamferedRectangleAlt(.large).stroke(DS.Semantic.border, lineWidth: 1))
+    }
+}
+
+// MARK: - Push/Pull Balance Banner
+
+struct PushPullBanner: View {
+    @Query private var pushPull: [PushPullBalance]
+    @State private var dismissed = false
+
+    init() {
+        let cutoff = Calendar.current.date(byAdding: .weekOfYear, value: -4, to: .now) ?? .distantPast
+        _pushPull = Query(
+            filter: #Predicate<PushPullBalance> { $0.weekStart >= cutoff },
+            sort: \PushPullBalance.weekStart,
+            order: .forward
+        )
+    }
+
+    private var rollingRatio: Double? {
+        let recent = pushPull.suffix(4)
+        let totalPush = recent.reduce(0.0) { $0 + $1.pushVolume }
+        let totalPull = recent.reduce(0.0) { $0 + $1.pullVolume }
+        guard totalPush > 0 || totalPull > 0 else { return nil }
+        return totalPush > 0 ? totalPull / totalPush : 999.0
+    }
+
+    private var bannerMessage: String? {
+        guard let ratio = rollingRatio else { return nil }
+        if ratio > 2.0 {
+            return "This week's plan is push-heavy (ratio \(String(format: "%.1f", ratio))). Consider adding a row or pull variation."
+        } else if ratio < 0.5 {
+            return "This week's plan is pull-heavy (ratio \(String(format: "%.1f", ratio))). Consider balancing with push work."
+        }
+        return nil
+    }
+
+    var body: some View {
+        if !dismissed, let message = bannerMessage {
+            HStack(spacing: 10) {
+                Image(systemName: "scale.3d")
+                    .dsFont(.subheadline)
+                    .foregroundStyle(DS.Semantic.accentWarm)
+
+                Text(message)
+                    .dsFont(.footnote)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer()
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { dismissed = true }
+                } label: {
+                    Image(systemName: "xmark")
+                        .dsFont(.caption2)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                        .padding(6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(DS.Semantic.accentWarm.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(DS.Semantic.accentWarm.opacity(0.3), lineWidth: 1))
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
     }
 }

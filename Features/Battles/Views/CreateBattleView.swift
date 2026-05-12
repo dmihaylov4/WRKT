@@ -20,32 +20,21 @@ struct CreateBattleView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
+            VStack(spacing: 10) {
+                topBar
                 headerSection
                 opponentSection
                 battleTypeSection
                 durationSection
-                Spacer()
+                Spacer(minLength: 0)
+                createBattleButton
             }
             .padding(.horizontal, 20)
             .padding(.top, 8)
-            .background(DS.Semantic.surface)
-            .navigationTitle("Create Battle")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    confirmButton
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                createBattleButton
-            }
+            .padding(.bottom, 10)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .background(DS.Semantic.surface.ignoresSafeArea())
+            .navigationBarHidden(true)
             .sheet(isPresented: $showFriendPicker) {
                 FriendPickerView(selectedFriend: $selectedFriend)
             }
@@ -54,28 +43,77 @@ struct CreateBattleView: View {
 
     // MARK: - View Components
 
+    private var canCreateBattle: Bool {
+        selectedFriend != nil
+    }
+
+    private var topBar: some View {
+        HStack {
+            Button {
+                dismiss()
+            } label: {
+                Text("Cancel")
+                    .dsFont(.subheadline, weight: .medium)
+                    .foregroundStyle(DS.Semantic.brand)
+                    .frame(width: 96, height: 46)
+                    .background(DS.Semantic.card.opacity(0.72), in: ChamferedRectangleAlt(.large))
+                    .overlay(
+                        ChamferedRectangleAlt(.large)
+                            .stroke(DS.Semantic.border.opacity(0.55), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            Text("Create Battle")
+                .dsFont(.headline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Spacer()
+
+            Button {
+                Task { await createBattle() }
+            } label: {
+                Text("Create")
+                    .dsFont(.subheadline, weight: .medium)
+                    .foregroundStyle(canCreateBattle ? DS.Semantic.brand : DS.Semantic.textSecondary)
+                    .frame(width: 96, height: 46)
+                    .background(DS.Semantic.card.opacity(0.72), in: ChamferedRectangle(.large))
+                    .overlay(
+                        ChamferedRectangle(.large)
+                            .stroke(DS.Semantic.border.opacity(0.55), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canCreateBattle)
+        }
+        .frame(height: 48)
+    }
+
     private var headerSection: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "flag.2.crossed.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(DS.Semantic.brand)
+        VStack(spacing: 5) {
+            BattleAssetIcon(
+                asset: "battle-flags-icon",
+                size: 40,
+                color: DS.Semantic.brand
+            )
 
             Text("Start a Battle")
                 .dsFont(.title2, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
 
             Text("Challenge a friend and compete!")
-                .dsFont(.subheadline)
+                .dsFont(.caption)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
-        .padding(.top, 8)
+        .padding(.top, 2)
+        .padding(.bottom, 2)
     }
 
     private var opponentSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("OPPONENT")
-                .dsFont(.caption, weight: .semibold)
-                .foregroundStyle(DS.Semantic.textSecondary)
-
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("OPPONENT")
             opponentButton
         }
     }
@@ -87,17 +125,20 @@ struct CreateBattleView: View {
             HStack(spacing: 12) {
                 opponentAvatar
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .dsFont(.caption, weight: .semibold)
-                    .foregroundStyle(DS.Semantic.textPrimary)
+                BattleAssetIcon(
+                    asset: "angular-chevron-right-icon",
+                    size: 16,
+                    color: DS.Semantic.textPrimary
+                )
             }
-            .padding()
-            .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 14)
+            .frame(height: 64)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(selectedFriend != nil ? DS.Semantic.brand.opacity(0.2) : DS.Semantic.border, lineWidth: 1.5)
+                ChamferedRectangle(.large)
+                    .stroke(selectedFriend != nil ? DS.Semantic.brand.opacity(0.35) : DS.Semantic.border, lineWidth: 1.5)
             )
+            .contentShape(ChamferedRectangle(.large))
         }
         .buttonStyle(.plain)
     }
@@ -105,9 +146,9 @@ struct CreateBattleView: View {
     @ViewBuilder
     private var opponentAvatar: some View {
         if let friend = selectedFriend {
-            Circle()
+            ChamferedRectangleAlt(.medium)
                 .fill(DS.Semantic.brandSoft)
-                .frame(width: 50, height: 50)
+                .frame(width: 42, height: 42)
                 .overlay(
                     Text(String(friend.username.prefix(1)).uppercased())
                         .dsFont(.title3, weight: .bold)
@@ -116,7 +157,7 @@ struct CreateBattleView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(friend.displayName ?? friend.username)
-                    .dsFont(.headline)
+                    .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 Text("@\(friend.username)")
@@ -124,22 +165,21 @@ struct CreateBattleView: View {
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
         } else {
-            Image(systemName: "person.circle.fill")
-                .font(.system(size: 50))
-                .foregroundStyle(DS.Semantic.surface50)
+            BattleAssetIcon(
+                asset: "battle-opponent-icon",
+                size: 42,
+                color: DS.Semantic.surface50
+            )
 
             Text("Choose Opponent")
-                .dsFont(.headline)
+                .dsFont(.subheadline, weight: .medium)
                 .foregroundStyle(DS.Semantic.textSecondary)
         }
     }
 
     private var battleTypeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("BATTLE TYPE")
-                .dsFont(.caption, weight: .semibold)
-                .foregroundStyle(DS.Semantic.textSecondary)
-
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("BATTLE TYPE")
             VStack(spacing: 8) {
                 ForEach([BattleType.volume, .workoutCount, .consistency], id: \.self) { type in
                     BattleTypeCard(
@@ -156,11 +196,8 @@ struct CreateBattleView: View {
     }
 
     private var durationSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("DURATION")
-                .dsFont(.caption, weight: .semibold)
-                .foregroundStyle(DS.Semantic.textSecondary)
-
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("DURATION")
             HStack(spacing: 8) {
                 ForEach(durationOptions, id: \.self) { days in
                     DurationButton(
@@ -176,17 +213,10 @@ struct CreateBattleView: View {
         }
     }
 
-    private var confirmButton: some View {
-        Button {
-            Task {
-                await createBattle()
-            }
-        } label: {
-            Text("Create")
-                .dsFont(.headline)
-                .foregroundStyle(selectedFriend != nil ? DS.Semantic.brand : DS.Semantic.textPrimary)
-        }
-        .disabled(selectedFriend == nil)
+    private func sectionLabel(_ title: String) -> some View {
+        Text(title)
+            .dsFont(.caption, weight: .semibold)
+            .foregroundStyle(DS.Semantic.textSecondary)
     }
 
     private var createBattleButton: some View {
@@ -195,21 +225,27 @@ struct CreateBattleView: View {
                 await createBattle()
             }
         } label: {
-            HStack {
-                Image(systemName: "flag.2.crossed.fill")
+            HStack(spacing: 10) {
+                BattleAssetIcon(
+                    asset: "battle-flags-icon",
+                    size: 24,
+                    color: canCreateBattle ? .black : DS.Semantic.textPrimary
+                )
+
                 Text("Start Battle")
                     .dsFont(.headline)
             }
             .frame(maxWidth: .infinity)
-            .padding()
-            .background(selectedFriend != nil ? DS.Semantic.brand : DS.Semantic.surface50)
-            .foregroundStyle(selectedFriend != nil ? .white : DS.Semantic.textPrimary)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .shadow(color: selectedFriend != nil ? DS.Semantic.brand.opacity(0.3) : .clear, radius: 12, y: 4)
+            .frame(height: 56)
+            .background(canCreateBattle ? DS.Semantic.brand : DS.Semantic.surface50, in: ChamferedRectangle(.large))
+            .foregroundStyle(canCreateBattle ? .black : DS.Semantic.textPrimary)
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(canCreateBattle ? DS.Semantic.brand.opacity(0.35) : DS.Semantic.border.opacity(0.4), lineWidth: 1)
+            )
+            .shadow(color: canCreateBattle ? DS.Semantic.brand.opacity(0.25) : .clear, radius: 12, y: 4)
         }
-        .disabled(selectedFriend == nil)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 8)
+        .disabled(!canCreateBattle)
     }
 
     private func createBattle() async {
@@ -225,6 +261,38 @@ struct CreateBattleView: View {
     }
 }
 
+struct BattleAssetIcon: View {
+    let asset: String
+    let size: CGFloat
+    let color: Color
+
+    var body: some View {
+        Image(asset)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .foregroundStyle(color)
+    }
+}
+
+private extension BattleType {
+    var battleIconAsset: String {
+        switch self {
+        case .volume:
+            return "battle-volume-icon"
+        case .consistency:
+            return "tab-plan"
+        case .workoutCount:
+            return "battle-workout-count-icon"
+        case .pr:
+            return "challenge-trophy-icon"
+        case .exercise:
+            return "tab-train"
+        }
+    }
+}
+
 // MARK: - Battle Type Card
 
 private struct BattleTypeCard: View {
@@ -235,43 +303,57 @@ private struct BattleTypeCard: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 12) {
-                // Icon
-                Image(systemName: type.icon)
-                    .dsFont(.title3)
-                    .foregroundStyle(isSelected ? DS.Semantic.brand : DS.Semantic.textSecondary)
-                    .frame(width: 40)
+                ZStack {
+                    ChamferedRectangleAlt(.small)
+                        .fill(isSelected ? DS.Semantic.brand.opacity(0.16) : DS.Semantic.fillSubtle)
 
-                VStack(alignment: .leading, spacing: 4) {
+                    BattleAssetIcon(
+                        asset: type.battleIconAsset,
+                        size: 24,
+                        color: isSelected ? DS.Semantic.brand : DS.Semantic.textSecondary
+                    )
+                }
+                .frame(width: 40, height: 40)
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text(type.displayName)
                         .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text(type.description)
-                        .dsFont(.caption)
+                        .dsFont(.caption2)
                         .foregroundStyle(DS.Semantic.textSecondary)
-                        .lineLimit(2)
+                        .lineLimit(1)
                 }
 
                 Spacer()
 
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(DS.Semantic.brand)
-                        .dsFont(.title3)
-                } else {
-                    Circle()
-                        .strokeBorder(DS.Semantic.border, lineWidth: 2)
-                        .frame(width: 24, height: 24)
+                ZStack {
+                    ChamferedRectangleAlt(.small)
+                        .fill(isSelected ? DS.Semantic.brand : Color.clear)
+                        .overlay(
+                            ChamferedRectangleAlt(.small)
+                                .stroke(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: 2)
+                        )
+
+                    if isSelected {
+                        BattleAssetIcon(
+                            asset: "angular-check-icon",
+                            size: 15,
+                            color: .black
+                        )
+                    }
                 }
+                .frame(width: 28, height: 28)
             }
-            .padding(16)
-            .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .padding(.horizontal, 12)
+            .frame(height: 64)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .strokeBorder(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: isSelected ? 2 : 1)
+                ChamferedRectangle(.large)
+                    .stroke(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: isSelected ? 2.5 : 1)
             )
+            .contentShape(ChamferedRectangle(.large))
         }
         .buttonStyle(.plain)
     }
@@ -296,13 +378,13 @@ private struct DurationButton: View {
                     .foregroundStyle(isSelected ? .black.opacity(0.7) : DS.Semantic.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(isSelected ? DS.Semantic.brand : DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .frame(height: 58)
+            .background(isSelected ? DS.Semantic.brand : DS.Semantic.card, in: ChamferedRectangleAlt(.medium))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? .clear : DS.Semantic.border, lineWidth: 1)
+                ChamferedRectangleAlt(.medium)
+                    .stroke(isSelected ? DS.Semantic.brand.opacity(0.3) : DS.Semantic.border, lineWidth: 1)
             )
+            .contentShape(ChamferedRectangleAlt(.medium))
         }
         .buttonStyle(.plain)
     }
@@ -316,65 +398,13 @@ struct FriendPickerView: View {
     @Binding var selectedFriend: UserProfile?
     @State private var friends: [Friend] = []
     @State private var isLoading = true
+    @State private var errorMessage: String?
     @State private var searchText = ""
 
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading {
-                    // Loading skeleton
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(0..<8, id: \.self) { _ in
-                                HStack(spacing: 12) {
-                                    Circle()
-                                        .fill(DS.Semantic.surface50)
-                                        .frame(width: 50, height: 50)
-
-                                    VStack(alignment: .leading, spacing: 6) {
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(DS.Semantic.surface50)
-                                            .frame(width: 120, height: 14)
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .fill(DS.Semantic.surface50)
-                                            .frame(width: 80, height: 10)
-                                    }
-
-                                    Spacer()
-                                }
-                                .padding()
-                                .background(DS.Semantic.card)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-                        }
-                        .padding()
-                    }
-                } else if friends.isEmpty {
-                    ContentUnavailableView(
-                        "No Friends Yet",
-                        systemImage: "person.2.slash",
-                        description: Text("Add friends to battle with them")
-                    )
-                } else {
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredFriends) { friend in
-                                FriendRowButton(
-                                    friend: friend.profile,
-                                    isSelected: selectedFriend?.id == friend.profile.id
-                                ) {
-                                    Haptics.light()
-                                    selectedFriend = friend.profile
-                                    dismiss()
-                                }
-                            }
-                        }
-                        .padding()
-                    }
-                }
-            }
+            content
             .background(DS.Semantic.surface)
-            .searchable(text: $searchText, prompt: "Search friends")
             .navigationTitle("Choose Opponent")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -390,6 +420,50 @@ struct FriendPickerView: View {
         }
     }
 
+    @ViewBuilder
+    private var content: some View {
+        if isLoading {
+            FriendsLoadingState()
+        } else if let errorMessage {
+            FriendsErrorState(message: errorMessage) {
+                Task {
+                    await loadFriends()
+                }
+            }
+        } else if friends.isEmpty {
+            FriendsEmptyState()
+        } else {
+            VStack(spacing: 0) {
+                FriendPickerSearchBar(searchText: $searchText)
+
+                if filteredFriends.isEmpty {
+                    FriendsNoResultsState(searchQuery: searchText)
+                } else {
+                    friendsList
+                }
+            }
+        }
+    }
+
+    private var friendsList: some View {
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                ForEach(filteredFriends) { friend in
+                    SelectableFriendRow(friend: friend, isSelected: selectedFriend?.id == friend.profile.id) {
+                        Haptics.light()
+                        selectedFriend = friend.profile
+                        dismiss()
+                    }
+
+                    if friend.id != filteredFriends.last?.id {
+                        Divider()
+                            .padding(.leading, 80)
+                    }
+                }
+            }
+        }
+    }
+
     private var filteredFriends: [Friend] {
         if searchText.isEmpty {
             return friends
@@ -401,66 +475,21 @@ struct FriendPickerView: View {
     }
 
     private func loadFriends() async {
-        guard let currentUserId = deps.authService.currentUser?.id else { return }
+        guard let currentUserId = deps.authService.currentUser?.id else {
+            errorMessage = "Not authenticated"
+            isLoading = false
+            return
+        }
 
         do {
+            isLoading = true
+            errorMessage = nil
             let friendships = try await deps.friendshipRepository.fetchFriends(userId: currentUserId)
             friends = friendships
             isLoading = false
         } catch {
+            errorMessage = "Failed to load friends: \(error.localizedDescription)"
             isLoading = false
         }
     }
 }
-
-// MARK: - Friend Row Button
-
-private struct FriendRowButton: View {
-    let friend: UserProfile
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                // Avatar
-                Circle()
-                    .fill(DS.Semantic.brandSoft)
-                    .frame(width: 50, height: 50)
-                    .overlay(
-                        Text(String(friend.username.prefix(1)).uppercased())
-                            .dsFont(.title3, weight: .bold)
-                            .foregroundStyle(DS.Semantic.brand)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(friend.displayName ?? friend.username)
-                        .dsFont(.subheadline, weight: .semibold)
-                        .foregroundStyle(DS.Semantic.textPrimary)
-
-                    Text("@\(friend.username)")
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                }
-
-                Spacer()
-
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(DS.Semantic.brand)
-                        .dsFont(.title3)
-                }
-            }
-            .padding(16)
-            .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: isSelected ? 2 : 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-

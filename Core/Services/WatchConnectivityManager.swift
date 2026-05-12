@@ -30,6 +30,13 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     private var sendDebounceTask: Task<Void, Never>?
     private let sendDebounceDelay: TimeInterval = 0.3
 
+    // Gate: true only after connectToWorkoutStore() has been called.
+    // activationDidCompleteWith and sessionReachabilityDidChange both fire before
+    // connectToWorkoutStore() on cold start. workoutStore is nil at that point, so
+    // buildWatchWorkoutState() returns isActive: false — causing the Watch to end
+    // its live HKWorkoutSession and save a duplicate HealthKit entry.
+    private var isStoreConnected = false
+
     // Cache the last sent state to avoid redundant sends
     private var lastSentState: WatchWorkoutState?
     private var lastSentHash: Int?
@@ -115,7 +122,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     /// Connect to WorkoutStoreV2 and start observing changes
     func connectToWorkoutStore(_ store: WorkoutStoreV2) {
         self.workoutStore = store
-        AppLogger.success("✅ Connected to workout store", category: AppLogger.app)
+        isStoreConnected = true
+        AppLogger.success("✅ Connected to workout store (currentWorkout: \(store.currentWorkout != nil ? "active" : "nil"))", category: AppLogger.app)
         AppLogger.info("📱 iPhone WatchConnectivity ready - can receive messages from watch", category: AppLogger.app)
 
         // Listen to workout changes
@@ -151,6 +159,7 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     /// Convert current workout state to watch format and send to watch
     /// Debounced to reduce battery drain and avoid redundant sends
     private func sendWorkoutStateToWatch() {
+        guard isStoreConnected else { return }
         guard let session = session, session.isReachable else {
             return
         }

@@ -101,6 +101,16 @@ struct SettingsView: View {
                     }
                 }
 
+                settingsCard(title: "Support") {
+                    settingsRow(showsDivider: false) {
+                        NavigationLink {
+                            DiagnosticsLogView()
+                        } label: {
+                            Label("Diagnostics", systemImage: "doc.text.magnifyingglass")
+                        }
+                    }
+                }
+
                 #if DEBUG
                 settingsCard(title: "Debug") {
                     settingsRow {

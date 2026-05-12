@@ -621,6 +621,12 @@ private struct PlannedExerciseRow: View {
     let exercise: PlannedWorkoutEditor.PlannedExerciseConfig
     let onDelete: () -> Void
 
+    @EnvironmentObject private var store: WorkoutStoreV2
+
+    private var consecutiveSameWeight: Int {
+        store.consecutiveSessionsAtSameWeight(for: exercise.exerciseID)
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
@@ -644,6 +650,20 @@ private struct PlannedExerciseRow: View {
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
+                }
+
+                if consecutiveSameWeight >= 3 {
+                    HStack(spacing: 5) {
+                        Image(systemName: "chart.line.flattrend.xyaxis")
+                            .dsFont(.caption2)
+                        Text("\(consecutiveSameWeight) sessions without progress")
+                            .dsFont(.caption2, weight: .semibold)
+                    }
+                    .foregroundStyle(DS.Semantic.accentGold)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(DS.Semantic.accentGold.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().stroke(DS.Semantic.accentGold.opacity(0.3), lineWidth: 1))
                 }
 
                 HStack(spacing: 8) {

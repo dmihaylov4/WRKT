@@ -480,7 +480,7 @@ private struct ProgressChartsSection: View {
                 case .weight:
                     WeightChart(data: stats.progressData.weightProgression, trackingMode: stats.trackingMode)
                 case .e1rm:
-                    E1RMChart(data: stats.progressData.e1rmProgression)
+                    E1RMChart(data: stats.progressData.e1rmProgression, plateauState: stats.progressData.plateauState)
                 }
             }
             .frame(height: 220)
@@ -628,8 +628,46 @@ private struct WeightChart: View {
 
 private struct E1RMChart: View {
     let data: [ProgressPoint]
+    var plateauState: PlateauState = .none
+
+    // Linear regression on last 6-8 points; returns (slope kg/day, intercept) relative to data.first
+    private func linearRegression(_ points: [ProgressPoint]) -> (slope: Double, intercept: Double)? {
+        guard points.count >= 2, let origin = points.first else { return nil }
+        let n = Double(points.count)
+        let xs = points.map { $0.date.timeIntervalSince(origin.date) / 86400.0 }
+        let ys = points.map { $0.value }
+        let sumX = xs.reduce(0, +), sumY = ys.reduce(0, +)
+        let sumXY = zip(xs, ys).map(*).reduce(0, +)
+        let sumX2 = xs.map { $0 * $0 }.reduce(0, +)
+        let denom = n * sumX2 - sumX * sumX
+        guard abs(denom) > 0 else { return nil }
+        let slope = (n * sumXY - sumX * sumY) / denom
+        let intercept = (sumY - slope * sumX) / n
+        return (slope, intercept)
+    }
+
+    private var projectionPoints: [ProgressPoint] {
+        guard !plateauState.isPlateaued, let last = data.last, let first = data.first else { return [] }
+        let window = Array(data.suffix(8))
+        guard let reg = linearRegression(window), reg.slope > 0.005 else { return [] }
+        let lastX = last.date.timeIntervalSince(first.date) / 86400.0
+        let projectedDate = Calendar.current.date(byAdding: .day, value: 28, to: last.date) ?? last.date
+        let projectedY = reg.slope * (lastX + 28) + reg.intercept
+        return [
+            ProgressPoint(date: last.date, value: last.value),
+            ProgressPoint(date: projectedDate, value: max(projectedY, 0))
+        ]
+    }
 
     var body: some View {
+        let projection = projectionPoints
+        let projectedLabel: String? = {
+            guard let end = projection.last else { return nil }
+            let kg = String(format: "%.1f kg", end.value)
+            let date = end.date.formatted(.dateTime.month(.abbreviated).day())
+            return "~\(kg) by \(date)"
+        }()
+
         Chart {
             ForEach(data) { point in
                 LineMark(
@@ -651,6 +689,29 @@ private struct E1RMChart: View {
                         endPoint: .bottom
                     )
                 )
+            }
+
+            if projection.count == 2 {
+                ForEach(projection) { point in
+                    LineMark(
+                        x: .value("Date", point.date),
+                        y: .value("E1RM", point.value)
+                    )
+                    .foregroundStyle(DS.Semantic.textSecondary.opacity(0.5))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+                }
+                if let end = projection.last, let label = projectedLabel {
+                    PointMark(
+                        x: .value("Date", end.date),
+                        y: .value("E1RM", end.value)
+                    )
+                    .foregroundStyle(DS.Semantic.textSecondary.opacity(0.5))
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text(label)
+                            .dsFont(.caption2)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
+                }
             }
         }
         .chartXAxis {

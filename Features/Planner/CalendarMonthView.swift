@@ -46,8 +46,7 @@ struct CalendarMonthView: View {
     @State private var showPlannerSetup = false  // NEW: For planner navigation
     @State private var plannerLaunchMode: PlannerSetupCarouselView.LaunchMode = .create
     @State private var showHealthKitAuthAlert = false  // HealthKit authorization prompt
-    @State private var showManagePlanAlert = false
-    @State private var activeSplitName: String?
+    @State private var hasExistingPlans = false
 
     // Phase 2: Today's workout flow
     @State private var showingWorkoutTypeSelector = false
@@ -359,20 +358,93 @@ struct CalendarMonthView: View {
 
     // MARK: - Main Content View
 
-    private var mainContent: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                headerView
-                Spacer(minLength: 48)
-                calendarGrid
-                Spacer(minLength: 5)
-                dividerView
-                syncProgressView
-                dayDetailView
+    private var planNavRow: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Text(monthAnchor.formatted(.dateTime.year().month(.wide)))
+                    .dsFont(.title3, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                    .layoutPriority(0)
+
+                Button {
+                    handlePlanHeaderAction(PlanHeaderAction.primaryAction(hasExistingPlans: hasExistingPlans))
+                } label: {
+                    Text("PLAN")
+                        .dsFont(.caption, weight: .bold)
+                        .foregroundStyle(.black)
+                        .lineLimit(1)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .frame(minWidth: 60, minHeight: 28)
+                        .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                        .contentShape(Rectangle())
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(2)
+                .captureFrame(in: .global) { frame in
+                    tutorialState.plannerButtonFrame = frame
+                }
+            }
+            .layoutPriority(1)
+
+            Spacer()
+
+            HStack(spacing: 0) {
+                Button { bump(-1) } label: {
+                    Image(systemName: "chevron.left")
+                        .frame(width: 44, height: 44)
+                }
+                Button { bump(1) } label: {
+                    Image(systemName: "chevron.right")
+                        .frame(width: 44, height: 44)
+                }
+                .opacity(canGoForward ? 1.0 : 0.35)
+                .disabled(!canGoForward)
+            }
+            .buttonStyle(.plain)
+            .dsFont(.headline)
+            .foregroundStyle(DS.Semantic.textPrimary)
+            .background(DS.Theme.cardTop, in: Capsule())
+            .overlay(Capsule().stroke(DS.Semantic.border, lineWidth: 1))
+
+            if !Calendar.current.isDate(monthAnchor, equalTo: .now, toGranularity: .month) {
+                Button("Today") { jumpToToday() }
+                    .dsFont(.caption, weight: .semibold)
+                    .foregroundStyle(Color.black)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .frame(minWidth: 68, minHeight: 44)
+                    .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(2)
             }
         }
-        .refreshable {
-            await handlePullToRefresh()
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(DS.Semantic.surface.ignoresSafeArea(edges: .top))
+    }
+
+    private var mainContent: some View {
+        VStack(spacing: 0) {
+            planNavRow
+
+            ScrollView {
+                VStack(spacing: 14) {
+                    headerView
+                    Spacer(minLength: 48)
+                    calendarGrid
+                    Spacer(minLength: 5)
+                    dividerView
+                    syncProgressView
+                    dayDetailView
+                }
+            }
+            .refreshable {
+                await handlePullToRefresh()
+            }
         }
     }
 
@@ -422,8 +494,8 @@ struct CalendarMonthView: View {
             onBack: { bump(-1) },
             onForward: { bump(+1) },
             onToday: { jumpToToday() },
-            onProgramLibraryTap: onProgramLibraryTap,
-            onManagePlanTap: { handleManagePlanTap() },
+            hasExistingPlans: hasExistingPlans,
+            onPlanAction: handlePlanHeaderAction,
             weeklyStreak: weeklyGoalStreak,
             currentWeekProgress: currentWeekProgress(),
             selectedWeekProgress: selectedWeekProgress,
@@ -553,27 +625,10 @@ struct CalendarMonthView: View {
         ZStack {
             mainContent
                 .background(DS.Semantic.surface.ignoresSafeArea())
-                .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.hidden, for: .navigationBar)
                 .tint(DS.Theme.accent)
                 .safeAreaInset(edge: .bottom) { bottomInset }
                 .onChange(of: selectedAction, actionHandler)
-                .alert("Active Plan Exists", isPresented: $showManagePlanAlert) {
-                    Button("Replace with New Plan", role: .destructive) {
-                        plannerLaunchMode = .replaceCurrent
-                        showPlannerSetup = true
-                    }
-                    Button("Edit Current Split") {
-                        plannerLaunchMode = .editCurrent
-                        showPlannerSetup = true
-                    }
-                    Button("Cancel", role: .cancel) {}
-                } message: {
-                    if let activeSplitName {
-                        Text("You already have an active plan: \"\(activeSplitName)\". You can replace it, edit it, or cancel.")
-                    } else {
-                        Text("You already have an active plan. You can replace it, edit it, or cancel.")
-                    }
-                }
 
             // Hidden NavigationLink for planner setup
             NavigationLink(
@@ -643,6 +698,7 @@ struct CalendarMonthView: View {
         updateWeeklyGoalStreakCache()  // Read current streak from RewardsEngine
         updateMonthDaysCache()
         loadPlannedWorkouts()
+        refreshPlanLibraryState()
         updateWeekProgressCache()
         updateDayStatsCache()
         updateStreakWindow()
@@ -662,7 +718,7 @@ struct CalendarMonthView: View {
         updateWeekProgressCache()
         updateDayStatsCache()
         updateStreakWindow()
-        refreshActiveSplitState()
+        refreshPlanLibraryState()
     }
 
     private func handleDataChange() {
@@ -671,7 +727,7 @@ struct CalendarMonthView: View {
         updateDayStatsCache()
         updateWeekProgressCache()
         updateStreakWindow()
-        refreshActiveSplitState()
+        refreshPlanLibraryState()
     }
 
     /// Debounced data update to prevent duplicate cache calculations when multiple data sources change simultaneously
@@ -707,24 +763,25 @@ struct CalendarMonthView: View {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
-    private func handleManagePlanTap() {
-        refreshActiveSplitState()
+    private func handlePlanHeaderAction(_: PlanHeaderAction) {
+        refreshPlanLibraryState()
+        let action = PlanHeaderAction.primaryAction(hasExistingPlans: hasExistingPlans)
 
-        if activeSplitName != nil {
-            showManagePlanAlert = true
-        } else {
+        switch action {
+        case .createPlan:
             plannerLaunchMode = .create
             showPlannerSetup = true
+        case .openProgramLibrary:
+            onProgramLibraryTap()
         }
     }
 
-    private func refreshActiveSplitState() {
+    private func refreshPlanLibraryState() {
         do {
-            let activeSplit = try dependencies.plannerStore.activeSplit()
-            activeSplitName = activeSplit?.name
+            hasExistingPlans = try !dependencies.plannerStore.splitLibrary().isEmpty
         } catch {
-            AppLogger.error("Failed to load active split for plan management", error: error, category: AppLogger.app)
-            activeSplitName = nil
+            AppLogger.error("Failed to load plan library state", error: error, category: AppLogger.app)
+            hasExistingPlans = true
         }
     }
 

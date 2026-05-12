@@ -294,21 +294,32 @@ final class BattleRepository: Sendable {
         AppLogger.success("Battle declined: \(battle.id)", category: AppLogger.battles)
     }
 
-    /// Cancel a battle (creator only, before acceptance)
+    /// Cancel a pending invitation or leave an active battle.
     func cancelBattle(_ battle: Battle) async throws {
         guard let userId = authService.currentUser?.id else {
             throw SupabaseError.notAuthenticated
         }
 
-        guard battle.challengerId == userId, battle.status == .pending else {
+        guard battle.challengerId == userId || battle.opponentId == userId else {
             throw SupabaseError.custom(message: "Cannot cancel this battle")
         }
 
+        guard battle.status == .pending || battle.status == .active else {
+            throw SupabaseError.custom(message: "Cannot cancel this battle")
+        }
+
+        let update: [String: String?] = [
+            "status": BattleStatus.cancelled.rawValue,
+            "winner_id": nil
+        ]
+
         try await supabase.database
             .from("battles")
-            .update(["status": BattleStatus.cancelled.rawValue])
+            .update(update)
             .eq("id", value: battle.id)
             .execute()
+
+        AppLogger.success("Battle cancelled: \(battle.id)", category: AppLogger.battles)
     }
 
     // MARK: - Update Battle Scores

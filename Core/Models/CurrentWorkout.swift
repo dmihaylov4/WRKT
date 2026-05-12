@@ -11,8 +11,53 @@ struct CurrentWorkout: Identifiable, Codable, Hashable {
     var id = UUID()
     var startedAt: Date = .now
     var entries: [WorkoutEntry] = []
-    var plannedWorkoutID: UUID? = nil  // Link to PlannedWorkout if started from one
-    var activeEntryID: UUID? = nil  // Track which exercise user is currently focused on
+    var plannedWorkoutID: UUID? = nil
+    var activeEntryID: UUID? = nil
+    /// Planned exercise IDs intentionally removed during this session.
+    /// Used by the planner to treat them as completed when marking the workout done.
+    var excusedPlannedExerciseIDs: Set<UUID> = []
+
+    init(
+        id: UUID = UUID(),
+        startedAt: Date = .now,
+        entries: [WorkoutEntry] = [],
+        plannedWorkoutID: UUID? = nil,
+        activeEntryID: UUID? = nil,
+        excusedPlannedExerciseIDs: Set<UUID> = []
+    ) {
+        self.id = id
+        self.startedAt = startedAt
+        self.entries = entries
+        self.plannedWorkoutID = plannedWorkoutID
+        self.activeEntryID = activeEntryID
+        self.excusedPlannedExerciseIDs = excusedPlannedExerciseIDs
+    }
+
+    // MARK: - Codable
+
+    enum CodingKeys: String, CodingKey {
+        case id, startedAt, entries, plannedWorkoutID, activeEntryID, excusedPlannedExerciseIDs
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = (try? c.decode(UUID.self, forKey: .id)) ?? UUID()
+        startedAt = (try? c.decode(Date.self, forKey: .startedAt)) ?? .now
+        entries = (try? c.decode([WorkoutEntry].self, forKey: .entries)) ?? []
+        plannedWorkoutID = try? c.decode(UUID.self, forKey: .plannedWorkoutID)
+        activeEntryID = try? c.decode(UUID.self, forKey: .activeEntryID)
+        excusedPlannedExerciseIDs = (try? c.decode(Set<UUID>.self, forKey: .excusedPlannedExerciseIDs)) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(startedAt, forKey: .startedAt)
+        try c.encode(entries, forKey: .entries)
+        try c.encodeIfPresent(plannedWorkoutID, forKey: .plannedWorkoutID)
+        try c.encodeIfPresent(activeEntryID, forKey: .activeEntryID)
+        try c.encode(excusedPlannedExerciseIDs, forKey: .excusedPlannedExerciseIDs)
+    }
 }
 
 // MARK: - CurrentWorkout Superset Helpers

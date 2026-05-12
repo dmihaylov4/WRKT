@@ -255,7 +255,97 @@ struct CardioView: View {
         return cardioRuns.filter { $0.date >= cutoff }
     }
 
+    private var cardioNavRow: some View {
+        HStack(spacing: 10) {
+            Button {
+                showingVirtualRunInvite = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "figure.run.square.stack")
+                        .dsFont(.subheadline, weight: .semibold)
+                    Text("Run Together")
+                        .dsFont(.caption, weight: .semibold)
+                }
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(DS.Semantic.card, in: ChamferedRectangle(.small))
+                .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
+            }
+
+            Spacer()
+
+            switch healthKit.connectionState {
+            case .connected:
+                Menu {
+                    Button {
+                        Task { await healthKit.syncWorkoutsIncremental() }
+                    } label: {
+                        Label("Sync New Workouts", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    Button {
+                        isResyncing = true
+                        Task {
+                            await healthKit.forceFullResync()
+                            await MainActor.run { store.matchAllWorkoutsWithHealthKit() }
+                            isResyncing = false
+                        }
+                    } label: {
+                        Label(isResyncing ? "Re-syncing..." : "Force Full Re-sync",
+                              systemImage: "arrow.clockwise.circle.fill")
+                    }
+                    .disabled(healthKit.isSyncing || isResyncing)
+                } label: {
+                    HStack(spacing: 6) {
+                        if healthKit.isSyncing || isResyncing {
+                            ProgressView()
+                                .scaleEffect(0.75)
+                                .tint(DS.Semantic.textPrimary)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .dsFont(.subheadline, weight: .semibold)
+                        }
+                        Text(healthKit.isSyncing || isResyncing ? "Syncing..." : "Sync")
+                            .dsFont(.caption, weight: .semibold)
+                    }
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(DS.Semantic.card, in: ChamferedRectangle(.small))
+                    .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
+                }
+                .disabled(healthKit.isSyncing)
+
+            case .limited, .disconnected:
+                Button {
+                    showingAuthSheet = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.circle")
+                            .dsFont(.subheadline, weight: .semibold)
+                        Text("Connect Health")
+                            .dsFont(.caption, weight: .semibold)
+                    }
+                    .foregroundStyle(DS.Theme.accent)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
+                    .background(DS.Semantic.card, in: ChamferedRectangle(.small))
+                    .overlay(ChamferedRectangle(.small).stroke(DS.Theme.accent.opacity(0.4), lineWidth: 1))
+                }
+
+            default:
+                EmptyView()
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Theme.bg.ignoresSafeArea(edges: .top))
+    }
+
     var body: some View {
+        VStack(spacing: 0) {
+        cardioNavRow
+
         ScrollView {
             VStack(spacing: 14) {
                 // MARK: - Activity Type Carousel
@@ -403,25 +493,18 @@ struct CardioView: View {
                 }
             }
             .padding(.top, 12)
-            .padding(.bottom, 80) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
+            .padding(.bottom, 80)
         }
         .background(Theme.bg.ignoresSafeArea())
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.bg, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    showingVirtualRunInvite = true
-                } label: {
-                    Label("Run Together", systemImage: "figure.run.square.stack")
-                }
-                .tint(Theme.accent)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                healthConnectionButton
-            }
+        .refreshable {
+            print("📊 [CardioView] Pull to refresh - syncing recent workouts")
+            await healthKit.syncRecentWorkouts()
+            await MainActor.run { store.matchAllWorkoutsWithHealthKit() }
+            print("✅ [CardioView] Recent workout sync completed")
         }
+        } // VStack
+        .background(Theme.bg.ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingVirtualRunInvite) {
             VirtualRunInviteView()
                 .environment(\.dependencies, deps)
@@ -444,16 +527,6 @@ struct CardioView: View {
         }) {
             HealthAuthSheet()
                 .environmentObject(healthKit)
-        }
-        .refreshable {
-            // Pull-to-refresh: Sync recent workouts (resets anchor for reliability)
-            print("📊 [CardioView] Pull to refresh - syncing recent workouts")
-
-            await healthKit.syncRecentWorkouts()
-            await MainActor.run {
-                store.matchAllWorkoutsWithHealthKit()
-            }
-            print("✅ [CardioView] Recent workout sync completed")
         }
         .task {
             clampSelectedWeekOffset()
@@ -493,56 +566,6 @@ struct CardioView: View {
         }
     }
 
-    @ViewBuilder
-    private var healthConnectionButton: some View {
-        switch healthKit.connectionState {
-        case .connected:
-            Menu {
-                Button {
-                    Task {
-                        await healthKit.syncWorkoutsIncremental()
-                    }
-                } label: {
-                    Label("Sync New Workouts", systemImage: "arrow.triangle.2.circlepath")
-                }
-
-                Button {
-                    isResyncing = true
-                    Task {
-                        await healthKit.forceFullResync()
-                        await MainActor.run {
-                            store.matchAllWorkoutsWithHealthKit()
-                        }
-                        isResyncing = false
-                    }
-                } label: {
-                    if isResyncing {
-                        Label("Re-syncing...", systemImage: "arrow.clockwise.circle.fill")
-                    } else {
-                        Label("Force Full Re-sync", systemImage: "arrow.clockwise.circle.fill")
-                    }
-                }
-                .disabled(healthKit.isSyncing || isResyncing)
-
-            } label: {
-                if healthKit.isSyncing {
-                    HealthKitSyncProgressCompact(healthKit: healthKit)
-                } else {
-                    Label("Sync", systemImage: "arrow.triangle.2.circlepath")
-                }
-            }
-            .tint(Theme.accent)
-            .disabled(healthKit.isSyncing)
-
-        case .limited, .disconnected:
-            Button {
-                showingAuthSheet = true
-            } label: {
-                Label("Connect Health", systemImage: "heart.circle")
-            }
-            .tint(.orange)
-        }
-    }
 }
 
 // MARK: - Cardio Type Carousel

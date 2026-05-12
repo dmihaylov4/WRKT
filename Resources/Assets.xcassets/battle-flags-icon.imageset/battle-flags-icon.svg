@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <polygon id="left-flag-head" fill="#000000" points="5 5 15 5 18 8 15 15 8 15 5 12"/>
+  <polygon id="right-flag-head" fill="#000000" points="27 5 17 5 14 8 17 15 24 15 27 12"/>
+  <polygon id="left-pole" fill="#000000" points="9 15 12 15 23 28 20 28"/>
+  <polygon id="right-pole" fill="#000000" points="20 15 23 15 12 28 9 28"/>
+  <polygon id="crossed-poles" fill="#000000" points="14 18 18 18 21 22 19 24 16 20 13 24 11 22"/>
+</svg>

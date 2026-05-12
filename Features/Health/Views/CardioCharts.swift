@@ -7,7 +7,9 @@
 
 import SwiftUI
 import Charts
+#if canImport(UIKit)
 import UIKit
+#endif
 
 // MARK: - Splits Chart
 
@@ -25,6 +27,10 @@ struct SplitsChart: View {
 
     @State private var selectedSplit: KilometerSplit?
 
+    private var displayedSplit: KilometerSplit? {
+        selectedSplit ?? splits.last
+    }
+
     var body: some View {
         if showCard {
             content
@@ -37,8 +43,6 @@ struct SplitsChart: View {
         }
     }
 
-    private var chartHeight: CGFloat { selectedSplit != nil ? 190 : 130 }
-
     private var content: some View {
         VStack(alignment: .leading, spacing: 12) {
             if splits.isEmpty {
@@ -48,8 +52,8 @@ struct SplitsChart: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else {
-                // Selected split detail — above the chart so it never blocks bar taps
-                if let split = selectedSplit {
+                // Always-visible info row — shows selected split or last split as default
+                if let split = displayedSplit {
                     HStack(spacing: 8) {
                         Text("KM \(split.number)")
                             .dsFont(.subheadline, weight: .bold, monospacedDigits: true)
@@ -71,9 +75,8 @@ struct SplitsChart: View {
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .background(Color.white.opacity(0.1))
+                    .background(Color.white.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .transition(.opacity.animation(.easeOut(duration: 0.15)))
                 }
 
                 Chart {
@@ -85,7 +88,7 @@ struct SplitsChart: View {
                         .foregroundStyle(barColor(for: split))
                         .cornerRadius(3)
                         .annotation(position: .overlay, alignment: .bottom) {
-                            let isSelected = selectedSplit?.id == split.id
+                            let isSelected = displayedSplit?.id == split.id
                             Text("\(split.number)")
                                 .font(.system(size: 10, weight: isSelected ? .bold : .regular))
                                 .foregroundStyle(isSelected ? Color.black : DS.Semantic.textSecondary)
@@ -93,7 +96,6 @@ struct SplitsChart: View {
                         }
                     }
 
-                    // Average pace reference line
                     RuleMark(y: .value("Avg", avgPace))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 3]))
                         .foregroundStyle(DS.Semantic.textSecondary.opacity(0.5))
@@ -118,61 +120,49 @@ struct SplitsChart: View {
                     }
                 }
                 .chartXAxis(.hidden)
-                .frame(height: chartHeight)
-                .animation(.easeOut(duration: 0.2), value: selectedSplit?.id)
+                .frame(height: 140)
+                // DragGesture(minimumDistance: 0) fires immediately on touch-up
+                // without the ~350ms disambiguation delay that onTapGesture incurs
+                // inside a TabView(.page) carousel.
                 .chartOverlay { proxy in
                     GeometryReader { geo in
                         Rectangle()
                             .fill(Color.clear)
                             .contentShape(Rectangle())
-                            // DragGesture(minimumDistance: 0) fires immediately on touch-up
-                            // without the ~350ms disambiguation delay that onTapGesture incurs
-                            // inside a TabView(.page) carousel.
-                            .gesture(
+                            // simultaneousGesture lets the tap fire alongside the
+                            // TabView(.page) swipe recognizer instead of competing with it.
+                            .simultaneousGesture(
                                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                                     .onEnded { value in
-                                        // Ignore if finger moved significantly (user is swiping)
                                         let moved = max(abs(value.translation.width), abs(value.translation.height))
                                         guard moved < 8 else { return }
                                         guard let plotFrame = proxy.plotFrame else { return }
                                         let relX = value.startLocation.x - geo[plotFrame].origin.x
                                         let plotWidth = geo[plotFrame].width
                                         guard plotWidth > 0, relX >= 0, relX <= plotWidth else { return }
-                                        // Compute bar index directly from geometry — far more reliable
-                                        // than proxy.value(atX:) for categorical axes
                                         let barIndex = Int(relX / (plotWidth / CGFloat(splits.count)))
                                         let clampedIndex = max(0, min(splits.count - 1, barIndex))
-                                        let split = splits[clampedIndex]
-                                        let tappingNew = selectedSplit?.id != split.id
-                                        // No withAnimation: bar colors update instantly.
-                                        // The detail card fades via its own .transition(.opacity).
-                                        selectedSplit = tappingNew ? split : nil
-                                        if tappingNew {
-                                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                        }
+                                        selectedSplit = splits[clampedIndex]
+                                        #if canImport(UIKit)
+                                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                        #endif
                                     }
                             )
                     }
                 }
             }
         }
-        .onAppear {
-            if selectedSplit == nil {
-                selectedSplit = splits.last
-            }
-        }
     }
 
-    // Selected bar gets full brand; others: faster = brand, slower = muted
     private func barColor(for split: KilometerSplit) -> Color {
-        if let selected = selectedSplit {
-            return split.id == selected.id
+        guard let displayed = displayedSplit else {
+            return split.paceSecPerKm <= avgPace
                 ? DS.Semantic.brand
-                : DS.Semantic.textSecondary.opacity(0.25)
+                : DS.Semantic.textSecondary.opacity(0.4)
         }
-        return split.paceSecPerKm <= avgPace
+        return split.id == displayed.id
             ? DS.Semantic.brand
-            : DS.Semantic.textSecondary.opacity(0.45)
+            : DS.Semantic.textSecondary.opacity(0.25)
     }
 
     private func paceString(_ spk: Int) -> String {

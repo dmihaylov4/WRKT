@@ -171,6 +171,7 @@ struct ProgressData {
     let trendDirection: TrendDirection          // Overall trend
     let volumeChangePercent: Double?            // % change in last 4 weeks
     let weightChangePercent: Double?            // % change in average weight
+    let plateauState: PlateauState              // e1RM plateau detection
 }
 
 struct ProgressPoint: Identifiable {
@@ -190,6 +191,14 @@ enum TrendDirection {
     case stable         // Maintaining performance
     case declining      // Decreasing performance
     case insufficient   // Not enough data to determine
+}
+
+struct PlateauState {
+    let isPlateaued: Bool
+    let weeksFlat: Int
+    let lastProgressDate: Date?
+
+    static let none = PlateauState(isPlateaued: false, weeksFlat: 0, lastProgressDate: nil)
 }
 
 // MARK: - Helper Extensions
@@ -309,7 +318,8 @@ extension ExerciseStatistics {
                 frequencyTrend: [],
                 trendDirection: .insufficient,
                 volumeChangePercent: nil,
-                weightChangePercent: nil
+                weightChangePercent: nil,
+                plateauState: .none
             )
         )
     }

@@ -25,13 +25,35 @@ struct WeeklyProgressCard: View {
     private var statusMessage: String {
         if progress.percentage >= 100 {
             return "Goal complete!"
+        } else if progress.weekEnded {
+            return "Week ended"
         } else if progress.daysRemaining == 0 {
-            return "Week ending today"
+            return "Last day"
         } else if progress.daysRemaining == 1 {
             return "1 day left"
         } else {
             return "\(progress.daysRemaining) days left"
         }
+    }
+
+    @ViewBuilder
+    private func planAdherenceChip(adherence: PlanAdherence) -> some View {
+        let chipColor: Color = adherence.rate >= 1.0 ? .green : (adherence.rate >= 0.6 ? DS.tint : .orange)
+        let label = adherence.completedOnPlan == adherence.plannedSessions
+            ? "Plan complete"
+            : "Plan: \(adherence.completedOnPlan) / \(adherence.plannedSessions) sessions"
+
+        HStack(spacing: 5) {
+            Image(systemName: "calendar.badge.checkmark")
+                .dsFont(.caption2, weight: .semibold)
+            Text(label)
+                .dsFont(.caption, weight: .semibold)
+        }
+        .foregroundStyle(chipColor)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(chipColor.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(chipColor.opacity(0.3), lineWidth: 1))
     }
 
     var body: some View {
@@ -90,6 +112,19 @@ struct WeeklyProgressCard: View {
                 }
             }
             .frame(height: 12)
+
+            // Plan adherence chip
+            if let adherence = progress.planAdherence {
+                planAdherenceChip(adherence: adherence)
+            }
+
+            // Missed sessions note — only after week has ended
+            if progress.weekEnded && progress.completedDays < progress.targetDays {
+                let missed = progress.targetDays - progress.completedDays
+                Text("Missed by \(missed) session\(missed == 1 ? "" : "s") this week")
+                    .dsFont(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -120,7 +155,9 @@ struct WeeklyProgressCard: View {
                 completedDays: 2,
                 targetDays: 4,
                 percentage: 50,
-                daysRemaining: 3
+                daysRemaining: 3,
+                weekEnded: false,
+                planAdherence: nil
             )
         )
         Spacer()
@@ -129,14 +166,16 @@ struct WeeklyProgressCard: View {
     .background(Color.black)
 }
 
-#Preview("75% Progress") {
+#Preview("75% with Plan") {
     VStack {
         WeeklyProgressCard(
             progress: WeeklyProgressData(
                 completedDays: 3,
                 targetDays: 4,
                 percentage: 75,
-                daysRemaining: 2
+                daysRemaining: 2,
+                weekEnded: false,
+                planAdherence: PlanAdherence(plannedSessions: 5, completedOnPlan: 3)
             )
         )
         Spacer()
@@ -152,7 +191,9 @@ struct WeeklyProgressCard: View {
                 completedDays: 4,
                 targetDays: 4,
                 percentage: 100,
-                daysRemaining: 1
+                daysRemaining: 1,
+                weekEnded: false,
+                planAdherence: PlanAdherence(plannedSessions: 4, completedOnPlan: 4)
             )
         )
         Spacer()
@@ -161,14 +202,16 @@ struct WeeklyProgressCard: View {
     .background(Color.black)
 }
 
-#Preview("Behind - 25%") {
+#Preview("Week Ended — Missed") {
     VStack {
         WeeklyProgressCard(
             progress: WeeklyProgressData(
-                completedDays: 1,
+                completedDays: 2,
                 targetDays: 4,
-                percentage: 25,
-                daysRemaining: 1
+                percentage: 50,
+                daysRemaining: 0,
+                weekEnded: true,
+                planAdherence: PlanAdherence(plannedSessions: 5, completedOnPlan: 2)
             )
         )
         Spacer()

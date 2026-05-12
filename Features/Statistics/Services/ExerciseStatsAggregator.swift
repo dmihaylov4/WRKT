@@ -726,6 +726,7 @@ final class ExerciseStatsAggregator {
         let trendDirection = calculateTrendDirection(volumeProgression: volumeProgression)
         let volumeChange = calculatePercentChange(data: volumeProgression, weeks: 4)
         let weightChange = calculatePercentChange(data: weightProgression, weeks: 4)
+        let plateauState = calculatePlateauState(e1rmProgression: e1rmProgression)
 
         return ProgressData(
             weightProgression: weightProgression,
@@ -734,7 +735,47 @@ final class ExerciseStatsAggregator {
             frequencyTrend: frequencyTrend,
             trendDirection: trendDirection,
             volumeChangePercent: volumeChange,
-            weightChangePercent: weightChange
+            weightChangePercent: weightChange,
+            plateauState: plateauState
+        )
+    }
+
+    private func calculatePlateauState(e1rmProgression: [ProgressPoint]) -> PlateauState {
+        guard e1rmProgression.count >= 3 else { return .none }
+
+        let calendar = Calendar.current
+
+        // Bucket by ISO week, take max e1RM per week
+        var weeklyMax: [Date: Double] = [:]
+        for point in e1rmProgression {
+            let weekStart = calendar.startOfWeek(for: point.date, anchorWeekday: 2)
+            weeklyMax[weekStart] = max(weeklyMax[weekStart] ?? 0, point.value)
+        }
+
+        let sorted = weeklyMax.sorted { $0.key < $1.key }
+        guard sorted.count >= 3 else { return .none }
+
+        // Count consecutive flat weeks from the end
+        var weeksFlat = 0
+        var lastProgressDate: Date? = nil
+
+        for i in stride(from: sorted.count - 1, through: 1, by: -1) {
+            let current = sorted[i].value
+            let previous = sorted[i - 1].value
+            guard previous > 0 else { break }
+            let changePercent = abs(current - previous) / previous
+            if changePercent < 0.01 {
+                weeksFlat += 1
+            } else {
+                lastProgressDate = sorted[i].key
+                break
+            }
+        }
+
+        return PlateauState(
+            isPlateaued: weeksFlat >= 3,
+            weeksFlat: weeksFlat,
+            lastProgressDate: lastProgressDate
         )
     }
 

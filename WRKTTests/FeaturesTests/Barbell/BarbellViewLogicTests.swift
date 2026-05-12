@@ -95,11 +95,73 @@ struct BarbellViewLogicTests {
         #expect(position == SIMD3(0, -0.42, -1.72))
     }
 
+    @Test func barbellPreviewSceneIdentityChangesWhenShowcaseChanges() {
+        let first = barbellPreviewSceneIdentity(
+            selectedTier: 0,
+            selectedBar: 0,
+            selectedSticker: 0,
+            selectedRoomThemeID: "dark_gym",
+            selectedRackStyleID: "matte_black",
+            showPlateEngravings: true,
+            showcaseSignature: "plate-a"
+        )
+        let second = barbellPreviewSceneIdentity(
+            selectedTier: 0,
+            selectedBar: 0,
+            selectedSticker: 0,
+            selectedRoomThemeID: "dark_gym",
+            selectedRackStyleID: "matte_black",
+            showPlateEngravings: true,
+            showcaseSignature: "plate-b"
+        )
+
+        #expect(first != second)
+    }
+
+    @Test func barbellPreviewSceneIdentityIgnoresAssetRevisionChanges() {
+        let initial = barbellPreviewSceneIdentity(
+            selectedTier: 0,
+            selectedBar: 0,
+            selectedSticker: 0,
+            selectedRoomThemeID: "dark_gym",
+            selectedRackStyleID: "matte_black",
+            showPlateEngravings: true,
+            showcaseSignature: "plate-a",
+            assetRevision: 0
+        )
+        let afterTexturePreload = barbellPreviewSceneIdentity(
+            selectedTier: 0,
+            selectedBar: 0,
+            selectedSticker: 0,
+            selectedRoomThemeID: "dark_gym",
+            selectedRackStyleID: "matte_black",
+            showPlateEngravings: true,
+            showcaseSignature: "plate-a",
+            assetRevision: 1
+        )
+
+        #expect(initial == afterTexturePreload)
+    }
+
+    @Test func socialProfileShowcaseUsesSettingsBarbellRenderer() {
+        #expect(barbellShowcasePreviewRenderer(for: .socialProfileCard) == .realityKit)
+        #expect(barbellShowcasePreviewRenderer(for: .socialProfileRoom) == .realityKit)
+    }
+
+    @Test func editorShowcaseKeepsRealityKitRenderer() {
+        #expect(barbellShowcasePreviewRenderer(for: .editor) == .realityKit)
+    }
+
     @Test func clampFloorPlateXUsesConfiguredBounds() {
         #expect(clampFloorPlateX(0.20) == 0.20)
         #expect(clampFloorPlateX(0.90) == 0.64)
         #expect(clampFloorPlateX(-0.90) == -0.64)
         #expect(clampFloorPlateX(0.90, maxAbsX: 0.50) == 0.50)
+    }
+
+    @Test func rackRoomSlideOutAnimationRemainsEnabledWithReduceMotion() {
+        #expect(barbellRackRoomSlideOutDuration(isReduceMotionEnabled: false) == 0.2)
+        #expect(barbellRackRoomSlideOutDuration(isReduceMotionEnabled: true) == 0.2)
     }
 
     @Test func barbellEditorBottomPaddingClearsCustomTabBar() {

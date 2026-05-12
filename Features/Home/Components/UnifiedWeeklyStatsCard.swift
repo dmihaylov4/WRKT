@@ -7,6 +7,59 @@
 
 import SwiftUI
 
+enum WeeklyProgressGoalState: Equatable {
+    case inProgress
+    case complete
+}
+
+struct WeeklyProgressGoalPresentation: Equatable {
+    let state: WeeklyProgressGoalState
+    let trailingText: String
+    let showsIcon: Bool
+}
+
+func weeklyProgressGoalPresentation(
+    completed: Int,
+    target: Int,
+    unitLabel: String
+) -> WeeklyProgressGoalPresentation {
+    if target > 0 && completed >= target {
+        return WeeklyProgressGoalPresentation(
+            state: .complete,
+            trailingText: "Complete",
+            showsIcon: false
+        )
+    }
+
+    return WeeklyProgressGoalPresentation(
+        state: .inProgress,
+        trailingText: "\(completed)/\(target) \(unitLabel)",
+        showsIcon: false
+    )
+}
+
+func weeklyPlanAdherenceLabel(_ adherence: PlanAdherence) -> String {
+    adherence.completedOnPlan == adherence.plannedSessions
+        ? "Plan complete"
+        : "Planned: \(adherence.completedOnPlan)/\(adherence.plannedSessions)"
+}
+
+func weeklyProgressCompletionMessage(
+    strengthComplete: Bool,
+    cardioComplete: Bool
+) -> String? {
+    switch (strengthComplete, cardioComplete) {
+    case (true, true):
+        return "All goals locked in"
+    case (true, false):
+        return "Strength complete"
+    case (false, true):
+        return "Cardio complete"
+    case (false, false):
+        return nil
+    }
+}
+
 struct UnifiedWeeklyStatsCard: View {
     let strengthCompleted: Int
     let strengthTarget: Int
@@ -14,12 +67,16 @@ struct UnifiedWeeklyStatsCard: View {
     let cardioTarget: Int
     let daysRemaining: Int
 
-    // NEW: Streak data (optional for backward compatibility)
+    // Streak data (optional for backward compatibility)
     var currentStreak: Int = 0
     var nextMilestone: Int? = nil
     var milestoneProgress: Double = 0
     var urgencyLevel: StreakUrgencyLevel? = nil
     var urgencyMessage: String? = nil
+
+    // Plan adherence
+    var planAdherence: PlanAdherence? = nil
+    var weekEnded: Bool = false
 
     private var strengthPercentage: Double {
         guard strengthTarget > 0 else { return 0 }
@@ -35,9 +92,33 @@ struct UnifiedWeeklyStatsCard: View {
         (strengthPercentage + cardioPercentage) / 2.0
     }
 
+    private var strengthComplete: Bool {
+        strengthPercentage >= 100
+    }
+
+    private var cardioComplete: Bool {
+        cardioPercentage >= 100
+    }
+
+    private var strengthPresentation: WeeklyProgressGoalPresentation {
+        weeklyProgressGoalPresentation(
+            completed: strengthCompleted,
+            target: strengthTarget,
+            unitLabel: "workouts"
+        )
+    }
+
+    private var cardioPresentation: WeeklyProgressGoalPresentation {
+        weeklyProgressGoalPresentation(
+            completed: cardioMinutes,
+            target: cardioTarget,
+            unitLabel: "min"
+        )
+    }
+
     private var statusColor: Color {
         if overallPercentage >= 100 {
-            return DS.Semantic.success
+            return DS.tint
         } else if overallPercentage == 0 {
             return .secondary  // Week just started — don't show alarm on day 1
         } else if overallPercentage >= 50 || daysRemaining > 2 {
@@ -88,9 +169,7 @@ struct UnifiedWeeklyStatsCard: View {
 
                     Spacer()
 
-                    Text("\(strengthCompleted)/\(strengthTarget) workouts")
-                        .dsFont(.caption)
-                        .foregroundStyle(.secondary)
+                    goalTrailingValue(strengthPresentation)
                 }
 
                 // Progress bar
@@ -101,9 +180,8 @@ struct UnifiedWeeklyStatsCard: View {
                             .fill(Color.secondary.opacity(0.2))
                             .frame(height: 6)
 
-                        // Progress fill - green when complete, brand color when in progress
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(strengthPercentage >= 100 ? Color.green : DS.tint)
+                            .fill(DS.tint)
                             .frame(
                                 width: geometry.size.width * (strengthPercentage / 100.0),
                                 height: 6
@@ -128,9 +206,7 @@ struct UnifiedWeeklyStatsCard: View {
 
                     Spacer()
 
-                    Text("\(cardioMinutes)/\(cardioTarget) min")
-                        .dsFont(.caption)
-                        .foregroundStyle(.secondary)
+                    goalTrailingValue(cardioPresentation)
                 }
 
                 // Progress bar
@@ -141,9 +217,8 @@ struct UnifiedWeeklyStatsCard: View {
                             .fill(Color.secondary.opacity(0.2))
                             .frame(height: 6)
 
-                        // Progress fill - green when complete, brand color when in progress
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(cardioPercentage >= 100 ? Color.green : DS.tint)
+                            .fill(DS.tint)
                             .frame(
                                 width: geometry.size.width * (cardioPercentage / 100.0),
                                 height: 6
@@ -154,38 +229,52 @@ struct UnifiedWeeklyStatsCard: View {
                 .frame(height: 6)
             }
 
-            // Status message
-            if strengthPercentage >= 100 && cardioPercentage >= 100 {
-                Text("All goals complete!")
-                    .font(DS.Typography.font(.caption, weight: .medium))
-                    .foregroundStyle(Color.green)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else if strengthPercentage >= 100 {
-                Text("Strength goal complete!")
-                    .font(DS.Typography.font(.caption, weight: .medium))
-                    .foregroundStyle(Color.green)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else if cardioPercentage >= 100 {
-                Text("Cardio goal complete!")
-                    .font(DS.Typography.font(.caption, weight: .medium))
-                    .foregroundStyle(Color.green)
-                    .frame(maxWidth: .infinity, alignment: .center)
-            } else {
-                HStack(spacing: 4) {
-                    if strengthCompleted < strengthTarget {
-                        Text("•")
-                        Text("\(strengthTarget - strengthCompleted) workouts to go")
+            // Footer: status text + optional plan chip on the same row
+            HStack(spacing: 8) {
+                if weekEnded && (strengthCompleted < strengthTarget || cardioMinutes < cardioTarget) {
+                    // Week ended, missed goal
+                    HStack(spacing: 4) {
+                        if strengthCompleted < strengthTarget {
+                            let missed = strengthTarget - strengthCompleted
+                            Text("Missed \(missed) strength session\(missed == 1 ? "" : "s")")
+                        }
+                        if strengthCompleted < strengthTarget && cardioMinutes < cardioTarget {
+                            Text("•")
+                        }
+                        if cardioMinutes < cardioTarget {
+                            Text("Missed \(cardioTarget - cardioMinutes) cardio min")
+                        }
                     }
-                    if strengthCompleted < strengthTarget && cardioMinutes < cardioTarget {
-                        Text("•")
+                    .dsFont(.caption2)
+                    .foregroundStyle(.secondary)
+                } else if let completionMessage = weeklyProgressCompletionMessage(
+                    strengthComplete: strengthComplete,
+                    cardioComplete: cardioComplete
+                ) {
+                    Text(completionMessage)
+                        .font(DS.Typography.font(.caption, weight: .medium))
+                        .foregroundStyle(DS.tint)
+                } else {
+                    HStack(spacing: 4) {
+                        if strengthCompleted < strengthTarget {
+                            Text("•")
+                            Text("\(strengthTarget - strengthCompleted) workouts to go")
+                        }
+                        if strengthCompleted < strengthTarget && cardioMinutes < cardioTarget {
+                            Text("•")
+                        }
+                        if cardioMinutes < cardioTarget {
+                            Text("\(cardioTarget - cardioMinutes) min to go")
+                        }
                     }
-                    if cardioMinutes < cardioTarget {
-                        Text("\(cardioTarget - cardioMinutes) min to go")
-                    }
+                    .dsFont(.caption2)
+                    .foregroundStyle(.secondary)
                 }
-                .dsFont(.caption2)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
+
+                if let adherence = planAdherence {
+                    Spacer()
+                    planAdherenceChip(adherence: adherence)
+                }
             }
         }
         .padding(12)
@@ -193,7 +282,59 @@ struct UnifiedWeeklyStatsCard: View {
         .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 
-    // MARK: - New Components
+    // MARK: - Components
+
+    @ViewBuilder
+    private func goalTrailingValue(_ presentation: WeeklyProgressGoalPresentation) -> some View {
+        switch presentation.state {
+        case .complete:
+            completeChip(presentation)
+        case .inProgress:
+            Text(presentation.trailingText)
+                .dsFont(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func completeChip(_ presentation: WeeklyProgressGoalPresentation) -> some View {
+        HStack(spacing: 3) {
+            if presentation.showsIcon {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 9, weight: .bold))
+            }
+
+            Text(presentation.trailingText)
+                .font(.system(size: 10, weight: .bold))
+        }
+        .foregroundStyle(.black)
+        .padding(.horizontal, 7)
+        .frame(height: 18)
+        .background(DS.tint)
+        .clipShape(ChamferedRectangleAlt(.micro))
+        .overlay(
+            ChamferedRectangleAlt(.micro)
+                .stroke(DS.tint.opacity(0.45), lineWidth: 1)
+        )
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private func planAdherenceChip(adherence: PlanAdherence) -> some View {
+        let chipColor: Color = adherence.rate >= 1.0 ? DS.tint : (adherence.rate >= 0.6 ? DS.tint : .orange)
+        let label = weeklyPlanAdherenceLabel(adherence)
+
+        HStack(spacing: 5) {
+            Image(systemName: "calendar.badge.checkmark")
+                .font(DS.Typography.font(.caption2, weight: .semibold))
+            Text(label)
+                .font(DS.Typography.font(.caption, weight: .semibold))
+        }
+        .foregroundStyle(chipColor)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(chipColor.opacity(0.12), in: Capsule())
+        .overlay(Capsule().stroke(chipColor.opacity(0.3), lineWidth: 1))
+    }
 
     @ViewBuilder
     private func urgencyBanner(level: StreakUrgencyLevel, message: String) -> some View {

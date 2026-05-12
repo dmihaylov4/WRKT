@@ -32,9 +32,9 @@ struct ActiveArena: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 12)
+            .padding(.vertical, 8)
         }
-        .frame(height: 100)
+        .frame(height: 112)
     }
 }
 
@@ -48,74 +48,86 @@ private struct BattleArenaCard: View {
         Button {
             action()
         } label: {
-            VStack(spacing: 6) {
-                // Battle avatars with VS badge
-                ZStack {
-                    HStack(spacing: -15) {
-                        // User avatar
-                        avatarView(url: battle.userProfile.avatarUrl, size: 44)
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(DS.Semantic.card, lineWidth: 3)
-                            )
+            HStack(spacing: 10) {
+                ZStack(alignment: .bottomTrailing) {
+                    avatarView(url: battle.opponentProfile.avatarUrl, size: 44)
+                        .overlay(
+                            ChamferedRectangleAlt(.small)
+                                .stroke(DS.Semantic.border, lineWidth: 1)
+                        )
 
-                        // Opponent avatar
-                        avatarView(url: battle.opponentProfile.avatarUrl, size: 44)
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(DS.Semantic.card, lineWidth: 3)
-                            )
-                    }
-
-                    // VS badge
-                    Text("VS")
-                        .font(.system(size: 8, weight: .black))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(DS.Semantic.textPrimary)
-                        .clipShape(Capsule())
-                        .offset(y: 20)
+                    Image(battleIconName)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 13, height: 13)
+                        .foregroundStyle(.black)
+                        .frame(width: 24, height: 24)
+                        .background(DS.Semantic.brand, in: ChamferedRectangle(.micro))
+                        .overlay(
+                            ChamferedRectangle(.micro)
+                                .stroke(DS.Semantic.surface, lineWidth: 2)
+                        )
+                        .offset(x: 4, y: 4)
                 }
-                .frame(height: 50)
 
-                // Progress indicator
-                VStack(spacing: 2) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(battle.battle.battleType.displayName)
-                        .dsFont(.caption2, weight: .bold)
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                         .lineLimit(1)
 
-                    HStack(spacing: 4) {
-                        // Score comparison
-                        Text("\(formatScore(battle.userScore))")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(battle.isUserLeading ? DS.Semantic.success : DS.Semantic.textSecondary)
+                    Text(opponentName)
+                        .dsFont(.caption2)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                        .lineLimit(1)
 
-                        Text("-")
-                            .font(.system(size: 10))
-                            .foregroundStyle(DS.Semantic.textPrimary)
+                    HStack(spacing: 8) {
+                        BattleArenaMetric(
+                            label: "You",
+                            value: formatScore(battle.userScore),
+                            isHighlighted: battle.isUserLeading
+                        )
 
-                        Text("\(formatScore(battle.opponentScore))")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(!battle.isUserLeading ? DS.Semantic.warning : DS.Semantic.textSecondary)
+                        Text("VS")
+                            .dsFont(.caption2, weight: .black)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+
+                        BattleArenaMetric(
+                            label: "Them",
+                            value: formatScore(battle.opponentScore),
+                            isHighlighted: isOpponentLeading
+                        )
                     }
+                }
 
-                    // Days remaining
-                    Text("\(battle.battle.daysRemaining)d left")
-                        .font(.system(size: 9))
-                        .foregroundStyle(DS.Semantic.textPrimary)
+                Spacer(minLength: 0)
+
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text("\(battle.battle.daysRemaining)d")
+                        .dsFont(.headline, weight: .bold)
+                        .foregroundStyle(DS.Semantic.brand)
+
+                    Text("left")
+                        .dsFont(.caption2)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+
+                    Text(scoreUnit)
+                        .dsFont(.caption2, weight: .bold)
+                        .foregroundStyle(DS.Semantic.textSecondary)
                 }
             }
-            .frame(width: 72)
-            .padding(.vertical, 6)
-            .padding(.horizontal, 6)
-            .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 12)
+            .frame(width: 188, height: 92, alignment: .leading)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(battle.isUserLeading ? DS.Semantic.brand.opacity(0.2) : DS.Semantic.textSecondary.opacity(0.15), lineWidth: 1.5)
+                ChamferedRectangle(.large)
+                    .stroke(
+                        battle.isUserLeading ? DS.Semantic.brand.opacity(0.45) : DS.Semantic.border,
+                        lineWidth: 1.2
+                    )
             )
+            .contentShape(ChamferedRectangle(.large))
         }
         .buttonStyle(.plain)
     }
@@ -126,6 +138,33 @@ private struct BattleArenaCard: View {
             return String(format: "%.1fk", double / 1000)
         }
         return String(format: "%.0f", double)
+    }
+
+    private var opponentName: String {
+        battle.opponentProfile.displayName ?? battle.opponentProfile.username
+    }
+
+    private var isOpponentLeading: Bool {
+        battle.opponentScore > battle.userScore
+    }
+
+    private var scoreUnit: String {
+        battle.battle.scoreUnit
+    }
+
+    private var battleIconName: String {
+        switch battle.battle.battleType {
+        case .volume:
+            return "battle-volume-icon"
+        case .consistency:
+            return "battle-consistency-icon"
+        case .workoutCount:
+            return "battle-workout-count-icon"
+        case .pr:
+            return "battle-flags-icon"
+        case .exercise:
+            return "battle-opponent-icon"
+        }
     }
 
     private func avatarView(url: String?, size: CGFloat) -> some View {
@@ -157,6 +196,26 @@ private struct BattleArenaCard: View {
                             .foregroundStyle(DS.Semantic.brand)
                     )
             }
+        }
+    }
+}
+
+private struct BattleArenaMetric: View {
+    let label: String
+    let value: String
+    let isHighlighted: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label)
+                .dsFont(.caption2)
+                .foregroundStyle(DS.Semantic.textSecondary)
+
+            Text(value)
+                .dsFont(.caption, weight: .bold)
+                .foregroundStyle(isHighlighted ? DS.Semantic.brand : DS.Semantic.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
     }
 }
@@ -229,4 +288,3 @@ private struct ChallengeArenaCard: View {
         .buttonStyle(.plain)
     }
 }
-

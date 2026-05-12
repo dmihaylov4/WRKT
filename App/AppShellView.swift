@@ -321,7 +321,7 @@ struct AppShellView: View {
                     ProfileView()
                         .background(DS.Semantic.surface)
                         .scrollContentBackground(.hidden)
-                        .navigationBarHidden(true)
+                        .toolbar(.hidden, for: .navigationBar)
                 }
                 .tabItem { Label("Me", image: "tab-profile-inactive") }
                 .tag(AppTab.profile)

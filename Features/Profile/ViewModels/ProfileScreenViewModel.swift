@@ -9,6 +9,45 @@ import Foundation
 import Observation
 import SwiftData
 
+enum ProfileCollectionDestination: String, CaseIterable, Identifiable {
+    case prCollection
+    case milestones
+
+    var id: String { rawValue }
+
+    var titleLocalizationKey: String {
+        switch self {
+        case .prCollection: return "PR Collection"
+        case .milestones: return "Milestones"
+        }
+    }
+
+    var subtitleLocalizationKey: String {
+        switch self {
+        case .prCollection: return "View personal records"
+        case .milestones: return "View achievements"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .prCollection: return "crown.fill"
+        case .milestones: return "trophy.fill"
+        }
+    }
+
+    var scrollID: String {
+        switch self {
+        case .prCollection: return "dex"
+        case .milestones: return "milestones"
+        }
+    }
+
+    var accessibilityIdentifier: String {
+        "profile.collection.\(rawValue)"
+    }
+}
+
 @MainActor
 @Observable
 final class ProfileScreenViewModel {

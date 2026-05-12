@@ -87,6 +87,12 @@ struct SetInput: Hashable, Codable {
     /// Tracking mode determines which fields are relevant
     var trackingMode: TrackingMode = .weighted
 
+    // MARK: - Effort Data
+    /// RPE (Rate of Perceived Exertion) 1.0-10.0 in 0.5 increments. Nil = not recorded.
+    var rpe: Double?
+    /// RIR (Reps in Reserve) 0-10. Nil = not recorded.
+    var rir: Int?
+
     // MARK: - Timing Data (backward compatible)
     /// When the user started this set (tapped into the set row or began timer)
     var startTime: Date?
@@ -114,6 +120,10 @@ struct SetInput: Hashable, Codable {
         distanceMeters = (try? container.decode(Double.self, forKey: .distanceMeters)) ?? 0
         trackingMode = (try? container.decode(TrackingMode.self, forKey: .trackingMode)) ?? .weighted
 
+        // Effort data (backward compatible — nil for all sets recorded before this field existed)
+        rpe = try? container.decode(Double.self, forKey: .rpe)
+        rir = try? container.decode(Int.self, forKey: .rir)
+
         // Timing data (backward compatible)
         startTime = try? container.decode(Date.self, forKey: .startTime)
         completionTime = try? container.decode(Date.self, forKey: .completionTime)
@@ -137,7 +147,9 @@ struct SetInput: Hashable, Codable {
         startTime: Date? = nil,
         completionTime: Date? = nil,
         restAfterSeconds: Int? = nil,
-        actualRestSeconds: Int? = nil
+        actualRestSeconds: Int? = nil,
+        rpe: Double? = nil,
+        rir: Int? = nil
     ) {
         self.reps = reps
         self.weight = weight
@@ -154,6 +166,8 @@ struct SetInput: Hashable, Codable {
         self.completionTime = completionTime
         self.restAfterSeconds = restAfterSeconds
         self.actualRestSeconds = actualRestSeconds
+        self.rpe = rpe
+        self.rir = rir
     }
 
     // MARK: - Computed Properties
@@ -374,7 +388,12 @@ struct WorkoutEntry: Identifiable, Codable, Hashable {
     var supersetGroupID: UUID? = nil
     var orderInSuperset: Int? = nil
 
-    // Custom decoder to handle missing superset fields in old data (backward compatibility)
+    // MARK: - Plan Tracking
+    /// The PlannedExercise.id this entry was created from. Preserved on swap so completion
+    /// logic can match against the original plan regardless of which exercise replaced it.
+    var plannedExerciseID: UUID? = nil
+
+    // Custom decoder to handle missing fields in old data (backward compatibility)
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(UUID.self, forKey: .id)
@@ -385,6 +404,7 @@ struct WorkoutEntry: Identifiable, Codable, Hashable {
         activeSetIndex = (try? container.decode(Int.self, forKey: .activeSetIndex)) ?? 0
         supersetGroupID = try? container.decode(UUID.self, forKey: .supersetGroupID)
         orderInSuperset = try? container.decode(Int.self, forKey: .orderInSuperset)
+        plannedExerciseID = try? container.decode(UUID.self, forKey: .plannedExerciseID)
     }
 
     // Memberwise init for creating new instances
@@ -396,7 +416,8 @@ struct WorkoutEntry: Identifiable, Codable, Hashable {
         sets: [SetInput],
         activeSetIndex: Int = 0,
         supersetGroupID: UUID? = nil,
-        orderInSuperset: Int? = nil
+        orderInSuperset: Int? = nil,
+        plannedExerciseID: UUID? = nil
     ) {
         self.id = id
         self.exerciseID = exerciseID
@@ -406,6 +427,7 @@ struct WorkoutEntry: Identifiable, Codable, Hashable {
         self.activeSetIndex = activeSetIndex
         self.supersetGroupID = supersetGroupID
         self.orderInSuperset = orderInSuperset
+        self.plannedExerciseID = plannedExerciseID
     }
 }
 

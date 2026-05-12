@@ -172,15 +172,16 @@ final class BattleViewModel {
         }
     }
 
-    func declineBattle(_ battle: Battle) async {
-        guard let userId = authService.currentUser?.id else {
+    @discardableResult
+    func declineBattle(_ battle: Battle) async -> Bool {
+        guard authService.currentUser?.id != nil else {
             error = UserFriendlyError(
                 title: "Not Logged In",
                 message: "You must be logged in to decline battles",
                 suggestion: "Please log in to continue",
                 isRetryable: false
             )
-            return
+            return false
         }
 
         do {
@@ -194,9 +195,39 @@ final class BattleViewModel {
 
             // Show notification
             AppNotificationManager.shared.showBattleDeclined()
+            return true
         } catch {
             self.error = errorHandler.handleError(error, context: .battles)
             Haptics.error()
+            return false
+        }
+    }
+
+    @discardableResult
+    func cancelBattle(_ battle: Battle) async -> Bool {
+        guard authService.currentUser?.id != nil else {
+            error = UserFriendlyError(
+                title: "Not Logged In",
+                message: "You must be logged in to cancel battles",
+                suggestion: "Please log in to continue",
+                isRetryable: false
+            )
+            return false
+        }
+
+        do {
+            try await battleRepository.cancelBattle(battle)
+
+            // Refresh to remove the cancelled battle from active/pending lists
+            await loadBattles()
+
+            Haptics.soft()
+            AppNotificationManager.shared.showBattleCancelled()
+            return true
+        } catch {
+            self.error = errorHandler.handleError(error, context: .battles)
+            Haptics.error()
+            return false
         }
     }
 
@@ -286,5 +317,9 @@ extension AppNotificationManager {
 
     func showBattleDeclined() {
         show(.info("Battle declined", title: nil))
+    }
+
+    func showBattleCancelled() {
+        show(.info("Battle cancelled", title: nil))
     }
 }

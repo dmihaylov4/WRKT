@@ -258,11 +258,11 @@ enum SplitTemplates {
         name: "Full Body C",
         exercises: [
             ExerciseTemplate(exerciseID: "machine-45-degree-leg-press", exerciseName: "Machine Leg Press", sets: 3, reps: 12, startingWeight: 100),
-            ExerciseTemplate(exerciseID: "barbell-bench-press", exerciseName: "Bench Press", sets: 3, reps: 6, startingWeight: 55),
-            ExerciseTemplate(exerciseID: "dumbbell-chest-supported-row", exerciseName: "Dumbbell Chest Supported Row", sets: 3, reps: 10, startingWeight: 45),
-            ExerciseTemplate(exerciseID: "barbell-overhead-press", exerciseName: "Barbell Overhead Press", sets: 3, reps: 6, startingWeight: 35),
+            ExerciseTemplate(exerciseID: "double-dumbbell-incline-bench-press", exerciseName: "Incline Dumbbell Press", sets: 3, reps: 10, startingWeight: 15),
+            ExerciseTemplate(exerciseID: "cable-wide-grip-lat-pulldown", exerciseName: "Lat Pulldown", sets: 3, reps: 10, startingWeight: 45),
+            ExerciseTemplate(exerciseID: "double-dumbbell-lateral-raise", exerciseName: "Lateral Raise", sets: 3, reps: 15, startingWeight: 8),
             ExerciseTemplate(exerciseID: "machine-seated-leg-curl", exerciseName: "Machine Seated Leg Curl", sets: 3, reps: 12, startingWeight: 80),
-            ExerciseTemplate(exerciseID: "alternating-double-dumbbell-bicep-curl", exerciseName: "Alternating Dumbbell Curl", sets: 3, reps: 12, startingWeight: 12)
+            ExerciseTemplate(exerciseID: "cable-rope-overhead-tricep-extension", exerciseName: "Tricep Extension", sets: 3, reps: 15, startingWeight: 12)
         ],
         isRestDay: false
     )

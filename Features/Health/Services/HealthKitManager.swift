@@ -1394,10 +1394,14 @@ final class HealthKitManager: ObservableObject {
         AppLogger.info("Processing \(tasks.count) route fetch tasks (limit: \(effectiveLimit), launchWindow=\(inLaunchWindow))", category: AppLogger.health)
 
         let tasksToProcess = effectiveLimit > 0 ? Array(tasks.prefix(effectiveLimit)) : tasks
+        // Accumulate enriched runs during the loop; apply one batchUpdateRuns after to avoid
+        // N full-array replacements and N disk saves (one per task) when processing a batch.
+        var enrichedRuns: [Run] = []
+
         for task in tasksToProcess {
             guard isProtectedHealthDataAvailable else {
                 AppLogger.info("Protected health data became unavailable; pausing route fetch queue", category: AppLogger.health)
-                return
+                break
             }
 
             task.status = "fetching"
@@ -1420,7 +1424,7 @@ final class HealthKitManager: ObservableObject {
                     if let store = workoutStore,
                        let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
                         let updated = applyDetailedRunEnrichment(enrichment, to: existing)
-                        store.updateRun(updated)
+                        enrichedRuns.append(updated)
 
                         if coords.isEmpty {
                             // Route not yet available in HealthKit.
@@ -1469,7 +1473,7 @@ final class HealthKitManager: ObservableObject {
                     task.lastAttemptDate = Date.now
                     try? context.save()
                     AppLogger.info("Protected health data is inaccessible; route queue paused and will retry after unlock", category: AppLogger.health)
-                    return
+                    break
                 }
 
                 task.attemptCount += 1
@@ -1494,6 +1498,13 @@ final class HealthKitManager: ObservableObject {
             }
 
             try? context.save()
+        }
+
+        // Apply all run enrichments in one operation: one array replacement, one disk save.
+        if !enrichedRuns.isEmpty {
+            await MainActor.run {
+                workoutStore?.batchUpdateRuns(enrichedRuns)
+            }
         }
     }
 
@@ -1540,10 +1551,15 @@ final class HealthKitManager: ObservableObject {
             return timeBased
         }
 
-        // Both predicates returned 0 — the most common cause is missing read permission for
-        // HKSeriesType.workoutRoute() (HK silently returns nothing instead of an error).
-        // Re-request authorization (no-op if already granted) then retry once.
+        // Both predicates returned 0. If already connected, missing route is a data gap
+        // (route permission not granted, or route genuinely absent) — re-requesting auth
+        // won't help and fires connectionState notifications with no state change, causing
+        // UI updates on every failing task in the queue. Only re-request when not yet connected.
         AppLogger.warning("Both predicates returned 0 for \(workout.uuid) — re-requesting HK authorization and retrying", category: AppLogger.health)
+        guard connectionState != .connected else {
+            AppLogger.warning("No route found after already-connected check for \(workout.uuid) — user may need to grant route access in Settings > Health > Apps > Volia", category: AppLogger.health)
+            return []
+        }
         try? await requestAuthorization()
 
         let retryAssociated = try await fetchRouteLocations(predicate: HKQuery.predicateForObjects(from: workout))

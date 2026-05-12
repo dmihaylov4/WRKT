@@ -89,7 +89,9 @@ struct HomeViewNew: View {
                     nextMilestone: stats.nextMilestone,
                     milestoneProgress: stats.milestoneProgress,
                     urgencyLevel: stats.urgencyLevel,
-                    urgencyMessage: stats.urgencyMessage
+                    urgencyMessage: stats.urgencyMessage,
+                    planAdherence: stats.planAdherence,
+                    weekEnded: stats.weekEnded
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -162,9 +164,6 @@ struct HomeViewNew: View {
             expandedPanelView
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .safeAreaInset(edge: .top) {
-            Color.clear.frame(height: 56)
-        }
         .safeAreaInset(edge: .bottom) {
             Color.clear.frame(height: 90)
         }

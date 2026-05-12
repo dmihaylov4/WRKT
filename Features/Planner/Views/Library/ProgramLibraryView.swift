@@ -17,6 +17,8 @@ struct ProgramLibraryView: View {
     @State private var selectedShareSplitID: UUID?
     @State private var selectedSentSplitID: UUID?
     @State private var previewInviteID: UUID?
+    @State private var showEditCurrentPlan = false
+    @State private var showDeleteAllPlannedWorkoutsConfirmation = false
 
     init(pendingNotification: Binding<AppNotification?> = .constant(nil)) {
         self._pendingNotification = pendingNotification
@@ -63,6 +65,10 @@ struct ProgramLibraryView: View {
                             isActive: true,
                             onShare: { selectedShareSplitID = activeSplit.id },
                             onActivate: {},
+                            onEdit: { showEditCurrentPlan = true },
+                            onDeletePlannedWorkouts: {
+                                showDeleteAllPlannedWorkoutsConfirmation = true
+                            },
                             onManageInvites: { selectedSentSplitID = activeSplit.id }
                         )
                     }
@@ -90,6 +96,8 @@ struct ProgramLibraryView: View {
                                 isActive: false,
                                 onShare: { selectedShareSplitID = split.id },
                                 onActivate: { viewModel.activate(split) },
+                                onEdit: {},
+                                onDeletePlannedWorkouts: {},
                                 onManageInvites: {
                                     guard split.lastSharedProgramID != nil else { return }
                                     selectedSentSplitID = split.id
@@ -108,9 +116,27 @@ struct ProgramLibraryView: View {
             viewModel.refreshLibrary()
             await viewModel.refreshPendingInvites()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .plannedWorkoutsChanged)) { _ in
+            viewModel.refreshLibrary()
+        }
         .safeAreaInset(edge: .bottom) {
             Color.clear
                 .frame(height: 96)
+        }
+        .navigationDestination(isPresented: $showEditCurrentPlan) {
+            PlannerSetupCarouselView(launchMode: .editCurrent)
+        }
+        .confirmationDialog(
+            "Delete Planned Workouts?",
+            isPresented: $showDeleteAllPlannedWorkoutsConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete All Planned Workouts", role: .destructive) {
+                viewModel.deleteAllPlannedWorkouts()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes every planned workout from the calendar. Your saved programs stay in the library.")
         }
         .sheet(item: shareSheetBinding(from: library)) { item in
             ProgramShareSheet(
@@ -244,7 +270,13 @@ private struct ProgramRowView: View {
     let isActive: Bool
     let onShare: () -> Void
     let onActivate: () -> Void
+    let onEdit: () -> Void
+    let onDeletePlannedWorkouts: () -> Void
     let onManageInvites: () -> Void
+
+    private var actionColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 92), spacing: 10, alignment: .leading)]
+    }
 
     private var attributionText: String? {
         if let creatorDisplayName = split.creatorDisplayName {
@@ -319,12 +351,24 @@ private struct ProgramRowView: View {
                 Spacer()
             }
 
-            HStack(spacing: 10) {
-                ProgramActionButton("Share", kind: .primary) {
-                    onShare()
-                }
+            LazyVGrid(columns: actionColumns, alignment: .leading, spacing: 10) {
+                if isActive {
+                    ProgramActionButton("Edit", kind: .primary) {
+                        onEdit()
+                    }
 
-                if !isActive {
+                    ProgramActionButton("Clear Plan", kind: .secondary) {
+                        onDeletePlannedWorkouts()
+                    }
+
+                    ProgramActionButton("Share", kind: .secondary) {
+                        onShare()
+                    }
+                } else {
+                    ProgramActionButton("Share", kind: .primary) {
+                        onShare()
+                    }
+
                     ProgramActionButton("Activate", kind: .secondary) {
                         onActivate()
                     }
@@ -525,6 +569,7 @@ private struct ProgramActionButton: View {
             Text(title)
                 .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(kind == .primary ? Color.black : DS.Theme.accent)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .background(background, in: Capsule())
@@ -534,24 +579,15 @@ private struct ProgramActionButton: View {
                 )
         }
         .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
     }
 
     private var background: Color {
-        switch kind {
-        case .primary:
-            return DS.Theme.accent
-        case .secondary:
-            return DS.Theme.accent.opacity(0.12)
-        }
+        kind == .primary ? DS.Theme.accent : DS.Theme.accent.opacity(0.10)
     }
 
     private var borderColor: Color {
-        switch kind {
-        case .primary:
-            return DS.Theme.accent.opacity(0.35)
-        case .secondary:
-            return DS.Theme.accent.opacity(0.22)
-        }
+        kind == .primary ? DS.Theme.accent.opacity(0.35) : DS.Theme.accent.opacity(0.18)
     }
 }
 

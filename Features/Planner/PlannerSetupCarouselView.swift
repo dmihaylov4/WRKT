@@ -548,8 +548,11 @@ struct PlannerSetupCarouselView: View {
         }
 
         do {
+            let plannerStore = dependencies.plannerStore
+
             if let oldSplit = existingSplit {
                 oldSplit.isActive = false
+                try plannerStore.deleteUpcomingPlannedWorkouts(for: oldSplit)
             }
 
             let planBlocks = try generatePlanBlocks(
@@ -557,8 +560,6 @@ struct PlannerSetupCarouselView: View {
                 trainingDaysPerWeek: config.trainingDaysPerWeek,
                 restDayPlacement: config.restDayPlacement
             )
-
-            let plannerStore = dependencies.plannerStore
             let normalizedStartDate = Calendar.current.startOfDay(for: config.startDate)
 
             let split = WorkoutSplit(

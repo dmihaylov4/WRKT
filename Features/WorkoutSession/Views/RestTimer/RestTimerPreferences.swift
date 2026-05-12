@@ -68,6 +68,21 @@ class RestTimerPreferences: ObservableObject {
 
     // MARK: - Public API
 
+    /// Science-based rest recommendation: <=5 reps = 4 min (strength), 6-12 = per-exercise default, >12 = 1 min (pump)
+    func recommendedRestSeconds(for exercise: Exercise, reps: Int, tag: SetTag) -> Int {
+        switch tag {
+        case .warmup: return 60
+        case .backoff: return 90
+        case .working:
+            if reps <= 5 { return 240 }
+            if reps <= 12 {
+                let isCompound = exercise.mechanic?.lowercased() == "compound"
+                return getOverride(for: exercise.id) ?? (isCompound ? defaultCompoundSeconds : defaultIsolationSeconds)
+            }
+            return 60
+        }
+    }
+
     /// Get rest duration for an exercise (context-aware based on tracking mode)
     func restDuration(for exercise: Exercise) -> TimeInterval {
         // Check for per-exercise override first

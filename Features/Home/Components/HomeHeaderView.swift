@@ -23,7 +23,7 @@ struct HomeHeaderView: View {
             Spacer(minLength: 8)
         }
         .padding(.horizontal)
-        .padding(.top, 16)
-        .padding(.bottom, 8)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
     }
 }

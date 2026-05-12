@@ -208,6 +208,12 @@ extension Exercise {
         let nameLC = name.lowercased()
         let prim = primaryMuscles.map { $0.lowercased() }
 
+        // Name-based hinge overrides — must run before force check to prevent misclassification
+        // (e.g. cable pull-through has force="pull" but is a hinge movement)
+        if nameLC.contains("pull-through") || nameLC.contains("pull through") {
+            return .hinge
+        }
+
         // Check force-based first
         if _forceLC.contains("push") { return .push }
         if _forceLC.contains("pull") { return .pull }

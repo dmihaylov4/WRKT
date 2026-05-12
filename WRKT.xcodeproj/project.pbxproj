@@ -350,6 +350,8 @@
 		2ECC7D202F7C21C3009119BF /* Brass_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D182F7C21C3009119BF /* Brass_Roughness.jpg */; };
 		2ECC7D212F7C21C3009119BF /* Brass_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D192F7C21C3009119BF /* Brass_Metalness.jpg */; };
 		2ECC7D222F7C21C3009119BF /* IndoorHDRI.exr in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D1A2F7C21C3009119BF /* IndoorHDRI.exr */; };
+		2ED100012FA3000000000001 /* DiagnosticsLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED100002FA3000000000001 /* DiagnosticsLogStore.swift */; };
+		2ED100032FA3000000000001 /* DiagnosticsLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED100022FA3000000000001 /* DiagnosticsLogView.swift */; };
 		2ED237862EA51F87009C742E /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237852EA51F87009C742E /* AppDependencies.swift */; };
 		2ED237882EA524C2009C742E /* HealthKitSyncProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237872EA524C2009C742E /* HealthKitSyncProgress.swift */; };
 		2ED2379A2EA60FD5009C742E /* RestTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237992EA60FCF009C742E /* RestTimerView.swift */; };
@@ -817,6 +819,8 @@
 		2ECC7D192F7C21C3009119BF /* Brass_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Brass_Metalness.jpg; sourceTree = "<group>"; };
 		2ECC7D1A2F7C21C3009119BF /* IndoorHDRI.exr */ = {isa = PBXFileReference; lastKnownFileType = file; path = IndoorHDRI.exr; sourceTree = "<group>"; };
 		2ECE15BAE003DFAEE0F0D695 /* VirtualRunSummaryPager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSummaryPager.swift; sourceTree = "<group>"; };
+		2ED100002FA3000000000001 /* DiagnosticsLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLogStore.swift; sourceTree = "<group>"; };
+		2ED100022FA3000000000001 /* DiagnosticsLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLogView.swift; sourceTree = "<group>"; };
 		2ED237852EA51F87009C742E /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
 		2ED237872EA524C2009C742E /* HealthKitSyncProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncProgress.swift; sourceTree = "<group>"; };
 		2ED237992EA60FCF009C742E /* RestTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerView.swift; sourceTree = "<group>"; };
@@ -1055,6 +1059,7 @@
 				2EBE3F942EB7D37B00A26355 /* SmartSearch.swift */,
 				2EBE3F172EB66C5900A26355 /* CollectionExtensions.swift */,
 				2E3D8EEB2EAF85EB00AC8A53 /* AppLogger.swift */,
+				2ED100002FA3000000000001 /* DiagnosticsLogStore.swift */,
 				2E510B552E97936A0089EE2C /* Haptics.swift */,
 				2E7461ED2E950E7200A71C35 /* AppEvents.swift */,
 				2E7461FB2E95890500A71C35 /* Notifications.swift */,
@@ -1413,6 +1418,7 @@
 			children = (
 				2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */,
 				2E695B892F017589002EA9FC /* SettingsView.swift */,
+				2ED100022FA3000000000001 /* DiagnosticsLogView.swift */,
 				2E2F53962E9E4FF000C81656 /* ProfileView.swift */,
 				2E2F539E2E9E715200C81656 /* PreferencesView.swift */,
 				2E2F53A02E9E716600C81656 /* ConnectionsView.swift */,
@@ -2827,6 +2833,8 @@
 				2E510B912E9AF1710089EE2C /* RewardsRules.swift in Sources */,
 				2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */,
 				2E695B8A2F017589002EA9FC /* SettingsView.swift in Sources */,
+				2ED100012FA3000000000001 /* DiagnosticsLogStore.swift in Sources */,
+				2ED100032FA3000000000001 /* DiagnosticsLogView.swift in Sources */,
 				2EA7D9B22EEAF9080017683B /* NotificationRepository.swift in Sources */,
 				2EC89F4A2F93FD6B0011159D /* ProgramSharingRepository.swift in Sources */,
 				2EC89F4B2F93FD6B0011159D /* ProgramSerializer.swift in Sources */,
@@ -3279,7 +3287,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.1.5;
+				MARKETING_VERSION = 5.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3327,7 +3335,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.1.5;
+				MARKETING_VERSION = 5.2.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -7,14 +7,24 @@
 import SwiftUI
 
 // MARK: - Month Header
+
+enum PlanHeaderAction: Equatable {
+    case createPlan
+    case openProgramLibrary
+
+    static func primaryAction(hasExistingPlans: Bool) -> PlanHeaderAction {
+        hasExistingPlans ? .openProgramLibrary : .createPlan
+    }
+}
+
 struct MonthHeader: View {
     @Binding var monthAnchor: Date
     let canGoForward: Bool
     let onBack: () -> Void
     let onForward: () -> Void
     let onToday: () -> Void
-    let onProgramLibraryTap: () -> Void
-    let onManagePlanTap: () -> Void
+    let hasExistingPlans: Bool
+    let onPlanAction: (PlanHeaderAction) -> Void
     let weeklyStreak: Int
     let currentWeekProgress: WeeklyProgress?
     let selectedWeekProgress: WeeklyProgress?  // NEW: For showing selected week stats
@@ -28,95 +38,6 @@ struct MonthHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                // Month name with Create Plan button
-                HStack(spacing: 8) {
-                    Text(monthAnchor.formatted(.dateTime.year().month(.wide)))
-                        .dsFont(.title3, weight: .bold)
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                        .layoutPriority(0)
-
-                    Button {
-                        onProgramLibraryTap()
-                    } label: {
-                        Text("PLAN")
-                            .dsFont(.caption, weight: .bold)
-                            .foregroundStyle(.black)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(DS.Theme.accent, in: ChamferedRectangle(.small))
-                            .frame(minWidth: 64, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(2)
-                    .captureFrame(in: .global) { frame in
-                        captureButtonFrame?(frame)
-                    }
-
-                    Button {
-                        onManagePlanTap()
-                    } label: {
-                        Text("MANAGE")
-                            .dsFont(.caption, weight: .bold)
-                            .foregroundStyle(DS.Theme.accent)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.68)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(DS.Theme.cardTop, in: ChamferedRectangle(.small))
-                            .overlay(
-                                ChamferedRectangle(.small)
-                                    .stroke(DS.Semantic.border, lineWidth: 1)
-                            )
-                            .frame(minWidth: 84, minHeight: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(2)
-                }
-                .layoutPriority(1)
-
-                Spacer()
-
-                HStack(spacing: 0) {
-                    Button { onBack() } label: {
-                        Image(systemName: "chevron.left")
-                            .frame(width: 44, height: 44)
-                    }
-                    Button { onForward() } label: {
-                        Image(systemName: "chevron.right")
-                            .frame(width: 44, height: 44)
-                    }
-                    .opacity(canGoForward ? 1.0 : 0.35)
-                    .disabled(!canGoForward)
-                }
-                .buttonStyle(.plain)
-                .dsFont(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .background(DS.Theme.cardTop, in: Capsule())
-                .overlay(Capsule().stroke(DS.Semantic.border, lineWidth: 1))
-
-                if !showingCurrentMonth {
-                    Button("Today", action: onToday)
-                        .dsFont(.caption, weight: .semibold)
-                        .foregroundStyle(Color.black)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .frame(minWidth: 68, minHeight: 44)
-                        .background(DS.Theme.accent, in: ChamferedRectangle(.small))
-                        .fixedSize(horizontal: true, vertical: false)
-                        .layoutPriority(2)
-                }
-            }
-            .padding(.horizontal, 16)
-
             // Weekly goal streak banner
             if weeklyStreak > 0 {
                 WeeklyStreakBanner(streak: weeklyStreak)
@@ -133,6 +54,10 @@ struct MonthHeader: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedWeekProgress)
             }
+
+            // Push/pull balance warning — only shown when imbalanced, self-dismissable
+            PushPullBanner()
+                .padding(.horizontal, 16)
         }
     }
 }

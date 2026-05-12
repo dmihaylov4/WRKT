@@ -39,6 +39,9 @@ struct ExerciseSessionView: View {
     @State private var showWorkoutCreatedBanner = false
     @State private var workoutBannerMessage = ""
     @State private var selectedInfoTab: InfoTab = .info
+    @State private var consecutiveSameWeight: Int = 0
+    @State private var plateauBannerDismissed: Bool = false
+    @AppStorage("weight_step_kg") private var weightStepKg: Double = 2.5
 
     // Superset toggle state (computed from current entry)
     private var canShowSupersetToggle: Bool {
@@ -171,6 +174,14 @@ struct ExerciseSessionView: View {
     private var baseContentView: some View {
         VStack(spacing: 0) {
             modernHeader
+
+            if consecutiveSameWeight >= 3 && !plateauBannerDismissed {
+                plateauBanner
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             contentList
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -226,6 +237,7 @@ struct ExerciseSessionView: View {
 
 
         autoSelectFirstIncompleteSet()
+        consecutiveSameWeight = store.consecutiveSessionsAtSameWeight(for: exercise.id)
 
         // Initialize timing for the first active set
         if viewModel.activeSetIndex < viewModel.sets.count {
@@ -283,6 +295,56 @@ struct ExerciseSessionView: View {
         .padding(.bottom, 12)
         .background(Theme.bg)
         .overlay(Divider().background(Theme.border), alignment: .top)
+    }
+
+    // MARK: - Plateau Banner
+
+    private var plateauBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chart.line.flattrend.xyaxis")
+                .dsFont(.subheadline)
+                .foregroundStyle(DS.Semantic.accentGold)
+
+            Text("\(consecutiveSameWeight) sessions at same weight — try increasing the load.")
+                .dsFont(.footnote)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer()
+
+            Button {
+                for i in viewModel.sets.indices where viewModel.sets[i].tag == .working && !viewModel.sets[i].isCompleted {
+                    viewModel.sets[i].weight += weightStepKg
+                    viewModel.sets[i].autoWeight = false
+                }
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            } label: {
+                Text("+\(String(format: "%.4g", weightStepKg))kg")
+                    .dsFont(.caption, weight: .semibold)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(DS.Semantic.accentGold)
+                    .background(DS.Semantic.accentGold.opacity(0.12), in: Capsule())
+                    .overlay(Capsule().stroke(DS.Semantic.accentGold.opacity(0.3), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { plateauBannerDismissed = true }
+            } label: {
+                Image(systemName: "xmark")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .padding(6)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(DS.Semantic.accentGold.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.Semantic.accentGold.opacity(0.3), lineWidth: 1))
     }
 
     // MARK: - Compact Header (Focus on Sets)
@@ -674,34 +736,28 @@ struct ExerciseSessionView: View {
                             Button(role: .none) {
                                 sets[i].isCompleted = false
                             } label: {
-                                ZStack {
-                                    DS.Palette.marone
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .dsFont(.title3)
-                                            .foregroundColor(.black)
-                                        Text("Mark Incomplete")
-                                            .dsFont(.subheadline, weight: .semibold)
-                                            .foregroundColor(.black)
-                                    }
+                                HStack(spacing: 6) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .dsFont(.title3)
+                                    Text("Mark Incomplete")
+                                        .dsFont(.subheadline, weight: .semibold)
                                 }
+                                .foregroundStyle(.black)
                             }
+                            .tint(DS.Palette.marone)
                         } else {
                             Button(role: .none) {
                                 sets[i].isCompleted = true
                             } label: {
-                                ZStack {
-                                    DS.Palette.marone
-                                    HStack(spacing: 6) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .dsFont(.title3)
-                                            .foregroundColor(.black)
-                                        Text("Mark Complete")
-                                            .dsFont(.subheadline, weight: .semibold)
-                                            .foregroundColor(.black)
-                                    }
+                                HStack(spacing: 6) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .dsFont(.title3)
+                                    Text("Mark Complete")
+                                        .dsFont(.subheadline, weight: .semibold)
                                 }
+                                .foregroundStyle(.black)
                             }
+                            .tint(DS.Palette.marone)
                         }
                     }
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {

@@ -51,6 +51,10 @@ struct PostDetailView: View {
                 )
                 viewModel = vm
                 await vm.loadComments()
+                if vm.canRefreshCardioData,
+                   post.post.workoutData.cardioHRZones == nil {
+                    await vm.refreshCardioData()
+                }
             }
             await loadImageURLs()
         }
@@ -1131,12 +1135,10 @@ struct PostDetailView: View {
     // MARK: - Carousel Page 5: Kilometer Splits
 
     private func cardioSplitsPage(workout: CompletedWorkout) -> some View {
-        ScrollView {
-            SplitsChart(splits: workout.cardioSplits ?? [], showCard: false)
-                .padding(16)
-        }
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        SplitsChart(splits: workout.cardioSplits ?? [], showCard: false)
+            .padding(16)
+            .background(DS.Semantic.card)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
