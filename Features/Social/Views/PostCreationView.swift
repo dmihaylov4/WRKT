@@ -7,7 +7,6 @@
 
 import SwiftUI
 import PhotosUI
-import SwiftData
 
 struct PostCreationView: View {
     @Environment(\.dependencies) private var deps
@@ -18,27 +17,6 @@ struct PostCreationView: View {
 
     @State private var viewModel: PostCreationViewModel?
     @State private var showingWorkoutPicker = false
-
-    @Query(
-        filter: #Predicate<PushPullBalance> { _ in true },
-        sort: \PushPullBalance.weekStart,
-        order: .forward
-    ) private var pushPullAll: [PushPullBalance]
-
-    private var pushPullNote: String? {
-        let recent = pushPullAll.suffix(4)
-        let totalPush = recent.reduce(0.0) { $0 + $1.pushVolume }
-        let totalPull = recent.reduce(0.0) { $0 + $1.pullVolume }
-        guard totalPush > 0 || totalPull > 0 else { return nil }
-        let ratio = totalPush > 0 ? totalPull / totalPush : 999.0
-        let ratioStr = String(format: "%.1f", min(ratio, 99.0))
-        if ratio > 2.0 {
-            return "Push:pull ratio this month: \(ratioStr). More pulling would support shoulder health."
-        } else if ratio < 0.8 {
-            return "Push:pull ratio this month: \(ratioStr). More pushing would balance your training."
-        }
-        return nil
-    }
 
     init(workout: CompletedWorkout? = nil, mapImage: UIImage? = nil) {
         self.initialWorkout = workout
