@@ -9,7 +9,7 @@ struct WorkoutPostHeroSummaryCard: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("SHARED WORKOUT")
-                        .font(.system(size: 9, weight: .black))
+                        .font(DS.Typography.custom(size: 9, weight: .black))
                         .tracking(1.6)
                         .foregroundStyle(DS.Semantic.textSecondary)
                     Text(summary.title)
@@ -23,7 +23,7 @@ struct WorkoutPostHeroSummaryCard: View {
 
                 if let badge = summary.badge {
                     Text(badge.uppercased())
-                        .font(.system(size: 10, weight: .black))
+                        .font(DS.Typography.custom(size: 10, weight: .black))
                         .foregroundStyle(.black)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
@@ -98,7 +98,7 @@ private struct WorkoutPostHeroStatColumn: View {
     var body: some View {
         VStack(spacing: 3) {
             Text(stat.label.uppercased())
-                .font(.system(size: 8, weight: .black))
+                .font(DS.Typography.custom(size: 8, weight: .black))
                 .tracking(1.2)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .lineLimit(1)
@@ -110,7 +110,7 @@ private struct WorkoutPostHeroStatColumn: View {
                 .minimumScaleFactor(0.55)
                 .monospacedDigit()
             Text(stat.unit.uppercased())
-                .font(.system(size: 8, weight: .black))
+                .font(DS.Typography.custom(size: 8, weight: .black))
                 .tracking(1.2)
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .lineLimit(1)

@@ -348,7 +348,7 @@ struct PostDetailView: View {
                                     .font(DS.Typography.custom(size: 32, weight: .heavy))
                                     .foregroundStyle(DS.Semantic.textPrimary)
                                 Text("ACTIVE CALORIES")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(DS.Typography.custom(size: 9, weight: .bold))
                                     .foregroundStyle(DS.Semantic.textSecondary)
                                     .tracking(1.5)
                             }
@@ -663,12 +663,12 @@ struct PostDetailView: View {
             DS.Semantic.card
 
             Image(systemName: workout.workoutIcon)
-                .font(.system(size: 90))
+                .dsFont(size: 90)
                 .foregroundStyle(DS.Semantic.brand.opacity(0.07))
 
             VStack(spacing: 16) {
                 Text(workout.workoutTypeDisplayName.uppercased())
-                    .font(.system(size: 12, weight: .bold))
+                    .font(DS.Typography.custom(size: 12, weight: .bold))
                     .foregroundStyle(DS.Semantic.brand)
                     .tracking(2)
 
@@ -678,7 +678,7 @@ struct PostDetailView: View {
                             .font(DS.Typography.custom(size: 52, weight: .heavy))
                             .foregroundStyle(DS.Semantic.textPrimary)
                         Text("CALORIES")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(DS.Typography.custom(size: 10, weight: .bold))
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .tracking(1.5)
                     }
@@ -711,7 +711,7 @@ struct PostDetailView: View {
                 .font(DS.Typography.custom(size: 20, weight: .bold))
                 .foregroundStyle(DS.Semantic.textPrimary)
             Text(label)
-                .font(.system(size: 9, weight: .semibold))
+                .font(DS.Typography.custom(size: 9, weight: .semibold))
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .tracking(1)
         }
@@ -760,7 +760,7 @@ struct PostDetailView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "figure.run").dsFont(.caption2)
                                 Text("\(formatPace(pace)) /km")
-                                    .font(.system(size: 13, weight: .semibold))
+                                    .font(DS.Typography.custom(size: 13, weight: .semibold))
                             }
                             .foregroundStyle(.white.opacity(0.92))
 
@@ -768,7 +768,7 @@ struct PostDetailView: View {
                                 HStack(spacing: 4) {
                                     Image(systemName: "flame.fill").dsFont(.caption2)
                                     Text(String(format: "%.0f kcal", calories))
-                                        .font(.system(size: 13, weight: .semibold))
+                                        .font(DS.Typography.custom(size: 13, weight: .semibold))
                                 }
                                 .foregroundStyle(.white.opacity(0.92))
                             }
@@ -783,14 +783,14 @@ struct PostDetailView: View {
                         HStack(alignment: .bottom, spacing: 0) {
                             VStack(spacing: 1) {
                                 Text("DISTANCE")
-                                    .font(.system(size: 9, weight: .bold))
+                                    .font(DS.Typography.custom(size: 9, weight: .bold))
                                     .foregroundStyle(.white.opacity(0.5))
                                     .tracking(1.5)
                                 Text(String(format: "%.2f", distanceMeters / 1000))
                                     .font(DS.Typography.custom(size: 36, weight: .heavy))
                                     .foregroundStyle(.white)
                                 Text("KM")
-                                    .font(.system(size: 10, weight: .bold))
+                                    .font(DS.Typography.custom(size: 10, weight: .bold))
                                     .foregroundStyle(.white.opacity(0.65))
                                     .tracking(2)
                             }
@@ -803,14 +803,14 @@ struct PostDetailView: View {
 
                                 VStack(spacing: 1) {
                                     Text("DURATION")
-                                        .font(.system(size: 9, weight: .bold))
+                                        .font(DS.Typography.custom(size: 9, weight: .bold))
                                         .foregroundStyle(.white.opacity(0.5))
                                         .tracking(1.5)
                                     Text(formatCardioDuration(durationSec))
                                         .font(DS.Typography.custom(size: 36, weight: .heavy))
                                         .foregroundStyle(.white)
                                     Text("TIME")
-                                        .font(.system(size: 10, weight: .bold))
+                                        .font(DS.Typography.custom(size: 10, weight: .bold))
                                         .foregroundStyle(.white.opacity(0.65))
                                         .tracking(2)
                                 }
@@ -837,7 +837,7 @@ struct PostDetailView: View {
                         showMapFullscreen = false
                     } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 28))
+                            .dsFont(size: 28)
                             .foregroundStyle(.white.opacity(0.85))
                             .padding()
                     }
@@ -940,7 +940,7 @@ struct PostDetailView: View {
                 .font(DS.Typography.custom(size: 40, weight: .heavy))
                 .foregroundStyle(color)
             Text(label)
-                .font(.system(size: 10, weight: .bold))
+                .font(DS.Typography.custom(size: 10, weight: .bold))
                 .foregroundStyle(DS.Semantic.textSecondary)
                 .tracking(1)
         }
@@ -1227,7 +1227,7 @@ struct PostDetailView: View {
                             .frame(width: 34, height: 34)
                     } else {
                         Image(systemName: "paperplane.fill")
-                            .font(.system(size: 16, weight: .semibold))
+                            .dsFont(size: 16, weight: .semibold)
                             .foregroundStyle(
                                 viewModel.commentText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                     ? DS.Semantic.textSecondary
@@ -1382,7 +1382,7 @@ struct CommentRow: View {
                         .fill(DS.Semantic.brandSoft)
                         .overlay(
                             Text(author.username.prefix(1).uppercased())
-                                .font(.system(size: size * 0.4, weight: .bold))
+                                .font(DS.Typography.custom(size: size * 0.4, weight: .bold))
                                 .foregroundStyle(DS.Semantic.brand)
                         )
                 }
