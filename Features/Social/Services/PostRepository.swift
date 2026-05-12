@@ -1,6 +1,34 @@
 import Foundation
 import Supabase
 
+struct WorkoutPostInsertPayload: Encodable {
+    let user_id: String
+    let caption: String?
+    let workout_data: CompletedWorkout
+    let workout_data_list: [CompletedWorkout]?
+    let images: [PostImage]?
+    let visibility: String
+
+    init(
+        workouts: [CompletedWorkout],
+        caption: String?,
+        images: [PostImage]?,
+        visibility: PostVisibility,
+        userId: UUID
+    ) throws {
+        guard let firstWorkout = workouts.first else {
+            throw SupabaseError.serverError("Cannot create workout post without workouts")
+        }
+
+        self.user_id = userId.uuidString
+        self.caption = caption
+        self.workout_data = firstWorkout
+        self.workout_data_list = workouts.count > 1 ? workouts : nil
+        self.images = images
+        self.visibility = visibility.rawValue
+    }
+}
+
 private struct FeedCursor {
     let createdAt: Date
     let id: UUID
@@ -49,25 +77,33 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         visibility: PostVisibility,
         userId: UUID
     ) async throws -> WorkoutPost {
-        logInfo("Creating post for user: \(userId)", emoji: "📝")
-
-        struct NewPost: Encodable {
-            let user_id: String
-            let caption: String?
-            let workout_data: CompletedWorkout
-            let images: [PostImage]?
-            let visibility: String
-        }
-
-        let newPostData = NewPost(
-            user_id: userId.uuidString,
+        try await createPost(
+            workouts: [workout],
             caption: caption,
-            workout_data: workout,
             images: images,
-            visibility: visibility.rawValue
+            visibility: visibility,
+            userId: userId
+        )
+    }
+
+    /// Create a new workout post from one or more workouts.
+    func createPost(
+        workouts: [CompletedWorkout],
+        caption: String?,
+        images: [PostImage]?,
+        visibility: PostVisibility,
+        userId: UUID
+    ) async throws -> WorkoutPost {
+        logInfo("Creating post for user: \(userId), workouts: \(workouts.count)", emoji: "📝")
+
+        let newPostData = try WorkoutPostInsertPayload(
+            workouts: workouts,
+            caption: caption,
+            images: images,
+            visibility: visibility,
+            userId: userId
         )
 
-        // Create post using base class method would work, but we need single() response
         let newPost: WorkoutPost = try await client
             .from(tableName)
             .insert(newPostData)
@@ -76,7 +112,6 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             .execute()
             .value
 
-        // Invalidate feed caches (new post should appear in feeds)
         cache.invalidateAllFeeds()
 
         logSuccess("Post created: \(newPost.id)")

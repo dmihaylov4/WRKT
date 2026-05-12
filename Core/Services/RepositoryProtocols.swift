@@ -13,6 +13,15 @@ import Foundation
         userId: UUID
     ) async throws -> WorkoutPost
 
+    /// Create a new workout post from one or more workouts.
+    func createPost(
+        workouts: [CompletedWorkout],
+        caption: String?,
+        images: [PostImage]?,
+        visibility: PostVisibility,
+        userId: UUID
+    ) async throws -> WorkoutPost
+
     /// Fetch paginated feed for current user
     func fetchFeed(userId: UUID, limit: Int, cursor: String?) async throws -> (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?)
 
