@@ -70,7 +70,7 @@ struct PostCreationView: View {
                                 await sharePost(viewModel: viewModel)
                             }
                         }
-                        .disabled(viewModel.selectedWorkout == nil || viewModel.isUploading)
+                        .disabled(viewModel.selectedWorkouts.isEmpty || viewModel.isUploading)
                         .bold()
                     }
                 }
@@ -79,9 +79,9 @@ struct PostCreationView: View {
                 if let viewModel = viewModel {
                     WorkoutPickerSheet(
                         workouts: viewModel.recentWorkouts,
-                        selectedWorkout: Binding(
-                            get: { viewModel.selectedWorkout },
-                            set: { viewModel.selectedWorkout = $0 }
+                        selectedWorkouts: Binding(
+                            get: { viewModel.selectedWorkouts },
+                            set: { viewModel.selectedWorkouts = $0 }
                         )
                     )
                 }
@@ -95,7 +95,9 @@ struct PostCreationView: View {
                     )
                     viewModel = vm
 
-                    vm.selectedWorkout = initialWorkout
+                    if let initialWorkout {
+                        vm.selectedWorkouts = [initialWorkout]
+                    }
 
                     // Add initial map image if provided (from CardioDetailView)
                     if let mapImage = initialMapImage {
@@ -113,14 +115,11 @@ struct PostCreationView: View {
                     }
                 }
             }
-            .onChange(of: viewModel?.selectedWorkout?.id) { _, newID in
-                // Only trigger for FAB path (no initial workout) — CardioDetailView path
-                // handles its own map generation in the .task block above.
-                guard initialWorkout == nil, newID != nil else { return }
-                guard let vm = viewModel, let workout = vm.selectedWorkout else { return }
-                guard workout.isCardioWorkout else { return }
+            .onChange(of: viewModel?.selectedWorkouts.map(\.id) ?? []) { _, newIDs in
+                guard initialWorkout == nil, !newIDs.isEmpty else { return }
+                guard let vm = viewModel else { return }
                 Task {
-                    await vm.generateMapSnapshotForWorkout(workout)
+                    await vm.generateMapSnapshotsForSelectedWorkouts()
                 }
             }
         }
@@ -131,8 +130,8 @@ struct PostCreationView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Workout Preview
-                if let workout = viewModel.selectedWorkout {
-                    workoutPreview(workout, viewModel: viewModel)
+                if !viewModel.selectedWorkouts.isEmpty {
+                    workoutPreview(viewModel.selectedWorkouts, viewModel: viewModel)
                 } else {
                     noWorkoutState(viewModel: viewModel)
                 }
@@ -147,12 +146,13 @@ struct PostCreationView: View {
                 visibilitySection(viewModel: viewModel)
 
                 // Error Message
-                if let error = viewModel.error, let workout = viewModel.selectedWorkout {
+                if let error = viewModel.error, !viewModel.selectedWorkouts.isEmpty {
+                    let workouts = viewModel.selectedWorkouts
                     InlineErrorView(
                         error: error,
                         onRetry: {
                             Task {
-                                try? await viewModel.createPost(with: workout)
+                                try? await viewModel.createPost(with: workouts)
                             }
                         },
                         onDismiss: {
@@ -172,10 +172,11 @@ struct PostCreationView: View {
         }
     }
 
-    private func workoutPreview(_ workout: CompletedWorkout, viewModel: PostCreationViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private func workoutPreview(_ workouts: [CompletedWorkout], viewModel: PostCreationViewModel) -> some View {
+        let isSession = workouts.count > 1
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Workout")
+                Text(isSession ? "Session" : "Workout")
                     .dsFont(.headline)
                     .foregroundStyle(DS.Semantic.textPrimary)
 
@@ -191,59 +192,11 @@ struct PostCreationView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                // Workout Name & Icon
-                HStack {
-                    Image(systemName: workout.workoutIcon)
-                        .foregroundStyle(DS.Semantic.brand)
-                    Text(workout.workoutName ?? workout.workoutTypeDisplayName)
-                        .dsFont(.subheadline, weight: .bold)
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                    Spacer()
-                    Text(workout.date, style: .date)
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                }
-
-                // Stats - different for cardio vs strength
-                if workout.isCardioWorkout {
-                    HStack(spacing: 16) {
-                        if let calories = workout.matchedHealthKitCalories {
-                            Label(String(format: "%.0f cal", calories), systemImage: "flame.fill")
-                                .dsFont(.caption)
-                                .foregroundStyle(DS.Semantic.textSecondary)
-                        }
-
-                        if let duration = workout.matchedHealthKitDuration {
-                            let minutes = duration / 60
-                            Label("\(minutes) min", systemImage: "clock.fill")
-                                .dsFont(.caption)
-                                .foregroundStyle(DS.Semantic.textSecondary)
-                        }
-                    }
-                } else {
-                    HStack(spacing: 16) {
-                        Label("\(workout.entries.count) exercises", systemImage: "dumbbell.fill")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-
-                        let totalSets = workout.entries.reduce(0) { $0 + $1.sets.count }
-                        Label("\(totalSets) sets", systemImage: "list.bullet")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                    }
-
-                    if let note = pushPullNote {
-                        Text(note)
-                            .dsFont(.footnote)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+                ForEach(workouts, id: \.id) { workout in
+                    WorkoutPickerRow(workout: workout, isSelected: false)
+                        .allowsHitTesting(false)
                 }
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
     }
 
@@ -540,10 +493,11 @@ struct PostCreationView: View {
     }
 
     private func sharePost(viewModel: PostCreationViewModel) async {
-        guard let workout = viewModel.selectedWorkout else { return }
+        let workouts = viewModel.selectedWorkouts
+        guard !workouts.isEmpty else { return }
 
         do {
-            try await viewModel.createPost(with: workout)
+            try await viewModel.createPost(with: workouts)
             dismiss()
         } catch {
             // Error is already set in viewModel
@@ -556,7 +510,8 @@ struct PostCreationView: View {
 struct WorkoutPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     let workouts: [CompletedWorkout]
-    @Binding var selectedWorkout: CompletedWorkout?
+    @Binding var selectedWorkouts: [CompletedWorkout]
+    @State private var pendingSelection: Set<UUID> = []
 
     var body: some View {
         NavigationStack {
@@ -564,13 +519,16 @@ struct WorkoutPickerSheet: View {
                 LazyVStack(spacing: 12) {
                     ForEach(workouts, id: \.id) { workout in
                         Button {
-                            selectedWorkout = workout
-                            dismiss()
+                            if pendingSelection.contains(workout.id) {
+                                pendingSelection.remove(workout.id)
+                            } else {
+                                pendingSelection.insert(workout.id)
+                            }
                             Haptics.light()
                         } label: {
                             WorkoutPickerRow(
                                 workout: workout,
-                                isSelected: selectedWorkout?.id == workout.id
+                                isSelected: pendingSelection.contains(workout.id)
                             )
                         }
                         .buttonStyle(.plain)
@@ -578,14 +536,23 @@ struct WorkoutPickerSheet: View {
                 }
                 .padding()
             }
-            .navigationTitle("Select Workout")
+            .navigationTitle("Select Workouts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done (\(pendingSelection.count))") {
+                        selectedWorkouts = workouts.filter { pendingSelection.contains($0.id) }
                         dismiss()
                     }
+                    .disabled(pendingSelection.isEmpty)
+                    .bold()
                 }
+            }
+            .onAppear {
+                pendingSelection = Set(selectedWorkouts.map(\.id))
             }
         }
     }
