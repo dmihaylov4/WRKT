@@ -100,6 +100,45 @@ final class WorkoutPostMultiWorkoutTests: WRKTTestCase {
         XCTAssertFalse(PostImage(storagePath: "workout-images-public/u/photo_of_maple_tree.jpg", isPublic: true).isGeneratedMapImage)
     }
 
+    func testCachedPostRoundTripPreservesWorkoutDataList() throws {
+        let userId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let first = CompletedWorkout(
+            id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+            date: makeDate(year: 2026, month: 5, day: 11, hour: 10),
+            entries: [],
+            workoutName: "HIIT"
+        )
+        let second = CompletedWorkout(
+            id: UUID(uuidString: "44444444-4444-4444-4444-444444444444")!,
+            date: makeDate(year: 2026, month: 5, day: 11, hour: 11),
+            entries: [],
+            workoutName: "Elliptical"
+        )
+        let post = WorkoutPost(
+            id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            userId: userId,
+            caption: "session",
+            workoutData: first,
+            visibility: .friends,
+            workoutDataList: [first, second]
+        )
+        let author = UserProfile(id: userId, username: "tester")
+        let postWithAuthor = PostWithAuthor(
+            id: post.id,
+            post: post,
+            author: author,
+            isLikedByCurrentUser: true
+        )
+
+        let cached = CachedPost.from(postWithAuthor)
+        let restored = try XCTUnwrap(cached.toPostWithAuthor())
+
+        XCTAssertTrue(restored.post.isMultiWorkout)
+        XCTAssertEqual(restored.post.workoutData.workoutName, "HIIT")
+        XCTAssertEqual(restored.post.workoutDataList?.map { $0.workoutName }, ["HIIT", "Elliptical"])
+        XCTAssertEqual(restored.post.allWorkouts.map { $0.workoutName ?? $0.workoutTypeDisplayName }, ["HIIT", "Elliptical"])
+    }
+
     private func decodePost(_ json: String) throws -> WorkoutPost {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

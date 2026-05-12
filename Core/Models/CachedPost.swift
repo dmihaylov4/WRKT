@@ -8,6 +8,7 @@ final class CachedPost {
     var userId: String
     var caption: String?
     var workoutDataJSON: String // Store as JSON string
+    var workoutDataListJSON: String?
     var imageUrls: [String]
     var visibility: String
     var likesCount: Int
@@ -27,6 +28,7 @@ final class CachedPost {
         userId: String,
         caption: String?,
         workoutDataJSON: String,
+        workoutDataListJSON: String? = nil,
         imageUrls: [String],
         visibility: String,
         likesCount: Int,
@@ -42,6 +44,7 @@ final class CachedPost {
         self.userId = userId
         self.caption = caption
         self.workoutDataJSON = workoutDataJSON
+        self.workoutDataListJSON = workoutDataListJSON
         self.imageUrls = imageUrls
         self.visibility = visibility
         self.likesCount = likesCount
@@ -74,6 +77,15 @@ extension CachedPost {
             workoutDataJSON = "{}"
         }
 
+        let workoutDataListJSON: String?
+        if let workoutDataList = post.post.workoutDataList,
+           let data = try? JSONEncoder().encode(workoutDataList),
+           let jsonString = String(data: data, encoding: .utf8) {
+            workoutDataListJSON = jsonString
+        } else {
+            workoutDataListJSON = nil
+        }
+
         // Convert PostImage array to legacy string URLs for caching
         let imageUrls = post.post.images?.map { $0.storagePath } ?? []
 
@@ -82,6 +94,7 @@ extension CachedPost {
             userId: post.post.userId.uuidString,
             caption: post.post.caption,
             workoutDataJSON: workoutDataJSON,
+            workoutDataListJSON: workoutDataListJSON,
             imageUrls: imageUrls,
             visibility: post.post.visibility.rawValue,
             likesCount: post.post.likesCount,
@@ -109,6 +122,14 @@ extension CachedPost {
             return nil
         }
 
+        let workoutDataList: [CompletedWorkout]?
+        if let workoutDataListJSON,
+           let listData = workoutDataListJSON.data(using: .utf8) {
+            workoutDataList = try? JSONDecoder().decode([CompletedWorkout].self, from: listData)
+        } else {
+            workoutDataList = nil
+        }
+
         // Convert legacy imageUrls to PostImage format
         let images: [PostImage]? = imageUrls.isEmpty ? nil : imageUrls.map { url in
             PostImage(storagePath: url, isPublic: true)
@@ -124,7 +145,8 @@ extension CachedPost {
             likesCount: likesCount,
             commentsCount: commentsCount,
             createdAt: createdAt,
-            updatedAt: updatedAt
+            updatedAt: updatedAt,
+            workoutDataList: workoutDataList
         )
 
         let author = UserProfile(
