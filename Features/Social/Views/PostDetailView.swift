@@ -21,6 +21,7 @@ struct PostDetailView: View {
     @State private var generatedMapURLs: [URL] = []
     @State private var carouselPage: Int = 0
     @State private var showMapFullscreen = false
+    @State private var selectedWorkoutSection: WorkoutPostDetailSection = .overview
 
     private let imageUploadService = ImageUploadService()
 
@@ -77,19 +78,14 @@ struct PostDetailView: View {
                             .padding(.horizontal)
                     }
 
-                    // Multi-workout: combined carousel
-                    // Cardio: swipeable data carousel
-                    // Strength: images + exercise details
                     if viewModel.post.post.isMultiWorkout {
-                        MultiWorkoutCarousel(
-                            workouts: viewModel.post.post.allWorkouts,
-                            mapURLs: generatedMapURLs
-                        )
-                        .padding(.horizontal)
+                        workoutReport(viewModel: viewModel)
+                            .padding(.horizontal)
                     } else if viewModel.post.post.workoutData.isCardioWorkout {
                         cardioCarousel(viewModel: viewModel)
                     } else {
-                        strengthCarousel(viewModel: viewModel)
+                        workoutReport(viewModel: viewModel)
+                            .padding(.horizontal)
                     }
 
                     // Like/Comment counts
@@ -168,6 +164,210 @@ struct PostDetailView: View {
         }
         .frame(height: 350)
         .tabViewStyle(.page(indexDisplayMode: imageUrls.count > 1 ? .always : .never))
+    }
+
+    // MARK: - Workout Report
+
+    private func workoutReport(viewModel: PostDetailViewModel) -> some View {
+        let workouts = viewModel.post.post.allWorkouts
+        let summary = WorkoutPostSummaryPresentation.make(for: workouts)
+
+        return VStack(alignment: .leading, spacing: 12) {
+            WorkoutPostHeroSummaryCard(summary: summary, context: .detail)
+
+            detailRouteMapIfAvailable(post: viewModel.post.post)
+
+            detailSectionPicker(hasWatchData: workouts.contains(where: hasWatchData))
+
+            switch selectedWorkoutSection {
+            case .overview:
+                overviewSection(summary: summary)
+            case .exercises:
+                exercisesSection(workouts: workouts)
+            case .watch:
+                watchSection(workouts: workouts)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func detailRouteMapIfAvailable(post: WorkoutPost) -> some View {
+        let routeURL = post.isMultiWorkout ? generatedMapURLs.first : (post.workoutData.isCardioWorkout ? displayImageURLs.first : nil)
+
+        if let routeURL {
+            KFImage(routeURL)
+                .placeholder {
+                    Rectangle()
+                        .fill(DS.Semantic.fillSubtle)
+                        .overlay(ProgressView())
+                }
+                .fade(duration: 0.25)
+                .resizable()
+                .scaledToFill()
+                .frame(height: 150)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.Semantic.border, lineWidth: 1))
+                .accessibilityLabel("Workout route map")
+        }
+    }
+
+    private func detailSectionPicker(hasWatchData: Bool) -> some View {
+        HStack(spacing: 4) {
+            ForEach(WorkoutPostDetailSection.allCases) { section in
+                Button {
+                    guard section != .watch || hasWatchData else { return }
+                    selectedWorkoutSection = section
+                    Haptics.light()
+                } label: {
+                    Text(section.rawValue)
+                        .dsFont(.caption, weight: .bold)
+                        .foregroundStyle(selectedWorkoutSection == section ? .black : DS.Semantic.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            selectedWorkoutSection == section ? DS.Semantic.brand : Color.clear,
+                            in: RoundedRectangle(cornerRadius: 7)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(section == .watch && !hasWatchData)
+                .opacity(section == .watch && !hasWatchData ? 0.45 : 1)
+            }
+        }
+        .padding(4)
+        .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.Semantic.border, lineWidth: 1))
+    }
+
+    private func overviewSection(summary: WorkoutPostSummaryPresentation) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Workout Breakdown")
+                .dsFont(.headline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            ForEach(summary.breakdownRows) { row in
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(row.title)
+                            .dsFont(.subheadline, weight: .semibold)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                            .lineLimit(1)
+                        Text(row.detail)
+                            .dsFont(.caption)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    Text(row.value)
+                        .dsFont(.subheadline, weight: .bold, monospacedDigits: true)
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+        .padding(14)
+        .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
+        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+    }
+
+    private func exercisesSection(workouts: [CompletedWorkout]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Exercises")
+                .dsFont(.headline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            ForEach(workouts) { workout in
+                ForEach(workout.entries) { entry in
+                    strengthExerciseRow(entry: entry)
+                }
+            }
+
+            if workouts.flatMap(\.entries).isEmpty {
+                Text("No logged exercises")
+                    .dsFont(.subheadline)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 18)
+            }
+        }
+        .padding(14)
+        .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
+        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+    }
+
+    private func watchSection(workouts: [CompletedWorkout]) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Watch Data")
+                .dsFont(.headline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            ForEach(workouts.filter(hasWatchData)) { workout in
+                VStack(alignment: .leading, spacing: 20) {
+                    if workouts.count > 1 {
+                        Text(workout.workoutName ?? workout.workoutTypeDisplayName)
+                            .dsFont(.subheadline, weight: .bold)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                    }
+
+                    if workout.matchedHealthKitHeartRate != nil
+                        || workout.matchedHealthKitMaxHeartRate != nil
+                        || workout.matchedHealthKitMinHeartRate != nil {
+                        HStack(spacing: 0) {
+                            if let avg = workout.matchedHealthKitHeartRate {
+                                bpmColumn(value: avg, label: "AVG BPM", color: DS.Semantic.brand)
+                            }
+                            if let max = workout.matchedHealthKitMaxHeartRate {
+                                if workout.matchedHealthKitHeartRate != nil { bpmDivider() }
+                                bpmColumn(value: max, label: "MAX BPM", color: DS.Semantic.textPrimary)
+                            }
+                            if let min = workout.matchedHealthKitMinHeartRate {
+                                if workout.matchedHealthKitMaxHeartRate != nil { bpmDivider() }
+                                bpmColumn(value: min, label: "MIN BPM", color: DS.Semantic.textSecondary)
+                            }
+                        }
+                    }
+
+                    if let samples = workout.matchedHealthKitHeartRateSamples, samples.count > 2,
+                       let avgHR = workout.matchedHealthKitHeartRate,
+                       let minHR = workout.matchedHealthKitMinHeartRate,
+                       let maxHR = workout.matchedHealthKitMaxHeartRate {
+                        strengthHRChart(samples: samples, avgHR: avgHR, minHR: minHR, maxHR: maxHR)
+                    }
+
+                    if let calories = workout.matchedHealthKitCalories {
+                        HStack(spacing: 14) {
+                            Image(systemName: "flame.fill")
+                                .dsFont(.title2)
+                                .foregroundStyle(DS.Semantic.brand)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(String(format: "%.0f", calories))
+                                    .font(DS.Typography.custom(size: 32, weight: .heavy))
+                                    .foregroundStyle(DS.Semantic.textPrimary)
+                                Text("ACTIVE CALORIES")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                                    .tracking(1.5)
+                            }
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(16)
+                .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
+                .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+            }
+        }
+    }
+
+    private func hasWatchData(_ workout: CompletedWorkout) -> Bool {
+        workout.matchedHealthKitHeartRate != nil
+            || workout.matchedHealthKitMaxHeartRate != nil
+            || workout.matchedHealthKitMinHeartRate != nil
+            || workout.matchedHealthKitCalories != nil
     }
 
     // MARK: - Strength Carousel
@@ -1422,6 +1622,14 @@ struct PostDetailView: View {
             print("⚠️ Failed to load image URLs: \(error)")
         }
     }
+}
+
+private enum WorkoutPostDetailSection: String, CaseIterable, Identifiable {
+    case overview = "Overview"
+    case exercises = "Exercises"
+    case watch = "Watch"
+
+    var id: String { rawValue }
 }
 
 // MARK: - Comment Row Component
