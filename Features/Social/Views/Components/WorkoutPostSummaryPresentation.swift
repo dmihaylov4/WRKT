@@ -27,6 +27,20 @@ struct WorkoutBreakdownRow: Equatable, Identifiable {
     let value: String
 }
 
+enum WorkoutPostHeroSummaryContext {
+    case feed
+    case carousel
+    case detail
+
+    var minHeight: CGFloat {
+        switch self {
+        case .feed: return 254
+        case .carousel: return 300
+        case .detail: return 288
+        }
+    }
+}
+
 private struct WorkoutPostSummaryPresentationBuilder {
     let workouts: [CompletedWorkout]
 
