@@ -41,7 +41,27 @@ final class WorkoutStoreV2: ObservableObject {
                     "High Intensity Interval Training",
                     "Dance",
                     "Kickboxing",
-                    "Boxing"
+                    "Boxing",
+                    "Soccer",
+                    "Basketball",
+                    "Tennis",
+                    "Pickleball",
+                    "Badminton",
+                    "Volleyball",
+                    "Handball",
+                    "Racquetball",
+                    "Squash",
+                    "Table Tennis",
+                    "Hockey",
+                    "Field Hockey",
+                    "Lacrosse",
+                    "Rugby",
+                    "Football",
+                    "Cricket",
+                    "Martial Arts",
+                    "Wrestling",
+                    "Skating Sports",
+                    "Snow Sports"
                 ]
 
                 // If it's not a valid zero-distance type, filter it out
@@ -271,7 +291,8 @@ final class WorkoutStoreV2: ObservableObject {
                 exerciseID: plannedEx.exerciseID,
                 exerciseName: plannedEx.exerciseName,
                 muscleGroups: muscleGroups,
-                sets: ghostSets
+                sets: ghostSets,
+                plannedExerciseID: plannedEx.id
             )
         }
 
@@ -334,7 +355,7 @@ final class WorkoutStoreV2: ObservableObject {
 
     func finishCurrentWorkout() {
         guard let w = currentWorkout, !w.entries.isEmpty else { return }
-        var completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID)
+        var completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID, excusedPlannedExerciseIDs: w.excusedPlannedExerciseIDs)
 
         // Update PR index and get count of new PRs
         let prCount = updatePRIndex(with: completed)
@@ -638,9 +659,14 @@ final class WorkoutStoreV2: ObservableObject {
     func removeEntry(entryID: UUID) {
         guard var w = currentWorkout else { return }
 
-        // Get the entry's superset group before removal
+        // Get the entry before removal (need superset group + planned exercise tracking)
         let removedEntry = w.entries.first(where: { $0.id == entryID })
         let supersetGroupID = removedEntry?.supersetGroupID
+
+        // Record intentional removal so the planner treats this as excused, not missed
+        if let pid = removedEntry?.plannedExerciseID {
+            w.excusedPlannedExerciseIDs.insert(pid)
+        }
 
         w.entries.removeAll { $0.id == entryID }
 
@@ -1421,6 +1447,22 @@ extension WorkoutStoreV2 {
         return out
     }
 
+    /// Number of consecutive completed sessions where the heaviest working set weight was the same.
+    /// Returns 0 when fewer than 3 sessions exist or the weight has varied.
+    func consecutiveSessionsAtSameWeight(for exerciseID: String) -> Int {
+        let sessionMaxWeights: [Double] = completedWorkouts.compactMap { workout in
+            guard let entry = workout.entries.first(where: { $0.exerciseID == exerciseID }) else { return nil }
+            let weights = entry.sets.filter { $0.tag == .working && $0.weight > 0 && $0.isCompleted }.map { $0.weight }
+            return weights.max()
+        }
+        guard sessionMaxWeights.count >= 3, let last = sessionMaxWeights.last else { return 0 }
+        var count = 0
+        for weight in sessionMaxWeights.reversed() {
+            if abs(weight - last) < 0.5 { count += 1 } else { break }
+        }
+        return count
+    }
+
     func lastWorkingSet(exercise: Exercise) -> (reps: Int, weightKg: Double)? {
         let sets = completedWorkingSets(for: exercise.id).sorted { $0.date > $1.date }
         return sets.first.map { ($0.set.reps, $0.set.weight) }
@@ -1648,7 +1690,7 @@ extension WorkoutStoreV2 {
     func finishCurrentWorkoutAndReturnPRs() -> (workoutId: String, prCount: Int) {
         guard let w = currentWorkout, !w.entries.isEmpty else { return ("none", 0) }
 
-        var completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID)
+        var completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID, excusedPlannedExerciseIDs: w.excusedPlannedExerciseIDs)
 
         // Store workout for social sharing on win screen
         Task { @MainActor in

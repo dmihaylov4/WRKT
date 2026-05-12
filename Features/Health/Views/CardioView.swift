@@ -24,6 +24,7 @@ enum CardioType: String, CaseIterable, Identifiable {
     case running = "Running"
     case walking = "Walking"
     case cycling = "Cycling"
+    case other = "Other"
 
     var id: String { rawValue }
 
@@ -32,6 +33,7 @@ enum CardioType: String, CaseIterable, Identifiable {
         case .running: return "figure.run"
         case .walking: return "figure.walk"
         case .cycling: return "bicycle"
+        case .other: return "figure.mixed.cardio"
         }
     }
 
@@ -42,6 +44,7 @@ enum CardioType: String, CaseIterable, Identifiable {
         case .running: return "Runs"
         case .walking: return "Walks"
         case .cycling: return "Rides"
+        case .other: return "Activities"
         }
     }
 
@@ -49,6 +52,7 @@ enum CardioType: String, CaseIterable, Identifiable {
         switch self {
         case .running, .walking: return "Pace"
         case .cycling: return "Speed"
+        case .other: return "Duration"
         }
     }
 
@@ -56,6 +60,14 @@ enum CardioType: String, CaseIterable, Identifiable {
         switch self {
         case .running, .walking: return "min/km"
         case .cycling: return "km/h"
+        case .other: return "min"
+        }
+    }
+
+    var showsPace: Bool {
+        switch self {
+        case .running, .walking, .cycling: return true
+        case .other: return false
         }
     }
 }
@@ -73,14 +85,50 @@ struct CardioView: View {
     // Track if we've prompted in this app session (persists across view appearances)
     @AppStorage("hasPromptedForHealthKitAuth") private var hasPromptedThisSession = false
 
+    private static let namedCardioTypes: Set<String> = ["Running", "Walking", "Cycling"]
+    private static let eligibleOtherCardioTypes: Set<String> = [
+        "Elliptical",
+        "Stair Climbing",
+        "Rowing",
+        "High Intensity Interval Training",
+        "Dance",
+        "Kickboxing",
+        "Boxing",
+        "Soccer",
+        "Basketball",
+        "Tennis",
+        "Pickleball",
+        "Badminton",
+        "Volleyball",
+        "Handball",
+        "Racquetball",
+        "Squash",
+        "Table Tennis",
+        "Hockey",
+        "Field Hockey",
+        "Lacrosse",
+        "Rugby",
+        "Football",
+        "Cricket",
+        "Martial Arts",
+        "Wrestling",
+        "Skating Sports",
+        "Snow Sports"
+    ]
+
     // Filter to cardio workouts by selected type
     private var cardioRuns: [Run] {
-        store.runs.filter { run in
+        store.validRuns.filter { run in
             guard let type = run.workoutType else {
-                // Default unknown workouts with distance to running
                 return selectedType == .running && run.distanceKm > 0.1
             }
-            return type == selectedType.rawValue
+            switch selectedType {
+            case .other:
+                return !CardioView.namedCardioTypes.contains(type)
+                    && CardioView.eligibleOtherCardioTypes.contains(type)
+            default:
+                return type == selectedType.rawValue
+            }
         }
     }
 
@@ -658,18 +706,28 @@ private struct WeeklySummaryCard: View {
                     iconColor: .orange
                 )
 
-                if let avgPace = thisWeekAvgPace {
-                    StatTile(
-                        icon: "speedometer",
-                        title: "Avg \(activityType.metricLabel)",
-                        value: activityType == .cycling ? speedString(avgPace) : paceString(avgPace),
-                        iconColor: .green
-                    )
+                if activityType.showsPace {
+                    if let avgPace = thisWeekAvgPace {
+                        StatTile(
+                            icon: "speedometer",
+                            title: "Avg \(activityType.metricLabel)",
+                            value: activityType == .cycling ? speedString(avgPace) : paceString(avgPace),
+                            iconColor: .green
+                        )
+                    } else {
+                        StatTile(
+                            icon: "speedometer",
+                            title: "Avg \(activityType.metricLabel)",
+                            value: "—",
+                            iconColor: .green
+                        )
+                    }
                 } else {
+                    let avgSec = thisWeek.isEmpty ? 0 : thisWeekTime / thisWeek.count
                     StatTile(
-                        icon: "speedometer",
-                        title: "Avg \(activityType.metricLabel)",
-                        value: "—",
+                        icon: "timer",
+                        title: "Avg Duration",
+                        value: avgSec > 0 ? formatDuration(avgSec) : "—",
                         iconColor: .green
                     )
                 }
@@ -752,6 +810,16 @@ private struct PaceInsightsCard: View {
         }
     }
 
+    private var avgSessionSec: Int? {
+        guard !runs.isEmpty else { return nil }
+        let total = runs.reduce(0) { $0 + $1.durationSec }
+        return total / runs.count
+    }
+
+    private var longestSessionSec: Int? {
+        runs.map(\.durationSec).max()
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -766,77 +834,122 @@ private struct PaceInsightsCard: View {
                     .foregroundStyle(Theme.secondary)
             }
 
-            HStack(spacing: 12) {
-                // Average pace/speed
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "gauge.medium")
-                            .dsFont(.caption)
-                            .foregroundStyle(Theme.secondary)
-                        Text("Average")
-                            .dsFont(.caption)
-                            .foregroundStyle(Theme.secondary)
+            if activityType.showsPace {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "gauge.medium")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                            Text("Average")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        if let pace = avgPace {
+                            Text(activityType == .cycling ? speedString(pace) : paceString(pace))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                                .foregroundStyle(Theme.text)
+                            Text(activityType.metricUnit)
+                                .dsFont(.caption2)
+                                .foregroundStyle(Theme.secondary)
+                        } else {
+                            Text("—")
+                                .dsFont(.title2, weight: .bold)
+                                .foregroundStyle(Theme.secondary)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    if let pace = avgPace {
-                        Text(activityType == .cycling ? speedString(pace) : paceString(pace))
-                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bolt.fill")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                            Text("Best")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        if let pace = bestPace {
+                            Text(activityType == .cycling ? speedString(pace) : paceString(pace))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                                .foregroundStyle(Theme.text)
+                            Text(activityType.metricUnit)
+                                .dsFont(.caption2)
+                                .foregroundStyle(Theme.secondary)
+                        } else {
+                            Text("—")
+                                .dsFont(.title2, weight: .bold)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+
+                if let trend = paceTrend {
+                    HStack(spacing: 8) {
+                        Image(systemName: trend.contains("faster") ? "arrow.up.right.circle.fill" : "minus.circle.fill")
+                            .foregroundStyle(trend.contains("faster") ? .green : .orange)
+                        Text(trend)
+                            .dsFont(.subheadline, weight: .medium)
                             .foregroundStyle(Theme.text)
-                        Text(activityType.metricUnit)
-                            .dsFont(.caption2)
-                            .foregroundStyle(Theme.secondary)
-                    } else {
-                        Text("—")
-                            .dsFont(.title2, weight: .bold)
-                            .foregroundStyle(Theme.secondary)
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.surface2.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                // Best pace/speed
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "bolt.fill")
-                            .dsFont(.caption)
-                            .foregroundStyle(Theme.secondary)
-                        Text("Best")
-                            .dsFont(.caption)
-                            .foregroundStyle(Theme.secondary)
+            } else {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "timer")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                            Text("Avg Session")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        if let avg = avgSessionSec {
+                            Text(formatDuration(avg))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                                .foregroundStyle(Theme.text)
+                        } else {
+                            Text("—")
+                                .dsFont(.title2, weight: .bold)
+                                .foregroundStyle(Theme.secondary)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                    if let pace = bestPace {
-                        Text(activityType == .cycling ? speedString(pace) : paceString(pace))
-                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
-                            .foregroundStyle(Theme.text)
-                        Text(activityType.metricUnit)
-                            .dsFont(.caption2)
-                            .foregroundStyle(Theme.secondary)
-                    } else {
-                        Text("—")
-                            .dsFont(.title2, weight: .bold)
-                            .foregroundStyle(Theme.secondary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bolt.fill")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                            Text("Longest")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        if let longest = longestSessionSec {
+                            Text(formatDuration(longest))
+                                .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                                .foregroundStyle(Theme.text)
+                        } else {
+                            Text("—")
+                                .dsFont(.title2, weight: .bold)
+                                .foregroundStyle(Theme.secondary)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            // Pace trend indicator
-            if let trend = paceTrend {
-                HStack(spacing: 8) {
-                    Image(systemName: trend.contains("faster") ? "arrow.up.right.circle.fill" : "minus.circle.fill")
-                        .foregroundStyle(trend.contains("faster") ? .green : .orange)
-                    Text(trend)
-                        .dsFont(.subheadline, weight: .medium)
-                        .foregroundStyle(Theme.text)
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.surface2.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
         .padding(14)
@@ -854,6 +967,16 @@ private struct PaceInsightsCard: View {
         let kmh = 3600.0 / secPerKm
         return String(format: "%.1f km/h", kmh)
     }
+
+    private func formatDuration(_ seconds: Int) -> String {
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        if h > 0 {
+            return String(format: "%dh %dm", h, m)
+        } else {
+            return String(format: "%dm", m)
+        }
+    }
 }
 
 // MARK: - Consistency Card
@@ -863,7 +986,10 @@ private struct ConsistencyCard: View {
     let activityType: CardioType
 
     private var qualifyingRuns: [Run] {
-        allRuns.filter { $0.distanceKm >= 1.0 }
+        if activityType.showsPace {
+            return allRuns.filter { $0.distanceKm >= 1.0 }
+        }
+        return allRuns.filter { $0.durationSec > 0 }
     }
 
     private var totalRuns: Int {
@@ -918,13 +1044,13 @@ private struct ConsistencyCard: View {
                 .foregroundStyle(Theme.text)
 
             HStack(spacing: 12) {
-                // Total runs
+                // Total activities
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 4) {
-                        Image(systemName: "figure.run")
+                        Image(systemName: activityType.icon)
                             .dsFont(.caption)
                             .foregroundStyle(.purple)
-                        Text("Total Runs")
+                        Text("Total \(activityType.activityName)")
                             .dsFont(.caption)
                             .foregroundStyle(Theme.secondary)
                     }
@@ -957,49 +1083,87 @@ private struct ConsistencyCard: View {
                 .padding(12)
                 .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                // Total distance
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "map.fill")
-                            .dsFont(.caption)
-                            .foregroundStyle(Theme.accent)
-                        Text("Total Distance")
-                            .dsFont(.caption)
+                // Total distance or total time
+                if activityType.showsPace {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "map.fill")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.accent)
+                            Text("Total Distance")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        Text(String(format: "%.1f", totalDistance))
+                            .dsFont(.title3, weight: .bold)
+                            .foregroundStyle(Theme.text)
+                        Text("km")
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     }
-                    Text(String(format: "%.1f", totalDistance))
-                        .dsFont(.title3, weight: .bold)
-                        .foregroundStyle(Theme.text)
-                    Text("km")
-                        .dsFont(.caption2)
-                        .foregroundStyle(Theme.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "timer")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.accent)
+                            Text("Total Time")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        Text(formatDuration(qualifyingRuns.reduce(0) { $0 + $1.durationSec }))
+                            .dsFont(.title3, weight: .bold)
+                            .foregroundStyle(Theme.text)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
             HStack(spacing: 12) {
-                // Longest run
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.right")
-                            .dsFont(.caption)
-                            .foregroundStyle(.blue)
-                        Text("Longest")
-                            .dsFont(.caption)
+                // Longest run or longest session
+                if activityType.showsPace {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trophy.fill")
+                                .dsFont(.caption)
+                                .foregroundStyle(.blue)
+                            Text("Longest")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        Text("\(longestRun)")
+                            .dsFont(.title2, weight: .bold)
+                            .foregroundStyle(Theme.text)
+                        Text("km")
+                            .dsFont(.caption2)
                             .foregroundStyle(Theme.secondary)
                     }
-                    Text("\(longestRun)")
-                        .dsFont(.title2, weight: .bold)
-                        .foregroundStyle(Theme.text)
-                    Text("km")
-                        .dsFont(.caption2)
-                        .foregroundStyle(Theme.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                } else {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trophy.fill")
+                                .dsFont(.caption)
+                                .foregroundStyle(.blue)
+                            Text("Longest")
+                                .dsFont(.caption)
+                                .foregroundStyle(Theme.secondary)
+                        }
+                        Text(formatDuration(qualifyingRuns.map(\.durationSec).max() ?? 0))
+                            .dsFont(.title2, weight: .bold)
+                            .foregroundStyle(Theme.text)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 // Average per week
                 VStack(alignment: .leading, spacing: 6) {
@@ -1026,6 +1190,16 @@ private struct ConsistencyCard: View {
         .padding(14)
         .background(Theme.surface, in: ChamferedRectangle(.large))
         .overlay(ChamferedRectangle(.large).stroke(Theme.border, lineWidth: 1))
+    }
+
+    private func formatDuration(_ seconds: Int) -> String {
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        if h > 0 {
+            return String(format: "%dh %dm", h, m)
+        } else {
+            return String(format: "%dm", m)
+        }
     }
 }
 
@@ -1207,7 +1381,14 @@ private struct RunRowCard: View {
 
                 // Pace/Speed - PROMINENT
                 VStack(alignment: .trailing, spacing: 2) {
-                    if activityType == .cycling {
+                    if !activityType.showsPace {
+                        Text(formatDuration(run.durationSec))
+                            .dsFont(.title3, weight: .bold, monospacedDigits: true)
+                            .foregroundStyle(Theme.accent)
+                        Text("duration")
+                            .dsFont(.caption2)
+                            .foregroundStyle(Theme.secondary)
+                    } else if activityType == .cycling {
                         Text(speed)
                             .dsFont(.title3, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(Theme.accent)
