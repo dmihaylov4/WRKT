@@ -72,6 +72,7 @@ private struct SessionSummarySlide: View {
                     }
                 }
             }
+            .simultaneousGesture(DragGesture())
 
             Spacer()
         }
@@ -103,7 +104,6 @@ private struct WorkoutSlide: View {
                 mixedContent
             }
 
-            Spacer(minLength: 0)
         }
         .padding(16)
     }
@@ -117,7 +117,6 @@ private struct WorkoutSlide: View {
                     .resizable()
                     .scaledToFill()
                     .frame(height: 140)
-                    .clipped()
                     .clipShape(ChamferedRectangle(.small))
             }
 
@@ -173,6 +172,7 @@ private struct WorkoutSlide: View {
                     }
                 }
             }
+            .frame(maxHeight: .infinity)
         }
     }
 
