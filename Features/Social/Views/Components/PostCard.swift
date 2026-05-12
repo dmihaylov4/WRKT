@@ -27,9 +27,18 @@ struct PostCard: View {
     @State private var showingReportAlert = false
     @State private var showingMenuSheet = false
     @State private var displayImageURLs: [URL] = []
+    @State private var resolvedImages: [ResolvedPostImage] = []
     @State private var isBackfilling = false
 
     private let imageUploadService = ImageUploadService()
+
+    private var userImageURLs: [URL] {
+        resolvedImages.filter { !$0.image.isGeneratedMapImage }.map(\.url)
+    }
+
+    private var generatedMapURLs: [URL] {
+        resolvedImages.filter { $0.image.isGeneratedMapImage }.map(\.url)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -45,15 +54,25 @@ struct PostCard: View {
             }
 
             // Workout Summary
-            workoutSummary
+            if post.post.isMultiWorkout {
+                MultiWorkoutCarousel(
+                    workouts: post.post.allWorkouts,
+                    mapURLs: generatedMapURLs
+                )
+            } else {
+                workoutSummary
+            }
 
-            // Images (if any) - skip for cardio workouts since map is shown inline
-            if !displayImageURLs.isEmpty && !post.post.workoutData.isCardioWorkout {
+            if post.post.isMultiWorkout {
+                if !userImageURLs.isEmpty {
+                    imageGallery(imageUrls: userImageURLs.map { $0.absoluteString })
+                }
+            } else if !displayImageURLs.isEmpty && !post.post.workoutData.isCardioWorkout {
                 imageGallery(imageUrls: displayImageURLs.map { $0.absoluteString })
             }
 
             // Expandable Workout Details
-            if isExpanded {
+            if isExpanded && !post.post.isMultiWorkout {
                 workoutDetails
             }
 
@@ -118,6 +137,7 @@ struct PostCard: View {
             // Lazy map backfill: own cardio post with HealthKit UUID but no map image
             if post.post.userId == currentUserId,
                post.post.workoutData.isCardioWorkout,
+               !post.post.isMultiWorkout,
                displayImageURLs.isEmpty,
                post.post.workoutData.matchedHealthKitUUID != nil {
                 await runBackfill()
@@ -142,14 +162,20 @@ struct PostCard: View {
         print("  Images: \(images.map { "\($0.storagePath) (public: \($0.isPublic))" })")
 
         do {
-            let urls = try await imageUploadService.getImageURLs(
-                for: images,
-                currentUserId: userId,
-                postOwnerId: post.post.userId
-            )
-            print("✅ [PostCard] Loaded \(urls.count) URLs")
+            var pairs: [ResolvedPostImage] = []
+            for image in images {
+                if let url = try await imageUploadService.getImageURL(
+                    for: image,
+                    currentUserId: userId,
+                    postOwnerId: post.post.userId
+                ) {
+                    pairs.append(ResolvedPostImage(image: image, url: url))
+                }
+            }
+            print("✅ [PostCard] Loaded \(pairs.count) URLs")
             await MainActor.run {
-                displayImageURLs = urls
+                resolvedImages = pairs
+                displayImageURLs = pairs.map(\.url)
             }
         } catch {
             print("❌ [PostCard] Failed to load image URLs: \(error)")
@@ -735,6 +761,15 @@ struct PostCard: View {
         )
     }
 
+}
+
+// MARK: - Resolved Post Image
+
+private struct ResolvedPostImage: Identifiable {
+    let image: PostImage
+    let url: URL
+
+    var id: UUID { image.id }
 }
 
 // MARK: - Image Viewer
