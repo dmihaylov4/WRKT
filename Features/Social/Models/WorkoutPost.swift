@@ -51,6 +51,16 @@ struct PostImage: Codable, Sendable, Hashable, Identifiable {
         storagePath.starts(with: "http://") || storagePath.starts(with: "https://")
     }
 
+    /// Generated route/map snapshots must be distinguishable from user photos.
+    /// Match path components and generated prefixes, not arbitrary words like "maple".
+    var isGeneratedMapImage: Bool {
+        let lower = storagePath.lowercased()
+        return lower.contains("/route_map_")
+            || lower.contains("/map_")
+            || lower.contains("_route_map_")
+            || lower.contains("_map_")
+    }
+
     /// Get the bucket name from the storage path
     var bucketName: String {
         if isLegacyURL {
@@ -99,6 +109,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
     let userId: UUID
     var caption: String?
     let workoutData: CompletedWorkout
+    var workoutDataList: [CompletedWorkout]?
     var images: [PostImage]?  // NEW: Replaces imageUrls with privacy support
     var visibility: PostVisibility
     var likesCount: Int
@@ -111,6 +122,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         case userId = "user_id"
         case caption
         case workoutData = "workout_data"
+        case workoutDataList = "workout_data_list"
         case images
         case imageUrls = "image_urls"  // Keep for backward compatibility
         case visibility
@@ -133,12 +145,14 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         likesCount: Int = 0,
         commentsCount: Int = 0,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        workoutDataList: [CompletedWorkout]? = nil
     ) {
         self.id = id
         self.userId = userId
         self.caption = caption
         self.workoutData = workoutData
+        self.workoutDataList = workoutDataList
         self.images = images
         self.visibility = visibility
         self.likesCount = likesCount
@@ -160,6 +174,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         commentsCount = try container.decode(Int.self, forKey: .commentsCount)
         createdAt = try container.decode(Date.self, forKey: .createdAt)
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        workoutDataList = try container.decodeIfPresent([CompletedWorkout].self, forKey: .workoutDataList)
 
         // Handle images with backward compatibility for imageUrls
         if let newImages = try? container.decode([PostImage].self, forKey: .images) {
@@ -214,6 +229,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         try container.encode(userId, forKey: .userId)
         try container.encodeIfPresent(caption, forKey: .caption)
         try container.encode(workoutData, forKey: .workoutData)
+        try container.encodeIfPresent(workoutDataList, forKey: .workoutDataList)
         try container.encodeIfPresent(images, forKey: .images)
         try container.encode(visibility, forKey: .visibility)
         try container.encode(likesCount, forKey: .likesCount)
@@ -223,6 +239,17 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
     }
 
     // MARK: - Computed Properties
+
+    var isMultiWorkout: Bool {
+        (workoutDataList?.count ?? 0) > 1
+    }
+
+    var allWorkouts: [CompletedWorkout] {
+        if let workoutDataList, !workoutDataList.isEmpty {
+            return workoutDataList
+        }
+        return [workoutData]
+    }
 
     var exerciseCount: Int {
         workoutData.entries.count
