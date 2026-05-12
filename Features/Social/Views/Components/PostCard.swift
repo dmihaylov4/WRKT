@@ -95,7 +95,10 @@ struct PostCard: View {
             onPostTap()
         }
         .sheet(isPresented: $showingImageViewer) {
-            ImageViewer(imageUrls: displayImageURLs.map { $0.absoluteString }, selectedIndex: $selectedImageIndex)
+            let viewerURLs = post.post.isMultiWorkout
+                ? userImageURLs.map { $0.absoluteString }
+                : displayImageURLs.map { $0.absoluteString }
+            ImageViewer(imageUrls: viewerURLs, selectedIndex: $selectedImageIndex)
         }
         .sheet(isPresented: $showingMenuSheet) {
             PostMenuSheet(
