@@ -50,7 +50,12 @@ final class ImageUploadService: ObservableObject {
     ///   - userId: User ID for organizing files
     ///   - isPublic: Array of booleans indicating if each image is public (true) or private (false)
     /// - Returns: Array of PostImage objects with storage paths
-    func uploadWorkoutImages(images: [UIImage], userId: UUID, isPublic: [Bool]) async throws -> [PostImage] {
+    func uploadWorkoutImages(
+        images: [UIImage],
+        userId: UUID,
+        isPublic: [Bool],
+        fileNamePrefix: String = "workout"
+    ) async throws -> [PostImage] {
         print("📤 [ImageUpload] Uploading \(images.count) images")
         print("  Privacy settings: \(isPublic.map { $0 ? "public" : "private" })")
 
@@ -74,10 +79,11 @@ final class ImageUploadService: ObservableObject {
 
             let imageIsPublic = isPublic[index]
 
-            // Generate file path: userId/workout_timestamp_index.jpg
+            // Generate file path: userId/prefix_timestamp_index.jpg
             // IMPORTANT: Use lowercase UUID to match auth.uid() in RLS policies
             let timestamp = Int(Date().timeIntervalSince1970)
-            let fileName = "workout_\(timestamp)_\(index).jpg"
+            let safePrefix = fileNamePrefix.isEmpty ? "workout" : fileNamePrefix
+            let fileName = "\(safePrefix)_\(timestamp)_\(index).jpg"
             let filePath = "\(userId.uuidString.lowercased())/\(fileName)"
 
             // Choose bucket based on privacy setting
