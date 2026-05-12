@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WRKT Workout Post Redesign</title>
+  <style>
+    :root {
+      --bg: #050505;
+      --screen: #000;
+      --surface: #0b070f;
+      --surface-2: #141116;
+      --surface-3: #1b181f;
+      --line: rgba(255,255,255,.12);
+      --line-strong: rgba(255,255,255,.2);
+      --text: #f7f7f7;
+      --muted: #aaa7b0;
+      --dim: #6f6b75;
+      --brand: #ccff00;
+      --brand-soft: rgba(204,255,0,.12);
+      --danger: #ff4d55;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(204,255,0,.08), transparent 34rem),
+        #050505;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .page {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      padding: 36px 24px 48px;
+    }
+
+    .mockup-title {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 34px);
+      letter-spacing: 0;
+    }
+
+    .caption {
+      margin: 8px 0 0;
+      max-width: 650px;
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(320px, 390px));
+      justify-content: center;
+      gap: 32px;
+      align-items: start;
+    }
+
+    .phone-wrap {
+      display: grid;
+      gap: 12px;
+    }
+
+    .phone-label {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+
+    .phone {
+      width: 390px;
+      height: 844px;
+      border-radius: 42px;
+      padding: 12px;
+      background: linear-gradient(145deg, #1b1b1d, #080809);
+      box-shadow: 0 32px 90px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+
+    .screen {
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+      border-radius: 32px;
+      background: var(--screen);
+      border: 1px solid rgba(255,255,255,.08);
+    }
+
+    .status {
+      height: 46px;
+      padding: 14px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #fff;
+    }
+
+    .bars {
+      display: grid;
+      grid-template-columns: repeat(4, 4px);
+      align-items: end;
+      gap: 2px;
+      height: 13px;
+    }
+
+    .bars span {
+      display: block;
+      width: 4px;
+      border-radius: 2px;
+      background: #fff;
+    }
+
+    .bars span:nth-child(1) { height: 5px; opacity: .72; }
+    .bars span:nth-child(2) { height: 8px; opacity: .82; }
+    .bars span:nth-child(3) { height: 11px; opacity: .92; }
+    .bars span:nth-child(4) { height: 13px; }
+
+    .battery {
+      min-width: 32px;
+      height: 16px;
+      border-radius: 5px;
+      background: #32c85a;
+      color: #fff;
+      font-size: 11px;
+      line-height: 16px;
+      text-align: center;
+      font-weight: 900;
+    }
+
+    .app-header {
+      position: relative;
+      min-height: 76px;
+      padding: 14px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-title {
+      font-size: 18px;
+      font-weight: 800;
+    }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background:
+        linear-gradient(135deg, rgba(204,255,0,.22), transparent 26%),
+        linear-gradient(160deg, #e5d0b0 0%, #3d3434 44%, #111 100%);
+      border: 1px solid rgba(255,255,255,.18);
+      clip-path: polygon(12% 0, 100% 0, 100% 78%, 78% 100%, 0 100%, 0 22%);
+      flex: none;
+    }
+
+    .avatar-ring {
+      position: absolute;
+      left: 22px;
+      top: 12px;
+      width: 52px;
+      height: 52px;
+      padding: 4px;
+      border: 2px solid var(--brand);
+      clip-path: polygon(12% 0, 100% 0, 100% 78%, 78% 100%, 0 100%, 0 22%);
+    }
+
+    .avatar-ring .avatar {
+      width: 100%;
+      height: 100%;
+    }
+
+    .notify {
+      position: absolute;
+      right: 22px;
+      top: 12px;
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.02);
+      border: 1px solid var(--line);
+      clip-path: polygon(0 0, 82% 0, 100% 18%, 100% 100%, 20% 100%, 0 80%);
+      color: var(--brand);
+    }
+
+    .notify-badge {
+      position: absolute;
+      right: -4px;
+      top: -5px;
+      display: grid;
+      place-items: center;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      background: var(--brand);
+      color: #050505;
+      font-size: 12px;
+      font-weight: 900;
+      clip-path: polygon(0 0, 80% 0, 100% 20%, 100% 100%, 0 100%);
+    }
+
+    .feed-tabs {
+      margin: 0 20px 14px;
+      padding: 6px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: rgba(255,255,255,.035);
+      border: 1px solid var(--line);
+      clip-path: polygon(6% 0, 100% 0, 100% 76%, 92% 100%, 0 100%, 0 24%);
+    }
+
+    .feed-tabs button {
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      padding: 11px 4px;
+      font: inherit;
+      font-weight: 800;
+    }
+
+    .feed-tabs .selected {
+      color: #050505;
+      background: var(--brand);
+      clip-path: polygon(8% 0, 100% 0, 100% 76%, 88% 100%, 0 100%, 0 24%);
+    }
+
+    .scroll-area {
+      height: calc(100% - 46px - 76px - 82px);
+      overflow: hidden;
+      padding: 0 18px 20px;
+    }
+
+    .post-card {
+      padding: 16px;
+      background: rgba(12,8,15,.96);
+      border: 1px solid var(--line);
+      clip-path: polygon(0 0, 95% 0, 100% 6%, 100% 100%, 5% 100%, 0 94%);
+    }
+
+    .post-head {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 28px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .name {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .meta {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .more {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      font-weight: 900;
+      letter-spacing: 2px;
+    }
+
+    .post-caption {
+      margin: 0 0 12px;
+      color: #eceaf0;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 254px;
+      padding: 20px 18px 16px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.018), rgba(255,255,255,.005)),
+        #050306;
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: auto 54px 50px auto;
+      width: 150px;
+      height: 88px;
+      opacity: .12;
+      background: var(--brand);
+      clip-path: polygon(0 28%, 18% 28%, 18% 8%, 34% 8%, 34% 100%, 18% 100%, 18% 70%, 0 70%, 0 100%, -14% 100%, -14% 0, 0 0);
+      transform: scale(1.2);
+    }
+
+    .hero-kicker {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    .hero-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .hero-title h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    .pill {
+      padding: 5px 8px;
+      color: #050505;
+      background: var(--brand);
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+
+    .stats-grid {
+      position: relative;
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      z-index: 1;
+    }
+
+    .stat {
+      min-width: 0;
+      text-align: center;
+      padding: 0 7px;
+      border-right: 1px solid rgba(255,255,255,.22);
+    }
+
+    .stat:last-child {
+      border-right: 0;
+    }
+
+    .stat-label,
+    .stat-unit {
+      display: block;
+      color: rgba(255,255,255,.56);
+      font-size: 9px;
+      font-weight: 950;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .stat-value {
+      display: block;
+      margin: 5px 0 3px;
+      color: #fff;
+      font-size: 28px;
+      line-height: .95;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .hero-bottom {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 15px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .bio-row,
+    .mini-row {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      color: #ebe9ee;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .bio-row .heart {
+      color: var(--danger);
+    }
+
+    .mini-row {
+      justify-content: space-between;
+      padding-top: 11px;
+      color: var(--muted);
+      font-size: 12px;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    .mini-row strong {
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .action-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 13px;
+      padding-top: 13px;
+      border-top: 1px solid var(--line);
+    }
+
+    .action-group {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .action {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    svg {
+      display: block;
+      flex: none;
+    }
+
+    .tabbar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 82px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
+      padding: 8px 8px 12px;
+      background: rgba(0,0,0,.96);
+      border-top: 1px solid var(--line);
+    }
+
+    .tab {
+      display: grid;
+      gap: 5px;
+      justify-items: center;
+      color: #7d7a82;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .tab svg {
+      color: #fff;
+    }
+
+    .tab.active {
+      color: var(--brand);
+    }
+
+    .tab.active svg {
+      color: var(--brand);
+    }
+
+    .detail-scroll {
+      height: calc(100% - 46px - 76px - 78px);
+      overflow: hidden;
+      padding: 0 18px 18px;
+    }
+
+    .back {
+      position: absolute;
+      left: 18px;
+      top: 11px;
+      width: 50px;
+      height: 50px;
+      border-radius: 25px;
+      display: grid;
+      place-items: center;
+      background: #18181b;
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
+    .detail-author {
+      display: grid;
+      grid-template-columns: 42px minmax(0,1fr);
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .detail-card {
+      min-height: 288px;
+      margin-bottom: 12px;
+    }
+
+    .dots {
+      display: flex;
+      justify-content: center;
+      gap: 7px;
+      margin: 10px 0 15px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.24);
+    }
+
+    .dot.active {
+      width: 28px;
+      background: var(--brand);
+    }
+
+    .segments {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 4px;
+      margin-bottom: 14px;
+      background: rgba(255,255,255,.055);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .segment {
+      border: 0;
+      border-radius: 7px;
+      padding: 9px 4px;
+      color: var(--muted);
+      background: transparent;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 850;
+      cursor: pointer;
+    }
+
+    .segment.active {
+      color: #050505;
+      background: var(--brand);
+    }
+
+    .panel {
+      display: none;
+      padding: 16px;
+      background: rgba(18,15,21,.92);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .panel.active {
+      display: block;
+    }
+
+    .panel h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .exercise-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .exercise-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 48px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,.045);
+      border-radius: 9px;
+    }
+
+    .exercise-row strong {
+      font-size: 13px;
+    }
+
+    .exercise-row span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .watch-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .watch-stat {
+      min-height: 78px;
+      padding: 11px 8px;
+      background: rgba(255,255,255,.045);
+      border-radius: 9px;
+      text-align: center;
+    }
+
+    .watch-stat b {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .watch-stat span {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .comment-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 78px;
+      display: grid;
+      grid-template-columns: 1fr 42px;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px 16px;
+      background: rgba(10,7,12,.98);
+      border-top: 1px solid var(--line);
+    }
+
+    .comment-input {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 17px;
+      color: #74707a;
+      background: rgba(255,255,255,.07);
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .send {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      color: #e7e5ea;
+    }
+
+    .muted-line {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin: 0 0 12px;
+    }
+
+    @media (max-width: 900px) {
+      .page {
+        padding: 22px 14px 34px;
+      }
+
+      .mockup-title {
+        display: block;
+      }
+
+      .board {
+        grid-template-columns: 1fr;
+        justify-items: center;
+      }
+
+      .phone {
+        width: min(390px, calc(100vw - 28px));
+        height: min(844px, calc((100vw - 28px) * 2.164));
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="mockup-title">
+      <div>
+        <h1>WRKT Workout Post Redesign</h1>
+        <p class="caption">A static HTML concept: the feed stays social and scannable; the post detail carries the richer workout breakdown.</p>
+      </div>
+    </div>
+
+    <section class="board" aria-label="Workout post redesign mockups">
+      <div class="phone-wrap">
+        <div class="phone-label">Feed Card</div>
+        <div class="phone">
+          <div class="screen">
+            <div class="status">
+              <span>17:26</span>
+              <div class="status-icons">
+                <div class="bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true"><path d="M1 5.2C5.6 1.3 12.4 1.3 17 5.2M4.3 8.2c2.7-2.1 6.7-2.1 9.4 0M7.2 11.1c1.1-.8 2.5-.8 3.6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <div class="battery">94</div>
+              </div>
+            </div>
+
+            <header class="app-header">
+              <div class="avatar-ring"><div class="avatar"></div></div>
+              <div class="app-title">Feed</div>
+              <div class="notify">
+                <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z" fill="currentColor"/></svg>
+                <div class="notify-badge">2</div>
+              </div>
+            </header>
+
+            <nav class="feed-tabs" aria-label="Social sections">
+              <button class="selected">Feed</button>
+              <button>Compete</button>
+              <button>Friends</button>
+            </nav>
+
+            <div class="scroll-area">
+              <article class="post-card">
+                <div class="post-head">
+                  <div class="avatar"></div>
+                  <div>
+                    <p class="name">Dimitar Mihaylov</p>
+                    <div class="meta">7 min ago · Private</div>
+                  </div>
+                  <div class="more">•••</div>
+                </div>
+
+                <p class="post-caption">Solid pull session.</p>
+
+                <section class="hero-card" aria-label="Workout summary">
+                  <div class="hero-kicker">Shared workout</div>
+                  <div class="hero-title">
+                    <h2>Strength Session</h2>
+                    <span class="pill">6 workouts</span>
+                  </div>
+
+                  <div class="stats-grid">
+                    <div class="stat">
+                      <span class="stat-label">Volume</span>
+                      <span class="stat-value">6.5k</span>
+                      <span class="stat-unit">KG</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-label">Exercises</span>
+                      <span class="stat-value">6</span>
+                      <span class="stat-unit">EX</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-label">Sets</span>
+                      <span class="stat-value">17</span>
+                      <span class="stat-unit">Total</span>
+                    </div>
+                    <div class="stat">
+                      <span class="stat-label">Duration</span>
+                      <span class="stat-value">48m</span>
+                      <span class="stat-unit">Time</span>
+                    </div>
+                  </div>
+
+                  <div class="hero-bottom">
+                    <div class="bio-row">
+                      <span class="heart">♥</span><span>116 BPM</span>
+                      <span>274 kcal</span>
+                    </div>
+                    <div class="mini-row">
+                      <strong>Romanian Deadlift, Bench Press + 4 more</strong>
+                      <span>View</span>
+                    </div>
+                  </div>
+                </section>
+
+                <div class="action-row">
+                  <div class="action-group">
+                    <div class="action">
+                      <svg width="23" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8-4.9-8-11a4.8 4.8 0 0 1 8-3.6A4.8 4.8 0 0 1 20 10c0 6.1-8 11-8 11Z" fill="currentColor"/></svg>
+                      <span>0</span>
+                    </div>
+                    <div class="action">
+                      <svg width="23" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H8l-3 3V5Z" fill="currentColor"/></svg>
+                      <span>0</span>
+                    </div>
+                  </div>
+                  <div class="action">
+                    <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 12v7h10v-7M12 16V4m0 0 4 4m-4-4-4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <nav class="tabbar" aria-label="Main tabs">
+              <div class="tab">
+                <svg width="29" height="24" viewBox="0 0 32 24" aria-hidden="true"><path d="M2 10h5V6h4v12H7v-4H2v-4Zm12-6h4v16h-4V4Zm7 6h9v4h-9v-4Z" fill="currentColor"/></svg>
+                <span>Train</span>
+              </div>
+              <div class="tab">
+                <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h16v18H4V3Zm3 5h10M7 12h3m4 0h3M7 16h3m4 0h3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Plan</span>
+              </div>
+              <div class="tab active">
+                <svg width="27" height="25" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z" fill="currentColor"/></svg>
+                <span>Social</span>
+              </div>
+              <div class="tab">
+                <svg width="27" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-8-4.9-8-11a4.8 4.8 0 0 1 8-3.6A4.8 4.8 0 0 1 20 10c0 6.1-8 11-8 11Z" fill="currentColor"/></svg>
+                <span>Cardio</span>
+              </div>
+              <div class="tab">
+                <svg width="27" height="25" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm-8 9a8 8 0 0 1 16 0H4Z" fill="currentColor"/></svg>
+                <span>Me</span>
+              </div>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="phone-wrap">
+        <div class="phone-label">Post Detail</div>
+        <div class="phone">
+          <div class="screen">
+            <div class="status">
+              <span>17:26</span>
+              <div class="status-icons">
+                <div class="bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+                <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true"><path d="M1 5.2C5.6 1.3 12.4 1.3 17 5.2M4.3 8.2c2.7-2.1 6.7-2.1 9.4 0M7.2 11.1c1.1-.8 2.5-.8 3.6 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <div class="battery">94</div>
+              </div>
+            </div>
+
+            <header class="app-header">
+              <div class="back">
+                <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div class="app-title">Post</div>
+            </header>
+
+            <div class="detail-scroll">
+              <div class="detail-author">
+                <div class="avatar"></div>
+                <div>
+                  <p class="name">Dimitar Mihaylov</p>
+                  <div class="meta">7 min ago · Private</div>
+                </div>
+              </div>
+
+              <section class="hero-card detail-card" aria-label="Workout summary">
+                <div class="hero-kicker">Combined workout</div>
+                <div class="hero-title">
+                  <h2>Strength Session</h2>
+                  <span class="pill">Summary</span>
+                </div>
+
+                <div class="stats-grid">
+                  <div class="stat">
+                    <span class="stat-label">Volume</span>
+                    <span class="stat-value">6.5k</span>
+                    <span class="stat-unit">KG</span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat-label">Exercises</span>
+                    <span class="stat-value">6</span>
+                    <span class="stat-unit">EX</span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat-label">Sets</span>
+                    <span class="stat-value">17</span>
+                    <span class="stat-unit">Total</span>
+                  </div>
+                  <div class="stat">
+                    <span class="stat-label">Duration</span>
+                    <span class="stat-value">48m</span>
+                    <span class="stat-unit">Time</span>
+                  </div>
+                </div>
+
+                <div class="hero-bottom">
+                  <div class="bio-row">
+                    <span class="heart">♥</span><span>116 BPM</span>
+                    <span>274 kcal</span>
+                  </div>
+                  <div class="mini-row">
+                    <strong>3 highlighted lifts · 2 PR tags</strong>
+                    <span>1 / 4</span>
+                  </div>
+                </div>
+              </section>
+
+              <div class="dots" aria-hidden="true">
+                <span class="dot active"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+              </div>
+
+              <div class="segments" role="tablist" aria-label="Post sections">
+                <button class="segment active" data-panel="overview">Overview</button>
+                <button class="segment" data-panel="exercises">Exercises</button>
+                <button class="segment" data-panel="watch">Watch</button>
+              </div>
+
+              <section class="panel active" id="overview">
+                <h3>Workout Breakdown</h3>
+                <p class="muted-line">The detail view carries the depth, so the feed card can stay fast to scan.</p>
+                <div class="exercise-list">
+                  <div class="exercise-row"><strong>Romanian Deadlift</strong><span>3 sets</span><span>1.1k kg</span></div>
+                  <div class="exercise-row"><strong>Bench Press</strong><span>4 sets</span><span>1.4k kg</span></div>
+                  <div class="exercise-row"><strong>Lat Pulldown</strong><span>3 sets</span><span>900 kg</span></div>
+                </div>
+              </section>
+
+              <section class="panel" id="exercises">
+                <h3>Exercises</h3>
+                <div class="exercise-list">
+                  <div class="exercise-row"><strong>Romanian Deadlift</strong><span>8×50</span><span>WK</span></div>
+                  <div class="exercise-row"><strong>Romanian Deadlift</strong><span>8×50</span><span>WK</span></div>
+                  <div class="exercise-row"><strong>Romanian Deadlift</strong><span>6×50</span><span>WK</span></div>
+                </div>
+              </section>
+
+              <section class="panel" id="watch">
+                <h3>Watch Data</h3>
+                <div class="watch-grid">
+                  <div class="watch-stat"><b>116</b><span>Avg BPM</span></div>
+                  <div class="watch-stat"><b>274</b><span>KCAL</span></div>
+                  <div class="watch-stat"><b>48m</b><span>Time</span></div>
+                </div>
+              </section>
+            </div>
+
+            <div class="comment-bar">
+              <div class="comment-input">Add a comment...</div>
+              <div class="send">
+                <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 21 3l-8.5 18-2.1-7.4L3 11.5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const segments = document.querySelectorAll(".segment");
+    const panels = document.querySelectorAll(".panel");
+
+    segments.forEach((segment) => {
+      segment.addEventListener("click", () => {
+        const id = segment.dataset.panel;
+        segments.forEach((item) => item.classList.toggle("active", item === segment));
+        panels.forEach((panel) => panel.classList.toggle("active", panel.id === id));
+      });
+    });
+  </script>
+</body>
+</html>

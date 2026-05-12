@@ -18,6 +18,7 @@ struct PostDetailView: View {
     @State private var showingLikes = false
     @FocusState private var isCommentFieldFocused: Bool
     @State private var displayImageURLs: [URL] = []
+    @State private var generatedMapURLs: [URL] = []
     @State private var carouselPage: Int = 0
     @State private var showMapFullscreen = false
 
@@ -76,9 +77,16 @@ struct PostDetailView: View {
                             .padding(.horizontal)
                     }
 
+                    // Multi-workout: combined carousel
                     // Cardio: swipeable data carousel
                     // Strength: images + exercise details
-                    if viewModel.post.post.workoutData.isCardioWorkout {
+                    if viewModel.post.post.isMultiWorkout {
+                        MultiWorkoutCarousel(
+                            workouts: viewModel.post.post.allWorkouts,
+                            mapURLs: generatedMapURLs
+                        )
+                        .padding(.horizontal)
+                    } else if viewModel.post.post.workoutData.isCardioWorkout {
                         cardioCarousel(viewModel: viewModel)
                     } else {
                         strengthCarousel(viewModel: viewModel)
@@ -1405,6 +1413,10 @@ struct PostDetailView: View {
             )
             await MainActor.run {
                 displayImageURLs = urls
+                if post.post.isMultiWorkout {
+                    let pairs = zip(images, urls)
+                    generatedMapURLs = pairs.filter { $0.0.isGeneratedMapImage }.map(\.1)
+                }
             }
         } catch {
             print("⚠️ Failed to load image URLs: \(error)")
