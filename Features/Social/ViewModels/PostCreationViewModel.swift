@@ -256,6 +256,8 @@ final class PostCreationViewModel {
             return
         }
         mapImage = finalImage
+        // Also update the per-workout dict so external callers (e.g. CardioDetailView)
+        // that call addInitialImage directly are reflected in map selection order.
         if let selectedWorkout {
             mapImagesByWorkoutID[mapIdentity(for: selectedWorkout)] = finalImage
         }
@@ -312,8 +314,9 @@ final class PostCreationViewModel {
     func generateMapSnapshotForWorkout(_ workout: CompletedWorkout) async {
         guard workout.isCardioWorkout else { return }
 
-        // Skip if a map image is already present (e.g., provided by CardioDetailView)
-        if mapImage != nil { return }
+        // Skip if a map snapshot has already been generated for this specific workout.
+        let identity = mapIdentity(for: workout)
+        if mapImagesByWorkoutID[identity] != nil { return }
 
         // Find the corresponding Run using the HealthKit UUID or workout ID
         // Check both cachedRuns and the workout store for the latest data
@@ -364,15 +367,12 @@ final class PostCreationViewModel {
             return
         }
 
-        isGeneratingMap = true
-
         do {
             let snapshot = try await MapSnapshotService.shared.generateRouteSnapshot(
                 coordinates: coordinates,
                 hrValues: hrValues,
                 size: CGSize(width: 600, height: 400)
             )
-            let identity = mapIdentity(for: workout)
             mapImagesByWorkoutID[identity] = snapshot
             if selectedWorkouts.count <= 1 {
                 addInitialImage(snapshot)
