@@ -26,7 +26,17 @@ final class PostCreationViewModel {
     var error: UserFriendlyError?
     var retryAttempt = 0
     var recentWorkouts: [CompletedWorkout] = []
-    var selectedWorkout: CompletedWorkout?
+    var selectedWorkouts: [CompletedWorkout] = []
+    var mapImagesByWorkoutID: [UUID: UIImage] = [:]
+
+    var selectedWorkout: CompletedWorkout? {
+        get { selectedWorkouts.first }
+        set { selectedWorkouts = newValue.map { [$0] } ?? [] }
+    }
+
+    var primaryWorkout: CompletedWorkout? {
+        selectedWorkouts.first
+    }
 
     // Store runs to access route data for map generation
     private var cachedRuns: [Run] = []
@@ -51,10 +61,19 @@ final class PostCreationViewModel {
     }
 
     func createPost(with workout: CompletedWorkout) async throws {
+        try await createPost(with: [workout])
+    }
+
+    func createPost(with workouts: [CompletedWorkout]) async throws {
+        guard !workouts.isEmpty else {
+            throw SupabaseError.serverError("Cannot create post without a workout")
+        }
+
         guard let currentUserId = authService.currentUser?.id else {
             throw SupabaseError.notAuthenticated
         }
 
+        selectedWorkouts = workouts
         isUploading = true
         error = nil
         retryAttempt = 0
@@ -91,13 +110,16 @@ final class PostCreationViewModel {
 
         // Step 2: Check if an auto-post already exists for this workout.
         // If so, extend it with the user's photo instead of creating a duplicate.
-        if let hkUUID = workout.matchedHealthKitUUID,
+        // Only applies to single-workout posts.
+        if workouts.count == 1,
+           let workout = workouts.first,
+           let hkUUID = workout.matchedHealthKitUUID,
            let existingPost = try? await postRepository.fetchOwnPost(forHealthKitUUID: hkUUID, userId: currentUserId),
            !uploadedUserPhotos.isEmpty {
             // Order: user photo(s) → map (slot 2) → any other existing images
             let existingImages = existingPost.images ?? []
-            let mapImages = existingImages.filter { isMapImage($0) }
-            let otherImages = existingImages.filter { !isMapImage($0) }
+            let mapImages = existingImages.filter(\.isGeneratedMapImage)
+            let otherImages = existingImages.filter { !$0.isGeneratedMapImage }
             let reorderedImages = uploadedUserPhotos + mapImages + otherImages
 
             try await postRepository.updatePostImages(existingPost.id, images: reorderedImages)
@@ -108,14 +130,24 @@ final class PostCreationViewModel {
         }
 
         // Step 3: No existing post — create a new one.
-        // Compose images: user photos first, then map snapshot (if any).
+        // Compose images: user photos first, then map snapshot(s) (if any).
+        let mapImagesToUpload: [UIImage]
+        if workouts.count > 1 {
+            mapImagesToUpload = generatedMapImagesInSelectionOrder
+        } else if let mapImage {
+            mapImagesToUpload = [mapImage]
+        } else {
+            mapImagesToUpload = []
+        }
+
         var mapUploadedImages: [PostImage] = []
-        if let mapImg = mapImage {
+        if !mapImagesToUpload.isEmpty {
             let mapResult = await retryManager.uploadWithRetry {
                 try await self.imageUploadService.uploadWorkoutImages(
-                    images: [mapImg],
+                    images: mapImagesToUpload,
                     userId: currentUserId,
-                    isPublic: [true]
+                    isPublic: Array(repeating: true, count: mapImagesToUpload.count),
+                    fileNamePrefix: "route_map"
                 )
             }
             if case .success(let imgs) = mapResult {
@@ -126,7 +158,7 @@ final class PostCreationViewModel {
         let allImages = uploadedUserPhotos + mapUploadedImages
         let postResult = await retryManager.fetchWithRetry {
             try await self.postRepository.createPost(
-                workout: workout,
+                workouts: workouts,
                 caption: self.caption.isEmpty ? nil : self.caption,
                 images: allImages.isEmpty ? nil : allImages,
                 visibility: self.selectedVisibility,
@@ -151,9 +183,14 @@ final class PostCreationViewModel {
         }
     }
 
-    /// Heuristic: map snapshots are uploaded to the public bucket with "map" in the path.
-    private func isMapImage(_ image: PostImage) -> Bool {
-        image.storagePath.contains("map") || image.storagePath.contains("route")
+    private func mapIdentity(for workout: CompletedWorkout) -> UUID {
+        workout.matchedHealthKitUUID ?? workout.id
+    }
+
+    private var generatedMapImagesInSelectionOrder: [UIImage] {
+        selectedWorkouts.compactMap { workout in
+            mapImagesByWorkoutID[mapIdentity(for: workout)]
+        }
     }
 
     func loadPhotos() async {
@@ -219,6 +256,9 @@ final class PostCreationViewModel {
             return
         }
         mapImage = finalImage
+        if let selectedWorkout {
+            mapImagesByWorkoutID[mapIdentity(for: selectedWorkout)] = finalImage
+        }
     }
 
     func loadRecentWorkouts() async {
@@ -332,11 +372,29 @@ final class PostCreationViewModel {
                 hrValues: hrValues,
                 size: CGSize(width: 600, height: 400)
             )
-            addInitialImage(snapshot)
+            let identity = mapIdentity(for: workout)
+            mapImagesByWorkoutID[identity] = snapshot
+            if selectedWorkouts.count <= 1 {
+                addInitialImage(snapshot)
+            }
         } catch {
             // snapshot generation failed — post without map
         }
 
         isGeneratingMap = false
+    }
+
+    func generateMapSnapshotsForSelectedWorkouts() async {
+        let cardioWorkouts = selectedWorkouts.filter(\.isCardioWorkout)
+        guard !cardioWorkouts.isEmpty else { return }
+
+        isGeneratingMap = true
+        defer { isGeneratingMap = false }
+
+        for workout in cardioWorkouts {
+            let identity = mapIdentity(for: workout)
+            if mapImagesByWorkoutID[identity] != nil { continue }
+            await generateMapSnapshotForWorkout(workout)
+        }
     }
 }
