@@ -6,9 +6,8 @@
 //
 
 import SwiftUI
-import Kingfisher
 
-struct WorkoutPostStatsViews {
+enum WorkoutPostStatsViews {
     static func duration(for workout: CompletedWorkout) -> TimeInterval? {
         if let hkDuration = workout.matchedHealthKitDuration {
             return TimeInterval(hkDuration)
