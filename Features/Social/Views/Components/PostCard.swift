@@ -20,7 +20,6 @@ struct PostCard: View {
     let onDelete: (() -> Void)?
     let onBackfillRoute: (() async -> Bool)?
 
-    @State private var isExpanded = false
     @State private var showingImageViewer = false
     @State private var selectedImageIndex = 0
     @State private var showingDeleteAlert = false
@@ -60,7 +59,14 @@ struct PostCard: View {
                     mapURLs: generatedMapURLs
                 )
             } else {
-                workoutSummary
+                VStack(spacing: 12) {
+                    WorkoutPostHeroSummaryCard(
+                        summary: .make(for: [post.post.workoutData]),
+                        context: .feed
+                    )
+
+                    singleCardioRoutePreview
+                }
             }
 
             if post.post.isMultiWorkout {
@@ -69,11 +75,6 @@ struct PostCard: View {
                 }
             } else if !displayImageURLs.isEmpty && !post.post.workoutData.isCardioWorkout {
                 imageGallery(imageUrls: displayImageURLs.map { $0.absoluteString })
-            }
-
-            // Expandable Workout Details
-            if isExpanded && !post.post.isMultiWorkout {
-                workoutDetails
             }
 
             // Action Buttons (Like, Comment, Share)
@@ -265,127 +266,15 @@ struct PostCard: View {
         }
     }
 
-    // MARK: - Workout Summary
+    // MARK: - Single Cardio Route Preview
 
-    private var workoutSummary: some View {
-        ZStack(alignment: .leading) {
-            // Accent stripe on left (clipped by container's chamfered shape)
-            Rectangle()
-                .fill(DS.Semantic.brand)
-                .frame(width: 4)
-
-            // Main content
-            VStack(alignment: .leading, spacing: 12) {
-                // Workout Type/Name with expand indicator
-                HStack {
-                    // Icon with accent circle background
-                    ZStack {
-                        Circle()
-                            .fill(DS.Semantic.brand.opacity(0.12))
-                            .frame(width: 40, height: 40)
-
-                        Image(systemName: post.post.workoutData.workoutIcon)
-                            .dsFont(.title3)
-                            .foregroundStyle(DS.Semantic.brand)
-                    }
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(post.post.workoutData.workoutName ?? post.post.workoutData.workoutTypeDisplayName)
-                            .dsFont(.headline)
-                            .foregroundStyle(DS.Semantic.textPrimary)
-
-                        Text(post.post.workoutData.isCardioWorkout ? "Tap for details" : "Tap to \(isExpanded ? "hide" : "view") exercises")
-                            .dsFont(.caption2)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                    }
-
-                    Spacer()
-
-                    if !post.post.workoutData.isCardioWorkout {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                    }
-                }
-
-                // Stats Grid - different for cardio vs strength
-                if post.post.workoutData.isCardioWorkout {
-                    cardioStats
-                } else {
-                    strengthStats
-                }
-            }
-            .padding(16)
-            .padding(.leading, 4) // Extra space for accent stripe
-        }
-        .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.medium))
-        .clipShape(ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
-        .onTapGesture {
-            if post.post.workoutData.isCardioWorkout {
-                Haptics.light()
-                onPostTap()
-            } else {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    isExpanded.toggle()
-                }
-                Haptics.light()
-            }
-        }
-    }
-
-    // MARK: - Strength Stats
-    private var strengthStats: some View {
-        VStack(spacing: 8) {
-            if post.post.exerciseCount > 0 {
-                HStack(spacing: 12) {
-                    statPill(
-                        icon: "dumbbell.fill",
-                        value: "\(post.post.exerciseCount)",
-                        label: post.post.exerciseCount == 1 ? "exercise" : "exercises"
-                    )
-
-                    Spacer()
-
-                    statPill(
-                        icon: "list.bullet",
-                        value: "\(post.post.totalSets)",
-                        label: post.post.totalSets == 1 ? "set" : "sets"
-                    )
-                }
-            }
-
-            HStack(spacing: 12) {
-                if post.post.totalVolume > 0 {
-                    statPill(
-                        icon: "scalemass.fill",
-                        value: WorkoutPostStatsViews.formatVolume(post.post.totalVolume),
-                        label: "kg total"
-                    )
-
-                    Spacer()
-                }
-
-                if let duration = post.post.duration, duration > 0 {
-                    statPill(
-                        icon: "clock.fill",
-                        value: post.post.durationFormatted,
-                        label: "duration"
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Cardio Stats
-    private var cardioStats: some View {
-        VStack(spacing: 12) {
-            // Map preview (if available) - first image is the map for cardio posts
+    @ViewBuilder
+    private var singleCardioRoutePreview: some View {
+        if post.post.workoutData.isCardioWorkout {
             if !displayImageURLs.isEmpty {
                 cardioMapPreview
             } else if post.post.userId == currentUserId,
                       post.post.workoutData.matchedHealthKitUUID != nil {
-                // Show Get Route button for own posts missing a route map
                 Button {
                     Task { await runBackfill() }
                 } label: {
@@ -401,50 +290,14 @@ struct PostCard: View {
                         }
                         Text(isBackfilling ? "Building route..." : "Get Route Map")
                             .dsFont(.caption, weight: .bold)
-                            .foregroundStyle(DS.Semantic.fillSubtle)
+                            .foregroundStyle(DS.Semantic.textPrimary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(DS.Semantic.brandSoft)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
                 }
                 .disabled(isBackfilling)
                 .buttonStyle(.plain)
-            }
-
-            // Hero display for distance and time (if distance is available)
-            if let distanceMeters = post.post.workoutData.matchedHealthKitDistance, distanceMeters > 0 {
-                cardioHeroStats(distanceMeters: distanceMeters)
-            }
-
-            // Secondary stats
-            VStack(spacing: 6) {
-                HStack {
-                    if let calories = post.post.workoutData.matchedHealthKitCalories {
-                        statPill(icon: "flame.fill", value: String(format: "%.0f", calories), label: "cal")
-                    }
-
-                    Spacer()
-
-                    if let avgHR = post.post.workoutData.matchedHealthKitHeartRate {
-                        statPill(icon: "heart.fill", value: String(format: "%.0f", avgHR), label: "avg bpm")
-                    }
-
-                    Spacer()
-
-                    // Non-GPS workouts: show duration instead of max BPM
-                    if post.post.workoutData.matchedHealthKitDistance == nil,
-                       let durationSec = post.post.workoutData.matchedHealthKitDuration {
-                        statPill(icon: "clock.fill", value: WorkoutPostStatsViews.formatCardioDuration(durationSec), label: "duration")
-                    } else if let maxHR = post.post.workoutData.matchedHealthKitMaxHeartRate {
-                        statPill(icon: "bolt.heart.fill", value: String(format: "%.0f", maxHR), label: "max bpm")
-                    }
-                }
-            }
-
-            // HR zones summary (if available)
-            if let hrZones = post.post.workoutData.cardioHRZones, !hrZones.isEmpty {
-                hrZonesLegend(zones: hrZones)
             }
         }
     }
@@ -496,108 +349,6 @@ struct PostCard: View {
         }
     }
 
-    // MARK: - HR Zones Legend
-    private func hrZonesLegend(zones: [HRZoneSummary]) -> some View {
-        HStack(spacing: 4) {
-            ForEach(zones.filter { $0.minutes > 0 }.sorted { $0.zone < $1.zone }) { zone in
-                HStack(spacing: 2) {
-                    Circle()
-                        .fill(Color(hex: zone.colorHex))
-                        .frame(width: 6, height: 6)
-                    Text("Z\(zone.zone)")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                    Text("\(Int(zone.minutes))m")
-                        .font(.system(size: 9))
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                }
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(DS.Semantic.fillSubtle)
-        .clipShape(Capsule())
-    }
-
-    // MARK: - Cardio Hero Stats (Distance + Time + Pace)
-    private func cardioHeroStats(distanceMeters: Double) -> some View {
-        let durationSec = post.post.workoutData.matchedHealthKitDuration
-        let paceSecPerKm: Double? = durationSec.map { Double($0) / (distanceMeters / 1000) }
-
-        return HStack(spacing: 0) {
-            // Distance
-            VStack(spacing: 2) {
-                Text(String(format: "%.2f", distanceMeters / 1000))
-                    .font(DS.Typography.custom(size: 32, weight: .bold))
-                    .foregroundStyle(DS.Palette.marone)
-                Text("KILOMETERS")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(DS.Semantic.textSecondary)
-                    .tracking(0.5)
-            }
-            .frame(maxWidth: .infinity)
-
-            Rectangle()
-                .fill(DS.Semantic.border)
-                .frame(width: 1, height: 40)
-
-            // Duration
-            VStack(spacing: 2) {
-                if let sec = durationSec {
-                    Text(WorkoutPostStatsViews.formatCardioDuration(sec))
-                        .font(DS.Typography.custom(size: 32, weight: .bold))
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                } else {
-                    Text("--:--")
-                        .font(DS.Typography.custom(size: 32, weight: .bold))
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                }
-                Text("TIME")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(DS.Semantic.textSecondary)
-                    .tracking(0.5)
-            }
-            .frame(maxWidth: .infinity)
-
-            // Pace (only for running/distance workouts)
-            if let pace = paceSecPerKm {
-                Rectangle()
-                    .fill(DS.Semantic.border)
-                    .frame(width: 1, height: 40)
-
-                VStack(spacing: 2) {
-                    Text(WorkoutPostStatsViews.formatPace(pace))
-                        .font(DS.Typography.custom(size: 32, weight: .bold))
-                        .foregroundStyle(DS.Semantic.textPrimary)
-                    Text("AVG PACE")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                        .tracking(0.5)
-                }
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(.vertical, 8)
-    }
-
-    private func statPill(icon: String, value: String, label: String) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .dsFont(.caption2)
-                .foregroundStyle(DS.Semantic.textSecondary)
-            Text(value)
-                .dsFont(.caption, weight: .bold)
-                .foregroundStyle(DS.Semantic.textPrimary)
-            if !label.isEmpty {
-                Text(label)
-                    .dsFont(.caption2)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-            }
-        }
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
     // MARK: - Image Gallery
 
     private func imageGallery(imageUrls: [String]) -> some View {
@@ -625,38 +376,6 @@ struct PostCard: View {
         .frame(height: 300)
         .tabViewStyle(.page(indexDisplayMode: imageUrls.count > 1 ? .always : .never))
         .clipShape(ChamferedRectangle(.medium))
-    }
-
-    // MARK: - Workout Details
-
-    private var workoutDetails: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Divider()
-
-            Text("Exercises")
-                .dsFont(.subheadline, weight: .bold)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            ForEach(post.post.workoutData.entries) { entry in
-                HStack(alignment: .top, spacing: 8) {
-                    Text("•")
-                        .foregroundStyle(DS.Semantic.textSecondary)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(entry.exerciseName)
-                            .dsFont(.subheadline)
-                            .foregroundStyle(DS.Semantic.textPrimary)
-
-                        Text("\(entry.sets.count) sets")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                    }
-
-                    Spacer()
-                }
-            }
-        }
-        .transition(.opacity)
     }
 
     // MARK: - Action Buttons
