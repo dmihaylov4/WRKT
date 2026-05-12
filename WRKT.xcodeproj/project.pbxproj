@@ -147,6 +147,7 @@
 		2EA7D99E2EE9EF540017683B /* PostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99C2EE9EF540017683B /* PostCard.swift */; };
 		2EA7DA002EE9EF540017683B /* WorkoutPostStatsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */; };
 		2EA7DA012EE9EF540017683C /* MultiWorkoutCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */; };
+		2EA7DA032EE9EF540017683C /* WorkoutPostSummaryPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */; };
 		2EA7D9A02EE9EF670017683B /* PostCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99F2EE9EF670017683B /* PostCreationView.swift */; };
 		2EA7D9A22EE9EF760017683B /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9A12EE9EF760017683B /* FeedView.swift */; };
 		2EA7D9A42EE9EF810017683B /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9A32EE9EF810017683B /* PostDetailView.swift */; };
@@ -617,6 +618,7 @@
 		2EA7D99C2EE9EF540017683B /* PostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCard.swift; sourceTree = "<group>"; };
 		2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostStatsViews.swift; sourceTree = "<group>"; };
 		2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiWorkoutCarousel.swift; sourceTree = "<group>"; };
+		2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostSummaryPresentation.swift; sourceTree = "<group>"; };
 		2EA7D99F2EE9EF670017683B /* PostCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCreationView.swift; sourceTree = "<group>"; };
 		2EA7D9A12EE9EF760017683B /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		2EA7D9A32EE9EF810017683B /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
@@ -1753,6 +1755,7 @@
 				2EA7D99C2EE9EF540017683B /* PostCard.swift */,
 				2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */,
 				2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */,
+				2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -2545,6 +2548,7 @@
 				2EA7D99E2EE9EF540017683B /* PostCard.swift in Sources */,
 				2EA7DA002EE9EF540017683B /* WorkoutPostStatsViews.swift in Sources */,
 				2EA7DA012EE9EF540017683C /* MultiWorkoutCarousel.swift in Sources */,
+				2EA7DA032EE9EF540017683C /* WorkoutPostSummaryPresentation.swift in Sources */,
 				2EA7D9BF2EEB18DA0017683B /* SkeletonPostCard.swift in Sources */,
 				2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */,
 				2EA7DAC22EEDCFAE0017683B /* CompeteView.swift in Sources */,
