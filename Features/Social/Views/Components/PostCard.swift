@@ -330,7 +330,7 @@ struct PostCard: View {
                 if post.post.totalVolume > 0 {
                     statPill(
                         icon: "scalemass.fill",
-                        value: formatVolume(post.post.totalVolume),
+                        value: WorkoutPostStatsViews.formatVolume(post.post.totalVolume),
                         label: "kg total"
                     )
 
@@ -406,7 +406,7 @@ struct PostCard: View {
                     // Non-GPS workouts: show duration instead of max BPM
                     if post.post.workoutData.matchedHealthKitDistance == nil,
                        let durationSec = post.post.workoutData.matchedHealthKitDuration {
-                        statPill(icon: "clock.fill", value: formatCardioDuration(durationSec), label: "duration")
+                        statPill(icon: "clock.fill", value: WorkoutPostStatsViews.formatCardioDuration(durationSec), label: "duration")
                     } else if let maxHR = post.post.workoutData.matchedHealthKitMaxHeartRate {
                         statPill(icon: "bolt.heart.fill", value: String(format: "%.0f", maxHR), label: "max bpm")
                     }
@@ -447,7 +447,7 @@ struct PostCard: View {
                 HStack(spacing: 4) {
                     Image(systemName: "figure.run")
                         .dsFont(.caption2)
-                    Text(formatPace(paceSecPerKm))
+                    Text(WorkoutPostStatsViews.formatPace(paceSecPerKm))
                         .dsFont(.caption, weight: .bold)
                     Text("/km")
                         .dsFont(.caption2)
@@ -490,12 +490,6 @@ struct PostCard: View {
         .clipShape(Capsule())
     }
 
-    private func formatPace(_ secPerKm: Double) -> String {
-        let minutes = Int(secPerKm) / 60
-        let seconds = Int(secPerKm) % 60
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-
     // MARK: - Cardio Hero Stats (Distance + Time + Pace)
     private func cardioHeroStats(distanceMeters: Double) -> some View {
         let durationSec = post.post.workoutData.matchedHealthKitDuration
@@ -521,7 +515,7 @@ struct PostCard: View {
             // Duration
             VStack(spacing: 2) {
                 if let sec = durationSec {
-                    Text(formatCardioDuration(sec))
+                    Text(WorkoutPostStatsViews.formatCardioDuration(sec))
                         .font(DS.Typography.custom(size: 32, weight: .bold))
                         .foregroundStyle(DS.Semantic.textPrimary)
                 } else {
@@ -543,7 +537,7 @@ struct PostCard: View {
                     .frame(width: 1, height: 40)
 
                 VStack(spacing: 2) {
-                    Text(formatPace(pace))
+                    Text(WorkoutPostStatsViews.formatPace(pace))
                         .font(DS.Typography.custom(size: 32, weight: .bold))
                         .foregroundStyle(DS.Semantic.textPrimary)
                     Text("AVG PACE")
@@ -555,17 +549,6 @@ struct PostCard: View {
             }
         }
         .padding(.vertical, 8)
-    }
-
-    private func formatCardioDuration(_ seconds: Int) -> String {
-        let h = seconds / 3600
-        let m = (seconds % 3600) / 60
-        let s = seconds % 60
-        if h > 0 {
-            return String(format: "%d:%02d", h, m)
-        } else {
-            return String(format: "%d:%02d", m, s)
-        }
     }
 
     private func statPill(icon: String, value: String, label: String) -> some View {
@@ -752,12 +735,6 @@ struct PostCard: View {
         )
     }
 
-    private func formatVolume(_ volume: Double) -> String {
-        if volume >= 1000 {
-            return String(format: "%.1fk", volume / 1000)
-        }
-        return String(format: "%.0f", volume)
-    }
 }
 
 // MARK: - Image Viewer
