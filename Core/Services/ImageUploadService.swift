@@ -49,6 +49,7 @@ final class ImageUploadService: ObservableObject {
     ///   - images: Array of UIImages to upload
     ///   - userId: User ID for organizing files
     ///   - isPublic: Array of booleans indicating if each image is public (true) or private (false)
+    ///   - fileNamePrefix: Prefix used in the generated filename. Defaults to "workout".
     /// - Returns: Array of PostImage objects with storage paths
     func uploadWorkoutImages(
         images: [UIImage],
@@ -64,6 +65,7 @@ final class ImageUploadService: ObservableObject {
         }
 
         var uploadedImages: [PostImage] = []
+        let safePrefix = fileNamePrefix.isEmpty ? "workout" : fileNamePrefix
 
         for (index, image) in images.enumerated() {
             // Update progress
@@ -82,7 +84,6 @@ final class ImageUploadService: ObservableObject {
             // Generate file path: userId/prefix_timestamp_index.jpg
             // IMPORTANT: Use lowercase UUID to match auth.uid() in RLS policies
             let timestamp = Int(Date().timeIntervalSince1970)
-            let safePrefix = fileNamePrefix.isEmpty ? "workout" : fileNamePrefix
             let fileName = "\(safePrefix)_\(timestamp)_\(index).jpg"
             let filePath = "\(userId.uuidString.lowercased())/\(fileName)"
 
