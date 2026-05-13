@@ -13,6 +13,7 @@ struct BattleDetailView: View {
 
     @State private var showingBattleExitConfirmation = false
     @State private var isProcessingBattleExit = false
+    @State private var isProcessingBattleAccept = false
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var deps
@@ -26,6 +27,16 @@ struct BattleDetailView: View {
                     // Battle status header
                     statusHeader
 
+                    BattleRewardPreviewBlock(
+                        battleType: battle.battle.battleType,
+                        targetMetric: battle.battle.targetMetric
+                    )
+
+                    // Accept / Decline row (pending invite, current user is opponent)
+                    if canAcceptBattle {
+                        battlePendingActions
+                    }
+
                     // Score comparison
                     scoreComparison
 
@@ -34,7 +45,8 @@ struct BattleDetailView: View {
                         progressTimeline
                     }
 
-                    if canExitBattle {
+                    // Leave / Cancel section (active or challenger-side pending)
+                    if canExitBattle && !canAcceptBattle {
                         battleExitSection
                     }
 
@@ -181,6 +193,47 @@ struct BattleDetailView: View {
             ChamferedRectangle(.large)
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private var battlePendingActions: some View {
+        HStack(spacing: 12) {
+            Button {
+                Task { await performBattleAccept() }
+            } label: {
+                Group {
+                    if isProcessingBattleAccept {
+                        ProgressView().tint(.black)
+                    } else {
+                        Text("Accept")
+                            .dsFont(.subheadline, weight: .bold)
+                            .foregroundStyle(.black)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(DS.Semantic.brand, in: SingleChamferedRectangle(corner: .topTrailing, .large))
+            }
+            .buttonStyle(.plain)
+            .disabled(isProcessingBattleAccept || isProcessingBattleExit)
+
+            Button {
+                showingBattleExitConfirmation = true
+            } label: {
+                Text("Decline")
+                    .dsFont(.subheadline, weight: .bold)
+                    .foregroundStyle(DS.Status.error)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(DS.Semantic.card, in: SingleChamferedRectangle(corner: .topLeading, .large))
+                    .overlay(
+                        SingleChamferedRectangle(corner: .topLeading, .large)
+                            .stroke(DS.Status.error.opacity(0.4), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(isProcessingBattleExit || isProcessingBattleAccept)
+        }
     }
 
     @ViewBuilder
@@ -336,6 +389,8 @@ struct BattleDetailView: View {
             return "Exercise Battle"
         case .pr:
             return "PR Battle"
+        case .runningDistance:
+            return "Running Distance"
         }
     }
 
@@ -432,6 +487,8 @@ struct BattleDetailView: View {
             return "reps"
         case .pr:
             return "kg"
+        case .runningDistance:
+            return "km"
         }
     }
 
@@ -491,6 +548,10 @@ struct BattleDetailView: View {
         }
     }
 
+    private var canAcceptBattle: Bool {
+        battle.battle.status == .pending && isCurrentUserOpponent
+    }
+
     private var battleExitActionTitle: String {
         if battle.battle.status == .active {
             return "Leave Battle"
@@ -543,6 +604,8 @@ struct BattleDetailView: View {
             return "battle-flags-icon"
         case .exercise:
             return "battle-opponent-icon"
+        case .runningDistance:
+            return "battle-workout-count-icon"
         }
     }
 
@@ -557,6 +620,8 @@ struct BattleDetailView: View {
             return "\(Int(score))"
         case .pr:
             return "\(Int(score))"
+        case .runningDistance:
+            return String(format: "%.1f", score)
         }
     }
 
@@ -593,6 +658,18 @@ struct BattleDetailView: View {
         }
 
         if didExit {
+            dismiss()
+        }
+    }
+
+    private func performBattleAccept() async {
+        guard !isProcessingBattleAccept else { return }
+
+        isProcessingBattleAccept = true
+        defer { isProcessingBattleAccept = false }
+
+        let didAccept = await viewModel.acceptBattle(battle.battle)
+        if didAccept {
             dismiss()
         }
     }

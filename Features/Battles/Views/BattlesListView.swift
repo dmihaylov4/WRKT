@@ -406,6 +406,8 @@ struct BattleCard: View {
             return "Exercise Battle"
         case .pr:
             return "PR Battle"
+        case .runningDistance:
+            return "Running Distance"
         }
     }
 }
@@ -433,9 +435,18 @@ struct PendingBattleCard: View {
 
                 Spacer()
 
-                Image(systemName: "envelope.badge.fill")
-                    .dsFont(.title3)
+                Image(battleIconName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
                     .foregroundStyle(DS.Semantic.brand)
+                    .frame(width: 38, height: 38)
+                    .background(DS.Semantic.brandSoft, in: ChamferedRectangleAlt(.small))
+                    .overlay(
+                        ChamferedRectangleAlt(.small)
+                            .stroke(DS.Semantic.brand.opacity(0.24), lineWidth: 1)
+                    )
             }
 
             Text("Duration: \(battle.battle.duration) days")
@@ -458,7 +469,11 @@ struct PendingBattleCard: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(DS.Semantic.surface50)
-                            .clipShape(Capsule())
+                            .clipShape(ChamferedRectangle(.large))
+                            .overlay(
+                                ChamferedRectangle(.large)
+                                    .stroke(DS.Semantic.border, lineWidth: 1)
+                            )
                     }
                     .disabled(isProcessing)
 
@@ -472,17 +487,21 @@ struct PendingBattleCard: View {
                         HStack {
                             if isProcessing {
                                 ProgressView()
-                                    .tint(.white)
+                                    .tint(.black)
                             } else {
                                 Text("Accept")
                             }
                         }
                         .dsFont(.subheadline, weight: .bold)
-                        .foregroundStyle(DS.Semantic.onBrand)
+                        .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(DS.Semantic.brand)
-                        .clipShape(Capsule())
+                        .clipShape(ChamferedRectangle(.large))
+                        .overlay(
+                            ChamferedRectangle(.large)
+                                .stroke(DS.Semantic.brand.opacity(0.4), lineWidth: 1)
+                        )
                     }
                     .disabled(isProcessing)
                 }
@@ -495,11 +514,16 @@ struct PendingBattleCard: View {
         }
         .padding(16)
         .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            ChamferedRectangle(.large)
                 .stroke(DS.Semantic.brand.opacity(0.3), lineWidth: 1.5)
         )
+        .contentShape(ChamferedRectangle(.large))
+        .onTapGesture {
+            onTap()
+        }
+        .accessibilityAddTraits(.isButton)
     }
 
     private var battleTypeLabel: String {
@@ -514,6 +538,8 @@ struct PendingBattleCard: View {
             return "Exercise Battle"
         case .pr:
             return "PR Battle"
+        case .runningDistance:
+            return "Running Distance"
         }
     }
 
@@ -522,6 +548,23 @@ struct PendingBattleCard: View {
             return "Battle Invitation"
         } else {
             return "Battle Sent"
+        }
+    }
+
+    private var battleIconName: String {
+        switch battle.battle.battleType {
+        case .volume:
+            return "battle-volume-icon"
+        case .workoutCount:
+            return "battle-workout-count-icon"
+        case .consistency:
+            return "battle-consistency-icon"
+        case .exercise:
+            return "battle-opponent-icon"
+        case .pr:
+            return "battle-flags-icon"
+        case .runningDistance:
+            return "battle-workout-count-icon"
         }
     }
 }
@@ -599,6 +642,8 @@ struct CompletedBattleCard: View {
             return "Exercise Battle"
         case .pr:
             return "PR Battle"
+        case .runningDistance:
+            return "Running Distance"
         }
     }
 
@@ -656,6 +701,8 @@ struct ScoreColumn: View {
             return "\(Int(score))"
         case .pr:
             return "\(Int(score))"
+        case .runningDistance:
+            return String(format: "%.1f", score)
         }
     }
 
@@ -671,6 +718,8 @@ struct ScoreColumn: View {
             return "reps"
         case .pr:
             return "kg"
+        case .runningDistance:
+            return "km"
         }
     }
 }

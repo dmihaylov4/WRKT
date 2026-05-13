@@ -98,7 +98,7 @@ struct ActiveWorkoutView: View {
 
             // Elapsed time — main metric
             Text(formatElapsedTime(healthManager.elapsedTime))
-                .font(.system(size: 48, weight: .bold, design: .rounded))
+                .font(.barlow(48, weight: .bold))
                 .foregroundColor(accentGreen.opacity(0.6))
                 .monospacedDigit()
 
@@ -106,11 +106,11 @@ struct ActiveWorkoutView: View {
             if isRestTimerActive {
                 HStack(spacing: 6) {
                     Text("REST")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.barlow(11, weight: .medium))
                         .foregroundColor(.white.opacity(0.3))
                         .tracking(1)
                     Text(timeString(seconds: displaySeconds))
-                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .font(.barlow(20, weight: .semibold))
                         .foregroundColor(accentGreen.opacity(0.4))
                         .monospacedDigit()
                 }
@@ -125,7 +125,7 @@ struct ActiveWorkoutView: View {
                         .font(.system(size: 12))
                         .foregroundColor(.red.opacity(0.4))
                     Text("\(Int(healthManager.heartRate))")
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .font(.barlow(18, weight: .semibold))
                         .foregroundColor(.white.opacity(0.4))
                 }
                 .padding(.bottom, 8)
@@ -138,8 +138,7 @@ struct ActiveWorkoutView: View {
 
     private var exerciseNameHeader: some View {
         Text(currentExerciseName ?? "Strength Training")
-            .font(.system(.caption, design: .rounded))
-            .fontWeight(.medium)
+            .font(.barlow(13, weight: .medium))
             .foregroundColor(.white.opacity(0.8))
             .lineLimit(1)
             .minimumScaleFactor(0.7)
@@ -150,12 +149,12 @@ struct ActiveWorkoutView: View {
     private var elapsedTimeDisplay: some View {
         VStack(spacing: 4) {
             Text(formatElapsedTime(healthManager.elapsedTime))
-                .font(.system(size: 54, weight: .bold, design: .rounded))
+                .font(.barlow(54, weight: .bold))
                 .foregroundColor(accentGreen)
                 .monospacedDigit()
 
             Text("DURATION")
-                .font(.system(size: 11, weight: .medium))
+                .font(.barlow(11, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
                 .tracking(1)
         }
@@ -166,12 +165,12 @@ struct ActiveWorkoutView: View {
     private func restTimerDisplay(timer: WatchRestTimerInfo) -> some View {
         VStack(spacing: 4) {
             Text(timeString(seconds: displaySeconds))
-                .font(.system(size: 54, weight: .bold, design: .rounded))
+                .font(.barlow(54, weight: .bold))
                 .foregroundColor(accentGreen)
                 .monospacedDigit()
 
             Text("REST")
-                .font(.system(size: 11, weight: .medium))
+                .font(.barlow(11, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
                 .tracking(1)
 
@@ -181,7 +180,7 @@ struct ActiveWorkoutView: View {
                 connectivity.send(type: .skipRestTimer)
             } label: {
                 Text("Skip")
-                    .font(.system(.caption2, weight: .semibold))
+                    .font(.barlow(11, weight: .semibold))
                     .foregroundColor(.black)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
@@ -200,14 +199,14 @@ struct ActiveWorkoutView: View {
             // Calories
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(Int(healthManager.activeCalories))")
-                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .font(.barlow(20, weight: .semibold))
                     .foregroundColor(.white)
                 HStack(spacing: 2) {
                     Text("ACTIVE")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.barlow(9, weight: .medium))
                         .foregroundColor(.white.opacity(0.5))
                     Text("KCAL")
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.barlow(9, weight: .medium))
                         .foregroundColor(.white.opacity(0.5))
                 }
             }
@@ -218,11 +217,11 @@ struct ActiveWorkoutView: View {
                 HStack(spacing: 4) {
                     if healthManager.heartRate > 0 {
                         Text("\(Int(healthManager.heartRate))")
-                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .font(.barlow(20, weight: .semibold))
                             .foregroundColor(.white)
                     } else {
                         Text("--")
-                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .font(.barlow(20, weight: .semibold))
                             .foregroundColor(.white.opacity(0.5))
                     }
                     Image(systemName: "heart.fill")
@@ -230,7 +229,7 @@ struct ActiveWorkoutView: View {
                         .foregroundColor(.red)
                 }
                 Text("BPM")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.barlow(9, weight: .medium))
                     .foregroundColor(.white.opacity(0.5))
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -252,7 +251,7 @@ struct ActiveWorkoutView: View {
         let secs = totalSeconds % 60
 
         if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, mins, secs)
+            return String(format: "%d:%02d", hours, mins)
         } else {
             return String(format: "%d:%02d", mins, secs)
         }

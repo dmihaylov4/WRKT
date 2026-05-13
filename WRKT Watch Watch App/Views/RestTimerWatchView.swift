@@ -121,13 +121,12 @@ struct RestTimerWatchView: View {
     private var timerDisplay: some View {
         VStack(spacing: 4) {
             Text("REST")
-                .font(.caption2)
+                .font(.barlow(11, weight: .semibold))
                 .foregroundColor(.secondary)
-                .fontWeight(.semibold)
                 .tracking(2)
 
             Text(formatTime(displaySeconds))
-                .font(.system(size: 64, weight: .bold, design: .rounded))
+                .font(.barlow(64, weight: .bold))
                 .foregroundColor(progressColor)
                 .monospacedDigit()
                 .contentTransition(.numericText())

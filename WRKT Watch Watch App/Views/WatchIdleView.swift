@@ -12,12 +12,12 @@ struct WatchIdleView: View {
 
             VStack(spacing: 8) {
                 Text("VOLIA")
-                    .font(.system(size: 28, weight: .black, design: .rounded))
+                    .font(.barlow(28, weight: .black))
                     .foregroundColor(accent)
                     .tracking(3)
 
                 Text("Workouts on iPhone")
-                    .font(.caption2)
+                    .font(.barlow(11, weight: .regular))
                     .foregroundColor(.white.opacity(0.45))
                     .multilineTextAlignment(.center)
             }

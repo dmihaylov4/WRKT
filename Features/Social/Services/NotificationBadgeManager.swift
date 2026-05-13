@@ -291,35 +291,31 @@ final class NotificationBadgeManager {
             }
         }()
 
-        if isAppActive {
-            // App is in foreground - show interactive toast with tap action
-            AppLogger.info("📱 App is active - showing toast notification", category: AppLogger.app)
-
-            let action = NotificationAction(label: "View") {
-                // Navigate to the relevant screen
-                self.navigateToNotification(notification)
-            }
-
-            AppNotificationManager.shared.show(
-                ToastNotification(
-                    type: toastType,
-                    title: title,
-                    message: message,
-                    icon: icon,
-                    duration: 5.0,
-                    position: .top,
-                    action: action,
-                    onTap: {
-                        // Also navigate when tapping anywhere on the toast
-                        self.navigateToNotification(notification)
-                    }
-                )
-            )
-        } else {
-            // App is in background/inactive - send local push notification
-            AppLogger.info("📱 App is inactive - sending local notification", category: AppLogger.app)
-            await sendLocalNotification(title: title, body: message, notification: notification)
+        guard isAppActive else {
+            // App is in background: APNs (sent by the DB trigger) handles delivery.
+            // Scheduling a local notification here would duplicate the APNs push.
+            return
         }
+
+        // App is in foreground - show interactive in-app toast
+        let action = NotificationAction(label: "View") {
+            self.navigateToNotification(notification)
+        }
+
+        AppNotificationManager.shared.show(
+            ToastNotification(
+                type: toastType,
+                title: title,
+                message: message,
+                icon: icon,
+                duration: 5.0,
+                position: .top,
+                action: action,
+                onTap: {
+                    self.navigateToNotification(notification)
+                }
+            )
+        )
     }
 
     /// Navigate to the appropriate screen based on notification type

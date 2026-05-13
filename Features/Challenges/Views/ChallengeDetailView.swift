@@ -20,6 +20,8 @@ struct ChallengeDetailView: View {
                     // Header section
                     headerSection
 
+                    ChallengeRewardPreviewBlock(challenge: challenge.challenge)
+
                     // Progress section
                     if let progress = challenge.participation {
                         progressSection(progress: progress)

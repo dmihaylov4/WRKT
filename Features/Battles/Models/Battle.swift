@@ -8,6 +8,7 @@ enum BattleType: String, Codable, Sendable, Hashable {
     case workoutCount = "workout_count"
     case pr = "pr"
     case exercise = "exercise"
+    case runningDistance = "running_distance"
 
     var displayName: String {
         switch self {
@@ -16,6 +17,7 @@ enum BattleType: String, Codable, Sendable, Hashable {
         case .workoutCount: return "Workout Count"
         case .pr: return "Most PRs"
         case .exercise: return "Exercise Challenge"
+        case .runningDistance: return "Running Distance"
         }
     }
 
@@ -26,6 +28,7 @@ enum BattleType: String, Codable, Sendable, Hashable {
         case .workoutCount: return "Most total workouts logged"
         case .pr: return "Most personal records set"
         case .exercise: return "Best performance on specific exercise"
+        case .runningDistance: return "Most running distance logged"
         }
     }
 
@@ -36,6 +39,7 @@ enum BattleType: String, Codable, Sendable, Hashable {
         case .workoutCount: return "figure.run"
         case .pr: return "trophy.fill"
         case .exercise: return "dumbbell.fill"
+        case .runningDistance: return "figure.run"
         }
     }
 
@@ -46,6 +50,34 @@ enum BattleType: String, Codable, Sendable, Hashable {
         case .workoutCount: return "workouts"
         case .pr: return "PRs"
         case .exercise: return "reps"
+        case .runningDistance: return "km"
+        }
+    }
+
+    var participationPlateTierID: Int {
+        switch self {
+        case .volume: return 25
+        case .exercise: return 27
+        case .runningDistance: return 29
+        default: return 25
+        }
+    }
+
+    var winnerPlateTierID: Int {
+        switch self {
+        case .volume: return 26
+        case .exercise: return 28
+        case .runningDistance: return 30
+        default: return 26
+        }
+    }
+
+    var winnerEngravingText: String {
+        switch self {
+        case .volume: return "Volume Champion"
+        case .exercise: return "Lift Champion"
+        case .runningDistance: return "Distance Champion"
+        default: return "Battle Winner"
         }
     }
 }

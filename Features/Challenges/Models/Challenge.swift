@@ -143,6 +143,10 @@ struct Challenge: Codable, Identifiable, Sendable, Hashable {
         }
         return String(format: "%.0f", double)
     }
+
+    var isFirstRepChallenge: Bool {
+        isPreset && challengeType == .workoutCount && goalValue == 1
+    }
 }
 
 // MARK: - Challenge Participant

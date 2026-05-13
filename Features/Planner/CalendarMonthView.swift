@@ -71,6 +71,8 @@ struct CalendarMonthView: View {
     // Phase 4: Past day retrospective logging
     @State private var retrospectiveWorkoutDate: Date? = nil
 
+    @State private var selectedCompletedWorkoutForDetail: CompletedWorkout? = nil
+
     // Swipe gesture state
     @State private var dragOffset: CGFloat = 0
     @State private var isDragging = false
@@ -569,6 +571,9 @@ struct CalendarMonthView: View {
                 RetrospectiveWorkoutBuilder(date: wrapper.date)
                     .environmentObject(store)
                     .environmentObject(repo)
+            }
+            .sheet(item: $selectedCompletedWorkoutForDetail) { workout in
+                WorkoutDetailView(workout: workout)
             }
             .task {
                 await handleAutoSync()
@@ -1147,6 +1152,9 @@ struct CalendarMonthView: View {
 
         case .logWorkout(let date):
             retrospectiveWorkoutDate = date
+
+        case .viewCompletedWorkout(let id):
+            selectedCompletedWorkoutForDetail = store.completedWorkouts.first { $0.id == id }
         }
     }
 }

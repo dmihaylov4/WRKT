@@ -59,6 +59,7 @@ struct WinScreenView: View {
 
     private var title: String {
         if summary.gotLuckyBonus { return "LUCKY!" }
+        if !skinUnlockEvents.isEmpty { return "New Reward!" }
         if summary.newExerciseCount > 0 { return "You completed a new exercise!" }
         if summary.prCount > 0 { return "Personal Record!" }
         if summary.levelUpTo != nil { return "Level Up!" }
@@ -73,6 +74,11 @@ struct WinScreenView: View {
         if summary.newExerciseCount > 0 { bits.append("\(summary.newExerciseCount) new exercise\(summary.newExerciseCount == 1 ? "" : "s")") }
         if summary.prCount > 0 { bits.append("\(summary.prCount) PR\(summary.prCount == 1 ? "" : "s")") }
         return bits.isEmpty ? nil : bits.joined(separator: " • ")
+    }
+
+    private var skinUnlockEvents: [BarbellRewardEvent] {
+        ([summary.rewardQueue.primary].compactMap { $0 } + summary.rewardQueue.compactEvents)
+            .filter { $0.kind == .cosmeticUnlock }
     }
 
     private func formatMultiplier(_ m: Double) -> String {
@@ -227,6 +233,23 @@ struct WinScreenView: View {
                                 }
                             }
                         }
+
+                        if !skinUnlockEvents.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("New Skins")
+                                    .dsFont(.caption, weight: .semibold)
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .padding(.top, 4)
+
+                                ForEach(skinUnlockEvents) { event in
+                                    SkinRevealCard(event: event)
+                                        .transition(.asymmetric(
+                                            insertion: .scale(scale: 0.85, anchor: .leading).combined(with: .opacity),
+                                            removal: .opacity
+                                        ))
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -291,8 +314,8 @@ struct WinScreenView: View {
             }
         }
         .fullScreenCover(isPresented: $showBarbellMoment) {
-            if let fullScreenBarbellPlate {
-                BarbellMomentView(plates: [fullScreenBarbellPlate], onDismiss: onDismiss)
+            if !summary.earnedPlates.isEmpty {
+                BarbellMomentView(plates: summary.earnedPlates, onDismiss: onDismiss)
             }
         }
         .task {
@@ -386,7 +409,7 @@ struct WinScreenView: View {
         }
 
         // Buttons appear last
-        let totalItems = summary.xpLineItems.count + highlights.count + summary.earnedPlates.count
+        let totalItems = summary.xpLineItems.count + highlights.count + summary.earnedPlates.count + skinUnlockEvents.count
         let buttonsDelay = baseDelay + 0.9 + Double(totalItems) * 0.15 + 0.4
         DispatchQueue.main.asyncAfter(deadline: .now() + buttonsDelay) {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -477,6 +500,54 @@ private struct PlateRevealCard: View {
         .overlay(ChamferedRectangle(.medium).stroke(rarityColor.opacity(0.35), lineWidth: 1))
     }
 
+}
+
+private struct SkinRevealCard: View {
+    let event: BarbellRewardEvent
+
+    private var skin: BarSkin? {
+        BarSkin.all.first { $0.id == 4 }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if let skin {
+                BarSkinPreviewTile(skin: skin)
+                    .frame(width: 120, height: 40)
+                    .clipShape(ChamferedRectangle(.small))
+                    .overlay(ChamferedRectangle(.small).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(event.title)
+                        .dsFont(.subheadline, weight: .semibold)
+                        .foregroundStyle(.white)
+                    Text(skin?.rarity.rawValue ?? "Epic")
+                        .dsFont(.caption, weight: .bold)
+                        .foregroundStyle(skin?.rarity.color ?? DS.Semantic.brand)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.15), in: ChamferedRectangle(.small))
+                }
+
+                Text("Exclusive bar skin - equip it in your Barbell")
+                    .dsFont(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            Spacer(minLength: 0)
+
+            Image(systemName: "plus.circle.fill")
+                .dsFont(.title3)
+                .foregroundStyle(DS.Semantic.brand)
+        }
+        .padding(12)
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
+        .overlay(ChamferedRectangle(.medium).stroke((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.35), lineWidth: 1))
+        .onAppear {
+            BarbellProgressService.shared.playCosmeticEquipFeedback()
+        }
+    }
 }
 
 private struct RealityPlatePreview: View {

@@ -31,12 +31,12 @@ struct ExerciseView: View {
             // Header - Fixed height
             VStack(spacing: 3) {
                 Text("EXERCISE \(index + 1)")
-                    .font(.system(size: 9, weight: .medium, design: .rounded))
+                    .font(.barlow(9, weight: .medium))
                     .foregroundColor(.gray)
                     .textCase(.uppercase)
 
                 Text(exercise.name)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.barlow(14, weight: .bold))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -51,20 +51,20 @@ struct ExerciseView: View {
             // Set display - Fixed height
             VStack(spacing: 6) {
                 Text("SET \(currentSetNumber)/\(exercise.totalSets)")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .font(.barlow(10, weight: .semibold))
                     .foregroundColor(Color(hex: "#FFB86F"))
 
                 // Large set details
                 if let (_, set) = nextSet {
                     Text(set.displayText)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.barlow(22, weight: .bold))
                         .foregroundColor(.white)
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
                 } else if let lastSet = exercise.sets.last {
                     Text(lastSet.displayText)
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.barlow(22, weight: .bold))
                         .foregroundColor(.white.opacity(0.5))
                         .monospacedDigit()
                         .lineLimit(1)

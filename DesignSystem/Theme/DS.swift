@@ -851,6 +851,101 @@ public struct TopLeftChamferedRectangle: Shape {
     }
 }
 
+// MARK: - Single-corner chamfered rectangle
+
+/// Rectangle with exactly one chamfered corner and three square corners.
+/// Use with `DS.GridChamferPosition` to automatically orient the cut toward the center of a grid group.
+public struct SingleChamferedRectangle: Shape {
+    public enum Corner {
+        case topLeading, topTrailing, bottomLeading, bottomTrailing
+    }
+
+    public var corner: Corner
+    public var chamferSize: CGFloat
+
+    public init(corner: Corner, _ chamfer: DS.Chamfer = .large) {
+        self.corner = corner
+        self.chamferSize = chamfer.size
+    }
+
+    public init(corner: Corner, chamferSize: CGFloat) {
+        self.corner = corner
+        self.chamferSize = chamferSize
+    }
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let c = chamferSize
+
+        switch corner {
+        case .topLeading:
+            path.move(to: CGPoint(x: rect.minX + c, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + c))
+            path.addLine(to: CGPoint(x: rect.minX + c, y: rect.minY))
+
+        case .topTrailing:
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - c, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + c))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+
+        case .bottomLeading:
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX + c, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - c))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+
+        case .bottomTrailing:
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - c))
+            path.addLine(to: CGPoint(x: rect.maxX - c, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        }
+
+        path.closeSubpath()
+        return path
+    }
+}
+
+// MARK: - Grid chamfer position rule
+
+extension DS {
+    /// Describes a cell's position within a grid group.
+    /// Each position maps to the chamfered corner that faces the center of the group,
+    /// so adjacent cells always have their cuts pointing inward toward each other.
+    ///
+    /// 2x2 grid layout:
+    ///   topLeading    topTrailing
+    ///   bottomLeading bottomTrailing
+    ///
+    /// Row of 2:
+    ///   rowLeading    rowTrailing
+    public enum GridChamferPosition {
+        case topLeading, topTrailing, bottomLeading, bottomTrailing
+        case rowLeading, rowTrailing
+
+        public var chamferCorner: SingleChamferedRectangle.Corner {
+            switch self {
+            case .topLeading:     return .bottomTrailing
+            case .topTrailing:    return .bottomLeading
+            case .bottomLeading:  return .topTrailing
+            case .bottomTrailing: return .topLeading
+            case .rowLeading:     return .bottomTrailing
+            case .rowTrailing:    return .bottomLeading
+            }
+        }
+    }
+}
+
 // MARK: - View helpers
 public extension View {
     func dsCard() -> some View { modifier(DS.Card()) }

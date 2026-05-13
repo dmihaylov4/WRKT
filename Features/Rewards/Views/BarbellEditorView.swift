@@ -294,7 +294,7 @@ struct BarbellEditorView: View {
     }
 
     private func cosmeticButton(item: BarbellCosmetic, selectedID: String?) -> some View {
-        let isUnlocked = unlockedIDs.contains(item.id)
+        let isUnlocked = isCosmeticUnlocked(item)
         let isSelected = selectedID == item.id
 
         return Button {
@@ -337,6 +337,13 @@ struct BarbellEditorView: View {
         }
         .buttonStyle(.plain)
         .disabled(!isUnlocked)
+    }
+
+    private func isCosmeticUnlocked(_ item: BarbellCosmetic) -> Bool {
+        if item.kind == .barSkin, !item.isDefault {
+            return config?.unlockedSkinIDs.contains(item.id) == true
+        }
+        return unlockedIDs.contains(item.id)
     }
 
     private var roomPanel: some View {
@@ -556,10 +563,17 @@ struct BarbellEditorView: View {
     }
 
     private func cosmeticSwatch(for item: BarbellCosmetic) -> some View {
-        RoundedRectangle(cornerRadius: 6)
-            .fill(cosmeticColor(for: item))
-            .frame(width: 34, height: 34)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.18), lineWidth: 1))
+        Group {
+            if item.kind == .barSkin, let skin = BarSkin.skin(forCosmeticID: item.id) {
+                BarSkinPreviewTile(skin: skin)
+                    .frame(width: 54, height: 18)
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(cosmeticColor(for: item))
+                    .frame(width: 34, height: 34)
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.18), lineWidth: 1))
+            }
+        }
     }
 
     private var selectedCosmeticName: String {

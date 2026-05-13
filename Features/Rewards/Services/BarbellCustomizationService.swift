@@ -47,6 +47,13 @@ final class BarbellCustomizationService {
         return config
     }
 
+    func unlockSkin(id: String) {
+        let config = fetchOrCreateConfig()
+        guard !config.unlockedSkinIDs.contains(id) else { return }
+        config.unlockedSkinIDs.append(id)
+        try? context?.save()
+    }
+
     func pullFromSupabase() async throws {
         guard let context else {
             AppLogger.info(

@@ -129,6 +129,52 @@ struct ChallengeBattleIconDesignTests {
         #expect(repositorySource.contains("\"winner_id\": nil"))
     }
 
+    @Test func battleChallengeRewardImplementationHooksExist() throws {
+        let battleModelSource = try String(
+            contentsOfFile: sourcePath("Features/Battles/Models/Battle.swift"),
+            encoding: .utf8
+        )
+        let battleRepositorySource = try String(
+            contentsOfFile: sourcePath("Features/Battles/Services/BattleRepository.swift"),
+            encoding: .utf8
+        )
+        let challengeRepositorySource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/Services/ChallengeRepository.swift"),
+            encoding: .utf8
+        )
+
+        #expect(battleModelSource.contains("case runningDistance = \"running_distance\""))
+        #expect(battleModelSource.contains("var participationPlateTierID: Int"))
+        #expect(battleModelSource.contains("case .runningDistance: return 29"))
+        #expect(battleModelSource.contains("case .runningDistance: return 30"))
+        #expect(battleRepositorySource.contains("case .runningDistance:"))
+        #expect(battleRepositorySource.contains("metric: .distance"))
+        #expect(battleRepositorySource.contains("func completeBattle(_ battleId: UUID) async throws"))
+        #expect(battleRepositorySource.contains("BarbellProgressService.shared.awardPlates"))
+        #expect(challengeRepositorySource.contains("isFirstRepChallenge"))
+        #expect(challengeRepositorySource.contains("BarbellCustomizationService.shared.unlockSkin(id: \"volia\")"))
+        #expect(challengeRepositorySource.contains("conditioning_minutes"))
+        #expect(challengeRepositorySource.contains("min(rawMinutes, 90)"))
+    }
+
+    @Test func supabaseBattleChallengeMigrationSeedsRewardsAndRls() throws {
+        let migrationsDirectory = URL(fileURLWithPath: sourcePath("supabase/migrations"))
+        let migrationFiles = try FileManager.default.contentsOfDirectory(
+            at: migrationsDirectory,
+            includingPropertiesForKeys: nil
+        )
+        let combinedSQL = try migrationFiles
+            .filter { $0.lastPathComponent.hasSuffix(".sql") }
+            .map { try String(contentsOf: $0, encoding: .utf8) }
+            .joined(separator: "\n")
+
+        #expect(combinedSQL.contains("First Rep"))
+        #expect(combinedSQL.contains("HIIT Forge"))
+        #expect(combinedSQL.contains("conditioning_minutes"))
+        #expect(combinedSQL.contains("challenger_score_update"))
+        #expect(combinedSQL.contains("opponent_score_update"))
+    }
+
     @Test func battleHeaderLogoUsesRevisedCrossedFlagsAsset() throws {
         let flagAsset = try String(
             contentsOfFile: sourcePath("Resources/Assets.xcassets/battle-flags-icon.imageset/battle-flags-icon.svg"),

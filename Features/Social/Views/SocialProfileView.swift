@@ -88,12 +88,13 @@ struct SocialProfileView: View {
                 await loadProfile()
             }
 
-            // Load battle if battleId is provided
+            // Load battle if battleId is provided, otherwise discover any pending invite
+            // from this profile so the card remains visible on normal profile opens.
             if let battleId = battleId, battle == nil && !isBattleLoading {
                 AppLogger.info("🎯 Attempting to load battle with ID: \(battleId)", category: AppLogger.battles)
                 await loadBattle(battleId: battleId)
-            } else if battleId == nil {
-                AppLogger.info("⚠️ No battleId provided to SocialProfileView", category: AppLogger.battles)
+            } else if battleId == nil, battle == nil && !isBattleLoading {
+                await loadPendingBattleInvite()
             }
 
             await loadFriendBarbellShowcase()
@@ -145,6 +146,24 @@ struct SocialProfileView: View {
         }
 
         isBattleLoading = false
+    }
+
+    private func loadPendingBattleInvite() async {
+        guard userId != deps.authService.currentUser?.id else { return }
+        guard let currentUserId = deps.authService.currentUser?.id else { return }
+
+        isBattleLoading = true
+        defer { isBattleLoading = false }
+
+        do {
+            let pendingBattles = try await deps.battleRepository.fetchPendingBattles()
+            battle = pendingBattles.first { pendingBattle in
+                pendingBattle.battle.challengerId == userId &&
+                pendingBattle.battle.opponentId == currentUserId
+            }
+        } catch {
+            AppLogger.error("Failed to load pending battle invite for profile", error: error, category: AppLogger.battles)
+        }
     }
 
     private func loadProfile() async {
@@ -261,14 +280,14 @@ struct SocialProfileView: View {
                 .padding()
             } else {
                 VStack(spacing: 20) {
+                    if let battle = battle, battle.battle.status == .pending {
+                        battleInviteCard(battle: battle, viewModel: viewModel)
+                    }
+
                     friendProfileTopCard(viewModel: viewModel)
                     headToHeadCard(viewModel: viewModel)
                     accountabilitySnapshot(viewModel: viewModel)
                     actionButtons(viewModel: viewModel)
-
-                    if let battle = battle, battle.battle.status == .pending {
-                        battleInviteCard(battle: battle, viewModel: viewModel)
-                    }
 
                     postsSection(viewModel: viewModel)
                 }
@@ -279,7 +298,8 @@ struct SocialProfileView: View {
             async let posts: () = viewModel.loadUserPosts()
             async let friends: () = viewModel.loadFriendCount()
             async let barbell: () = loadFriendBarbellShowcase()
-            _ = await (posts, friends, barbell)
+            async let pendingBattle: () = loadPendingBattleInvite()
+            _ = await (posts, friends, barbell, pendingBattle)
         }
         .sheet(isPresented: $showingEditProfile) {
             EditProfileView(profile: viewModel.profile) { updatedProfile in

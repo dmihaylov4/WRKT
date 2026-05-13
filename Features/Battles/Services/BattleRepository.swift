@@ -332,7 +332,6 @@ final class BattleRepository: Sendable {
             .select()
             .eq("status", value: BattleStatus.active.rawValue)
             .or("challenger_id.eq.\(userId.uuidString),opponent_id.eq.\(userId.uuidString)")
-            .gte("end_date", value: Date())
             .execute()
             .value
 
@@ -340,6 +339,11 @@ final class BattleRepository: Sendable {
 
         // Update scores for each battle
         for battle in battles {
+            if battle.endDate <= Date() {
+                try await completeBattle(battle.id)
+                continue
+            }
+
             let scoreIncrease = calculateBattleScore(
                 for: battle,
                 workout: workout
@@ -354,6 +358,53 @@ final class BattleRepository: Sendable {
                 )
             }
         }
+    }
+
+    func completeBattle(_ battleId: UUID) async throws {
+        guard let userId = authService.currentUser?.id else { return }
+
+        let battles: [Battle] = try await supabase.database
+            .from("battles")
+            .select()
+            .eq("id", value: battleId.uuidString)
+            .execute()
+            .value
+
+        guard let battle = battles.first else { return }
+
+        let userScore = battle.score(for: userId)
+        let opponentScore = battle.opponentScore(for: userId)
+        let opponentId = userId == battle.challengerId ? battle.opponentId : battle.challengerId
+        let winnerId: UUID? = if userScore > opponentScore {
+            userId
+        } else if userScore < opponentScore {
+            opponentId
+        } else {
+            nil
+        }
+
+        struct BattleCompletionUpdate: Encodable {
+            let status: String
+            let winner_id: String?
+        }
+
+        try await supabase.database
+            .from("battles")
+            .update(BattleCompletionUpdate(
+                status: BattleStatus.completed.rawValue,
+                winner_id: winnerId?.uuidString
+            ))
+            .eq("id", value: battleId.uuidString)
+            .execute()
+
+        let isWinner = winnerId == userId
+        let plateInfo = EarnedPlateInfo(
+            tierID: isWinner ? battle.battleType.winnerPlateTierID : battle.battleType.participationPlateTierID,
+            weightKg: isWinner ? 35 : 20,
+            engravingText: isWinner ? battle.battleType.winnerEngravingText : battle.battleType.displayName,
+            earnedByEvent: "battle_\(battleId.uuidString)"
+        )
+        await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: nil)
     }
 
     private func calculateBattleScore(
@@ -405,6 +456,13 @@ final class BattleRepository: Sendable {
             return MetricCalculator.calculate(
                 metric: .repsForExercise,
                 filter: filter,
+                workout: workout
+            )
+
+        case .runningDistance:
+            return MetricCalculator.calculate(
+                metric: .distance,
+                filter: nil,
                 workout: workout
             )
         }

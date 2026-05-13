@@ -27,6 +27,18 @@ struct UnifiedCompeteView: View {
                     ChallengeDetailView(challenge: challenge, viewModel: vm)
                 }
             }
+            .sheet(item: Binding(
+                get: { battlesVM?.selectedBattle },
+                set: { _ in battlesVM?.closeBattleDetail() }
+            ), onDismiss: {
+                Task {
+                    await battlesVM?.refresh()
+                }
+            }) { battle in
+                if let vm = battlesVM {
+                    BattleDetailView(battle: battle, viewModel: vm)
+                }
+            }
     }
 
     @ViewBuilder
@@ -132,28 +144,32 @@ struct UnifiedCompeteView: View {
                 icon: "trophy.fill",
                 value: activeChallengesCount > 0 ? "\(activeChallengesCount)" : "—",
                 label: "Active Challenges",
-                color: DS.Semantic.brand
+                color: DS.Semantic.brand,
+                gridPosition: .topLeading
             )
 
             CompeteStatTile(
                 icon: "bolt.fill",
                 value: activeBattlesCount > 0 ? "\(activeBattlesCount)" : "—",
                 label: "Active Battles",
-                color: DS.Semantic.brand
+                color: DS.Semantic.brand,
+                gridPosition: .topTrailing
             )
 
             CompeteStatTile(
                 icon: "checkmark.seal.fill",
                 value: completedChallengesCount > 0 ? "\(completedChallengesCount)" : "—",
                 label: "Completed",
-                color: DS.Status.success
+                color: DS.Status.success,
+                gridPosition: .bottomLeading
             )
 
             CompeteStatTile(
                 icon: "flag.checkered",
                 value: battlesWonCount > 0 ? "\(battlesWonCount)" : "—",
                 label: "Victories",
-                color: DS.Status.success
+                color: DS.Status.success,
+                gridPosition: .bottomTrailing
             )
         }
     }
@@ -175,10 +191,11 @@ struct UnifiedCompeteView: View {
                         vm.openCreateBattle()
                     } label: {
                         CreationGridButton(
-                            icon: "bolt.fill",
+                            iconName: "battle-workout-count-icon",
                             title: "Start 1v1 Battle",
                             subtitle: "Challenge a friend",
-                            color: DS.Semantic.brand
+                            color: DS.Semantic.brand,
+                            gridPosition: .rowLeading
                         )
                     }
                     .sheet(isPresented: $bindableVM.showCreateBattle) {
@@ -191,10 +208,11 @@ struct UnifiedCompeteView: View {
                     ChallengesBrowseView()
                 } label: {
                     CreationGridButton(
-                        icon: "trophy.fill",
+                        iconName: "challenge-trophy-icon",
                         title: "Join Challenge",
                         subtitle: "Community events",
-                        color: DS.Semantic.accentWarm
+                        color: DS.Semantic.accentWarm,
+                        gridPosition: .rowTrailing
                     )
                 }
             }
@@ -297,22 +315,28 @@ struct UnifiedCompeteView: View {
 // MARK: - Creation Grid Button
 
 struct CreationGridButton: View {
-    let icon: String
+    let iconName: String
     let title: String
     let subtitle: String
     let color: Color
+    var gridPosition: DS.GridChamferPosition = .rowLeading
 
     var body: some View {
-        VStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 60, height: 60)
+        let shape = SingleChamferedRectangle(corner: gridPosition.chamferCorner, .xl)
+        content
+            .clipShape(shape)
+            .overlay(shape.stroke(color.opacity(0.3), lineWidth: 2))
+    }
 
-                Image(systemName: icon)
-                    .font(.system(size: 28))
-                    .foregroundStyle(color)
-            }
+    private var content: some View {
+        VStack(spacing: 12) {
+            Image(iconName)
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 38, height: 38)
+                .foregroundStyle(color)
+                .frame(width: 60, height: 60)
 
             VStack(spacing: 4) {
                 Text(title)
@@ -328,11 +352,6 @@ struct CreationGridButton: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.xl))
-        .overlay(
-            ChamferedRectangle(.xl)
-                .stroke(color.opacity(0.3), lineWidth: 2)
-        )
     }
 }
 
@@ -358,6 +377,15 @@ struct LargeBattleCard: View {
                         .foregroundStyle(DS.Semantic.textPrimary)
 
                     Spacer()
+
+                    PlateFaceView(
+                        tierID: battle.battle.battleType.winnerPlateTierID,
+                        progressionTier: .iron,
+                        liftTypeID: nil,
+                        weightKg: 35
+                    )
+                    .frame(width: 40, height: 40)
+                    .clipped()
                 }
 
                 // Score comparison
@@ -444,8 +472,11 @@ struct LargeChallengeCard: View {
             VStack(spacing: 16) {
                 // Header
                 HStack {
-                    Image(systemName: challenge.challenge.challengeType.icon)
-                        .dsFont(.title3)
+                    Image(challengeIconName)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 20, height: 20)
                         .foregroundStyle(DS.Semantic.brand)
 
                     Text(challenge.challenge.title)
@@ -504,6 +535,21 @@ struct LargeChallengeCard: View {
         }
         .buttonStyle(.plain)
     }
+
+    private var challengeIconName: String {
+        switch challenge.challenge.challengeType {
+        case .streak:
+            return "streak-icon"
+        case .workoutCount:
+            return "battle-workout-count-icon"
+        case .totalVolume:
+            return "battle-volume-icon"
+        case .specificExercise:
+            return "battle-consistency-icon"
+        case .custom:
+            return "challenge-browse-icon"
+        }
+    }
 }
 
 // MARK: - Recommended Challenge Card
@@ -517,12 +563,19 @@ struct RecommendedChallengeCard: View {
             viewModel.openChallengeDetail(challenge)
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: challenge.challenge.challengeType.icon)
-                    .dsFont(.title2)
+                Image(challengeIconName)
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 24, height: 24)
                     .foregroundStyle(DS.Semantic.brand)
                     .frame(width: 44, height: 44)
                     .background(DS.Semantic.brandSoft)
-                    .clipShape(Circle())
+                    .clipShape(ChamferedRectangleAlt(.small))
+                    .overlay(
+                        ChamferedRectangleAlt(.small)
+                            .stroke(DS.Semantic.brand.opacity(0.24), lineWidth: 1)
+                    )
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(challenge.challenge.title)
@@ -548,9 +601,7 @@ struct RecommendedChallengeCard: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .dsFont(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
+                rewardBadge
             }
             .padding(12)
             .background(DS.Semantic.card)
@@ -576,6 +627,48 @@ struct RecommendedChallengeCard: View {
         case .beginner: return DS.Semantic.textSecondary
         case .intermediate: return DS.Semantic.textPrimary
         case .advanced: return DS.Semantic.textPrimary
+        }
+    }
+
+    @ViewBuilder
+    private var rewardBadge: some View {
+        switch ChallengeRewardPreviewKind(challenge: challenge.challenge) {
+        case .firstRepBarSkin:
+            if let skin = BarSkin.all.first(where: { $0.id == 4 }) {
+                BarSkinPreviewTile(skin: skin)
+                    .frame(width: 60, height: 20)
+            }
+        case .conditioningPlate:
+            PlateFaceView(
+                tierID: 24,
+                progressionTier: .iron,
+                liftTypeID: nil,
+                weightKg: 20
+            )
+            .frame(width: 40, height: 40)
+            .clipped()
+        case .none:
+            Image("angular-chevron-right-icon")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+    }
+
+    private var challengeIconName: String {
+        switch challenge.challenge.challengeType {
+        case .streak:
+            return "streak-icon"
+        case .workoutCount:
+            return "battle-workout-count-icon"
+        case .totalVolume:
+            return "battle-volume-icon"
+        case .specificExercise:
+            return "battle-consistency-icon"
+        case .custom:
+            return "challenge-browse-icon"
         }
     }
 }

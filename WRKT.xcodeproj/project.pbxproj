@@ -145,10 +145,6 @@
 		2EA7D9992EE9D90F0017683B /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9982EE9D90F0017683B /* PostRepository.swift */; };
 		2EA7D99B2EE9DA160017683B /* ImageUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99A2EE9DA160017683B /* ImageUploadService.swift */; };
 		2EA7D99E2EE9EF540017683B /* PostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99C2EE9EF540017683B /* PostCard.swift */; };
-		2EA7DA002EE9EF540017683B /* WorkoutPostStatsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */; };
-		2EA7DA012EE9EF540017683C /* MultiWorkoutCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */; };
-		2EA7DA032EE9EF540017683C /* WorkoutPostSummaryPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */; };
-		2EA7DA052EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA042EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift */; };
 		2EA7D9A02EE9EF670017683B /* PostCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99F2EE9EF670017683B /* PostCreationView.swift */; };
 		2EA7D9A22EE9EF760017683B /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9A12EE9EF760017683B /* FeedView.swift */; };
 		2EA7D9A42EE9EF810017683B /* PostDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9A32EE9EF810017683B /* PostDetailView.swift */; };
@@ -170,6 +166,10 @@
 		2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9C82EEB673E0017683B /* ErrorView.swift */; };
 		2EA7D9CB2EEB6E9B0017683B /* SkeletonProfileHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9CA2EEB6E9B0017683B /* SkeletonProfileHeader.swift */; };
 		2EA7D9CD2EEB6EA20017683B /* SkeletonNotificationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9CC2EEB6EA10017683B /* SkeletonNotificationRow.swift */; };
+		2EA7DA002EE9EF540017683B /* WorkoutPostStatsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */; };
+		2EA7DA012EE9EF540017683C /* MultiWorkoutCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */; };
+		2EA7DA032EE9EF540017683C /* WorkoutPostSummaryPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */; };
+		2EA7DA052EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA042EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift */; };
 		2EA7DA1E2EEC15540017683B /* CachedNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA1B2EEC15540017683B /* CachedNotification.swift */; };
 		2EA7DA1F2EEC15540017683B /* CachedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA1C2EEC15540017683B /* CachedPost.swift */; };
 		2EA7DA202EEC15540017683B /* CachedProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA1D2EEC15540017683B /* CachedProfile.swift */; };
@@ -277,6 +277,9 @@
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2023A2EF1A04200D6BAEF /* MetricExamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202382EF1A04200D6BAEF /* MetricExamples.swift */; };
+		2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */; };
+		2EBC10022FA2000000000001 /* BattleRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */; };
+		2EBC10042FA2000000000001 /* ChallengeRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
 		2EC2028C2EF2A2D000D6BAEF /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */; };
 		2EC202992EF2A54400D6BAEF /* RecentPRCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028F2EF2A54400D6BAEF /* RecentPRCard.swift */; };
@@ -405,6 +408,7 @@
 		86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414B41C8700743B3B70EF25D /* ExportBundle.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
 		A1F000012FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
+		CAFE001B2FA2000000F00001 /* Fonts in Watch Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 		ABCD1235ABCD1235ABCD1235 /* BarbellCatalogTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */; };
 		ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */; };
 		ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */; };
@@ -617,10 +621,6 @@
 		2EA7D9982EE9D90F0017683B /* PostRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRepository.swift; sourceTree = "<group>"; };
 		2EA7D99A2EE9DA160017683B /* ImageUploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageUploadService.swift; sourceTree = "<group>"; };
 		2EA7D99C2EE9EF540017683B /* PostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCard.swift; sourceTree = "<group>"; };
-		2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostStatsViews.swift; sourceTree = "<group>"; };
-		2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiWorkoutCarousel.swift; sourceTree = "<group>"; };
-		2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostSummaryPresentation.swift; sourceTree = "<group>"; };
-		2EA7DA042EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostHeroSummaryCard.swift; sourceTree = "<group>"; };
 		2EA7D99F2EE9EF670017683B /* PostCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCreationView.swift; sourceTree = "<group>"; };
 		2EA7D9A12EE9EF760017683B /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		2EA7D9A32EE9EF810017683B /* PostDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailView.swift; sourceTree = "<group>"; };
@@ -641,6 +641,10 @@
 		2EA7D9C82EEB673E0017683B /* ErrorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorView.swift; sourceTree = "<group>"; };
 		2EA7D9CA2EEB6E9B0017683B /* SkeletonProfileHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonProfileHeader.swift; sourceTree = "<group>"; };
 		2EA7D9CC2EEB6EA10017683B /* SkeletonNotificationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkeletonNotificationRow.swift; sourceTree = "<group>"; };
+		2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostStatsViews.swift; sourceTree = "<group>"; };
+		2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiWorkoutCarousel.swift; sourceTree = "<group>"; };
+		2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostSummaryPresentation.swift; sourceTree = "<group>"; };
+		2EA7DA042EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPostHeroSummaryCard.swift; sourceTree = "<group>"; };
 		2EA7DA1B2EEC15540017683B /* CachedNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedNotification.swift; sourceTree = "<group>"; };
 		2EA7DA1C2EEC15540017683B /* CachedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedPost.swift; sourceTree = "<group>"; };
 		2EA7DA1D2EEC15540017683B /* CachedProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedProfile.swift; sourceTree = "<group>"; };
@@ -749,6 +753,9 @@
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202382EF1A04200D6BAEF /* MetricExamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricExamples.swift; sourceTree = "<group>"; };
+		2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarSkinPreviewTile.swift; sourceTree = "<group>"; };
+		2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleRewardPreviewBlock.swift; sourceTree = "<group>"; };
+		2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeRewardPreviewBlock.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationEngine.swift; sourceTree = "<group>"; };
 		2EC2028D2EF2A54400D6BAEF /* ActiveCompetitionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveCompetitionCard.swift; sourceTree = "<group>"; };
@@ -1887,10 +1894,21 @@
 			children = (
 				2EC202392EF1A04200D6BAEF /* Examples */,
 				2EC202362EF19F4800D6BAEF /* Services */,
+				2EBC10062FA2000000000001 /* Views */,
 				2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */,
 				2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */,
 			);
 			path = Compete;
+			sourceTree = "<group>";
+		};
+		2EBC10062FA2000000000001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */,
+				2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */,
+				2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		2EAA00002FA1000000000001 /* WhatsNew */ = {
@@ -2442,6 +2460,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CAFE001B2FA2000000F00001 /* Fonts in Watch Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2556,6 +2575,9 @@
 				2EA7D9BF2EEB18DA0017683B /* SkeletonPostCard.swift in Sources */,
 				2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */,
 				2EA7DAC22EEDCFAE0017683B /* CompeteView.swift in Sources */,
+				2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */,
+				2EBC10022FA2000000000001 /* BattleRewardPreviewBlock.swift in Sources */,
+				2EBC10042FA2000000000001 /* ChallengeRewardPreviewBlock.swift in Sources */,
 				2EC99E822EABF313006B875E /* WeightSuggestionHelper.swift in Sources */,
 				2E0413422F34AFDB0090EF16 /* VirtualRunInviteView.swift in Sources */,
 				2EE39C752EA784B2000549C3 /* PlannerSetupCarouselView.swift in Sources */,
@@ -2994,6 +3016,7 @@
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "WRKT Watch Watch App/WatchApp-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Volia;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Volia uses your health data to display heart rate and calories during workouts.";
@@ -3034,6 +3057,7 @@
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "WRKT Watch Watch App/WatchApp-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Volia;
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Volia uses your health data to display heart rate and calories during workouts.";
@@ -3303,7 +3327,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.2.1;
+				MARKETING_VERSION = 5.2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3351,7 +3375,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.2.1;
+				MARKETING_VERSION = 5.2.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
