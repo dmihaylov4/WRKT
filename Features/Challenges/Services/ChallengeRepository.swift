@@ -316,6 +316,9 @@ final class ChallengeRepository: Sendable {
 
             if progressIncrease > 0 {
                 let newProgress = participation.currentProgress + progressIncrease
+                let newPercentage = Int((Double(truncating: newProgress as NSDecimalNumber) / Double(truncating: challenge.goalValue as NSDecimalNumber)) * 100)
+                let oldPercentage = participation.progressPercentage
+                let didComplete = newPercentage >= 100 && oldPercentage < 100
 
                 // Update progress (Decimal type)
                 try await supabase.database
@@ -328,6 +331,22 @@ final class ChallengeRepository: Sendable {
                 try await supabase.database
                     .from("challenge_participants")
                     .update(["last_activity_date": Date()])
+                    .eq("id", value: participation.id)
+                    .execute()
+
+                struct ChallengeCompletionUpdate: Encodable {
+                    let progress_percentage: Int
+                    let completed: Bool
+                    let completion_date: Date?
+                }
+
+                try await supabase.database
+                    .from("challenge_participants")
+                    .update(ChallengeCompletionUpdate(
+                        progress_percentage: min(newPercentage, 100),
+                        completed: newPercentage >= 100,
+                        completion_date: didComplete ? Date() : participation.completionDate
+                    ))
                     .eq("id", value: participation.id)
                     .execute()
 
@@ -344,9 +363,6 @@ final class ChallengeRepository: Sendable {
                 )
 
                 // Check for milestone
-                let newPercentage = Int((Double(truncating: newProgress as NSDecimalNumber) / Double(truncating: challenge.goalValue as NSDecimalNumber)) * 100)
-                let oldPercentage = participation.progressPercentage
-
                 if (oldPercentage < 25 && newPercentage >= 25) ||
                    (oldPercentage < 50 && newPercentage >= 50) ||
                    (oldPercentage < 75 && newPercentage >= 75) ||
@@ -379,13 +395,18 @@ final class ChallengeRepository: Sendable {
                 }
 
                 // Log completion
-                if newPercentage >= 100 && oldPercentage < 100 {
+                if didComplete {
                     try await logActivity(
                         challengeId: challenge.id,
                         userId: userId,
                         activityType: .completed,
                         activityData: nil
                     )
+
+                    if challenge.isFirstRepChallenge {
+                        await BarbellCustomizationService.shared.unlockSkin(id: "volia")
+                        await WinScreenCoordinator.shared.enqueue(.voliaSkinUnlocked())
+                    }
                 }
             }
         }
@@ -438,9 +459,19 @@ final class ChallengeRepository: Sendable {
             // Streak calculation requires multiple workouts - handled at repository level
             return 0
 
+        case .custom where challenge.goalMetric == "conditioning_minutes":
+            let type = newWorkout.cardioWorkoutType?.lowercased() ?? ""
+            let isHIIT = type.contains("hiit") ||
+                type.contains("high intensity") ||
+                type.contains("mixed cardio")
+            let isFunctional = type.contains("functional")
+            guard isHIIT || isFunctional else { return 0 }
+            let rawMinutes = Double(newWorkout.matchedHealthKitDuration ?? 0) / 60
+            let capped = min(rawMinutes, 90)
+            guard capped >= 10 else { return 0 }
+            return Decimal(floor(capped))
+
         case .custom:
-            // Custom calculation - for now return 0
-            // In the future, parse custom metric config from goalMetric
             return 0
         }
     }

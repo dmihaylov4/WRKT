@@ -27,10 +27,48 @@ struct BarbellModelsTests {
         config.lastStreakCheckDate = Date(timeIntervalSince1970: 1_700_000_000)
         config.needsSupabaseSync = true
         config.backfillCompletedV1 = true
+        config.unlockedSkinIDs = ["volia"]
 
         config.resetMutableFieldsToDefaults()
 
         #expect(config.mutableSnapshot == BarbellConfig().mutableSnapshot)
+    }
+
+    @Test func battleChallengeCatalogEntriesExist() {
+        let expectedTiers = [
+            (24, "Heat Forge"),
+            (25, "Iron Circuit"),
+            (26, "Dark Chrome"),
+            (27, "Iron Mark"),
+            (28, "Iron Crown"),
+            (29, "Carbon Sprint"),
+            (30, "Carbon Elite"),
+            (31, "Forge S1")
+        ]
+
+        for expected in expectedTiers {
+            #expect(PlateTier.all.contains { $0.id == expected.0 && $0.name == expected.1 })
+        }
+
+        #expect(BarSkin.all.contains { $0.id == 4 && $0.name == "VOLIA" })
+        #expect(BarbellCosmeticCatalog.current.item(id: "volia")?.kind == .barSkin)
+    }
+
+    @Test func newBarbellConfigStartsWithNoUnlockedSkins() {
+        let config = BarbellConfig()
+
+        #expect(config.unlockedSkinIDs == [])
+        #expect(config.mutableSnapshot.unlockedSkinIDs == [])
+    }
+
+    @Test func runningDistanceBattleTypeHasRewardMetadata() {
+        #expect(BattleType.runningDistance.rawValue == "running_distance")
+        #expect(BattleType.runningDistance.displayName == "Running Distance")
+        #expect(BattleType.runningDistance.scoreUnit == "km")
+        #expect(BattleType.runningDistance.icon == "figure.run")
+        #expect(BattleType.runningDistance.participationPlateTierID == 29)
+        #expect(BattleType.runningDistance.winnerPlateTierID == 30)
+        #expect(BattleType.runningDistance.winnerEngravingText == "Distance Champion")
     }
 
     @Test func legacyDefaultBarSkinMigrationWritesRawDefault() {

@@ -61,6 +61,34 @@ public struct RewardSummary: Equatable {
 }
 
 extension RewardSummary {
+    static func voliaSkinUnlocked() -> RewardSummary {
+        let event = BarbellRewardEvent(
+            id: "cosmetic-volia-\(Date().timeIntervalSince1970)",
+            kind: .cosmeticUnlock,
+            title: "VOLIA",
+            detail: "Exclusive bar skin",
+            occurredAt: .now
+        )
+
+        return RewardSummary(
+            xp: 0,
+            coins: 0,
+            levelUpTo: nil,
+            streakOld: 0,
+            streakNew: 0,
+            hitStreakMilestone: false,
+            unlockedAchievements: [],
+            prCount: 0,
+            newExerciseCount: 0,
+            xpSnapshot: nil,
+            xpLineItems: [],
+            streakFrozen: false,
+            streakBonusXP: 0,
+            earnedPlates: [],
+            rewardQueue: BarbellRewardPresentationQueue(primary: event, compactEvents: [])
+        )
+    }
+
     var shouldPresent: Bool {
         (xp > 0) ||
         (coins > 0) ||

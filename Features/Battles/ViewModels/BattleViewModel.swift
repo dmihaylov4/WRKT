@@ -143,7 +143,8 @@ final class BattleViewModel {
         }
     }
 
-    func acceptBattle(_ battle: Battle) async {
+    @discardableResult
+    func acceptBattle(_ battle: Battle) async -> Bool {
         guard let userId = authService.currentUser?.id else {
             error = UserFriendlyError(
                 title: "Not Logged In",
@@ -151,7 +152,7 @@ final class BattleViewModel {
                 suggestion: "Please log in to continue",
                 isRetryable: false
             )
-            return
+            return false
         }
 
         do {
@@ -165,10 +166,12 @@ final class BattleViewModel {
 
             // Show success notification
             AppNotificationManager.shared.showBattleAccepted()
+            return true
         } catch {
             
             self.error = errorHandler.handleError(error, context: .battles)
             Haptics.error()
+            return false
         }
     }
 

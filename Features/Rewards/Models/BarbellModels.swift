@@ -312,6 +312,7 @@ enum BarbellCustomizationDefaults {
     var lastStreakCheckDate: Date?
     var needsSupabaseSync: Bool
     var backfillCompletedV1: Bool
+    var unlockedSkinIDs: [String] = []
 
     init() {
         self.id = "global"
@@ -330,6 +331,7 @@ enum BarbellCustomizationDefaults {
         self.lastStreakCheckDate = nil
         self.needsSupabaseSync = false
         self.backfillCompletedV1 = false
+        self.unlockedSkinIDs = []
     }
 
     struct MutableSnapshot: Equatable {
@@ -348,6 +350,7 @@ enum BarbellCustomizationDefaults {
         let lastStreakCheckDate: Date?
         let needsSupabaseSync: Bool
         let backfillCompletedV1: Bool
+        let unlockedSkinIDs: [String]
     }
 
     var mutableSnapshot: MutableSnapshot {
@@ -366,7 +369,8 @@ enum BarbellCustomizationDefaults {
             totalFunctionalHKWorkouts: totalFunctionalHKWorkouts,
             lastStreakCheckDate: lastStreakCheckDate,
             needsSupabaseSync: needsSupabaseSync,
-            backfillCompletedV1: backfillCompletedV1
+            backfillCompletedV1: backfillCompletedV1,
+            unlockedSkinIDs: unlockedSkinIDs
         )
     }
 
@@ -445,6 +449,7 @@ enum BarbellCustomizationDefaults {
         lastStreakCheckDate = defaults.lastStreakCheckDate
         needsSupabaseSync = defaults.needsSupabaseSync
         backfillCompletedV1 = defaults.backfillCompletedV1
+        unlockedSkinIDs = defaults.unlockedSkinIDs
     }
 }
 

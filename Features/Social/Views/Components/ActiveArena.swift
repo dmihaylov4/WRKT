@@ -118,7 +118,7 @@ private struct BattleArenaCard: View {
                 }
             }
             .padding(.horizontal, 12)
-            .frame(width: 188, height: 92, alignment: .leading)
+            .frame(width: 210, height: 92, alignment: .leading)
             .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
                 ChamferedRectangle(.large)
@@ -164,6 +164,8 @@ private struct BattleArenaCard: View {
             return "battle-flags-icon"
         case .exercise:
             return "battle-opponent-icon"
+        case .runningDistance:
+            return "battle-workout-count-icon"
         }
     }
 
@@ -210,6 +212,8 @@ private struct BattleArenaMetric: View {
             Text(label)
                 .dsFont(.caption2)
                 .foregroundStyle(DS.Semantic.textSecondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
 
             Text(value)
                 .dsFont(.caption, weight: .bold)

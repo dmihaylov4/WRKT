@@ -65,14 +65,14 @@ struct SimpleTimerView: View {
         VStack(spacing: 16) {
             // Large countdown - use local countdown for smooth updates
             Text(timeString(seconds: displaySeconds))
-                .font(.system(size: 52, weight: .bold, design: .rounded))
+                .font(.barlow(52, weight: .bold))
                 .foregroundColor(accentGreen)
                 .monospacedDigit()
 
             // Exercise name (if available)
             if let name = timer.exerciseName, !name.isEmpty {
                 Text(name)
-                    .font(.caption)
+                    .font(.barlow(12, weight: .regular))
                     .foregroundColor(.white.opacity(0.6))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)

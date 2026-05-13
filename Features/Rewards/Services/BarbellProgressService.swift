@@ -445,6 +445,42 @@ final class BarbellProgressService {
         }
     }
 
+    func awardPlates(_ plates: [EarnedPlateInfo], sourceWorkoutID: String?) {
+        guard !plates.isEmpty, let context else { return }
+
+        let existingEvents = Set(((try? context.fetch(FetchDescriptor<EarnedPlate>())) ?? []).map(\.earnedByEvent))
+        let earnedAt = Date()
+        var syncPayloads: [EarnedPlateSyncPayload] = []
+
+        for info in plates where !existingEvents.contains(info.earnedByEvent) {
+            context.insert(EarnedPlate(
+                tierID: info.tierID,
+                weightKg: info.weightKg,
+                engravingText: info.engravingText,
+                earnedAt: earnedAt,
+                earnedByEvent: info.earnedByEvent,
+                sourceWorkoutID: sourceWorkoutID,
+                liftTypeID: BarbellPlateProgressionScope.normalizedLiftTypeID(info.liftTypeID)
+            ))
+            syncPayloads.append(EarnedPlateSyncPayload(
+                info: info,
+                earnedAt: earnedAt,
+                sourceWorkoutID: sourceWorkoutID
+            ))
+        }
+
+        guard !syncPayloads.isEmpty else { return }
+
+        do {
+            try context.save()
+            needsWelcomeScreen = true
+            syncEarnedPlateAwardsToSupabase(syncPayloads)
+        } catch {
+            context.rollback()
+            AppLogger.error("Failed to award barbell plates", error: error, category: AppLogger.rewards)
+        }
+    }
+
     func syncBarbellCosmeticUnlocksToSupabase(_ unlocks: [BarbellCosmeticUnlockSyncPayload]) {
         guard !unlocks.isEmpty else { return }
         enqueueRemoteSync { [weak self] userID in

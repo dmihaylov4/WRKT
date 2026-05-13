@@ -27,6 +27,10 @@ struct PostDestination: Hashable {
     let postId: UUID
 }
 
+struct BattleDestination: Hashable {
+    let battleId: UUID
+}
+
 struct SocialView: View {
     @Environment(\.dependencies) private var deps
     @Binding var pendingNotification: AppNotification?
@@ -87,6 +91,10 @@ struct SocialView: View {
                 PostLoaderView(postId: destination.postId)
                     .environment(\.dependencies, deps)
             }
+            .navigationDestination(for: BattleDestination.self) { destination in
+                BattleLoaderView(battleId: destination.battleId)
+                    .environment(\.dependencies, deps)
+            }
         }
         .onChange(of: selectedSection) { _, _ in
             // Clear navigation path when switching tabs to prevent accumulation
@@ -119,19 +127,21 @@ struct SocialView: View {
         AppLogger.info("🧭 SocialView handling notification: type=\(notification.type.rawValue), actorId=\(notification.actorId), targetId=\(notification.targetId?.uuidString ?? "nil")", category: AppLogger.app)
 
         switch notification.type {
-        // Battle notifications - navigate to inviter/opponent profile with battle context
+        // Battle notifications - navigate to the battle detail when possible.
         case .battleInvite:
-            // Navigate to profile with battle context
-            let destination = ProfileDestination(
-                userId: notification.actorId,
-                battleId: notification.targetId
-            )
-            navigationPath.append(destination)
+            if let battleId = notification.targetId {
+                navigationPath.append(BattleDestination(battleId: battleId))
+            } else {
+                navigationPath.append(notification.actorId)
+            }
 
         case .battleAccepted, .battleDeclined, .battleLeadTaken, .battleLeadLost,
              .battleOpponentActivity, .battleEndingSoon, .battleCompleted, .battleVictory, .battleDefeat:
-            // Navigate to profile without battle card (battle is active/completed)
-            navigationPath.append(notification.actorId)
+            if let battleId = notification.targetId {
+                navigationPath.append(BattleDestination(battleId: battleId))
+            } else {
+                navigationPath.append(notification.actorId)
+            }
 
         // Challenge notifications - navigate to challenge detail (TODO: implement challenge detail)
         case .challengeInvite, .challengeJoined, .challengeMilestone, .challengeLeaderboardChange,

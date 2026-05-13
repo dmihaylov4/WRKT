@@ -305,8 +305,10 @@ struct CompeteStatTile: View {
     let value: String
     let label: String
     let color: Color
+    var gridPosition: DS.GridChamferPosition = .topLeading
 
     var body: some View {
+        let shape = SingleChamferedRectangle(corner: gridPosition.chamferCorner, .large)
         VStack(spacing: 12) {
             Image(systemName: icon)
                 .dsFont(.title2)
@@ -326,11 +328,8 @@ struct CompeteStatTile: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(
-            ChamferedRectangle(.large)
-                .stroke(DS.Semantic.border, lineWidth: 1)
-        )
+        .clipShape(shape)
+        .overlay(shape.stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -472,6 +471,8 @@ struct CompactBattleCard: View {
             return "Exercise Battle"
         case .pr:
             return "PR Battle"
+        case .runningDistance:
+            return "Distance Battle"
         }
     }
 
@@ -484,6 +485,8 @@ struct CompactBattleCard: View {
             return "\((yourScore / 1000).safeInt)K vs \((opponentScore / 1000).safeInt)K kg"
         case .workoutCount, .consistency, .exercise, .pr:
             return "\(Int(yourScore)) vs \(Int(opponentScore))"
+        case .runningDistance:
+            return String(format: "%.1f vs %.1f km", yourScore, opponentScore)
         }
     }
 }

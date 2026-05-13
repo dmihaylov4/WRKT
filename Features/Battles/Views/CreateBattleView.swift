@@ -25,6 +25,7 @@ struct CreateBattleView: View {
                 headerSection
                 opponentSection
                 battleTypeSection
+                BattleRewardPreviewBlock(battleType: selectedBattleType)
                 durationSection
                 Spacer(minLength: 0)
                 createBattleButton
@@ -289,6 +290,8 @@ private extension BattleType {
             return "challenge-trophy-icon"
         case .exercise:
             return "tab-train"
+        case .runningDistance:
+            return "battle-workout-count-icon"
         }
     }
 }
