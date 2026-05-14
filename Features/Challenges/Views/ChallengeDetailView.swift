@@ -7,6 +7,7 @@ struct ChallengeDetailView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
     @State private var isProcessing = false
+    @State private var showingLeaveConfirmation = false
 
     private var displayedChallenge: ChallengeWithProgress {
         guard challenge.shouldCompleteFirstRep(from: deps.workoutStore.completedWorkouts) else { return challenge }
@@ -25,7 +26,7 @@ struct ChallengeDetailView: View {
                         progressSection(progress: progress)
                     }
                     statsRow
-                    if !challenge.topParticipants.isEmpty {
+                    if !displayedChallenge.topParticipants.isEmpty {
                         leaderboardSection
                     }
                 }
@@ -47,6 +48,28 @@ struct ChallengeDetailView: View {
                     .padding(.vertical, 12)
                     .background(.ultraThinMaterial)
             }
+        }
+        .confirmationDialog(
+            "Leave Challenge?",
+            isPresented: $showingLeaveConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Leave Challenge", role: .destructive) {
+                Task { await performLeaveChallenge() }
+            }
+            Button("Keep Challenge", role: .cancel) {}
+        } message: {
+            Text("Your challenge progress will stop updating.")
+        }
+        .alert(item: Binding(
+            get: { viewModel.error },
+            set: { _ in viewModel.error = nil }
+        )) { error in
+            Alert(
+                title: Text(error.title),
+                message: Text(error.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
@@ -206,12 +229,12 @@ struct ChallengeDetailView: View {
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             VStack(spacing: 8) {
-                ForEach(Array(challenge.topParticipants.enumerated()), id: \.element.id) { index, participantProfile in
+                ForEach(Array(displayedChallenge.topParticipants.enumerated()), id: \.element.id) { index, participantProfile in
                     leaderboardRow(
                         rank: index + 1,
                         username: participantProfile.profile.username,
                         progress: participantProfile.participant.currentProgress,
-                        target: challenge.challenge.goalValue
+                        target: displayedChallenge.challenge.goalValue
                     )
                 }
             }
@@ -264,23 +287,28 @@ struct ChallengeDetailView: View {
     private var actionButton: some View {
         if challenge.isParticipating {
             Button {
-                Task {
-                    await viewModel.leaveChallenge(challenge.challenge)
-                    dismiss()
-                }
+                showingLeaveConfirmation = true
             } label: {
-                Text("Leave Challenge")
-                    .dsFont(.headline)
-                    .foregroundStyle(DS.Status.error)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(DS.Status.error.opacity(0.1), in: ChamferedRectangle(.large))
-                    .overlay(
-                        ChamferedRectangle(.large)
-                            .stroke(DS.Status.error.opacity(0.4), lineWidth: 1)
-                    )
+                Group {
+                    if isProcessing {
+                        ProgressView()
+                            .tint(DS.Status.error)
+                    } else {
+                        Text("Leave Challenge")
+                            .dsFont(.headline)
+                            .foregroundStyle(DS.Status.error)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(DS.Status.error.opacity(0.1), in: ChamferedRectangle(.large))
+                .overlay(
+                    ChamferedRectangle(.large)
+                        .stroke(DS.Status.error.opacity(0.4), lineWidth: 1)
+                )
             }
             .buttonStyle(.plain)
+            .disabled(isProcessing)
         } else {
             Button {
                 guard !isProcessing else { return }
@@ -311,7 +339,7 @@ struct ChallengeDetailView: View {
     // MARK: - Helpers
 
     private var challengeTypeLabel: String {
-        switch challenge.challenge.challengeType {
+        switch displayedChallenge.challenge.challengeType {
         case .workoutCount:  return "Workout Count"
         case .totalVolume:   return "Total Volume"
         case .streak:        return "Streak"
@@ -321,14 +349,14 @@ struct ChallengeDetailView: View {
     }
 
     private var targetValueText: String {
-        let v = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
-        switch challenge.challenge.challengeType {
+        let v = NSDecimalNumber(decimal: displayedChallenge.challenge.goalValue).intValue
+        switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "\(v)"
         case .totalVolume:      return "\(v / 1000)K kg"
         case .streak:           return "\(v) days"
         case .specificExercise: return "\(v)"
         case .custom:
-            if challenge.challenge.goalMetric == "conditioning_minutes" {
+            if displayedChallenge.challenge.goalMetric == "conditioning_minutes" {
                 return "\(v) min"
             }
             return "\(v)"
@@ -337,14 +365,14 @@ struct ChallengeDetailView: View {
 
     private func progressValueText(progress: ChallengeParticipant) -> String {
         let cur = NSDecimalNumber(decimal: progress.currentProgress).intValue
-        let goal = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
-        switch challenge.challenge.challengeType {
+        let goal = NSDecimalNumber(decimal: displayedChallenge.challenge.goalValue).intValue
+        switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "\(cur) / \(goal) workouts"
         case .totalVolume:      return "\(cur / 1000)K / \(goal / 1000)K kg"
         case .streak:           return "\(cur) / \(goal) days"
         case .specificExercise: return "\(cur) / \(goal) reps"
         case .custom:
-            if challenge.challenge.goalMetric == "conditioning_minutes" {
+            if displayedChallenge.challenge.goalMetric == "conditioning_minutes" {
                 return "\(cur) / \(goal) min"
             }
             return "\(cur) / \(goal)"
@@ -352,23 +380,23 @@ struct ChallengeDetailView: View {
     }
 
     private var progressTargetText: String {
-        switch challenge.challenge.challengeType {
+        switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "workouts completed"
         case .totalVolume:      return "kilograms lifted"
         case .streak:           return "consecutive days"
         case .specificExercise: return "reps completed"
         case .custom:
-            if challenge.challenge.goalMetric == "conditioning_minutes" {
+            if displayedChallenge.challenge.goalMetric == "conditioning_minutes" {
                 return "qualifying minutes logged"
             }
-            return challenge.challenge.goalMetric
+            return displayedChallenge.challenge.goalMetric
         }
     }
 
     private func rowProgressText(progress: Decimal, target: Decimal) -> String {
         let cur = NSDecimalNumber(decimal: progress).intValue
         let goal = NSDecimalNumber(decimal: target).intValue
-        switch challenge.challenge.challengeType {
+        switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "\(cur)/\(goal) workouts"
         case .totalVolume:      return "\(cur / 1000)K/\(goal / 1000)K kg"
         case .streak:           return "\(cur)/\(goal) days"
@@ -382,6 +410,18 @@ struct ChallengeDetailView: View {
         case 1: return DS.Semantic.brand
         case 2: return DS.Semantic.textSecondary
         default: return DS.Semantic.textSecondary.opacity(0.6)
+        }
+    }
+
+    private func performLeaveChallenge() async {
+        guard !isProcessing else { return }
+
+        isProcessing = true
+        let didLeave = await viewModel.leaveChallenge(challenge.challenge)
+        isProcessing = false
+
+        if didLeave {
+            dismiss()
         }
     }
 }

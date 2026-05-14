@@ -207,7 +207,6 @@
 		2EA7DABB2EEDCF910017683B /* ChallengesBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DAB92EEDCF910017683B /* ChallengesBrowseView.swift */; };
 		2EA7DABE2EEDCFA30017683B /* BattlesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DABD2EEDCFA30017683B /* BattlesListView.swift */; };
 		2EA7DABF2EEDCFA30017683B /* BattleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DABC2EEDCFA30017683B /* BattleDetailView.swift */; };
-		2EA7DAC22EEDCFAE0017683B /* CompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */; };
 		2EAA00032FA1000000000001 /* WhatsNewManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00012FA1000000000001 /* WhatsNewManager.swift */; };
 		2EAA00042FA1000000000001 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAA00022FA1000000000001 /* WhatsNewView.swift */; };
 		2EAB3EF32EBC89C900F1A7CA /* WorkoutDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3EF22EBC89C900F1A7CA /* WorkoutDetailComponents.swift */; };
@@ -682,7 +681,6 @@
 		2EA7DAB92EEDCF910017683B /* ChallengesBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesBrowseView.swift; sourceTree = "<group>"; };
 		2EA7DABC2EEDCFA30017683B /* BattleDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleDetailView.swift; sourceTree = "<group>"; };
 		2EA7DABD2EEDCFA30017683B /* BattlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlesListView.swift; sourceTree = "<group>"; };
-		2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompeteView.swift; sourceTree = "<group>"; };
 		2EAA00012FA1000000000001 /* WhatsNewManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewManager.swift; sourceTree = "<group>"; };
 		2EAA00022FA1000000000001 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
 		2EAB3EF22EBC89C900F1A7CA /* WorkoutDetailComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailComponents.swift; sourceTree = "<group>"; };
@@ -1896,7 +1894,6 @@
 				2EC202362EF19F4800D6BAEF /* Services */,
 				2EBC10062FA2000000000001 /* Views */,
 				2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */,
-				2EA7DAC02EEDCFAE0017683B /* CompeteView.swift */,
 			);
 			path = Compete;
 			sourceTree = "<group>";
@@ -2574,7 +2571,6 @@
 				2EA7DA052EE9EF540017683C /* WorkoutPostHeroSummaryCard.swift in Sources */,
 				2EA7D9BF2EEB18DA0017683B /* SkeletonPostCard.swift in Sources */,
 				2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */,
-				2EA7DAC22EEDCFAE0017683B /* CompeteView.swift in Sources */,
 				2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */,
 				2EBC10022FA2000000000001 /* BattleRewardPreviewBlock.swift in Sources */,
 				2EBC10042FA2000000000001 /* ChallengeRewardPreviewBlock.swift in Sources */,

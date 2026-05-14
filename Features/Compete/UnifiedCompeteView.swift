@@ -45,23 +45,20 @@ struct UnifiedCompeteView: View {
     private var contentView: some View {
         ScrollView {
             VStack(spacing: 24) {
-                // Active competitions carousel (if any exist)
-                if let cvm = challengesVM, let bvm = battlesVM {
-                    if !cvm.activeChallenges.isEmpty || !bvm.activeBattles.isEmpty {
-                        activeCompetitionsCarousel(challengesVM: cvm, battlesVM: bvm)
-                    }
-                }
-
-                // Quick stats overview
-                statsGrid
-
-                // Creation grid - two large buttons
-                creationGrid
-
                 // Pending invites (action needed)
                 if let vm = battlesVM, !vm.pendingBattles.filter({ vm.isPendingAction(for: $0) }).isEmpty {
                     pendingInvitesSection(vm: vm)
                 }
+
+                // Active competitions
+                if let cvm = challengesVM, let bvm = battlesVM {
+                    if !cvm.activeChallenges.isEmpty || !bvm.activeBattles.isEmpty {
+                        activeCompetitionsSection(challengesVM: cvm, battlesVM: bvm)
+                    }
+                }
+
+                // Creation grid - two large buttons
+                creationGrid
 
                 // Recommended challenges
                 if let vm = challengesVM, !vm.availableChallenges.isEmpty {
@@ -74,6 +71,8 @@ struct UnifiedCompeteView: View {
                         recentCompletionsSection(challengesVM: cvm, battlesVM: bvm)
                     }
                 }
+
+                statsGrid
             }
             .padding()
             .padding(.bottom, 60)
@@ -101,30 +100,47 @@ struct UnifiedCompeteView: View {
         }
     }
 
-    // MARK: - Active Competitions Carousel
+    // MARK: - Active Competitions
 
     @ViewBuilder
-    private func activeCompetitionsCarousel(challengesVM: ChallengesViewModel, battlesVM: BattleViewModel) -> some View {
+    private func activeCompetitionsSection(challengesVM: ChallengesViewModel, battlesVM: BattleViewModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Active Competitions")
                 .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
+            let activeCount = battlesVM.activeBattles.count + challengesVM.activeChallenges.count
+
+            if activeCount == 1 {
+                VStack(spacing: 12) {
                     // Active battles
-                    ForEach(battlesVM.activeBattles.prefix(5)) { battle in
-                        LargeBattleCard(battle: battle, viewModel: battlesVM)
+                    ForEach(battlesVM.activeBattles.prefix(1)) { battle in
+                        LargeBattleCard(battle: battle, viewModel: battlesVM, isFullWidth: true)
                     }
 
                     // Active challenges
-                    ForEach(challengesVM.activeChallenges.prefix(5)) { challenge in
-                        LargeChallengeCard(challenge: challenge, viewModel: challengesVM)
+                    ForEach(challengesVM.activeChallenges.prefix(1)) { challenge in
+                        LargeChallengeCard(challenge: challenge, viewModel: challengesVM, isFullWidth: true)
                     }
                 }
-                .padding(.horizontal, 1)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        // Active battles
+                        ForEach(battlesVM.activeBattles.prefix(5)) { battle in
+                            LargeBattleCard(battle: battle, viewModel: battlesVM)
+                        }
+
+                        // Active challenges
+                        ForEach(challengesVM.activeChallenges.prefix(5)) { challenge in
+                            LargeChallengeCard(challenge: challenge, viewModel: challengesVM)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .scrollClipDisabled()
+                .padding(.horizontal, -16)
             }
-            .padding(.horizontal, -16)
         }
     }
 
@@ -132,46 +148,53 @@ struct UnifiedCompeteView: View {
 
     @ViewBuilder
     private var statsGrid: some View {
-        LazyVGrid(columns: [
-            GridItem(.flexible()),
-            GridItem(.flexible())
-        ], spacing: 8) {
-            let activeChallengesCount = challengesVM?.activeChallenges.count ?? 0
-            let activeBattlesCount = battlesVM?.activeBattles.count ?? 0
-            let completedChallengesCount = challengesVM?.completedChallenges.count ?? 0
-            let battlesWonCount = battlesVM?.completedBattles.count ?? 0
+        let stats = competeStats
 
-            CompeteStatTile(
-                icon: "trophy.fill",
-                value: activeChallengesCount > 0 ? "\(activeChallengesCount)" : "—",
-                label: "Active Challenges",
-                color: DS.Semantic.brand,
-                gridPosition: .topLeading
-            )
+        if stats.count >= 2 {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Summary")
+                    .dsFont(.title3, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
 
-            CompeteStatTile(
-                icon: "bolt.fill",
-                value: activeBattlesCount > 0 ? "\(activeBattlesCount)" : "—",
-                label: "Active Battles",
-                color: DS.Semantic.brand,
-                gridPosition: .topTrailing
-            )
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 8) {
+                    ForEach(Array(stats.enumerated()), id: \.offset) { index, stat in
+                        CompeteStatTile(
+                            icon: stat.icon,
+                            value: stat.value,
+                            label: stat.label,
+                            color: stat.color,
+                            gridPosition: statPosition(for: index, count: stats.count)
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-            CompeteStatTile(
-                icon: "checkmark.seal.fill",
-                value: completedChallengesCount > 0 ? "\(completedChallengesCount)" : "—",
-                label: "Completed",
-                color: DS.Status.success,
-                gridPosition: .bottomLeading
-            )
+    private var competeStats: [CompeteSummaryStat] {
+        let activeChallengesCount = challengesVM?.activeChallenges.count ?? 0
+        let activeBattlesCount = battlesVM?.activeBattles.count ?? 0
+        let completedChallengesCount = challengesVM?.completedChallenges.count ?? 0
+        let battlesWonCount = battlesVM?.completedBattles.count ?? 0
 
-            CompeteStatTile(
-                icon: "flag.checkered",
-                value: battlesWonCount > 0 ? "\(battlesWonCount)" : "—",
-                label: "Victories",
-                color: DS.Status.success,
-                gridPosition: .bottomTrailing
-            )
+        return [
+            activeChallengesCount > 0 ? CompeteSummaryStat(icon: "trophy.fill", value: "\(activeChallengesCount)", label: "Active Challenges", color: DS.Semantic.brand) : nil,
+            activeBattlesCount > 0 ? CompeteSummaryStat(icon: "bolt.fill", value: "\(activeBattlesCount)", label: "Active Battles", color: DS.Semantic.brand) : nil,
+            completedChallengesCount > 0 ? CompeteSummaryStat(icon: "checkmark.seal.fill", value: "\(completedChallengesCount)", label: "Completed", color: DS.Status.success) : nil,
+            battlesWonCount > 0 ? CompeteSummaryStat(icon: "flag.checkered", value: "\(battlesWonCount)", label: "Victories", color: DS.Status.success) : nil
+        ].compactMap { $0 }
+    }
+
+    private func statPosition(for index: Int, count: Int) -> DS.GridChamferPosition {
+        switch (index, count) {
+        case (0, 2), (0, 3), (0, 4): return .topLeading
+        case (1, 2), (1, 3), (1, 4): return .topTrailing
+        case (2, 3), (2, 4): return .bottomLeading
+        case (3, 4): return .bottomTrailing
+        default: return .topLeading
         }
     }
 
@@ -206,7 +229,7 @@ struct UnifiedCompeteView: View {
 
                 // Join Challenge button
                 NavigationLink {
-                    ChallengesBrowseView()
+                    ChallengesBrowseView(initialTab: .browse)
                 } label: {
                     CreationGridButton(
                         iconName: "challenge-trophy-icon",
@@ -267,7 +290,7 @@ struct UnifiedCompeteView: View {
                 Spacer()
 
                 NavigationLink {
-                    ChallengesBrowseView()
+                    ChallengesBrowseView(initialTab: .browse)
                 } label: {
                     HStack(spacing: 4) {
                         Text("View All")
@@ -363,6 +386,7 @@ struct CreationGridButton: View {
 struct LargeBattleCard: View {
     let battle: BattleWithParticipants
     let viewModel: BattleViewModel
+    var isFullWidth = false
 
     var body: some View {
         Button {
@@ -396,7 +420,7 @@ struct LargeBattleCard: View {
 
                         Text(formatScore(viewModel.getCurrentUserScore(for: battle)))
                             .dsFont(.title2, weight: .bold, monospacedDigits: true)
-                            .foregroundStyle(viewModel.isCurrentUserWinning(for: battle) ? DS.Semantic.success : DS.Semantic.textPrimary)
+                            .foregroundStyle(scoreColor(isCurrentUser: true))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
@@ -414,7 +438,7 @@ struct LargeBattleCard: View {
 
                         Text(formatScore(viewModel.getOpponentScore(for: battle)))
                             .dsFont(.title2, weight: .bold, monospacedDigits: true)
-                            .foregroundStyle(!viewModel.isCurrentUserWinning(for: battle) ? DS.Semantic.warning : DS.Semantic.textPrimary)
+                            .foregroundStyle(scoreColor(isCurrentUser: false))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
@@ -425,16 +449,15 @@ struct LargeBattleCard: View {
                     Text("\(battle.battle.daysRemaining) days left")
                         .dsFont(.caption, weight: .bold)
                     Spacer()
-                    if viewModel.isCurrentUserWinning(for: battle) {
-                        Text("Winning")
-                            .dsFont(.caption, weight: .bold)
-                            .foregroundStyle(DS.Semantic.success)
-                    }
+                    Text(leadStatusText)
+                        .dsFont(.caption, weight: .bold)
+                        .foregroundStyle(leadStatusColor)
                 }
                 .foregroundStyle(DS.Semantic.textSecondary)
             }
             .padding(14)
-            .frame(width: 260, height: 138)
+            .frame(width: isFullWidth ? nil : 260, height: 138)
+            .frame(maxWidth: isFullWidth ? .infinity : nil)
             .background(
                 viewModel.isCurrentUserWinning(for: battle)
                     ? DS.Semantic.brandSoft
@@ -454,6 +477,53 @@ struct LargeBattleCard: View {
         .buttonStyle(.plain)
     }
 
+    private var currentUserScore: Double {
+        viewModel.getCurrentUserScore(for: battle)
+    }
+
+    private var opponentScore: Double {
+        viewModel.getOpponentScore(for: battle)
+    }
+
+    private var isTied: Bool {
+        currentUserScore == opponentScore
+    }
+
+    private var leadStatusText: String {
+        let diff = abs(currentUserScore - opponentScore)
+        if isTied { return "Tied" }
+        if currentUserScore > opponentScore {
+            return "Winning by \(formatScore(diff)) \(scoreUnit)"
+        }
+        return "Behind by \(formatScore(diff)) \(scoreUnit)"
+    }
+
+    private var leadStatusColor: Color {
+        if isTied { return DS.Semantic.textSecondary }
+        return currentUserScore > opponentScore ? DS.Semantic.success : DS.Semantic.warning
+    }
+
+    private var scoreUnit: String {
+        switch battle.battle.battleType {
+        case .volume, .pr:
+            return "kg"
+        case .workoutCount:
+            return "workouts"
+        case .consistency:
+            return "days"
+        case .exercise:
+            return "reps"
+        case .runningDistance:
+            return "km"
+        }
+    }
+
+    private func scoreColor(isCurrentUser: Bool) -> Color {
+        if isTied { return DS.Semantic.textPrimary }
+        let isWinningScore = isCurrentUser ? currentUserScore > opponentScore : opponentScore > currentUserScore
+        return isWinningScore ? DS.Semantic.success : DS.Semantic.textPrimary
+    }
+
     private func formatScore(_ score: Double) -> String {
         if score >= 1000 {
             return String(format: "%.1fk", score / 1000)
@@ -467,6 +537,7 @@ struct LargeBattleCard: View {
 struct LargeChallengeCard: View {
     let challenge: ChallengeWithProgress
     let viewModel: ChallengesViewModel
+    var isFullWidth = false
 
     var body: some View {
         Button {
@@ -511,7 +582,8 @@ struct LargeChallengeCard: View {
                 .foregroundStyle(DS.Semantic.textSecondary)
             }
             .padding(14)
-            .frame(width: 260, height: 138)
+            .frame(width: isFullWidth ? nil : 260, height: 138)
+            .frame(maxWidth: isFullWidth ? .infinity : nil)
             .background(DS.Semantic.card)
             .clipShape(ChamferedRectangle(.xl))
             .overlay(
@@ -591,7 +663,7 @@ struct RecommendedChallengeCard: View {
                                 .clipShape(Capsule())
                         }
 
-                        Text("\(challenge.challenge.participantCount) competing")
+                        Text(challengeMetaText)
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
@@ -625,6 +697,26 @@ struct RecommendedChallengeCard: View {
         case .beginner: return DS.Semantic.textSecondary
         case .intermediate: return DS.Semantic.textPrimary
         case .advanced: return DS.Semantic.textPrimary
+        }
+    }
+
+    private var challengeMetaText: String {
+        if challenge.challenge.participantCount > 0 {
+            return "\(challenge.challenge.participantCount) competing"
+        }
+
+        let goal = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
+        switch challenge.challenge.challengeType {
+        case .workoutCount:
+            return "\(goal) workouts"
+        case .totalVolume:
+            return "\(goal / 1000)K kg goal"
+        case .streak:
+            return "\(goal) day streak"
+        case .specificExercise:
+            return "\(goal) reps"
+        case .custom:
+            return challenge.challenge.daysRemainingDisplay
         }
     }
 
@@ -668,6 +760,52 @@ struct RecommendedChallengeCard: View {
         case .custom:
             return "challenge-browse-icon"
         }
+    }
+}
+
+private struct CompeteSummaryStat {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+}
+
+struct CompeteStatTile: View {
+    let icon: String
+    let value: String
+    let label: String
+    let color: Color
+    var gridPosition: DS.GridChamferPosition = .topLeading
+
+    var body: some View {
+        let shape = SingleChamferedRectangle(corner: gridPosition.chamferCorner, .large)
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 4, height: 38)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .dsFont(.caption2, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(value)
+                    .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(DS.Semantic.card)
+        .clipShape(shape)
+        .overlay(shape.stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 

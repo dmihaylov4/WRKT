@@ -422,7 +422,7 @@ struct CompeteTabContent: View {
             Group {
                 switch selectedSection {
                 case .overview:
-                    OverviewSection()
+                    UnifiedCompeteView()
                 case .challenges:
                     ChallengesBrowseView()
                 case .battles:

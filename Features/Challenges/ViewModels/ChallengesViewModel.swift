@@ -164,7 +164,8 @@ final class ChallengesViewModel {
         }
     }
 
-    func leaveChallenge(_ challenge: Challenge) async {
+    @discardableResult
+    func leaveChallenge(_ challenge: Challenge) async -> Bool {
         guard let userId = authService.currentUser?.id else {
             error = UserFriendlyError(
                 title: "Not Logged In",
@@ -172,7 +173,7 @@ final class ChallengesViewModel {
                 suggestion: "Please log in to continue",
                 isRetryable: false
             )
-            return
+            return false
         }
 
         do {
@@ -186,6 +187,7 @@ final class ChallengesViewModel {
             await loadChallenges()
 
             Haptics.soft()
+            return true
         } catch {
             
             self.error = errorHandler.handleError(error, context: .challenges)
@@ -193,9 +195,11 @@ final class ChallengesViewModel {
 
             // Revert optimistic update on error
             await loadChallenges()
+            return false
         }
     }
 
+    #if DEBUG
     func deleteCompletedChallengesForRetest() async {
         let completed = completedChallenges
         guard !completed.isEmpty else { return }
@@ -214,6 +218,7 @@ final class ChallengesViewModel {
             await loadChallenges()
         }
     }
+    #endif
 
     func createChallengeFromPreset(_ preset: PresetChallenge) async {
         guard let userId = authService.currentUser?.id else {

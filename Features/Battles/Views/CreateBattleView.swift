@@ -15,6 +15,7 @@ struct CreateBattleView: View {
     @State private var selectedBattleType: BattleType = .volume
     @State private var duration: Int = 7 // days
     @State private var showFriendPicker = false
+    @State private var isCreating = false
 
     let durationOptions = [3, 7, 14, 30]
 
@@ -52,11 +53,25 @@ struct CreateBattleView: View {
                 FriendPickerView(selectedFriend: $selectedFriend)
             }
         }
+        .alert(item: Binding(
+            get: { viewModel.error },
+            set: { _ in viewModel.error = nil }
+        )) { error in
+            Alert(
+                title: Text(error.title),
+                message: Text(error.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
     }
 
     // MARK: - View Components
 
     private var canCreateBattle: Bool {
+        hasOpponent && !isCreating
+    }
+
+    private var hasOpponent: Bool {
         selectedFriend != nil
     }
 
@@ -85,21 +100,8 @@ struct CreateBattleView: View {
 
             Spacer()
 
-            Button {
-                Task { await createBattle() }
-            } label: {
-                Text("Create")
-                    .dsFont(.subheadline, weight: .medium)
-                    .foregroundStyle(canCreateBattle ? DS.Semantic.brand : DS.Semantic.textSecondary)
-                    .frame(width: 96, height: 46)
-                    .background(DS.Semantic.card.opacity(0.72), in: ChamferedRectangle(.large))
-                    .overlay(
-                        ChamferedRectangle(.large)
-                            .stroke(DS.Semantic.border.opacity(0.55), lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(!canCreateBattle)
+            Color.clear
+                .frame(width: 96, height: 46)
         }
         .frame(height: 48)
     }
@@ -194,7 +196,8 @@ struct CreateBattleView: View {
         VStack(alignment: .leading, spacing: 8) {
             sectionLabel("BATTLE TYPE")
             VStack(spacing: 8) {
-                ForEach([BattleType.volume, .workoutCount, .consistency], id: \.self) { type in
+                // Exercise battles require an exercise picker before they can be safely created.
+                ForEach([BattleType.volume, .workoutCount, .consistency, .pr, .runningDistance], id: \.self) { type in
                     BattleTypeCard(
                         type: type,
                         isSelected: selectedBattleType == type
@@ -233,44 +236,89 @@ struct CreateBattleView: View {
     }
 
     private var createBattleButton: some View {
-        Button {
-            Task {
-                await createBattle()
-            }
-        } label: {
-            HStack(spacing: 10) {
-                BattleAssetIcon(
-                    asset: "battle-flags-icon",
-                    size: 24,
-                    color: canCreateBattle ? .black : DS.Semantic.textPrimary
-                )
+        VStack(spacing: 10) {
+            inviteSummary
 
-                Text("Start Battle")
-                    .dsFont(.headline)
+            Button {
+                Task {
+                    await createBattle()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    if isCreating {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        BattleAssetIcon(
+                            asset: "battle-flags-icon",
+                            size: 24,
+                            color: hasOpponent ? .black : DS.Semantic.textPrimary
+                        )
+                    }
+
+                    Text("Send Battle Invite")
+                        .dsFont(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(hasOpponent ? DS.Semantic.brand : DS.Semantic.surface50, in: ChamferedRectangle(.large))
+                .foregroundStyle(hasOpponent ? .black : DS.Semantic.textPrimary)
+                .overlay(
+                    ChamferedRectangle(.large)
+                        .stroke(hasOpponent ? DS.Semantic.brand.opacity(0.35) : DS.Semantic.border.opacity(0.4), lineWidth: 1)
+                )
+                .shadow(color: hasOpponent ? DS.Semantic.brand.opacity(0.25) : .clear, radius: 12, y: 4)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .background(canCreateBattle ? DS.Semantic.brand : DS.Semantic.surface50, in: ChamferedRectangle(.large))
-            .foregroundStyle(canCreateBattle ? .black : DS.Semantic.textPrimary)
+            .disabled(!canCreateBattle)
+        }
+    }
+
+    private var inviteSummary: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("INVITE SUMMARY")
+
+            VStack(spacing: 6) {
+                summaryRow(label: "Opponent", value: selectedFriend.map { $0.displayName ?? $0.username } ?? "Choose opponent")
+                summaryRow(label: "Battle", value: selectedBattleType.displayName)
+                summaryRow(label: "Duration", value: "\(duration) days")
+                summaryRow(label: "Rule", value: selectedBattleType.description)
+                summaryRow(label: "Start", value: "Starts when accepted")
+            }
+            .padding(12)
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
                 ChamferedRectangle(.large)
-                    .stroke(canCreateBattle ? DS.Semantic.brand.opacity(0.35) : DS.Semantic.border.opacity(0.4), lineWidth: 1)
+                    .stroke(DS.Semantic.border, lineWidth: 1)
             )
-            .shadow(color: canCreateBattle ? DS.Semantic.brand.opacity(0.25) : .clear, radius: 12, y: 4)
         }
-        .disabled(!canCreateBattle)
+    }
+
+    private func summaryRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(label)
+                .dsFont(.caption2, weight: .bold)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .frame(width: 64, alignment: .leading)
+
+            Text(value)
+                .dsFont(.caption, weight: .medium)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .lineLimit(2)
+
+            Spacer(minLength: 0)
+        }
     }
 
     private func createBattle() async {
-        guard let friend = selectedFriend else { return }
+        guard let friend = selectedFriend, !isCreating else { return }
 
+        isCreating = true
         await viewModel.createBattle(
             opponentId: friend.id.uuidString,
             battleType: selectedBattleType,
             durationDays: duration
         )
-
-        dismiss()
+        isCreating = false
     }
 }
 

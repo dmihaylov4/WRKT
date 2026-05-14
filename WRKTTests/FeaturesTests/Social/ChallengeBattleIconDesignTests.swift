@@ -85,7 +85,7 @@ struct ChallengeBattleIconDesignTests {
 
         #expect(battleArenaSource.contains("BattleArenaMetric"))
         #expect(battleArenaSource.contains("ChamferedRectangle"))
-        #expect(battleArenaSource.contains("frame(width: 188"))
+        #expect(battleArenaSource.contains("frame(width: 210"))
         #expect(battleArenaSource.contains("isOpponentLeading"))
         #expect(!battleArenaSource.contains("RoundedRectangle"))
         #expect(!battleArenaSource.contains("Circle()"))
@@ -106,12 +106,12 @@ struct ChallengeBattleIconDesignTests {
 
     @Test func competeOverviewUsesCompactStatTilesWithoutLargeIcons() throws {
         let competeSource = try String(
-            contentsOfFile: sourcePath("Features/Compete/CompeteView.swift"),
+            contentsOfFile: sourcePath("Features/Compete/UnifiedCompeteView.swift"),
             encoding: .utf8
         )
         let tileSource = competeSource.section(
             from: "struct CompeteStatTile",
-            to: "struct CompactChallengeCard"
+            to: "struct CompletedChallengeCard"
         )
 
         #expect(tileSource.contains("frame(maxWidth: .infinity, minHeight: 76"))
@@ -303,7 +303,7 @@ struct ChallengeBattleIconDesignTests {
         #expect(showcaseSource.contains("case \"volia\": return 4"))
     }
 
-    @Test func completedChallengesCanBeDeletedForRetesting() throws {
+    @Test func completedChallengesDeleteControlIsDebugGated() throws {
         let browseSource = try String(
             contentsOfFile: sourcePath("Features/Challenges/Views/ChallengesBrowseView.swift"),
             encoding: .utf8
@@ -313,8 +313,9 @@ struct ChallengeBattleIconDesignTests {
             encoding: .utf8
         )
 
-        #expect(browseSource.contains("Delete Completed Challenges"))
-        #expect(browseSource.contains("deleteCompletedChallengesForRetest"))
+        #expect(!browseSource.contains("Delete Completed Challenges"))
+        #expect(!browseSource.contains("deleteCompletedChallengesForRetest"))
+        #expect(viewModelSource.contains("#if DEBUG"))
         #expect(viewModelSource.contains("func deleteCompletedChallengesForRetest()"))
         #expect(viewModelSource.contains("try await challengeRepository.leaveChallenge(item.challenge)"))
     }

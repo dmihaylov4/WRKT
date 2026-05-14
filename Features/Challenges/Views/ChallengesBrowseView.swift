@@ -10,10 +10,14 @@ import SwiftUI
 struct ChallengesBrowseView: View {
     @Environment(\.dependencies) private var deps
     @State private var viewModel: ChallengesViewModel?
-    @State private var selectedTab: ChallengeTab = .active
+    @State private var selectedTab: ChallengeTab
 
     enum ChallengeTab {
         case active, browse, completed
+    }
+
+    init(initialTab: ChallengeTab = .active) {
+        _selectedTab = State(initialValue: initialTab)
     }
 
     private enum Layout {
@@ -163,8 +167,7 @@ struct ChallengesBrowseView: View {
                 ChallengeCard(
                     challenge: challenge,
                     isActive: true,
-                    onTap: { viewModel.openChallengeDetail(challenge) },
-                    onAction: { await viewModel.leaveChallenge(challenge.challenge) }
+                    onTap: { viewModel.openChallengeDetail(challenge) }
                 )
             }
         }
@@ -206,8 +209,7 @@ struct ChallengesBrowseView: View {
                         ChallengeCard(
                             challenge: challenge,
                             isActive: false,
-                            onTap: { viewModel.openChallengeDetail(challenge) },
-                            onAction: { await viewModel.joinChallenge(challenge.challenge) }
+                            onTap: { viewModel.openChallengeDetail(challenge) }
                         )
                     }
                 }
@@ -224,28 +226,11 @@ struct ChallengesBrowseView: View {
         } else if viewModel.completedChallenges.isEmpty {
             emptyCompletedState(viewModel: viewModel)
         } else {
-            Button {
-                Task { await viewModel.deleteCompletedChallengesForRetest() }
-            } label: {
-                Text("Delete Completed Challenges")
-                    .dsFont(.subheadline, weight: .bold)
-                    .foregroundStyle(DS.Status.error)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(DS.Status.error.opacity(0.12), in: ChamferedRectangle(.large))
-                    .overlay(
-                        ChamferedRectangle(.large)
-                            .stroke(DS.Status.error.opacity(0.45), lineWidth: 1)
-                    )
-            }
-            .buttonStyle(.plain)
-
             ForEach(viewModel.completedChallenges) { challenge in
                 ChallengeCard(
                     challenge: challenge,
                     isActive: false,
-                    onTap: { viewModel.openChallengeDetail(challenge) },
-                    onAction: nil
+                    onTap: { viewModel.openChallengeDetail(challenge) }
                 )
             }
         }
@@ -531,9 +516,6 @@ struct ChallengeCard: View {
     let challenge: ChallengeWithProgress
     let isActive: Bool
     let onTap: () -> Void
-    let onAction: (() async -> Void)?
-
-    @State private var isProcessing = false
 
     var body: some View {
         Button(action: onTap) {
@@ -548,6 +530,13 @@ struct ChallengeCard: View {
                         Text(challengeTypeLabel)
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
+
+                        if !isActive, let description = challenge.challenge.description {
+                            Text(description)
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                                .lineLimit(2)
+                        }
                     }
 
                     Spacer()
@@ -578,10 +567,17 @@ struct ChallengeCard: View {
 
                 // Footer
                 HStack(spacing: 8) {
-                    ChallengeMetaPill(
-                        asset: "challenge-people-icon",
-                        text: "\(challenge.challenge.participantCount) \(challenge.challenge.participantCount == 1 ? "person" : "people")"
-                    )
+                    if challenge.challenge.participantCount > 0 {
+                        ChallengeMetaPill(
+                            asset: "challenge-people-icon",
+                            text: "\(challenge.challenge.participantCount) \(challenge.challenge.participantCount == 1 ? "person" : "people")"
+                        )
+                    } else {
+                        ChallengeMetaPill(
+                            asset: "challenge-trophy-icon",
+                            text: goalText
+                        )
+                    }
 
                     Spacer()
 
@@ -596,13 +592,15 @@ struct ChallengeCard: View {
 
                 // Tap indicator
                 HStack {
-                    Text(isActive ? "View Progress" : "View Challenge")
+                    Text(actionText)
                         .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.brand)
 
-                    Image(systemName: "chevron.right")
-                        .dsFont(.caption2)
-                        .foregroundStyle(DS.Semantic.brand)
+                    ChallengeAssetIcon(
+                        asset: "angular-chevron-right-icon",
+                        size: 14,
+                        color: DS.Semantic.brand
+                    )
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -629,6 +627,28 @@ struct ChallengeCard: View {
             return "Exercise Challenge"
         case .custom:
             return "Custom Challenge"
+        }
+    }
+
+    private var actionText: String {
+        if isActive { return "View Progress" }
+        if challenge.isParticipating { return "View Challenge" }
+        return "View & Join"
+    }
+
+    private var goalText: String {
+        let goal = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
+        switch challenge.challenge.challengeType {
+        case .workoutCount:
+            return "\(goal) workouts"
+        case .totalVolume:
+            return "\(goal / 1000)K kg"
+        case .streak:
+            return "\(goal) days"
+        case .specificExercise:
+            return "\(goal) reps"
+        case .custom:
+            return challenge.challenge.goalMetric
         }
     }
 
@@ -732,13 +752,15 @@ struct PresetChallengeCard: View {
             }
 
             HStack {
-                Text("View Challenge")
+                Text("Start Challenge")
                     .dsFont(.caption, weight: .bold)
                     .foregroundStyle(DS.Semantic.brand)
 
-                Image(systemName: "chevron.right")
-                    .dsFont(.caption2)
-                    .foregroundStyle(DS.Semantic.brand)
+                ChallengeAssetIcon(
+                    asset: "angular-chevron-right-icon",
+                    size: 14,
+                    color: DS.Semantic.brand
+                )
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
         }

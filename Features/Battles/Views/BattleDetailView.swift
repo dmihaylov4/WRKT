@@ -125,7 +125,8 @@ struct BattleDetailView: View {
                     subtitle: "Your score",
                     score: formatScore(viewModel.getCurrentUserScore(for: battle)),
                     unit: scoreUnit,
-                    isLeading: isCurrentUserLeading
+                    isLeading: isCurrentUserLeading,
+                    isTied: isTied
                 )
 
                 Text("VS")
@@ -138,7 +139,8 @@ struct BattleDetailView: View {
                     subtitle: opponentName,
                     score: formatScore(viewModel.getOpponentScore(for: battle)),
                     unit: scoreUnit,
-                    isLeading: isOpponentLeading
+                    isLeading: isOpponentLeading,
+                    isTied: isTied
                 )
             }
 
@@ -504,9 +506,13 @@ struct BattleDetailView: View {
         viewModel.getOpponentScore(for: battle) > viewModel.getCurrentUserScore(for: battle)
     }
 
+    private var isTied: Bool {
+        viewModel.getCurrentUserScore(for: battle) == viewModel.getOpponentScore(for: battle)
+    }
+
     private var shouldShowScoreSummary: Bool {
         guard battle.battle.status == .active else { return false }
-        return viewModel.getCurrentUserScore(for: battle) != viewModel.getOpponentScore(for: battle)
+        return true
     }
 
     private var progressTotal: Double {
@@ -518,6 +524,10 @@ struct BattleDetailView: View {
     }
 
     private var scoreSummaryText: String {
+        if isTied {
+            return "Tied"
+        }
+
         let difference = abs(
             viewModel.getCurrentUserScore(for: battle) - viewModel.getOpponentScore(for: battle)
         )
@@ -681,13 +691,14 @@ private struct BattleScorePanel: View {
     let score: String
     let unit: String
     let isLeading: Bool
+    let isTied: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .dsFont(.caption, weight: .bold)
-                    .foregroundStyle(isLeading ? DS.Semantic.brand : DS.Semantic.textPrimary)
+                    .foregroundStyle(isLeading && !isTied ? DS.Semantic.brand : DS.Semantic.textPrimary)
 
                 Text(subtitle)
                     .dsFont(.caption2)
@@ -698,7 +709,7 @@ private struct BattleScorePanel: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(score)
                     .font(DS.Typography.custom(size: 36, weight: .black, relativeTo: .title, monospacedDigits: true))
-                    .foregroundStyle(isLeading ? DS.Semantic.brand : DS.Semantic.textPrimary)
+                    .foregroundStyle(isLeading && !isTied ? DS.Semantic.brand : DS.Semantic.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
 
@@ -707,26 +718,31 @@ private struct BattleScorePanel: View {
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
-            Text(isLeading ? "Leading" : "Score")
+            Text(statusText)
                 .dsFont(.caption2, weight: .bold)
-                .foregroundStyle(isLeading ? DS.Semantic.brand : DS.Semantic.textSecondary)
+                .foregroundStyle(isLeading && !isTied ? DS.Semantic.brand : DS.Semantic.textSecondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(
-                    isLeading ? DS.Semantic.brandSoft : DS.Semantic.surface50,
+                    isLeading && !isTied ? DS.Semantic.brandSoft : DS.Semantic.surface50,
                     in: ChamferedRectangle(.micro)
                 )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(
-            isLeading ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle,
+            isLeading && !isTied ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle,
             in: ChamferedRectangle(.large)
         )
         .overlay(
             ChamferedRectangle(.large)
-                .stroke(isLeading ? DS.Semantic.brand.opacity(0.42) : DS.Semantic.border, lineWidth: 1)
+                .stroke(isLeading && !isTied ? DS.Semantic.brand.opacity(0.42) : DS.Semantic.border, lineWidth: 1)
         )
+    }
+
+    private var statusText: String {
+        if isTied { return "Tied" }
+        return isLeading ? "Leading" : "Score"
     }
 }
 
