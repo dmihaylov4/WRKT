@@ -34,6 +34,13 @@ public struct XPLineItem: Equatable, Identifiable {
     let detail: String?      // e.g., "Bench Press"
 }
 
+struct ChallengeCompletionReward: Equatable, Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    let rewardKind: ChallengeRewardPreviewKind
+}
+
 public struct RewardSummary: Equatable {
     let xp: Int
     let coins: Int
@@ -58,9 +65,38 @@ public struct RewardSummary: Equatable {
     // Barbell plates earned this workout
     let earnedPlates: [EarnedPlateInfo]   // empty array = no plates earned
     let rewardQueue: BarbellRewardPresentationQueue
+    let challengeCompletions: [ChallengeCompletionReward]
 }
 
 extension RewardSummary {
+    static func challengeCompleted(_ challenge: Challenge) -> RewardSummary {
+        RewardSummary(
+            xp: 0,
+            coins: 0,
+            levelUpTo: nil,
+            streakOld: 0,
+            streakNew: 0,
+            hitStreakMilestone: false,
+            unlockedAchievements: [],
+            prCount: 0,
+            newExerciseCount: 0,
+            xpSnapshot: nil,
+            xpLineItems: [],
+            streakFrozen: false,
+            streakBonusXP: 0,
+            earnedPlates: [],
+            rewardQueue: BarbellRewardPresentationQueue(primary: nil, compactEvents: []),
+            challengeCompletions: [
+                ChallengeCompletionReward(
+                    id: challenge.id.uuidString,
+                    title: challenge.title,
+                    subtitle: "Challenge completed",
+                    rewardKind: ChallengeRewardPreviewKind(challenge: challenge)
+                )
+            ]
+        )
+    }
+
     static func voliaSkinUnlocked() -> RewardSummary {
         let event = BarbellRewardEvent(
             id: "cosmetic-volia-\(Date().timeIntervalSince1970)",
@@ -85,7 +121,35 @@ extension RewardSummary {
             streakFrozen: false,
             streakBonusXP: 0,
             earnedPlates: [],
-            rewardQueue: BarbellRewardPresentationQueue(primary: event, compactEvents: [])
+            rewardQueue: BarbellRewardPresentationQueue(primary: event, compactEvents: []),
+            challengeCompletions: []
+        )
+    }
+
+    static func barbellRewards(_ events: [BarbellRewardEvent]) -> RewardSummary {
+        let rewardQueue = BarbellUnlockRules.makePresentationQueue(
+            events: events,
+            occurredAt: events.map(\.occurredAt).max() ?? .now,
+            source: .syncRepair
+        )
+
+        return RewardSummary(
+            xp: 0,
+            coins: 0,
+            levelUpTo: nil,
+            streakOld: 0,
+            streakNew: 0,
+            hitStreakMilestone: false,
+            unlockedAchievements: [],
+            prCount: 0,
+            newExerciseCount: 0,
+            xpSnapshot: nil,
+            xpLineItems: [],
+            streakFrozen: false,
+            streakBonusXP: 0,
+            earnedPlates: events.compactMap(\.plate),
+            rewardQueue: rewardQueue,
+            challengeCompletions: []
         )
     }
 
@@ -98,7 +162,8 @@ extension RewardSummary {
         (streakNew > streakOld) ||
         !unlockedAchievements.isEmpty ||
         !earnedPlates.isEmpty ||
-        rewardQueue.hasEvents
+        rewardQueue.hasEvents ||
+        !challengeCompletions.isEmpty
     }
 
     func merged(with other: RewardSummary) -> RewardSummary {
@@ -146,6 +211,13 @@ extension RewardSummary {
                 events: rewardQueue.allEvents + other.rewardQueue.allEvents,
                 occurredAt: .now,
                 source: .liveWorkoutCompletion
+            ),
+            challengeCompletions: Array(
+                Dictionary(
+                    grouping: challengeCompletions + other.challengeCompletions,
+                    by: \.id
+                )
+                .compactMap { $0.value.first }
             )
         )
     }
@@ -171,6 +243,7 @@ extension RewardSummary {
         self.bonusMultiplier = 1.0
         self.earnedPlates = []
         self.rewardQueue = BarbellRewardPresentationQueue(primary: nil, compactEvents: [])
+        self.challengeCompletions = []
     }
 
     // Full init with XP breakdown (lucky bonus defaults to false)
@@ -178,7 +251,8 @@ extension RewardSummary {
          hitStreakMilestone: Bool, unlockedAchievements: [String], prCount: Int,
          newExerciseCount: Int, xpSnapshot: XPSnapshot?, xpLineItems: [XPLineItem],
          streakFrozen: Bool, streakBonusXP: Int, earnedPlates: [EarnedPlateInfo] = [],
-         rewardQueue: BarbellRewardPresentationQueue = BarbellRewardPresentationQueue(primary: nil, compactEvents: [])) {
+         rewardQueue: BarbellRewardPresentationQueue = BarbellRewardPresentationQueue(primary: nil, compactEvents: []),
+         challengeCompletions: [ChallengeCompletionReward] = []) {
         self.xp = xp
         self.coins = coins
         self.levelUpTo = levelUpTo
@@ -196,11 +270,14 @@ extension RewardSummary {
         self.bonusMultiplier = 1.0
         self.earnedPlates = earnedPlates
         self.rewardQueue = rewardQueue
+        self.challengeCompletions = challengeCompletions
     }
 
 
     /// Apply lucky bonus calculation (12% chance)
     func withLuckyBonusCheck() -> RewardSummary {
+        guard xp > 0 else { return self }
+
         // 12% chance of bonus
         guard Double.random(in: 0...1) < 0.12 else { return self }
 
@@ -253,7 +330,8 @@ extension RewardSummary {
             gotLuckyBonus: true,
             bonusMultiplier: multiplier,
             earnedPlates: earnedPlates,
-            rewardQueue: rewardQueue
+            rewardQueue: rewardQueue,
+            challengeCompletions: challengeCompletions
         )
     }
 }

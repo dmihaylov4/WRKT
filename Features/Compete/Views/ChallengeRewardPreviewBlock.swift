@@ -30,7 +30,7 @@ struct ChallengeRewardPreviewBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Reward")
-                .font(.system(size: 18, weight: .black))
+                .dsFont(.title3, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
             content
@@ -60,18 +60,18 @@ struct ChallengeRewardPreviewBlock: View {
                     .frame(width: 120, height: 40)
 
                 Text(skin.name)
-                    .font(.system(size: 15, weight: .black))
+                    .dsFont(.subheadline, weight: .black)
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
             }
 
             Text("Exclusive bar skin")
-                .font(.system(size: 12, weight: .bold))
+                .dsFont(.caption, weight: .bold)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("+200 XP")
-                .font(.system(size: 12, weight: .black))
+                .dsFont(.caption, weight: .black)
                 .foregroundStyle(DS.Semantic.brand)
         }
         .frame(maxWidth: .infinity)
@@ -92,17 +92,17 @@ struct ChallengeRewardPreviewBlock: View {
             .clipped()
 
             Text(tier?.name ?? "Heat Forge")
-                .font(.system(size: 15, weight: .black))
+                .dsFont(.subheadline, weight: .black)
                 .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.82)
 
             Text("20 kg")
-                .font(.system(size: 12, weight: .bold))
+                .dsFont(.caption, weight: .bold)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
             Text("+200 XP")
-                .font(.system(size: 12, weight: .black))
+                .dsFont(.caption, weight: .black)
                 .foregroundStyle(DS.Semantic.brand)
         }
         .frame(maxWidth: .infinity)

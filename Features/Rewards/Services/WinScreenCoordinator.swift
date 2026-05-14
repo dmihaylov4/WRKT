@@ -54,7 +54,10 @@ final class WinScreenCoordinator: ObservableObject {
             AppLogger.info("LUCKY BONUS! \(finalSummary.bonusMultiplier)x multiplier applied!", category: AppLogger.rewards)
         }
 
-        if summary == nil {
+        if var current = summary, currentWorkout != nil {
+            current = current.merged(with: finalSummary)
+            summary = current
+        } else if summary == nil {
             summary = finalSummary
         } else if queue.last != finalSummary {
             queue.append(finalSummary)

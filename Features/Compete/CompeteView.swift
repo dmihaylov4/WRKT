@@ -132,7 +132,8 @@ struct OverviewSection: View {
             if challengesVM == nil {
                 let cvm = ChallengesViewModel(
                     challengeRepository: deps.challengeRepository,
-                    authService: deps.authService
+                    authService: deps.authService,
+                    workoutStore: deps.workoutStore
                 )
                 challengesVM = cvm
                 await cvm.onAppear()
@@ -309,24 +310,30 @@ struct CompeteStatTile: View {
 
     var body: some View {
         let shape = SingleChamferedRectangle(corner: gridPosition.chamferCorner, .large)
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .dsFont(.title2)
-                .foregroundStyle(color)
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 4, height: 38)
 
-            Text(value)
-                .dsFont(.title, weight: .bold)
-                .foregroundStyle(DS.Semantic.textPrimary)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(label)
+                    .dsFont(.caption2, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
 
-            Text(label)
-                .dsFont(.caption)
-                .foregroundStyle(DS.Semantic.textSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
+                Text(value)
+                    .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .background(DS.Semantic.card)
         .clipShape(shape)
         .overlay(shape.stroke(DS.Semantic.border, lineWidth: 1))

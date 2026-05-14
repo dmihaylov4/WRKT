@@ -165,7 +165,8 @@ struct FeedView: View {
                 challenge: challenge,
                 viewModel: ChallengesViewModel(
                     challengeRepository: deps.challengeRepository,
-                    authService: deps.authService
+                    authService: deps.authService,
+                    workoutStore: deps.workoutStore
                 )
             )
             .onDisappear {
@@ -447,10 +448,27 @@ struct FeedView: View {
     }
 
     private func loadActiveChallenges() async -> [ChallengeWithProgress] {
+        guard let userId = deps.authService.currentUser?.id else {
+            return []
+        }
+
         do {
-            // Fetch user's active challenges (participating only)
-            let allChallenges = try await deps.challengeRepository.fetchActivePublicChallenges()
-            let participating = allChallenges.filter { $0.isParticipating }
+            if deps.workoutStore.isStorageLoaded == false {
+                try? await deps.workoutStore.reloadWorkouts()
+            }
+
+            let userChallenges = try await deps.challengeRepository.fetchUserChallenges(userId: userId)
+            let completedWorkouts = deps.workoutStore.completedWorkouts
+            let participating = userChallenges
+                .filter { $0.isParticipating && !$0.isCompleted && $0.challenge.isActive }
+                .map { challenge in
+                    if challenge.shouldCompleteFirstRep(from: completedWorkouts) {
+                        return challenge.completedFirstRepFromWorkoutHistory()
+                    }
+                    return challenge
+                }
+                .filter { !$0.isCompleted }
+
             // Limit to first 3 for the arena
             let limited = Array(participating.prefix(3))
             return limited

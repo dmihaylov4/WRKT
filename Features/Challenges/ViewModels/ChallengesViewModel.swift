@@ -26,12 +26,18 @@ final class ChallengesViewModel {
     // MARK: - Dependencies
     private let challengeRepository: ChallengeRepository
     private let authService: SupabaseAuthService
+    private weak var workoutStore: WorkoutStoreV2?
     private let errorHandler = ErrorHandler.shared
 
     // MARK: - Initialization
-    init(challengeRepository: ChallengeRepository, authService: SupabaseAuthService) {
+    init(
+        challengeRepository: ChallengeRepository,
+        authService: SupabaseAuthService,
+        workoutStore: WorkoutStoreV2? = nil
+    ) {
         self.challengeRepository = challengeRepository
         self.authService = authService
+        self.workoutStore = workoutStore
     }
 
     // MARK: - Lifecycle
@@ -80,14 +86,17 @@ final class ChallengesViewModel {
             // Load user's challenges (active and completed)
             let userChallenges = try await challengeRepository.fetchUserChallenges(userId: userId)
 
-            // Separate active and completed
-            activeChallenges = userChallenges.filter { $0.challenge.isActive }
-            completedChallenges = userChallenges.filter { $0.challenge.isCompleted }
+            // Separate participant state from challenge schedule state. Evergreen preset
+            // challenges can stay active after the current user has completed them.
+            activeChallenges = userChallenges.filter { $0.challenge.isActive && !$0.isCompleted }
+            completedChallenges = userChallenges.filter { $0.isCompleted }
+
+            await repairFirstRepProgressFromWorkoutHistory()
 
             // Load available public challenges (excluding ones user is already in)
-            let activeIds = Set(activeChallenges.map { $0.challenge.id })
+            let joinedChallengeIds = Set(userChallenges.map { $0.challenge.id })
             let allAvailable = try await challengeRepository.fetchActivePublicChallenges()
-            availableChallenges = allAvailable.filter { !activeIds.contains($0.challenge.id) }
+            availableChallenges = allAvailable.filter { !joinedChallengeIds.contains($0.challenge.id) }
 
             error = nil
             isLoading = false
@@ -96,6 +105,26 @@ final class ChallengesViewModel {
             self.error = errorHandler.handleError(error, context: .challenges)
             isLoading = false
             Haptics.error()
+        }
+    }
+
+    private func repairFirstRepProgressFromWorkoutHistory() async {
+        if workoutStore?.isStorageLoaded == false {
+            try? await workoutStore?.reloadWorkouts()
+        }
+        guard let completedWorkouts = workoutStore?.completedWorkouts, !completedWorkouts.isEmpty else { return }
+        guard let firstRep = activeChallenges.first(where: {
+            $0.challenge.isFirstRepChallenge && !$0.isCompleted
+        }) else { return }
+        guard firstRep.shouldCompleteFirstRep(from: completedWorkouts) else { return }
+
+        // Update local display state only — the DB write and win screen happen exclusively
+        // via updateChallengeProgress (workout completion path). Writing to the DB here
+        // races against that background task and causes it to skip the win screen.
+        let locallyCompleted = firstRep.completedFirstRepFromWorkoutHistory()
+        activeChallenges.removeAll { $0.id == firstRep.id }
+        if !completedChallenges.contains(where: { $0.id == firstRep.id }) {
+            completedChallenges.append(locallyCompleted)
         }
     }
 
@@ -114,6 +143,8 @@ final class ChallengesViewModel {
             )
             return
         }
+
+        guard !isUserInChallenge(challenge) else { return }
 
         do {
             // Join the challenge
@@ -165,6 +196,25 @@ final class ChallengesViewModel {
         }
     }
 
+    func deleteCompletedChallengesForRetest() async {
+        let completed = completedChallenges
+        guard !completed.isEmpty else { return }
+
+        do {
+            for item in completed {
+                try await challengeRepository.leaveChallenge(item.challenge)
+            }
+
+            completedChallenges.removeAll()
+            await loadChallenges()
+            Haptics.soft()
+        } catch {
+            self.error = errorHandler.handleError(error, context: .challenges)
+            Haptics.error()
+            await loadChallenges()
+        }
+    }
+
     func createChallengeFromPreset(_ preset: PresetChallenge) async {
         guard let userId = authService.currentUser?.id else {
             error = UserFriendlyError(
@@ -204,6 +254,33 @@ final class ChallengesViewModel {
             self.error = errorHandler.handleError(error, context: .challenges)
             Haptics.error()
         }
+    }
+
+    func openOrCreateChallengeFromPreset(_ preset: PresetChallenge) async {
+        // Refresh first so active list is current
+        await loadChallenges()
+
+        // Already active — open that instance
+        if let active = activeChallenges.first(where: { $0.challenge.title == preset.title }) {
+            openChallengeDetail(active)
+            return
+        }
+
+        // Shared seeded challenge exists — open it
+        if let seeded = availableChallenges.first(where: {
+            $0.challenge.title == preset.title && $0.challenge.isPreset
+        }) {
+            openChallengeDetail(seeded)
+            return
+        }
+
+        // Any other existing public instance — open it
+        if let existing = availableChallenges.first(where: { $0.challenge.title == preset.title }) {
+            openChallengeDetail(existing)
+            return
+        }
+
+        // Not found — challenge not yet seeded in Supabase. No-op.
     }
 
     // MARK: - Navigation

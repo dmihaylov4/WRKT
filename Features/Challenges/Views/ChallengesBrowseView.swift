@@ -18,7 +18,7 @@ struct ChallengesBrowseView: View {
 
     private enum Layout {
         static let standardVerticalPadding: CGFloat = 8
-        static let browseBottomPadding: CGFloat = 24
+        static let browseBottomPadding: CGFloat = 96
         static let activeCompletedBottomNavigationClearance: CGFloat = 96
     }
 
@@ -34,7 +34,8 @@ struct ChallengesBrowseView: View {
             if viewModel == nil {
                 let vm = ChallengesViewModel(
                     challengeRepository: deps.challengeRepository,
-                    authService: deps.authService
+                    authService: deps.authService,
+                    workoutStore: deps.workoutStore
                 )
                 viewModel = vm
                 await vm.onAppear()
@@ -47,7 +48,6 @@ struct ChallengesBrowseView: View {
         @Bindable var bindableVM = viewModel
 
         VStack(spacing: 0) {
-            // Tab selector
             tabPicker
 
             ScrollView {
@@ -70,15 +70,16 @@ struct ChallengesBrowseView: View {
             }
         }
         .background(DS.Semantic.surface.ignoresSafeArea())
-        .sheet(isPresented: $bindableVM.showChallengeDetail, onDismiss: {
-            // Refresh challenges when detail view is dismissed
-            Task {
-                await viewModel.refresh()
+        .sheet(
+            item: Binding(
+                get: { viewModel.selectedChallenge },
+                set: { _ in viewModel.closeChallengeDetail() }
+            ),
+            onDismiss: {
+                Task { await viewModel.refresh() }
             }
-        }) {
-            if let challenge = viewModel.selectedChallenge {
-                ChallengeDetailView(challenge: challenge, viewModel: viewModel)
-            }
+        ) { challenge in
+            ChallengeDetailView(challenge: challenge, viewModel: viewModel)
         }
         .alert(item: $bindableVM.error) { error in
             Alert(
@@ -181,7 +182,7 @@ struct ChallengesBrowseView: View {
                 ForEach(viewModel.getFeaturedChallenges(), id: \.title) { preset in
                     PresetChallengeCard(
                         preset: preset,
-                        onJoin: { await viewModel.createChallengeFromPreset(preset) }
+                        onTap: { await viewModel.openOrCreateChallengeFromPreset(preset) }
                     )
                 }
             }
@@ -223,6 +224,22 @@ struct ChallengesBrowseView: View {
         } else if viewModel.completedChallenges.isEmpty {
             emptyCompletedState(viewModel: viewModel)
         } else {
+            Button {
+                Task { await viewModel.deleteCompletedChallengesForRetest() }
+            } label: {
+                Text("Delete Completed Challenges")
+                    .dsFont(.subheadline, weight: .bold)
+                    .foregroundStyle(DS.Status.error)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(DS.Status.error.opacity(0.12), in: ChamferedRectangle(.large))
+                    .overlay(
+                        ChamferedRectangle(.large)
+                            .stroke(DS.Status.error.opacity(0.45), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+
             ForEach(viewModel.completedChallenges) { challenge in
                 ChallengeCard(
                     challenge: challenge,
@@ -285,7 +302,7 @@ struct ChallengesBrowseView: View {
                 ForEach(viewModel.getFeaturedChallenges().prefix(3), id: \.title) { preset in
                     PresetChallengeCard(
                         preset: preset,
-                        onJoin: { await viewModel.createChallengeFromPreset(preset) }
+                        onTap: { await viewModel.openOrCreateChallengeFromPreset(preset) }
                     )
                 }
             }
@@ -365,7 +382,7 @@ struct ChallengesBrowseView: View {
                 ForEach(viewModel.getFeaturedChallenges().prefix(3), id: \.title) { preset in
                     PresetChallengeCard(
                         preset: preset,
-                        onJoin: { await viewModel.createChallengeFromPreset(preset) }
+                        onTap: { await viewModel.openOrCreateChallengeFromPreset(preset) }
                     )
                 }
             }
@@ -569,42 +586,25 @@ struct ChallengeCard: View {
                     Spacer()
 
                     let daysRemaining = challenge.challenge.daysRemaining
-                    if daysRemaining > 0 {
+                    if daysRemaining > 0 || challenge.challenge.isEvergreen {
                         ChallengeMetaPill(
                             asset: "challenge-clock-icon",
-                            text: "\(daysRemaining) \(daysRemaining == 1 ? "day" : "days") left"
+                            text: challenge.challenge.daysRemainingDisplay
                         )
                     }
                 }
 
-                // Action button
-                if let onAction = onAction {
-                    Button {
-                        Task {
-                            isProcessing = true
-                            await onAction()
-                            isProcessing = false
-                        }
-                    } label: {
-                        HStack {
-                            if isProcessing {
-                                ProgressView()
-                                    .tint(isActive ? .white : .black)
-                            } else {
-                                Text(isActive ? "Leave Challenge" : "Join Challenge")
-                            }
-                        }
-                        .dsFont(.subheadline, weight: .bold)
-                        .foregroundStyle(isActive ? DS.Semantic.textPrimary : .black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            isActive ? DS.Semantic.surface50 : DS.Semantic.brand,
-                            in: ChamferedRectangle(.medium)
-                        )
-                    }
-                    .disabled(isProcessing)
+                // Tap indicator
+                HStack {
+                    Text(isActive ? "View Progress" : "View Challenge")
+                        .dsFont(.caption, weight: .bold)
+                        .foregroundStyle(DS.Semantic.brand)
+
+                    Image(systemName: "chevron.right")
+                        .dsFont(.caption2)
+                        .foregroundStyle(DS.Semantic.brand)
                 }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(16)
             .background(DS.Semantic.card, in: ChamferedRectangle(.large))
@@ -698,11 +698,12 @@ struct ChallengeCard: View {
 // MARK: - Preset Challenge Card
 struct PresetChallengeCard: View {
     let preset: PresetChallenge
-    let onJoin: () async -> Void
-
-    @State private var isJoining = false
+    let onTap: () async -> Void
 
     var body: some View {
+        Button {
+            Task { await onTap() }
+        } label: {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(preset.title)
@@ -730,28 +731,16 @@ struct PresetChallengeCard: View {
                     .background(difficultyBackgroundColor, in: ChamferedRectangle(.small))
             }
 
-            Button {
-                Task {
-                    isJoining = true
-                    await onJoin()
-                    isJoining = false
-                }
-            } label: {
-                HStack {
-                    if isJoining {
-                        ProgressView()
-                            .tint(.black)
-                    } else {
-                        Text("Join Challenge")
-                    }
-                }
-                .dsFont(.subheadline, weight: .bold)
-                .foregroundStyle(.black)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(DS.Semantic.brand, in: ChamferedRectangle(.medium))
+            HStack {
+                Text("View Challenge")
+                    .dsFont(.caption, weight: .bold)
+                    .foregroundStyle(DS.Semantic.brand)
+
+                Image(systemName: "chevron.right")
+                    .dsFont(.caption2)
+                    .foregroundStyle(DS.Semantic.brand)
             }
-            .disabled(isJoining)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(16)
         .background(DS.Semantic.card, in: ChamferedRectangle(.large))
@@ -759,6 +748,9 @@ struct PresetChallengeCard: View {
             ChamferedRectangle(.large)
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
+        .contentShape(ChamferedRectangle(.large))
+        }
+        .buttonStyle(.plain)
     }
 
     private var difficultyBackgroundColor: Color {

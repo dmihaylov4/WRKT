@@ -57,7 +57,7 @@ struct Challenge: Codable, Identifiable, Sendable, Hashable {
     let goalValue: Decimal
     let startDate: Date
     let endDate: Date
-    let creatorId: UUID
+    let creatorId: UUID?
     var isPublic: Bool
     var isPreset: Bool
     var difficulty: ChallengeDifficulty?
@@ -147,6 +147,14 @@ struct Challenge: Codable, Identifiable, Sendable, Hashable {
     var isFirstRepChallenge: Bool {
         isPreset && challengeType == .workoutCount && goalValue == 1
     }
+
+    var isEvergreen: Bool {
+        isPreset && daysRemaining > 365
+    }
+
+    var daysRemainingDisplay: String {
+        isEvergreen ? "Ongoing" : "\(daysRemaining) days left"
+    }
 }
 
 // MARK: - Challenge Participant
@@ -210,6 +218,31 @@ struct ChallengeWithProgress: Identifiable, Sendable, Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+
+    func completedFirstRepFromWorkoutHistory(completedAt: Date = Date()) -> ChallengeWithProgress {
+        guard challenge.isFirstRepChallenge, var participation else { return self }
+
+        participation.currentProgress = max(participation.currentProgress, Decimal(1))
+        participation.progressPercentage = 100
+        participation.completed = true
+        participation.completionDate = participation.completionDate ?? completedAt
+        participation.lastActivityDate = completedAt
+
+        return ChallengeWithProgress(
+            id: id,
+            challenge: challenge,
+            participation: participation,
+            topParticipants: topParticipants
+        )
+    }
+
+    func shouldCompleteFirstRep(from workouts: [CompletedWorkout]) -> Bool {
+        guard challenge.isFirstRepChallenge, let participation, !participation.completed else {
+            return false
+        }
+
+        return workouts.contains { $0.date >= participation.joinedAt }
     }
 }
 

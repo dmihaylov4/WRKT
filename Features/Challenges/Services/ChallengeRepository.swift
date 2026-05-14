@@ -279,6 +279,54 @@ final class ChallengeRepository: Sendable {
             .execute()
     }
 
+    func completeFirstRepChallenge(_ challenge: Challenge, participation: ChallengeParticipant) async throws {
+        guard let userId = authService.currentUser?.id else {
+            throw SupabaseError.notAuthenticated
+        }
+
+        guard challenge.isFirstRepChallenge, participation.userId == userId, !participation.completed else {
+            return
+        }
+
+        struct FirstRepCompletionUpdate: Encodable {
+            let current_progress: Decimal
+            let progress_percentage: Int
+            let completed: Bool
+            let completion_date: Date
+            let last_activity_date: Date
+        }
+
+        let completionDate = Date()
+        try await supabase.database
+            .from("challenge_participants")
+            .update(FirstRepCompletionUpdate(
+                current_progress: max(participation.currentProgress, Decimal(1)),
+                progress_percentage: 100,
+                completed: true,
+                completion_date: participation.completionDate ?? completionDate,
+                last_activity_date: completionDate
+            ))
+            .eq("id", value: participation.id)
+            .execute()
+
+        do {
+            try await logActivity(
+                challengeId: challenge.id,
+                userId: userId,
+                activityType: .completed,
+                activityData: nil
+            )
+        } catch {
+            AppLogger.warning("First Rep completion activity log failed: \(error.localizedDescription)", category: AppLogger.challenges)
+        }
+
+        let didUnlockVolia = await BarbellCustomizationService.shared.unlockSkin(id: "volia")
+        WinScreenCoordinator.shared.enqueue(.challengeCompleted(challenge))
+        if didUnlockVolia {
+            await WinScreenCoordinator.shared.enqueue(.voliaSkinUnlocked())
+        }
+    }
+
     // MARK: - Progress Updates
 
     /// Calculate and update user's progress for all active challenges after a workout
@@ -403,9 +451,13 @@ final class ChallengeRepository: Sendable {
                         activityData: nil
                     )
 
+                    WinScreenCoordinator.shared.enqueue(.challengeCompleted(challenge))
+
                     if challenge.isFirstRepChallenge {
-                        await BarbellCustomizationService.shared.unlockSkin(id: "volia")
-                        await WinScreenCoordinator.shared.enqueue(.voliaSkinUnlocked())
+                        let didUnlockVolia = await BarbellCustomizationService.shared.unlockSkin(id: "volia")
+                        if didUnlockVolia {
+                            await WinScreenCoordinator.shared.enqueue(.voliaSkinUnlocked())
+                        }
                     }
                 }
             }

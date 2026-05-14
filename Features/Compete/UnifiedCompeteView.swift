@@ -83,7 +83,8 @@ struct UnifiedCompeteView: View {
             if challengesVM == nil {
                 let cvm = ChallengesViewModel(
                     challengeRepository: deps.challengeRepository,
-                    authService: deps.authService
+                    authService: deps.authService,
+                    workoutStore: deps.workoutStore
                 )
                 challengesVM = cvm
                 await cvm.onAppear()
@@ -134,7 +135,7 @@ struct UnifiedCompeteView: View {
         LazyVGrid(columns: [
             GridItem(.flexible()),
             GridItem(.flexible())
-        ], spacing: 12) {
+        ], spacing: 8) {
             let activeChallengesCount = challengesVM?.activeChallenges.count ?? 0
             let activeBattlesCount = battlesVM?.activeBattles.count ?? 0
             let completedChallengesCount = challengesVM?.completedChallenges.count ?? 0
@@ -298,7 +299,9 @@ struct UnifiedCompeteView: View {
             VStack(spacing: 8) {
                 // Show completed challenges
                 ForEach(challengesVM.completedChallenges.prefix(2)) { challenge in
-                    CompletedChallengeCard(challenge: challenge)
+                    CompletedChallengeCard(challenge: challenge, onTap: {
+                        challengesVM.openChallengeDetail(challenge)
+                    })
                 }
 
                 // Show completed battles
@@ -365,16 +368,13 @@ struct LargeBattleCard: View {
         Button {
             viewModel.openBattleDetail(battle)
         } label: {
-            VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Image(systemName: battle.battle.battleType.icon)
-                        .dsFont(.title3)
-                        .foregroundStyle(DS.Semantic.brand)
-
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 10) {
                     Text(battle.battle.battleType.displayName)
                         .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.82)
 
                     Spacer()
 
@@ -384,54 +384,57 @@ struct LargeBattleCard: View {
                         liftTypeID: nil,
                         weightKg: 35
                     )
-                    .frame(width: 40, height: 40)
+                    .frame(width: 28, height: 28)
                     .clipped()
                 }
 
-                // Score comparison
-                HStack(spacing: 20) {
-                    VStack(spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text("You")
-                            .dsFont(.caption)
+                            .dsFont(.caption2, weight: .bold)
                             .foregroundStyle(DS.Semantic.textSecondary)
 
                         Text(formatScore(viewModel.getCurrentUserScore(for: battle)))
-                            .dsFont(.title2, weight: .bold)
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(viewModel.isCurrentUserWinning(for: battle) ? DS.Semantic.success : DS.Semantic.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text("VS")
-                        .dsFont(.caption, weight: .bold)
-                        .foregroundStyle(DS.Semantic.textPrimary)
+                        .dsFont(.caption2, weight: .bold)
+                        .foregroundStyle(DS.Semantic.textSecondary)
 
-                    VStack(spacing: 4) {
+                    VStack(alignment: .trailing, spacing: 2) {
                         Text(battle.opponentProfile.username)
-                            .dsFont(.caption)
+                            .dsFont(.caption2, weight: .bold)
                             .foregroundStyle(DS.Semantic.textSecondary)
+                            .lineLimit(1)
 
                         Text(formatScore(viewModel.getOpponentScore(for: battle)))
-                            .dsFont(.title2, weight: .bold)
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
                             .foregroundStyle(!viewModel.isCurrentUserWinning(for: battle) ? DS.Semantic.warning : DS.Semantic.textPrimary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
                 }
 
-                // Days remaining
-                HStack {
-                    Image(systemName: "clock")
-                        .dsFont(.caption)
+                HStack(spacing: 8) {
                     Text("\(battle.battle.daysRemaining) days left")
-                        .dsFont(.caption)
+                        .dsFont(.caption, weight: .bold)
                     Spacer()
                     if viewModel.isCurrentUserWinning(for: battle) {
-                        Label("Winning", systemImage: "crown.fill")
+                        Text("Winning")
                             .dsFont(.caption, weight: .bold)
                             .foregroundStyle(DS.Semantic.success)
                     }
                 }
                 .foregroundStyle(DS.Semantic.textSecondary)
             }
-            .padding(16)
-            .frame(width: 280)
+            .padding(14)
+            .frame(width: 260, height: 138)
             .background(
                 viewModel.isCurrentUserWinning(for: battle)
                     ? DS.Semantic.brandSoft
@@ -469,63 +472,46 @@ struct LargeChallengeCard: View {
         Button {
             viewModel.openChallengeDetail(challenge)
         } label: {
-            VStack(spacing: 16) {
-                // Header
-                HStack {
-                    Image(challengeIconName)
-                        .renderingMode(.template)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 20, height: 20)
-                        .foregroundStyle(DS.Semantic.brand)
-
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 10) {
                     Text(challenge.challenge.title)
                         .dsFont(.headline)
                         .foregroundStyle(DS.Semantic.textPrimary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Spacer()
+
+                    rewardBadge
                 }
 
-                // Progress circle
-                ZStack {
-                    Circle()
-                        .stroke(DS.Semantic.surface50, lineWidth: 12)
-                        .frame(width: 100, height: 100)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("\(challenge.userProgressPercentage)%")
+                            .dsFont(.title2, weight: .bold, monospacedDigits: true)
+                            .foregroundStyle(DS.Semantic.brand)
+                        Spacer()
+                        Text("Complete")
+                            .dsFont(.caption)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
 
-                    Circle()
-                        .trim(from: 0, to: CGFloat(challenge.userProgressPercentage) / 100)
-                        .stroke(
-                            LinearGradient(
-                                colors: [DS.Semantic.brand, DS.Semantic.brand.opacity(0.6)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            style: StrokeStyle(lineWidth: 12, lineCap: .round)
-                        )
-                        .frame(width: 100, height: 100)
-                        .rotationEffect(.degrees(-90))
+                    ProgressView(value: Double(challenge.userProgressPercentage), total: 100)
+                        .tint(DS.Semantic.brand)
                         .animation(.spring(duration: 0.6), value: challenge.userProgressPercentage)
-
-                    Text("\(challenge.userProgressPercentage)%")
-                        .dsFont(.title2, weight: .bold)
-                        .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
-                // Days remaining
-                HStack {
-                    Image(systemName: "clock")
-                        .dsFont(.caption)
-                    Text("\(challenge.challenge.daysRemaining) days left")
-                        .dsFont(.caption)
+                HStack(spacing: 8) {
+                    Text(challenge.challenge.daysRemainingDisplay)
+                        .dsFont(.caption, weight: .bold)
                     Spacer()
                     Text("\(challenge.challenge.participantCount) competing")
                         .dsFont(.caption)
                 }
                 .foregroundStyle(DS.Semantic.textSecondary)
             }
-            .padding(16)
-            .frame(width: 280)
+            .padding(14)
+            .frame(width: 260, height: 138)
             .background(DS.Semantic.card)
             .clipShape(ChamferedRectangle(.xl))
             .overlay(
@@ -536,18 +522,30 @@ struct LargeChallengeCard: View {
         .buttonStyle(.plain)
     }
 
-    private var challengeIconName: String {
-        switch challenge.challenge.challengeType {
-        case .streak:
-            return "streak-icon"
-        case .workoutCount:
-            return "battle-workout-count-icon"
-        case .totalVolume:
-            return "battle-volume-icon"
-        case .specificExercise:
-            return "battle-consistency-icon"
-        case .custom:
-            return "challenge-browse-icon"
+    @ViewBuilder
+    private var rewardBadge: some View {
+        switch ChallengeRewardPreviewKind(challenge: challenge.challenge) {
+        case .firstRepBarSkin:
+            if let skin = BarSkin.skin(forCosmeticID: "volia") {
+                BarSkinPreviewTile(skin: skin)
+                    .frame(width: 48, height: 16)
+            }
+        case .conditioningPlate:
+            PlateFaceView(
+                tierID: 24,
+                progressionTier: .iron,
+                liftTypeID: nil,
+                weightKg: 20
+            )
+            .frame(width: 28, height: 28)
+            .clipped()
+        case .none:
+            Image("angular-chevron-right-icon")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 18, height: 18)
+                .foregroundStyle(DS.Semantic.textSecondary)
         }
     }
 }
@@ -677,32 +675,69 @@ struct RecommendedChallengeCard: View {
 
 struct CompletedChallengeCard: View {
     let challenge: ChallengeWithProgress
+    let onTap: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.seal.fill")
-                .dsFont(.title3)
-                .foregroundStyle(DS.Status.success)
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                rewardPreview
+                    .frame(width: 66, height: 44)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(challenge.challenge.title)
-                    .dsFont(.subheadline, weight: .bold)
-                    .foregroundStyle(DS.Semantic.textPrimary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(challenge.challenge.title)
+                        .dsFont(.subheadline, weight: .bold)
+                        .foregroundStyle(DS.Semantic.textPrimary)
 
-                Text("Completed • \(challenge.userProgressPercentage)%")
-                    .dsFont(.caption)
+                    Text("Completed • \(challenge.userProgressPercentage)%")
+                        .dsFont(.caption)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                }
+
+                Spacer(minLength: 8)
+
+                Image("angular-chevron-right-icon")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
-
-            Spacer()
+            .padding(12)
+            .background(DS.Status.success.opacity(0.1))
+            .clipShape(ChamferedRectangle(.large))
+            .overlay(
+                ChamferedRectangle(.large)
+                    .stroke(DS.Status.success.opacity(0.3), lineWidth: 1)
+            )
         }
-        .padding(12)
-        .background(DS.Status.success.opacity(0.1))
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(
-            ChamferedRectangle(.large)
-                .stroke(DS.Status.success.opacity(0.3), lineWidth: 1)
-        )
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var rewardPreview: some View {
+        switch ChallengeRewardPreviewKind(challenge: challenge.challenge) {
+        case .firstRepBarSkin:
+            if let skin = BarSkin.skin(forCosmeticID: "volia") {
+                BarSkinPreviewTile(skin: skin)
+                    .frame(width: 66, height: 22)
+            }
+        case .conditioningPlate:
+            PlateFaceView(
+                tierID: 24,
+                progressionTier: .iron,
+                liftTypeID: nil,
+                weightKg: 20
+            )
+            .frame(width: 44, height: 44)
+            .clipped()
+        case .none:
+            Image("challenge-completed-icon")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .foregroundStyle(DS.Status.success)
+        }
     }
 }
 

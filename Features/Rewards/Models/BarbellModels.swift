@@ -387,6 +387,7 @@ enum BarbellCustomizationDefaults {
         case "black_oxide": return 1
         case "gold", "brass_accent", "may_2026_brass_accent": return 2
         case "cerakote": return 3
+        case "volia": return 4
         default: return 0
         }
     }

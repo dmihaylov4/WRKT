@@ -515,7 +515,8 @@ struct ChallengeLoaderView: View {
         if viewModel == nil {
             viewModel = ChallengesViewModel(
                 challengeRepository: deps.challengeRepository,
-                authService: deps.authService
+                authService: deps.authService,
+                workoutStore: deps.workoutStore
             )
         }
 

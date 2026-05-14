@@ -12,12 +12,26 @@ struct WorkoutStoreSmartNotificationTests {
         #expect(finishCurrentWorkoutAndReturnPRsBody.contains("refreshSmartNotificationLearningAfterWorkoutCompletion()"))
     }
 
+    @Test func allCurrentWorkoutFinishPathsUpdateCompetitiveFeatures() throws {
+        let source = try String(contentsOfFile: sourcePath("Features/WorkoutSession/Services/WorkoutStoreV2.swift"))
+
+        let finishCurrentWorkoutBody = try functionBody(named: "finishCurrentWorkout", in: source)
+        let finishCurrentWorkoutAndReturnPRsBody = try functionBody(named: "finishCurrentWorkoutAndReturnPRs", in: source)
+
+        #expect(finishCurrentWorkoutBody.contains("updateCompetitiveFeatures(for: completed)"))
+        #expect(finishCurrentWorkoutAndReturnPRsBody.contains("updateCompetitiveFeatures(for: completed)"))
+    }
+
     private func sourcePath(_ relativePath: String) -> String {
-        var url = URL(fileURLWithPath: #filePath)
-        for _ in 0..<3 {
-            url.deleteLastPathComponent()
+        var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while directory.path != "/" {
+            let candidate = directory.appendingPathComponent(relativePath)
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return candidate.path
+            }
+            directory.deleteLastPathComponent()
         }
-        return url.appendingPathComponent(relativePath).path
+        return URL(fileURLWithPath: relativePath).path
     }
 
     private func functionBody(named name: String, in source: String) throws -> String {

@@ -5,28 +5,46 @@ struct MultiWorkoutCarousel: View {
     let workouts: [CompletedWorkout]
     let mapURLs: [URL]
 
-    var body: some View {
-        TabView {
-            WorkoutPostHeroSummaryCard(
-                summary: .make(for: workouts),
-                context: .carousel
-            )
-            .padding(16)
-            .tag(0)
+    @State private var selectedTab: Int = 0
 
-            ForEach(Array(workouts.enumerated()), id: \.element.id) { index, workout in
-                WorkoutSlide(
-                    workout: workout,
-                    mapURL: mapURL(forWorkoutAt: index)
+    private var tabCount: Int { workouts.count + 1 }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            TabView(selection: $selectedTab) {
+                WorkoutPostHeroSummaryCard(
+                    summary: .make(for: workouts),
+                    context: .carousel
                 )
-                .tag(index + 1)
+                .padding(16)
+                .tag(0)
+
+                ForEach(Array(workouts.enumerated()), id: \.element.id) { index, workout in
+                    WorkoutSlide(
+                        workout: workout,
+                        mapURL: mapURL(forWorkoutAt: index)
+                    )
+                    .tag(index + 1)
+                }
+            }
+            .frame(height: 340)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.medium))
+            .clipShape(ChamferedRectangle(.medium))
+            .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+
+            if tabCount > 1 {
+                HStack(spacing: 5) {
+                    ForEach(0..<tabCount, id: \.self) { index in
+                        Capsule()
+                            .fill(index == selectedTab ? DS.tint : Color.secondary.opacity(0.3))
+                            .frame(width: index == selectedTab ? 24 : 8, height: 3)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedTab)
+                    }
+                }
+                .padding(.bottom, 10)
             }
         }
-        .frame(height: 340)
-        .tabViewStyle(.page(indexDisplayMode: .always))
-        .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.medium))
-        .clipShape(ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func mapURL(forWorkoutAt workoutIndex: Int) -> URL? {

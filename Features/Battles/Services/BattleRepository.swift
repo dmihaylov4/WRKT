@@ -340,7 +340,7 @@ final class BattleRepository: Sendable {
         // Update scores for each battle
         for battle in battles {
             if battle.endDate <= Date() {
-                try await completeBattle(battle.id)
+                try await completeBattle(battle.id, sourceWorkoutID: workout.id.uuidString)
                 continue
             }
 
@@ -360,7 +360,7 @@ final class BattleRepository: Sendable {
         }
     }
 
-    func completeBattle(_ battleId: UUID) async throws {
+    func completeBattle(_ battleId: UUID, sourceWorkoutID: String? = nil) async throws {
         guard let userId = authService.currentUser?.id else { return }
 
         let battles: [Battle] = try await supabase.database
@@ -397,14 +397,23 @@ final class BattleRepository: Sendable {
             .eq("id", value: battleId.uuidString)
             .execute()
 
-        let isWinner = winnerId == userId
+        var completedBattle = battle
+        completedBattle.status = .completed
+        completedBattle.winnerId = winnerId
+        await awardCompletionReward(for: completedBattle, userId: userId, sourceWorkoutID: sourceWorkoutID)
+    }
+
+    func awardCompletionReward(for battle: Battle, userId: UUID, sourceWorkoutID: String? = nil) async {
+        guard battle.status == .completed else { return }
+
+        let isWinner = battle.winnerId == userId
         let plateInfo = EarnedPlateInfo(
             tierID: isWinner ? battle.battleType.winnerPlateTierID : battle.battleType.participationPlateTierID,
             weightKg: isWinner ? 35 : 20,
             engravingText: isWinner ? battle.battleType.winnerEngravingText : battle.battleType.displayName,
-            earnedByEvent: "battle_\(battleId.uuidString)"
+            earnedByEvent: "battle_\(battle.id.uuidString)"
         )
-        await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: nil)
+        await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: sourceWorkoutID)
     }
 
     private func calculateBattleScore(

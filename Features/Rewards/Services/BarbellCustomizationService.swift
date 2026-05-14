@@ -47,11 +47,24 @@ final class BarbellCustomizationService {
         return config
     }
 
-    func unlockSkin(id: String) {
+    @discardableResult
+    func unlockSkin(id: String) -> Bool {
         let config = fetchOrCreateConfig()
-        guard !config.unlockedSkinIDs.contains(id) else { return }
+        guard !config.unlockedSkinIDs.contains(id) else { return false }
         config.unlockedSkinIDs.append(id)
         try? context?.save()
+        Task {
+            guard let userID = authService?.currentUser?.id else { return }
+            try? await client
+                .from("barbell_cosmetic_unlocks")
+                .upsert([
+                    "user_id": userID.uuidString,
+                    "cosmetic_id": id,
+                    "source": "challenge"
+                ], onConflict: "user_id,cosmetic_id")
+                .execute()
+        }
+        return true
     }
 
     func pullFromSupabase() async throws {

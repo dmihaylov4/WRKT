@@ -85,6 +85,7 @@ final class BattleViewModel {
             activeBattles = allBattles.filter { $0.battle.isActive }
             pendingBattles = allBattles.filter { $0.battle.isPending }
             completedBattles = allBattles.filter { $0.battle.isCompleted }
+            await awardNewlyCompletedBattleRewards(completedBattles, userId: userId)
 
             error = nil
             isLoading = false
@@ -93,6 +94,12 @@ final class BattleViewModel {
             self.error = errorHandler.handleError(error, context: .battles)
             isLoading = false
             Haptics.error()
+        }
+    }
+
+    private func awardNewlyCompletedBattleRewards(_ battles: [BattleWithParticipants], userId: UUID) async {
+        for battle in battles {
+            await battleRepository.awardCompletionReward(for: battle.battle, userId: userId)
         }
     }
 

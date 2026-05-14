@@ -382,13 +382,13 @@ final class WorkoutStoreV2: ObservableObject {
             plannedWorkoutCompletionHandler?(plannedWorkoutID, completed)
         }
 
+        // Update battles and challenges (non-blocking)
+        updateCompetitiveFeatures(for: completed)
+
         // Update stats
         Task.detached(priority: .utility) { [_stats, completedWorkouts] in
             await _stats?.apply(completed, allWorkouts: completedWorkouts)
         }
-
-        // Update battles and challenges (non-blocking)
-        updateCompetitiveFeatures(for: completed)
 
         // Notify Watch to end HKWorkoutSession
         WatchConnectivityManager.shared.sendEndWatchWorkout()
@@ -1736,6 +1736,9 @@ extension WorkoutStoreV2 {
         if let plannedWorkoutID = completed.plannedWorkoutID {
             plannedWorkoutCompletionHandler?(plannedWorkoutID, completed)
         }
+
+        // Update battles and challenges (non-blocking)
+        updateCompetitiveFeatures(for: completed)
 
         // Update stats
         Task.detached(priority: .utility) { [_stats, completedWorkouts] in

@@ -20,22 +20,34 @@ struct CreateBattleView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 10) {
+            VStack(spacing: 0) {
                 topBar
-                headerSection
-                opponentSection
-                battleTypeSection
-                BattleRewardPreviewBlock(battleType: selectedBattleType)
-                durationSection
-                Spacer(minLength: 0)
-                createBattleButton
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                ScrollView {
+                    VStack(spacing: 10) {
+                        headerSection
+                        opponentSection
+                        battleTypeSection
+                        BattleRewardPreviewBlock(battleType: selectedBattleType)
+                        durationSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                }
+
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 10)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(DS.Semantic.surface.ignoresSafeArea())
             .navigationBarHidden(true)
+            .safeAreaInset(edge: .bottom) {
+                createBattleButton
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(.ultraThinMaterial)
+            }
             .sheet(isPresented: $showFriendPicker) {
                 FriendPickerView(selectedFriend: $selectedFriend)
             }

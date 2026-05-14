@@ -88,6 +88,13 @@ struct BarbellModelsTests {
         #expect(config.barSkinIndex == 2)
     }
 
+    @Test func voliaUsesVoliaBarPreviewSkin() {
+        let config = BarbellConfig()
+        config.selectedBarSkinIDRaw = "volia"
+
+        #expect(config.barSkinIndex == 4)
+    }
+
     @Test func displayLoadoutSanitizationUsesStringPlateIDs() {
         let loadout = DisplayLoadout(
             onBar: ["plate-a", "missing", "plate-a", "plate-b"],

@@ -475,6 +475,25 @@ final class BarbellProgressService {
             try context.save()
             needsWelcomeScreen = true
             syncEarnedPlateAwardsToSupabase(syncPayloads)
+            let events: [BarbellRewardEvent] = syncPayloads.map { payload in
+                let plateInfo = EarnedPlateInfo(
+                    tierID: payload.tierID,
+                    weightKg: payload.weightKg,
+                    engravingText: payload.engravingText,
+                    earnedByEvent: payload.earnedByEvent,
+                    liftTypeID: payload.liftTypeID
+                )
+                return BarbellRewardEvent(
+                    id: "plate_\(payload.earnedByEvent)",
+                    kind: .newPlate,
+                    title: payload.engravingText.isEmpty ? "New plate" : payload.engravingText,
+                    detail: "\(Int(payload.weightKg))kg plate",
+                    occurredAt: payload.earnedAt,
+                    workoutID: sourceWorkoutID,
+                    plate: plateInfo
+                )
+            }
+            WinScreenCoordinator.shared.enqueue(.barbellRewards(events))
         } catch {
             context.rollback()
             AppLogger.error("Failed to award barbell plates", error: error, category: AppLogger.rewards)

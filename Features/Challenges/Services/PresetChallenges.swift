@@ -7,133 +7,115 @@ struct PresetChallenge {
     let goalMetric: String
     let goalValue: Decimal
     let difficulty: ChallengeDifficulty
-    let duration: Int // days
+    let duration: Int
     let icon: String
 }
 
 extension PresetChallenge {
     static let all: [PresetChallenge] = [
-        // MARK: - Workout Count Challenges
-
         PresetChallenge(
             title: "30-Day Warrior",
-            description: "Complete 30 workouts in 30 days. Miss a day? That's okay - just keep going!",
+            description: "Complete 20 workouts in 30 days. That is 5 per week — consistent without being excessive.",
             challengeType: .workoutCount,
             goalMetric: "workouts",
-            goalValue: 30,
+            goalValue: 20,
             difficulty: .intermediate,
             duration: 30,
             icon: "figure.run"
         ),
-
         PresetChallenge(
             title: "Weekend Warrior",
-            description: "Don't skip the weekend! Complete 8 weekend workouts this month.",
+            description: "Work out 6 weekends this month. Two sessions per weekend — build the habit without weekday pressure.",
             challengeType: .workoutCount,
             goalMetric: "workouts",
-            goalValue: 8,
+            goalValue: 6,
             difficulty: .beginner,
             duration: 30,
             icon: "sun.max.fill"
         ),
-
         PresetChallenge(
             title: "21-Day Habit Builder",
-            description: "They say it takes 21 days to form a habit. Complete 21 workouts in 3 weeks!",
+            description: "Complete 12 workouts in 21 days. Four per week — enough to build a real habit.",
             challengeType: .workoutCount,
             goalMetric: "workouts",
-            goalValue: 21,
+            goalValue: 12,
             difficulty: .intermediate,
             duration: 21,
             icon: "calendar.badge.checkmark"
         ),
-
-        // MARK: - Volume Challenges
-
         PresetChallenge(
-            title: "100K Club",
-            description: "Lift 100,000 kg total volume this month. Every rep counts!",
+            title: "50K Club",
+            description: "Lift 50,000 kg total volume this month. Around 12,500 kg per week across all strength workouts.",
             challengeType: .totalVolume,
             goalMetric: "kg",
-            goalValue: 100000,
+            goalValue: 50000,
             difficulty: .advanced,
             duration: 30,
             icon: "scalemass.fill"
         ),
-
         PresetChallenge(
-            title: "Volume Rookie",
-            description: "Build the habit. Lift 25,000 kg this month.",
+            title: "Volume Starter",
+            description: "Lift 15,000 kg total this month. Around 500 kg per workout — achievable in just a few sets.",
             challengeType: .totalVolume,
             goalMetric: "kg",
-            goalValue: 25000,
+            goalValue: 15000,
             difficulty: .beginner,
             duration: 30,
             icon: "scalemass"
         ),
-
         PresetChallenge(
-            title: "50K in 2 Weeks",
-            description: "Quick volume blitz! Lift 50,000 kg in just 14 days.",
+            title: "Volume Builder",
+            description: "Lift 30,000 kg total this month. A solid monthly volume target for consistent strength training.",
             challengeType: .totalVolume,
             goalMetric: "kg",
-            goalValue: 50000,
+            goalValue: 30000,
             difficulty: .intermediate,
-            duration: 14,
+            duration: 30,
             icon: "flame.fill"
         ),
-
-        // MARK: - Exercise-Specific Challenges
-
         PresetChallenge(
-            title: "Pull-Up Master",
-            description: "Complete 100 total pull-ups this week. Break it down however you want!",
+            title: "Pull-Up Progression",
+            description: "Log 50 pull-up reps in 7 days. Around 7 per day — hit it in 2-3 sessions.",
             challengeType: .specificExercise,
             goalMetric: "pull-ups",
-            goalValue: 100,
+            goalValue: 50,
             difficulty: .intermediate,
             duration: 7,
             icon: "figure.climbing"
         ),
-
         PresetChallenge(
-            title: "Push-Up Hero",
-            description: "500 push-ups in 7 days. You got this!",
+            title: "Push-Up Builder",
+            description: "Log 100 push-up reps in 7 days. Around 14 per day — 3 sets of 5 twice a day.",
             challengeType: .specificExercise,
             goalMetric: "push-ups",
-            goalValue: 500,
-            difficulty: .intermediate,
+            goalValue: 100,
+            difficulty: .beginner,
             duration: 7,
             icon: "figure.strengthtraining.traditional"
         ),
-
         PresetChallenge(
-            title: "Squat Squad",
-            description: "1000 total squats this month. Leg day every day!",
+            title: "Squat Month",
+            description: "Log 300 squat reps this month. Around 10 per day — 3 sets of 10 three times a week.",
             challengeType: .specificExercise,
             goalMetric: "squats",
-            goalValue: 1000,
-            difficulty: .advanced,
+            goalValue: 300,
+            difficulty: .intermediate,
             duration: 30,
             icon: "figure.roll"
         ),
-
         PresetChallenge(
-            title: "Bench Press Beast",
-            description: "Hit bench press 50 times this month. Build that chest!",
+            title: "Bench Month",
+            description: "Log 80 bench press reps this month. Around 3 sets of 8, twice a week.",
             challengeType: .specificExercise,
-            goalMetric: "bench press",
-            goalValue: 50,
+            goalMetric: "bench-press",
+            goalValue: 80,
             difficulty: .intermediate,
             duration: 30,
             icon: "dumbbell.fill"
         ),
-
-        // MARK: - Streak Challenges
-
         PresetChallenge(
             title: "7-Day Streak",
-            description: "Build the habit. Work out 7 days in a row.",
+            description: "Work out 7 days in a row. Build the habit.",
             challengeType: .streak,
             goalMetric: "days",
             goalValue: 7,
@@ -141,37 +123,30 @@ extension PresetChallenge {
             duration: 7,
             icon: "flame.fill"
         ),
-
         PresetChallenge(
-            title: "Iron Will",
-            description: "The ultimate test. 21 days straight. No excuses.",
+            title: "14-Day Streak",
+            description: "Work out 14 days in a row. Two full weeks — no rest days.",
             challengeType: .streak,
             goalMetric: "days",
-            goalValue: 21,
+            goalValue: 14,
             difficulty: .advanced,
-            duration: 21,
+            duration: 14,
             icon: "flame.fill"
         ),
     ]
 
-    // Get featured challenges (rotate weekly)
     static var featured: [PresetChallenge] {
         let calendar = Calendar.current
         let weekOfYear = calendar.component(.weekOfYear, from: Date())
-
-        // Rotate featured challenges based on week
         let startIndex = weekOfYear % all.count
         let count = min(3, all.count - startIndex)
-
         return Array(all[startIndex..<(startIndex + count)])
     }
 
-    // Get challenges by difficulty
     static func challenges(forDifficulty difficulty: ChallengeDifficulty) -> [PresetChallenge] {
         all.filter { $0.difficulty == difficulty }
     }
 
-    // Get challenges by type
     static func challenges(forType type: ChallengeType) -> [PresetChallenge] {
         all.filter { $0.challengeType == type }
     }

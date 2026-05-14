@@ -226,6 +226,9 @@
 		2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00122FA0000000000001 /* BarbellRealityView.swift */; };
 		2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00142FA0000000000001 /* PlateFaceView.swift */; };
 		2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00162FA0000000000001 /* PlateVisualDesign.swift */; };
+		2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */; };
+		2EBC10022FA2000000000001 /* BattleRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */; };
+		2EBC10042FA2000000000001 /* ChallengeRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */; };
 		2EBE3EF02EB6578B00A26355 /* CreateCustomSplitCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3EEE2EB6578B00A26355 /* CreateCustomSplitCard.swift */; };
 		2EBE3EF12EB6578B00A26355 /* SplitTemplateCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3EEF2EB6578B00A26355 /* SplitTemplateCard.swift */; };
 		2EBE3EF32EB6579900A26355 /* RestDayOptionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3EF22EB6579900A26355 /* RestDayOptionCard.swift */; };
@@ -277,9 +280,6 @@
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2023A2EF1A04200D6BAEF /* MetricExamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202382EF1A04200D6BAEF /* MetricExamples.swift */; };
-		2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */; };
-		2EBC10022FA2000000000001 /* BattleRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */; };
-		2EBC10042FA2000000000001 /* ChallengeRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
 		2EC2028C2EF2A2D000D6BAEF /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */; };
 		2EC202992EF2A54400D6BAEF /* RecentPRCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028F2EF2A54400D6BAEF /* RecentPRCard.swift */; };
@@ -408,10 +408,10 @@
 		86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414B41C8700743B3B70EF25D /* ExportBundle.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
 		A1F000012FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
-		CAFE001B2FA2000000F00001 /* Fonts in Watch Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 		ABCD1235ABCD1235ABCD1235 /* BarbellCatalogTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */; };
 		ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */; };
 		ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */; };
+		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -701,6 +701,9 @@
 		2EBB00122FA0000000000001 /* BarbellRealityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellRealityView.swift; sourceTree = "<group>"; };
 		2EBB00142FA0000000000001 /* PlateFaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateFaceView.swift; sourceTree = "<group>"; };
 		2EBB00162FA0000000000001 /* PlateVisualDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateVisualDesign.swift; sourceTree = "<group>"; };
+		2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarSkinPreviewTile.swift; sourceTree = "<group>"; };
+		2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleRewardPreviewBlock.swift; sourceTree = "<group>"; };
+		2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeRewardPreviewBlock.swift; sourceTree = "<group>"; };
 		2EBE3EEE2EB6578B00A26355 /* CreateCustomSplitCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateCustomSplitCard.swift; sourceTree = "<group>"; };
 		2EBE3EEF2EB6578B00A26355 /* SplitTemplateCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitTemplateCard.swift; sourceTree = "<group>"; };
 		2EBE3EF22EB6579900A26355 /* RestDayOptionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestDayOptionCard.swift; sourceTree = "<group>"; };
@@ -753,9 +756,6 @@
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202382EF1A04200D6BAEF /* MetricExamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricExamples.swift; sourceTree = "<group>"; };
-		2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarSkinPreviewTile.swift; sourceTree = "<group>"; };
-		2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleRewardPreviewBlock.swift; sourceTree = "<group>"; };
-		2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeRewardPreviewBlock.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationEngine.swift; sourceTree = "<group>"; };
 		2EC2028D2EF2A54400D6BAEF /* ActiveCompetitionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveCompetitionCard.swift; sourceTree = "<group>"; };
@@ -1901,6 +1901,15 @@
 			path = Compete;
 			sourceTree = "<group>";
 		};
+		2EAA00002FA1000000000001 /* WhatsNew */ = {
+			isa = PBXGroup;
+			children = (
+				2EAA00012FA1000000000001 /* WhatsNewManager.swift */,
+				2EAA00022FA1000000000001 /* WhatsNewView.swift */,
+			);
+			path = WhatsNew;
+			sourceTree = "<group>";
+		};
 		2EBC10062FA2000000000001 /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -1909,15 +1918,6 @@
 				2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */,
 			);
 			path = Views;
-			sourceTree = "<group>";
-		};
-		2EAA00002FA1000000000001 /* WhatsNew */ = {
-			isa = PBXGroup;
-			children = (
-				2EAA00012FA1000000000001 /* WhatsNewManager.swift */,
-				2EAA00022FA1000000000001 /* WhatsNewView.swift */,
-			);
-			path = WhatsNew;
 			sourceTree = "<group>";
 		};
 		2EBE3EE62EB6569B00A26355 /* Views */ = {
@@ -2460,7 +2460,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CAFE001B2FA2000000F00001 /* Fonts in Watch Resources */,
+				CAFE001B2FA2000000F00001 /* Fonts in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3327,7 +3327,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.2.3;
+				MARKETING_VERSION = 5.2.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3375,7 +3375,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.2.3;
+				MARKETING_VERSION = 5.2.7;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

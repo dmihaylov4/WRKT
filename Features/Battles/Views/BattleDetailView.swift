@@ -328,7 +328,7 @@ struct BattleDetailView: View {
         if let winner = viewModel.getWinner(for: battle) {
             VStack(spacing: 12) {
                 Image(systemName: "trophy.fill")
-                    .font(.system(size: 48))
+                    .font(DS.Typography.custom(size: 48, weight: .bold, relativeTo: .largeTitle))
                     .foregroundStyle(DS.Semantic.brand)
 
                 Text(isCurrentUserWinner(winner) ? "You Won!" : "You Lost")
@@ -697,7 +697,7 @@ private struct BattleScorePanel: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(score)
-                    .font(.system(size: 36, weight: .black, design: .rounded))
+                    .font(DS.Typography.custom(size: 36, weight: .black, relativeTo: .title, monospacedDigits: true))
                     .foregroundStyle(isLeading ? DS.Semantic.brand : DS.Semantic.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)

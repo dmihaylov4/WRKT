@@ -1,116 +1,110 @@
-//
-//  ChallengeDetailView.swift
-//  WRKT
-//
-//  Detailed view of a challenge with leaderboard and progress
-//
-
 import SwiftUI
 
 struct ChallengeDetailView: View {
     let challenge: ChallengeWithProgress
     let viewModel: ChallengesViewModel
 
+    @Environment(\.dependencies) private var deps
     @Environment(\.dismiss) private var dismiss
+    @State private var isProcessing = false
+
+    private var displayedChallenge: ChallengeWithProgress {
+        guard challenge.shouldCompleteFirstRep(from: deps.workoutStore.completedWorkouts) else { return challenge }
+        return challenge.completedFirstRepFromWorkoutHistory()
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    // Header section
+                VStack(alignment: .leading, spacing: 16) {
                     headerSection
-
-                    ChallengeRewardPreviewBlock(challenge: challenge.challenge)
-
-                    // Progress section
-                    if let progress = challenge.participation {
+                    if ChallengeRewardPreviewKind(challenge: displayedChallenge.challenge) != .none {
+                        ChallengeRewardPreviewBlock(challenge: displayedChallenge.challenge)
+                    }
+                    if let progress = displayedChallenge.participation {
                         progressSection(progress: progress)
                     }
-
-                    // Stats section
-                    statsSection
-
-                    // Leaderboard section
-                    leaderboardSection
-
-                    // Challenge details
-                    detailsSection
+                    statsRow
+                    if !challenge.topParticipants.isEmpty {
+                        leaderboardSection
+                    }
                 }
                 .padding()
+                .padding(.bottom, 80)
             }
             .background(DS.Semantic.surface.ignoresSafeArea())
-            .navigationTitle(challenge.challenge.title)
+            .navigationTitle(displayedChallenge.challenge.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                    .foregroundStyle(DS.Semantic.brand)
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(DS.Semantic.brand)
                 }
             }
             .safeAreaInset(edge: .bottom) {
                 actionButton
-                    .padding()
+                    .padding(.horizontal)
+                    .padding(.vertical, 12)
                     .background(.ultraThinMaterial)
             }
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Header
+
     @ViewBuilder
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(challengeTypeLabel)
-                        .dsFont(.caption)
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textSecondary)
 
-                    Text(challenge.challenge.title)
+                    Text(displayedChallenge.challenge.title)
                         .dsFont(.title2, weight: .bold)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
 
                 Spacer()
 
-                // Difficulty badge
-                if let difficulty = challenge.challenge.difficulty {
+                if let difficulty = displayedChallenge.challenge.difficulty {
                     Text(difficulty.displayName)
-                        .dsFont(.caption, weight: .bold)
-                        .foregroundStyle(difficultyTextColor)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(difficultyColor)
-                        .clipShape(Capsule())
+                        .dsFont(.caption2, weight: .bold)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.small))
+                        .overlay(
+                            ChamferedRectangle(.small)
+                                .stroke(DS.Semantic.border, lineWidth: 1)
+                        )
                 }
             }
 
-            if let description = challenge.challenge.description {
+            if let description = displayedChallenge.challenge.description {
                 Text(description)
-                    .dsFont(.body)
+                    .dsFont(.subheadline)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
 
-            // Time remaining
-            let daysRemaining = challenge.challenge.daysRemaining
-            Label(
-                daysRemaining > 0
-                    ? "\(daysRemaining) \(daysRemaining == 1 ? "day" : "days") remaining"
-                    : "Challenge ended",
-                systemImage: "clock.fill"
-            )
-            .dsFont(.subheadline)
-            .foregroundStyle(daysRemaining > 0 ? DS.Semantic.brand : DS.Semantic.textSecondary)
+            HStack(spacing: 6) {
+                Image(systemName: "clock.fill")
+                    .dsFont(.caption)
+                Text(displayedChallenge.challenge.isEvergreen ? "Ongoing" : (displayedChallenge.challenge.daysRemaining > 0 ? "\(displayedChallenge.challenge.daysRemaining) days remaining" : "Challenge ended"))
+                    .dsFont(.subheadline, weight: .medium)
+            }
+            .foregroundStyle(displayedChallenge.challenge.daysRemaining > 0 || displayedChallenge.challenge.isEvergreen ? DS.Semantic.brand : DS.Semantic.textSecondary)
         }
         .padding(16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            ChamferedRectangle(.large)
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
+
+    // MARK: - Progress
 
     @ViewBuilder
     private func progressSection(progress: ChallengeParticipant) -> some View {
@@ -119,58 +113,90 @@ struct ChallengeDetailView: View {
                 .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
-            VStack(spacing: 16) {
-                // Large progress circle or bar
-                CircularProgressView(
-                    progress: Double(challenge.userProgressPercentage),
-                    total: 100,
-                    lineWidth: 12
-                )
-                .frame(height: 180)
-
-                // Progress text
-                VStack(spacing: 4) {
+            VStack(spacing: 8) {
+                HStack {
                     Text(progressValueText(progress: progress))
-                        .dsFont(.title3, weight: .bold)
+                        .dsFont(.subheadline, weight: .bold)
                         .foregroundStyle(DS.Semantic.brand)
 
-                    Text(progressTargetText)
-                        .dsFont(.caption)
+                    Spacer()
+
+                    Text("\(displayedChallenge.userProgressPercentage)%")
+                        .dsFont(.caption, weight: .bold)
                         .foregroundStyle(DS.Semantic.textSecondary)
                 }
+
+                ProgressView(
+                    value: Double(displayedChallenge.userProgressPercentage),
+                    total: 100
+                )
+                .tint(DS.Semantic.brand)
+                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: displayedChallenge.userProgressPercentage)
+
+                Text(progressTargetText)
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
         .padding(16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            ChamferedRectangle(.large)
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
 
+    // MARK: - Stats row (CLAUDE.md convention)
+
     @ViewBuilder
-    private var statsSection: some View {
-        HStack(spacing: 12) {
-            ChallengeStatCard(
-                icon: "person.2.fill",
-                value: "\(challenge.challenge.participantCount)",
+    private var statsRow: some View {
+        HStack(spacing: 0) {
+            statColumn(
+                value: "\(displayedChallenge.challenge.participantCount)",
                 label: "Participants"
             )
 
-            ChallengeStatCard(
-                icon: "calendar.badge.clock",
-                value: "\(challenge.challenge.duration)",
-                label: "Days"
+            Rectangle()
+                .fill(DS.Semantic.border)
+                .frame(width: 1)
+
+            statColumn(
+                value: "\(displayedChallenge.challenge.duration)d",
+                label: "Duration"
             )
 
-            ChallengeStatCard(
-                icon: "target",
+            Rectangle()
+                .fill(DS.Semantic.border)
+                .frame(width: 1)
+
+            statColumn(
                 value: targetValueText,
                 label: "Goal"
             )
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .overlay(
+            ChamferedRectangle(.large)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
     }
+
+    private func statColumn(value: String, label: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .dsFont(.headline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Text(label)
+                .dsFont(.caption2)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Leaderboard
 
     @ViewBuilder
     private var leaderboardSection: some View {
@@ -179,91 +205,60 @@ struct ChallengeDetailView: View {
                 .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
-            if challenge.topParticipants.isEmpty {
-                Text("No participants yet")
-                    .dsFont(.subheadline)
+            VStack(spacing: 8) {
+                ForEach(Array(challenge.topParticipants.enumerated()), id: \.element.id) { index, participantProfile in
+                    leaderboardRow(
+                        rank: index + 1,
+                        username: participantProfile.profile.username,
+                        progress: participantProfile.participant.currentProgress,
+                        target: challenge.challenge.goalValue
+                    )
+                }
+            }
+        }
+        .padding(16)
+        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .overlay(
+            ChamferedRectangle(.large)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+    }
+
+    private func leaderboardRow(rank: Int, username: String, progress: Decimal, target: Decimal) -> some View {
+        HStack(spacing: 12) {
+            Text("\(rank)")
+                .dsFont(.subheadline, weight: .black)
+                .foregroundStyle(rankColor(rank))
+                .frame(width: 28, height: 28)
+                .background(rankColor(rank).opacity(0.14), in: ChamferedRectangle(.micro))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(username)
+                    .dsFont(.subheadline, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .lineLimit(1)
+
+                Text(rowProgressText(progress: progress, target: target))
+                    .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-            } else {
-                VStack(spacing: 8) {
-                    ForEach(Array(challenge.topParticipants.enumerated()), id: \.element.id) { index, participantProfile in
-                        LeaderboardRow(
-                            rank: index + 1,
-                            userId: participantProfile.participant.userId.uuidString,
-                            progress: participantProfile.participant.currentProgress,
-                            target: challenge.challenge.goalValue,
-                            challengeType: challenge.challenge.challengeType
-                        )
-                    }
-                }
             }
+
+            Spacer()
+
+            let pct = Int((NSDecimalNumber(decimal: progress).doubleValue / max(NSDecimalNumber(decimal: target).doubleValue, 1)) * 100)
+            Text("\(min(pct, 100))%")
+                .dsFont(.subheadline, weight: .bold)
+                .foregroundStyle(rank == 1 ? DS.Semantic.brand : DS.Semantic.textSecondary)
         }
-        .padding(16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(12)
+        .background(rank <= 3 ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle, in: ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(DS.Semantic.border, lineWidth: 1)
+            ChamferedRectangle(.large)
+                .stroke(rank <= 3 ? DS.Semantic.brand.opacity(0.2) : DS.Semantic.border, lineWidth: 1)
         )
     }
 
-    @ViewBuilder
-    private var detailsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Details")
-                .dsFont(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            VStack(alignment: .leading, spacing: 12) {
-                DetailRow(
-                    label: "Challenge Type",
-                    value: challengeTypeLabel
-                )
-
-                if let difficulty = challenge.challenge.difficulty {
-                    DetailRow(
-                        label: "Difficulty",
-                        value: difficulty.displayName
-                    )
-                }
-
-                DetailRow(
-                    label: "Duration",
-                    value: "\(challenge.challenge.duration) days"
-                )
-
-                DetailRow(
-                    label: "Target",
-                    value: targetValueText
-                )
-
-                DetailRow(
-                    label: "Start Date",
-                    value: challenge.challenge.startDate.formatted(date: .abbreviated, time: .omitted)
-                )
-
-                DetailRow(
-                    label: "End Date",
-                    value: challenge.challenge.endDate.formatted(date: .abbreviated, time: .omitted)
-                )
-
-                if challenge.challenge.isPublic {
-                    DetailRow(
-                        label: "Visibility",
-                        value: "Public"
-                    )
-                }
-            }
-        }
-        .padding(16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(DS.Semantic.border, lineWidth: 1)
-        )
-    }
+    // MARK: - Action button
 
     @ViewBuilder
     private var actionButton: some View {
@@ -276,281 +271,117 @@ struct ChallengeDetailView: View {
             } label: {
                 Text("Leave Challenge")
                     .dsFont(.headline)
-                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .foregroundStyle(DS.Status.error)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
-                    .background(DS.Semantic.surface50)
-                    .clipShape(Capsule())
+                    .background(DS.Status.error.opacity(0.1), in: ChamferedRectangle(.large))
+                    .overlay(
+                        ChamferedRectangle(.large)
+                            .stroke(DS.Status.error.opacity(0.4), lineWidth: 1)
+                    )
             }
+            .buttonStyle(.plain)
         } else {
             Button {
+                guard !isProcessing else { return }
+                isProcessing = true
                 Task {
                     await viewModel.joinChallenge(challenge.challenge)
                     dismiss()
                 }
             } label: {
-                Text("Join Challenge")
-                    .dsFont(.headline)
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(DS.Semantic.brand)
-                    .clipShape(Capsule())
+                Group {
+                    if isProcessing {
+                        ProgressView().tint(.black)
+                    } else {
+                        Text("Join Challenge")
+                            .dsFont(.headline)
+                            .foregroundStyle(.black)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(DS.Semantic.brand, in: ChamferedRectangle(.large))
             }
+            .buttonStyle(.plain)
+            .disabled(isProcessing)
         }
     }
 
     // MARK: - Helpers
+
     private var challengeTypeLabel: String {
         switch challenge.challenge.challengeType {
-        case .workoutCount:
-            return "Workout Count"
-        case .totalVolume:
-            return "Total Volume"
-        case .streak:
-            return "Streak"
-        case .specificExercise:
-            return "Exercise Challenge"
-        case .custom:
-            return "Custom Challenge"
-        }
-    }
-
-    private var difficultyColor: Color {
-        guard let difficulty = challenge.challenge.difficulty else {
-            return DS.Semantic.textSecondary
-        }
-
-        switch difficulty {
-        case .beginner:
-            return DS.Semantic.fillSubtle
-        case .intermediate:
-            return DS.Semantic.surface50
-        case .advanced:
-            return DS.Semantic.textSecondary.opacity(0.2)
-        }
-    }
-
-    private var difficultyTextColor: Color {
-        guard let difficulty = challenge.challenge.difficulty else {
-            return DS.Semantic.textSecondary
-        }
-
-        switch difficulty {
-        case .beginner:
-            return DS.Semantic.textSecondary
-        case .intermediate:
-            return DS.Semantic.textPrimary
-        case .advanced:
-            return DS.Semantic.textPrimary
+        case .workoutCount:  return "Workout Count"
+        case .totalVolume:   return "Total Volume"
+        case .streak:        return "Streak"
+        case .specificExercise: return "Exercise Challenge"
+        case .custom:        return "Challenge"
         }
     }
 
     private var targetValueText: String {
-        let goalValue = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
-
+        let v = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
         switch challenge.challenge.challengeType {
-        case .workoutCount:
-            return "\(goalValue)"
-        case .totalVolume:
-            return "\(goalValue / 1000)K kg"
-        case .streak:
-            return "\(goalValue) days"
-        case .specificExercise:
-            return "\(goalValue)"
+        case .workoutCount:     return "\(v)"
+        case .totalVolume:      return "\(v / 1000)K kg"
+        case .streak:           return "\(v) days"
+        case .specificExercise: return "\(v)"
         case .custom:
-            return "\(goalValue) \(challenge.challenge.goalMetric)"
+            if challenge.challenge.goalMetric == "conditioning_minutes" {
+                return "\(v) min"
+            }
+            return "\(v)"
         }
     }
 
     private func progressValueText(progress: ChallengeParticipant) -> String {
-        let currentValue = NSDecimalNumber(decimal: progress.currentProgress).intValue
-        let goalValue = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
-
+        let cur = NSDecimalNumber(decimal: progress.currentProgress).intValue
+        let goal = NSDecimalNumber(decimal: challenge.challenge.goalValue).intValue
         switch challenge.challenge.challengeType {
-        case .workoutCount:
-            return "\(currentValue)/\(goalValue)"
-        case .totalVolume:
-            return "\(currentValue / 1000)K/\(goalValue / 1000)K kg"
-        case .streak:
-            return "\(currentValue)/\(goalValue)"
-        case .specificExercise:
-            return "\(currentValue)/\(goalValue)"
+        case .workoutCount:     return "\(cur) / \(goal) workouts"
+        case .totalVolume:      return "\(cur / 1000)K / \(goal / 1000)K kg"
+        case .streak:           return "\(cur) / \(goal) days"
+        case .specificExercise: return "\(cur) / \(goal) reps"
         case .custom:
-            return "\(currentValue)/\(goalValue) \(challenge.challenge.goalMetric)"
+            if challenge.challenge.goalMetric == "conditioning_minutes" {
+                return "\(cur) / \(goal) min"
+            }
+            return "\(cur) / \(goal)"
         }
     }
 
     private var progressTargetText: String {
         switch challenge.challenge.challengeType {
-        case .workoutCount:
-            return "workouts completed"
-        case .totalVolume:
-            return "kilograms lifted"
-        case .streak:
-            return "consecutive days"
-        case .specificExercise:
-            return "reps completed"
+        case .workoutCount:     return "workouts completed"
+        case .totalVolume:      return "kilograms lifted"
+        case .streak:           return "consecutive days"
+        case .specificExercise: return "reps completed"
         case .custom:
+            if challenge.challenge.goalMetric == "conditioning_minutes" {
+                return "qualifying minutes logged"
+            }
             return challenge.challenge.goalMetric
         }
     }
-}
 
-// MARK: - Supporting Components
-struct CircularProgressView: View {
-    let progress: Double
-    let total: Double
-    let lineWidth: CGFloat
-
-    var body: some View {
-        ZStack {
-            // Background circle
-            Circle()
-                .stroke(DS.Semantic.fillSubtle, lineWidth: lineWidth)
-
-            // Progress circle
-            Circle()
-                .trim(from: 0, to: min(progress / total, 1.0))
-                .stroke(
-                    DS.Semantic.brand,
-                    style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
-                )
-                .rotationEffect(.degrees(-90))
-                .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress)
-
-            // Percentage text
-            VStack(spacing: 4) {
-                Text("\(Int(progress))%")
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(DS.Semantic.textPrimary)
-
-                Text("Complete")
-                    .dsFont(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-            }
+    private func rowProgressText(progress: Decimal, target: Decimal) -> String {
+        let cur = NSDecimalNumber(decimal: progress).intValue
+        let goal = NSDecimalNumber(decimal: target).intValue
+        switch challenge.challenge.challengeType {
+        case .workoutCount:     return "\(cur)/\(goal) workouts"
+        case .totalVolume:      return "\(cur / 1000)K/\(goal / 1000)K kg"
+        case .streak:           return "\(cur)/\(goal) days"
+        case .specificExercise: return "\(cur)/\(goal) reps"
+        case .custom:           return "\(cur)/\(goal)"
         }
     }
-}
 
-struct ChallengeStatCard: View {
-    let icon: String
-    let value: String
-    let label: String
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: icon)
-                .dsFont(.title3)
-                .foregroundStyle(DS.Semantic.brand)
-
-            Text(value)
-                .dsFont(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            Text(label)
-                .dsFont(.caption)
-                .foregroundStyle(DS.Semantic.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(DS.Semantic.border, lineWidth: 1)
-        )
-    }
-}
-
-struct LeaderboardRow: View {
-    let rank: Int
-    let userId: String
-    let progress: Decimal
-    let target: Decimal
-    let challengeType: ChallengeType
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Rank badge
-            Text("\(rank)")
-                .dsFont(.headline, weight: .bold)
-                .foregroundStyle(rankColor)
-                .frame(width: 32, height: 32)
-                .background(rankColor.opacity(0.15))
-                .clipShape(Circle())
-
-            // User info (simplified - would need user lookup)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("User \(userId.prefix(8))")
-                    .dsFont(.subheadline, weight: .bold)
-                    .foregroundStyle(DS.Semantic.textPrimary)
-
-                Text(progressText)
-                    .dsFont(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-            }
-
-            Spacer()
-
-            // Progress percentage
-            let percentage = (NSDecimalNumber(decimal: progress).doubleValue / NSDecimalNumber(decimal: target).doubleValue) * 100
-            Text("\(Int(percentage))%")
-                .dsFont(.subheadline, weight: .bold)
-                .foregroundStyle(DS.Semantic.brand)
-        }
-        .padding(12)
-        .background(rank <= 3 ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private var rankColor: Color {
+    private func rankColor(_ rank: Int) -> Color {
         switch rank {
-        case 1:
-            return Color(hex: "#FFD700") // Gold
-        case 2:
-            return Color(hex: "#C0C0C0") // Silver
-        case 3:
-            return Color(hex: "#CD7F32") // Bronze
-        default:
-            return DS.Semantic.textSecondary
-        }
-    }
-
-    private var progressText: String {
-        let progressValue = NSDecimalNumber(decimal: progress).intValue
-        let targetValue = NSDecimalNumber(decimal: target).intValue
-
-        switch challengeType {
-        case .workoutCount:
-            return "\(progressValue)/\(targetValue) workouts"
-        case .totalVolume:
-            return "\(progressValue / 1000)K/\(targetValue / 1000)K kg"
-        case .streak:
-            return "\(progressValue)/\(targetValue) days"
-        case .specificExercise:
-            return "\(progressValue)/\(targetValue) reps"
-        case .custom:
-            return "\(progressValue)/\(targetValue)"
-        }
-    }
-}
-
-struct DetailRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .dsFont(.subheadline)
-                .foregroundStyle(DS.Semantic.textSecondary)
-
-            Spacer()
-
-            Text(value)
-                .dsFont(.subheadline, weight: .bold)
-                .foregroundStyle(DS.Semantic.textPrimary)
+        case 1: return DS.Semantic.brand
+        case 2: return DS.Semantic.textSecondary
+        default: return DS.Semantic.textSecondary.opacity(0.6)
         }
     }
 }

@@ -237,8 +237,7 @@ private struct ChallengeArenaCard: View {
             VStack(spacing: 4) {
                 // Challenge icon with progress ring
                 ZStack {
-                    // Background circle
-                    Circle()
+                    ChamferedRectangle(.medium)
                         .stroke(DS.Semantic.surface50, lineWidth: 3)
                         .frame(width: 48, height: 48)
 
@@ -257,10 +256,7 @@ private struct ChallengeArenaCard: View {
                         .rotationEffect(.degrees(-90))
                         .animation(.spring(duration: 0.5), value: challenge.userProgressPercentage)
 
-                    // Icon
-                    Image(systemName: challenge.challenge.challengeType.icon)
-                        .font(.system(size: 16))
-                        .foregroundStyle(DS.Semantic.brand)
+                    challengeIcon
                 }
 
                 // Challenge info
@@ -274,7 +270,7 @@ private struct ChallengeArenaCard: View {
                         .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(DS.Semantic.brand)
 
-                    Text("\(challenge.challenge.daysRemaining)d left")
+                    Text(challenge.challenge.isEvergreen ? "Ongoing" : "\(challenge.challenge.daysRemaining)d left")
                         .font(.system(size: 9))
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
@@ -282,13 +278,26 @@ private struct ChallengeArenaCard: View {
             .frame(width: 72)
             .padding(.vertical, 6)
             .padding(.horizontal, 6)
-            .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(DS.Semantic.brand.opacity(0.15), lineWidth: 1.5)
+                ChamferedRectangle(.large)
+                    .stroke(DS.Semantic.brand.opacity(0.15), lineWidth: 1.5)
             )
+            .contentShape(ChamferedRectangle(.large))
         }
         .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var challengeIcon: some View {
+        if challenge.challenge.isFirstRepChallenge {
+            Text("1")
+                .font(.system(size: 22, weight: .black))
+                .foregroundStyle(DS.Semantic.brand)
+        } else {
+            Image(systemName: challenge.challenge.challengeType.icon)
+                .font(.system(size: 16))
+                .foregroundStyle(DS.Semantic.brand)
+        }
     }
 }

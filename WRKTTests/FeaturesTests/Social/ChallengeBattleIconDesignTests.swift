@@ -104,6 +104,79 @@ struct ChallengeBattleIconDesignTests {
         #expect(!detailSource.contains("Circle()"))
     }
 
+    @Test func competeOverviewUsesCompactStatTilesWithoutLargeIcons() throws {
+        let competeSource = try String(
+            contentsOfFile: sourcePath("Features/Compete/CompeteView.swift"),
+            encoding: .utf8
+        )
+        let tileSource = competeSource.section(
+            from: "struct CompeteStatTile",
+            to: "struct CompactChallengeCard"
+        )
+
+        #expect(tileSource.contains("frame(maxWidth: .infinity, minHeight: 76"))
+        #expect(tileSource.contains("RoundedRectangle(cornerRadius: 2)"))
+        #expect(!tileSource.contains("Image(systemName: icon)"))
+        #expect(!tileSource.contains(".dsFont(.title, weight: .bold)"))
+    }
+
+    @Test func battleDetailUsesDesignSystemTypography() throws {
+        let detailSource = try String(
+            contentsOfFile: sourcePath("Features/Battles/Views/BattleDetailView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!detailSource.contains(".font(.system"))
+        #expect(detailSource.contains("DS.Typography.custom(size: 36"))
+    }
+
+    @Test func completedParticipantChallengesDoNotRemainActiveOrAvailable() throws {
+        let viewModelSource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/ViewModels/ChallengesViewModel.swift"),
+            encoding: .utf8
+        )
+
+        #expect(viewModelSource.contains("activeChallenges = userChallenges.filter { $0.challenge.isActive && !$0.isCompleted }"))
+        #expect(viewModelSource.contains("completedChallenges = userChallenges.filter { $0.isCompleted }"))
+        #expect(viewModelSource.contains("let joinedChallengeIds = Set(userChallenges.map { $0.challenge.id })"))
+        #expect(viewModelSource.contains("availableChallenges = allAvailable.filter { !joinedChallengeIds.contains($0.challenge.id) }"))
+    }
+
+    @Test func completedChallengeRowsAndWinScreenUseRewardPreview() throws {
+        let competeSource = try String(
+            contentsOfFile: sourcePath("Features/Compete/UnifiedCompeteView.swift"),
+            encoding: .utf8
+        )
+        let winScreenSource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Views/WinScreen.swift"),
+            encoding: .utf8
+        )
+        let rewardSummarySource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Views/RewardSummary.swift"),
+            encoding: .utf8
+        )
+        let completedCardSource = competeSource.section(
+            from: "struct CompletedChallengeCard",
+            to: "// MARK: - Preview"
+        )
+        let winChallengeCardSource = winScreenSource.section(
+            from: "private struct ChallengeRewardCard",
+            to: "private struct RealityPlatePreview"
+        )
+
+        #expect(competeSource.contains("CompletedChallengeCard(challenge: challenge, onTap:"))
+        #expect(completedCardSource.contains("Button"))
+        #expect(completedCardSource.contains("rewardPreview"))
+        #expect(!completedCardSource.contains("Image(systemName: \"checkmark.seal.fill\")"))
+
+        #expect(rewardSummarySource.contains("let rewardKind: ChallengeRewardPreviewKind"))
+        #expect(rewardSummarySource.contains("rewardKind: ChallengeRewardPreviewKind(challenge: challenge)"))
+        #expect(winChallengeCardSource.contains("rewardPreview"))
+        #expect(winChallengeCardSource.contains("BarSkinPreviewTile"))
+        #expect(winChallengeCardSource.contains("PlateFaceView"))
+        #expect(!winChallengeCardSource.contains("Image(systemName: \"flag.checkered\")"))
+    }
+
     @Test func battleDetailExitActionsUpdateBattleState() throws {
         let detailSource = try String(
             contentsOfFile: sourcePath("Features/Battles/Views/BattleDetailView.swift"),
@@ -149,12 +222,177 @@ struct ChallengeBattleIconDesignTests {
         #expect(battleModelSource.contains("case .runningDistance: return 30"))
         #expect(battleRepositorySource.contains("case .runningDistance:"))
         #expect(battleRepositorySource.contains("metric: .distance"))
-        #expect(battleRepositorySource.contains("func completeBattle(_ battleId: UUID) async throws"))
+        #expect(battleRepositorySource.contains("func completeBattle(_ battleId: UUID, sourceWorkoutID: String? = nil) async throws"))
         #expect(battleRepositorySource.contains("BarbellProgressService.shared.awardPlates"))
         #expect(challengeRepositorySource.contains("isFirstRepChallenge"))
         #expect(challengeRepositorySource.contains("BarbellCustomizationService.shared.unlockSkin(id: \"volia\")"))
         #expect(challengeRepositorySource.contains("conditioning_minutes"))
         #expect(challengeRepositorySource.contains("min(rawMinutes, 90)"))
+    }
+
+    @Test func workoutWinScreenMergesChallengeAndBattleRewards() throws {
+        let coordinatorSource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Services/WinScreenCoordinator.swift"),
+            encoding: .utf8
+        )
+        let rewardSummarySource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Views/RewardSummary.swift"),
+            encoding: .utf8
+        )
+        let battleRepositorySource = try String(
+            contentsOfFile: sourcePath("Features/Battles/Services/BattleRepository.swift"),
+            encoding: .utf8
+        )
+        let barbellProgressSource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Services/BarbellProgressService.swift"),
+            encoding: .utf8
+        )
+        let winScreenSource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Views/WinScreen.swift"),
+            encoding: .utf8
+        )
+        let appShellSource = try String(
+            contentsOfFile: sourcePath("App/AppShellView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(coordinatorSource.contains("if var current = summary, currentWorkout != nil"))
+        #expect(coordinatorSource.contains("current.merged(with: finalSummary)"))
+        #expect(rewardSummarySource.contains("static func barbellRewards"))
+        #expect(rewardSummarySource.contains("guard xp > 0 else { return self }"))
+        #expect(battleRepositorySource.contains("func awardCompletionReward(for battle: Battle, userId: UUID, sourceWorkoutID: String? = nil)"))
+        #expect(battleRepositorySource.contains("completeBattle(battle.id, sourceWorkoutID: workout.id.uuidString)"))
+        #expect(barbellProgressSource.contains("WinScreenCoordinator.shared.enqueue(.barbellRewards(events))"))
+        #expect(winScreenSource.contains("onChange(of: summary.earnedPlates.count)"))
+        #expect(appShellSource.contains("presentPendingBattleRewardsOnLaunch"))
+    }
+
+    @Test func workoutWinScreenShowsCompletedChallengeRewards() throws {
+        let challengeRepositorySource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/Services/ChallengeRepository.swift"),
+            encoding: .utf8
+        )
+        let rewardSummarySource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Views/RewardSummary.swift"),
+            encoding: .utf8
+        )
+        let winScreenSource = try String(
+            contentsOfFile: sourcePath("Features/Rewards/Views/WinScreen.swift"),
+            encoding: .utf8
+        )
+
+        #expect(rewardSummarySource.contains("ChallengeCompletionReward"))
+        #expect(rewardSummarySource.contains("static func challengeCompleted"))
+        #expect(rewardSummarySource.contains("challengeCompletions: [ChallengeCompletionReward]"))
+        #expect(challengeRepositorySource.contains("WinScreenCoordinator.shared.enqueue(.challengeCompleted"))
+        #expect(winScreenSource.contains("Text(\"Challenges\")"))
+        #expect(winScreenSource.contains("ChallengeRewardCard"))
+    }
+
+    @Test func profileBarbellShowcaseMapsVoliaSkin() throws {
+        let socialProfileSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/SocialProfileView.swift"),
+            encoding: .utf8
+        )
+        let showcaseSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/BarbellShowcaseCard.swift"),
+            encoding: .utf8
+        )
+
+        #expect(socialProfileSource.contains("case \"volia\": return 4"))
+        #expect(showcaseSource.contains("case \"volia\": return 4"))
+    }
+
+    @Test func completedChallengesCanBeDeletedForRetesting() throws {
+        let browseSource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/Views/ChallengesBrowseView.swift"),
+            encoding: .utf8
+        )
+        let viewModelSource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/ViewModels/ChallengesViewModel.swift"),
+            encoding: .utf8
+        )
+
+        #expect(browseSource.contains("Delete Completed Challenges"))
+        #expect(browseSource.contains("deleteCompletedChallengesForRetest"))
+        #expect(viewModelSource.contains("func deleteCompletedChallengesForRetest()"))
+        #expect(viewModelSource.contains("try await challengeRepository.leaveChallenge(item.challenge)"))
+    }
+
+    @Test func firstRepChallengeCanSelfHealFromCompletedWorkoutHistory() throws {
+        let viewModelSource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/ViewModels/ChallengesViewModel.swift"),
+            encoding: .utf8
+        )
+        let repositorySource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/Services/ChallengeRepository.swift"),
+            encoding: .utf8
+        )
+        let detailSource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/Views/ChallengeDetailView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(viewModelSource.contains("workoutStore: WorkoutStoreV2?"))
+        #expect(viewModelSource.contains("repairFirstRepProgressFromWorkoutHistory"))
+        #expect(viewModelSource.contains("workoutStore?.completedWorkouts"))
+        #expect(viewModelSource.contains("shouldCompleteFirstRep(from: completedWorkouts)"))
+        #expect(viewModelSource.contains("completedFirstRepFromWorkoutHistory"))
+        #expect(detailSource.contains("displayedChallenge"))
+        #expect(detailSource.contains("shouldCompleteFirstRep(from: deps.workoutStore.completedWorkouts)"))
+        #expect(repositorySource.contains("func completeFirstRepChallenge"))
+        #expect(repositorySource.contains("BarbellCustomizationService.shared.unlockSkin(id: \"volia\")"))
+    }
+
+    @Test func feedArenaUsesUserChallengesAndFirstRepChamferedOneBadge() throws {
+        let feedSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/FeedView.swift"),
+            encoding: .utf8
+        )
+        let arenaSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/Components/ActiveArena.swift"),
+            encoding: .utf8
+        )
+        let challengeArenaCardSource = arenaSource.section(
+            from: "private struct ChallengeArenaCard",
+            to: "*** End Of File ***"
+        )
+
+        #expect(feedSource.contains("fetchUserChallenges(userId: userId)"))
+        #expect(feedSource.contains("completedFirstRepFromWorkoutHistory"))
+        #expect(challengeArenaCardSource.contains("Text(\"1\")"))
+        #expect(challengeArenaCardSource.contains("ChamferedRectangle(.large)"))
+        #expect(!challengeArenaCardSource.contains("RoundedRectangle(cornerRadius: 12)"))
+    }
+
+    @Test func challengeParticipantProgressHasSelfUpdatePolicy() throws {
+        let migrationsDirectory = URL(fileURLWithPath: sourcePath("supabase/migrations"))
+        let migrationFiles = try FileManager.default.contentsOfDirectory(
+            at: migrationsDirectory,
+            includingPropertiesForKeys: nil
+        )
+        let combinedSQL = try migrationFiles
+            .filter { $0.lastPathComponent.hasSuffix(".sql") }
+            .map { try String(contentsOf: $0, encoding: .utf8) }
+            .joined(separator: "\n")
+
+        #expect(combinedSQL.contains("challenge_participants_self_update"))
+        #expect(combinedSQL.contains("on public.challenge_participants"))
+        #expect(combinedSQL.contains("with check (auth.uid() = user_id)"))
+    }
+
+    @Test func activeChallengeCardUsesChallengeRewardBadge() throws {
+        let competeSource = try String(
+            contentsOfFile: sourcePath("Features/Compete/UnifiedCompeteView.swift"),
+            encoding: .utf8
+        )
+        let largeChallengeCardSource = competeSource.section(
+            from: "struct LargeChallengeCard",
+            to: "// MARK: - Recommended Challenge Card"
+        )
+
+        #expect(largeChallengeCardSource.contains("rewardBadge"))
+        #expect(!largeChallengeCardSource.contains("PlateFaceView(\n                        tierID: 24"))
     }
 
     @Test func supabaseBattleChallengeMigrationSeedsRewardsAndRls() throws {

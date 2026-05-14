@@ -250,6 +250,23 @@ struct WinScreenView: View {
                                 }
                             }
                         }
+
+                        if !summary.challengeCompletions.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Challenges")
+                                    .dsFont(.caption, weight: .semibold)
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .padding(.top, 4)
+
+                                ForEach(summary.challengeCompletions) { challengeReward in
+                                    ChallengeRewardCard(reward: challengeReward)
+                                        .transition(.asymmetric(
+                                            insertion: .scale(scale: 0.85, anchor: .leading).combined(with: .opacity),
+                                            removal: .opacity
+                                        ))
+                                }
+                            }
+                        }
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 8)
@@ -315,7 +332,12 @@ struct WinScreenView: View {
         }
         .fullScreenCover(isPresented: $showBarbellMoment) {
             if !summary.earnedPlates.isEmpty {
-                BarbellMomentView(plates: summary.earnedPlates, onDismiss: onDismiss)
+                BarbellMomentView(plates: summary.earnedPlates) {
+                    showBarbellMoment = false
+                    DispatchQueue.main.async {
+                        onDismiss()
+                    }
+                }
             }
         }
         .task {
@@ -324,6 +346,14 @@ struct WinScreenView: View {
             playPrimaryBarbellRewardFeedback()
             try? await Task.sleep(for: .milliseconds(80))
             startStaggeredReveal()
+        }
+        .onChange(of: summary.earnedPlates.count) { oldCount, newCount in
+            guard newCount > oldCount else { return }
+            for index in oldCount..<newCount where !revealedPlates.contains(index) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                    revealedPlates.append(index)
+                }
+            }
         }
     }
 
@@ -546,6 +576,69 @@ private struct SkinRevealCard: View {
         .overlay(ChamferedRectangle(.medium).stroke((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.35), lineWidth: 1))
         .onAppear {
             BarbellProgressService.shared.playCosmeticEquipFeedback()
+        }
+    }
+}
+
+private struct ChallengeRewardCard: View {
+    let reward: ChallengeCompletionReward
+
+    var body: some View {
+        HStack(spacing: 12) {
+            rewardPreview
+                .frame(width: 120, height: 44)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(reward.title)
+                    .dsFont(.subheadline, weight: .semibold)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+
+                Text(reward.subtitle)
+                    .dsFont(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "checkmark.seal.fill")
+                .dsFont(.title3)
+                .foregroundStyle(DS.Semantic.brand)
+        }
+        .padding(12)
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
+        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var rewardPreview: some View {
+        switch reward.rewardKind {
+        case .firstRepBarSkin:
+            if let skin = BarSkin.skin(forCosmeticID: "volia") {
+                BarSkinPreviewTile(skin: skin)
+                    .frame(width: 120, height: 40)
+                    .clipShape(ChamferedRectangle(.small))
+                    .overlay(ChamferedRectangle(.small).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
+            }
+        case .conditioningPlate:
+            PlateFaceView(
+                tierID: 24,
+                progressionTier: .iron,
+                liftTypeID: nil,
+                weightKg: 20
+            )
+            .frame(width: 44, height: 44)
+            .clipped()
+        case .none:
+            Image("challenge-completed-icon")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 24, height: 24)
+                .foregroundStyle(DS.Semantic.brand)
+                .frame(width: 44, height: 44)
+                .background(DS.Semantic.brand.opacity(0.12), in: ChamferedRectangle(.small))
+                .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1))
         }
     }
 }

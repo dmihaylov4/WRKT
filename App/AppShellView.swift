@@ -548,6 +548,7 @@ struct AppShellView: View {
         if !settings.isLocalMode && authService.currentUser != nil {
             AppLogger.info("🚀 Calling badgeManager.startRealtimeSubscriptions() from handleAppLaunch", category: AppLogger.app)
             await badgeManager.startRealtimeSubscriptions()
+            await presentPendingBattleRewardsOnLaunch()
 
             // Start listening for virtual run invites (Realtime + 30s fallback poll)
             inviteCoordinator.startListening()
@@ -580,6 +581,24 @@ struct AppShellView: View {
         #if DEBUG
         dependencies.logMemoryFootprint()
         #endif
+    }
+
+    private func presentPendingBattleRewardsOnLaunch() async {
+        guard let userId = authService.currentUser?.id else { return }
+
+        do {
+            let battles = try await dependencies.battleRepository.fetchUserBattles()
+            for battle in battles where battle.battle.isActive && battle.battle.endDate <= Date() {
+                try await dependencies.battleRepository.completeBattle(battle.battle.id)
+            }
+
+            let refreshedBattles = try await dependencies.battleRepository.fetchUserBattles()
+            for battle in refreshedBattles where battle.battle.isCompleted {
+                await dependencies.battleRepository.awardCompletionReward(for: battle.battle, userId: userId)
+            }
+        } catch {
+            AppLogger.warning("Failed to present pending battle rewards on launch: \(error.localizedDescription)", category: AppLogger.battles)
+        }
     }
 
     private func handleRepoReady(_ isEmpty: Bool) {
