@@ -348,10 +348,19 @@ struct CreationGridButton: View {
     var gridPosition: DS.GridChamferPosition = .rowLeading
 
     var body: some View {
-        let shape = SingleChamferedRectangle(corner: gridPosition.chamferCorner, .xl)
+        let shape = PairedChamferedRectangle(pair: tilePair, .xl)
         content
             .clipShape(shape)
-            .overlay(shape.stroke(color.opacity(0.3), lineWidth: 2))
+            .overlay(shape.stroke(color.opacity(0.2), lineWidth: 1.25))
+    }
+
+    private var tilePair: PairedChamferedRectangle.Pair {
+        switch gridPosition {
+        case .rowLeading, .topLeading, .bottomLeading:
+            return .leadingTile
+        case .rowTrailing, .topTrailing, .bottomTrailing:
+            return .trailingTile
+        }
     }
 
     private var content: some View {

@@ -916,6 +916,57 @@ public struct SingleChamferedRectangle: Shape {
     }
 }
 
+// MARK: - Paired-corner chamfered rectangle
+
+/// Rectangle with two diagonal chamfers. Use for paired action tiles where each tile
+/// needs one outer cut plus one inward cut toward its sibling.
+public struct PairedChamferedRectangle: Shape {
+    public enum Pair {
+        case leadingTile, trailingTile
+    }
+
+    public var pair: Pair
+    public var chamferSize: CGFloat
+
+    public init(pair: Pair, _ chamfer: DS.Chamfer = .large) {
+        self.pair = pair
+        self.chamferSize = chamfer.size
+    }
+
+    public init(pair: Pair, chamferSize: CGFloat) {
+        self.pair = pair
+        self.chamferSize = chamferSize
+    }
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let c = chamferSize
+
+        switch pair {
+        case .leadingTile:
+            path.move(to: CGPoint(x: rect.minX + c, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - c))
+            path.addLine(to: CGPoint(x: rect.maxX - c, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + c))
+            path.addLine(to: CGPoint(x: rect.minX + c, y: rect.minY))
+
+        case .trailingTile:
+            path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX - c, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + c))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX + c, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - c))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+        }
+
+        path.closeSubpath()
+        return path
+    }
+}
+
 // MARK: - Grid chamfer position rule
 
 extension DS {

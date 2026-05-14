@@ -120,6 +120,26 @@ struct ChallengeBattleIconDesignTests {
         #expect(!tileSource.contains(".dsFont(.title, weight: .bold)"))
     }
 
+    @Test func competeActionTilesUsePairedChamfers() throws {
+        let competeSource = try String(
+            contentsOfFile: sourcePath("Features/Compete/UnifiedCompeteView.swift"),
+            encoding: .utf8
+        )
+        let designSystemSource = try String(
+            contentsOfFile: sourcePath("DesignSystem/Theme/DS.swift"),
+            encoding: .utf8
+        )
+        let buttonSource = competeSource.section(
+            from: "struct CreationGridButton",
+            to: "// MARK: - Large Battle Card"
+        )
+
+        #expect(designSystemSource.contains("public struct PairedChamferedRectangle"))
+        #expect(designSystemSource.contains("case leadingTile, trailingTile"))
+        #expect(buttonSource.contains("PairedChamferedRectangle(pair: tilePair"))
+        #expect(buttonSource.contains("color.opacity(0.2), lineWidth: 1.25"))
+    }
+
     @Test func battleDetailUsesDesignSystemTypography() throws {
         let detailSource = try String(
             contentsOfFile: sourcePath("Features/Battles/Views/BattleDetailView.swift"),
