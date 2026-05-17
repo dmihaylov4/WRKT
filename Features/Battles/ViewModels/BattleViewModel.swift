@@ -61,6 +61,13 @@ final class BattleViewModel {
         Haptics.soft()
     }
 
+    func refreshSelectedBattle() async {
+        guard let id = selectedBattle?.id else { return }
+        if let fresh = try? await battleRepository.fetchBattle(id: id) {
+            selectedBattle = fresh
+        }
+    }
+
     // MARK: - Data Loading
     private func loadBattles() async {
         guard let userId = authService.currentUser?.id else {

@@ -20,6 +20,10 @@ struct BattleDetailView: View {
 
     private var authService: SupabaseAuthService { deps.authService }
 
+    private var liveBattle: BattleWithParticipants {
+        viewModel.selectedBattle ?? battle
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -64,6 +68,9 @@ struct BattleDetailView: View {
             .background(DS.Semantic.surface.ignoresSafeArea())
             .navigationTitle("Battle")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await viewModel.refreshSelectedBattle()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
@@ -123,7 +130,7 @@ struct BattleDetailView: View {
                 BattleScorePanel(
                     title: "You",
                     subtitle: "Your score",
-                    score: formatScore(viewModel.getCurrentUserScore(for: battle)),
+                    score: formatScore(viewModel.getCurrentUserScore(for: liveBattle)),
                     unit: scoreUnit,
                     isLeading: isCurrentUserLeading,
                     isTied: isTied
@@ -137,7 +144,7 @@ struct BattleDetailView: View {
                 BattleScorePanel(
                     title: "Opponent",
                     subtitle: opponentName,
-                    score: formatScore(viewModel.getOpponentScore(for: battle)),
+                    score: formatScore(viewModel.getOpponentScore(for: liveBattle)),
                     unit: scoreUnit,
                     isLeading: isOpponentLeading,
                     isTied: isTied
@@ -174,16 +181,16 @@ struct BattleDetailView: View {
             VStack(spacing: 14) {
                 BattleProgressRow(
                     label: "You",
-                    value: formatScore(viewModel.getCurrentUserScore(for: battle)),
-                    progress: viewModel.getCurrentUserScore(for: battle),
+                    value: formatScore(viewModel.getCurrentUserScore(for: liveBattle)),
+                    progress: viewModel.getCurrentUserScore(for: liveBattle),
                     total: progressTotal,
                     tint: DS.Semantic.brand
                 )
 
                 BattleProgressRow(
                     label: opponentName,
-                    value: formatScore(viewModel.getOpponentScore(for: battle)),
-                    progress: viewModel.getOpponentScore(for: battle),
+                    value: formatScore(viewModel.getOpponentScore(for: liveBattle)),
+                    progress: viewModel.getOpponentScore(for: liveBattle),
                     total: progressTotal,
                     tint: DS.Semantic.textSecondary
                 )
@@ -499,15 +506,15 @@ struct BattleDetailView: View {
     }
 
     private var isCurrentUserLeading: Bool {
-        viewModel.getCurrentUserScore(for: battle) > viewModel.getOpponentScore(for: battle)
+        viewModel.getCurrentUserScore(for: liveBattle) > viewModel.getOpponentScore(for: liveBattle)
     }
 
     private var isOpponentLeading: Bool {
-        viewModel.getOpponentScore(for: battle) > viewModel.getCurrentUserScore(for: battle)
+        viewModel.getOpponentScore(for: liveBattle) > viewModel.getCurrentUserScore(for: liveBattle)
     }
 
     private var isTied: Bool {
-        viewModel.getCurrentUserScore(for: battle) == viewModel.getOpponentScore(for: battle)
+        viewModel.getCurrentUserScore(for: liveBattle) == viewModel.getOpponentScore(for: liveBattle)
     }
 
     private var shouldShowScoreSummary: Bool {
@@ -517,8 +524,8 @@ struct BattleDetailView: View {
 
     private var progressTotal: Double {
         max(
-            viewModel.getCurrentUserScore(for: battle),
-            viewModel.getOpponentScore(for: battle),
+            viewModel.getCurrentUserScore(for: liveBattle),
+            viewModel.getOpponentScore(for: liveBattle),
             1
         )
     }
@@ -529,7 +536,7 @@ struct BattleDetailView: View {
         }
 
         let difference = abs(
-            viewModel.getCurrentUserScore(for: battle) - viewModel.getOpponentScore(for: battle)
+            viewModel.getCurrentUserScore(for: liveBattle) - viewModel.getOpponentScore(for: liveBattle)
         )
 
         return differenceText(difference: difference)
