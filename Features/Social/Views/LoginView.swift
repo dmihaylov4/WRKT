@@ -99,9 +99,7 @@ struct LoginView: View {
                 }
                 .padding(.horizontal, 38)
 
-                Spacer(minLength: 18)
-
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
                     HStack(spacing: 18) {
                         Rectangle()
                             .fill(DS.Semantic.border)
@@ -161,16 +159,24 @@ struct LoginView: View {
                     Button {
                         skipSocialFeatures()
                     } label: {
-                        Text("Skip social features")
+                        VStack(spacing: 3) {
+                            HStack(spacing: 4) {
+                                Text("Skip social features")
+                                    .underline()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 11, weight: .medium))
+                            }
                             .dsFont(.subheadline, weight: .medium)
                             .foregroundStyle(DS.Semantic.textSecondary)
+
+                            Text("You can enable social features later in settings")
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                                .opacity(0.7)
+                                .multilineTextAlignment(.center)
+                        }
                     }
                     .padding(.top, 4)
-
-                    Text("You can enable social features later in settings")
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                        .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 38)
 
@@ -185,7 +191,7 @@ struct LoginView: View {
                             .foregroundStyle(DS.Theme.accent)
                     }
                 }
-                .font(DS.Typography.custom(size: 18, weight: .regular))
+                .dsFont(.subheadline)
                 .padding(.bottom, 22)
             }
             .background(DS.Semantic.surface.ignoresSafeArea())
