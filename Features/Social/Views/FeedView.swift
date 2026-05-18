@@ -29,9 +29,7 @@ struct FeedView: View {
 
     // FAB state
     @State private var isFABExpanded = false
-    @State private var showingWorkoutSelector = false
     @State private var showingBattleCreation = false
-    @State private var selectedMuscleFilter: MuscleFilter?
 
     // User search
     @State private var showingUserSearch = false
@@ -75,9 +73,6 @@ struct FeedView: View {
                 onCreatePost: {
                     showingCreatePost = true
                 },
-                onLogWorkout: {
-                    showingWorkoutSelector = true
-                },
                 onStartBattle: {
                     showingBattleCreation = true
                 }
@@ -108,15 +103,8 @@ struct FeedView: View {
                 )
             }
         }
-        .sheet(isPresented: $showingWorkoutSelector) {
-            NavigationStack {
-                QuickWorkoutTypeSelector(date: Date()) { workoutType in
-                    handleWorkoutTypeSelection(workoutType)
-                }
-            }
-        }
         .sheet(isPresented: $showingBattleCreation) {
-            if let currentUserId = deps.authService.currentUser?.id {
+            if deps.authService.currentUser?.id != nil {
                 CreateBattleView(
                     viewModel: BattleViewModel(
                         battleRepository: deps.battleRepository,
@@ -133,17 +121,6 @@ struct FeedView: View {
         }
         .sheet(item: $likesPost) { post in
             LikesListView(postId: post.post.id, postRepository: deps.postRepository)
-        }
-        .sheet(item: $selectedMuscleFilter) { muscleFilter in
-            NavigationStack {
-                MuscleExerciseListView(
-                    state: .constant(.root),
-                    subregion: nil,
-                    muscleFilter: muscleFilter,
-                    navigationPath: .constant(NavigationPath())
-                )
-                .withDependencies(deps)
-            }
         }
         .navigationDestination(item: $selectedPost) { post in
             PostDetailView(post: post)
@@ -477,28 +454,6 @@ struct FeedView: View {
         }
     }
 
-    // MARK: - Workout Type Selection
-
-    private func handleWorkoutTypeSelection(_ type: QuickWorkoutTypeSelector.WorkoutType) {
-        // Map workout type to muscle filter
-        let muscleFilter: MuscleFilter
-
-        switch type {
-        case .upperBody:
-            muscleFilter = .upperBody
-        case .lowerBody:
-            muscleFilter = .lowerBody
-        case .custom:
-            muscleFilter = .fullBody
-        }
-
-        // Dismiss the workout selector, then show muscle exercise list
-        showingWorkoutSelector = false
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            self.selectedMuscleFilter = muscleFilter
-        }
-    }
 }
 
 // MARK: - Preview

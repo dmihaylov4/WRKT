@@ -69,6 +69,15 @@ struct ChallengeBattleIconDesignTests {
         #expect(challengeSource.contains(".padding(.bottom, tabContentBottomPadding)"))
     }
 
+    @Test func evergreenChallengeDetailDoesNotShowFakeDuration() throws {
+        let detailSource = try String(
+            contentsOfFile: sourcePath("Features/Challenges/Views/ChallengeDetailView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(detailSource.contains("isEvergreen ? \"Ongoing\" : \"\\(displayedChallenge.challenge.duration)d\""))
+    }
+
     @Test func battleArenaAndDetailUseAngularAppLanguage() throws {
         let arenaSource = try String(
             contentsOfFile: sourcePath("Features/Social/Views/Components/ActiveArena.swift"),
@@ -138,6 +147,69 @@ struct ChallengeBattleIconDesignTests {
         #expect(designSystemSource.contains("case leadingTile, trailingTile"))
         #expect(buttonSource.contains("PairedChamferedRectangle(pair: tilePair"))
         #expect(buttonSource.contains("color.opacity(0.2), lineWidth: 1.25"))
+    }
+
+    @Test func workoutPostUserPhotosUseConnectedStripPattern() throws {
+        let feedSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/Components/PostCard.swift"),
+            encoding: .utf8
+        )
+        let detailSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/PostDetailView.swift"),
+            encoding: .utf8
+        )
+        let stripSource = feedSource.section(
+            from: "struct PostImageStrip",
+            to: "// MARK: - Image Viewer"
+        )
+        let workoutReportSource = detailSource.section(
+            from: "private func workoutReport",
+            to: "@ViewBuilder\n    private func detailRouteMapIfAvailable"
+        )
+
+        #expect(feedSource.contains("PostImageStrip("))
+        #expect(detailSource.contains("PostImageStrip("))
+        #expect(feedSource.contains("imageUrls:"))
+        #expect(detailSource.contains("imageUrls:"))
+        #expect(stripSource.contains("Divider()"))
+        #expect(stripSource.contains(".frame(height: 180)"))
+        #expect(stripSource.contains("indexDisplayMode: imageUrls.count > 1 ? .always : .never"))
+        #expect(!stripSource.contains(".clipShape"))
+        #expect(workoutReportSource.contains("WorkoutPostHeroSummaryCard(summary: summary, context: .detail)"))
+        #expect(workoutReportSource.contains("userPhotoStripIfAvailable(post: viewModel.post.post)"))
+        #expect(workoutReportSource.contains("detailSectionPicker(hasWatchData: workouts.contains(where: hasWatchData))"))
+    }
+
+    @Test func friendsHubDoesNotShowCurrentUserProfileShortcut() throws {
+        let friendsHubSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/FriendsHubView.swift"),
+            encoding: .utf8
+        )
+        let quickActionsSource = friendsHubSource.section(
+            from: "private var quickActionsSection",
+            to: "private func quickActionRow"
+        )
+
+        #expect(quickActionsSource.contains("My Friends"))
+        #expect(quickActionsSource.contains("Find Friends"))
+        #expect(!quickActionsSource.contains("My Profile"))
+        #expect(!quickActionsSource.contains("SocialProfileView(userId: currentUser.id)"))
+    }
+
+    @Test func feedFloatingActionButtonDoesNotOfferWorkoutLogging() throws {
+        let feedSource = try String(
+            contentsOfFile: sourcePath("Features/Social/Views/FeedView.swift"),
+            encoding: .utf8
+        )
+        let fabSource = try String(
+            contentsOfFile: sourcePath("DesignSystem/Components/FloatingActionButton.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!fabSource.contains("Log Workout"))
+        #expect(!fabSource.contains("onLogWorkout"))
+        #expect(!feedSource.contains("showingWorkoutSelector"))
+        #expect(!feedSource.contains("QuickWorkoutTypeSelector"))
     }
 
     @Test func battleDetailUsesDesignSystemTypography() throws {

@@ -24,6 +24,8 @@ final class WeeklyTrainingSummary {
     var cardioSessions: Int?                 // Running, cycling, swimming, etc.
     var lastHealthSync: Date?                // Last successful HealthKit sync
 
+    var containsBodyweightEstimates: Bool = false  // at least one bodyweight exercise contributed to volume this week
+
     init(key: String, weekStart: Date, totalVolume: Double, sessions: Int, totalSets: Int, totalReps: Int, minutes: Int,
          appleExerciseMinutes: Int? = nil, cardioSessions: Int? = nil, lastHealthSync: Date? = nil) {
         self.key = key
@@ -181,9 +183,11 @@ final class ExerciseProgressionSummary {
 final class ExerciseTrend {
     @Attribute(.unique) var exerciseID: String
     var trendDirection: String                   // "improving", "stable", "declining"
-    var volumeChange: Double                     // % change in volume (4-week window)
-    var strengthChange: Double                   // % change in max weight (4-week window)
+    var volumeChange: Double                     // % change in volume (6-week window)
+    var strengthChange: Double                   // % change in max weight (6-week window)
     var lastUpdated: Date
+    var sampleCount: Int = 0                     // total ExerciseVolumeSummary records in comparison window
+    var lowConfidence: Bool = false              // true when sampleCount < 6
 
     init(exerciseID: String, trendDirection: String, volumeChange: Double, strengthChange: Double) {
         self.exerciseID = exerciseID
@@ -230,6 +234,8 @@ final class MuscleGroupFrequency {
     var lastTrained: Date
     var weeklyFrequency: Int                     // Times trained in last 7 days
     var totalVolume: Double                      // Volume in last 7 days
+    var weeklySetCount: Int = 0                  // Working sets in last 7 days
+    var weeklyHardSetCount: Int = 0              // Working sets with RPE >= 7 in last 7 days
 
     init(muscleGroup: String, lastTrained: Date, weeklyFrequency: Int, totalVolume: Double) {
         self.muscleGroup = muscleGroup

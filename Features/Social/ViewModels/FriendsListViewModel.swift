@@ -87,10 +87,7 @@ final class FriendsListViewModel {
             try await friendshipRepository.removeFriendship(friendshipId: friend.friendshipId)
             pendingRemovals.removeValue(forKey: friend.id)
 
-            WorkoutToastManager.shared.show(
-                message: "Friend removed",
-                icon: "checkmark.circle.fill"
-            )
+            WorkoutToastManager.shared.show(message: "Friend removed")
         } catch {
             self.error = "Failed to remove friend"
             undoRemove(friend)
@@ -114,10 +111,7 @@ final class FriendsListViewModel {
         }
 
         Haptics.success()
-        WorkoutToastManager.shared.show(
-            message: "Friend restored",
-            icon: "checkmark.circle.fill"
-        )
+        WorkoutToastManager.shared.show(message: "Friend restored")
     }
 
     func filterFriends() {

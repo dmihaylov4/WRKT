@@ -21,7 +21,10 @@ struct UndoToast: View {
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Undo button - prominent
+                Rectangle()
+                    .fill(DS.Semantic.border)
+                    .frame(width: 1, height: 18)
+
                 Button {
                     onUndo()
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -30,30 +33,7 @@ struct UndoToast: View {
                 } label: {
                     Text("Undo")
                         .dsFont(.subheadline, weight: .bold)
-                        .foregroundStyle(DS.Palette.marone)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(DS.Semantic.surface.opacity(0.08))
-                        )
-                }
-                .buttonStyle(.plain)
-
-                // Close button - subtle
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        isShowing = false
-                    }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                        .frame(width: 28, height: 28)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.08))
-                        )
+                        .foregroundStyle(DS.Theme.accent)
                 }
                 .buttonStyle(.plain)
             }

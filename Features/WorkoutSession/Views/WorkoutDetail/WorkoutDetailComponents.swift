@@ -7,17 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Theme
-
-private enum Theme {
-    static let bg        = Color.black
-    static let surface   = Color(red: 0.07, green: 0.07, blue: 0.07)
-    static let surface2  = Color(red: 0.10, green: 0.10, blue: 0.10)
-    static let border    = Color.white.opacity(0.10)
-    static let text      = Color.white
-    static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#CCFF00")  // Brand green
-}
 
 // MARK: - Exercise Timing Card
 
@@ -33,7 +22,7 @@ struct ExerciseTimingCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
     }
 }
 
@@ -45,10 +34,10 @@ private struct TimingStat: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .dsFont(.caption2)
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(DS.Semantic.textSecondary)
             Text(value)
                 .dsFont(.caption, weight: .semibold)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
         }
     }
 }
@@ -72,19 +61,19 @@ struct SetTimingRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(set.displayValue)
                     .dsFont(.subheadline, weight: .medium)
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(DS.Semantic.textPrimary)
 
                 if set.workDuration != nil || set.restAfterSeconds != nil {
                     HStack(spacing: 8) {
                         if set.formattedWorkDuration != "—" {
                             Text("Work: \(set.formattedWorkDuration)")
                                 .dsFont(.caption2)
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(DS.Semantic.textSecondary)
                         }
                         if set.formattedRestDuration != "—" {
                             Text("Rest: \(set.formattedRestDuration)")
                                 .dsFont(.caption2)
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(DS.Semantic.textSecondary)
                         }
                     }
                 }
@@ -98,11 +87,12 @@ struct SetTimingRow: View {
                 .foregroundStyle(.black)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(set.tag.color, in: Capsule())
+                .background(set.tag.color)
+                .clipShape(ChamferedRectangleAlt(.micro))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
     }
 }
 
@@ -167,7 +157,7 @@ private struct DurationPill: View {
     let icon: String
     let label: String
     let value: String
-    var accentColor: Color = Theme.accent
+    var accentColor: Color = DS.Theme.accent
 
     var body: some View {
         HStack(spacing: 6) {
@@ -177,16 +167,16 @@ private struct DurationPill: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(value)
                     .dsFont(.subheadline, weight: .semibold)
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(DS.Semantic.textPrimary)
                 Text(label)
                     .dsFont(.caption2)
-                    .foregroundStyle(Theme.secondary)
+                    .foregroundStyle(DS.Semantic.textSecondary)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -222,7 +212,7 @@ struct ExercisesSectionWithTiming: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Exercises")
                 .dsFont(.headline)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
 
             ForEach(entries) { entry in
                 // Make the whole card clickable only if:
@@ -266,7 +256,7 @@ private struct ExerciseCardContent: View {
             HStack {
                 Text(entry.exerciseName)
                     .dsFont(.subheadline, weight: .semibold)
-                    .foregroundStyle(Theme.text)
+                    .foregroundStyle(DS.Semantic.textPrimary)
 
                 Spacer()
 
@@ -274,23 +264,20 @@ private struct ExerciseCardContent: View {
                 Button {
                     showingStats = true
                 } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "chart.bar.fill")
-                            .dsFont(.subheadline)
-                        Text("Stats")
-                            .dsFont(.subheadline, weight: .semibold)
-                    }
-                    .foregroundStyle(Theme.surface)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    Text("Stats")
+                        .dsFont(.subheadline, weight: .semibold)
+                        .foregroundStyle(DS.Theme.cardTop)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(DS.Theme.accent)
+                        .clipShape(ChamferedRectangleAlt(.micro))
                 }
                 .buttonStyle(.plain)
 
                 if isClickable {
                     Image(systemName: "chevron.right")
                         .dsFont(.caption)
-                        .foregroundStyle(Theme.secondary)
+                        .foregroundStyle(DS.Semantic.textSecondary)
                         .padding(.leading, 4)
                 }
             }
@@ -323,8 +310,8 @@ private struct ExerciseCardContent: View {
             }
         }
         .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
         .contentShape(Rectangle())
     }
 }
@@ -357,7 +344,7 @@ struct ExerciseStatsRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
     }
 }
 
@@ -369,10 +356,10 @@ private struct StatItem: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
                 .dsFont(.caption2)
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(DS.Semantic.textSecondary)
             Text(value)
                 .dsFont(.caption, weight: .semibold)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
         }
     }
 }
@@ -423,24 +410,3 @@ private struct ExerciseStatsWrapper: View {
     }
 }
 
-// MARK: - Color Extension
-
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:(a, r, g, b) = (255, 244, 228, 9)
-        }
-        self.init(.sRGB,
-                  red: Double(r) / 255,
-                  green: Double(g) / 255,
-                  blue: Double(b) / 255,
-                  opacity: Double(a) / 255)
-    }
-}

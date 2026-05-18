@@ -85,13 +85,6 @@ struct SettingsView: View {
                     settingsRow {
                         NavigationLink("Apple Health") { ConnectionsView() }
                     }
-                    settingsRow {
-                        NavigationLink {
-                            BarbellEditorView()
-                        } label: {
-                            Label("My Barbell", systemImage: "scalemass.fill")
-                        }
-                    }
                     settingsRow(showsDivider: false) {
                         NavigationLink {
                             DataPortabilityView()

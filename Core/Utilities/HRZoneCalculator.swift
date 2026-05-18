@@ -26,7 +26,7 @@ struct HRZoneConfig: Codable, Equatable {
 
         var displayName: String {
             switch self {
-            case .ageBased: return "Age-based (220 - age)"
+            case .ageBased: return "Age-based (208 - 0.7 x age)"
             case .defaultMax: return "Default (190 bpm)"
             case .karvonen: return "Karvonen (Heart Rate Reserve)"
             }
@@ -35,11 +35,11 @@ struct HRZoneConfig: Codable, Equatable {
         var description: String {
             switch self {
             case .ageBased:
-                return "Using age-based formula (220 - age)"
+                return "Using Tanaka max-HR estimate (208 - 0.7 x age). Individual HRmax can vary 10-15 bpm or more from this estimate."
             case .defaultMax:
-                return "Set your age in Profile to get personalized zones"
+                return "Set your age in Profile for a personalized estimate. Zone boundaries will still be approximate without a measured max HR."
             case .karvonen:
-                return "Using resting HR from Apple Health for personalized zones"
+                return "Using resting HR from Apple Health and an estimated max HR. More personalized than percent-max zones, but still approximate without a measured max HR."
             }
         }
     }
@@ -69,7 +69,7 @@ final class HRZoneCalculator: ObservableObject {
 
     @Published private(set) var config: HRZoneConfig?
 
-    private let configKey = "hr_zone_config_v2"
+    private let configKey = "hr_zone_config_v3"
     private let birthYearKey = "user_birth_year"
 
     private init() {
@@ -109,7 +109,7 @@ final class HRZoneCalculator: ObservableObject {
     /// Pass nil to remove resting HR and fall back to %maxHR.
     func setRestingHR(_ restingHR: Double?) {
         let age = userAge
-        let maxHR: Double = age.map { a in Double(220 - a) } ?? 190
+        let maxHR: Double = age.map { a in 208.0 - 0.7 * Double(a) } ?? 190
         let method: HRZoneConfig.CalculationMethod = restingHR != nil ? .karvonen : (age != nil ? .ageBased : .defaultMax)
 
         let newConfig = HRZoneConfig(
@@ -132,7 +132,7 @@ final class HRZoneCalculator: ObservableObject {
 
         if let age = age, age > 0 && age < 120 {
             // Use 220 - age formula
-            let maxHR = Double(220 - age)
+            let maxHR = 208.0 - 0.7 * Double(age)
             newConfig = HRZoneConfig(
                 maxHR: maxHR,
                 restingHR: nil,

@@ -8,6 +8,31 @@
 import Foundation
 
 @MainActor
+protocol PostDetailPostRepository: AnyObject {
+    func fetchCommentsWithReplies(postID: UUID) async throws -> [PostComment]
+    func parseMentions(from text: String) -> [String]
+    func searchUsersByUsername(query: String, limit: Int) async throws -> [UserProfile]
+    func postComment(
+        postID: UUID,
+        content: String,
+        parentCommentID: UUID?,
+        mentionedUserIDs: [UUID]
+    ) async throws -> PostComment
+    func deleteComment(commentId: UUID) async throws
+    func likePost(_ postId: UUID) async throws
+    func unlikePost(_ postId: UUID) async throws
+    func isPostLikedByUser(postId: UUID, userId: UUID) async throws -> Bool
+}
+
+@MainActor
+protocol PostDetailAuthProviding {
+    var currentUser: AuthUser? { get }
+}
+
+extension PostRepository: PostDetailPostRepository {}
+extension SupabaseAuthService: PostDetailAuthProviding {}
+
+@MainActor
 @Observable
 final class PostDetailViewModel {
     var post: PostWithAuthor
@@ -16,6 +41,7 @@ final class PostDetailViewModel {
     var isLoadingComments = false
     var isPostingComment = false
     var isRefreshingCardioData = false
+    var isTogglingLike = false
     var error: String?
 
     // NEW: Reply functionality
@@ -24,17 +50,45 @@ final class PostDetailViewModel {
     // NEW: Mention autocomplete
     var mentionSuggestions: [UserProfile] = []
 
-    private let postRepository: PostRepository
-    private let authService: SupabaseAuthService
+    private let postRepository: any PostDetailPostRepository
+    private let authService: any PostDetailAuthProviding
 
     init(
         post: PostWithAuthor,
-        postRepository: PostRepository,
-        authService: SupabaseAuthService
+        postRepository: any PostDetailPostRepository,
+        authService: any PostDetailAuthProviding
     ) {
         self.post = post
         self.postRepository = postRepository
         self.authService = authService
+    }
+
+    func refreshLikeState() async {
+        guard let currentUserId = authService.currentUser?.id else { return }
+
+        do {
+            let isLiked = try await postRepository.isPostLikedByUser(
+                postId: post.post.id,
+                userId: currentUserId
+            )
+            guard isLiked != post.isLikedByCurrentUser else { return }
+
+            var updatedPost = post.post
+            if isLiked {
+                updatedPost.likesCount = max(updatedPost.likesCount, 1)
+            } else if post.isLikedByCurrentUser {
+                updatedPost.likesCount = max(0, updatedPost.likesCount - 1)
+            }
+
+            post = PostWithAuthor(
+                id: post.id,
+                post: updatedPost,
+                author: post.author,
+                isLikedByCurrentUser: isLiked
+            )
+        } catch {
+            AppLogger.warning("Failed to refresh post like state: \(error)", category: AppLogger.social)
+        }
     }
 
     func loadComments() async {
@@ -199,7 +253,11 @@ final class PostDetailViewModel {
     }
 
     func toggleLike() async {
+        guard !isTogglingLike else { return }
         guard let currentUserId = authService.currentUser?.id else { return }
+
+        isTogglingLike = true
+        defer { isTogglingLike = false }
 
         // Optimistic update
         let newIsLiked = !post.isLikedByCurrentUser

@@ -175,7 +175,7 @@ struct WeeklyProgressCard: View {
                 percentage: 75,
                 daysRemaining: 2,
                 weekEnded: false,
-                planAdherence: PlanAdherence(plannedSessions: 5, completedOnPlan: 3)
+                planAdherence: PlanAdherence(plannedSessions: 5, completedOnPlan: 3, missedSessions: 0)
             )
         )
         Spacer()
@@ -193,7 +193,7 @@ struct WeeklyProgressCard: View {
                 percentage: 100,
                 daysRemaining: 1,
                 weekEnded: false,
-                planAdherence: PlanAdherence(plannedSessions: 4, completedOnPlan: 4)
+                planAdherence: PlanAdherence(plannedSessions: 4, completedOnPlan: 4, missedSessions: 0)
             )
         )
         Spacer()
@@ -211,7 +211,7 @@ struct WeeklyProgressCard: View {
                 percentage: 50,
                 daysRemaining: 0,
                 weekEnded: true,
-                planAdherence: PlanAdherence(plannedSessions: 5, completedOnPlan: 2)
+                planAdherence: PlanAdherence(plannedSessions: 5, completedOnPlan: 2, missedSessions: 2)
             )
         )
         Spacer()

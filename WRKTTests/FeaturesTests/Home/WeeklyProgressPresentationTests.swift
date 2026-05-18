@@ -35,12 +35,12 @@ struct WeeklyProgressPresentationTests {
 
     @Test func planAdherenceLabelNamesScheduledProgress() {
         #expect(
-            weeklyPlanAdherenceLabel(PlanAdherence(plannedSessions: 2, completedOnPlan: 0))
+            weeklyPlanAdherenceLabel(PlanAdherence(plannedSessions: 2, completedOnPlan: 0, missedSessions: 0))
             == "Planned: 0/2"
         )
 
         #expect(
-            weeklyPlanAdherenceLabel(PlanAdherence(plannedSessions: 2, completedOnPlan: 2))
+            weeklyPlanAdherenceLabel(PlanAdherence(plannedSessions: 2, completedOnPlan: 2, missedSessions: 0))
             == "Plan complete"
         )
     }

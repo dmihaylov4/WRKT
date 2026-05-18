@@ -43,6 +43,9 @@ import Foundation
     /// Unlike a post
     func unlikePost(_ postId: UUID) async throws
 
+    /// Check whether a user currently likes a post
+    func isPostLikedByUser(postId: UUID, userId: UUID) async throws -> Bool
+
     /// Fetch users who liked a post
     func fetchPostLikes(postId: UUID) async throws -> [UserProfile]
 

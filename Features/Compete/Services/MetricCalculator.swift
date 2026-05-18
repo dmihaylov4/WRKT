@@ -342,13 +342,24 @@ struct MetricCalculator {
         let lowerBound = Double(boundary.lowerBPM)
         let upperBound = Double(boundary.upperBPM)
 
-        // Count samples in zone (samples are typically every 5-10 seconds)
-        // HeartRateSample has a .bpm property
         let samplesInZone = hrSamples.filter { $0.bpm >= lowerBound && $0.bpm <= upperBound }.count
+        let totalSamples = hrSamples.count
+        guard totalSamples > 0 else { return 0 }
 
-        // Estimate time: assume 5 seconds per sample (conservative estimate)
-        let timeInZoneSeconds = Double(samplesInZone) * 5.0
-        return Decimal(timeInZoneSeconds / 60)  // Convert to minutes
+        // Use timestamps when available for per-sample interval accuracy.
+        // Fall back to totalDuration / totalSamples to avoid the previous hardcoded 5s assumption.
+        let timeInZoneSeconds: Double
+        if hrSamples.count >= 2 {
+            let sorted = hrSamples.sorted { $0.timestamp < $1.timestamp }
+            let totalDuration = sorted.last!.timestamp.timeIntervalSince(sorted.first!.timestamp)
+            let secondsPerSample = totalDuration / Double(totalSamples - 1)
+            timeInZoneSeconds = Double(samplesInZone) * secondsPerSample
+        } else {
+            let workoutDuration = Double(workout.matchedHealthKitDuration ?? 0)
+            let secondsPerSample = workoutDuration / Double(totalSamples)
+            timeInZoneSeconds = Double(samplesInZone) * secondsPerSample
+        }
+        return Decimal(timeInZoneSeconds / 60)
     }
 
     // MARK: - Intensity Calculations
@@ -395,12 +406,11 @@ struct MetricCalculator {
             if !matchesFilter(entry: entry, filter: filter) { continue }
 
             for set in entry.sets {
-                // Both weight and reps are non-optional
                 guard set.reps > 0, set.weight > 0 else { continue }
-
-                // Brzycki formula: 1RM = weight / (1.0278 - 0.0278 * reps)
-                let estimate = set.weight / (1.0278 - 0.0278 * Double(set.reps))
-                maxEstimate = max(maxEstimate, estimate)
+                guard OneRepMaxCalculator.confidence(reps: set.reps) != .low else { continue }
+                if let estimate = OneRepMaxCalculator.epley(weight: set.weight, reps: set.reps) {
+                    maxEstimate = max(maxEstimate, estimate)
+                }
             }
         }
 

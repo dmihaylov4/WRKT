@@ -19,8 +19,11 @@ struct PostDetailView: View {
     @FocusState private var isCommentFieldFocused: Bool
     @State private var displayImageURLs: [URL] = []
     @State private var generatedMapURLs: [URL] = []
+    @State private var userPhotoURLs: [URL] = []
     @State private var carouselPage: Int = 0
     @State private var showMapFullscreen = false
+    @State private var showingImageViewer = false
+    @State private var selectedImageIndex = 0
     @State private var selectedWorkoutSection: WorkoutPostDetailSection = .overview
 
     private let imageUploadService = ImageUploadService()
@@ -52,6 +55,7 @@ struct PostDetailView: View {
                     authService: deps.authService
                 )
                 viewModel = vm
+                await vm.refreshLikeState()
                 await vm.loadComments()
                 if vm.canRefreshCardioData,
                    post.post.workoutData.cardioHRZones == nil {
@@ -101,6 +105,12 @@ struct PostDetailView: View {
             commentInput(viewModel: viewModel)
         }
         .padding(.bottom, 56) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
+        .sheet(isPresented: $showingImageViewer) {
+            ImageViewer(
+                imageUrls: userPhotoURLs.map { $0.absoluteString },
+                selectedIndex: $selectedImageIndex
+            )
+        }
     }
 
     private func postHeader(viewModel: PostDetailViewModel) -> some View {
@@ -177,6 +187,8 @@ struct PostDetailView: View {
 
             detailRouteMapIfAvailable(post: viewModel.post.post)
 
+            userPhotoStripIfAvailable(post: viewModel.post.post)
+
             detailSectionPicker(hasWatchData: workouts.contains(where: hasWatchData))
 
             switch selectedWorkoutSection {
@@ -191,8 +203,20 @@ struct PostDetailView: View {
     }
 
     @ViewBuilder
+    private func userPhotoStripIfAvailable(post: WorkoutPost) -> some View {
+        if !userPhotoURLs.isEmpty {
+            PostImageStrip(
+                imageUrls: userPhotoURLs.map { $0.absoluteString },
+                selectedImageIndex: $selectedImageIndex
+            ) {
+                showingImageViewer = true
+            }
+        }
+    }
+
+    @ViewBuilder
     private func detailRouteMapIfAvailable(post: WorkoutPost) -> some View {
-        let routeURL = post.isMultiWorkout ? generatedMapURLs.first : (post.workoutData.isCardioWorkout ? displayImageURLs.first : nil)
+        let routeURL = post.workoutData.isCardioWorkout || post.isMultiWorkout ? generatedMapURLs.first : nil
 
         if let routeURL {
             KFImage(routeURL)
@@ -608,38 +632,74 @@ struct PostDetailView: View {
         let hasZones = !(workout.cardioHRZones ?? []).isEmpty
         let hasSplits = !(workout.cardioSplits ?? []).isEmpty
 
-        // Assign sequential page indices so dots and TabView stay in sync
-        let hrIdx    = 1
-        let dynIdx   = hrIdx   + (hasHR       ? 1 : 0)
-        let zonesIdx = dynIdx  + (hasDynamics  ? 1 : 0)
-        let splitsIdx = zonesIdx + (hasZones   ? 1 : 0)
-        let pageCount = splitsIdx + (hasSplits ? 1 : 0)
+        // User photo pages sit between the route map (page 0) and the stats pages
+        let photoCount = userPhotoURLs.count
+        let hrIdx      = 1 + photoCount
+        let dynIdx     = hrIdx    + (hasHR       ? 1 : 0)
+        let zonesIdx   = dynIdx   + (hasDynamics  ? 1 : 0)
+        let splitsIdx  = zonesIdx + (hasZones     ? 1 : 0)
+        let pageCount  = splitsIdx + (hasSplits   ? 1 : 0)
+
+        let pageHeight: CGFloat = 320
 
         return VStack(spacing: 0) {
             TabView(selection: $carouselPage) {
+                // Slide 0: route map or indoor summary
                 Group {
                     if isOutdoor {
                         cardioMapPage(workout: workout)
                     } else {
                         cardioSummaryHeroPage(workout: workout)
                     }
-                }.tag(0)
+                }
+                // Explicit per-page height so GeometryReader inside each page
+                // receives the correct measurement instead of the full ScrollView height.
+                .frame(height: pageHeight)
+                .tag(0)
 
+                // Slides 1..photoCount: user-attached photos
+                ForEach(Array(userPhotoURLs.enumerated()), id: \.offset) { index, url in
+                    KFImage(url)
+                        .placeholder {
+                            Rectangle()
+                                .fill(DS.Semantic.fillSubtle)
+                                .overlay(ProgressView())
+                        }
+                        .fade(duration: 0.25)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: pageHeight)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .frame(height: pageHeight)
+                        .tag(1 + index)
+                }
+
+                // Stats slides
                 if hasHR {
-                    cardioHeartRatePage(workout: workout, viewModel: viewModel).tag(hrIdx)
+                    cardioHeartRatePage(workout: workout, viewModel: viewModel)
+                        .frame(height: pageHeight)
+                        .tag(hrIdx)
                 }
                 if hasDynamics {
-                    cardioDynamicsPage(workout: workout).tag(dynIdx)
+                    cardioDynamicsPage(workout: workout)
+                        .frame(height: pageHeight)
+                        .tag(dynIdx)
                 }
                 if hasZones {
-                    cardioZonesPage(workout: workout, viewModel: viewModel).tag(zonesIdx)
+                    cardioZonesPage(workout: workout, viewModel: viewModel)
+                        .frame(height: pageHeight)
+                        .tag(zonesIdx)
                 }
                 if hasSplits {
-                    cardioSplitsPage(workout: workout).tag(splitsIdx)
+                    cardioSplitsPage(workout: workout)
+                        .frame(height: pageHeight)
+                        .tag(splitsIdx)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 320)
+            .frame(height: pageHeight)
+            .clipped()  // constrain UIPageViewController's hit-test area to the declared frame
             .padding(.horizontal)
 
             // Line indicator (same design as SmartCardCarousel)
@@ -729,7 +789,7 @@ struct PostDetailView: View {
         GeometryReader { geo in
             ZStack {
                 // Route map — explicit pixel frame prevents any panning
-                if let mapURL = displayImageURLs.first {
+                if let mapURL = generatedMapURLs.first {
                     KFImage(mapURL)
                         .placeholder { Rectangle().fill(DS.Semantic.fillSubtle) }
                         .fade(duration: 0.25)
@@ -826,7 +886,7 @@ struct PostDetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .fullScreenCover(isPresented: $showMapFullscreen) {
-            if let mapURL = displayImageURLs.first {
+            if let mapURL = generatedMapURLs.first {
                 ZStack(alignment: .topTrailing) {
                     Color.black.ignoresSafeArea()
                     KFImage(mapURL)
@@ -1086,7 +1146,9 @@ struct PostDetailView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 24, height: 24)
+                        .opacity(viewModel.isTogglingLike ? 0.5 : 1)
                 }
+                .disabled(viewModel.isTogglingLike)
 
                 let displayCount = max(viewModel.post.post.likesCount, viewModel.post.isLikedByCurrentUser ? 1 : 0)
                 if displayCount > 0 {
@@ -1258,10 +1320,9 @@ struct PostDetailView: View {
             )
             await MainActor.run {
                 displayImageURLs = urls
-                if post.post.isMultiWorkout {
-                    let pairs = zip(images, urls)
-                    generatedMapURLs = pairs.filter { $0.0.isGeneratedMapImage }.map(\.1)
-                }
+                let pairs = Array(zip(images, urls))
+                generatedMapURLs = pairs.filter { $0.0.isGeneratedMapImage }.map(\.1)
+                userPhotoURLs = pairs.filter { !$0.0.isGeneratedMapImage }.map(\.1)
             }
         } catch {
             print("⚠️ Failed to load image URLs: \(error)")

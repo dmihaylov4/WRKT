@@ -104,7 +104,7 @@ struct TrainingBalanceSection: View {
 
                 InfoButton(
                     title: "Training Balance",
-                    message: "Analytics to help you maintain balanced training across muscle groups, movement patterns, and training styles to reduce injury risk and optimize development."
+                    message: "Shows how your training is distributed across movement patterns and muscle groups. Useful for reviewing program balance, not a medical or injury prediction tool."
                 )
             }
             .padding(.bottom, 4)
@@ -231,10 +231,10 @@ private struct PushPullBalanceCard: View {
                             .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
                             title: "Push/Pull Balance",
-                            message: "Tracks your ratio of pulling exercises (rows, pull-ups) to pushing exercises (bench press, overhead press). Optimal ratio is 1.0-1.5 (pull:push) to maintain shoulder health and posture. The ratio shows horizontal (H) and vertical (V) volume breakdown."
+                            message: "Compares pulling load (rows, pull-ups) to pushing load (bench press, overhead press). A ratio near 1:1 to 1.5:1 is a common programming guideline, not a validated injury prevention measure. If your program is heavily push-dominant, consider adding more pulling work."
                         )
                     }
-                    Text("Optimal ratio: 1.0-1.5 (pull:push)")
+                    Text("Target range heuristic: 1.0-1.5 (pull:push)")
                         .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -490,12 +490,12 @@ private struct MuscleFrequencyHeatMap: View {
             // Header
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Label("Muscle Recovery Status", systemImage: "clock.arrow.circlepath")
+                    Label("Last Trained", systemImage: "clock.arrow.circlepath")
                         .dsFont(.subheadline, weight: .semibold)
                         .foregroundStyle(.white.opacity(0.9))
                     InfoButton(
-                        title: "Muscle Recovery Status",
-                        message: "Shows when each muscle group was last trained with color-coded recovery status. Red = fatigued (0-1 days/0-48h), yellow = recovering (2 days/48-72h), light green = recovered (3 days/72-96h), green = ready (4+ days/96h+). Based on muscle recovery science."
+                        title: "Last Trained",
+                        message: "Shows how recently each muscle group was trained. Color coding is based on time since last session only, not on training volume, intensity, or actual physiological recovery."
                     )
 
                     Spacer()
@@ -515,7 +515,7 @@ private struct MuscleFrequencyHeatMap: View {
                     .buttonStyle(.plain)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedView == .enhanced ? "Visual recovery map" : "Last trained (last 7 days)")
+                    Text(selectedView == .enhanced ? "Days since last session" : "Last trained (last 7 days)")
                         .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
 
@@ -624,9 +624,23 @@ private struct MuscleTile: View {
                 .dsFont(.caption2)
                 .foregroundStyle(status.color)
 
-            Text("\(muscle.weeklyFrequency)×")
-                .dsFont(.caption2, monospacedDigits: true)
-                .foregroundStyle(.white.opacity(0.6))
+            HStack(spacing: 4) {
+                Text("\(muscle.weeklyFrequency)×")
+                    .dsFont(.caption2, monospacedDigits: true)
+                    .foregroundStyle(.white.opacity(0.6))
+
+                if muscle.weeklySetCount > 0 {
+                    Text("\(muscle.weeklySetCount)s")
+                        .dsFont(.caption2, monospacedDigits: true)
+                        .foregroundStyle(muscle.weeklySetCount >= 10 ? DS.Status.success : DS.Semantic.textSecondary)
+
+                    if muscle.weeklyHardSetCount > 0 {
+                        Text("\(muscle.weeklyHardSetCount)h")
+                            .dsFont(.caption2, monospacedDigits: true)
+                            .foregroundStyle(DS.Semantic.brand)
+                    }
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)

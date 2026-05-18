@@ -33,6 +33,7 @@ struct ActivationCustomization: Sendable {
 struct PlanAdherence {
     let plannedSessions: Int
     let completedOnPlan: Int
+    let missedSessions: Int
     var rate: Double { plannedSessions > 0 ? Double(completedOnPlan) / Double(plannedSessions) : 1.0 }
 }
 
@@ -420,11 +421,18 @@ final class PlannerStore {
     func adherence(forWeek weekStart: Date) -> PlanAdherence {
         let calendar = Calendar.current
         guard let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) else {
-            return PlanAdherence(plannedSessions: 0, completedOnPlan: 0)
+            return PlanAdherence(plannedSessions: 0, completedOnPlan: 0, missedSessions: 0)
         }
         let planned = (try? plannedWorkouts(from: weekStart, to: weekEnd)) ?? []
         let completedCount = planned.filter { $0.workoutStatus == .completed }.count
-        return PlanAdherence(plannedSessions: planned.count, completedOnPlan: completedCount)
+        let now = Date()
+        let missedCount = planned.filter { $0.workoutStatus != .completed && $0.scheduledDate < now }.count
+        return PlanAdherence(plannedSessions: planned.count, completedOnPlan: completedCount, missedSessions: missedCount)
+    }
+
+    /// Compute plan adherence for multiple weeks
+    func adherence(forWeeks weekStarts: [Date]) -> [PlanAdherence] {
+        weekStarts.map { adherence(forWeek: $0) }
     }
 
     /// Get active split

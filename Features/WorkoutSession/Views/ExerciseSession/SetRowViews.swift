@@ -339,11 +339,6 @@ struct SetRowUnified: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
 
-            // RPE chip strip — only on active working sets
-            if isActive && set.tag == .working {
-                rpeChipStrip
-            }
-
             // Rest recommendation banner
             if showRestBanner, let zone = restBannerZone, isActive {
                 restRecommendationBanner(zone: zone)
@@ -379,41 +374,32 @@ struct SetRowUnified: View {
     // MARK: - RPE chip strip
 
     private var rpeChipStrip: some View {
-        VStack(spacing: 0) {
-            Divider()
-                .background(Theme.border)
-                .padding(.horizontal, 16)
-
-            HStack(spacing: 6) {
-                Text("Effort")
-                    .dsFont(.caption, weight: .semibold)
-                    .foregroundStyle(Theme.secondary)
-
-                Spacer()
-
-                ForEach([6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0], id: \.self) { value in
-                    let selected = set.rpe == value
-                    Button {
-                        set.rpe = selected ? nil : value
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    } label: {
-                        Text(formatRPE(value))
-                            .dsFont(.caption, weight: .semibold)
-                            .padding(.vertical, 5)
-                            .padding(.horizontal, 7)
-                            .foregroundStyle(selected ? Color.black : Theme.accent)
-                            .background(selected ? Theme.accent : Theme.accent.opacity(0.1),
-                                        in: Capsule())
-                            .overlay(Capsule().stroke(Theme.accent.opacity(selected ? 0 : 0.3),
-                                                     lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .animation(.easeInOut(duration: 0.12), value: selected)
+        HStack(spacing: 6) {
+            ForEach([6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0], id: \.self) { value in
+                let selected = set.rpe == value
+                Button {
+                    set.rpe = selected ? nil : value
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Text(formatRPE(value))
+                        .dsFont(.caption, weight: .semibold)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 6)
+                        .foregroundStyle(selected ? Color.black : Theme.accent)
+                        .background(selected ? Theme.accent : Theme.accent.opacity(0.1),
+                                    in: Capsule())
+                        .overlay(Capsule().stroke(Theme.accent.opacity(selected ? 0 : 0.3),
+                                                 lineWidth: 1))
                 }
+                .buttonStyle(.plain)
+                .animation(.easeInOut(duration: 0.12), value: selected)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+
+            Spacer()
         }
+        .padding(.horizontal, 12)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Rest Recommendation Banner

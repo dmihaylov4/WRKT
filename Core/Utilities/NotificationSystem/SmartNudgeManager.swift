@@ -515,8 +515,10 @@ final class SmartNudgeManager {
         guard currentStreak >= 2 else { return }
         guard strengthCompleted < weeklyGoal.targetStrengthDays else { return }
 
-        let isCritical = daysRemaining <= 1 && strengthNeeded > daysRemaining
-        let isCaution = strengthNeeded > 0 && daysRemaining > 0 &&
+        guard daysRemaining > 0 else { return }
+
+        let isCritical = daysRemaining == 1 && strengthNeeded >= 1
+        let isCaution = strengthNeeded > 0 && daysRemaining > 1 &&
                         (Double(strengthNeeded) / Double(daysRemaining) > 1.0)
 
         if isCritical || isCaution {

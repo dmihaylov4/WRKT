@@ -361,7 +361,7 @@ final class SceneState {
             return false
         }
 
-        let slotOffsets: [Float] = [0.60, 0.64, 0.68, 0.72]
+        let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
         guard slotOffsets.indices.contains(rackSlot) else { return false }
 
         if let slotIdx = storageSlotByPlate[plateID] {
@@ -1504,7 +1504,7 @@ struct BarbellRealityView: View {
         barbellLog("SNAP_BAR", "id=\(plateID) pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil)))")
         #endif
         barbellDiagnosticsLog("SNAP_BAR", "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil)))")
-        let slotOffsets: [Float] = [0.60, 0.64, 0.68, 0.72]
+        let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
         let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
         guard let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }) else {
             #if DEBUG
@@ -1530,6 +1530,11 @@ struct BarbellRealityView: View {
         mirrorEntity.components.remove(CollisionComponent.self)
         mirrorEntity.components.remove(PhysicsBodyComponent.self)
         mirrorEntity.components.remove(PhysicsMotionComponent.self)
+        // Flip mirror to the opposite X immediately before adding to the scene so it never
+        // occupies the same position as the source entity. Without this, both entities share
+        // the same world position for the first render frame, producing a doubled/melt artifact.
+        let ePos = entity.position
+        mirrorEntity.position = SIMD3(-ePos.x, ePos.y, ePos.z)
         sceneState.barAnchor.addChild(mirrorEntity)
         sceneState.barMirrorMap[plateID] = mirrorEntity
 
@@ -2056,7 +2061,8 @@ struct BarbellRealityView: View {
         sceneState.sceneRoot.addChild(sceneState.barAnchor)
 
         // Collars sit just inside the plate stack, marking the inner boundary of the loading zone.
-        // Layout: stands(±0.40) → collar(±0.54) → plates(0.60-0.72) → bar end(±0.80).
+        // Layout: stands(±0.40) → collar(±0.54) → plates(0.60-0.756) → bar end(±0.80).
+        // 5.2 cm slot spacing accommodates the thickest bumper plates (46 mm) with a 6 mm gap.
         for xSign: Float in [-1, 1] {
             let collar = makeCollarEntity(skinID: barSkinID)
             collar.position = SIMD3(xSign * 0.54, 0.6, barbellZ)
@@ -2081,7 +2087,7 @@ struct BarbellRealityView: View {
 
         // Slot highlight rings -- one per bar slot, hidden until plate is dragged near bar.
         // UnlitMaterial so they always appear bright regardless of scene lighting.
-        let slotOffsets: [Float] = [0.60, 0.64, 0.68, 0.72]
+        let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
         sceneState.slotHighlights.removeAll()
         for offset in slotOffsets {
             var mat = UnlitMaterial()

@@ -376,7 +376,8 @@ struct ProfileChartsView: View {
                 name: name,
                 totalVolume: vol,
                 trendDirection: trend?.trendDirection,
-                volumeChange: trend?.volumeChange
+                volumeChange: trend?.volumeChange,
+                lowConfidence: trend?.lowConfidence ?? false
             )
         }
 
@@ -400,15 +401,15 @@ private struct VolumeWithTrendChart: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Label("Weekly volume", systemImage: "chart.line.uptrend.xyaxis")
+                        Label("Weekly Tonnage", systemImage: "chart.line.uptrend.xyaxis")
                             .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
-                            title: "Weekly Volume",
-                            message: "This chart shows your total training volume (reps × weight) per week. The blue line is your 4-week moving average. Bars are colored green when above your personal average and orange when below. The shaded area represents ±1 standard deviation from your trend."
+                            title: "Weekly Tonnage",
+                            message: "Total load lifted across all working sets each week (reps × weight). Useful for spotting big changes in your overall workload. Not a direct measure of strength or muscle growth."
                         )
                     }
-                    Text("Total volume (reps × kg)")
+                    Text("reps × kg (working sets)")
                         .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
                 }
@@ -609,7 +610,13 @@ private struct TrainingTotalsGrid: View {
                 StatPill(title: "Reps",     value: "\(t.reps)")
             }
             GridRow {
-                StatPill(title: "Volume",   value: prettyVolume(t.volume))
+                let hasBodyweightEst = weekly.contains { $0.containsBodyweightEstimates }
+                VStack(spacing: 2) {
+                    StatPill(title: "Volume", value: prettyVolume(t.volume))
+                    if hasBodyweightEst {
+                        DataQualityBadge(quality: .bodyweightEst)
+                    }
+                }
                 StatPill(title: "Minutes",  value: "\(t.minutes)")
                 Spacer().gridCellUnsizedAxes([.horizontal, .vertical])
             }
@@ -691,9 +698,16 @@ private struct TopLiftsCard: View {
                             HStack(spacing: 8) {
                                 // Trend indicator
                                 if let direction = item.trendDirection {
-                                    trendIcon(for: direction)
-                                        .dsFont(.caption)
-                                        .frame(width: 20)
+                                    if item.lowConfidence {
+                                        Image(systemName: "questionmark")
+                                            .dsFont(.caption)
+                                            .foregroundStyle(DS.Semantic.textSecondary)
+                                            .frame(width: 20)
+                                    } else {
+                                        trendIcon(for: direction)
+                                            .dsFont(.caption)
+                                            .frame(width: 20)
+                                    }
                                 }
 
                                 // Exercise name
@@ -710,7 +724,11 @@ private struct TopLiftsCard: View {
                                         .dsFont(.footnote, monospacedDigits: true)
                                         .foregroundStyle(.white.opacity(0.95))
 
-                                    if let change = item.volumeChange, abs(change) >= 5 {
+                                    if item.lowConfidence {
+                                        Text("low data")
+                                            .dsFont(.caption2)
+                                            .foregroundStyle(DS.Semantic.textSecondary)
+                                    } else if let change = item.volumeChange, abs(change) >= 5 {
                                         Text(String(format: "%+.0f%%", change))
                                             .dsFont(.caption2, monospacedDigits: true)
                                             .foregroundStyle(change > 0 ? DS.Charts.positive : DS.Charts.negative)
@@ -830,4 +848,5 @@ struct TopLift: Identifiable, Hashable {
     let totalVolume: Double
     let trendDirection: String?      // "improving", "stable", "declining"
     let volumeChange: Double?        // % change
+    let lowConfidence: Bool          // fewer samples than ideal
 }

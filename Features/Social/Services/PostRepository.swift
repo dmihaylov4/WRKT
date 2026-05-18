@@ -490,6 +490,20 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         logSuccess("Post unliked")
     }
 
+    /// Check whether a specific user currently likes a post.
+    func isPostLikedByUser(postId: UUID, userId: UUID) async throws -> Bool {
+        let existing: [PostLike] = try await client
+            .from("post_likes")
+            .select()
+            .eq("post_id", value: postId.uuidString)
+            .eq("user_id", value: userId.uuidString)
+            .limit(1)
+            .execute()
+            .value
+
+        return !existing.isEmpty
+    }
+
     // MARK: - Fetch Likes
 
     /// Fetch users who liked a post with caching

@@ -197,12 +197,13 @@ private struct HeaderSection: View {
                     .foregroundStyle(DS.Semantic.surface)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(DS.Theme.accent, in: Capsule())
+                    .background(DS.Theme.accent)
+                    .clipShape(ChamferedRectangleAlt(.micro))
             }
         }
         .padding(14)
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -327,8 +328,8 @@ private struct PRCardsSection: View {
                 GridItem(.flexible(), spacing: 12),
                 GridItem(.flexible(), spacing: 12)
             ], spacing: 12) {
-                ForEach(displayedPRs) { pr in
-                    PRCard(pr: pr)
+                ForEach(Array(displayedPRs.enumerated()), id: \.element.id) { index, pr in
+                    PRCard(pr: pr, useAlt: (index % 2 + index / 2) % 2 == 0)
                 }
             }
         }
@@ -344,8 +345,29 @@ private struct PRDisplay: Identifiable {
     let color: Color
 }
 
+// Applies the correct chamfer shape based on grid position.
+// Even checkerboard positions (col+row even) use Alt (TL+BR cuts),
+// odd positions use Std (TR+BL cuts), so all inner cuts converge at grid center.
+private struct PRCardShape: ViewModifier {
+    let useAlt: Bool
+    let strokeColor: Color
+
+    func body(content: Content) -> some View {
+        if useAlt {
+            content
+                .clipShape(ChamferedRectangleAlt(.large))
+                .overlay(ChamferedRectangleAlt(.large).stroke(strokeColor, lineWidth: 1))
+        } else {
+            content
+                .clipShape(ChamferedRectangle(.large))
+                .overlay(ChamferedRectangle(.large).stroke(strokeColor, lineWidth: 1))
+        }
+    }
+}
+
 private struct PRCard: View {
     let pr: PRDisplay
+    var useAlt: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -377,13 +399,9 @@ private struct PRCard: View {
                 colors: [pr.color.opacity(0.1), pr.color.opacity(0.05)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(pr.color.opacity(0.3), lineWidth: 1)
-        )
+        .modifier(PRCardShape(useAlt: useAlt, strokeColor: pr.color.opacity(0.3)))
     }
 }
 
@@ -461,15 +479,15 @@ private struct ProgressChartsSection: View {
                                 .padding(.vertical, 8)
                                 .background(
                                     selectedChart == chartType ? DS.Theme.accent : Color.clear,
-                                    in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    in: ChamferedRectangle(.large)
                                 )
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(3)
-                .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
+                .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+                .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
             }
 
             // Chart
@@ -485,8 +503,8 @@ private struct ProgressChartsSection: View {
             }
             .frame(height: 220)
             .padding(12)
-            .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 }
@@ -742,70 +760,38 @@ private struct StatisticsGridSection: View {
         var items: [StatItem] = []
 
         // Always show frequency stats
-        items.append(StatItem(
-            title: "Times Performed",
-            value: "\(stats.frequencyStats.totalTimesPerformed)",
-            icon: "calendar"
-        ))
+        items.append(StatItem(title: "Times Performed", value: "\(stats.frequencyStats.totalTimesPerformed)"))
 
         // Volume stats (for weighted exercises)
         if stats.trackingMode == .weighted && stats.volumeStats.totalVolume > 0 {
-            items.append(StatItem(
-                title: "Total Volume",
-                value: formatVolume(stats.volumeStats.totalVolume),
-                icon: "chart.bar.fill"
-            ))
+            items.append(StatItem(title: "Total Volume", value: formatVolume(stats.volumeStats.totalVolume)))
         }
 
         // Sets and reps
-        items.append(StatItem(
-            title: "Total Sets",
-            value: "\(stats.volumeStats.totalSets)",
-            icon: "list.bullet"
-        ))
+        items.append(StatItem(title: "Total Sets", value: "\(stats.volumeStats.totalSets)"))
 
         if stats.volumeStats.totalReps > 0 {
-            items.append(StatItem(
-                title: "Total Reps",
-                value: "\(stats.volumeStats.totalReps)",
-                icon: "arrow.clockwise"
-            ))
+            items.append(StatItem(title: "Total Reps", value: "\(stats.volumeStats.totalReps)"))
         }
 
         // Average rest time
         if let avgRest = stats.timeStats.averageRestBetweenSets {
-            items.append(StatItem(
-                title: "Avg Rest",
-                value: formatDuration(avgRest),
-                icon: "timer"
-            ))
+            items.append(StatItem(title: "Avg Rest", value: formatDuration(avgRest)))
         }
 
         // Frequency
         if stats.frequencyStats.averagePerWeek > 0 {
-            items.append(StatItem(
-                title: "Per Week",
-                value: String(format: "%.1f×", stats.frequencyStats.averagePerWeek),
-                icon: "repeat"
-            ))
+            items.append(StatItem(title: "Per Week", value: String(format: "%.1f×", stats.frequencyStats.averagePerWeek)))
         }
 
         // Streak
         if stats.frequencyStats.longestStreak > 0 {
-            items.append(StatItem(
-                title: "Longest Streak",
-                value: "\(stats.frequencyStats.longestStreak) wk",
-                icon: "flame.fill"
-            ))
+            items.append(StatItem(title: "Longest Streak", value: "\(stats.frequencyStats.longestStreak) wk"))
         }
 
         // Time under tension (for timed exercises)
         if stats.trackingMode == .timed && stats.timeStats.totalTimeUnderTension > 0 {
-            items.append(StatItem(
-                title: "Total TUT",
-                value: formatDuration(stats.timeStats.totalTimeUnderTension),
-                icon: "clock.fill"
-            ))
+            items.append(StatItem(title: "Total TUT", value: formatDuration(stats.timeStats.totalTimeUnderTension)))
         }
 
         return items
@@ -817,14 +803,30 @@ private struct StatisticsGridSection: View {
                 .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
-            ], spacing: 12) {
-                ForEach(statItems) { item in
-                    StatCard(item: item)
+            VStack(spacing: 0) {
+                ForEach(Array(statItems.enumerated()), id: \.element.id) { index, item in
+                    HStack {
+                        Text(item.title)
+                            .dsFont(.subheadline)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                        Spacer()
+                        Text(item.value)
+                            .dsFont(.subheadline, weight: .semibold, monospacedDigits: true)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 11)
+
+                    if index < statItems.count - 1 {
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(height: 1)
+                            .padding(.horizontal, 14)
+                    }
                 }
             }
+            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 
@@ -850,35 +852,6 @@ private struct StatItem: Identifiable {
     let id = UUID()
     let title: String
     let value: String
-    let icon: String
-}
-
-private struct StatCard: View {
-    let item: StatItem
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 4) {
-                Image(systemName: item.icon)
-                    .dsFont(.caption2)
-                    .foregroundStyle(DS.Theme.accent.opacity(0.7))
-
-                Text(item.title)
-                    .dsFont(.caption2)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-            }
-
-            Text(item.value)
-                .dsFont(.title3, weight: .semibold, monospacedDigits: true)
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
-    }
 }
 
 // MARK: - Recent History Section
@@ -1000,7 +973,8 @@ private struct WorkoutHistoryCard: View {
                     .foregroundStyle(DS.Theme.accent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(DS.Theme.accent.opacity(0.15), in: Capsule())
+                    .background(DS.Theme.accent.opacity(0.15))
+                    .clipShape(ChamferedRectangleAlt(.micro))
                 }
             }
 
@@ -1065,11 +1039,11 @@ private struct WorkoutHistoryCard: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                : LinearGradient(colors: [DS.Theme.cardTop, DS.Theme.cardTop], startPoint: .top, endPoint: .bottom),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                : LinearGradient(colors: [DS.Theme.cardTop, DS.Theme.cardTop], startPoint: .top, endPoint: .bottom)
         )
+        .clipShape(ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            ChamferedRectangle(.large)
                 .stroke(workout.isPR ? DS.Theme.accent.opacity(0.4) : DS.Semantic.border, lineWidth: workout.isPR ? 2 : 1)
         )
         .shadow(color: workout.isPR ? DS.Theme.accent.opacity(0.15) : .clear, radius: workout.isPR ? 8 : 0, x: 0, y: 2)
@@ -1098,8 +1072,8 @@ private struct InsufficientDataView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(32)
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -1157,7 +1131,8 @@ private struct ExerciseLogDetailSheet: View {
                         .foregroundStyle(DS.Theme.accent)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(DS.Theme.accent.opacity(0.15), in: Capsule())
+                        .background(DS.Theme.accent.opacity(0.15))
+                        .clipShape(ChamferedRectangleAlt(.micro))
                         .padding(.horizontal, 16)
                     }
 
@@ -1223,7 +1198,7 @@ private struct SummaryStatPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
     }
 }
 
@@ -1267,13 +1242,14 @@ private struct SetDetailRow: View {
                 .foregroundStyle(DS.Semantic.surface)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(set.tag.color, in: Capsule())
+                .background(set.tag.color)
+                .clipShape(ChamferedRectangleAlt(.micro))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            ChamferedRectangle(.large)
                 .stroke(set.isPR ? DS.Theme.accent.opacity(0.4) : DS.Semantic.border, lineWidth: set.isPR ? 2 : 1)
         )
     }

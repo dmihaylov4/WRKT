@@ -116,9 +116,8 @@ final class ExerciseStatsAggregator {
 
                 switch trackingMode {
                 case .weighted:
-                    // E1RM calculation using Epley formula: weight × (1 + reps/30)
-                    if set.weight > 0 && set.reps > 0 {
-                        let e1rm = set.weight * (1 + Double(set.reps) / 30.0)
+                    if set.weight > 0 && set.reps > 0,
+                       let e1rm = OneRepMaxCalculator.epley(weight: set.weight, reps: set.reps) {
                         if e1rm > maxE1RM {
                             maxE1RM = e1rm
                             bestE1RM = PRRecord(
@@ -753,11 +752,12 @@ final class ExerciseStatsAggregator {
         }
 
         let sorted = weeklyMax.sorted { $0.key < $1.key }
-        guard sorted.count >= 3 else { return .none }
+        guard sorted.count >= 5 else { return .none }
 
         // Count consecutive flat weeks from the end
         var weeksFlat = 0
         var lastProgressDate: Date? = nil
+        var flatWeekStarts: Set<Date> = []
 
         for i in stride(from: sorted.count - 1, through: 1, by: -1) {
             let current = sorted[i].value
@@ -766,14 +766,29 @@ final class ExerciseStatsAggregator {
             let changePercent = abs(current - previous) / previous
             if changePercent < 0.01 {
                 weeksFlat += 1
+                flatWeekStarts.insert(sorted[i].key)
+                flatWeekStarts.insert(sorted[i - 1].key)
             } else {
                 lastProgressDate = sorted[i].key
                 break
             }
         }
 
+        guard weeksFlat >= 5 else {
+            return PlateauState(isPlateaued: false, weeksFlat: weeksFlat, lastProgressDate: lastProgressDate)
+        }
+
+        // Require at least 3 distinct sessions across the flat window
+        let sessionsInWindow = e1rmProgression.filter { point in
+            let weekStart = calendar.startOfWeek(for: point.date, anchorWeekday: 2)
+            return flatWeekStarts.contains(weekStart)
+        }.count
+        guard sessionsInWindow >= 3 else {
+            return PlateauState(isPlateaued: false, weeksFlat: weeksFlat, lastProgressDate: lastProgressDate)
+        }
+
         return PlateauState(
-            isPlateaued: weeksFlat >= 3,
+            isPlateaued: true,
             weeksFlat: weeksFlat,
             lastProgressDate: lastProgressDate
         )

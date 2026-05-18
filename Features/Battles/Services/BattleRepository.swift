@@ -344,6 +344,8 @@ final class BattleRepository: Sendable {
                 continue
             }
 
+            guard workout.date >= battle.startDate else { continue }
+
             let scoreIncrease = calculateBattleScore(
                 for: battle,
                 workout: workout

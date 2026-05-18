@@ -39,6 +39,11 @@ struct PostCard: View {
         resolvedImages.filter { $0.image.isGeneratedMapImage }.map(\.url)
     }
 
+    // For single cardio posts: route map(s) first, then user photos
+    private var allCardioImageURLs: [URL] {
+        generatedMapURLs + userImageURLs
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header: Avatar + Username + Time
@@ -58,23 +63,35 @@ struct PostCard: View {
                     workouts: post.post.allWorkouts,
                     mapURLs: generatedMapURLs
                 )
+                if !userImageURLs.isEmpty {
+                    PostImageStrip(
+                        imageUrls: userImageURLs.map { $0.absoluteString },
+                        selectedImageIndex: $selectedImageIndex
+                    ) {
+                        showingImageViewer = true
+                    }
+                }
+            } else if post.post.workoutData.isCardioWorkout {
+                WorkoutPostHeroSummaryCard(
+                    summary: .make(for: [post.post.workoutData]),
+                    context: .feed
+                )
+                cardioImagesSection
             } else {
                 VStack(spacing: 12) {
                     WorkoutPostHeroSummaryCard(
                         summary: .make(for: [post.post.workoutData]),
                         context: .feed
                     )
-
-                    singleCardioRoutePreview
                 }
-            }
-
-            if post.post.isMultiWorkout {
                 if !userImageURLs.isEmpty {
-                    imageGallery(imageUrls: userImageURLs.map { $0.absoluteString })
+                    PostImageStrip(
+                        imageUrls: userImageURLs.map { $0.absoluteString },
+                        selectedImageIndex: $selectedImageIndex
+                    ) {
+                        showingImageViewer = true
+                    }
                 }
-            } else if !displayImageURLs.isEmpty && !post.post.workoutData.isCardioWorkout {
-                imageGallery(imageUrls: displayImageURLs.map { $0.absoluteString })
             }
 
             // Action Buttons (Like, Comment, Share)
@@ -96,9 +113,9 @@ struct PostCard: View {
             onPostTap()
         }
         .sheet(isPresented: $showingImageViewer) {
-            let viewerURLs = post.post.isMultiWorkout
-                ? userImageURLs.map { $0.absoluteString }
-                : displayImageURLs.map { $0.absoluteString }
+            let viewerURLs = (!post.post.isMultiWorkout && post.post.workoutData.isCardioWorkout)
+                ? allCardioImageURLs.map { $0.absoluteString }
+                : userImageURLs.map { $0.absoluteString }
             ImageViewer(imageUrls: viewerURLs, selectedIndex: $selectedImageIndex)
         }
         .sheet(isPresented: $showingMenuSheet) {
@@ -142,7 +159,7 @@ struct PostCard: View {
             if post.post.userId == currentUserId,
                post.post.workoutData.isCardioWorkout,
                !post.post.isMultiWorkout,
-               displayImageURLs.isEmpty,
+               generatedMapURLs.isEmpty,    // backfill only when no route map exists
                post.post.workoutData.matchedHealthKitUUID != nil {
                 await runBackfill()
             }
@@ -266,116 +283,104 @@ struct PostCard: View {
         }
     }
 
-    // MARK: - Single Cardio Route Preview
+    // MARK: - Cardio Images Section
 
     @ViewBuilder
-    private var singleCardioRoutePreview: some View {
-        if post.post.workoutData.isCardioWorkout {
-            if !displayImageURLs.isEmpty {
-                cardioMapPreview
-            } else if post.post.userId == currentUserId,
-                      post.post.workoutData.matchedHealthKitUUID != nil {
-                Button {
-                    Task { await runBackfill() }
-                } label: {
-                    HStack(spacing: 6) {
-                        if isBackfilling {
-                            ProgressView()
-                                .scaleEffect(0.75)
-                                .tint(DS.Semantic.brand)
-                        } else {
-                            Image(systemName: "map.fill")
-                                .dsFont(.caption)
-                                .foregroundStyle(DS.Semantic.brand)
-                        }
-                        Text(isBackfilling ? "Building route..." : "Get Route Map")
-                            .dsFont(.caption, weight: .bold)
-                            .foregroundStyle(DS.Semantic.textPrimary)
+    private var cardioImagesSection: some View {
+        if !allCardioImageURLs.isEmpty {
+            cardioImageCarousel
+        } else if post.post.userId == currentUserId,
+                  post.post.workoutData.matchedHealthKitUUID != nil {
+            Button {
+                Task { await runBackfill() }
+            } label: {
+                HStack(spacing: 6) {
+                    if isBackfilling {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                            .tint(DS.Semantic.brand)
+                    } else {
+                        Image(systemName: "map.fill")
+                            .dsFont(.caption)
+                            .foregroundStyle(DS.Semantic.brand)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
-                }
-                .disabled(isBackfilling)
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    // MARK: - Cardio Map Preview
-    private var cardioMapPreview: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Map image
-            KFImage(displayImageURLs.first)
-                .placeholder {
-                    Rectangle()
-                        .fill(DS.Semantic.fillSubtle)
-                        .overlay(
-                            ProgressView()
-                        )
-                }
-                .fade(duration: 0.25)
-                .resizable()
-                .scaledToFill()
-                .frame(height: 140)
-                .clipped()
-                .clipShape(ChamferedRectangle(.small))
-
-            // Pace badge overlay (bottom-left)
-            if let distanceMeters = post.post.workoutData.matchedHealthKitDistance,
-               let durationSec = post.post.workoutData.matchedHealthKitDuration,
-               distanceMeters > 0 {
-                let paceSecPerKm = Double(durationSec) / (distanceMeters / 1000)
-                HStack(spacing: 4) {
-                    Image(systemName: "figure.run")
-                        .dsFont(.caption2)
-                    Text(WorkoutPostStatsViews.formatPace(paceSecPerKm))
+                    Text(isBackfilling ? "Building route..." : "Get Route Map")
                         .dsFont(.caption, weight: .bold)
-                    Text("/km")
-                        .dsFont(.caption2)
+                        .foregroundStyle(DS.Semantic.textPrimary)
                 }
-                .foregroundColor(.white)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(.black.opacity(0.6))
-                .clipShape(Capsule())
-                .padding(8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
             }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            selectedImageIndex = 0
-            showingImageViewer = true
+            .disabled(isBackfilling)
+            .buttonStyle(.plain)
         }
     }
 
-    // MARK: - Image Gallery
+    // MARK: - Cardio Image Carousel (map first, user photos after)
 
-    private func imageGallery(imageUrls: [String]) -> some View {
-        TabView {
-            ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, urlString in
-                KFImage(URL(string: urlString))
-                    .placeholder {
-                        Rectangle()
-                            .fill(DS.Semantic.fillSubtle)
-                            .overlay(
-                                ProgressView()
-                            )
+    private var cardioImageCarousel: some View {
+        VStack(spacing: 6) {
+            TabView(selection: $selectedImageIndex) {
+                ForEach(Array(allCardioImageURLs.enumerated()), id: \.offset) { index, url in
+                    ZStack(alignment: .bottomLeading) {
+                        KFImage(url)
+                            .placeholder {
+                                Rectangle()
+                                    .fill(DS.Semantic.fillSubtle)
+                                    .overlay(ProgressView())
+                            }
+                            .fade(duration: 0.25)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 180)
+                            .clipped()
+                            .clipShape(ChamferedRectangle(.small))
+                            .contentShape(Rectangle())
+
+                        // Pace badge only on route map slides
+                        if index < generatedMapURLs.count,
+                           let distanceMeters = post.post.workoutData.matchedHealthKitDistance,
+                           let durationSec = post.post.workoutData.matchedHealthKitDuration,
+                           distanceMeters > 0 {
+                            let paceSecPerKm = Double(durationSec) / (distanceMeters / 1000)
+                            HStack(spacing: 4) {
+                                Image(systemName: "figure.run").dsFont(.caption2)
+                                Text(WorkoutPostStatsViews.formatPace(paceSecPerKm))
+                                    .dsFont(.caption, weight: .bold)
+                                Text("/km").dsFont(.caption2)
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.black.opacity(0.6))
+                            .clipShape(Capsule())
+                            .padding(8)
+                        }
                     }
-                    .fade(duration: 0.25)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(height: 300)
-                    .clipped()
+                    .tag(index)
                     .onTapGesture {
                         selectedImageIndex = index
                         showingImageViewer = true
                     }
+                }
+            }
+            .frame(height: 180)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+
+            // Line-style dots matching the rest of the app's carousel design
+            if allCardioImageURLs.count > 1 {
+                HStack(spacing: 5) {
+                    ForEach(0..<allCardioImageURLs.count, id: \.self) { idx in
+                        Capsule()
+                            .fill(idx == selectedImageIndex ? DS.Semantic.brand : Color.secondary.opacity(0.3))
+                            .frame(width: idx == selectedImageIndex ? 24 : 8, height: 3)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedImageIndex)
+                    }
+                }
             }
         }
-        .frame(height: 300)
-        .tabViewStyle(.page(indexDisplayMode: imageUrls.count > 1 ? .always : .never))
-        .clipShape(ChamferedRectangle(.medium))
     }
 
     // MARK: - Action Buttons
@@ -477,10 +482,7 @@ struct PostCard: View {
         // For now, just show a confirmation toast
         // In a full implementation, this would send to a backend reports table
         Haptics.success()
-        WorkoutToastManager.shared.show(
-            message: "Report submitted. Thank you.",
-            icon: "checkmark.circle.fill"
-        )
+        WorkoutToastManager.shared.show(message: "Report submitted. Thank you.")
     }
 
 }
@@ -492,6 +494,44 @@ private struct ResolvedPostImage: Identifiable {
     let url: URL
 
     var id: UUID { image.id }
+}
+
+// MARK: - Post Image Strip
+
+struct PostImageStrip: View {
+    let imageUrls: [String]
+    @Binding var selectedImageIndex: Int
+    let onImageTap: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Divider()
+
+            TabView {
+                ForEach(Array(imageUrls.enumerated()), id: \.offset) { index, urlString in
+                    KFImage(URL(string: urlString))
+                        .placeholder {
+                            Rectangle()
+                                .fill(DS.Semantic.fillSubtle)
+                                .overlay(ProgressView())
+                        }
+                        .fade(duration: 0.25)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 180)
+                        .clipped()
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedImageIndex = index
+                            onImageTap()
+                        }
+                }
+            }
+            .frame(height: 180)
+            .tabViewStyle(.page(indexDisplayMode: imageUrls.count > 1 ? .always : .never))
+        }
+    }
 }
 
 // MARK: - Image Viewer

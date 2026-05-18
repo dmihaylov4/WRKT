@@ -355,6 +355,7 @@ final class ChallengeRepository: Sendable {
         // Update progress for each challenge
         for challenge in challenges {
             guard let participation = participations.first(where: { $0.challengeId == challenge.id }) else { continue }
+            guard workout.date >= participation.joinedAt else { continue }
 
             let progressIncrease = calculateProgress(
                 for: challenge,

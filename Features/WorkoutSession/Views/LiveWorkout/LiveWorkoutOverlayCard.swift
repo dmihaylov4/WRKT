@@ -222,10 +222,7 @@ struct LiveWorkoutOverlayCard: View {
             AppLogger.info("Already have \(completedSetsCount) completed sets for \(entry.exerciseName), not auto-generating more", category: AppLogger.workout)
 
             // Show toast to inform user they need to manually add more sets
-            WorkoutToastManager.shared.show(
-                message: "\(completedSetsCount) sets completed! Tap + to add more",
-                icon: "checkmark.circle.fill"
-            )
+            WorkoutToastManager.shared.show(message: "\(completedSetsCount) sets completed! Tap + to add more")
             return
         }
 
@@ -489,139 +486,140 @@ struct LiveWorkoutOverlayCard: View {
     // MARK: Content
     @ViewBuilder
     private func content(for current: CurrentWorkout) -> some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 0) {
-                // Completed Section - What you've finished
-                if !completedGroups.isEmpty {
-                    SupersetGroupSection(
-                        title: "Completed",
-                        groups: completedGroups,
-                        onOpen: { entry in
-                            store.setActiveEntry(entry.id)
-                            editingEntry = entry
-                        },
-                        onRemove: { entryID in
-                            store.removeEntry(entryID: entryID)
-                        },
-                        onSwap: { entryID in
-                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
-                                swappingEntry = entry
-                            }
-                        }
-                    )
-                    .padding(.top, 12)
-                }
-
-                // Hero Exercise Card - Primary focus (show entire superset if hero is in one)
-                if let hero = heroEntry {
-                    if let supersetID = hero.supersetGroupID,
-                       let heroGroup = groupedEntries(from: current.entries).first(where: { $0.id == supersetID }) {
-                        // Hero is in a superset - show the superset card
-                        SupersetHeroCard(
-                            group: heroGroup,
-                            heroEntryID: hero.id,
-                            stateForEntry: exerciseState,
+        VStack(spacing: 0) {
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 0) {
+                    // Completed Section - What you've finished
+                    if !completedGroups.isEmpty {
+                        SupersetGroupSection(
+                            title: "Completed",
+                            groups: completedGroups,
                             onOpen: { entry in
                                 store.setActiveEntry(entry.id)
                                 editingEntry = entry
-                            }
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.top, completedGroups.isEmpty ? 12 : 16)
-                    } else {
-                        // Standalone hero
-                        CurrentExerciseHeroCard(
-                            entry: hero,
-                            state: exerciseState(hero),
-                            onOpen: {
-                                store.setActiveEntry(hero.id)
-                                editingEntry = hero
                             },
-                            onSwap: { swappingEntry = hero }
+                            onRemove: { entryID in
+                                store.removeEntry(entryID: entryID)
+                            },
+                            onSwap: { entryID in
+                                if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
+                                    swappingEntry = entry
+                                }
+                            }
                         )
+                        .padding(.top, 12)
+                    }
+
+                    // Hero Exercise Card - Primary focus (show entire superset if hero is in one)
+                    if let hero = heroEntry {
+                        if let supersetID = hero.supersetGroupID,
+                           let heroGroup = groupedEntries(from: current.entries).first(where: { $0.id == supersetID }) {
+                            // Hero is in a superset - show the superset card
+                            SupersetHeroCard(
+                                group: heroGroup,
+                                heroEntryID: hero.id,
+                                stateForEntry: exerciseState,
+                                onOpen: { entry in
+                                    store.setActiveEntry(entry.id)
+                                    editingEntry = entry
+                                }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, completedGroups.isEmpty ? 12 : 16)
+                        } else {
+                            // Standalone hero
+                            CurrentExerciseHeroCard(
+                                entry: hero,
+                                state: exerciseState(hero),
+                                onOpen: {
+                                    store.setActiveEntry(hero.id)
+                                    editingEntry = hero
+                                },
+                                onSwap: { swappingEntry = hero }
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, completedGroups.isEmpty ? 12 : 16)
+                        }
+                    } else if allExercisesCompleted {
+                        // All exercises finished — show completion prompt
+                        VStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 36))
+                                .foregroundStyle(DS.Theme.accent)
+
+                            Text("All exercises completed")
+                                .dsFont(.headline)
+                                .foregroundStyle(DS.Semantic.textPrimary)
+
+                            Text("Slide below to finish your workout")
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 24)
                         .padding(.horizontal, 16)
-                        .padding(.top, completedGroups.isEmpty ? 12 : 16)
                     }
-                } else if allExercisesCompleted {
-                    // All exercises finished — show completion prompt
-                    VStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 36))
-                            .foregroundStyle(DS.Theme.accent)
 
-                        Text("All exercises completed")
-                            .dsFont(.headline)
-                            .foregroundStyle(DS.Semantic.textPrimary)
-
-                        Text("Slide below to finish your workout")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textSecondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
-                    .padding(.horizontal, 16)
-                }
-
-                // In Progress Section - Started but not finished
-                if !inProgressGroups.isEmpty {
-                    SupersetGroupSection(
-                        title: "In Progress",
-                        groups: inProgressGroups,
-                        onOpen: { entry in
-                            store.setActiveEntry(entry.id)
-                            editingEntry = entry
-                        },
-                        onRemove: { entryID in
-                            store.removeEntry(entryID: entryID)
-                        },
-                        onSwap: { entryID in
-                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
-                                swappingEntry = entry
+                    // In Progress Section - Started but not finished
+                    if !inProgressGroups.isEmpty {
+                        SupersetGroupSection(
+                            title: "In Progress",
+                            groups: inProgressGroups,
+                            onOpen: { entry in
+                                store.setActiveEntry(entry.id)
+                                editingEntry = entry
+                            },
+                            onRemove: { entryID in
+                                store.removeEntry(entryID: entryID)
+                            },
+                            onSwap: { entryID in
+                                if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
+                                    swappingEntry = entry
+                                }
                             }
+                        )
+                        .padding(.top, 16)
+                    }
+
+                    // Up Next Section - Not started yet
+                    if !upNextGroups.isEmpty {
+                        SupersetGroupSection(
+                            title: "Up Next",
+                            groups: upNextGroups,
+                            onOpen: { entry in
+                                store.setActiveEntry(entry.id)
+                                editingEntry = entry
+                            },
+                            onRemove: { entryID in
+                                store.removeEntry(entryID: entryID)
+                            },
+                            onSwap: { entryID in
+                                if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
+                                    swappingEntry = entry
+                                }
+                            }
+                        )
+                        .padding(.top, 16)
+                    }
+
+                    Spacer(minLength: 16)
+                }
+            }
+            .scrollContentBackground(.hidden)
+            .environment(\.colorScheme, .dark)
+            .overlay {
+                if showDiscardConfirmation {
+                    DiscardConfirmationDialog(
+                        isPresented: $showDiscardConfirmation,
+                        onConfirm: {
+                            store.discardCurrentWorkout()
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
                         }
                     )
-                    .padding(.top, 16)
                 }
-
-                // Up Next Section - Not started yet
-                if !upNextGroups.isEmpty {
-                    SupersetGroupSection(
-                        title: "Up Next",
-                        groups: upNextGroups,
-                        onOpen: { entry in
-                            store.setActiveEntry(entry.id)
-                            editingEntry = entry
-                        },
-                        onRemove: { entryID in
-                            store.removeEntry(entryID: entryID)
-                        },
-                        onSwap: { entryID in
-                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == entryID }) {
-                                swappingEntry = entry
-                            }
-                        }
-                    )
-                    .padding(.top, 16)
-                }
-
-                Spacer(minLength: 120)
             }
-        }
-        .scrollContentBackground(.hidden)
-        .environment(\.colorScheme, .dark)
-        .overlay {
-            if showDiscardConfirmation {
-                DiscardConfirmationDialog(
-                    isPresented: $showDiscardConfirmation,
-                    onConfirm: {
-                        store.discardCurrentWorkout()
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-                    }
-                )
-            }
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+
             OverlayBottomActions(
                 hasIncompleteExercises: hasIncompleteExercises,
                 showDiscardConfirmation: $showDiscardConfirmation,
@@ -671,22 +669,6 @@ struct LiveWorkoutOverlayCard: View {
                     }
                 }
             )
-            //OverlayBottomActions(
-              //  onFinish: {
-                //    store.finishCurrentWorkout()
-                  //  UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    //withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-               // },
-                //onDiscard: {
-                  //  store.discardCurrentWorkout()
-                    //UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    //withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-               // }
-           // )
-            //.background(LinearGradient(
-              //  colors: [Theme.cardBottom.opacity(0.0), Theme.cardBottom.opacity(0.25)],
-                //startPoint: .top, endPoint: .bottom
-            //))
         }
     }
 }

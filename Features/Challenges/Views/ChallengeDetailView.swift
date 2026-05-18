@@ -184,7 +184,7 @@ struct ChallengeDetailView: View {
                 .frame(width: 1)
 
             statColumn(
-                value: "\(displayedChallenge.challenge.duration)d",
+                value: displayedChallenge.challenge.isEvergreen ? "Ongoing" : "\(displayedChallenge.challenge.duration)d",
                 label: "Duration"
             )
 

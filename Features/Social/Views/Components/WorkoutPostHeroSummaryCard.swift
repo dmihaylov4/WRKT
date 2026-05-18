@@ -52,10 +52,23 @@ struct WorkoutPostHeroSummaryCard: View {
                 if !summary.biometrics.isEmpty {
                     HStack(spacing: 14) {
                         ForEach(summary.biometrics, id: \.self) { metric in
-                            Label(metric, systemImage: metric.contains("BPM") ? "heart.fill" : "flame.fill")
-                                .dsFont(.caption, weight: .bold)
-                                .foregroundStyle(metric.contains("BPM") ? DS.Status.error : DS.Semantic.textPrimary)
-                                .lineLimit(1)
+                            if metric.contains("BPM") {
+                                Label(metric, systemImage: "heart.fill")
+                                    .dsFont(.caption, weight: .bold)
+                                    .foregroundStyle(DS.Semantic.brand)
+                                    .lineLimit(1)
+                            } else {
+                                HStack(spacing: 4) {
+                                    Image("streak-icon")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 12, height: 12)
+                                    Text(metric)
+                                        .dsFont(.caption, weight: .bold)
+                                        .foregroundStyle(DS.Semantic.textPrimary)
+                                        .lineLimit(1)
+                                }
+                            }
                         }
                     }
                 }
@@ -95,6 +108,12 @@ struct WorkoutPostHeroSummaryCard: View {
 private struct WorkoutPostHeroStatColumn: View {
     let stat: WorkoutPostSummaryStat
 
+    // "1h 4m" style values need more width than single digits or 3-digit numbers.
+    // 86pt minimum lets 28pt heavy text render without triggering minimumScaleFactor.
+    private var minWidth: CGFloat {
+        stat.unit == "TIME" && stat.value.contains("h") ? 86 : 0
+    }
+
     var body: some View {
         VStack(spacing: 3) {
             Text(stat.label.uppercased())
@@ -116,7 +135,7 @@ private struct WorkoutPostHeroStatColumn: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity)
+        .frame(minWidth: minWidth, maxWidth: .infinity)
         .accessibilityLabel("\(stat.label), \(stat.value) \(stat.unit)")
     }
 }

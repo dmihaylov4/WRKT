@@ -117,11 +117,11 @@ private struct WorkoutSlide: View {
                 }
                 Spacer()
                 if let avgHR = workout.matchedHealthKitHeartRate {
-                    stat(icon: "heart.fill", value: String(format: "%.0f", avgHR), label: "avg bpm")
+                    stat(icon: "heart.fill", value: String(format: "%.0f", avgHR), label: "avg bpm", iconColor: DS.Semantic.brand)
                 }
                 Spacer()
                 if let maxHR = workout.matchedHealthKitMaxHeartRate {
-                    stat(icon: "bolt.heart.fill", value: String(format: "%.0f", maxHR), label: "max bpm")
+                    stat(icon: "bolt.heart.fill", value: String(format: "%.0f", maxHR), label: "max bpm", iconColor: DS.Semantic.brand)
                 }
             }
         }
@@ -178,7 +178,7 @@ private struct WorkoutSlide: View {
         }
     }
 
-    private func stat(icon: String, value: String, label: String, assetImage: Bool = false) -> some View {
+    private func stat(icon: String, value: String, label: String, assetImage: Bool = false, iconColor: Color = DS.Semantic.textSecondary) -> some View {
         HStack(spacing: 3) {
             if assetImage {
                 Image(icon)
@@ -188,7 +188,7 @@ private struct WorkoutSlide: View {
             } else {
                 Image(systemName: icon)
                     .dsFont(.caption2)
-                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .foregroundStyle(iconColor)
             }
             Text(value)
                 .dsFont(.caption, weight: .bold)

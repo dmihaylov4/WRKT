@@ -112,12 +112,14 @@ final class CardioDataExtractor {
                 name: boundary.name,
                 minutes: minutes,
                 rangeDisplay: boundary.rangeString,
-                colorHex: boundary.color.toHex()
+                colorHex: boundary.color.toHex(),
+                isEstimated: false
             )
         }
     }
 
-    /// Calculate estimated HR zones from average HR only
+    /// Calculate estimated HR zones from average HR only.
+    /// Results are marked isEstimated = true — use only when per-sample data is unavailable.
     func calculateEstimatedHRZones(avgHR: Double, totalDuration: Int) -> [HRZoneSummary] {
         let boundaries = hrCalculator.zoneBoundaries()
         let dominantZone = hrCalculator.zone(for: avgHR)
@@ -129,9 +131,9 @@ final class CardioDataExtractor {
             let zoneDiff = abs(boundary.zone - dominantZone)
             let fraction: Double
             switch zoneDiff {
-            case 0: fraction = 0.60  // Dominant zone
-            case 1: fraction = 0.20  // Adjacent zones
-            default: fraction = 0.0  // Further zones
+            case 0: fraction = 0.60
+            case 1: fraction = 0.20
+            default: fraction = 0.0
             }
 
             return HRZoneSummary(
@@ -139,7 +141,8 @@ final class CardioDataExtractor {
                 name: boundary.name,
                 minutes: totalMinutes * fraction,
                 rangeDisplay: boundary.rangeString,
-                colorHex: boundary.color.toHex()
+                colorHex: boundary.color.toHex(),
+                isEstimated: true
             )
         }
     }

@@ -90,6 +90,10 @@ final class HealthKitManager: ObservableObject {
     // WorkoutStore reference (injected from app)
     weak var workoutStore: WorkoutStoreV2?
 
+    // Competitive feature references (injected from app)
+    weak var challengeRepository: ChallengeRepository?
+    weak var authService: SupabaseAuthService?
+
     // Observer queries (kept alive)
     private var workoutObserver: HKObserverQuery?
     private var exerciseTimeObserver: HKObserverQuery?
@@ -1186,6 +1190,21 @@ final class HealthKitManager: ObservableObject {
             store.addRun(run)
             Task { @MainActor in
                 await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: run)
+            }
+        }
+
+        // Update challenge progress for imported workouts (Watch/HealthKit-sourced)
+        if let challengeRepo = challengeRepository,
+           let userId = authService?.currentUser?.id {
+            var imported = CompletedWorkout(date: run.date, entries: [])
+            imported.cardioWorkoutType = run.workoutType
+            imported.matchedHealthKitDuration = run.durationSec
+            Task.detached(priority: .utility) {
+                do {
+                    try await challengeRepo.updateChallengeProgress(after: imported, userId: userId)
+                } catch {
+                    AppLogger.error("Failed to update challenge progress for HK import: \(error.localizedDescription)", category: AppLogger.health)
+                }
             }
         }
 

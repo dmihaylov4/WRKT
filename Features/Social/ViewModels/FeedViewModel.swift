@@ -191,8 +191,13 @@ final class FeedViewModel {
         }
     }
 
+    private var likingInFlight: Set<UUID> = []
+
     func toggleLike(for post: PostWithAuthor) async {
+        guard !likingInFlight.contains(post.id) else { return }
         guard let currentUserId = authService.currentUser?.id else { return }
+        likingInFlight.insert(post.id)
+        defer { likingInFlight.remove(post.id) }
 
         // Optimistic update
         if let index = posts.firstIndex(where: { $0.id == post.id }) {

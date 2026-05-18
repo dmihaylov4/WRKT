@@ -33,12 +33,7 @@ struct NotificationView: View {
     // MARK: - Toast Style (Floating Card)
 
     private var toastStyle: some View {
-        HStack(spacing: 12) {
-            // Icon
-            Image(systemName: notification.icon ?? notification.type.icon)
-                .dsFont(.title3)
-                .foregroundStyle(notification.type.color)
-
+        HStack(spacing: 14) {
             // Content
             VStack(alignment: .leading, spacing: 2) {
                 if let title = notification.title {
@@ -52,39 +47,31 @@ struct NotificationView: View {
                     .foregroundStyle(notification.title != nil ? .white.opacity(0.8) : .white)
                     .lineLimit(2)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
-            Spacer(minLength: 8)
+            // Action (if present)
+            if let _ = notification.action {
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 1, height: 18)
 
-            // Action Button (if present)
-            if let action = notification.action {
                 Button(action: onAction) {
-                    Text(action.label)
-                        .dsFont(.subheadline, weight: .semibold)
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(notification.type.color)
-                        .clipShape(Capsule())
+                    Text(notification.action!.label)
+                        .dsFont(.subheadline, weight: .bold)
+                        .foregroundStyle(notification.type.color)
                 }
-            }
-
-            // Close Button
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .dsFont(.caption, weight: .semibold)
-                    .foregroundStyle(.white.opacity(0.6))
-                    .frame(width: 20, height: 20)
+                .buttonStyle(.plain)
             }
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            ChamferedRectangle(.large)
                 .fill(.black)
                 .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(notification.type.color, lineWidth: 2)
+            ChamferedRectangle(.large)
+                .stroke(notification.type.color.opacity(0.5), lineWidth: 1)
         )
         .padding(.horizontal)
         .padding(notification.position == .top ? .top : .bottom, 16)
@@ -92,6 +79,8 @@ struct NotificationView: View {
         .onTapGesture {
             if notification.onTap != nil {
                 onTap()
+            } else {
+                onDismiss()
             }
         }
     }
@@ -99,13 +88,7 @@ struct NotificationView: View {
     // MARK: - Banner Style (Full Width)
 
     private var bannerStyle: some View {
-        HStack(spacing: 12) {
-            // Icon
-            Image(systemName: notification.icon ?? notification.type.icon)
-                .dsFont(.title2)
-                .foregroundStyle(notification.type.color)
-                .frame(width: 32)
-
+        HStack(spacing: 14) {
             // Content
             VStack(alignment: .leading, spacing: 4) {
                 if let title = notification.title {
@@ -118,27 +101,20 @@ struct NotificationView: View {
                     .dsFont(.subheadline)
                     .foregroundStyle(.white.opacity(0.8))
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // Action Button
             if let action = notification.action {
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 1, height: 18)
+
                 Button(action: onAction) {
                     Text(action.label)
                         .dsFont(.subheadline, weight: .bold)
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
-                        .background(notification.type.color)
-                        .clipShape(Capsule())
+                        .foregroundStyle(notification.type.color)
                 }
-            }
-
-            // Close Button
-            Button(action: onDismiss) {
-                Image(systemName: "xmark")
-                    .dsFont(.body, weight: .semibold)
-                    .foregroundStyle(.white.opacity(0.6))
+                .buttonStyle(.plain)
             }
         }
         .padding(16)
@@ -150,17 +126,14 @@ struct NotificationView: View {
                 .frame(maxHeight: .infinity, alignment: notification.position == .top ? .top : .bottom)
         )
         .shadow(color: .black.opacity(0.2), radius: 8, y: notification.position == .top ? 2 : -2)
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
     }
 
     // MARK: - Inline Style (Embedded)
 
     private var inlineStyle: some View {
-        HStack(spacing: 12) {
-            // Icon
-            Image(systemName: notification.icon ?? notification.type.icon)
-                .dsFont(.title3)
-                .foregroundStyle(notification.type.color)
-
+        HStack(spacing: 14) {
             // Content
             VStack(alignment: .leading, spacing: 2) {
                 if let title = notification.title {
@@ -173,34 +146,33 @@ struct NotificationView: View {
                     .dsFont(.caption)
                     .foregroundStyle(.white.opacity(0.8))
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             // Action Button
             if let action = notification.action {
+                Rectangle()
+                    .fill(Color.white.opacity(0.15))
+                    .frame(width: 1, height: 18)
+
                 Button(action: onAction) {
                     Text(action.label)
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(notification.type.color)
                 }
-            }
-
-            // Close Button
-            Button(action: onDismiss) {
-                Image(systemName: "xmark.circle.fill")
-                    .dsFont(.body)
-                    .foregroundStyle(.white.opacity(0.4))
+                .buttonStyle(.plain)
             }
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            ChamferedRectangle(.large)
                 .fill(.black)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(notification.type.color, lineWidth: 1.5)
+            ChamferedRectangle(.large)
+                .stroke(notification.type.color.opacity(0.5), lineWidth: 1)
         )
+        .contentShape(Rectangle())
+        .onTapGesture { onDismiss() }
     }
 }
 

@@ -175,13 +175,6 @@ struct ExerciseSessionView: View {
         VStack(spacing: 0) {
             modernHeader
 
-            if consecutiveSameWeight >= 3 && !plateauBannerDismissed {
-                plateauBanner
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
             contentList
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -286,6 +279,11 @@ struct ExerciseSessionView: View {
 
     private var saveButtonSection: some View {
         VStack(spacing: 10) {
+            if consecutiveSameWeight >= 3 && !plateauBannerDismissed {
+                plateauBanner
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             PrimaryCTA(title: viewModel.saveButtonTitle) {
                 viewModel.handleSave(dismiss: dismiss)
             }
@@ -1163,10 +1161,7 @@ struct ExerciseSessionView: View {
             }
 
             // Show toast to inform user they need to manually add more sets
-            WorkoutToastManager.shared.show(
-                message: "\(completedSetsCount) sets completed! Tap + to add more",
-                icon: "checkmark.circle.fill"
-            )
+            WorkoutToastManager.shared.show(message: "\(completedSetsCount) sets completed! Tap + to add more")
             return
         }
 

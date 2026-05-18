@@ -65,6 +65,7 @@ private struct OwnBarbellCard: View {
     let sessionCount: Int
     @Binding var showingPlateWall: Bool
     @State private var showingCollection = false
+    @EnvironmentObject private var store: WorkoutStoreV2
 
     @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
     private var ownRackedPlates: [EarnedPlate]
@@ -172,22 +173,24 @@ private struct OwnBarbellCard: View {
 
                 HStack(spacing: 8) {
                     Button { showingCollection = true } label: {
-                        Image(systemName: "square.grid.2x2.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(DS.Semantic.brand)
-                            .frame(width: 28, height: 28)
-                            .background(.white.opacity(0.1), in: Capsule())
-                    }
-                    .accessibilityLabel("Collection")
-
-                    Button { showingPlateWall = true } label: {
-                        Text("Customize")
+                        Text("Storage")
                             .dsFont(.caption, weight: .semibold)
                             .foregroundStyle(DS.Semantic.brand)
                             .padding(.horizontal, 10)
                             .frame(height: 28)
                             .background(.white.opacity(0.1), in: Capsule())
                     }
+                    .accessibilityLabel("Storage")
+
+                    Button { showingPlateWall = true } label: {
+                        Text("Rack")
+                            .dsFont(.caption, weight: .semibold)
+                            .foregroundStyle(DS.Semantic.brand)
+                            .padding(.horizontal, 10)
+                            .frame(height: 28)
+                            .background(.white.opacity(0.1), in: Capsule())
+                    }
+                    .accessibilityLabel("Rack")
                 }
                 .padding(12)
             }
@@ -219,7 +222,8 @@ private struct OwnBarbellCard: View {
             PlateWallView()
         }
         .sheet(isPresented: $showingCollection) {
-            PlateCollectionView()
+            BarbellEditorView(openOnStorage: true)
+                .environmentObject(store)
         }
     }
 }

@@ -324,16 +324,20 @@ struct UnifiedWeeklyStatsCard: View {
         let label = weeklyPlanAdherenceLabel(adherence)
 
         HStack(spacing: 5) {
-            Image(systemName: "calendar.badge.checkmark")
-                .font(DS.Typography.font(.caption2, weight: .semibold))
+            Image("tab-plan")
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 12, height: 12)
             Text(label)
                 .font(DS.Typography.font(.caption, weight: .semibold))
         }
         .foregroundStyle(chipColor)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(chipColor.opacity(0.12), in: Capsule())
-        .overlay(Capsule().stroke(chipColor.opacity(0.3), lineWidth: 1))
+        .background(chipColor.opacity(0.12))
+        .clipShape(ChamferedRectangleAlt(.micro))
+        .overlay(ChamferedRectangleAlt(.micro).stroke(chipColor.opacity(0.3), lineWidth: 1))
     }
 
     @ViewBuilder

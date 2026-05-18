@@ -282,10 +282,7 @@ final class ProfileViewModel {
         do {
             try await friendshipRepository.removeFriendship(friendshipId: friendshipId)
 
-            WorkoutToastManager.shared.show(
-                message: "Friend removed",
-                icon: "checkmark.circle.fill"
-            )
+            WorkoutToastManager.shared.show(message: "Friend removed")
 
             // Notify FriendsListView to refresh
             NotificationCenter.default.post(name: .friendshipStatusChanged, object: nil)
@@ -307,10 +304,7 @@ final class ProfileViewModel {
         currentFriendship = previousFriendship
 
         Haptics.success()
-        WorkoutToastManager.shared.show(
-            message: "Friend restored",
-            icon: "checkmark.circle.fill"
-        )
+        WorkoutToastManager.shared.show(message: "Friend restored")
 
         // Notify FriendsListView to refresh
         NotificationCenter.default.post(name: .friendshipStatusChanged, object: nil)

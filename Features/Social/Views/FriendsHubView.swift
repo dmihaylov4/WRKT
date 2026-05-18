@@ -201,21 +201,6 @@ struct FriendsHubView: View {
                     color: DS.Status.info
                 )
             }
-
-            if let currentUser = authService.currentUser {
-                Divider()
-                    .padding(.leading, 56)
-
-                NavigationLink {
-                    SocialProfileView(userId: currentUser.id)
-                } label: {
-                    quickActionRow(
-                        icon: "person.circle.fill",
-                        title: "My Profile",
-                        color: DS.Status.success
-                    )
-                }
-            }
         }
         .background(DS.Semantic.fillSubtle)
         .clipShape(ChamferedRectangleAlt(.large))

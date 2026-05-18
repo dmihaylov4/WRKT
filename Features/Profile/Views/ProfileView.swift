@@ -35,6 +35,7 @@ struct ProfileView: View {
     @State private var framesReady = false
     @State private var showSettings = false
     @State private var viewModel = ProfileScreenViewModel()
+    @State private var planAdherenceData: [PlanAdherence] = []
 
     init() {
         // compute weekStart once for this view’s init
@@ -66,6 +67,17 @@ struct ProfileView: View {
                                                systemImage: "person.crop.circle.badge.questionmark",
                                                description: Text("Start a workout to earn XP and level up."))
                     }
+                }
+
+                if planAdherenceData.contains(where: { $0.plannedSessions > 0 }) {
+                    Section {
+                        PlanAdherenceCard(
+                            weeklyAdherence: planAdherenceData,
+                            currentWeekEnded: isCurrentWeekEnded
+                        )
+                    }
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                    .listRowBackground(Color.clear)
                 }
 
                 Section {
@@ -174,8 +186,8 @@ struct ProfileView: View {
         .onAppear {
             viewModel.updateWeekProgress(goals: goals, store: store, context: context)
             viewModel.updateMilestones(achievements: achievements)
-
             viewModel.refreshStats(store: store)
+            loadAdherence()
 
             // Fallback: if frames haven't loaded after 1 second, show tutorial anyway
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -206,6 +218,24 @@ struct ProfileView: View {
                 .zIndex(1000)
             }
         }
+    }
+
+    private var isCurrentWeekEnded: Bool {
+        let cal = Calendar.current
+        let anchor = goals.first?.anchorWeekday ?? 2
+        let weekStart = cal.startOfWeek(for: .now, anchorWeekday: anchor)
+        guard let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart) else { return false }
+        return Date() >= weekEnd
+    }
+
+    private func loadAdherence() {
+        let cal = Calendar.current
+        let anchor = goals.first?.anchorWeekday ?? 2
+        let currentWeekStart = cal.startOfWeek(for: .now, anchorWeekday: anchor)
+        let weekStarts = (0..<4).compactMap { offset in
+            cal.date(byAdding: .day, value: -7 * (3 - offset), to: currentWeekStart)
+        }
+        planAdherenceData = PlannerStore.shared.adherence(forWeeks: weekStarts)
     }
 
     @ViewBuilder
@@ -510,9 +540,9 @@ struct ProgressOverviewCard: View {
         if current == 0 { return "Start your streak!" }
         if progress.weeklyStreakFrozen { return "Freeze active" }
         if let wp = weekProgress {
+            if wp.guidelineComplete { return "Super week complete!" }
             let strengthMet = wp.strengthDaysDone >= wp.strengthTarget
             let mvpaMet = wp.mvpaTarget > 0 ? (wp.mvpaDone >= wp.mvpaTarget) : true
-            if strengthMet && mvpaMet { return "Super week complete!" }
             if strengthMet { return "Finish active minutes for super streak" }
             if mvpaMet { return "Finish strength days for super streak" }
         }

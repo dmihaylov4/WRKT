@@ -213,8 +213,8 @@ struct BarbellPreviewView: View {
                             .onChanged { value in
                                 isDragging = true
                                 let delta = Float(value.translation.width - lastTranslationX) * 0.012
-                                scene.spinVelocity = scene.lastDt > 0 ? (-delta / scene.lastDt) : -delta * 60
-                                scene.rotAngle -= delta
+                                scene.spinVelocity = scene.lastDt > 0 ? (delta / scene.lastDt) : delta * 60
+                                scene.rotAngle += delta
                                 scene.root?.orientation = simd_quatf(angle: scene.rotAngle, axis: SIMD3(0, 1, 0))
                                 lastTranslationX = value.translation.width
                             }

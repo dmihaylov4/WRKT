@@ -254,6 +254,7 @@ actor StatsAggregator {
             var sets: Int = 0
             var reps: Int = 0
             var minutes: Int = 0
+            var containsBodyweightEstimates: Bool = false
         }
         var byWeek: [Date: Acc] = [:]                    // weekStart -> sums
         var volByExWeek: [String: Double] = [:]          // "exID|yyyy-WW" -> volume
@@ -288,6 +289,7 @@ actor StatsAggregator {
                         // Bodyweight exercise: use bodyweight percentage
                         let percentage = ExerciseClassifier.bodyweightPercentage(for: ex)
                         vol = Double(s.reps) * (bodyweight * percentage)
+                        acc.containsBodyweightEstimates = true
                     } else {
                         // Unknown exercise with no weight - skip
                         continue
@@ -319,6 +321,7 @@ actor StatsAggregator {
             weekly?.totalSets = acc.sets
             weekly?.totalReps = acc.reps
             weekly?.minutes = acc.minutes
+            weekly?.containsBodyweightEstimates = acc.containsBodyweightEstimates
         }
 
         // Upsert per-exercise volume per week
@@ -570,19 +573,22 @@ actor StatsAggregator {
             byExercise[vol.exerciseID, default: []].append(vol)
         }
 
-        let window = 4 // 4-week comparison window
+        let window = 6 // 6-week comparison window (3 recent vs 3 previous)
 
         for (exerciseID, volumes) in byExercise {
             guard volumes.count >= window else { continue }
 
-            // Compare last 2 weeks average vs previous 2 weeks average
-            let recent = volumes.suffix(2)
-            let previous = volumes.dropLast(2).suffix(2)
+            // Compare last 3 weeks average vs previous 3 weeks average
+            let recent = Array(volumes.suffix(3))
+            let previous = Array(volumes.dropLast(3).suffix(3))
 
             let recentAvg = recent.reduce(0.0) { $0 + $1.volume } / Double(recent.count)
             let previousAvg = previous.reduce(0.0) { $0 + $1.volume } / Double(previous.count)
 
             let volumeChange = previousAvg > 0 ? ((recentAvg - previousAvg) / previousAvg) * 100.0 : 0.0
+
+            let totalSamples = recent.count + previous.count
+            let lowConfidence = totalSamples < 6
 
             // Determine trend direction
             let trendDirection: String
@@ -598,7 +604,9 @@ actor StatsAggregator {
             let trend = try? fetchOrCreateExerciseTrend(exerciseID: exerciseID, in: ctx)
             trend?.trendDirection = trendDirection
             trend?.volumeChange = volumeChange
-            trend?.strengthChange = 0.0 // Would need max weight data
+            trend?.strengthChange = 0.0
+            trend?.sampleCount = totalSamples
+            trend?.lowConfidence = lowConfidence
             trend?.lastUpdated = .now
         }
 
@@ -779,8 +787,8 @@ actor StatsAggregator {
             return
         }
 
-        // Track last trained date and volume per muscle group
-        var muscleStats: [String: (lastTrained: Date, frequency: Int, volume: Double)] = [:]
+        // Track last trained date, volume, and set counts per muscle group
+        var muscleStats: [String: (lastTrained: Date, frequency: Int, volume: Double, setCount: Int, hardSetCount: Int)] = [:]
 
         for workout in recentWorkouts {
             var musclesInWorkout = Set<String>()
@@ -797,12 +805,14 @@ actor StatsAggregator {
                 guard let ex = workoutExerciseMap[entry.exerciseID] else { continue }
 
                 var entryVolume = 0.0
+                var workingSetCount = 0
+                var hardSetCount = 0
                 for set in entry.sets where set.tag == .working && set.reps > 0 {
+                    workingSetCount += 1
+                    if let rpe = set.rpe, rpe >= 7.0 { hardSetCount += 1 }
                     if set.weight > 0 {
-                        // Weighted exercise: traditional volume calculation
                         entryVolume += Double(set.reps) * set.weight
                     } else if ExerciseClassifier.isBodyweightExercise(ex) {
-                        // Bodyweight exercise: use bodyweight percentage
                         let percentage = ExerciseClassifier.bodyweightPercentage(for: ex)
                         entryVolume += Double(set.reps) * (bodyweight * percentage)
                     }
@@ -819,10 +829,12 @@ actor StatsAggregator {
                         muscleStats[muscle] = (
                             lastTrained: max(existing.lastTrained, workout.date),
                             frequency: existing.frequency,
-                            volume: existing.volume + entryVolume
+                            volume: existing.volume + entryVolume,
+                            setCount: existing.setCount + workingSetCount,
+                            hardSetCount: existing.hardSetCount + hardSetCount
                         )
                     } else {
-                        muscleStats[muscle] = (lastTrained: workout.date, frequency: 0, volume: entryVolume)
+                        muscleStats[muscle] = (lastTrained: workout.date, frequency: 0, volume: entryVolume, setCount: workingSetCount, hardSetCount: hardSetCount)
                     }
                 }
             }
@@ -843,7 +855,9 @@ actor StatsAggregator {
                 mgf.lastTrained = stats.lastTrained
                 mgf.weeklyFrequency = stats.frequency
                 mgf.totalVolume = stats.volume
-                AppLogger.debug("  - \(muscle): frequency=\(stats.frequency), volume=\(stats.volume.safeInt), lastTrained=\(stats.lastTrained.formatted(date: .abbreviated, time: .omitted))", category: AppLogger.statistics)
+                mgf.weeklySetCount = stats.setCount
+                mgf.weeklyHardSetCount = stats.hardSetCount
+                AppLogger.debug("  - \(muscle): frequency=\(stats.frequency), volume=\(stats.volume.safeInt), sets=\(stats.setCount), hardSets=\(stats.hardSetCount), lastTrained=\(stats.lastTrained.formatted(date: .abbreviated, time: .omitted))", category: AppLogger.statistics)
             }
         }
     }

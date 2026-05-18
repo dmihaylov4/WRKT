@@ -8,15 +8,6 @@
 import SwiftUI
 import Charts
 
-private enum Theme {
-    static let bg        = Color.black
-    static let surface   = Color(red: 0.07, green: 0.07, blue: 0.07)
-    static let surface2  = Color(red: 0.10, green: 0.10, blue: 0.10)
-    static let border    = Color.white.opacity(0.10)
-    static let text      = Color.white
-    static let secondary = Color.white.opacity(0.65)
-    static let accent    = Color(hex: "#CCFF00")  // Brand green
-}
 
 struct WorkoutDetailView: View {
     let workout: CompletedWorkout
@@ -110,21 +101,22 @@ struct WorkoutDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(workoutTitle)
                             .dsFont(.title2, weight: .bold)
-                            .foregroundStyle(Theme.text)
+                            .foregroundStyle(DS.Semantic.textPrimary)
 
                         Text(workout.date.formatted(date: .long, time: .omitted))
                             .dsFont(.subheadline)
-                            .foregroundStyle(Theme.secondary)
+                            .foregroundStyle(DS.Semantic.textSecondary)
 
                         // Only show time range if we have start time, otherwise just show end time
                         if startTime != "—" {
-                            Text(startTime + " — " + endTime)
+                            let timeRange = startTime + " : " + endTime
+                            Text(timeRange)
                                 .dsFont(.subheadline)
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(DS.Semantic.textSecondary)
                         } else {
                             Text("Ended: " + endTime)
                                 .dsFont(.subheadline)
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(DS.Semantic.textSecondary)
                         }
 
                         // Show indicator when workout is enhanced with HealthKit data
@@ -135,10 +127,11 @@ struct WorkoutDetailView: View {
                                 Text("Enhanced with Apple Watch data")
                                     .dsFont(.caption2)
                             }
-                            .foregroundStyle(Theme.accent)
+                            .foregroundStyle(DS.Theme.accent)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Theme.accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            .background(DS.Theme.accent.opacity(0.15))
+                            .clipShape(ChamferedRectangleAlt(.micro))
                             .padding(.top, 4)
                         }
                     }
@@ -164,7 +157,8 @@ struct WorkoutDetailView: View {
                         }
                     }
                     .padding(12)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
 
                     // Summary stats
                     HStack(spacing: 12) {
@@ -194,13 +188,20 @@ struct WorkoutDetailView: View {
                     .padding(.horizontal, 16)
                 }
 
+                // MARK: - HR Zone Distribution
+                if let samples = workout.matchedHealthKitHeartRateSamples, samples.count > 5 {
+                    HRZoneDistributionSection(samples: samples)
+                        .padding(.horizontal, 16)
+                }
+
                 // MARK: - Exercises Section (ENHANCED)
                 ExercisesSectionWithTiming(entries: workout.entries, workout: workout)
                     .padding(.horizontal, 16)
             }
-            .padding(.vertical, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 32)
         }
-        .background(Theme.bg.ignoresSafeArea())
+        .background(DS.Semantic.surface.ignoresSafeArea())
         .navigationTitle("Workout Details")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -254,6 +255,53 @@ struct WorkoutDetailView: View {
     }
 }
 
+// MARK: - HR Zone Distribution Section
+
+private struct HRZoneDistributionSection: View {
+    let samples: [HeartRateSample]
+
+    private var zoneSummaries: [HRZoneSummary] {
+        let calculator = HRZoneCalculator.shared
+        let boundaries = calculator.zoneBoundaries()
+        var zoneDurations: [Int: TimeInterval] = [:]
+
+        for i in 0..<samples.count - 1 {
+            let zone = calculator.zone(for: samples[i].bpm)
+            let interval = samples[i + 1].timestamp.timeIntervalSince(samples[i].timestamp)
+            let clamped = min(interval, 60)
+            zoneDurations[zone, default: 0] += clamped
+        }
+
+        return boundaries.compactMap { boundary -> HRZoneSummary? in
+            let duration = zoneDurations[boundary.zone] ?? 0
+            guard duration > 0 else { return nil }
+            return HRZoneSummary(
+                zone: boundary.zone,
+                name: boundary.name,
+                minutes: duration / 60.0,
+                rangeDisplay: boundary.rangeString,
+                colorHex: boundary.color.toHex()
+            )
+        }
+        .sorted { $0.zone < $1.zone }
+    }
+
+    var body: some View {
+        if !zoneSummaries.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Heart Rate Zones")
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                HRZoneChart(zones: zoneSummaries, samples: samples)
+            }
+            .padding(14)
+            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        }
+    }
+}
+
 // MARK: - Workout Stats Model
 
 struct WorkoutStats {
@@ -291,17 +339,17 @@ private struct StatPill: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
                 .dsFont(.title3, weight: .semibold)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)
                 .dsFont(.caption)
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(DS.Semantic.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
     }
 }
 
@@ -315,11 +363,11 @@ private struct StatRow: View {
         HStack {
             Text(label)
                 .dsFont(.subheadline)
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(DS.Semantic.textSecondary)
             Spacer()
             Text(value)
                 .dsFont(.subheadline, weight: .medium)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
         }
     }
 }
@@ -333,7 +381,7 @@ private struct HealthKitMetricsSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Apple Watch Metrics")
                 .dsFont(.headline)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
 
             LazyVGrid(columns: [
                 GridItem(.flexible(), spacing: 10),
@@ -361,8 +409,8 @@ private struct HealthKitMetricsSection: View {
             }
         }
         .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func formatDuration(_ seconds: Int) -> String {
@@ -382,7 +430,7 @@ private struct MetricTile: View {
     let icon: String
     let title: String
     let value: String
-    var iconColor: Color = Theme.accent
+    var iconColor: Color = DS.Theme.accent
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -392,15 +440,15 @@ private struct MetricTile: View {
                     .foregroundStyle(iconColor.opacity(0.7))
                 Text(title)
                     .dsFont(.caption)
-                    .foregroundStyle(Theme.secondary)
+                    .foregroundStyle(DS.Semantic.textSecondary)
             }
             Text(value)
                 .dsFont(.body, weight: .semibold)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
     }
 }
 
@@ -429,11 +477,11 @@ private struct HeartRateGraph: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Heart Rate")
                         .dsFont(.headline)
-                        .foregroundStyle(Theme.text)
+                        .foregroundStyle(DS.Semantic.textPrimary)
 
                     Text("\(samples.count) samples")
                         .dsFont(.caption2)
-                        .foregroundStyle(Theme.secondary)
+                        .foregroundStyle(DS.Semantic.textSecondary)
                 }
 
                 Spacer()
@@ -489,7 +537,8 @@ private struct HeartRateGraph: View {
                             .foregroundStyle(.pink)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(.black.opacity(0.6), in: Capsule())
+                            .background(.black.opacity(0.6))
+                            .clipShape(ChamferedRectangleAlt(.micro))
                     }
             }
             .chartYScale(domain: (minHR - 10)...(maxHR + 10))
@@ -499,9 +548,9 @@ private struct HeartRateGraph: View {
                         AxisValueLabel {
                             Text(formatTimeAxis(seconds))
                                 .dsFont(.caption2)
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(DS.Semantic.textSecondary)
                         }
-                        AxisGridLine().foregroundStyle(Theme.border)
+                        AxisGridLine().foregroundStyle(DS.Semantic.border)
                     }
                 }
             }
@@ -510,16 +559,16 @@ private struct HeartRateGraph: View {
                     AxisValueLabel {
                         Text("\(value.as(Int.self) ?? 0)")
                             .dsFont(.caption2)
-                            .foregroundStyle(Theme.secondary)
+                            .foregroundStyle(DS.Semantic.textSecondary)
                     }
-                    AxisGridLine().foregroundStyle(Theme.border)
+                    AxisGridLine().foregroundStyle(DS.Semantic.border)
                 }
             }
             .frame(height: 220)
         }
         .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func formatTimeAxis(_ seconds: Double) -> String {
@@ -545,34 +594,23 @@ private struct HRStat: View {
                 .foregroundStyle(color)
             Text("\(value)")
                 .dsFont(.caption, weight: .medium, monospacedDigits: true)
-                .foregroundStyle(Theme.text)
+                .foregroundStyle(DS.Semantic.textPrimary)
                 .lineLimit(1)
                 .fixedSize()
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .background(color.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+        .background(color.opacity(0.15))
+        .clipShape(ChamferedRectangleAlt(.micro))
     }
 }
-
-// MARK: - Color Extension
 
 private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
-        default:(a, r, g, b) = (255, 244, 228, 9)
-        }
-        self.init(.sRGB,
-                  red: Double(r) / 255,
-                  green: Double(g) / 255,
-                  blue: Double(b) / 255,
-                  opacity: Double(a) / 255)
+    func toHex() -> String {
+        let uiColor = UIColor(self)
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return String(format: "#%02X%02X%02X", Int(red * 255), Int(green * 255), Int(blue * 255))
     }
 }
+

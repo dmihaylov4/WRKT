@@ -95,10 +95,10 @@ extension PresetChallenge {
         ),
         PresetChallenge(
             title: "Squat Month",
-            description: "Log 300 squat reps this month. Around 10 per day — 3 sets of 10 three times a week.",
+            description: "Log 60 squat reps this month.",
             challengeType: .specificExercise,
             goalMetric: "squats",
-            goalValue: 300,
+            goalValue: 60,
             difficulty: .intermediate,
             duration: 30,
             icon: "figure.roll"

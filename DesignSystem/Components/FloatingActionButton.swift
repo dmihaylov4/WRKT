@@ -10,7 +10,6 @@ import SwiftUI
 struct FloatingActionButton: View {
     @Binding var isExpanded: Bool
     let onCreatePost: () -> Void
-    let onLogWorkout: () -> Void
     let onStartBattle: () -> Void
 
     @State private var showLabels = false
@@ -20,19 +19,6 @@ struct FloatingActionButton: View {
             if isExpanded {
                 // Quick actions (shown when expanded)
                 VStack(alignment: .trailing, spacing: 12) {
-                    FABActionButton(
-                        icon: "dumbbell.fill",
-                        label: "Log Workout",
-                        color: DS.Semantic.brand,
-                        showLabel: showLabels,
-                        iconOffset: CGSize(width: -1, height: 0) // Dumbbell icon visual adjustment
-                    ) {
-                        withAnimation(.spring(response: 0.3)) {
-                            isExpanded = false
-                        }
-                        onLogWorkout()
-                    }
-
                     FABActionButton(
                         icon: "bolt.fill",
                         label: "Start Battle",
@@ -152,7 +138,6 @@ private struct FABActionButton: View {
                 FloatingActionButton(
                     isExpanded: .constant(true),
                     onCreatePost: {},
-                    onLogWorkout: {},
                     onStartBattle: {}
                 )
             }
@@ -171,7 +156,6 @@ private struct FABActionButton: View {
                 FloatingActionButton(
                     isExpanded: .constant(false),
                     onCreatePost: {},
-                    onLogWorkout: {},
                     onStartBattle: {}
                 )
             }

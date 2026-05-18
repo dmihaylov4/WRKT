@@ -93,6 +93,13 @@ struct SetInput: Hashable, Codable {
     /// RIR (Reps in Reserve) 0-10. Nil = not recorded.
     var rir: Int?
 
+    var isWorkingSet: Bool { tag == .working && reps > 0 }
+    var isHardSet: Bool {
+        guard tag == .working, reps > 0 else { return false }
+        if let rpe { return rpe >= 7.0 }
+        return false
+    }
+
     // MARK: - Timing Data (backward compatible)
     /// When the user started this set (tapped into the set row or began timer)
     var startTime: Date?

@@ -35,6 +35,13 @@ struct WeeklyProgress: Equatable {
     let strengthDaysLeft: Int
     let paceStatus: PaceStatus
 
+    // Both strength and MVPA targets fully met this week
+    var guidelineComplete: Bool {
+        let strengthMet = strengthDaysDone >= strengthTarget
+        let mvpaMet = mvpaTarget > 0 ? mvpaDone >= mvpaTarget : true
+        return strengthMet && mvpaMet
+    }
+
     // Friendly strings you can show if you like
     var statusLine: String {
         switch paceStatus {

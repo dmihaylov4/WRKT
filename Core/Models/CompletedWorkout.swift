@@ -16,11 +16,35 @@ struct HeartRateSample: Codable, Hashable {
 // Heart rate zone summary for social sharing
 struct HRZoneSummary: Codable, Hashable, Identifiable {
     var id: Int { zone }
-    let zone: Int           // 1-5
-    let name: String        // "Light", "Moderate", "Aerobic", "Threshold", "Max"
-    let minutes: Double     // Time spent in zone
+    let zone: Int            // 1-5
+    let name: String         // "Light", "Moderate", "Aerobic", "Threshold", "Max"
+    let minutes: Double      // Time spent in zone
     let rangeDisplay: String // "120-140 bpm"
-    let colorHex: String    // Hex color for display (e.g., "#00FF00")
+    let colorHex: String     // Hex color for display (e.g., "#00FF00")
+    var isEstimated: Bool = false // true when derived from average HR only, not per-sample timestamps
+
+    enum CodingKeys: String, CodingKey {
+        case zone, name, minutes, rangeDisplay, colorHex, isEstimated
+    }
+
+    init(zone: Int, name: String, minutes: Double, rangeDisplay: String, colorHex: String, isEstimated: Bool = false) {
+        self.zone = zone
+        self.name = name
+        self.minutes = minutes
+        self.rangeDisplay = rangeDisplay
+        self.colorHex = colorHex
+        self.isEstimated = isEstimated
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        zone = try c.decode(Int.self, forKey: .zone)
+        name = try c.decode(String.self, forKey: .name)
+        minutes = try c.decode(Double.self, forKey: .minutes)
+        rangeDisplay = try c.decode(String.self, forKey: .rangeDisplay)
+        colorHex = try c.decode(String.self, forKey: .colorHex)
+        isEstimated = (try? c.decode(Bool.self, forKey: .isEstimated)) ?? false
+    }
 }
 
 struct CompletedWorkout: Identifiable, Codable, Hashable {

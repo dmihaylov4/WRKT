@@ -137,6 +137,8 @@ final class AppDependencies: ObservableObject {
         // Configure HealthKit with required dependencies
         healthKitManager.modelContext = modelContext
         healthKitManager.workoutStore = workoutStore
+        healthKitManager.challengeRepository = challengeRepository
+        healthKitManager.authService = authService
         // Note: Background tasks are registered in WRKTApp.init() before app finishes launching
 
         // Configure RewardsEngine

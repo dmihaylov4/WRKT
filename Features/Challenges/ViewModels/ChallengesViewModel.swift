@@ -112,19 +112,38 @@ final class ChallengesViewModel {
         if workoutStore?.isStorageLoaded == false {
             try? await workoutStore?.reloadWorkouts()
         }
-        guard let completedWorkouts = workoutStore?.completedWorkouts, !completedWorkouts.isEmpty else { return }
+
         guard let firstRep = activeChallenges.first(where: {
             $0.challenge.isFirstRepChallenge && !$0.isCompleted
-        }) else { return }
-        guard firstRep.shouldCompleteFirstRep(from: completedWorkouts) else { return }
+        }), let participation = firstRep.participation else { return }
 
-        // Update local display state only — the DB write and win screen happen exclusively
-        // via updateChallengeProgress (workout completion path). Writing to the DB here
-        // races against that background task and causes it to skip the win screen.
-        let locallyCompleted = firstRep.completedFirstRepFromWorkoutHistory()
-        activeChallenges.removeAll { $0.id == firstRep.id }
-        if !completedChallenges.contains(where: { $0.id == firstRep.id }) {
-            completedChallenges.append(locallyCompleted)
+        // In-app logged strength workouts: DB write is handled by updateChallengeProgress
+        // background task on workout save. Only update local display state here to avoid
+        // racing against that task and suppressing the win screen.
+        if let completedWorkouts = workoutStore?.completedWorkouts,
+           firstRep.shouldCompleteFirstRep(from: completedWorkouts) {
+            let locallyCompleted = firstRep.completedFirstRepFromWorkoutHistory()
+            activeChallenges.removeAll { $0.id == firstRep.id }
+            if !completedChallenges.contains(where: { $0.id == firstRep.id }) {
+                completedChallenges.append(locallyCompleted)
+            }
+            return
+        }
+
+        // HK-imported runs (Watch/third-party): updateChallengeProgress never ran for
+        // these, so the DB was never written. Write to DB now as a backfill.
+        guard let runs = workoutStore?.runs,
+              runs.contains(where: { $0.date >= participation.joinedAt }) else { return }
+
+        do {
+            try await challengeRepository.completeFirstRepChallenge(firstRep.challenge, participation: participation)
+            let locallyCompleted = firstRep.completedFirstRepFromWorkoutHistory()
+            activeChallenges.removeAll { $0.id == firstRep.id }
+            if !completedChallenges.contains(where: { $0.id == firstRep.id }) {
+                completedChallenges.append(locallyCompleted)
+            }
+        } catch {
+            AppLogger.error("Failed to backfill First Rep from HK import: \(error.localizedDescription)", category: AppLogger.challenges)
         }
     }
 

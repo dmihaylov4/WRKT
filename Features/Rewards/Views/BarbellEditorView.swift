@@ -26,6 +26,10 @@ struct BarbellEditorView: View {
     @Query private var earnedPlates: [EarnedPlate]
 
     @State private var selectedTab: Tab = .bar
+    var openOnStorage: Bool = false
+    @EnvironmentObject private var store: WorkoutStoreV2
+    @State private var selectedPlateForDetail: EarnedPlate?
+    @State private var storageRackErrorMessage: String?
 
     private let catalog = BarbellCosmeticCatalog.current
 
@@ -53,6 +57,9 @@ struct BarbellEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             ensureConfig()
+            if openOnStorage {
+                selectedTab = .display
+            }
         }
     }
 
@@ -407,46 +414,122 @@ struct BarbellEditorView: View {
         let barFull = barPlates.count >= 4
 
         return VStack(alignment: .leading, spacing: 20) {
+            // On Bar section
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline) {
-                    sectionHeader(
-                        title: "On Bar",
-                        subtitle: barFull
-                            ? "Bar full — move a plate to the wall to swap"
-                            : "Tap a plate to move it to the wall"
-                    )
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("On Bar")
+                            .font(.system(size: 18, weight: .black))
+                            .foregroundStyle(.white)
+                        Text(barFull
+                            ? "Bar full - remove a plate to swap"
+                            : "Tap a plate to remove it from the bar")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
                     Spacer()
                     Text("\(barPlates.count)/4")
                         .font(.system(size: 13, weight: .black).monospacedDigit())
                         .foregroundStyle(barFull ? DS.Semantic.brand : DS.Semantic.textSecondary)
                 }
+
                 if barPlates.isEmpty {
-                    loadoutEmptyHint("No plates on the bar — tap wall plates to add them")
+                    storageEmptyHint("No plates on the bar - rack a plate from storage below")
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(barPlates) { plate in
-                            loadoutPlateTile(plate: plate, isOnBar: true, barFull: barFull)
+                            PlateCollectionCell(
+                                plate: plate,
+                                workoutSummary: workoutSummary(for: plate),
+                                onOpenDetail: { selectedPlateForDetail = plate },
+                                onPrimaryAction: { moveToWall(plate) }
+                            )
                         }
                     }
                 }
             }
 
+            // Stored section
             VStack(alignment: .leading, spacing: 10) {
-                sectionHeader(
-                    title: "On Wall",
-                    subtitle: barFull ? "Bar full (4/4) — move a bar plate first" : "Tap a plate to move it to the bar"
-                )
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Stored")
+                        .font(.system(size: 18, weight: .black))
+                        .foregroundStyle(.white)
+                    Text(barFull
+                        ? "Bar full (4/4) - remove a bar plate first"
+                        : "Tap a plate to rack it on the bar")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                }
+
                 if wallPlates.isEmpty {
-                    loadoutEmptyHint("All earned plates are on the bar")
+                    storageEmptyHint("All earned plates are on the bar")
                 } else {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                         ForEach(wallPlates) { plate in
-                            loadoutPlateTile(plate: plate, isOnBar: false, barFull: barFull)
+                            PlateCollectionCell(
+                                plate: plate,
+                                workoutSummary: workoutSummary(for: plate),
+                                onOpenDetail: { selectedPlateForDetail = plate },
+                                onPrimaryAction: {
+                                    guard !barFull else {
+                                        storageRackErrorMessage = "Remove a plate from the bar before adding another one."
+                                        return
+                                    }
+                                    moveToBar(plate)
+                                }
+                            )
+                            .opacity(barFull ? 0.35 : 1.0)
                         }
                     }
                 }
             }
         }
+        .alert("Bar is full", isPresented: Binding(
+            get: { storageRackErrorMessage != nil },
+            set: { if !$0 { storageRackErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(storageRackErrorMessage ?? "")
+        }
+        .sheet(item: $selectedPlateForDetail) { plate in
+            PlateDetailView(plate: plate)
+                .environmentObject(store)
+        }
+    }
+
+    private func storageEmptyHint(_ message: String) -> some View {
+        Text(message)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(DS.Semantic.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(DS.Semantic.fillSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func workoutSummary(for plate: EarnedPlate) -> PlateWorkoutSummary? {
+        if let workout = sourceWorkout(for: plate) {
+            return PlateWorkoutSummary(plate: plate, workout: workout)
+        }
+        if let run = sourceRun(for: plate),
+           let summary = plateCollectionHealthKitSummary(for: plate, run: run) {
+            return PlateWorkoutSummary(fallback: summary)
+        }
+        return plateCollectionFallbackSummary(for: plate).map(PlateWorkoutSummary.init(fallback:))
+    }
+
+    private func sourceWorkout(for plate: EarnedPlate) -> CompletedWorkout? {
+        guard let sourceWorkoutID = plate.sourceWorkoutID,
+              let uuid = UUID(uuidString: sourceWorkoutID) else { return nil }
+        return store.completedWorkouts.first(where: { $0.id == uuid })
+    }
+
+    private func sourceRun(for plate: EarnedPlate) -> Run? {
+        guard let sourceWorkoutID = plate.sourceWorkoutID,
+              let uuid = UUID(uuidString: sourceWorkoutID) else { return nil }
+        return store.runs.first { $0.healthKitUUID == uuid || $0.id == uuid }
     }
 
     private var nonStarterPlates: [EarnedPlate] {
@@ -758,7 +841,7 @@ struct BarbellEditorView: View {
             case .room: return "Room"
             case .rack: return "Rack"
             case .plates: return "Plates"
-            case .display: return "Display"
+            case .display: return "Storage"
             }
         }
 
@@ -768,7 +851,7 @@ struct BarbellEditorView: View {
             case .room: return "Set room style and showcase text"
             case .rack: return "Choose the rack finish"
             case .plates: return "Tune plate presentation"
-            case .display: return "Move plates between bar and wall"
+            case .display: return "Manage plates on bar and in storage"
             }
         }
 

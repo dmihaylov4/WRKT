@@ -1,0 +1,5 @@
+What's New
+
+- Battles and Challenges: compete head-to-head with friends in running distance battles and HIIT challenges. Winners and participants earn exclusive plate rewards shown on your barbell.
+- Plate and bar skin rewards: completing challenges unlocks new plate tiers and bar skins (including the VOLIA bar). Reward previews are shown before you join a battle or challenge.
+- Barbell preview touch fix: swiping on the 3D barbell preview now rotates in the direction you swipe.

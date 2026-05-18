@@ -204,9 +204,21 @@ struct HRZoneChart: View {
             if showZonesSection {
                 if !zones.isEmpty && totalMinutes > 0 {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Time in Zones")
-                            .dsFont(.headline)
-                            .foregroundStyle(DS.Semantic.textPrimary)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Time in Zones")
+                                .dsFont(.headline)
+                                .foregroundStyle(DS.Semantic.textPrimary)
+                            Text(HRZoneCalculator.shared.methodDisplayName)
+                                .dsFont(.caption2)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                            let method = HRZoneCalculator.shared.config?.method
+                            if method == .ageBased || method == .defaultMax {
+                                DataQualityBadge(quality: .ageBased)
+                            }
+                            if zones.first?.isEstimated == true {
+                                DataQualityBadge(quality: .estimated)
+                            }
+                        }
 
                         GeometryReader { geo in
                             HStack(spacing: 1) {

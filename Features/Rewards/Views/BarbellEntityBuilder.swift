@@ -182,7 +182,7 @@ func cachedRoundedBox(size: SIMD3<Float>, cornerRadius: Float) -> MeshResource {
 }
 
 private func makePlateRingMesh(height: Float, outerRadius: Float, innerRadius: Float) -> MeshResource {
-    let segments = max(24, Int((outerRadius / 0.22) * 64))
+    let segments = max(36, Int((outerRadius / 0.22) * 96))
     let halfHeight = height / 2
     var positions: [SIMD3<Float>] = []
     var normals: [SIMD3<Float>] = []
@@ -698,6 +698,21 @@ private func makeRecessedFacePanel(profile: PlateVisualProfile, material: Physic
     return panel
 }
 
+/// Chrome ring seated at the bore edge, representing the machined steel sleeve insert.
+/// Visible from any angle, especially in the storage rack view where the face is partially shown.
+private func makeBoreRing(profile: PlateVisualProfile) -> ModelEntity {
+    let ring = ModelEntity(
+        mesh: cachedPlateRing(
+            height: profile.thickness + 0.004,
+            outerRadius: plateBoreRadius + 0.009,
+            innerRadius: plateBoreRadius
+        ),
+        materials: [chromeMaterial()]
+    )
+    ring.name = "boreRing"
+    return ring
+}
+
 private func makeCenterBoss(profile: PlateVisualProfile, material: PhysicallyBasedMaterial) -> ModelEntity {
     let boss = ModelEntity(
         mesh: cachedPlateRing(
@@ -783,7 +798,7 @@ private func makeOuterRubberBand(profile: PlateVisualProfile, tier: PlateTier, c
         mesh: cachedPlateRing(
             height: profile.thickness + 0.010,
             outerRadius: profile.outerBandRadius,
-            innerRadius: max(profile.rimInnerRadius, profile.outerRadius - 0.020)
+            innerRadius: max(profile.rimInnerRadius, profile.outerRadius - 0.032)
         ),
         materials: materials
     )
@@ -833,6 +848,32 @@ private func makeOuterSidewallLip(profile: PlateVisualProfile, tier: PlateTier) 
     lip.name = "outerSidewallLip"
     lip.position.y = profile.thickness * 0.5 + 0.003
     return lip
+}
+
+/// Thin ring seated at the outer edge of each plate face, acting as a chamfer accent.
+/// It catches light differently from the sidewall to define the plate rim when viewed at
+/// any angle. Metal plates get a sharper, more specular version; rubber plates stay matte.
+private func makeEdgeBevel(profile: PlateVisualProfile, tier: PlateTier) -> ModelEntity {
+    let surface = PlateSidewallSurface.lip(for: tier)
+    let isRubber = tier.style == .bumper || tier.style == .competition
+    let bevel = ModelEntity(
+        mesh: cachedPlateRing(
+            height: 0.005,
+            outerRadius: profile.outerRadius + 0.014,
+            innerRadius: max(plateBoreRadius, profile.outerRadius - 0.004)
+        ),
+        materials: [pbrMaterial(
+            color: surface.color,
+            metallic: isRubber ? 0 : max(surface.metallic, 0.22),
+            roughness: isRubber ? max(0.62, surface.roughness) : max(0.10, surface.roughness - 0.20),
+            clearcoat: isRubber ? surface.clearcoat : min(1.0, surface.clearcoat + 0.30),
+            clearcoatRoughness: isRubber ? surface.clearcoatRoughness : min(0.09, surface.clearcoatRoughness),
+            doubleSided: true
+        )]
+    )
+    bevel.name = "edgeBevel"
+    bevel.position.y = profile.thickness * 0.5 + 0.001
+    return bevel
 }
 
 private func makeMoldedFaceRing(
@@ -1322,6 +1363,9 @@ func makePlateEntity(
         entity = makeRawIronEntity(tier: tier, textures: textures, material: material)
     }
 
+    // Chrome bore ring: full-height sleeve at the center hole on every plate style.
+    entity.addChild(makeBoreRing(profile: profile))
+
     // Weight disc
     // Note: the chrome hub ring is now added by each style builder via makeCenterBoss.
     // Adding a second hub disc here at the same radius caused z-fighting with the boss geometry.
@@ -1331,6 +1375,7 @@ func makePlateEntity(
     }
     if tierID != 7 {
         addFaceDetailPair(makeGlossAccentRing(profile: profile, tier: tier), to: entity, profile: profile)
+        addFaceDetailPair(makeEdgeBevel(profile: profile, tier: tier), to: entity, profile: profile)
     }
     if showEngravings && !engravingText.isEmpty && tierID != 7 {
         addFaceDetailPair(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving), to: entity, profile: profile)
