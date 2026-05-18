@@ -417,6 +417,7 @@
 		ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */; };
 		ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */; };
 		AD2E492EFA4D10038FC026F4 /* SignInWithGoogleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6233B91A6C16321E5A839EA8 /* SignInWithGoogleService.swift */; };
+		AFC93D36544008FB28C718DC /* OAuthUsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */; };
 		AFDC19C6C8164177A9C7104B /* PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 /* End PBXBuildFile section */
@@ -489,6 +490,7 @@
 		1848F2CE0BE744519C79CD42 /* plate_clink.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = plate_clink.caf; sourceTree = "<group>"; };
 		1F1EC37DF279810DECB4043A /* CardioCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioCharts.swift; sourceTree = "<group>"; };
 		24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlanAdherenceCard.swift; sourceTree = "<group>"; };
+		2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OAuthUsernameSetupView.swift; sourceTree = "<group>"; };
 		2E0412302F2B439A0090EF16 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		2E0412322F2B43AC0090EF16 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSnapshotService.swift; sourceTree = "<group>"; };
@@ -2242,6 +2244,7 @@
 				2EE8A0A22EE9AF1F00A74A3C /* ForgotPasswordView.swift */,
 				2EE8A09E2EE9A81600A74A3C /* LoginView.swift */,
 				2EE8A09F2EE9A81600A74A3C /* SignupView.swift */,
+				2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -2948,6 +2951,7 @@
 				AABE7147FC03251C32A67CA6 /* CryptoNonce.swift in Sources */,
 				A42FB33AFC915AEFCB259A17 /* SignInWithAppleService.swift in Sources */,
 				AD2E492EFA4D10038FC026F4 /* SignInWithGoogleService.swift in Sources */,
+				AFC93D36544008FB28C718DC /* OAuthUsernameSetupView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

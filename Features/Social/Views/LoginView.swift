@@ -226,7 +226,7 @@ struct LoginView: View {
     }
 }
 
-private struct LoginFieldStyle: ViewModifier {
+struct LoginFieldStyle: ViewModifier {
     let isFocused: Bool
 
     func body(content: Content) -> some View {
@@ -244,7 +244,7 @@ private struct LoginFieldStyle: ViewModifier {
     }
 }
 
-private extension View {
+extension View {
     func loginFieldStyle(isFocused: Bool) -> some View {
         modifier(LoginFieldStyle(isFocused: isFocused))
     }
