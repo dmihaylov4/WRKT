@@ -411,6 +411,7 @@
 		86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414B41C8700743B3B70EF25D /* ExportBundle.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
 		A1F000012FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
+		A42FB33AFC915AEFCB259A17 /* SignInWithAppleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EC0A5DB837BEE1AF97908E0 /* SignInWithAppleService.swift */; };
 		AABE7147FC03251C32A67CA6 /* CryptoNonce.swift in Sources */ = {isa = PBXBuildFile; fileRef = 495C129FE8172F2EC5C16425 /* CryptoNonce.swift */; };
 		ABCD1235ABCD1235ABCD1235 /* BarbellCatalogTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */; };
 		ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */; };
@@ -884,6 +885,7 @@
 		495C129FE8172F2EC5C16425 /* CryptoNonce.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CryptoNonce.swift; sourceTree = "<group>"; };
 		57A79E17002B49138FFFB682 /* DataQualityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataQualityBadge.swift; sourceTree = "<group>"; };
 		66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7EC0A5DB837BEE1AF97908E0 /* SignInWithAppleService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignInWithAppleService.swift; sourceTree = "<group>"; };
 		89046F50535848139D95D2AE /* WRKT-Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Debug.xcconfig"; sourceTree = "<group>"; };
 		9045D7549B884EEA9A17C4BC /* WRKT-Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "WRKT-Release.xcconfig"; sourceTree = "<group>"; };
 		A1F000022FA2000000F00001 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Fonts; sourceTree = "<group>"; };
@@ -2204,6 +2206,7 @@
 				2EA7D9982EE9D90F0017683B /* PostRepository.swift */,
 				2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */,
 				2EE8A09C2EE9A12400A74A3C /* SupabaseAuthService.swift */,
+				7EC0A5DB837BEE1AF97908E0 /* SignInWithAppleService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2940,6 +2943,7 @@
 				2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */,
 				2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */,
 				AABE7147FC03251C32A67CA6 /* CryptoNonce.swift in Sources */,
+				A42FB33AFC915AEFCB259A17 /* SignInWithAppleService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
