@@ -50,6 +50,10 @@ struct WRKTApp: App {
         _ = ImageCacheService.shared
         AppLogger.success("Image cache configured (50MB memory, 100MB disk)", category: AppLogger.app)
 
+        // Configure Google Sign-In
+        SignInWithGoogleService.shared.configure()
+        AppLogger.success("Google Sign-In configured", category: AppLogger.app)
+
         // Set up notification delegate to handle notification interactions
         Task { @MainActor in
             let center = UNUserNotificationCenter.current()
@@ -194,6 +198,11 @@ struct WRKTApp: App {
 
     private func handleURL(_ url: URL) {
         AppLogger.info("Received URL: \(url.absoluteString)", category: AppLogger.app)
+
+        // Forward Google Sign-In redirect URLs to GoogleSignIn SDK first
+        if SignInWithGoogleService.shared.handleURL(url) {
+            return
+        }
 
         // Handle wrkt:// URL scheme
         if url.scheme == "wrkt" {
