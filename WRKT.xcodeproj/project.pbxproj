@@ -404,8 +404,9 @@
 		2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */; };
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
 		2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */; };
-		2EFFC0012FB0000000000001 /* Components/PlateCollectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */; };
+		2EFFC0012FB0000000000001 /* PlateCollectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFFC0002FB0000000000001 /* PlateCollectionCell.swift */; };
 		353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */; };
+		695ADA40CDA9D8834EF4D107 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A40AA67AC4ABD92A13AC1F36 /* GoogleSignIn */; };
 		84BC9435E0674897A910D943 /* plate_clink.caf in Resources */ = {isa = PBXBuildFile; fileRef = 1848F2CE0BE744519C79CD42 /* plate_clink.caf */; };
 		86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414B41C8700743B3B70EF25D /* ExportBundle.swift */; };
 		93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */; };
@@ -413,7 +414,7 @@
 		ABCD1235ABCD1235ABCD1235 /* BarbellCatalogTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */; };
 		ABCD1237ABCD1237ABCD1237 /* BarbellCustomizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */; };
 		ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */; };
-		AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */; };
+		AFDC19C6C8164177A9C7104B /* PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 /* End PBXBuildFile section */
 
@@ -484,7 +485,7 @@
 		1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRecord.swift; sourceTree = "<group>"; };
 		1848F2CE0BE744519C79CD42 /* plate_clink.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = plate_clink.caf; sourceTree = "<group>"; };
 		1F1EC37DF279810DECB4043A /* CardioCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioCharts.swift; sourceTree = "<group>"; };
-		24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlanAdherenceCard.swift; sourceTree = "<group>"; };
+		24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlanAdherenceCard.swift; sourceTree = "<group>"; };
 		2E0412302F2B439A0090EF16 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		2E0412322F2B43AC0090EF16 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		2E0412342F2B62B20090EF16 /* MapSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapSnapshotService.swift; sourceTree = "<group>"; };
@@ -877,7 +878,7 @@
 		2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToConfirm.swift; sourceTree = "<group>"; };
 		2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalSetupView.swift; sourceTree = "<group>"; };
 		2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneVirtualRunAudioCues.swift; sourceTree = "<group>"; };
-		2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlateCollectionCell.swift; sourceTree = "<group>"; };
+		2EFFC0002FB0000000000001 /* PlateCollectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlateCollectionCell.swift; sourceTree = "<group>"; };
 		414B41C8700743B3B70EF25D /* ExportBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportBundle.swift; sourceTree = "<group>"; };
 		57A79E17002B49138FFFB682 /* DataQualityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataQualityBadge.swift; sourceTree = "<group>"; };
 		66F9C0420C6E4AFAA7AA95E3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -926,16 +927,22 @@
 		};
 		2E6141452ECF0FDB00B50FDE /* WRKT Watch Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "WRKT Watch Watch App";
 			sourceTree = "<group>";
 		};
 		2E6141532ECF0FDC00B50FDE /* WRKT Watch Watch AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "WRKT Watch Watch AppTests";
 			sourceTree = "<group>";
 		};
 		2E61415D2ECF0FDC00B50FDE /* WRKT Watch Watch AppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = "WRKT Watch Watch AppUITests";
 			sourceTree = "<group>";
 		};
@@ -991,6 +998,7 @@
 				2EE8A0842EE99DB700A74A3C /* Auth in Frameworks */,
 				2EE8A08A2EE99DB700A74A3C /* Realtime in Frameworks */,
 				2E510B732E995A070089EE2C /* SVGView in Frameworks */,
+				695ADA40CDA9D8834EF4D107 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1447,8 +1455,8 @@
 				2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */,
 				2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */,
 				2EBB00062FA0000000000001 /* PlateWallView.swift */,
-				2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */,
-				24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */,
+				2EFFC0002FB0000000000001 /* PlateCollectionCell.swift */,
+				24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */,
 				2EBB00082FA0000000000001 /* BarbellPreviewView.swift */,
 				2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */,
 				2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */,
@@ -2268,8 +2276,6 @@
 				2E196F012EAE589C00EB4780 /* WRKTTests */,
 			);
 			name = WRKTTests;
-			packageProductDependencies = (
-			);
 			productName = WRKTTests;
 			productReference = 2E196F002EAE589C00EB4780 /* WRKTTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -2290,8 +2296,6 @@
 				2E6141452ECF0FDB00B50FDE /* WRKT Watch Watch App */,
 			);
 			name = "WRKT Watch Watch App";
-			packageProductDependencies = (
-			);
 			productName = "WRKT Watch Watch App";
 			productReference = 2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */;
 			productType = "com.apple.product-type.application";
@@ -2313,8 +2317,6 @@
 				2E6141532ECF0FDC00B50FDE /* WRKT Watch Watch AppTests */,
 			);
 			name = "WRKT Watch Watch AppTests";
-			packageProductDependencies = (
-			);
 			productName = "WRKT Watch Watch AppTests";
 			productReference = 2E6141502ECF0FDC00B50FDE /* WRKT Watch Watch AppTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -2336,8 +2338,6 @@
 				2E61415D2ECF0FDC00B50FDE /* WRKT Watch Watch AppUITests */,
 			);
 			name = "WRKT Watch Watch AppUITests";
-			packageProductDependencies = (
-			);
 			productName = "WRKT Watch Watch AppUITests";
 			productReference = 2E61415A2ECF0FDC00B50FDE /* WRKT Watch Watch AppUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -2368,6 +2368,7 @@
 				2EE8A08B2EE99DB700A74A3C /* Storage */,
 				2EE8A08D2EE99DB700A74A3C /* Supabase */,
 				2EA7D9B82EEB0E850017683B /* Kingfisher */,
+				A40AA67AC4ABD92A13AC1F36 /* GoogleSignIn */,
 			);
 			productName = WRKT;
 			productReference = 2E7461862E93EA5A00A71C35 /* WRKT.app */;
@@ -2389,8 +2390,6 @@
 				2EBE3FC52EB8BCA300A26355 /* WRKTWidgets */,
 			);
 			name = WRKTWidgetsExtension;
-			packageProductDependencies = (
-			);
 			productName = WRKTWidgetsExtension;
 			productReference = 2EBE3FBF2EB8BCA300A26355 /* WRKTWidgetsExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
@@ -2422,6 +2421,11 @@
 					};
 					2E7461852E93EA5A00A71C35 = {
 						CreatedOnToolsVersion = 26.0.1;
+						SystemCapabilities = {
+							com.apple.SignInWithApple = {
+								enabled = 1;
+							};
+						};
 					};
 					2EBE3FBE2EB8BCA300A26355 = {
 						CreatedOnToolsVersion = 26.0.1;
@@ -2441,6 +2445,7 @@
 				2E510B712E995A070089EE2C /* XCRemoteSwiftPackageReference "SVGView" */,
 				2EE8A0822EE99DB700A74A3C /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				2EA7D9B72EEB0E850017683B /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				BD21C5E60108331140E86524 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2E7461872E93EA5A00A71C35 /* Products */;
@@ -2672,7 +2677,7 @@
 				2EBE3EFF2EB6594700A26355 /* Step5ProgramLength.swift in Sources */,
 				2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */,
 				19011C3C8AE14FA9A8C512FF /* DataQualityBadge.swift in Sources */,
-				AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */,
+				AFDC19C6C8164177A9C7104B /* PlanAdherenceCard.swift in Sources */,
 				2EC89F4D2F93FD760011159D /* ProgramLibraryViewModel.swift in Sources */,
 				2EC89F5E2F93FD9E0011159D /* ProgramActivationViewModel.swift in Sources */,
 				2EBE3F002EB6594700A26355 /* Step6Review.swift in Sources */,
@@ -2816,7 +2821,7 @@
 				2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */,
 				2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */,
 				2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */,
-				2EFFC0012FB0000000000001 /* Components/PlateCollectionCell.swift in Sources */,
+				2EFFC0012FB0000000000001 /* PlateCollectionCell.swift in Sources */,
 				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,
 				2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */,
 				2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */,
@@ -3322,8 +3327,11 @@
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				GOOGLE_CLIENT_ID = "";
+				GOOGLE_REVERSED_CLIENT_ID = "";
 				INFOPLIST_FILE = "WRKT-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Volia;
+				INFOPLIST_KEY_GOOGLE_CLIENT_ID = "$(GOOGLE_CLIENT_ID)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VOLIA reads your workout history, heart rate, and exercise time from the Health app to track your progress, visualize muscle group balance, and provide personalized workout recommendations.";
@@ -3370,8 +3378,11 @@
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				GOOGLE_CLIENT_ID = "";
+				GOOGLE_REVERSED_CLIENT_ID = "";
 				INFOPLIST_FILE = "WRKT-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Volia;
+				INFOPLIST_KEY_GOOGLE_CLIENT_ID = "$(GOOGLE_CLIENT_ID)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "VOLIA reads your workout history, heart rate, and exercise time from the Health app to track your progress, visualize muscle group balance, and provide personalized workout recommendations.";
@@ -3560,6 +3571,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		BD21C5E60108331140E86524 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -3602,6 +3621,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 2EE8A0822EE99DB700A74A3C /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		A40AA67AC4ABD92A13AC1F36 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BD21C5E60108331140E86524 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
