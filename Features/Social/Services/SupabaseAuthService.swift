@@ -2,6 +2,8 @@ import Foundation
 import Supabase
 import Auth
 import Combine
+import AuthenticationServices
+import UIKit
 
 @MainActor
 final class SupabaseAuthService: ObservableObject {
@@ -14,8 +16,10 @@ final class SupabaseAuthService: ObservableObject {
     @Published var needsEmailVerification = false // Track if user needs to verify email
     @Published var signupEmail: String? // Store email for resend verification
     @Published var needsPasswordReset = false // Track if user is in password recovery flow
+    @Published var needsUsernameSetup = false
 
     private let client: SupabaseClient
+    private let appleSignIn = SignInWithAppleService()
     private static let emailConfirmationRedirectURL = URL(string: "wrkt://auth/confirm")!
     private static let passwordRecoveryRedirectURL = URL(string: "wrkt://auth/recovery")!
 
@@ -236,6 +240,130 @@ final class SupabaseAuthService: ObservableObject {
         } catch {
             self.error = .invalidCredentials
             throw SupabaseError.invalidCredentials
+        }
+    }
+
+    func signInWithApple(presenting window: ASPresentationAnchor) async throws {
+        isLoading = true
+        defer { isLoading = false }
+
+        let appleResult = try await appleSignIn.requestSignIn(presenting: window)
+
+        let credentials = OpenIDConnectCredentials(
+            provider: .apple,
+            idToken: appleResult.idToken,
+            nonce: appleResult.nonce
+        )
+        try await client.auth.signInWithIdToken(credentials: credentials)
+
+        try await finishOAuthSignIn()
+    }
+
+    func signInWithGoogle(presenting viewController: UIViewController) async throws {
+        isLoading = true
+        defer { isLoading = false }
+
+        let googleResult = try await SignInWithGoogleService.shared.requestSignIn(presenting: viewController)
+
+        let credentials = OpenIDConnectCredentials(
+            provider: .google,
+            idToken: googleResult.idToken,
+            accessToken: googleResult.accessToken
+        )
+        try await client.auth.signInWithIdToken(credentials: credentials)
+
+        try await finishOAuthSignIn()
+    }
+
+    private func finishOAuthSignIn() async throws {
+        do {
+            let session = try await client.auth.session
+            let userId = session.user.id
+
+            let profile: UserProfile = try await client
+                .from("profiles")
+                .select()
+                .eq("id", value: userId.uuidString)
+                .single()
+                .execute()
+                .value
+
+            if OAuthProfileState.needsSetup(username: profile.username) {
+                needsUsernameSetup = true
+                await assignCurrentUser(nil)
+            } else {
+                CacheManager.shared.cacheProfile(profile)
+                await assignCurrentUser(AuthUser(id: userId, email: session.user.email ?? "", profile: profile))
+                await PushNotificationService.shared.uploadTokenToServer()
+            }
+        } catch let supabaseErr as SupabaseError {
+            if case .profileNotFound = supabaseErr {
+                needsUsernameSetup = true
+                await assignCurrentUser(nil)
+            } else {
+                throw supabaseErr
+            }
+        } catch let postgrestErr as PostgrestError {
+            let details = [postgrestErr.code, postgrestErr.message]
+                .compactMap { $0?.lowercased() }
+                .joined(separator: " ")
+            if details.contains("pgrst116") || details.contains("no rows") {
+                needsUsernameSetup = true
+                await assignCurrentUser(nil)
+            } else {
+                throw SupabaseError.serverError(postgrestErr.message)
+            }
+        } catch {
+            throw SupabaseError.networkError(error)
+        }
+    }
+
+    func createOAuthProfile(username: String, displayName: String?) async throws {
+        guard isValidUsername(username) else {
+            throw SupabaseError.invalidUsername
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let session = try await client.auth.session
+            let userId = session.user.id
+            let resolvedDisplayName: String = {
+                let trimmed = displayName?.trimmingCharacters(in: .whitespaces) ?? ""
+                return trimmed.isEmpty ? username : trimmed
+            }()
+
+            let payload = OAuthProfilePayload(
+                id: userId,
+                username: username.lowercased(),
+                displayName: resolvedDisplayName,
+                isPrivate: false,
+                autoPostPRs: true,
+                autoPostCardio: true,
+                updatedAt: Date()
+            )
+
+            // Upsert updates placeholder profiles without overwriting created_at.
+            let savedProfile: UserProfile = try await client
+                .from("profiles")
+                .upsert(payload, onConflict: "id")
+                .select()
+                .single()
+                .execute()
+                .value
+
+            CacheManager.shared.cacheProfile(savedProfile)
+            await assignCurrentUser(AuthUser(id: userId, email: session.user.email ?? "", profile: savedProfile))
+            needsUsernameSetup = false
+            await PushNotificationService.shared.uploadTokenToServer()
+        } catch let err as PostgrestError {
+            if err.message.contains("duplicate key") || err.message.contains("unique constraint") {
+                throw SupabaseError.usernameTaken
+            }
+            throw SupabaseError.serverError(err.message)
+        } catch {
+            throw SupabaseError.networkError(error)
         }
     }
 
@@ -584,6 +712,28 @@ final class SupabaseAuthService: ObservableObject {
 }
 
 // MARK: - Helper Models
+
+/// Encodable payload for the OAuth profile upsert.
+/// Excludes createdAt so an update on conflict does not overwrite the original timestamp.
+private struct OAuthProfilePayload: Encodable {
+    let id: UUID
+    let username: String
+    let displayName: String?
+    let isPrivate: Bool
+    let autoPostPRs: Bool
+    let autoPostCardio: Bool
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case username
+        case displayName = "display_name"
+        case isPrivate = "is_private"
+        case autoPostPRs = "auto_post_prs"
+        case autoPostCardio = "auto_post_cardio"
+        case updatedAt = "updated_at"
+    }
+}
 
 /// Lightweight friendship record for friend ID lookups
 private struct FriendshipRecord: Codable {
