@@ -1,4 +1,6 @@
 import SwiftUI
+import AuthenticationServices
+import UIKit
 
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,6 +13,7 @@ struct LoginView: View {
     @State private var showForgotPassword = false
     @State private var showEmailVerification = false
     @State private var errorMessage: String?
+    @State private var showUsernameSetup = false
 
     enum Field: Hashable {
         case email
@@ -98,44 +101,78 @@ struct LoginView: View {
 
                 Spacer(minLength: 18)
 
-                HStack(spacing: 18) {
-                    Rectangle()
-                        .fill(DS.Semantic.border)
-                        .frame(height: 1)
+                VStack(spacing: 12) {
+                    HStack(spacing: 18) {
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(height: 1)
 
-                    Text("or")
-                        .dsFont(.caption, weight: .medium)
-                        .foregroundStyle(DS.Semantic.textSecondary)
+                        Text("or")
+                            .dsFont(.caption, weight: .medium)
+                            .foregroundStyle(DS.Semantic.textSecondary)
 
-                    Rectangle()
-                        .fill(DS.Semantic.border)
-                        .frame(height: 1)
-                }
-                .padding(.horizontal, 38)
-
-                Button {
-                    skipSocialFeatures()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.slash")
-                            .dsFont(.body)
-
-                        Text("Don't use social features")
-                            .dsFont(.subheadline, weight: .bold)
+                        Rectangle()
+                            .fill(DS.Semantic.border)
+                            .frame(height: 1)
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .foregroundStyle(DS.Theme.accent)
-                    .background(DS.Semantic.card, in: ChamferedRectangle(.large))
-                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+
+                    Button {
+                        Task {
+                            await handleAppleSignIn()
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "applelogo")
+                                .font(.system(size: 18, weight: .semibold))
+
+                            Text("Sign in with Apple")
+                                .font(DS.Typography.custom(size: 17, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .foregroundStyle(.black)
+                        .background(.white, in: ChamferedRectangle(.large))
+                        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                    }
+                    .disabled(authService.isLoading)
+
+                    Button {
+                        Task {
+                            await handleGoogleSignIn()
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text("G")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundStyle(.blue)
+                                .frame(width: 22, height: 22)
+
+                            Text("Sign in with Google")
+                                .font(DS.Typography.custom(size: 17, weight: .semibold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .foregroundStyle(DS.Semantic.textPrimary)
+                        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+                        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                    }
+                    .disabled(authService.isLoading)
+
+                    Button {
+                        skipSocialFeatures()
+                    } label: {
+                        Text("Skip social features")
+                            .dsFont(.subheadline, weight: .medium)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
+                    .padding(.top, 4)
+
+                    Text("You can enable social features later in settings")
+                        .dsFont(.caption)
+                        .foregroundStyle(DS.Semantic.textSecondary)
+                        .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 38)
-
-                Text("You can enable social features later in settings")
-                    .dsFont(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 38)
 
                 HStack(spacing: 8) {
                     Text("Don't have an account?")
@@ -171,6 +208,14 @@ struct LoginView: View {
             }
             .onChange(of: authService.needsEmailVerification) { _, needsVerification in
                 showEmailVerification = needsVerification
+            }
+            .sheet(isPresented: $showUsernameSetup, onDismiss: {
+                if authService.currentUser != nil {
+                    dismiss()
+                }
+            }) {
+                OAuthUsernameSetupView()
+                    .environmentObject(authService)
             }
             .onReceive(authService.$currentUser) { newUser in
                 // Dismiss login view when user becomes logged in (e.g., after email verification)
@@ -217,6 +262,61 @@ struct LoginView: View {
 
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func handleAppleSignIn() async {
+        errorMessage = nil
+        focusedField = nil
+
+        guard let window = activeWindow else { return }
+
+        do {
+            try await authService.signInWithApple(presenting: window)
+            if authService.needsUsernameSetup {
+                showUsernameSetup = true
+            } else {
+                dismiss()
+            }
+        } catch let error as ASAuthorizationError where error.code == .canceled {
+            return
+        } catch {
+            errorMessage = error.localizedDescription
+            Haptics.error()
+        }
+    }
+
+    private func handleGoogleSignIn() async {
+        errorMessage = nil
+        focusedField = nil
+
+        guard let rootViewController = activeWindow?.rootViewController else { return }
+        let presenter = topPresentedViewController(from: rootViewController)
+
+        do {
+            try await authService.signInWithGoogle(presenting: presenter)
+            if authService.needsUsernameSetup {
+                showUsernameSetup = true
+            } else {
+                dismiss()
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+            Haptics.error()
+        }
+    }
+
+    private var activeWindow: UIWindow? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+    }
+
+    private func topPresentedViewController(from viewController: UIViewController) -> UIViewController {
+        if let presented = viewController.presentedViewController {
+            return topPresentedViewController(from: presented)
+        }
+        return viewController
     }
 
     private func skipSocialFeatures() {
