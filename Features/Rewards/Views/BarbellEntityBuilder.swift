@@ -1112,7 +1112,7 @@ private func drawArcText(
 }
 
 private nonisolated(unsafe) var _weightDiscMaterialCache: [String: UnlitMaterial] = [:]
-private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: any RealityKit.Material] = [:]
+private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: UnlitMaterial] = [:]
 // Loaded once at scene setup via preloadPlateMaterialTemplate(). Nil until then — disc falls back to UnlitMaterial.
 nonisolated(unsafe) var plateMaterialTemplate: ShaderGraphMaterial? = nil
 
@@ -1348,7 +1348,7 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
     let profile = PlateVisualDesign.profile(for: tier.style)
     let layout = PlateVisualDesign.markingLayout(for: tier.style)
     let cacheKey = "\(tier.id)_\(prominent)_\(engravingText)"
-    let material: any RealityKit.Material
+    let material: UnlitMaterial
     if let cached = _engravingDiscMaterialCache[cacheKey] {
         material = cached
     } else {
@@ -1367,22 +1367,10 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
     return disc
 }
 
-private func makeEngravingDiscMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> any RealityKit.Material {
-    if var template = plateMaterialTemplate {
-        try? template.setParameter(name: "baseColor", value: .color(PlateDisplaySurface.faceColor(for: tier)))
-        try? template.setParameter(name: "metallic",  value: .float(PlateDisplaySurface.metallic(for: tier)))
-        try? template.setParameter(name: "roughness", value: .float(PlateDisplaySurface.roughness(for: tier)))
-        let normalMap = generateEngravingNormalMap(engravingText: engravingText, tier: tier, prominent: prominent)
-        if let cg = normalMap.cgImage,
-           let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .normal)) {
-            try? template.setParameter(name: "engravingNormal", value: .textureResource(tex))
-        }
-        return template
-    }
-    return makeEngravingDiscUnlitMaterial(engravingText: engravingText, tier: tier, prominent: prominent)
-}
-
-private func makeEngravingDiscUnlitMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> UnlitMaterial {
+// ShaderGraphMaterial needs an opacity mask input in PlateMaterial before it can replace
+// UnlitMaterial here — without it the PBR disc is opaque and covers the weight disc text.
+// plateMaterialTemplate + generateEngravingNormalMap are ready; add opacity param in RCP first.
+private func makeEngravingDiscMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> UnlitMaterial {
     let side: CGFloat = 128
     let format = UIGraphicsImageRendererFormat()
     format.opaque = false
