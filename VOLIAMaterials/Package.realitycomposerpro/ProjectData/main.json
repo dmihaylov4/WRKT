@@ -1,0 +1,11 @@
+{
+  "pathsToIds" : {
+    "\/VOLIAMaterials\/Sources\/VOLIAMaterials\/VOLIAMaterials.rkassets\/Scene.usda" : "6274AF3E-95D4-416F-AF0B-CA3F7AFC5407",
+    "\/VOLIAMaterials\/Sources\/VOLIAMaterials\/VOLIAMaterials.rkassets\/Untitled%20Scene.usda" : "635B1618-60C0-4F0E-815B-1C99CECC0C9D"
+  },
+  "projectID" : -7396353613457130373,
+  "uuidToIntID" : {
+    "6274AF3E-95D4-416F-AF0B-CA3F7AFC5407" : 4199245011305730410,
+    "635B1618-60C0-4F0E-815B-1C99CECC0C9D" : 3759982333185948414
+  }
+}

@@ -291,6 +291,35 @@ struct BarbellEntityBuilderTests {
         #expect(saturated.pressPolishMarkCount == 5)
     }
 
+    @Test func engravingNormalMapHasRequestedDimensions() throws {
+        let tier = try #require(PlateTier.all.first { $0.id == 1 })
+        let map = generateEngravingNormalMap(engravingText: "25 Workouts", tier: tier, prominent: true)
+        #expect(Int(map.size.width) == 512)
+        #expect(Int(map.size.height) == 512)
+    }
+
+    @Test func engravingNormalMapFlatAreaEncodesUpwardNormal() throws {
+        let tier = try #require(PlateTier.all.first { $0.id == 1 })
+        // A single space produces an all-black heightmap -> flat normal (128, 128, 255) everywhere.
+        let map = generateEngravingNormalMap(engravingText: " ", tier: tier, prominent: false, side: 32)
+        guard let cg = map.cgImage else { Issue.record("no cgImage"); return }
+        let bytesPerRow = 32 * 4
+        var pixels = [UInt8](repeating: 0, count: 32 * bytesPerRow)
+        guard let ctx = CGContext(
+            data: &pixels, width: 32, height: 32, bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow, space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { Issue.record("no CGContext"); return }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: 32, height: 32))
+        let centerIdx = 16 * bytesPerRow + 16 * 4
+        let r = pixels[centerIdx]
+        let g = pixels[centerIdx + 1]
+        let b = pixels[centerIdx + 2]
+        #expect(r > 120 && r < 136, "flat normal R should be ~128, got \(r)")
+        #expect(g > 120 && g < 136, "flat normal G should be ~128, got \(g)")
+        #expect(b == 255, "flat normal B should be 255, got \(b)")
+    }
+
     @Test func barMaterialHasRoughnessTexture() {
         let mat = makeBarMaterial(skinID: 0)
         #expect(mat.roughness.texture != nil, "bar material roughness must be a TextureResource, not a flat value")

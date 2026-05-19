@@ -1,0 +1,63 @@
+{
+  "advancedEditorSelectedIdentifier" : "ShaderGraphEditorPluginID",
+  "openSceneRelativePaths" : [
+    "Scene.usda"
+  ],
+  "recentIdentifiers" : {
+    "6274AF3E-95D4-416F-AF0B-CA3F7AFC5407" : [
+
+    ]
+  },
+  "sceneCameraHistory" : {
+    "6274AF3E-95D4-416F-AF0B-CA3F7AFC5407" : [
+      {
+        "date" : 800899723.154943,
+        "title" : "Untitled",
+        "transform" : [
+          1,
+          0,
+          -0,
+          0,
+          -0,
+          0.7071069,
+          -0.7071067,
+          0,
+          0,
+          0.7071067,
+          0.7071069,
+          0,
+          -1.844569e-11,
+          0.14500774,
+          0.1450078,
+          1
+        ]
+      },
+      {
+        "date" : 800899632.722474,
+        "title" : "Untitled",
+        "transform" : [
+          1,
+          0,
+          -0,
+          0,
+          -0,
+          0.7071069,
+          -0.7071067,
+          0,
+          0,
+          0.7071067,
+          0.7071069,
+          0,
+          5.9604645e-08,
+          0.14500749,
+          0.14500761,
+          1
+        ]
+      }
+    ]
+  },
+  "sceneViewportBackgroundColors" : {
+
+  },
+  "selectedSceneRelativePath" : "Scene.usda"
+}

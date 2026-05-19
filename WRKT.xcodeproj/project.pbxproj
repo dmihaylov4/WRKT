@@ -34,6 +34,7 @@
 		2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */; };
 		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
 		2E05A72C2FBC955000A62E2E /* ProgressShareCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E05A72B2FBC955000A62E2E /* ProgressShareCoordinator.swift */; };
+		2E05A72F2FBCC77C00A62E2E /* VOLIAMaterials in Frameworks */ = {isa = PBXBuildFile; productRef = 2E05A72E2FBCC77C00A62E2E /* VOLIAMaterials */; };
 		2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2E196EA32EAD398900EB4780 /* Assets.xcassets */; };
 		2E196EAD2EAD3A0B00EB4780 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EAC2EAD3A0600EB4780 /* AppShellView.swift */; };
 		2E196EC52EAE2F9D00EB4780 /* CompletedWorkout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E196EC42EAE2F9A00EB4780 /* CompletedWorkout.swift */; };
@@ -997,6 +998,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2EE8A08E2EE99DB700A74A3C /* Supabase in Frameworks */,
+				2E05A72F2FBCC77C00A62E2E /* VOLIAMaterials in Frameworks */,
 				2EE8A08C2EE99DB700A74A3C /* Storage in Frameworks */,
 				2EE8A0882EE99DB700A74A3C /* PostgREST in Frameworks */,
 				2EE8A0862EE99DB700A74A3C /* Functions in Frameworks */,
@@ -2381,6 +2383,7 @@
 				2EE8A08D2EE99DB700A74A3C /* Supabase */,
 				2EA7D9B82EEB0E850017683B /* Kingfisher */,
 				A40AA67AC4ABD92A13AC1F36 /* GoogleSignIn */,
+				2E05A72E2FBCC77C00A62E2E /* VOLIAMaterials */,
 			);
 			productName = WRKT;
 			productReference = 2E7461862E93EA5A00A71C35 /* WRKT.app */;
@@ -2458,6 +2461,7 @@
 				2EE8A0822EE99DB700A74A3C /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				2EA7D9B72EEB0E850017683B /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				BD21C5E60108331140E86524 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				2E05A72D2FBCC77C00A62E2E /* XCLocalSwiftPackageReference "VOLIAMaterials" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 2E7461872E93EA5A00A71C35 /* Products */;
@@ -3564,6 +3568,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		2E05A72D2FBCC77C00A62E2E /* XCLocalSwiftPackageReference "VOLIAMaterials" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = VOLIAMaterials;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		2E510B712E995A070089EE2C /* XCRemoteSwiftPackageReference "SVGView" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -3600,6 +3611,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		2E05A72E2FBCC77C00A62E2E /* VOLIAMaterials */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = VOLIAMaterials;
+		};
 		2E510B722E995A070089EE2C /* SVGView */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 2E510B712E995A070089EE2C /* XCRemoteSwiftPackageReference "SVGView" */;

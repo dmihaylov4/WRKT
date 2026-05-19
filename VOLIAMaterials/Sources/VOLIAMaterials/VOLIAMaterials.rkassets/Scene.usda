@@ -1,0 +1,98 @@
+#usda 1.0
+(
+    customLayerData = {
+        string creator = "Reality Composer Pro Version 2.0 (494.100.6)"
+    }
+    defaultPrim = "Root"
+    metersPerUnit = 1
+    upAxis = "Y"
+)
+
+def Xform "Root"
+{
+    def Material "PlateMaterial"
+    {
+        color3f inputs:baseColor = (0, 0, 0) (
+            colorSpace = "srgb_displayp3"
+            customData = {
+                dictionary realitykit = {
+                    float2 positionInSubgraph = (132.39694, -8.911603)
+                    int stackingOrderInSubgraph = 91
+                }
+            }
+        )
+        asset inputs:engravingNormal (
+            customData = {
+                dictionary realitykit = {
+                    float2 positionInSubgraph = (-240.29611, 100.292946)
+                    int stackingOrderInSubgraph = 21
+                }
+            }
+        )
+        float inputs:metallic = 0 (
+            customData = {
+                dictionary realitykit = {
+                    float2 positionInSubgraph = (141.96664, 127.027596)
+                    int stackingOrderInSubgraph = 87
+                }
+            }
+        )
+        float inputs:roughness = 0 (
+            customData = {
+                dictionary realitykit = {
+                    float2 positionInSubgraph = (135.63396, 61.090508)
+                    int stackingOrderInSubgraph = 89
+                }
+            }
+        )
+        token outputs:mtlx:surface.connect = </Root/PlateMaterial/PreviewSurface.outputs:out>
+        token outputs:realitykit:vertex
+        float2 ui:nodegraph:realitykit:subgraphOutputs:pos = (730.2304, 192.46214)
+        int ui:nodegraph:realitykit:subgraphOutputs:stackingOrder = 85
+
+        def Shader "PreviewSurface"
+        {
+            uniform token info:id = "ND_UsdPreviewSurface_surfaceshader"
+            float inputs:clearcoat
+            float inputs:clearcoatRoughness
+            color3f inputs:diffuseColor.connect = </Root/PlateMaterial.inputs:baseColor>
+            color3f inputs:emissiveColor.connect = None
+            float inputs:ior
+            float inputs:metallic.connect = </Root/PlateMaterial.inputs:metallic>
+            float3 inputs:normal.connect = </Root/PlateMaterial/TiledImage.outputs:out>
+            float inputs:occlusion
+            float inputs:opacity
+            float inputs:opacityThreshold
+            float inputs:roughness.connect = </Root/PlateMaterial.inputs:roughness>
+            token outputs:out
+            float2 ui:nodegraph:node:pos = (463.0975, 127.76236)
+            int ui:nodegraph:node:stackingOrder = 83
+            string[] ui:nodegraph:realitykit:node:attributesShowingChildren = []
+        }
+
+        def Shader "Place2D"
+        {
+            uniform token info:id = "ND_place2d_vector2"
+            float2 inputs:offset
+            float2 outputs:out
+            float2 ui:nodegraph:node:pos = (-278.2664, 421.96158)
+            int ui:nodegraph:node:stackingOrder = 76
+        }
+
+        def Shader "TiledImage"
+        {
+            uniform token info:id = "ND_tiledimage_vector3"
+            prepend asset inputs:file.connect = </Root/PlateMaterial.inputs:engravingNormal>
+            string inputs:filtertype
+            float2 inputs:realworldimagesize
+            float2 inputs:realworldtilesize
+            prepend float2 inputs:texcoord.connect = </Root/PlateMaterial/Place2D.outputs:out>
+            float2 inputs:uvoffset
+            float2 inputs:uvtiling
+            float3 outputs:out
+            float2 ui:nodegraph:node:pos = (83.6202, 424.8323)
+            int ui:nodegraph:node:stackingOrder = 69
+        }
+    }
+}
+

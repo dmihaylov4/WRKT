@@ -1,6 +1,7 @@
 // Features/Rewards/Views/BarbellEntityBuilder.swift
 import RealityKit
 import UIKit
+import VOLIAMaterials
 
 // MARK: - Collision groups
 // Plates collide with the floor plane, each other, and the physical bar/rack surfaces.
@@ -1111,7 +1112,9 @@ private func drawArcText(
 }
 
 private nonisolated(unsafe) var _weightDiscMaterialCache: [String: UnlitMaterial] = [:]
-private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: UnlitMaterial] = [:]
+private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: any RealityKit.Material] = [:]
+// Loaded once at scene setup via preloadPlateMaterialTemplate(). Nil until then — disc falls back to UnlitMaterial.
+nonisolated(unsafe) var plateMaterialTemplate: ShaderGraphMaterial? = nil
 
 private func makeWeightDisc(weightKg: Double, tier: PlateTier) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
@@ -1198,6 +1201,138 @@ private func makeWeightDiscMaterial(
     return mat
 }
 
+// MARK: - Plate ShaderGraph material
+
+/// Loads PlateMaterial template once at scene setup. Call from an async .task{} before
+/// the RealityView make{} runs. Once set, makeEngravingDiscMaterial uses ShaderGraph
+/// instead of UnlitMaterial so engraving grooves respond to scene IBL.
+func preloadPlateMaterialTemplate() async {
+    plateMaterialTemplate = try? await ShaderGraphMaterial(
+        named: "/Root/PlateMaterial",
+        from: "Scene",
+        in: vOLIAMaterialsBundle
+    )
+}
+
+/// Loads PlateMaterial from the VOLIAMaterials RCP package and sets per-tier parameters.
+/// engravingText drives a CPU-generated normal map fed into the engravingNormal input so
+/// groove depth responds to the scene IBL rather than being a baked 2D shadow.
+func loadPlateMaterial(tier: PlateTier, engravingText: String, prominent: Bool) async throws -> ShaderGraphMaterial {
+    var mat = try await ShaderGraphMaterial(
+        named: "/Root/PlateMaterial",
+        from: "Scene",
+        in: vOLIAMaterialsBundle
+    )
+    try mat.setParameter(name: "baseColor", value: .color(PlateDisplaySurface.faceColor(for: tier)))
+    try mat.setParameter(name: "metallic",  value: .float(PlateDisplaySurface.metallic(for: tier)))
+    try mat.setParameter(name: "roughness", value: .float(PlateDisplaySurface.roughness(for: tier)))
+    if !engravingText.trimmingCharacters(in: .whitespaces).isEmpty {
+        let normalMap = generateEngravingNormalMap(engravingText: engravingText, tier: tier, prominent: prominent)
+        if let cg = normalMap.cgImage,
+           let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .normal)) {
+            try mat.setParameter(name: "engravingNormal", value: .textureResource(tex))
+        }
+    }
+    return mat
+}
+
+/// Converts engraving text to a tangent-space normal map.
+/// White text on black background becomes a heightmap; finite differences compute surface
+/// slope per pixel and encode it as R=X, G=Y, B=1 (flat facing up for black regions).
+func generateEngravingNormalMap(engravingText: String, tier: PlateTier, prominent: Bool, side: CGFloat = 512) -> UIImage {
+    let heightmap = renderEngravingHeightmap(engravingText: engravingText, tier: tier, prominent: prominent, side: side)
+    return convertHeightmapToNormalMap(heightmap, strength: 3.0)
+}
+
+private func renderEngravingHeightmap(engravingText: String, tier: PlateTier, prominent: Bool, side: CGFloat) -> UIImage {
+    let format = UIGraphicsImageRendererFormat()
+    format.opaque = true
+    format.scale = 1
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+    return renderer.image { _ in
+        UIColor.black.setFill()
+        UIRectFill(CGRect(x: 0, y: 0, width: side, height: side))
+        if prominent {
+            let parts = engravingText.split(separator: " ", maxSplits: 1)
+            if parts.count == 2 {
+                let numStr = String(parts[0])
+                let labelStr = String(parts[1]).uppercased()
+                let numAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: side * 0.30, weight: .black),
+                    .foregroundColor: UIColor.white
+                ]
+                let labelAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: side * 0.145, weight: .heavy),
+                    .foregroundColor: UIColor.white
+                ]
+                let numSz = (numStr as NSString).size(withAttributes: numAttrs)
+                let labelSz = (labelStr as NSString).size(withAttributes: labelAttrs)
+                let totalH = numSz.height + 2 + labelSz.height
+                (numStr as NSString).draw(
+                    at: CGPoint(x: (side - numSz.width) / 2, y: (side - totalH) / 2),
+                    withAttributes: numAttrs
+                )
+                (labelStr as NSString).draw(
+                    at: CGPoint(x: (side - labelSz.width) / 2, y: (side + totalH) / 2 - labelSz.height),
+                    withAttributes: labelAttrs
+                )
+            } else {
+                drawFittedEngravingText(engravingText, side: side, maxFontSize: side * 0.165, weight: .black, color: .white)
+            }
+        } else {
+            drawFittedEngravingText(engravingText, side: side, maxFontSize: side * 0.115, weight: .bold, color: .white)
+        }
+    }
+}
+
+private func convertHeightmapToNormalMap(_ heightmap: UIImage, strength: Float) -> UIImage {
+    guard let cgImage = heightmap.cgImage else { return heightmap }
+    let width = cgImage.width
+    let height = cgImage.height
+    let bytesPerRow = width * 4
+    var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+    guard let readCtx = CGContext(
+        data: &pixels,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: bytesPerRow,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else { return heightmap }
+    readCtx.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+    func lum(_ x: Int, _ y: Int) -> Float {
+        let xi = max(0, min(x, width - 1))
+        let yi = max(0, min(y, height - 1))
+        return Float(pixels[yi * bytesPerRow + xi * 4]) / 255.0
+    }
+
+    var out = [UInt8](repeating: 255, count: height * bytesPerRow)
+    for y in 0..<height {
+        for x in 0..<width {
+            let dx = (lum(x + 1, y) - lum(x - 1, y)) * strength
+            let dy = (lum(x, y + 1) - lum(x, y - 1)) * strength
+            let i = y * bytesPerRow + x * 4
+            out[i]     = UInt8(clamping: Int(((-dx * 0.5) + 0.5) * 255))
+            out[i + 1] = UInt8(clamping: Int(((-dy * 0.5) + 0.5) * 255))
+            out[i + 2] = 255
+            out[i + 3] = 255
+        }
+    }
+
+    guard let writeCtx = CGContext(
+        data: &out,
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: bytesPerRow,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ), let outCGImage = writeCtx.makeImage() else { return heightmap }
+    return UIImage(cgImage: outCGImage)
+}
+
 // MARK: - Engraving disc
 
 private func bumperPlateTextColor(for tier: PlateTier) -> UIColor {
@@ -1213,7 +1348,7 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
     let profile = PlateVisualDesign.profile(for: tier.style)
     let layout = PlateVisualDesign.markingLayout(for: tier.style)
     let cacheKey = "\(tier.id)_\(prominent)_\(engravingText)"
-    let material: UnlitMaterial
+    let material: any RealityKit.Material
     if let cached = _engravingDiscMaterialCache[cacheKey] {
         material = cached
     } else {
@@ -1232,7 +1367,22 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
     return disc
 }
 
-private func makeEngravingDiscMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> UnlitMaterial {
+private func makeEngravingDiscMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> any RealityKit.Material {
+    if var template = plateMaterialTemplate {
+        try? template.setParameter(name: "baseColor", value: .color(PlateDisplaySurface.faceColor(for: tier)))
+        try? template.setParameter(name: "metallic",  value: .float(PlateDisplaySurface.metallic(for: tier)))
+        try? template.setParameter(name: "roughness", value: .float(PlateDisplaySurface.roughness(for: tier)))
+        let normalMap = generateEngravingNormalMap(engravingText: engravingText, tier: tier, prominent: prominent)
+        if let cg = normalMap.cgImage,
+           let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .normal)) {
+            try? template.setParameter(name: "engravingNormal", value: .textureResource(tex))
+        }
+        return template
+    }
+    return makeEngravingDiscUnlitMaterial(engravingText: engravingText, tier: tier, prominent: prominent)
+}
+
+private func makeEngravingDiscUnlitMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> UnlitMaterial {
     let side: CGFloat = 128
     let format = UIGraphicsImageRendererFormat()
     format.opaque = false
