@@ -348,6 +348,7 @@ struct BarbellPreviewView: View {
         .onAppear { isViewVisible = true }
         .onDisappear { isViewVisible = false }
         .task {
+            await preloadPlateMaterialTemplate()
             await preloadTextures()
         }
     }
