@@ -20,6 +20,7 @@ struct ProfileView: View {
 
     @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.modelContext) private var context
+    @Environment(\.dependencies) private var deps
 
     // Badge manager for social notifications
     @State private var badgeManager = NotificationBadgeManager.shared
@@ -271,7 +272,10 @@ struct ProfileView: View {
                 progress: progress,
                 weekProgress: viewModel.cachedWeekProgress,
                 goal: goal,
-                onSettingsTapped: openSettings
+                onSettingsTapped: openSettings,
+                onMakePublic: {
+                    Task { await postCommitment() }
+                }
             )
             .task {
                 await viewModel.syncHealthKitIfNeeded(store: store, context: context, goals: goals)
@@ -308,6 +312,40 @@ struct ProfileView: View {
 
         brokenStreakCount = previousStreak
         showStreakRecovery = true
+    }
+
+    private func postCommitment() async {
+        guard let goal = goals.first else { return }
+        guard let userId = authService.currentUser?.id else { return }
+
+        let calendar = Calendar(identifier: .gregorian)
+        let weekStart = calendar.startOfWeek(for: Date(), anchorWeekday: goal.anchorWeekday)
+        let workoutsThisWeek = store.completedWorkouts
+            .filter { $0.date >= weekStart }
+            .sorted { $0.date > $1.date }
+
+        guard let latestWorkout = workoutsThisWeek.first else {
+            NotificationCenter.default.post(name: .navigateToCompeteTab, object: nil)
+            return
+        }
+
+        let caption = makeCommitmentCaption(
+            targetWorkouts: goal.targetStrengthDays,
+            completed: workoutsThisWeek.count
+        )
+
+        do {
+            _ = try await deps.postRepository.createPost(
+                workout: latestWorkout,
+                caption: caption,
+                images: nil,
+                visibility: .publicPost,
+                userId: userId
+            )
+            AppNotificationManager.shared.showSuccess("Commitment posted!")
+        } catch {
+            AppNotificationManager.shared.showError("Couldn't post. Try again.", title: nil)
+        }
     }
 
     private func updateLevelCardFrame(_ frame: CGRect) {
@@ -537,6 +575,7 @@ struct ProgressOverviewCard: View {
     let weekProgress: WeeklyProgress?
     let goal: WeeklyGoal?
     var onSettingsTapped: (() -> Void)? = nil
+    var onMakePublic: (() -> Void)? = nil
 
     @Environment(\.modelContext) private var context
 
@@ -848,6 +887,17 @@ struct ProgressOverviewCard: View {
                             .frame(height: 8)
                         }
                     }
+
+                    if let onMakePublic {
+                        Button(action: onMakePublic) {
+                            Label("Make it Public", systemImage: "megaphone.fill")
+                                .dsFont(.caption, weight: .semibold)
+                                .foregroundStyle(DS.Semantic.brand)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                    }
                 }
             } else {
                 // No weekly goal set - show setup prompt
@@ -905,6 +955,13 @@ struct ProgressOverviewCard: View {
             }
         }
     }
+}
+
+func makeCommitmentCaption(targetWorkouts: Int, completed: Int) -> String {
+    if completed == 0 {
+        return "Committing to \(targetWorkouts) workouts this week. Holding myself accountable."
+    }
+    return "\(completed)/\(targetWorkouts) workouts done this week. Not stopping here."
 }
 
 // MARK: - Dex preview
