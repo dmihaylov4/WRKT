@@ -222,10 +222,18 @@ final class NotificationBadgeManager {
                 let opponentScore = notification.metadata?["opponent_score"] ?? "?"
                 return ("Lead Lost", "\(opponentScore) vs \(yourScore) - Time to step up!", "arrow.down.circle.fill", .warning)
             case .battleOpponentActivity:
-                let scoreIncrease = notification.metadata?["score_increase"] ?? "0"
-                let newScore = notification.metadata?["new_score"] ?? "?"
-                let yourScore = notification.metadata?["your_score"] ?? "?"
-                return ("Opponent Active", "\(actorName) just scored +\(scoreIncrease)! (\(newScore) vs \(yourScore))", "figure.run", .info)
+                let rawAdded = notification.metadata?["score_added"] ?? "0"
+                let rawActor = notification.metadata?["actor_new_score"] ?? "?"
+                let rawYours = notification.metadata?["recipient_score"] ?? "?"
+                func fmtScore(_ s: String) -> String {
+                    guard let d = Decimal(string: s) else { return s }
+                    let formatter = NumberFormatter()
+                    formatter.locale = Locale(identifier: "en_US_POSIX")
+                    formatter.numberStyle = .decimal
+                    formatter.maximumFractionDigits = 0
+                    return formatter.string(from: NSDecimalNumber(decimal: d)) ?? s
+                }
+                return ("Opponent Active", "\(actorName) +\(fmtScore(rawAdded)) (\(fmtScore(rawActor)) vs \(fmtScore(rawYours)))", "figure.run", .info)
             case .battleEndingSoon:
                 return ("Battle Ending Soon", "Your battle with \(actorName) ends in 24 hours!", "clock.badge.exclamationmark.fill", .warning)
             case .battleCompleted:

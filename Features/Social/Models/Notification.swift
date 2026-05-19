@@ -243,7 +243,25 @@ struct NotificationWithActor: Identifiable, Sendable {
         case .battleLeadLost:
             return "\(actorName) just took the lead in your battle!"
         case .battleOpponentActivity:
-            return "\(actorName) just logged a workout in your battle!"
+            guard
+                let scoreAddedStr = notification.metadata?["score_added"],
+                !scoreAddedStr.isEmpty,
+                let scoreAdded = Decimal(string: scoreAddedStr),
+                let actorNewStr = notification.metadata?["actor_new_score"],
+                let actorNew = Decimal(string: actorNewStr),
+                let recipientStr = notification.metadata?["recipient_score"],
+                let recipientScore = Decimal(string: recipientStr)
+            else {
+                return "\(actorName) just logged a workout in your battle!"
+            }
+            let addedStr = formatBattleNotifScore(scoreAdded)
+            let gap = abs(actorNew - recipientScore)
+            let gapStr = formatBattleNotifScore(gap)
+            if actorNew > recipientScore {
+                return "\(actorName) added \(addedStr). They now lead by \(gapStr)."
+            } else {
+                return "\(actorName) added \(addedStr). You still lead by \(gapStr)."
+            }
         case .battleEndingSoon:
             return "Your battle with \(actorName) ends in 24 hours!"
         case .battleCompleted:
@@ -308,4 +326,12 @@ struct NotificationWithActor: Identifiable, Sendable {
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: createdAt, relativeTo: Date())
     }
+}
+
+private func formatBattleNotifScore(_ value: Decimal) -> String {
+    let formatter = NumberFormatter()
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.numberStyle = .decimal
+    formatter.maximumFractionDigits = 0
+    return formatter.string(from: NSDecimalNumber(decimal: value)) ?? NSDecimalNumber(decimal: value).stringValue
 }

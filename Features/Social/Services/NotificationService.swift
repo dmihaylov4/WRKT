@@ -38,9 +38,11 @@ final class NotificationService {
     func createBattleOpponentActivityNotification(
         battleId: UUID,
         actorId: UUID,
-        recipientId: UUID
+        recipientId: UUID,
+        scoreAdded: Decimal = 0,
+        actorNewScore: Decimal = 0,
+        recipientScore: Decimal = 0
     ) async throws {
-        // Check if battle is active first
         let battle: Battle = try await client
             .from("battles")
             .select()
@@ -54,14 +56,41 @@ final class NotificationService {
             return
         }
 
-        try await repository.createNotification(
-            userId: recipientId,
-            type: .battleOpponentActivity,
-            actorId: actorId,
-            targetId: battleId
+        struct NotificationCreate: Encodable {
+            let user_id: String
+            let type: String
+            let actor_id: String
+            let target_id: String
+            let read: Bool
+            let metadata: [String: String]
+        }
+
+        let notification = NotificationCreate(
+            user_id: recipientId.uuidString.lowercased(),
+            type: NotificationType.battleOpponentActivity.rawValue,
+            actor_id: actorId.uuidString.lowercased(),
+            target_id: battleId.uuidString.lowercased(),
+            read: false,
+            metadata: [
+                "score_added": scoreAdded == 0 ? "" : battleScoreString(scoreAdded),
+                "actor_new_score": actorNewScore == 0 ? "" : battleScoreString(actorNewScore),
+                "recipient_score": recipientScore == 0 ? "" : battleScoreString(recipientScore)
+            ]
         )
 
-        AppLogger.success("Battle opponent activity notification created", category: AppLogger.notifications)
+        let _: AppNotification = try await client
+            .from("notifications")
+            .insert(notification)
+            .select()
+            .single()
+            .execute()
+            .value
+
+        AppLogger.success("Battle opponent activity notification created with score delta", category: AppLogger.notifications)
+    }
+
+    private func battleScoreString(_ value: Decimal) -> String {
+        NSDecimalNumber(decimal: value).stringValue
     }
 
     // MARK: - Challenge Notifications

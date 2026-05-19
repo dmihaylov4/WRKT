@@ -531,13 +531,19 @@ final class BattleRepository: Sendable {
             )
         )
 
-        // Send opponent activity notification
+        // Send opponent activity notification with score context
         let opponentId = isChallenger ? battle.opponentId : battle.challengerId
+        let capturedScoreAdded = scoreIncrease
+        let capturedActorNewScore = newScore
+        let capturedRecipientScore = opponentCurrentScore
         Task {
             try? await notificationService.createBattleOpponentActivityNotification(
                 battleId: battle.id,
                 actorId: userId,
-                recipientId: opponentId
+                recipientId: opponentId,
+                scoreAdded: capturedScoreAdded,
+                actorNewScore: capturedActorNewScore,
+                recipientScore: capturedRecipientScore
             )
         }
 
