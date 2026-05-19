@@ -253,7 +253,7 @@ final class NotificationBadgeManager {
                 return ("Milestone Reached!", "You hit \(milestone)% in your challenge!", "star.fill", .success)
             case .challengeLeaderboardChange:
                 let position = notification.metadata?["position"] ?? "?"
-                return ("Leaderboard Update", "You moved up to #\(position)!", "chart.line.uptrend.xyaxis", .success)
+                return ("Leaderboard Update", "\(actorName) passed you. You dropped to #\(position).", "chart.line.downtrend.xyaxis", .warning)
             case .challengeEndingSoon:
                 return ("Challenge Ending Soon", "Your challenge ends in 24 hours!", "timer", .warning)
             case .challengeCompleted:

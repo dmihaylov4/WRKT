@@ -279,7 +279,9 @@ struct NotificationWithActor: Identifiable, Sendable {
         case .challengeMilestone:
             return "You've reached a milestone in your challenge!"
         case .challengeLeaderboardChange:
-            return "You moved up to position #\(notification.metadata?["position"] ?? "N/A") in the challenge!"
+            let title = notification.metadata?["challenge_title"] ?? "the challenge"
+            let position = notification.metadata?["position"] ?? "N/A"
+            return "\(actorName) just passed you in \"\(title)\". You're now #\(position)."
         case .challengeEndingSoon:
             return "Your challenge ends in 24 hours!"
         case .challengeCompleted:

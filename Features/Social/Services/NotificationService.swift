@@ -184,6 +184,45 @@ final class NotificationService {
         }
     }
 
+    func createChallengeLeaderboardChangeNotification(
+        challengeId: UUID,
+        actorId: UUID,
+        recipientId: UUID,
+        recipientNewRank: Int,
+        challengeTitle: String
+    ) async throws {
+        struct NotificationCreate: Encodable {
+            let user_id: String
+            let type: String
+            let actor_id: String
+            let target_id: String
+            let read: Bool
+            let metadata: [String: String]
+        }
+
+        let notification = NotificationCreate(
+            user_id: recipientId.uuidString.lowercased(),
+            type: NotificationType.challengeLeaderboardChange.rawValue,
+            actor_id: actorId.uuidString.lowercased(),
+            target_id: challengeId.uuidString.lowercased(),
+            read: false,
+            metadata: [
+                "position": "\(recipientNewRank)",
+                "challenge_title": challengeTitle
+            ]
+        )
+
+        let _: AppNotification = try await client
+            .from("notifications")
+            .insert(notification)
+            .select()
+            .single()
+            .execute()
+            .value
+
+        AppLogger.success("Challenge leaderboard displacement notification sent to \(recipientId)", category: AppLogger.notifications)
+    }
+
     // MARK: - Scheduled Notifications (for future implementation)
 
     /// Schedule battle ending soon notification (to be called by cron job or local scheduler)
