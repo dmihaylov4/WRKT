@@ -505,7 +505,8 @@ struct BarbellPreviewView: View {
         root.components.set(CollisionComponent(shapes: [.generateBox(size: SIMD3(1.2, 0.4, 0.4))]))
         root.components.set(InputTargetComponent())
 
-        let barMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+        let barMat = makeBarMaterial(skinID: skin.id)
+        let sleeveCollarMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
         addRoomAndRack(to: root)
 
         let bar = ModelEntity(mesh: .generateCylinder(height: 1.1, radius: 0.012), materials: [barMat])
@@ -515,14 +516,14 @@ struct BarbellPreviewView: View {
         // Sleeves fill the plate bore (radius 0.034) so plates rest on them visually.
         // Covers from x=±0.28 to x=±0.46 (all possible plate positions including max addedPairs).
         for xSign: Float in [-1, 1] {
-            let sleeve = ModelEntity(mesh: .generateCylinder(height: 0.18, radius: 0.034), materials: [barMat])
+            let sleeve = ModelEntity(mesh: .generateCylinder(height: 0.18, radius: 0.034), materials: [sleeveCollarMat])
             sleeve.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             sleeve.position = SIMD3(xSign * 0.37, 0, 0)
             root.addChild(sleeve)
         }
 
         for xOffset: Float in [-0.46, 0.46] {
-            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.036), materials: [barMat])
+            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.036), materials: [sleeveCollarMat])
             collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             collar.position = SIMD3(xOffset, 0, 0)
             root.addChild(collar)
@@ -547,7 +548,8 @@ struct BarbellPreviewView: View {
         root.components.set(CollisionComponent(shapes: [.generateBox(size: SIMD3(1.2, 0.4, 0.4))]))
         root.components.set(InputTargetComponent())
 
-        let barMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+        let barMat = makeBarMaterial(skinID: skin.id)
+        let sleeveCollarMat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
         addRoomAndRack(to: root)
 
         let rightOffsets = barbellShowcaseRightSideOffsets(for: plates)
@@ -567,14 +569,14 @@ struct BarbellPreviewView: View {
         let sleeveHeight = sleeveOuter - 0.28
         let sleeveCenterAbs = (0.28 + sleeveOuter) / 2
         for xSign: Float in [-1, 1] {
-            let sleeve = ModelEntity(mesh: .generateCylinder(height: sleeveHeight, radius: 0.034), materials: [barMat])
+            let sleeve = ModelEntity(mesh: .generateCylinder(height: sleeveHeight, radius: 0.034), materials: [sleeveCollarMat])
             sleeve.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             sleeve.position = SIMD3(xSign * sleeveCenterAbs, 0, 0)
             root.addChild(sleeve)
         }
 
         for xOffset in [-collarOffset, collarOffset] {
-            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.036), materials: [barMat])
+            let collar = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: 0.036), materials: [sleeveCollarMat])
             collar.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
             collar.position = SIMD3(xOffset, 0, 0)
             root.addChild(collar)

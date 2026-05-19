@@ -291,6 +291,11 @@ struct BarbellEntityBuilderTests {
         #expect(saturated.pressPolishMarkCount == 5)
     }
 
+    @Test func barMaterialHasRoughnessTexture() {
+        let mat = makeBarMaterial(skinID: 0)
+        #expect(mat.roughness.texture != nil, "bar material roughness must be a TextureResource, not a flat value")
+    }
+
     @Test func barSkinCatalogHasUniqueIDs() {
         let ids = BarSkin.all.map(\.id)
         #expect(Set(ids).count == BarSkin.all.count)

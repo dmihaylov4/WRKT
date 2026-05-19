@@ -1514,9 +1514,50 @@ func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> Physicall
 
 // MARK: - Bar, collar, rack stand
 
-func makeBarEntity(skinID: Int = 0) -> ModelEntity {
+func makeBarMaterial(skinID: Int = 0) -> PhysicallyBasedMaterial {
     let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
-    let mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+    var mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
+    if let roughnessTex = generateBarKnurlingRoughnessTexture() {
+        mat.roughness = .init(texture: .init(roughnessTex))
+    }
+    return mat
+}
+
+// Generates a 256x1 linear-greyscale roughness texture encoding knurling zones along
+// the bar UV axis. UV 0->1 = left end -> right end after the pi/2 z-rotation.
+// Knurl zones (grip positions) encode roughness 0.95; polished ends encode 0.18.
+func generateBarKnurlingRoughnessTexture() -> TextureResource? {
+    let width = 256
+    var pixels = [UInt8](repeating: 0, count: width)
+    for i in 0..<width {
+        let u = Float(i) / Float(width - 1)
+        pixels[i] = UInt8(barKnurlingRoughnessAt(u: u) * 255)
+    }
+    let colorSpace = CGColorSpaceCreateDeviceGray()
+    return pixels.withUnsafeMutableBytes { ptr in
+        guard let ctx = CGContext(
+            data: ptr.baseAddress,
+            width: width,
+            height: 1,
+            bitsPerComponent: 8,
+            bytesPerRow: width,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ), let cgImage = ctx.makeImage() else { return nil }
+        return try? TextureResource.generate(from: cgImage, options: .init(semantic: .raw))
+    }
+}
+
+private func barKnurlingRoughnessAt(u: Float) -> Float {
+    let knurlRoughness: Float = 0.95
+    let smoothRoughness: Float = 0.18
+    if u > 0.26 && u < 0.38 { return knurlRoughness }
+    if u > 0.62 && u < 0.74 { return knurlRoughness }
+    return smoothRoughness
+}
+
+func makeBarEntity(skinID: Int = 0) -> ModelEntity {
+    let mat = makeBarMaterial(skinID: skinID)
     let barLength: Float = 1.6
     let barRadius: Float = 0.012
     let bar = ModelEntity(
