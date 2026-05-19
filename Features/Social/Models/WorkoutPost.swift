@@ -1,5 +1,40 @@
 import Foundation
 
+enum PostType: String, Codable, Sendable, Hashable {
+    case workout = "workout"
+    case weeklyProgress = "weekly_progress"
+}
+
+struct WeeklyPostStats: Codable, Sendable, Equatable, Hashable {
+    let weekStart: Date
+    let totalVolumeKg: Double
+    let totalExercises: Int
+    let totalSets: Int
+    let strengthDaysDone: Int
+    let strengthTarget: Int
+    let activeMinutesDone: Int
+    let activeMinutesTarget: Int
+    let streak: Int
+    let superStreak: Int
+}
+
+extension WeeklyProgressStats {
+    func asPostStats() -> WeeklyPostStats {
+        WeeklyPostStats(
+            weekStart: weekStart,
+            totalVolumeKg: totalVolumeKg,
+            totalExercises: totalExercises,
+            totalSets: totalSets,
+            strengthDaysDone: strengthDaysDone,
+            strengthTarget: strengthTarget,
+            activeMinutesDone: activeMinutesDone,
+            activeMinutesTarget: activeMinutesTarget,
+            streak: streak,
+            superStreak: superStreak
+        )
+    }
+}
+
 /// Post visibility options
 enum PostVisibility: String, Codable, Sendable, Hashable {
     case publicPost = "public"
@@ -116,6 +151,8 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
     var commentsCount: Int
     let createdAt: Date
     var updatedAt: Date
+    var postType: PostType
+    var weeklyStats: WeeklyPostStats?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -130,6 +167,8 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         case commentsCount = "comments_count"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case postType = "post_type"
+        case weeklyStats = "weekly_stats"
     }
 
     // MARK: - Initializers
@@ -146,7 +185,9 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         commentsCount: Int = 0,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
-        workoutDataList: [CompletedWorkout]? = nil
+        workoutDataList: [CompletedWorkout]? = nil,
+        postType: PostType = .workout,
+        weeklyStats: WeeklyPostStats? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -154,6 +195,8 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         self.workoutData = workoutData
         self.workoutDataList = workoutDataList
         self.images = images
+        self.postType = postType
+        self.weeklyStats = weeklyStats
         self.visibility = visibility
         self.likesCount = likesCount
         self.commentsCount = commentsCount
@@ -218,6 +261,9 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
                 throw error
             }
         }
+
+        postType = (try? container.decode(PostType.self, forKey: .postType)) ?? .workout
+        weeklyStats = try? container.decodeIfPresent(WeeklyPostStats.self, forKey: .weeklyStats)
     }
 
     // MARK: - Custom Encoding
@@ -231,6 +277,8 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         try container.encode(workoutData, forKey: .workoutData)
         try container.encodeIfPresent(workoutDataList, forKey: .workoutDataList)
         try container.encodeIfPresent(images, forKey: .images)
+        try container.encode(postType, forKey: .postType)
+        try container.encodeIfPresent(weeklyStats, forKey: .weeklyStats)
         try container.encode(visibility, forKey: .visibility)
         try container.encode(likesCount, forKey: .likesCount)
         try container.encode(commentsCount, forKey: .commentsCount)

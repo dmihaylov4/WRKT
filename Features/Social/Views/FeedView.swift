@@ -14,6 +14,9 @@ struct FeedView: View {
     @State private var viewModel: FeedViewModel?
     @State private var selectedPost: PostWithAuthor?
     @State private var showingCreatePost = false
+    @State private var showingProgressShare = false
+    @State private var pendingProgressWorkouts: [CompletedWorkout] = []
+    @State private var pendingProgressStats: WeeklyProgressStats? = nil
     @State private var postToEdit: PostWithAuthor?
     @State private var selectedUserId: UUID?
     @State private var selectedBattle: BattleWithParticipants?
@@ -88,6 +91,17 @@ struct FeedView: View {
             }
         }) {
             PostCreationView()
+        }
+        .sheet(isPresented: $showingProgressShare, onDismiss: {
+            pendingProgressStats = nil
+            pendingProgressWorkouts = []
+            Task { if let vm = viewModel { await vm.refresh() } }
+        }) {
+            if let stats = pendingProgressStats {
+                PostCreationView(workouts: pendingProgressWorkouts, stats: stats)
+            } else {
+                PostCreationView()
+            }
         }
         .sheet(item: $postToEdit) { editPost in
             if let vm = viewModel {
@@ -178,6 +192,15 @@ struct FeedView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .socialTabReselected)) { _ in
             selectedPost = nil
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .battleScoresDidUpdate)) { _ in
+            Task { await loadActiveArena() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openProgressShareSheet)) { _ in
+            let data = ProgressShareCoordinator.shared.consume()
+            pendingProgressWorkouts = data.workouts
+            pendingProgressStats = data.stats
+            showingProgressShare = true
         }
     }
 

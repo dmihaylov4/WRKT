@@ -49,50 +49,7 @@ struct PostCard: View {
             // Header: Avatar + Username + Time
             header
 
-            // Caption
-            if let caption = post.post.caption, !caption.isEmpty {
-                Text(caption)
-                    .dsFont(.body)
-                    .foregroundStyle(DS.Semantic.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            // Workout Summary
-            if post.post.isMultiWorkout {
-                MultiWorkoutCarousel(
-                    workouts: post.post.allWorkouts,
-                    mapURLs: generatedMapURLs
-                )
-                if !userImageURLs.isEmpty {
-                    PostImageStrip(
-                        imageUrls: userImageURLs.map { $0.absoluteString },
-                        selectedImageIndex: $selectedImageIndex
-                    ) {
-                        showingImageViewer = true
-                    }
-                }
-            } else if post.post.workoutData.isCardioWorkout {
-                WorkoutPostHeroSummaryCard(
-                    summary: .make(for: [post.post.workoutData]),
-                    context: .feed
-                )
-                cardioImagesSection
-            } else {
-                VStack(spacing: 12) {
-                    WorkoutPostHeroSummaryCard(
-                        summary: .make(for: [post.post.workoutData]),
-                        context: .feed
-                    )
-                }
-                if !userImageURLs.isEmpty {
-                    PostImageStrip(
-                        imageUrls: userImageURLs.map { $0.absoluteString },
-                        selectedImageIndex: $selectedImageIndex
-                    ) {
-                        showingImageViewer = true
-                    }
-                }
-            }
+            postContent
 
             // Action Buttons (Like, Comment, Share)
             actionButtons
@@ -108,10 +65,6 @@ struct PostCard: View {
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .onTapGesture {
-            Haptics.light()
-            onPostTap()
-        }
         .sheet(isPresented: $showingImageViewer) {
             let viewerURLs = (!post.post.isMultiWorkout && post.post.workoutData.isCardioWorkout)
                 ? allCardioImageURLs.map { $0.absoluteString }
@@ -163,6 +116,63 @@ struct PostCard: View {
                post.post.workoutData.matchedHealthKitUUID != nil {
                 await runBackfill()
             }
+        }
+    }
+
+    @ViewBuilder
+    private var postContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Caption
+            if let caption = post.post.caption, !caption.isEmpty {
+                Text(caption)
+                    .dsFont(.body)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Workout Summary
+            if post.post.postType == .weeklyProgress, let stats = post.post.weeklyStats {
+                WeeklyProgressFeedCard(stats: stats)
+            } else if post.post.isMultiWorkout {
+                MultiWorkoutCarousel(
+                    workouts: post.post.allWorkouts,
+                    mapURLs: generatedMapURLs
+                )
+                if !userImageURLs.isEmpty {
+                    PostImageStrip(
+                        imageUrls: userImageURLs.map { $0.absoluteString },
+                        selectedImageIndex: $selectedImageIndex
+                    ) {
+                        showingImageViewer = true
+                    }
+                }
+            } else if post.post.workoutData.isCardioWorkout {
+                WorkoutPostHeroSummaryCard(
+                    summary: .make(for: [post.post.workoutData]),
+                    context: .feed
+                )
+                cardioImagesSection
+            } else {
+                VStack(spacing: 12) {
+                    WorkoutPostHeroSummaryCard(
+                        summary: .make(for: [post.post.workoutData]),
+                        context: .feed
+                    )
+                }
+                if !userImageURLs.isEmpty {
+                    PostImageStrip(
+                        imageUrls: userImageURLs.map { $0.absoluteString },
+                        selectedImageIndex: $selectedImageIndex
+                    ) {
+                        showingImageViewer = true
+                    }
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            Haptics.light()
+            onPostTap()
         }
     }
 
@@ -569,5 +579,107 @@ struct ImageViewer: View {
                     .padding()
             }
         }
+    }
+}
+
+// MARK: - Weekly Progress Feed Card
+
+struct WeeklyProgressFeedCard: View {
+    let stats: WeeklyPostStats
+
+    private var volumeFormatted: String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        return (formatter.string(from: NSNumber(value: stats.totalVolumeKg)) ?? "\(Int(stats.totalVolumeKg))") + " kg"
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            HStack {
+                Text("WEEKLY PROGRESS")
+                    .dsFont(.caption, weight: .bold)
+                    .foregroundStyle(DS.Semantic.brand)
+                    .tracking(0.8)
+                Spacer()
+                Text(stats.weekStart, format: .dateTime.month(.abbreviated).day())
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
+
+            // Top row: volume, exercises, sets
+            HStack(spacing: 0) {
+                weekStatCell(value: volumeFormatted, label: "TONNAGE")
+                weekStatDivider()
+                weekStatCell(value: "\(stats.totalExercises)", label: "EXERCISES")
+                weekStatDivider()
+                weekStatCell(value: "\(stats.totalSets)", label: "SETS")
+            }
+            .padding(.vertical, 14)
+
+            Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
+
+            // Bottom row: strength, active min, streak
+            HStack(spacing: 0) {
+                weekStatCell(
+                    value: "\(stats.strengthDaysDone)/\(stats.strengthTarget)",
+                    label: "STRENGTH"
+                )
+                weekStatDivider()
+                weekStatCell(
+                    value: "\(stats.activeMinutesDone)/\(stats.activeMinutesTarget)",
+                    label: "ACTIVE MIN"
+                )
+                weekStatDivider()
+                weekStatCell(
+                    value: "\(stats.streak)w",
+                    label: "STREAK",
+                    valueColor: stats.streak > 0 ? DS.Semantic.brand : DS.Semantic.textPrimary
+                )
+            }
+            .padding(.vertical, 14)
+
+            if stats.superStreak > 0 {
+                Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
+                HStack(spacing: 5) {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(DS.Semantic.brand)
+                    Text("Super Streak: \(stats.superStreak) week\(stats.superStreak == 1 ? "" : "s")")
+                        .dsFont(.caption, weight: .semibold)
+                        .foregroundStyle(DS.Semantic.brand)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+            }
+        }
+        .background(DS.Semantic.card)
+        .clipShape(ChamferedRectangle(.medium))
+    }
+
+    private func weekStatCell(value: String, label: String, valueColor: Color = DS.Semantic.textPrimary) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .dsFont(.subheadline, weight: .bold)
+                .foregroundStyle(valueColor)
+            Text(label)
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .tracking(0.5)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func weekStatDivider() -> some View {
+        Rectangle()
+            .fill(DS.Semantic.border)
+            .frame(width: 1, height: 32)
     }
 }

@@ -16,6 +16,7 @@ import HealthKit
 final class PostCreationViewModel {
     var caption = ""
     var selectedVisibility: PostVisibility = .friends
+    var weeklyProgressStats: WeeklyPostStats? = nil
     var selectedPhotos: [PhotosPickerItem] = []
     var photoImages: [UIImage] = []         // user-picked photos only
     var mapImage: UIImage?                  // map snapshot, tracked separately so loadPhotos() never wipes it
@@ -162,7 +163,9 @@ final class PostCreationViewModel {
                 caption: self.caption.isEmpty ? nil : self.caption,
                 images: allImages.isEmpty ? nil : allImages,
                 visibility: self.selectedVisibility,
-                userId: currentUserId
+                userId: currentUserId,
+                postType: self.weeklyProgressStats != nil ? .weeklyProgress : .workout,
+                weeklyStats: self.weeklyProgressStats
             )
         }
 

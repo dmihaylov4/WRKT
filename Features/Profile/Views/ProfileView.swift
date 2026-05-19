@@ -274,7 +274,7 @@ struct ProfileView: View {
                 goal: goal,
                 onSettingsTapped: openSettings,
                 onMakePublic: {
-                    Task { await postCommitment() }
+                    postCommitment()
                 }
             )
             .task {
@@ -314,9 +314,8 @@ struct ProfileView: View {
         showStreakRecovery = true
     }
 
-    private func postCommitment() async {
+    private func postCommitment() {
         guard let goal = goals.first else { return }
-        guard let userId = authService.currentUser?.id else { return }
 
         let calendar = Calendar(identifier: .gregorian)
         let weekStart = calendar.startOfWeek(for: Date(), anchorWeekday: goal.anchorWeekday)
@@ -324,27 +323,34 @@ struct ProfileView: View {
             .filter { $0.date >= weekStart }
             .sorted { $0.date > $1.date }
 
-        guard let latestWorkout = workoutsThisWeek.first else {
-            NotificationCenter.default.post(name: .navigateToCompeteTab, object: nil)
-            return
+        let totalVolume = workoutsThisWeek.reduce(0.0) { sum, w in
+            sum + w.entries.reduce(0.0) { $0 + $1.sets.reduce(0.0) { $0 + ($1.weight ?? 0) * Double($1.reps ?? 0) } }
         }
+        let uniqueExercises = Set(workoutsThisWeek.flatMap { $0.entries.map(\.exerciseName) }).count
+        let totalSets = workoutsThisWeek.flatMap { $0.entries }.flatMap { $0.sets }.filter { $0.isCompleted }.count
 
-        let caption = makeCommitmentCaption(
-            targetWorkouts: goal.targetStrengthDays,
-            completed: workoutsThisWeek.count
+        let wp = viewModel.cachedWeekProgress
+        let streak = progress.first?.weeklyGoalStreakCurrent ?? 0
+        let superStreak = progress.first?.weeklySuperStreakCurrent ?? 0
+
+        let stats = WeeklyProgressStats(
+            weekStart: weekStart,
+            totalVolumeKg: totalVolume,
+            totalExercises: uniqueExercises,
+            totalSets: totalSets,
+            strengthDaysDone: wp?.strengthDaysDone ?? workoutsThisWeek.count,
+            strengthTarget: goal.targetStrengthDays,
+            activeMinutesDone: wp?.mvpaDone ?? 0,
+            activeMinutesTarget: goal.targetActiveMinutes,
+            streak: streak,
+            superStreak: superStreak
         )
 
-        do {
-            _ = try await deps.postRepository.createPost(
-                workout: latestWorkout,
-                caption: caption,
-                images: nil,
-                visibility: .publicPost,
-                userId: userId
-            )
-            AppNotificationManager.shared.showSuccess("Commitment posted!")
-        } catch {
-            AppNotificationManager.shared.showError("Couldn't post. Try again.", title: nil)
+        ProgressShareCoordinator.shared.set(workouts: workoutsThisWeek, stats: stats)
+        NotificationCenter.default.post(name: .navigateToCompeteTab, object: nil)
+        Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            NotificationCenter.default.post(name: .openProgressShareSheet, object: nil)
         }
     }
 
@@ -890,7 +896,7 @@ struct ProgressOverviewCard: View {
 
                     if let onMakePublic {
                         Button(action: onMakePublic) {
-                            Label("Make it Public", systemImage: "megaphone.fill")
+                            Text("Make it Public")
                                 .dsFont(.caption, weight: .semibold)
                                 .foregroundStyle(DS.Semantic.brand)
                                 .frame(maxWidth: .infinity)
@@ -962,6 +968,30 @@ func makeCommitmentCaption(targetWorkouts: Int, completed: Int) -> String {
         return "Committing to \(targetWorkouts) workouts this week. Holding myself accountable."
     }
     return "\(completed)/\(targetWorkouts) workouts done this week. Not stopping here."
+}
+
+func makeWeeklyProgressCaption(
+    strengthDone: Int,
+    strengthTarget: Int,
+    minutesDone: Int,
+    minutesTarget: Int,
+    streak: Int,
+    superStreak: Int
+) -> String {
+    var lines: [String] = []
+
+    let strengthLine = "\(strengthDone)/\(strengthTarget) strength day\(strengthTarget == 1 ? "" : "s")"
+    let minutesLine = "\(minutesDone)/\(minutesTarget) active min"
+    lines.append("Week progress: \(strengthLine) · \(minutesLine)")
+
+    if superStreak > 0 {
+        lines.append("Weekly streak: \(streak) wk\(streak == 1 ? "" : "s") · Super streak: \(superStreak) wk\(superStreak == 1 ? "" : "s")")
+    } else if streak > 0 {
+        lines.append("Weekly streak: \(streak) week\(streak == 1 ? "" : "s")")
+    }
+
+    lines.append("Holding myself accountable.")
+    return lines.joined(separator: "\n")
 }
 
 // MARK: - Dex preview

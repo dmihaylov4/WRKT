@@ -72,9 +72,9 @@ final class NotificationService {
             target_id: battleId.uuidString.lowercased(),
             read: false,
             metadata: [
-                "score_added": scoreAdded == 0 ? "" : battleScoreString(scoreAdded),
-                "actor_new_score": actorNewScore == 0 ? "" : battleScoreString(actorNewScore),
-                "recipient_score": recipientScore == 0 ? "" : battleScoreString(recipientScore)
+                "score_added": battleScoreString(scoreAdded),
+                "actor_new_score": battleScoreString(actorNewScore),
+                "recipient_score": battleScoreString(recipientScore)
             ]
         )
 

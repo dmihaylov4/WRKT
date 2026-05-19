@@ -1863,6 +1863,7 @@ extension WorkoutStoreV2 {
                 do {
                     try await battleRepo.updateBattleScores(after: workout, userId: userId)
                     AppLogger.success("Updated battle scores for workout \(workout.id)", category: AppLogger.workout)
+                    NotificationCenter.default.post(name: .battleScoresDidUpdate, object: nil)
                 } catch {
                     AppLogger.error("Failed to update battle scores: \(error.localizedDescription)", category: AppLogger.workout)
                 }

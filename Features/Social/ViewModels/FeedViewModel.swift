@@ -126,7 +126,11 @@ final class FeedViewModel {
         isRefreshing = true
         error = nil
         cursor = nil
-        newPostsAvailable = 0 // Reset new posts counter
+        newPostsAvailable = 0
+
+        // Invalidate cache so refresh always hits the network rather than returning
+        // a stale (or empty) cached result from a prior failed load.
+        postRepository.invalidateFeedCache()
 
         // Use quick retry for manual refresh (user initiated)
         let result = await retryManager.fetchWithRetry(config: .quick) {

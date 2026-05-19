@@ -19,7 +19,9 @@ import Foundation
         caption: String?,
         images: [PostImage]?,
         visibility: PostVisibility,
-        userId: UUID
+        userId: UUID,
+        postType: PostType,
+        weeklyStats: WeeklyPostStats?
     ) async throws -> WorkoutPost
 
     /// Fetch paginated feed for current user

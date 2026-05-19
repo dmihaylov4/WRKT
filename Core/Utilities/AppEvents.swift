@@ -16,6 +16,10 @@ extension Notification.Name {
     /// Fired when a post's comment count is corrected from real data.
     /// userInfo: ["postId": UUID, "count": Int]
     static let postCommentCountDidChange = Notification.Name("WRKT.PostCommentCountDidChange")
+    /// Fired after battle scores are written to Supabase so the arena cards reload.
+    static let battleScoresDidUpdate = Notification.Name("WRKT.BattleScoresDidUpdate")
+    /// Fired from ProfileView to open the progress share sheet in FeedView.
+    static let openProgressShareSheet = Notification.Name("WRKT.OpenProgressShareSheet")
 }
 
 // MARK: - App Lifecycle Tracking

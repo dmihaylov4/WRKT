@@ -13,14 +13,31 @@ struct PostCreationView: View {
     @Environment(\.dismiss) private var dismiss
 
     let initialWorkout: CompletedWorkout?
+    let initialWorkouts: [CompletedWorkout]
     let initialMapImage: UIImage?
+    let initialCaption: String
+    let navigationTitle: String
+    let weeklyStats: WeeklyProgressStats?
 
     @State private var viewModel: PostCreationViewModel?
     @State private var showingWorkoutPicker = false
 
     init(workout: CompletedWorkout? = nil, mapImage: UIImage? = nil) {
         self.initialWorkout = workout
+        self.initialWorkouts = workout.map { [$0] } ?? []
         self.initialMapImage = mapImage
+        self.initialCaption = ""
+        self.navigationTitle = "Share Workout"
+        self.weeklyStats = nil
+    }
+
+    init(workouts: [CompletedWorkout], stats: WeeklyProgressStats, title: String = "Share Progress") {
+        self.initialWorkout = workouts.first
+        self.initialWorkouts = workouts
+        self.initialMapImage = nil
+        self.initialCaption = ""
+        self.navigationTitle = title
+        self.weeklyStats = stats
     }
 
     var body: some View {
@@ -32,7 +49,7 @@ struct PostCreationView: View {
                     ProgressView()
                 }
             }
-            .navigationTitle("Share Workout")
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -73,9 +90,17 @@ struct PostCreationView: View {
                     )
                     viewModel = vm
 
-                    if let initialWorkout {
+                    if !initialWorkouts.isEmpty {
+                        vm.selectedWorkouts = initialWorkouts
+                    } else if let initialWorkout {
                         vm.selectedWorkouts = [initialWorkout]
                     }
+
+                    if let stats = weeklyStats {
+                        vm.weeklyProgressStats = stats.asPostStats()
+                        vm.selectedVisibility = .friends
+                    }
+
 
                     // Add initial map image if provided (from CardioDetailView)
                     if let mapImage = initialMapImage {
@@ -108,7 +133,9 @@ struct PostCreationView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Workout Preview
-                if !viewModel.selectedWorkouts.isEmpty {
+                if let stats = weeklyStats {
+                    weeklyProgressCard(stats: stats, workouts: viewModel.selectedWorkouts, viewModel: viewModel)
+                } else if !viewModel.selectedWorkouts.isEmpty {
                     workoutPreview(viewModel.selectedWorkouts, viewModel: viewModel)
                 } else {
                     noWorkoutState(viewModel: viewModel)
@@ -148,6 +175,105 @@ struct PostCreationView: View {
                 mapGeneratingOverlay
             }
         }
+    }
+
+    private func weeklyProgressCard(stats: WeeklyProgressStats, workouts: [CompletedWorkout], viewModel: PostCreationViewModel) -> some View {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.maximumFractionDigits = 0
+        let volumeStr = formatter.string(from: NSNumber(value: stats.totalVolumeKg)) ?? "\(Int(stats.totalVolumeKg))"
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Weekly Progress")
+                    .dsFont(.headline)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+                Spacer()
+                Button {
+                    showingWorkoutPicker = true
+                } label: {
+                    Text("Change")
+                        .dsFont(.subheadline)
+                        .foregroundStyle(DS.Semantic.brand)
+                }
+            }
+
+            VStack(spacing: 0) {
+                // Top stat row: volume, exercises, sets
+                HStack(spacing: 0) {
+                    progressStatCell(value: "\(volumeStr) kg", label: "Tonnage")
+                    statDivider()
+                    progressStatCell(value: "\(stats.totalExercises)", label: "Exercises")
+                    statDivider()
+                    progressStatCell(value: "\(stats.totalSets)", label: "Sets")
+                }
+                .padding(.vertical, 14)
+
+                Rectangle().fill(DS.Semantic.border).frame(height: 1)
+
+                // Bottom stat row: strength days, active min, streak
+                HStack(spacing: 0) {
+                    progressStatCell(
+                        value: "\(stats.strengthDaysDone)/\(stats.strengthTarget)",
+                        label: "Strength"
+                    )
+                    statDivider()
+                    progressStatCell(
+                        value: "\(stats.activeMinutesDone)/\(stats.activeMinutesTarget)",
+                        label: "Active min"
+                    )
+                    statDivider()
+                    progressStatCell(
+                        value: "\(stats.streak)",
+                        label: "Wk streak",
+                        valueColor: stats.streak > 0 ? DS.Semantic.brand : DS.Semantic.textPrimary
+                    )
+                }
+                .padding(.vertical, 14)
+
+                if stats.superStreak > 0 {
+                    Rectangle().fill(DS.Semantic.border).frame(height: 1)
+                    HStack(spacing: 6) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(DS.Semantic.brand)
+                        Text("Super Streak: \(stats.superStreak) week\(stats.superStreak == 1 ? "" : "s")")
+                            .dsFont(.caption, weight: .semibold)
+                            .foregroundStyle(DS.Semantic.brand)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                }
+            }
+            .background(DS.Semantic.card)
+            .clipShape(ChamferedRectangle(.medium))
+
+            // Show session count hint if more than one workout
+            if workouts.count > 1 {
+                Text("\(workouts.count) sessions included")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
+        }
+    }
+
+    private func progressStatCell(value: String, label: String, valueColor: Color = DS.Semantic.textPrimary) -> some View {
+        VStack(spacing: 3) {
+            Text(value)
+                .dsFont(.subheadline, weight: .bold)
+                .foregroundStyle(valueColor)
+            Text(label)
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func statDivider() -> some View {
+        Rectangle()
+            .fill(DS.Semantic.border)
+            .frame(width: 1, height: 32)
     }
 
     private func workoutPreview(_ workouts: [CompletedWorkout], viewModel: PostCreationViewModel) -> some View {

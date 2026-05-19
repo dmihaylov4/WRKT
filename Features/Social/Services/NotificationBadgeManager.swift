@@ -222,9 +222,6 @@ final class NotificationBadgeManager {
                 let opponentScore = notification.metadata?["opponent_score"] ?? "?"
                 return ("Lead Lost", "\(opponentScore) vs \(yourScore) - Time to step up!", "arrow.down.circle.fill", .warning)
             case .battleOpponentActivity:
-                let rawAdded = notification.metadata?["score_added"] ?? "0"
-                let rawActor = notification.metadata?["actor_new_score"] ?? "?"
-                let rawYours = notification.metadata?["recipient_score"] ?? "?"
                 func fmtScore(_ s: String) -> String {
                     guard let d = Decimal(string: s) else { return s }
                     let formatter = NumberFormatter()
@@ -232,6 +229,12 @@ final class NotificationBadgeManager {
                     formatter.numberStyle = .decimal
                     formatter.maximumFractionDigits = 0
                     return formatter.string(from: NSDecimalNumber(decimal: d)) ?? s
+                }
+                // Fall back to generic body when score metadata is absent (old app versions).
+                guard let rawAdded = notification.metadata?["score_added"],
+                      let rawActor = notification.metadata?["actor_new_score"],
+                      let rawYours = notification.metadata?["recipient_score"] else {
+                    return ("Opponent Active", "\(actorName) logged a workout in your battle!", "figure.run", .info)
                 }
                 return ("Opponent Active", "\(actorName) +\(fmtScore(rawAdded)) (\(fmtScore(rawActor)) vs \(fmtScore(rawYours)))", "figure.run", .info)
             case .battleEndingSoon:

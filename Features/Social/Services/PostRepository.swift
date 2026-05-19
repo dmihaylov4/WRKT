@@ -8,13 +8,17 @@ struct WorkoutPostInsertPayload: Encodable {
     let workout_data_list: [CompletedWorkout]?
     let images: [PostImage]?
     let visibility: String
+    let post_type: String
+    let weekly_stats: WeeklyPostStats?
 
     init(
         workouts: [CompletedWorkout],
         caption: String?,
         images: [PostImage]?,
         visibility: PostVisibility,
-        userId: UUID
+        userId: UUID,
+        postType: PostType = .workout,
+        weeklyStats: WeeklyPostStats? = nil
     ) throws {
         guard let firstWorkout = workouts.first else {
             throw SupabaseError.serverError("Cannot create workout post without workouts")
@@ -26,6 +30,8 @@ struct WorkoutPostInsertPayload: Encodable {
         self.workout_data_list = workouts.count > 1 ? workouts : nil
         self.images = images
         self.visibility = visibility.rawValue
+        self.post_type = postType.rawValue
+        self.weekly_stats = weeklyStats
     }
 }
 
@@ -92,7 +98,9 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         caption: String?,
         images: [PostImage]?,
         visibility: PostVisibility,
-        userId: UUID
+        userId: UUID,
+        postType: PostType = .workout,
+        weeklyStats: WeeklyPostStats? = nil
     ) async throws -> WorkoutPost {
         logInfo("Creating post for user: \(userId), workouts: \(workouts.count)", emoji: "📝")
 
@@ -101,7 +109,9 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             caption: caption,
             images: images,
             visibility: visibility,
-            userId: userId
+            userId: userId,
+            postType: postType,
+            weeklyStats: weeklyStats
         )
 
         let newPost: WorkoutPost = try await client
@@ -116,6 +126,10 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
 
         logSuccess("Post created: \(newPost.id)")
         return newPost
+    }
+
+    func invalidateFeedCache() {
+        cache.invalidateAllFeeds()
     }
 
     // MARK: - Fetch Feed
@@ -182,9 +196,10 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         logInfo("Total posts in page: \(posts.count), hasMore: \(hasMore)")
 
         guard !posts.isEmpty else {
-            let emptyResult: (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?) = ([], false, nil)
-            cache.set(cacheKey, value: emptyResult, ttl: .feedPosts)
-            return emptyResult
+            // Don't cache empty results: they're often transient (auth not yet ready, RLS
+            // session lag, network error swallowed by try?). Caching them would poison the
+            // cache and make refresh() return empty forever until the TTL expires.
+            return ([], false, nil)
         }
 
         // Fetch author profiles in parallel (with individual profile caching)
