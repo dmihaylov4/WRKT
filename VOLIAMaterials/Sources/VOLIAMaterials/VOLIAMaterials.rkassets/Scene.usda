@@ -21,6 +21,14 @@ def Xform "Root"
                 }
             }
         )
+        asset inputs:engravingMask (
+            customData = {
+                dictionary realitykit = {
+                    float2 positionInSubgraph = (31.690155, 209.33344)
+                    int stackingOrderInSubgraph = 95
+                }
+            }
+        )
         asset inputs:engravingNormal (
             customData = {
                 dictionary realitykit = {
@@ -61,7 +69,7 @@ def Xform "Root"
             float inputs:metallic.connect = </Root/PlateMaterial.inputs:metallic>
             float3 inputs:normal.connect = </Root/PlateMaterial/TiledImage.outputs:out>
             float inputs:occlusion
-            float inputs:opacity
+            float inputs:opacity.connect = </Root/PlateMaterial/TiledImage_1.outputs:out>
             float inputs:opacityThreshold
             float inputs:roughness.connect = </Root/PlateMaterial.inputs:roughness>
             token outputs:out
@@ -92,6 +100,22 @@ def Xform "Root"
             float3 outputs:out
             float2 ui:nodegraph:node:pos = (83.6202, 424.8323)
             int ui:nodegraph:node:stackingOrder = 69
+        }
+
+        def Shader "TiledImage_1"
+        {
+            uniform token info:id = "ND_tiledimage_float"
+            float inputs:default
+            asset inputs:file.connect = </Root/PlateMaterial.inputs:engravingMask>
+            string inputs:filtertype
+            float2 inputs:realworldimagesize
+            float2 inputs:realworldtilesize
+            float2 inputs:texcoord
+            float2 inputs:uvoffset
+            float2 inputs:uvtiling
+            float outputs:out
+            float2 ui:nodegraph:node:pos = (438.76688, 426.8632)
+            int ui:nodegraph:node:stackingOrder = 94
         }
     }
 }
