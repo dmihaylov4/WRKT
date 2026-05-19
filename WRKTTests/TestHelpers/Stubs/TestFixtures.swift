@@ -179,3 +179,21 @@ enum TestFixtures {
         firstRecorded: Date().addingTimeInterval(-30 * 24 * 60 * 60) // 30 days ago
     )
 }
+
+extension WorkoutPost {
+    static func stub(workoutDate: Date = Date()) -> WorkoutPost {
+        WorkoutPost(
+            id: UUID(),
+            userId: UUID(),
+            caption: nil,
+            workoutData: TestFixtures.makeCompletedWorkout(date: workoutDate),
+            images: nil,
+            visibility: .friends,
+            likesCount: 0,
+            commentsCount: 0,
+            createdAt: workoutDate,
+            updatedAt: workoutDate,
+            workoutDataList: nil
+        )
+    }
+}

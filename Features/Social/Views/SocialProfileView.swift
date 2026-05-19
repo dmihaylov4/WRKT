@@ -579,7 +579,8 @@ struct SocialProfileView: View {
     }
 
     private func profileStatusStack(viewModel: ProfileViewModel) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let thisWeekCount = friendWorkoutsThisWeek(posts: viewModel.posts)
+        return VStack(alignment: .leading, spacing: 10) {
             profileMetaRow(
                 label: "Last Active",
                 value: latestActivityDate(for: viewModel.posts).map { relativeTimeText(for: $0) } ?? "No recent sessions"
@@ -589,6 +590,13 @@ struct SocialProfileView: View {
                 label: "Streak",
                 value: streakText(viewModel.profile.weeklyGoalStreak)
             )
+
+            if !viewModel.isOwnProfile {
+                profileMetaRow(
+                    label: "This week",
+                    value: thisWeekCount == 0 ? "No workouts yet" : "\(thisWeekCount) workout\(thisWeekCount == 1 ? "" : "s")"
+                )
+            }
         }
         .padding(.top, 2)
     }
@@ -994,16 +1002,6 @@ struct SocialProfileView: View {
 
     private func latestActivityDate(for posts: [WorkoutPost]) -> Date? {
         posts.map(\.workoutData.date).max()
-    }
-
-    private func friendWorkoutsThisWeek(posts: [WorkoutPost]) -> Int {
-        let calendar = Calendar.current
-        let weekStart = calendar.startOfWeek(for: .now, anchorWeekday: 2)
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? .now
-
-        return posts.filter { post in
-            post.workoutData.date >= weekStart && post.workoutData.date < weekEnd
-        }.count
     }
 
     private func activeDays(for posts: [WorkoutPost], days: Int) -> Int {
@@ -1486,6 +1484,16 @@ struct SocialProfileView: View {
             Haptics.error()
         }
     }
+}
+
+func friendWorkoutsThisWeek(posts: [WorkoutPost]) -> Int {
+    let calendar = Calendar.current
+    let weekStart = calendar.startOfWeek(for: .now, anchorWeekday: 2)
+    let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? .now
+
+    return posts.filter { post in
+        post.workoutData.date >= weekStart && post.workoutData.date < weekEnd
+    }.count
 }
 
 // MARK: - Button Styles
