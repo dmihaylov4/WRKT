@@ -79,6 +79,7 @@ struct BarbellMomentView: View {
             }
         }
         .onAppear {
+            Task { await preloadPlateMaterialTemplate() }
             rebuildSceneState()
             dropTask = startPlateDrop()
         }
