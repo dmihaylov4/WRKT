@@ -326,6 +326,8 @@ final class BattleRepository: Sendable {
 
     /// Recalculate and update battle scores after a workout
     func updateBattleScores(after workout: CompletedWorkout, userId: UUID) async throws {
+        AppLogger.info("updateBattleScores: userId=\(userId), workoutDate=\(workout.date), entriesCount=\(workout.entries.count)", category: AppLogger.battles)
+
         // Fetch active battles for user
         let battles: [Battle] = try await supabase.database
             .from("battles")
@@ -335,21 +337,32 @@ final class BattleRepository: Sendable {
             .execute()
             .value
 
-        guard !battles.isEmpty else { return }
+        guard !battles.isEmpty else {
+            AppLogger.info("updateBattleScores: no active battles found for user \(userId)", category: AppLogger.battles)
+            return
+        }
+
+        AppLogger.info("updateBattleScores: found \(battles.count) active battle(s)", category: AppLogger.battles)
 
         // Update scores for each battle
         for battle in battles {
             if battle.endDate <= Date() {
+                AppLogger.info("updateBattleScores: battle \(battle.id) expired, completing", category: AppLogger.battles)
                 try await completeBattle(battle.id, sourceWorkoutID: workout.id.uuidString)
                 continue
             }
 
-            guard workout.date >= battle.startDate else { continue }
+            guard workout.date >= battle.startDate else {
+                AppLogger.info("updateBattleScores: workout date \(workout.date) before battle start \(battle.startDate), skipping", category: AppLogger.battles)
+                continue
+            }
 
             let scoreIncrease = calculateBattleScore(
                 for: battle,
                 workout: workout
             )
+
+            AppLogger.info("updateBattleScores: battle \(battle.id) scoreIncrease=\(scoreIncrease)", category: AppLogger.battles)
 
             if scoreIncrease > 0 {
                 try await updateScore(
@@ -358,6 +371,8 @@ final class BattleRepository: Sendable {
                     scoreIncrease: scoreIncrease,
                     workout: workout
                 )
+            } else {
+                AppLogger.info("updateBattleScores: scoreIncrease is 0 for battle \(battle.id), no update", category: AppLogger.battles)
             }
         }
     }
@@ -489,14 +504,19 @@ final class BattleRepository: Sendable {
         let currentScore = isChallenger ? battle.challengerScore : battle.opponentScore
         let opponentCurrentScore = isChallenger ? battle.opponentScore : battle.challengerScore
         let newScore = currentScore + scoreIncrease
+        let newScoreDouble = NSDecimalNumber(decimal: newScore).doubleValue
 
         let field = isChallenger ? "challenger_score" : "opponent_score"
 
+        AppLogger.info("updateScore: isChallenger=\(isChallenger) field=\(field) current=\(currentScore) increase=\(scoreIncrease) new=\(newScoreDouble)", category: AppLogger.battles)
+
         try await supabase.database
             .from("battles")
-            .update([field: newScore])
-            .eq("id", value: battle.id)
+            .update([field: newScoreDouble])
+            .eq("id", value: battle.id.uuidString)
             .execute()
+
+        AppLogger.info("updateScore: Supabase update executed for battle \(battle.id)", category: AppLogger.battles)
 
         // Log activity
         try await logActivity(

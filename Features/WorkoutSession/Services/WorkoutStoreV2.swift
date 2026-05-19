@@ -1857,9 +1857,7 @@ extension WorkoutStoreV2 {
         }
 
         // Run updates in background task - don't block workout completion
-        Task.detached(priority: .utility) { [weak self, battleRepository, challengeRepository] in
-            guard let self = self else { return }
-
+        Task.detached(priority: .utility) { [battleRepository, challengeRepository] in
             // Update battle scores
             if let battleRepo = battleRepository {
                 do {
@@ -1868,6 +1866,8 @@ extension WorkoutStoreV2 {
                 } catch {
                     AppLogger.error("Failed to update battle scores: \(error.localizedDescription)", category: AppLogger.workout)
                 }
+            } else {
+                AppLogger.warning("Battle repository not available - skipping battle score update", category: AppLogger.workout)
             }
 
             // Update challenge progress

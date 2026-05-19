@@ -404,7 +404,7 @@
 		2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */; };
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
 		2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */; };
-		2EFFC0012FB0000000000001 /* PlateCollectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFFC0002FB0000000000001 /* PlateCollectionCell.swift */; };
+		2EFFC0012FB0000000000001 /* Components/PlateCollectionCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */; };
 		353B3C0EAD0643C0B5B6ABF9 /* BarbellModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */; };
 		695ADA40CDA9D8834EF4D107 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A40AA67AC4ABD92A13AC1F36 /* GoogleSignIn */; };
 		84BC9435E0674897A910D943 /* plate_clink.caf in Resources */ = {isa = PBXBuildFile; fileRef = 1848F2CE0BE744519C79CD42 /* plate_clink.caf */; };
@@ -418,7 +418,7 @@
 		ABCD1239ABCD1239ABCD1239 /* BarbellEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */; };
 		AD2E492EFA4D10038FC026F4 /* SignInWithGoogleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6233B91A6C16321E5A839EA8 /* SignInWithGoogleService.swift */; };
 		AFC93D36544008FB28C718DC /* OAuthUsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */; };
-		AFDC19C6C8164177A9C7104B /* PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */; };
+		AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 /* End PBXBuildFile section */
 
@@ -489,7 +489,7 @@
 		1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRecord.swift; sourceTree = "<group>"; };
 		1848F2CE0BE744519C79CD42 /* plate_clink.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = plate_clink.caf; sourceTree = "<group>"; };
 		1F1EC37DF279810DECB4043A /* CardioCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioCharts.swift; sourceTree = "<group>"; };
-		24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlanAdherenceCard.swift; sourceTree = "<group>"; };
+		24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlanAdherenceCard.swift; sourceTree = "<group>"; };
 		2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OAuthUsernameSetupView.swift; sourceTree = "<group>"; };
 		2E0412302F2B439A0090EF16 /* PushNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushNotificationService.swift; sourceTree = "<group>"; };
 		2E0412322F2B43AC0090EF16 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -883,7 +883,7 @@
 		2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToConfirm.swift; sourceTree = "<group>"; };
 		2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalSetupView.swift; sourceTree = "<group>"; };
 		2EFB65642F56D26100026074 /* iPhoneVirtualRunAudioCues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneVirtualRunAudioCues.swift; sourceTree = "<group>"; };
-		2EFFC0002FB0000000000001 /* PlateCollectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlateCollectionCell.swift; sourceTree = "<group>"; };
+		2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlateCollectionCell.swift; sourceTree = "<group>"; };
 		414B41C8700743B3B70EF25D /* ExportBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportBundle.swift; sourceTree = "<group>"; };
 		495C129FE8172F2EC5C16425 /* CryptoNonce.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CryptoNonce.swift; sourceTree = "<group>"; };
 		57A79E17002B49138FFFB682 /* DataQualityBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataQualityBadge.swift; sourceTree = "<group>"; };
@@ -935,22 +935,16 @@
 		};
 		2E6141452ECF0FDB00B50FDE /* WRKT Watch Watch App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = "WRKT Watch Watch App";
 			sourceTree = "<group>";
 		};
 		2E6141532ECF0FDC00B50FDE /* WRKT Watch Watch AppTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = "WRKT Watch Watch AppTests";
 			sourceTree = "<group>";
 		};
 		2E61415D2ECF0FDC00B50FDE /* WRKT Watch Watch AppUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = "WRKT Watch Watch AppUITests";
 			sourceTree = "<group>";
 		};
@@ -1463,8 +1457,8 @@
 				2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */,
 				2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */,
 				2EBB00062FA0000000000001 /* PlateWallView.swift */,
-				2EFFC0002FB0000000000001 /* PlateCollectionCell.swift */,
-				24019213B71E4C38BBB1416C /* PlanAdherenceCard.swift */,
+				2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */,
+				24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */,
 				2EBB00082FA0000000000001 /* BarbellPreviewView.swift */,
 				2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */,
 				2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */,
@@ -2689,7 +2683,7 @@
 				2EBE3EFF2EB6594700A26355 /* Step5ProgramLength.swift in Sources */,
 				2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */,
 				19011C3C8AE14FA9A8C512FF /* DataQualityBadge.swift in Sources */,
-				AFDC19C6C8164177A9C7104B /* PlanAdherenceCard.swift in Sources */,
+				AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */,
 				2EC89F4D2F93FD760011159D /* ProgramLibraryViewModel.swift in Sources */,
 				2EC89F5E2F93FD9E0011159D /* ProgramActivationViewModel.swift in Sources */,
 				2EBE3F002EB6594700A26355 /* Step6Review.swift in Sources */,
@@ -2833,7 +2827,7 @@
 				2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */,
 				2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */,
 				2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */,
-				2EFFC0012FB0000000000001 /* PlateCollectionCell.swift in Sources */,
+				2EFFC0012FB0000000000001 /* Components/PlateCollectionCell.swift in Sources */,
 				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,
 				2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */,
 				2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */,
@@ -3363,7 +3357,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.3.3;
+				MARKETING_VERSION = 5.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -3414,7 +3408,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.3.3;
+				MARKETING_VERSION = 5.3.4;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

@@ -127,6 +127,7 @@ struct PlateWallView: View {
     /// Guards against the .task{} / RealityView make{} race condition.
     /// Same pattern as BarbellWelcomeView: make{} only runs after cache is populated.
     @State private var assetsReady = false
+    @State private var sceneAreaBottomPad: CGFloat = 0
 
     private var totalWeight: Double {
         plateWallTotalWeight(rackedPlates: rackedPlates)
@@ -171,6 +172,25 @@ struct PlateWallView: View {
                     .tint(.white)
             }
 
+            // Side vignettes frame the 3D scene. Bottom padding is measured from the
+            // bottom tray so the gradients stop at the scene/tray boundary.
+            HStack(spacing: 0) {
+                LinearGradient(
+                    colors: [Color.black.opacity(0.58), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 56)
+                Spacer()
+                LinearGradient(
+                    colors: [.clear, Color.black.opacity(0.58)],
+                    startPoint: .leading, endPoint: .trailing
+                )
+                .frame(width: 56)
+            }
+            .ignoresSafeArea(edges: .top)
+            .padding(.bottom, sceneAreaBottomPad)
+            .allowsHitTesting(false)
+
             Color.clear.task { @MainActor in
                 // Populate caches, then set assetsReady = true before RealityView renders
                 for tierID in PlateTier.all.map(\.id) where tierID != 7 {
@@ -204,12 +224,6 @@ struct PlateWallView: View {
 
                 Spacer()
 
-                if sceneState.infoCardPlateID == nil {
-                    roomNameLabel
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 10)
-                }
-
                 if barbellService.remoteSyncState == .syncUnavailable {
                     syncUnavailableBanner
                         .padding(.horizontal, 16)
@@ -219,6 +233,9 @@ struct PlateWallView: View {
                 bottomTray
                     .padding(.horizontal, 16)
                     .padding(.bottom, 12)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                        sceneAreaBottomPad = $0
+                    }
             }
         }
         .sheet(isPresented: $showingCollection) {
@@ -407,34 +424,6 @@ struct PlateWallView: View {
             ChamferedRectangle(.medium)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
-    }
-
-    @ViewBuilder
-    private var roomNameLabel: some View {
-        if let roomName = configs.first?.roomName {
-            VStack(spacing: 3) {
-                Text(roomName)
-                    .dsFont(.subheadline, weight: .bold)
-                    .foregroundStyle(.white.opacity(0.82))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                if let motto = configs.first?.roomMotto {
-                    Text(motto)
-                        .dsFont(.caption, weight: .semibold)
-                        .foregroundStyle(.white.opacity(0.52))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.78)
-                        .italic()
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.36), in: ChamferedRectangle(.medium))
-            .overlay(
-                ChamferedRectangle(.medium)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            )
-        }
     }
 
     private func trayStat(value: String, label: String) -> some View {

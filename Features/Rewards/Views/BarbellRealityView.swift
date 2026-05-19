@@ -783,6 +783,18 @@ private extension UIColor {
         getRed(&r, green: &g, blue: &b, alpha: &a)
         return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
+
+    func scaledBrightness(_ multiplier: CGFloat) -> UIColor {
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
+        if getHue(&h, saturation: &s, brightness: &b, alpha: &a) {
+            return UIColor(hue: h, saturation: s, brightness: max(0, min(1, b * multiplier)), alpha: a)
+        }
+        var w: CGFloat = 0
+        if getWhite(&w, alpha: &a) {
+            return UIColor(white: max(0, min(1, w * multiplier)), alpha: a)
+        }
+        return self
+    }
 }
 
 struct BarbellRealityView: View {
@@ -1870,12 +1882,31 @@ struct BarbellRealityView: View {
 
     // MARK: RackRoom scene setup
 
-    private func makeRoomWallText(_ text: String?, theme: RoomThemePreset) -> ModelEntity? {
+    private func makeRoomWallText(_ text: String?, theme: RoomThemePreset) -> Entity? {
         guard let normalized = barbellNormalizedRoomWallText(text) else { return nil }
+
+        let container = Entity()
+        container.name = "roomWallText"
+        container.position = SIMD3(0, 1.12, -0.100)
+
+        // Recessed plaque behind the text for visual grounding
+        let backing = ModelEntity(
+            mesh: cachedBox(size: SIMD3(1.15, 0.22, 0.010)),
+            materials: [pbrMaterial(
+                color: theme.backdropColor.scaledBrightness(0.58),
+                metallic: max(0.02, theme.backdropMetallic),
+                roughness: min(0.98, theme.backdropRoughness + 0.04)
+            )]
+        )
+        backing.position = SIMD3(0, 0, -0.010)
+        container.addChild(backing)
+
+        let textFont = UIFont(name: "BarlowSemiCondensed-Black", size: 0.28)
+            ?? .systemFont(ofSize: 0.28, weight: .heavy)
         let mesh = MeshResource.generateText(
             normalized,
             extrusionDepth: 0.006,
-            font: .systemFont(ofSize: 0.28, weight: .heavy),
+            font: textFont,
             containerFrame: CGRect(x: -1.45, y: -0.16, width: 2.90, height: 0.34),
             alignment: .center,
             lineBreakMode: .byClipping
@@ -1887,10 +1918,46 @@ struct BarbellRealityView: View {
             clearcoat: 0.05,
             clearcoatRoughness: 0.42
         )
-        let entity = ModelEntity(mesh: mesh, materials: [material])
-        entity.name = "roomWallText"
-        entity.position = SIMD3(0, 1.12, -0.100)
-        return entity
+        let textEntity = ModelEntity(mesh: mesh, materials: [material])
+        container.addChild(textEntity)
+
+        return container
+    }
+
+    // Baseboard and vertical pilasters layered in front of the backdrop to give the flat wall
+    // surface architectural depth. Positioned between the backdrop and plateZoneBacking in z
+    // so they're visible where the backdrop shows through but hidden behind the storage panel.
+    private func addRoomArchitectureDetails(theme: RoomThemePreset) {
+        let pilasterColor = theme.backdropColor.scaledBrightness(0.68)
+        let baseColor = theme.backdropColor.scaledBrightness(0.60)
+        let pilMat = pbrMaterial(
+            color: pilasterColor,
+            metallic: max(0.02, theme.backdropMetallic),
+            roughness: min(0.98, theme.backdropRoughness + 0.03)
+        )
+        let baseMat = pbrMaterial(
+            color: baseColor,
+            metallic: theme.backdropMetallic,
+            roughness: min(0.99, theme.backdropRoughness + 0.05)
+        )
+
+        // Baseboard: darker strip along the bottom of the wall (below the storage zone)
+        let baseboard = ModelEntity(
+            mesh: cachedBox(size: SIMD3(2.44, 0.11, 0.018)),
+            materials: [baseMat]
+        )
+        baseboard.position = SIMD3(0, 0.049, -0.122)
+        sceneState.sceneRoot.addChild(baseboard)
+
+        // Pilasters: narrow vertical accents flanking the sign zone
+        for xPos: Float in [-0.62, 0.62] {
+            let pilaster = ModelEntity(
+                mesh: cachedBox(size: SIMD3(0.020, 1.52, 0.018)),
+                materials: [pilMat]
+            )
+            pilaster.position = SIMD3(xPos, 0.74, -0.122)
+            sceneState.sceneRoot.addChild(pilaster)
+        }
     }
 
     private func setupRackRoomScene(
@@ -1936,6 +2003,8 @@ struct BarbellRealityView: View {
         if let wallText = makeRoomWallText(roomWallText, theme: theme) {
             sceneState.sceneRoot.addChild(wallText)
         }
+
+        addRoomArchitectureDetails(theme: theme)
 
         let plateZoneBacking = ModelEntity(
             mesh: cachedRoundedBox(size: SIMD3(1.72, 1.08, 0.010), cornerRadius: 0.018),
