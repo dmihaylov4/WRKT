@@ -39,6 +39,9 @@ struct UnifiedCompeteView: View {
                     BattleDetailView(battle: battle, viewModel: vm)
                 }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .openBattleCreateSheet)) { _ in
+                battlesVM?.openCreateBattle()
+            }
     }
 
     @ViewBuilder

@@ -36,6 +36,8 @@ struct ProfileView: View {
     @State private var showSettings = false
     @State private var viewModel = ProfileScreenViewModel()
     @State private var planAdherenceData: [PlanAdherence] = []
+    @State private var showStreakRecovery = false
+    @State private var brokenStreakCount = 0
 
     init() {
         // compute weekStart once for this view’s init
@@ -184,6 +186,7 @@ struct ProfileView: View {
             viewModel.updateMilestones(achievements: achievements)
         }
         .onAppear {
+            checkForStreakBreak()
             viewModel.updateWeekProgress(goals: goals, store: store, context: context)
             viewModel.updateMilestones(achievements: achievements)
             viewModel.refreshStats(store: store)
@@ -217,6 +220,22 @@ struct ProfileView: View {
                 .transition(.opacity)
                 .zIndex(1000)
             }
+        }
+        .sheet(isPresented: $showStreakRecovery) {
+            StreakRecoverySheet(
+                brokenStreak: brokenStreakCount,
+                isPresented: $showStreakRecovery,
+                onJoinChallenge: {
+                    NotificationCenter.default.post(name: .navigateToCompeteTab, object: nil)
+                },
+                onChallengeFriend: {
+                    NotificationCenter.default.post(name: .navigateToCompeteTab, object: nil)
+                    Task {
+                        try? await Task.sleep(nanoseconds: 400_000_000)
+                        NotificationCenter.default.post(name: .openBattleCreateSheet, object: nil)
+                    }
+                }
+            )
         }
     }
 
@@ -256,6 +275,7 @@ struct ProfileView: View {
             )
             .task {
                 await viewModel.syncHealthKitIfNeeded(store: store, context: context, goals: goals)
+                checkForStreakBreak()
             }
             .captureFrame(in: .global, onChange: updateLevelCardFrame)
         } else {
@@ -277,6 +297,17 @@ struct ProfileView: View {
 
     private func openSettings() {
         showSettings = true
+    }
+
+    private func checkForStreakBreak() {
+        guard UserDefaults.standard.object(forKey: "streak_break_detected_at") as? Date != nil else { return }
+        UserDefaults.standard.removeObject(forKey: "streak_break_detected_at")
+        let previousStreak = UserDefaults.standard.integer(forKey: "streak_break_previous_streak")
+        UserDefaults.standard.removeObject(forKey: "streak_break_previous_streak")
+        guard previousStreak > 0 else { return }
+
+        brokenStreakCount = previousStreak
+        showStreakRecovery = true
     }
 
     private func updateLevelCardFrame(_ frame: CGRect) {

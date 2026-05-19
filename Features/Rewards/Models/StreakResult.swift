@@ -11,6 +11,12 @@ import Foundation
 import SwiftUI
 import SwiftData
 
+func detectStreakBreak(oldStreak: Int, newStreak: Int) {
+    guard newStreak == 0 && oldStreak > 0 else { return }
+    UserDefaults.standard.set(Date(), forKey: "streak_break_detected_at")
+    UserDefaults.standard.set(oldStreak, forKey: "streak_break_previous_streak")
+}
+
 extension RewardsEngine {
 
     struct StreakResult {
@@ -972,36 +978,35 @@ extension RewardsEngine {
             prog.lastWeekGoalMet = nil
         }
 
-        // If validation would break an existing streak, auto-consume a monthly weekly freeze once.
+        // Freeze can only protect a break in the immediately preceding week, never a historical gap.
+        let justMissedWeekStart = calendar.date(byAdding: .day, value: -7, to: currentWeekStart)
+        let brokenWeekIsJustMissed: Bool = {
+            guard let brokenWeek = firstBrokenWeekStart, let justMissed = justMissedWeekStart else { return false }
+            return calendar.isDate(brokenWeek, equalTo: justMissed, toGranularity: .weekOfYear)
+        }()
+
+        // If validation would break an existing streak, consume a freeze only if the break just happened.
         if consecutiveWeeks < oldStreak && oldStreak > 0 {
             if let protectedWeek = oldProtectedWeekStart,
                let brokenWeek = firstBrokenWeekStart,
                calendar.isDate(protectedWeek, equalTo: brokenWeek, toGranularity: .weekOfYear) {
+                // Already-recorded freeze covers this week — no new consumption needed.
                 prog.weeklyGoalStreakCurrent = oldStreak
                 prog.lastWeekGoalMet = oldLastWeekGoalMet
                 prog.weeklyStreakFrozen = false
                 prog.weeklyFreezeUsedAt = oldFreezeUsedAt
                 prog.weeklyFreezeProtectedWeekStart = protectedWeek
                 AppLogger.info("🔍 Historical weekly freeze already covers \(brokenWeek.formatted(date: .abbreviated, time: .omitted)) - preserving streak at \(oldStreak)", category: AppLogger.rewards)
-            } else if oldProtectedWeekStart == nil,
-                      let priorFreezeUse = oldFreezeUsedAt,
-                      let brokenWeek = firstBrokenWeekStart,
-                      oldStreak == consecutiveWeeks + 1,
-                      !hasWeeklyFreezeAvailable(prog, now: now, calendar: calendar) {
-                prog.weeklyGoalStreakCurrent = oldStreak
-                prog.lastWeekGoalMet = oldLastWeekGoalMet
-                prog.weeklyStreakFrozen = false
-                prog.weeklyFreezeUsedAt = priorFreezeUse
-                prog.weeklyFreezeProtectedWeekStart = brokenWeek
-                AppLogger.info("🔍 Backfilled historical weekly freeze for \(brokenWeek.formatted(date: .abbreviated, time: .omitted)) based on prior freeze usage - preserving streak at \(oldStreak)", category: AppLogger.rewards)
-            } else if oldFreezeState, let brokenWeek = firstBrokenWeekStart {
+            } else if oldFreezeState, let brokenWeek = firstBrokenWeekStart, brokenWeekIsJustMissed {
+                // Active freeze shields the most-recently-missed week.
                 prog.weeklyGoalStreakCurrent = oldStreak
                 prog.lastWeekGoalMet = oldLastWeekGoalMet
                 prog.weeklyStreakFrozen = false
                 prog.weeklyFreezeUsedAt = oldFreezeUsedAt ?? now
                 prog.weeklyFreezeProtectedWeekStart = brokenWeek
                 AppLogger.info("🔍 Consumed active weekly freeze for \(brokenWeek.formatted(date: .abbreviated, time: .omitted)) - preserving streak at \(oldStreak)", category: AppLogger.rewards)
-            } else if hasWeeklyFreezeAvailable(prog, now: now, calendar: calendar) {
+            } else if hasWeeklyFreezeAvailable(prog, now: now, calendar: calendar), brokenWeekIsJustMissed {
+                // Auto-consume an available freeze, but only for a break that just happened.
                 prog.weeklyGoalStreakCurrent = oldStreak
                 prog.lastWeekGoalMet = oldLastWeekGoalMet
                 prog.weeklyStreakFrozen = false
@@ -1018,6 +1023,7 @@ extension RewardsEngine {
         }
 
         AppLogger.success("🔍 Rebuilt streak: \(oldStreak) -> \(prog.weeklyGoalStreakCurrent) weeks", category: AppLogger.rewards)
+        detectStreakBreak(oldStreak: oldStreak, newStreak: prog.weeklyGoalStreakCurrent)
 
         // Also rebuild super streak
         var consecutiveSuperWeeks = 0

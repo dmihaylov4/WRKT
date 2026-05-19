@@ -133,6 +133,9 @@ struct AppShellView: View {
             guard let streak = note.object as? Int else { return }
             Task { await dependencies.authService.syncStreak(streak) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToCompeteTab)) { _ in
+            selectedTab = .social
+        }
         .fullScreenCover(isPresented: $authService.needsPasswordReset) {
             SetNewPasswordView()
                 .environmentObject(authService)

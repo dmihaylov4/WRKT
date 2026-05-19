@@ -61,6 +61,7 @@
 		2E2F53912E9E223B00C81656 /* rewards_rules_v1.json in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
 		2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
 		2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */; };
+		2E57AA012F5A000000000001 /* StreakRecoverySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */; };
 		2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53962E9E4FF000C81656 /* ProfileView.swift */; };
 		2E2F53992E9E578B00C81656 /* RewardSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53982E9E578B00C81656 /* RewardSummary.swift */; };
 		2E2F539B2E9E582F00C81656 /* WinScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */; };
@@ -543,6 +544,7 @@
 		2E2F538E2E9D675D00C81656 /* WinScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreen.swift; sourceTree = "<group>"; };
 		2E2F53902E9E223400C81656 /* rewards_rules_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = rewards_rules_v1.json; sourceTree = "<group>"; };
 		2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsHubView.swift; sourceTree = "<group>"; };
+		2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakRecoverySheet.swift; sourceTree = "<group>"; };
 		2E2F53962E9E4FF000C81656 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2E2F53982E9E578B00C81656 /* RewardSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardSummary.swift; sourceTree = "<group>"; };
 		2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreenCoordinator.swift; sourceTree = "<group>"; };
@@ -1527,6 +1529,7 @@
 			isa = PBXGroup;
 			children = (
 				2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */,
+				2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */,
 				2E2F538E2E9D675D00C81656 /* WinScreen.swift */,
 				2E2F53982E9E578B00C81656 /* RewardSummary.swift */,
 				2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */,
@@ -2813,6 +2816,7 @@
 				2EE39C6B2EA67691000549C3 /* SpotlightOverlay.swift in Sources */,
 				2EA7D9BB2EEB0E960017683B /* ImageCacheService.swift in Sources */,
 				2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */,
+				2E57AA012F5A000000000001 /* StreakRecoverySheet.swift in Sources */,
 				2E29392E2ECA38730057F60C /* WorkoutToast.swift in Sources */,
 				2E2F53A32E9E764700C81656 /* AchievementsDexView.swift in Sources */,
 				2EA7DA342EEC3EC60017683B /* RepositoryProtocols.swift in Sources */,
