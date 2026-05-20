@@ -1143,14 +1143,17 @@ struct BarbellRealityView: View {
 
                 switch roleComp.role {
                 case .floor:
-                    // Stored plates require clear vertical intent. A horizontal-dominant gesture
-                    // is almost certainly a bar swipe that bled onto this entity -- ignore it.
+                    let dx = abs(value.translation.width)
+                    let dy = abs(value.translation.height)
+                    // Minimum movement guard for all floor plates: short touches (< 8pt) stay
+                    // in .idle so onEnded treats them as taps (tap → showcase).
+                    // DragGesture(minimumDistance: 1) fires onChanged for any finger wobble,
+                    // so without this guard taps commit a drag and skip the tap path entirely.
+                    guard (dx + dy) > 8 else { break }
+                    // Stored plates additionally require vertical-dominant intent -- a horizontal-
+                    // dominant gesture is almost certainly a bar swipe that bled onto this entity.
                     if sceneState.storageSlotByPlate[entity.name] != nil {
-                        let dx = abs(value.translation.width)
-                        let dy = abs(value.translation.height)
-                        // Require vertical-dominant AND minimum movement.
-                        // Short touches (< 8pt total) stay in .idle so onEnded can treat them as taps.
-                        guard dy >= dx, (dx + dy) > 8 else { break }
+                        guard dy >= dx else { break }
                     }
                     // One-time: enter dragging state (captures originRole) and reparent to scene root.
                     // transition() rejects .draggingPlate -> .draggingPlate, so call it
