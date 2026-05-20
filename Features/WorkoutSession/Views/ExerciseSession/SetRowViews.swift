@@ -345,6 +345,11 @@ struct SetRowUnified: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
+            // RPE chip strip — only on active working sets
+            if isActive && set.tag == .working {
+                rpeChipStrip
+            }
+
             // Log button — only on active sets
             if isActive && !isGhost {
                 Divider()
