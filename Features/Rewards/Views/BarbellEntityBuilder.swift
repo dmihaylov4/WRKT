@@ -1343,15 +1343,17 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
     return disc
 }
 
-private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVisualProfile, prominent: Bool) -> PhysicallyBasedMaterial {
+private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVisualProfile, prominent: Bool) -> UnlitMaterial {
     let canvasSize: CGFloat = 512
     let half = canvasSize / 2
     let rimMidRadius = CGFloat((profile.rimOuterRadius + profile.rimInnerRadius) / 2)
     let arcRadius = rimMidRadius / CGFloat(profile.outerRadius) * half
     let fontSize = prominent ? canvasSize * 0.09 : canvasSize * 0.065
+    // Silver-toned text: lighter than the plate body, reads as stamped metal without PBR cost.
+    let textColor = UIColor(white: 0.82, alpha: 0.92)
     let textAttrs: [NSAttributedString.Key: Any] = [
         .font: UIFont.systemFont(ofSize: fontSize, weight: prominent ? .black : .bold),
-        .foregroundColor: UIColor.white
+        .foregroundColor: textColor
     ]
 
     let format = UIGraphicsImageRendererFormat()
@@ -1370,16 +1372,12 @@ private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVis
         )
     }
 
-    var mat = PhysicallyBasedMaterial()
-    mat.baseColor = .init(tint: UIColor(white: 0.06, alpha: 1.0))
-    mat.metallic = .init(floatLiteral: 0.72)
-    mat.roughness = .init(floatLiteral: 0.18)
-    mat.clearcoat = .init(floatLiteral: 0.45)
-    mat.clearcoatRoughness = .init(floatLiteral: 0.12)
+    var mat = UnlitMaterial()
     if let cg = image.cgImage,
-       let maskTex = try? TextureResource.generate(from: cg, options: .init(semantic: .raw)) {
-        mat.blending = .transparent(opacity: .init(texture: .init(maskTex)))
+       let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .color)) {
+        mat.color = .init(texture: .init(tex))
     }
+    mat.blending = .transparent(opacity: .init(floatLiteral: 1.0))
     return mat
 }
 
