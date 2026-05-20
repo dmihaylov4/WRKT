@@ -227,6 +227,9 @@ final class SceneState {
     /// Opaque token updated on every startShowcase() call. Spin and auto-drop Tasks
     /// compare against this value to self-cancel when the showcase changes or ends.
     var showcaseToken: String? = nil
+    /// Timestamp of the last startShowcase() call. Guards against the simultaneousGesture
+    /// TapGesture firing on the same plate tap and immediately dropping the showcase.
+    var showcaseStartTime: Date = .distantPast
 
     // MARK: Accessibility
     /// Re-read at gesture time so it responds to in-session Reduce Motion changes.
@@ -1841,8 +1844,9 @@ struct BarbellRealityView: View {
         }
 
         let token = UUID().uuidString
-        sceneState.showcaseEntity = entity
-        sceneState.showcaseToken  = token
+        sceneState.showcaseEntity    = entity
+        sceneState.showcaseToken     = token
+        sceneState.showcaseStartTime = Date()
 
         // Ensure kinematic so position animation works.
         entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
@@ -1865,12 +1869,15 @@ struct BarbellRealityView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(3))
             guard sceneState.showcaseToken == token else { return }
-            dropShowcase()
+            dropShowcase(immediate: true)
         }
     }
 
-    private func dropShowcase() {
+    private func dropShowcase(immediate: Bool = false) {
         guard let entity = sceneState.showcaseEntity else { return }
+        // Debounce: the simultaneousGesture TapGesture fires on the same tap that
+        // starts the showcase. Without this guard it would immediately drop the plate.
+        if !immediate && Date().timeIntervalSince(sceneState.showcaseStartTime) < 0.40 { return }
         sceneState.showcaseEntity = nil
         sceneState.showcaseToken  = nil
         entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
