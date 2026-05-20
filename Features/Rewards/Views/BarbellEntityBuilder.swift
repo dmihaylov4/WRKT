@@ -1479,7 +1479,8 @@ func makePlateEntity(
         addFaceDetailPair(makeEdgeBevel(profile: profile, tier: tier), to: entity, profile: profile)
     }
     if showEngravings && !engravingText.isEmpty && tierID != 7 {
-        addFaceDetailPair(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving), to: entity, profile: profile)
+        // Front face only — arc text on a rim disc appears mirrored when cloned to the back face.
+        entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving))
     }
     if tierID != 7 {
         addProgressionDetails(to: entity, projection: renderProjection, plateThickness: plateThickness)

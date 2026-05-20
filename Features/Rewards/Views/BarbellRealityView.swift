@@ -899,7 +899,8 @@ struct BarbellRealityView: View {
                     }
                     .frame(maxWidth: 420)
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 24)
+                    .padding(.top, 100)
+                    .padding(.bottom, 24)
                 }
                 .transition(.scale(scale: 0.92).combined(with: .opacity))
             }
@@ -1666,7 +1667,10 @@ struct BarbellRealityView: View {
         sceneState.settleTasks[plateID] = nil
         let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(16))
+            // 50ms: gives RealityKit's render thread ~3 frames to complete the kinematic
+            // reparent and position update before the physics simulation picks up the entity.
+            // 16ms was too tight — the mode switch coincided with a heavy frame, causing stutter.
+            try? await Task.sleep(for: .milliseconds(50))
             guard entity.components[PlateRoleComponent.self]?.role == .floor else {
                 barbellDiagnosticsLog(
                     "SNAP_FLOOR_DYNAMIC_SKIPPED",
