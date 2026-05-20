@@ -64,7 +64,9 @@ struct SocialView: View {
                         // NORMAL MODE: Use real views with live data
                         switch selectedSection {
                         case .feed:
-                            FeedView()
+                            FeedView(onNavigateToProfile: { userId in
+                                navigationPath.append(userId)
+                            })
                                 .id("feed-view-stable") // Stable ID to prevent recreation
                             //TestNotificationButton()
                         case .compete:

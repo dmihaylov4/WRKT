@@ -10,6 +10,8 @@ import Kingfisher
 
 
 struct FeedView: View {
+    var onNavigateToProfile: ((UUID) -> Void)? = nil
+
     @Environment(\.dependencies) private var deps
     @State private var viewModel: FeedViewModel?
     @State private var selectedPost: PostWithAuthor?
@@ -18,7 +20,6 @@ struct FeedView: View {
     @State private var pendingProgressWorkouts: [CompletedWorkout] = []
     @State private var pendingProgressStats: WeeklyProgressStats? = nil
     @State private var postToEdit: PostWithAuthor?
-    @State private var selectedUserId: UUID?
     @State private var selectedBattle: BattleWithParticipants?
     @State private var selectedChallenge: ChallengeWithProgress?
 
@@ -139,9 +140,9 @@ struct FeedView: View {
         .navigationDestination(item: $selectedPost) { post in
             PostDetailView(post: post)
         }
-        .navigationDestination(item: $selectedUserId) { userId in
-            SocialProfileView(userId: userId)
-        }
+        // Profile navigation is routed through onNavigateToProfile so FeedView does not
+        // register a second UUID destination inside the same NavigationStack as SocialView.
+        // Duplicate UUID destinations corrupt SwiftUI's internal stack state.
         .navigationDestination(item: $selectedBattle) { battle in
             BattleDetailView(
                 battle: battle,
@@ -300,7 +301,7 @@ struct FeedView: View {
                                     likesPost = post
                                 },
                                 onProfileTap: {
-                                    selectedUserId = post.author.id
+                                    onNavigateToProfile?(post.author.id)
                                 },
                                 onPostTap: {
                                     selectedPost = post
