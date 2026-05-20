@@ -699,18 +699,49 @@ private func infoCardFormatEvent(_ event: String) -> String {
 }
 ```
 
-- [ ] **Step 2: Build and verify**
+- [ ] **Step 2: Register the file in the Xcode project**
+
+The repo uses explicit source membership in `WRKT.xcodeproj/project.pbxproj`. A new Swift file on disk is not compiled unless it appears in the project file in four places. Edit `WRKT.xcodeproj/project.pbxproj` directly:
+
+First, generate two 24-character hex IDs (Xcode's UUID format):
+```bash
+FILE_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4()).replace('-','').upper()[:24])")
+BUILD_UUID=$(python3 -c "import uuid; print(str(uuid.uuid4()).replace('-','').upper()[:24])")
+echo "FILE_UUID=$FILE_UUID  BUILD_UUID=$BUILD_UUID"
+```
+
+**Section 1 — PBXFileReference** (search for `BarbellEntityBuilder.swift */ = {isa = PBXFileReference`). Add immediately after that line:
+```
+		$FILE_UUID /* PlateInfoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateInfoCardView.swift; sourceTree = "<group>"; };
+```
+
+**Section 2 — PBXBuildFile** (search for `BarbellEntityBuilder.swift in Sources */ = {isa = PBXBuildFile`). Add immediately after that line:
+```
+		$BUILD_UUID /* PlateInfoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = $FILE_UUID /* PlateInfoCardView.swift */; };
+```
+
+**Section 3 — PBXGroup** (search for `2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */,` in the group list at line ~1542). Add immediately after that line:
+```
+				$FILE_UUID /* PlateInfoCardView.swift */,
+```
+
+**Section 4 — PBXSourcesBuildPhase** (search for `BarbellEntityBuilder.swift in Sources */,` in the Sources build phase at line ~2836). Add immediately after that line:
+```
+				$BUILD_UUID /* PlateInfoCardView.swift in Sources */,
+```
+
+- [ ] **Step 3: Build and verify**
 
 ```
 xcodebuild build -scheme WRKT 2>&1 | grep -E "error:|BUILD FAILED|BUILD SUCCEEDED"
 ```
 
-Expected: BUILD SUCCEEDED
+Expected: BUILD SUCCEEDED. If `PlateInfoCardView` symbols are unresolved, the pbxproj edit missed a section — recheck all four locations above.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add Features/Rewards/Views/PlateInfoCardView.swift
+git add Features/Rewards/Views/PlateInfoCardView.swift WRKT.xcodeproj/project.pbxproj
 git commit -m "feat(barbell): PlateInfoCardView — native SwiftUI plate detail card"
 ```
 
