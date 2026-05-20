@@ -510,16 +510,19 @@ struct BarbellEntityBuilderTests {
     @Test func plateWithEmptyEngravingTextHasNoEngravingDisc() {
         let entity = makePlateEntity(tierID: 3, weightKg: 15, engravingText: "")
         #expect(!entity.children.contains { $0.name == "engravingDisc" })
+        #expect(!entity.children.contains { $0.name == "engravingDisc_back" })
     }
 
     @Test func starterPlateSkipsEngravingDisc() {
         let entity = makePlateEntity(tierID: 7, weightKg: 0, engravingText: "Starter")
         #expect(!entity.children.contains { $0.name == "engravingDisc" })
+        #expect(!entity.children.contains { $0.name == "engravingDisc_back" })
     }
 
     @Test func engravingDiscHiddenWhenShowEngravingsIsFalse() {
         let entity = makePlateEntity(tierID: 3, weightKg: 15, engravingText: "25 Workouts", showEngravings: false)
         #expect(!entity.children.contains { $0.name == "engravingDisc" })
+        #expect(!entity.children.contains { $0.name == "engravingDisc_back" })
     }
 
     @Test func engravingDiscPositionedAboveRimFace() throws {
@@ -531,8 +534,11 @@ struct BarbellEntityBuilderTests {
             showEngravings: true
         )
         let disc = try #require(entity.children.first { $0.name == "engravingDisc" })
+        let backDisc = try #require(entity.children.first { $0.name == "engravingDisc_back" })
+        let faceOffset = profile.thickness * 0.5 + 0.015
         // Must clear rim face (+0.003), weight disc (+0.010), and progression marks (up to +0.012)
-        #expect(disc.position.y >= profile.thickness * 0.5 + 0.015)
+        #expect(disc.position.y >= faceOffset)
+        #expect(backDisc.position.y <= -faceOffset)
     }
 
     @Test func newBumperColorwaysAllBuildWithRubberDetails() {

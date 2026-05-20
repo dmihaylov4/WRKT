@@ -1319,35 +1319,38 @@ func normalizedRimEngravingText(_ text: String) -> String {
     return text.uppercased()
 }
 
-private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent: Bool) -> ModelEntity {
+private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent: Bool, mirrored: Bool = false) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
     let normalizedText = normalizedRimEngravingText(engravingText)
-    let cacheKey = "\(normalizedText)_\(tier.id)_\(prominent)"
+    let cacheKey = "\(normalizedText)_\(tier.id)_\(prominent)_\(mirrored)"
     let material: any RealityKit.Material
     if let cached = _engravingDiscMaterialCache[cacheKey] {
         material = cached
     } else {
-        let built = makeEngravingDiscMaterial(normalizedText: normalizedText, profile: profile, prominent: prominent)
+        let built = makeEngravingDiscMaterial(normalizedText: normalizedText, profile: profile, prominent: prominent, mirrored: mirrored)
         _engravingDiscMaterialCache[cacheKey] = built
         material = built
     }
+    // Rim-band only mesh: innerRadius = profile.rimInnerRadius keeps the center hub visible.
     let disc = ModelEntity(
         mesh: cachedPlateRing(height: 0.001,
                               outerRadius: profile.rimOuterRadius,
-                              innerRadius: plateBoreRadius),
+                              innerRadius: profile.rimInnerRadius),
         materials: [material]
     )
-    disc.name = "engravingDisc"
+    disc.name = mirrored ? "engravingDisc_back" : "engravingDisc"
     // +0.016 clears the raised rim face, weight disc, and progression mark layers.
-    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.016, 0)
+    let faceOffset = profile.thickness * 0.5 + 0.016
+    disc.position = SIMD3(0, mirrored ? -faceOffset : faceOffset, 0)
     return disc
 }
 
-private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVisualProfile, prominent: Bool) -> UnlitMaterial {
+private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVisualProfile, prominent: Bool, mirrored: Bool = false) -> UnlitMaterial {
     let canvasSize: CGFloat = 512
     let half = canvasSize / 2
     let rimMidRadius = CGFloat((profile.rimOuterRadius + profile.rimInnerRadius) / 2)
-    let arcRadius = rimMidRadius / CGFloat(profile.outerRadius) * half
+    // Normalize arc radius against rimOuterRadius (the bounding radius of the ring mesh UV space).
+    let arcRadius = rimMidRadius / CGFloat(profile.rimOuterRadius) * half
     let fontSize = prominent ? canvasSize * 0.09 : canvasSize * 0.065
     // Silver-toned text: lighter than the plate body, reads as stamped metal without PBR cost.
     let textColor = UIColor(white: 0.82, alpha: 0.92)
@@ -1360,7 +1363,11 @@ private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVis
     format.opaque = false
     format.scale = 1
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasSize, height: canvasSize), format: format)
-    let image = renderer.image { _ in
+    let image = renderer.image { ctx in
+        if mirrored {
+            ctx.cgContext.translateBy(x: canvasSize, y: 0)
+            ctx.cgContext.scaleBy(x: -1, y: 1)
+        }
         drawArcText(
             normalizedText,
             center: CGPoint(x: half, y: half),
@@ -1477,8 +1484,8 @@ func makePlateEntity(
         addFaceDetailPair(makeEdgeBevel(profile: profile, tier: tier), to: entity, profile: profile)
     }
     if showEngravings && !engravingText.isEmpty && tierID != 7 {
-        // Front face only — arc text on a rim disc appears mirrored when cloned to the back face.
-        entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving))
+        entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving, mirrored: false))
+        entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving, mirrored: true))
     }
     if tierID != 7 {
         addProgressionDetails(to: entity, projection: renderProjection, plateThickness: plateThickness)
