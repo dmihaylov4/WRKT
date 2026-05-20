@@ -11,17 +11,17 @@ import Kingfisher
 
 struct FeedView: View {
     var onNavigateToProfile: ((UUID) -> Void)? = nil
+    var onNavigateToPost: ((UUID) -> Void)? = nil
+    var onNavigateToBattle: ((UUID) -> Void)? = nil
+    var onNavigateToChallenge: ((UUID) -> Void)? = nil
 
     @Environment(\.dependencies) private var deps
     @State private var viewModel: FeedViewModel?
-    @State private var selectedPost: PostWithAuthor?
     @State private var showingCreatePost = false
     @State private var showingProgressShare = false
     @State private var pendingProgressWorkouts: [CompletedWorkout] = []
     @State private var pendingProgressStats: WeeklyProgressStats? = nil
     @State private var postToEdit: PostWithAuthor?
-    @State private var selectedBattle: BattleWithParticipants?
-    @State private var selectedChallenge: ChallengeWithProgress?
 
     // Badge manager for notifications
     @State private var badgeManager = NotificationBadgeManager.shared
@@ -137,37 +137,9 @@ struct FeedView: View {
         .sheet(item: $likesPost) { post in
             LikesListView(postId: post.post.id, postRepository: deps.postRepository)
         }
-        .navigationDestination(item: $selectedPost) { post in
-            PostDetailView(post: post)
-        }
-        // Profile navigation is routed through onNavigateToProfile so FeedView does not
-        // register a second UUID destination inside the same NavigationStack as SocialView.
-        // Duplicate UUID destinations corrupt SwiftUI's internal stack state.
-        .navigationDestination(item: $selectedBattle) { battle in
-            BattleDetailView(
-                battle: battle,
-                viewModel: BattleViewModel(
-                    battleRepository: deps.battleRepository,
-                    authService: deps.authService
-                )
-            )
-        }
-        .navigationDestination(item: $selectedChallenge) { challenge in
-            ChallengeDetailView(
-                challenge: challenge,
-                viewModel: ChallengesViewModel(
-                    challengeRepository: deps.challengeRepository,
-                    authService: deps.authService,
-                    workoutStore: deps.workoutStore
-                )
-            )
-            .onDisappear {
-                // Refresh arena when returning from challenge detail
-                Task {
-                    await loadActiveArena()
-                }
-            }
-        }
+        // All navigation is routed through callbacks to SocialView's NavigationStack.
+        // Item-based .navigationDestination mixed with path-based navigation desynchronises
+        // SwiftUI's internal stack depth and causes fatal crashes on back navigation.
         .task {
             if viewModel == nil {
                 let vm = FeedViewModel(
@@ -192,7 +164,7 @@ struct FeedView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .socialTabReselected)) { _ in
-            selectedPost = nil
+            // Navigation state is owned by SocialView; nothing to reset here.
         }
         .onReceive(NotificationCenter.default.publisher(for: .battleScoresDidUpdate)) { _ in
             Task { await loadActiveArena() }
@@ -245,10 +217,10 @@ struct FeedView: View {
                             activeBattles: activeBattles,
                             activeChallenges: activeChallenges,
                             onBattleTap: { battle in
-                                selectedBattle = battle
+                                onNavigateToBattle?(battle.id)
                             },
                             onChallengeTap: { challenge in
-                                selectedChallenge = challenge
+                                onNavigateToChallenge?(challenge.id)
                             }
                         )
                         .padding(.top, 8)
@@ -295,7 +267,7 @@ struct FeedView: View {
                                     }
                                 },
                                 onComment: {
-                                    selectedPost = post
+                                    onNavigateToPost?(post.post.id)
                                 },
                                 onShowLikes: {
                                     likesPost = post
@@ -304,7 +276,7 @@ struct FeedView: View {
                                     onNavigateToProfile?(post.author.id)
                                 },
                                 onPostTap: {
-                                    selectedPost = post
+                                    onNavigateToPost?(post.post.id)
                                 },
                                 onEdit: {
                                     postToEdit = post

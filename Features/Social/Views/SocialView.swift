@@ -31,6 +31,10 @@ struct BattleDestination: Hashable {
     let battleId: UUID
 }
 
+struct ChallengeDestination: Hashable {
+    let challengeId: UUID
+}
+
 struct SocialView: View {
     @Environment(\.dependencies) private var deps
     @Binding var pendingNotification: AppNotification?
@@ -64,9 +68,20 @@ struct SocialView: View {
                         // NORMAL MODE: Use real views with live data
                         switch selectedSection {
                         case .feed:
-                            FeedView(onNavigateToProfile: { userId in
-                                navigationPath.append(userId)
-                            })
+                            FeedView(
+                                onNavigateToProfile: { userId in
+                                    navigationPath.append(userId)
+                                },
+                                onNavigateToPost: { postId in
+                                    navigationPath.append(PostDestination(postId: postId))
+                                },
+                                onNavigateToBattle: { battleId in
+                                    navigationPath.append(BattleDestination(battleId: battleId))
+                                },
+                                onNavigateToChallenge: { challengeId in
+                                    navigationPath.append(ChallengeDestination(challengeId: challengeId))
+                                }
+                            )
                                 .id("feed-view-stable") // Stable ID to prevent recreation
                             //TestNotificationButton()
                         case .compete:
@@ -95,6 +110,10 @@ struct SocialView: View {
             }
             .navigationDestination(for: BattleDestination.self) { destination in
                 BattleLoaderView(battleId: destination.battleId)
+                    .environment(\.dependencies, deps)
+            }
+            .navigationDestination(for: ChallengeDestination.self) { destination in
+                ChallengeLoaderView(challengeId: destination.challengeId)
                     .environment(\.dependencies, deps)
             }
         }
