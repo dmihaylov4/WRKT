@@ -1851,13 +1851,20 @@ struct BarbellRealityView: View {
         // Ensure kinematic so position animation works.
         entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
 
-        // Stand the plate upright facing the camera and move to center-scene.
+        // Snap orientation instantly so the rise animation is position-only.
+        // Animating rotation and position at once reads as a "flop" rather than a levitation.
         let upright = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
-        let target  = Transform(scale: .one, rotation: upright, translation: SIMD3(0, 0.90, 0.20))
-        entity.move(to: target, relativeTo: sceneState.sceneRoot, duration: 0.45, timingFunction: .easeOut)
+        entity.transform.rotation = upright
 
-        // Spin: ~0.03 rad/frame at 16ms -> one full rotation every ~3.5 s.
+        // Levitate to center-scene (position only — rotation already set above).
+        let target = Transform(scale: .one, rotation: upright, translation: SIMD3(0, 0.90, 0.20))
+        entity.move(to: target, relativeTo: sceneState.sceneRoot, duration: 0.55, timingFunction: .easeOut)
+
+        // Spin: starts after levitation to avoid cancelling the move() animation.
+        // Directly modifying entity.transform cancels any in-flight RealityKit animation,
+        // so the spin loop must not start until move() has finished (~0.55 s).
         Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(580))
             while sceneState.showcaseToken == token {
                 entity.transform.rotation = entity.transform.rotation *
                     simd_quatf(angle: 0.03, axis: SIMD3(0, 1, 0))
