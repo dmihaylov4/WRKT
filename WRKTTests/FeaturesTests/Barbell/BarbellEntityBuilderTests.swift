@@ -291,6 +291,37 @@ struct BarbellEntityBuilderTests {
         #expect(saturated.pressPolishMarkCount == 5)
     }
 
+    @Test func progressionMarksRespectProjectionCounts() {
+        // chalkUseCount 16 -> chalkMarkCount 4, gripWearCount 10 -> 2, pressUseCount 12 -> 2
+        let projection = BarbellPlateRenderProjection(
+            progressionTier: .gold,
+            chalkUseCount: 16,
+            gripWearCount: 10,
+            pressUseCount: 12
+        )
+        let entity = makePlateEntity(tierID: 1, weightKg: 10, renderProjection: projection)
+        #expect(entity.children.filter { $0.name == "chalkMark" }.count == projection.chalkMarkCount)
+        #expect(entity.children.filter { $0.name == "wearMark" }.count == projection.gripWearMarkCount)
+        #expect(entity.children.filter { $0.name == "polishMark" }.count == projection.pressPolishMarkCount)
+        #expect(entity.children.filter { $0.name.hasPrefix("tierRing") }.count == projection.tierRingCount)
+    }
+
+    @Test func rimEngravingNormalizesPersonalRecord() {
+        #expect(normalizedRimEngravingText("Personal Record") == "PR")
+    }
+
+    @Test func rimEngravingNormalizesWorkoutMilestones() {
+        #expect(normalizedRimEngravingText("5 Workouts") == "5 WORKOUTS")
+        #expect(normalizedRimEngravingText("15 Workouts") == "15 WORKOUTS")
+        #expect(normalizedRimEngravingText("100 Workouts") == "100 WORKOUTS")
+    }
+
+    @Test func rimEngravingUppercasesOtherTypes() {
+        #expect(normalizedRimEngravingText("Squat") == "SQUAT")
+        #expect(normalizedRimEngravingText("Bench Press") == "BENCH PRESS")
+        #expect(normalizedRimEngravingText("90-Day Streak") == "90-DAY STREAK")
+    }
+
     @Test func engravingNormalMapHasRequestedDimensions() throws {
         let tier = try #require(PlateTier.all.first { $0.id == 1 })
         let map = generateEngravingNormalMap(engravingText: "25 Workouts", tier: tier, prominent: true)
@@ -489,6 +520,19 @@ struct BarbellEntityBuilderTests {
     @Test func engravingDiscHiddenWhenShowEngravingsIsFalse() {
         let entity = makePlateEntity(tierID: 3, weightKg: 15, engravingText: "25 Workouts", showEngravings: false)
         #expect(!entity.children.contains { $0.name == "engravingDisc" })
+    }
+
+    @Test func engravingDiscPositionedAboveRimFace() throws {
+        let tier = try #require(PlateTier.all.first { $0.id == 4 })
+        let profile = PlateVisualDesign.profile(for: tier.style)
+        let entity = makePlateEntity(
+            tierID: 4, weightKg: 20,
+            engravingText: "Personal Record",
+            showEngravings: true
+        )
+        let disc = try #require(entity.children.first { $0.name == "engravingDisc" })
+        // Must clear rim face (+0.003), weight disc (+0.010), and progression marks (up to +0.012)
+        #expect(disc.position.y >= profile.thickness * 0.5 + 0.015)
     }
 
     @Test func newBumperColorwaysAllBuildWithRubberDetails() {

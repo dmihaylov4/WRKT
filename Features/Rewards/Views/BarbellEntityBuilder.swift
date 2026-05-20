@@ -1113,8 +1113,7 @@ private func drawArcText(
 
 private nonisolated(unsafe) var _weightDiscMaterialCache: [String: UnlitMaterial] = [:]
 private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: any RealityKit.Material] = [:]
-// Loaded once at scene setup via preloadPlateMaterialTemplate(). Nil until then — disc falls back to UnlitMaterial.
-nonisolated(unsafe) var plateMaterialTemplate: ShaderGraphMaterial? = nil
+private nonisolated(unsafe) var _progressionMarkMaterialCache: [String: PhysicallyBasedMaterial] = [:]
 
 private func makeWeightDisc(weightKg: Double, tier: PlateTier) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
@@ -1197,41 +1196,6 @@ private func makeWeightDiscMaterial(
     if let cg = image.cgImage,
        let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .color)) {
         mat.color = .init(texture: .init(tex))
-    }
-    return mat
-}
-
-// MARK: - Plate ShaderGraph material
-
-/// Loads PlateMaterial template once at scene setup. Call from an async .task{} before
-/// the RealityView make{} runs. Once set, makeEngravingDiscMaterial uses ShaderGraph
-/// instead of UnlitMaterial so engraving grooves respond to scene IBL.
-func preloadPlateMaterialTemplate() async {
-    plateMaterialTemplate = try? await ShaderGraphMaterial(
-        named: "/Root/PlateMaterial",
-        from: "Scene",
-        in: vOLIAMaterialsBundle
-    )
-}
-
-/// Loads PlateMaterial from the VOLIAMaterials RCP package and sets per-tier parameters.
-/// engravingText drives a CPU-generated normal map fed into the engravingNormal input so
-/// groove depth responds to the scene IBL rather than being a baked 2D shadow.
-func loadPlateMaterial(tier: PlateTier, engravingText: String, prominent: Bool) async throws -> ShaderGraphMaterial {
-    var mat = try await ShaderGraphMaterial(
-        named: "/Root/PlateMaterial",
-        from: "Scene",
-        in: vOLIAMaterialsBundle
-    )
-    try mat.setParameter(name: "baseColor", value: .color(PlateDisplaySurface.faceColor(for: tier)))
-    try mat.setParameter(name: "metallic",  value: .float(PlateDisplaySurface.metallic(for: tier)))
-    try mat.setParameter(name: "roughness", value: .float(PlateDisplaySurface.roughness(for: tier)))
-    if !engravingText.trimmingCharacters(in: .whitespaces).isEmpty {
-        let normalMap = generateEngravingNormalMap(engravingText: engravingText, tier: tier, prominent: prominent)
-        if let cg = normalMap.cgImage,
-           let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .normal)) {
-            try mat.setParameter(name: "engravingNormal", value: .textureResource(tex))
-        }
     }
     return mat
 }
@@ -1344,95 +1308,77 @@ private func bumperPlateTextColor(for tier: PlateTier) -> UIColor {
     return luminance > 0.65 ? UIColor(white: 0.12, alpha: 1) : .white
 }
 
+func normalizedRimEngravingText(_ text: String) -> String {
+    if text == "Personal Record" { return "PR" }
+    let parts = text.split(separator: " ", maxSplits: 1)
+    if parts.count == 2,
+       Int(parts[0]) != nil,
+       parts[1].lowercased() == "workouts" {
+        return "\(parts[0]) WORKOUTS"
+    }
+    return text.uppercased()
+}
+
 private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent: Bool) -> ModelEntity {
     let profile = PlateVisualDesign.profile(for: tier.style)
-    let layout = PlateVisualDesign.markingLayout(for: tier.style)
-    let cacheKey = "\(tier.id)_\(prominent)_\(engravingText)"
+    let normalizedText = normalizedRimEngravingText(engravingText)
+    let cacheKey = "\(normalizedText)_\(tier.id)_\(prominent)"
     let material: any RealityKit.Material
     if let cached = _engravingDiscMaterialCache[cacheKey] {
         material = cached
     } else {
-        let built = makeEngravingDiscMaterial(engravingText: engravingText, tier: tier, prominent: prominent)
+        let built = makeEngravingDiscMaterial(normalizedText: normalizedText, profile: profile, prominent: prominent)
         _engravingDiscMaterialCache[cacheKey] = built
         material = built
     }
-    let outerRadius = min(profile.faceOuterRadius * 0.72, Float(layout.markingRadiusRatio) * profile.outerRadius)
     let disc = ModelEntity(
-        mesh: cachedPlateRing(height: 0.001, outerRadius: outerRadius, innerRadius: plateBoreRadius),
+        mesh: cachedPlateRing(height: 0.001,
+                              outerRadius: profile.rimOuterRadius,
+                              innerRadius: plateBoreRadius),
         materials: [material]
     )
     disc.name = "engravingDisc"
-    // Sit 3 mm above the weight disc (+0.010) to avoid z-fighting.
-    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.013, 0)
+    // +0.016 clears the raised rim face, weight disc, and progression mark layers.
+    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.016, 0)
     return disc
 }
 
-private func makeEngravingDiscMaterial(engravingText: String, tier: PlateTier, prominent: Bool) -> any RealityKit.Material {
-    if var template = plateMaterialTemplate {
-        try? template.setParameter(name: "baseColor", value: .color(PlateDisplaySurface.faceColor(for: tier)))
-        try? template.setParameter(name: "metallic",  value: .float(PlateDisplaySurface.metallic(for: tier)))
-        try? template.setParameter(name: "roughness", value: .float(PlateDisplaySurface.roughness(for: tier)))
-        let heightmap = renderEngravingHeightmap(engravingText: engravingText, tier: tier, prominent: prominent, side: 512)
-        if let maskCG = heightmap.cgImage,
-           let maskTex = try? TextureResource.generate(from: maskCG, options: .init(semantic: .raw)) {
-            try? template.setParameter(name: "engravingMask", value: .textureResource(maskTex))
-        }
-        let normalMap = convertHeightmapToNormalMap(heightmap, strength: 3.0)
-        if let normalCG = normalMap.cgImage,
-           let normalTex = try? TextureResource.generate(from: normalCG, options: .init(semantic: .normal)) {
-            try? template.setParameter(name: "engravingNormal", value: .textureResource(normalTex))
-        }
-        return template
-    }
-    return makeEngravingDiscUnlitFallback(engravingText: engravingText, tier: tier, prominent: prominent)
-}
+private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVisualProfile, prominent: Bool) -> PhysicallyBasedMaterial {
+    let canvasSize: CGFloat = 512
+    let half = canvasSize / 2
+    let rimMidRadius = CGFloat((profile.rimOuterRadius + profile.rimInnerRadius) / 2)
+    let arcRadius = rimMidRadius / CGFloat(profile.outerRadius) * half
+    let fontSize = prominent ? canvasSize * 0.09 : canvasSize * 0.065
+    let textAttrs: [NSAttributedString.Key: Any] = [
+        .font: UIFont.systemFont(ofSize: fontSize, weight: prominent ? .black : .bold),
+        .foregroundColor: UIColor.white
+    ]
 
-private func makeEngravingDiscUnlitFallback(engravingText: String, tier: PlateTier, prominent: Bool) -> UnlitMaterial {
-    let side: CGFloat = 128
     let format = UIGraphicsImageRendererFormat()
     format.opaque = false
-    let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-    let textColor = bumperPlateTextColor(for: tier)
-
+    format.scale = 1
+    let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasSize, height: canvasSize), format: format)
     let image = renderer.image { _ in
-        if prominent {
-            // Milestone plates: split "25 Workouts" -> large "25" over smaller "WORKOUTS".
-            let parts = engravingText.split(separator: " ", maxSplits: 1)
-            if parts.count == 2 {
-                let numStr = String(parts[0])
-                let labelStr = String(parts[1]).uppercased()
-                let numAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: side * 0.30, weight: .black),
-                    .foregroundColor: textColor.withAlphaComponent(0.92)
-                ]
-                let labelAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: side * 0.145, weight: .heavy),
-                    .foregroundColor: textColor.withAlphaComponent(0.78)
-                ]
-                let numSz = (numStr as NSString).size(withAttributes: numAttrs)
-                let labelSz = (labelStr as NSString).size(withAttributes: labelAttrs)
-                let totalH = numSz.height + 2 + labelSz.height
-                (numStr as NSString).draw(
-                    at: CGPoint(x: (side - numSz.width) / 2, y: (side - totalH) / 2),
-                    withAttributes: numAttrs
-                )
-                (labelStr as NSString).draw(
-                    at: CGPoint(x: (side - labelSz.width) / 2, y: (side + totalH) / 2 - labelSz.height),
-                    withAttributes: labelAttrs
-                )
-            } else {
-                drawFittedEngravingText(engravingText, side: side, maxFontSize: side * 0.165, weight: .black, color: textColor.withAlphaComponent(0.92))
-            }
-        } else {
-            drawFittedEngravingText(engravingText, side: side, maxFontSize: side * 0.115, weight: .bold, color: textColor.withAlphaComponent(0.80))
-        }
+        drawArcText(
+            normalizedText,
+            center: CGPoint(x: half, y: half),
+            radius: arcRadius,
+            startAngle: -.pi * 0.82,
+            endAngle: -.pi * 0.18,
+            attributes: textAttrs,
+            outward: true
+        )
     }
 
-    var mat = UnlitMaterial()
+    var mat = PhysicallyBasedMaterial()
+    mat.baseColor = .init(tint: UIColor(white: 0.06, alpha: 1.0))
+    mat.metallic = .init(floatLiteral: 0.72)
+    mat.roughness = .init(floatLiteral: 0.18)
+    mat.clearcoat = .init(floatLiteral: 0.45)
+    mat.clearcoatRoughness = .init(floatLiteral: 0.12)
     if let cg = image.cgImage,
-       let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .color)) {
-        mat.color = .init(texture: .init(tex))
-        mat.blending = .transparent(opacity: .init(floatLiteral: 1.0))
+       let maskTex = try? TextureResource.generate(from: cg, options: .init(semantic: .raw)) {
+        mat.blending = .transparent(opacity: .init(texture: .init(maskTex)))
     }
     return mat
 }
@@ -1593,47 +1539,85 @@ private func addProgressionDetails(
     guard projection != BarbellPlateRenderProjection() else { return }
 
     let faceY = plateThickness * 0.5 + 0.004
+
+    // Tier rings
     for index in 0..<projection.tierRingCount {
         let outerRadius = Float(0.198 - Double(index) * 0.020)
         let innerRadius = max(plateBoreRadius + 0.010, outerRadius - 0.004)
         let alpha = CGFloat(0.92 - Double(index) * 0.14)
-        let mat = pbrMaterial(
-            color: projection.tierAccentColor.withAlphaComponent(alpha),
-            metallic: projection.progressionTier == .iron ? 0.25 : 0.9,
-            roughness: projection.progressionTier == .gold ? 0.18 : 0.26,
-            clearcoat: projection.progressionTier.rank >= BarbellPlateProgressionTier.chrome.rank ? 0.35 : 0
-        )
+        let ringKey = "tierRing_\(projection.progressionTier.rawValue)_\(index)"
+        let mat: PhysicallyBasedMaterial
+        if let cached = _progressionMarkMaterialCache[ringKey] {
+            mat = cached
+        } else {
+            let built = pbrMaterial(
+                color: projection.tierAccentColor.withAlphaComponent(alpha),
+                metallic: projection.progressionTier == .iron ? 0.25 : 0.9,
+                roughness: projection.progressionTier == .gold ? 0.18 : 0.26,
+                clearcoat: projection.progressionTier.rank >= BarbellPlateProgressionTier.chrome.rank ? 0.35 : 0
+            )
+            _progressionMarkMaterialCache[ringKey] = built
+            mat = built
+        }
         let ring = ModelEntity(
             mesh: cachedPlateRing(height: 0.001, outerRadius: outerRadius, innerRadius: innerRadius),
             materials: [mat]
         )
+        ring.name = "tierRing_\(index)"
         ring.position.y = faceY + Float(index) * 0.0002
         entity.addChild(ring)
     }
 
-    let chalkMat = pbrMaterial(color: UIColor(white: 0.88, alpha: 0.72), metallic: 0, roughness: 0.96)
+    // Chalk marks
+    let chalkMat: PhysicallyBasedMaterial
+    if let cached = _progressionMarkMaterialCache["chalk"] {
+        chalkMat = cached
+    } else {
+        let built = pbrMaterial(color: UIColor(white: 0.88, alpha: 0.72), metallic: 0, roughness: 0.96)
+        _progressionMarkMaterialCache["chalk"] = built
+        chalkMat = built
+    }
     for index in 0..<projection.chalkMarkCount {
         let angle = Float(index) * 1.37
         let radius = Float(0.105 + 0.012 * Float(index % 3))
         let mark = ModelEntity(mesh: cachedBox(size: SIMD3(0.028, 0.0015, 0.006)), materials: [chalkMat])
+        mark.name = "chalkMark"
         mark.position = SIMD3(cos(angle) * radius, faceY + 0.002, sin(angle) * radius)
         mark.orientation = simd_quatf(angle: angle + .pi / 5, axis: SIMD3(0, 1, 0))
         entity.addChild(mark)
     }
 
-    let wearMat = pbrMaterial(color: UIColor(white: 0.10, alpha: 0.55), metallic: 0.15, roughness: 0.82)
+    // Wear marks
+    let wearMat: PhysicallyBasedMaterial
+    if let cached = _progressionMarkMaterialCache["wear"] {
+        wearMat = cached
+    } else {
+        let built = pbrMaterial(color: UIColor(white: 0.10, alpha: 0.55), metallic: 0.15, roughness: 0.82)
+        _progressionMarkMaterialCache["wear"] = built
+        wearMat = built
+    }
     for index in 0..<projection.gripWearMarkCount {
         let angle = Float(index) * 1.05 + 0.32
         let mark = ModelEntity(mesh: cachedBox(size: SIMD3(0.040, 0.0018, 0.004)), materials: [wearMat])
+        mark.name = "wearMark"
         mark.position = SIMD3(cos(angle) * 0.168, faceY + 0.003, sin(angle) * 0.168)
         mark.orientation = simd_quatf(angle: angle, axis: SIMD3(0, 1, 0))
         entity.addChild(mark)
     }
 
-    let polishMat = pbrMaterial(color: UIColor(white: 1.0, alpha: 0.42), metallic: 1, roughness: 0.18)
+    // Polish marks
+    let polishMat: PhysicallyBasedMaterial
+    if let cached = _progressionMarkMaterialCache["polish"] {
+        polishMat = cached
+    } else {
+        let built = pbrMaterial(color: UIColor(white: 1.0, alpha: 0.42), metallic: 1, roughness: 0.18)
+        _progressionMarkMaterialCache["polish"] = built
+        polishMat = built
+    }
     for index in 0..<projection.pressPolishMarkCount {
         let angle = Float(index) * 1.23 + 0.74
         let mark = ModelEntity(mesh: cachedBox(size: SIMD3(0.018, 0.0015, 0.018)), materials: [polishMat])
+        mark.name = "polishMark"
         mark.position = SIMD3(cos(angle) * 0.075, faceY + 0.004, sin(angle) * 0.075)
         mark.orientation = simd_quatf(angle: angle, axis: SIMD3(0, 1, 0))
         entity.addChild(mark)
@@ -1849,201 +1833,4 @@ func makeRackStandEntity(rackStyleID: String = "matte_black") -> ModelEntity {
     let root = ModelEntity()
     root.addChild(stand)
     return root
-}
-
-// MARK: - Plate info card
-
-/// Builds a thin 3D card entity textured with plate tier info.
-/// Card faces the camera (+Z in sceneRoot-local = toward camera).
-/// Parent: sceneRoot. Position: caller places it near the plate.
-func makeInfoCardEntity(plate: EarnedPlate) -> ModelEntity {
-    guard let tier = PlateTier.all.first(where: { $0.id == plate.tierID }) else {
-        return ModelEntity()
-    }
-    let image = makeInfoCardTexture(plate: plate, tier: tier)
-    var mat = UnlitMaterial()
-    if let cg = image.cgImage,
-       let tex = try? TextureResource.generate(from: cg, options: .init(semantic: .color)) {
-        mat.color = .init(texture: .init(tex))
-        // transparent blending lets the alpha=0 chamfer corners show through to the scene.
-        mat.blending = .transparent(opacity: .init(floatLiteral: 1.0))
-    }
-    let card = ModelEntity(
-        mesh: cachedBox(size: SIMD3(0.85, 1.10, 0.006)),
-        materials: [mat]
-    )
-    card.name = "infoCard_\(plate.id)"
-    return card
-}
-
-private func makeInfoCardTexture(plate: EarnedPlate, tier: PlateTier) -> UIImage {
-    let w: CGFloat = 700
-    let h: CGFloat = 900
-    // Chamfer size matching DS.ChamferedRectangle .xl (scaled to texture space).
-    // ChamferedRectangle: TL square, TR chamfered, BR square, BL chamfered.
-    let chamfer: CGFloat = 52
-    // opaque=false: areas outside the chamfered path stay alpha=0 (transparent).
-    // mat.blending=.transparent in makeInfoCardEntity renders those pixels as see-through.
-    let format = UIGraphicsImageRendererFormat()
-    format.opaque = false
-    let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h), format: format)
-    return renderer.image { _ in
-        let bg = CGRect(x: 0, y: 0, width: w, height: h)
-
-        // Chamfered card outline path (reused for BG, header clip, and border).
-        func cardPath(_ rect: CGRect) -> UIBezierPath {
-            let c = chamfer
-            let p = UIBezierPath()
-            p.move(to: CGPoint(x: rect.minX, y: rect.minY))                      // TL square
-            p.addLine(to: CGPoint(x: rect.maxX - c, y: rect.minY))               // top edge
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + c))               // TR chamfer
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))                   // right edge → BR square
-            p.addLine(to: CGPoint(x: rect.minX + c, y: rect.maxY))               // bottom edge
-            p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - c))               // BL chamfer
-            p.close()
-            return p
-        }
-
-        // Card background
-        UIColor(white: 0.09, alpha: 1).setFill()
-        cardPath(bg).fill()
-
-        // Header stripe -- tier color, top ~27% of card height
-        let headerH: CGFloat = 242
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        tier.plateColor.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let brightness = 0.299 * r + 0.587 * g + 0.114 * b
-        let headerColor = brightness < 0.15
-            ? UIColor(red: r + 0.20, green: g + 0.20, blue: b + 0.20, alpha: 0.90)
-            : tier.plateColor.withAlphaComponent(0.88)
-        // Header path: only TR chamfered (TL/BL/BR all square) to match card outline.
-        let headerPath = UIBezierPath()
-        headerPath.move(to: CGPoint(x: 0, y: 0))                                  // TL square
-        headerPath.addLine(to: CGPoint(x: w - chamfer, y: 0))                     // top edge
-        headerPath.addLine(to: CGPoint(x: w, y: chamfer))                         // TR chamfer
-        headerPath.addLine(to: CGPoint(x: w, y: headerH))                         // right edge
-        headerPath.addLine(to: CGPoint(x: 0, y: headerH))                         // bottom edge
-        headerPath.close()
-        headerColor.setFill()
-        headerPath.fill()
-
-        // Tier initial circle
-        let circleSize: CGFloat = 90
-        let circleRect = CGRect(x: (w - circleSize) / 2, y: 66, width: circleSize, height: circleSize)
-        UIColor(white: 1, alpha: 0.20).setFill()
-        UIBezierPath(ovalIn: circleRect).fill()
-        let initial = String(tier.name.prefix(1))
-        let initAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: 46),
-            .foregroundColor: UIColor.white
-        ]
-        let initSz = (initial as NSString).size(withAttributes: initAttrs)
-        (initial as NSString).draw(
-            at: CGPoint(x: circleRect.midX - initSz.width / 2, y: circleRect.midY - initSz.height / 2),
-            withAttributes: initAttrs
-        )
-
-        // Rarity pill
-        let rarityText = tier.rarity.rawValue.uppercased()
-        let rarityAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: 22),
-            .foregroundColor: UIColor.white
-        ]
-        let raritySz = (rarityText as NSString).size(withAttributes: rarityAttrs)
-        let pillPad: CGFloat = 18
-        let pillRect = CGRect(x: (w - raritySz.width - pillPad * 2) / 2,
-                              y: 182,
-                              width: raritySz.width + pillPad * 2,
-                              height: raritySz.height + 12)
-        UIColor(white: 1, alpha: 0.22).setFill()
-        UIBezierPath(roundedRect: pillRect, cornerRadius: pillRect.height / 2).fill()
-        (rarityText as NSString).draw(
-            at: CGPoint(x: pillRect.minX + pillPad, y: pillRect.minY + 6),
-            withAttributes: rarityAttrs
-        )
-
-        // Tier name
-        let nameAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: 46),
-            .foregroundColor: UIColor.white
-        ]
-        let nameSz = (tier.name as NSString).size(withAttributes: nameAttrs)
-        (tier.name as NSString).draw(
-            at: CGPoint(x: (w - nameSz.width) / 2, y: 264),
-            withAttributes: nameAttrs
-        )
-
-        // Divider
-        UIColor(white: 0.28, alpha: 1).setFill()
-        UIBezierPath(rect: CGRect(x: 48, y: 336, width: w - 96, height: 1)).fill()
-
-        // Data rows
-        let labelAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 22, weight: .semibold),
-            .foregroundColor: UIColor(white: 0.50, alpha: 1)
-        ]
-        let valueAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: 34),
-            .foregroundColor: UIColor.white
-        ]
-
-        var y: CGFloat = 358
-
-        // Weight (skip for starter plate)
-        if plate.weightKg > 0 {
-            ("WEIGHT" as NSString).draw(at: CGPoint(x: 48, y: y), withAttributes: labelAttrs)
-            y += 34
-            let wStr = plate.weightKg.truncatingRemainder(dividingBy: 1) == 0
-                ? "\(Int(plate.weightKg)) kg" : String(format: "%.1f kg", plate.weightKg)
-            (wStr as NSString).draw(at: CGPoint(x: 48, y: y), withAttributes: valueAttrs)
-            y += 62
-        }
-
-        // How earned
-        let eventText = infoCardFormatEvent(plate.earnedByEvent)
-        ("HOW YOU EARNED IT" as NSString).draw(at: CGPoint(x: 48, y: y), withAttributes: labelAttrs)
-        y += 34
-        let paraStyle = NSMutableParagraphStyle()
-        paraStyle.lineBreakMode = .byWordWrapping
-        paraStyle.lineSpacing = 4
-        let eventAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 30, weight: .medium),
-            .foregroundColor: UIColor.white,
-            .paragraphStyle: paraStyle
-        ]
-        (eventText as NSString).draw(
-            in: CGRect(x: 48, y: y, width: w - 96, height: 110),
-            withAttributes: eventAttrs
-        )
-        y += 88
-
-        // Date earned
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        df.timeStyle = .none
-        let dateStr = df.string(from: plate.earnedAt)
-        ("EARNED ON" as NSString).draw(at: CGPoint(x: 48, y: y), withAttributes: labelAttrs)
-        y += 34
-        (dateStr as NSString).draw(at: CGPoint(x: 48, y: y), withAttributes: valueAttrs)
-
-        // Chamfered border
-        UIColor(white: 0.32, alpha: 1).setStroke()
-        let border = cardPath(bg.insetBy(dx: 1.5, dy: 1.5))
-        border.lineWidth = 3
-        border.stroke()
-    }
-}
-
-private func infoCardFormatEvent(_ event: String) -> String {
-    switch event {
-    case "starter":           return "Awarded at account creation"
-    case "first_workout":     return "Completed your first workout"
-    default: break
-    }
-    if event.hasPrefix("pr_") { return "Hit a personal record" }
-    if event.hasPrefix("strength_milestone_") {
-        let n = event.replacingOccurrences(of: "strength_milestone_", with: "")
-        return "Reached strength milestone \(n)"
-    }
-    return event.split(separator: "_").map { $0.capitalized }.joined(separator: " ")
 }

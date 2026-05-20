@@ -230,6 +230,7 @@
 		2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00122FA0000000000001 /* BarbellRealityView.swift */; };
 		2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00142FA0000000000001 /* PlateFaceView.swift */; };
 		2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00162FA0000000000001 /* PlateVisualDesign.swift */; };
+		2EBB001A2FA0000000000001 /* PlateInfoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00192FA0000000000001 /* PlateInfoCardView.swift */; };
 		2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */; };
 		2EBC10022FA2000000000001 /* BattleRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */; };
 		2EBC10042FA2000000000001 /* ChallengeRewardPreviewBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */; };
@@ -716,6 +717,7 @@
 		2EBB00122FA0000000000001 /* BarbellRealityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellRealityView.swift; sourceTree = "<group>"; };
 		2EBB00142FA0000000000001 /* PlateFaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateFaceView.swift; sourceTree = "<group>"; };
 		2EBB00162FA0000000000001 /* PlateVisualDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateVisualDesign.swift; sourceTree = "<group>"; };
+		2EBB00192FA0000000000001 /* PlateInfoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateInfoCardView.swift; sourceTree = "<group>"; };
 		2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarSkinPreviewTile.swift; sourceTree = "<group>"; };
 		2EBC10032FA2000000000001 /* BattleRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleRewardPreviewBlock.swift; sourceTree = "<group>"; };
 		2EBC10052FA2000000000001 /* ChallengeRewardPreviewBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengeRewardPreviewBlock.swift; sourceTree = "<group>"; };
@@ -1543,6 +1545,7 @@
 				2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */,
 				2EBB00122FA0000000000001 /* BarbellRealityView.swift */,
 				2EBB00142FA0000000000001 /* PlateFaceView.swift */,
+				2EBB00192FA0000000000001 /* PlateInfoCardView.swift */,
 				ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */,
 			);
 			path = Views;
@@ -2838,6 +2841,7 @@
 				2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */,
 				2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */,
 				2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */,
+				2EBB001A2FA0000000000001 /* PlateInfoCardView.swift in Sources */,
 				2EFFC0012FB0000000000001 /* Components/PlateCollectionCell.swift in Sources */,
 				2E05A72C2FBC955000A62E2E /* ProgressShareCoordinator.swift in Sources */,
 				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,

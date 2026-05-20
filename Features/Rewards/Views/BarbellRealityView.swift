@@ -222,8 +222,6 @@ final class SceneState {
     var isDraggingWelcome: Bool = false
 
     // MARK: Info card
-    /// Currently displayed 3D info card entity (child of sceneRoot). Nil when no card shown.
-    var infoCardEntity: Entity? = nil
     /// Plate ID whose card is currently visible. Used to detect re-tap for dismiss.
     var infoCardPlateID: String? = nil
     /// Timestamp of last showInfoCard() call. Prevents the dismiss path running within
@@ -816,6 +814,7 @@ struct BarbellRealityView: View {
     private let floorPhysicsMaxZ: Float = 0.82
 
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var infoCardPlate: EarnedPlate? = nil
 
     var body: some View {
         ZStack {
@@ -887,9 +886,29 @@ struct BarbellRealityView: View {
 
             overlayView
 
+            if let infoCardPlate {
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .onTapGesture {
+                        dismissInfoCard(bypassDebounce: true)
+                    }
+
+                ScrollView {
+                    PlateInfoCardView(plate: infoCardPlate) {
+                        dismissInfoCard(bypassDebounce: true)
+                    }
+                    .frame(maxWidth: 420)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 24)
+                }
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            }
+
             // Keep this view to one RealityView. Extra hidden RealityViews can trip
             // RealityKit/Metal debug validation during win-screen presentation.
         }
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: infoCardPlate?.id)
         // RealityKit's near-clip plane (~0.5m from camera) prevents geometry from reaching
         // the very bottom of the viewport. Fill that gap with a matching floor color so the
         // room appears to extend to the screen edge.
@@ -1300,12 +1319,12 @@ struct BarbellRealityView: View {
                         "UNRACK_START",
                         "id=\(outermostID) touched=\(entity.name) dx=\(String(format: "%.1f", dx)) dy=\(String(format: "%.1f", dy)) world=\(barbellDiagnosticsV3(outermostEntity.position(relativeTo: nil)))"
                     )
-                    // Target world X = ±0.84: safely inside the wall inner face (±0.85) so
-                    // neither plate overshoots the wall. Fixed target instead of +offset because
-                    // the offset varies by slot (0.60-0.72) and a relative offset can overshoot.
+                    // Target world X = ±0.48: stays close to the rack so release-to-floor
+                    // starts from a stable, recoverable position. Fixed target instead of
+                    // +offset because the offset varies by slot (0.60-0.72).
                     let outerWorldPos = outermostEntity.position(relativeTo: nil)
-                    let slideTargetX: Float = 0.78
-                    let slideTargetZ: Float = 0.30
+                    let slideTargetX: Float = 0.48
+                    let slideTargetZ: Float = 0.22
                     let slideTarget = Transform(
                         scale: outermostEntity.scale,
                         rotation: outermostEntity.orientation,
@@ -1346,7 +1365,8 @@ struct BarbellRealityView: View {
                 // (storage plate movement < 8pt threshold). Treat as info-card tap.
                 if case .rackRoom = mode, case .idle = sceneState.dragPhase {
                     let tapID = tapped.name.replacingOccurrences(of: "_mirror", with: "")
-                    if tapped.components[PlateRoleComponent.self] != nil,
+                    if let roleComp = tapped.components[PlateRoleComponent.self],
+                       roleComp.role != .bar,
                        tapped.name != "barHitZone",
                        sceneState.entityMap[tapID] != nil {
                         if sceneState.infoCardPlateID == tapID {
@@ -1841,42 +1861,30 @@ struct BarbellRealityView: View {
         // Dismiss any existing card without animation (new card replaces it instantly)
         dismissInfoCard(animated: false)
 
-        let card = makeInfoCardEntity(plate: plate)
-
-        // Fixed screen-center position in sceneRoot-local space.
-        // sceneRoot is at world (0, -0.45, -1.4) in rackRoom mode.
-        // (0, 0.80, 0.54) → world (0, 0.35, -0.86): centered horizontally,
-        // roughly mid-screen vertically (above bar, below storage wall).
-        let centerLocal = SIMD3<Float>(0, 0.80, 0.54)
-
-        card.position = centerLocal
-        card.scale    = SIMD3(repeating: 1)
-        sceneState.sceneRoot.addChild(card)
-        sceneState.infoCardEntity       = card
         sceneState.infoCardPlateID      = plateID
         sceneState.infoCardLastShowTime = Date()
+        infoCardPlate = plate
     }
 
-    private func dismissInfoCard(animated: Bool = true) {
-        guard let card = sceneState.infoCardEntity else { return }
+    private func dismissInfoCard(animated: Bool = true, bypassDebounce: Bool = false) {
+        guard infoCardPlate != nil else { return }
         // Debounce: ignore dismiss fired within 400ms of showing.
         // Prevents TapGesture double-fire (some iOS versions fire onEnded twice)
         // from immediately collapsing a card that was just shown.
-        if animated && Date().timeIntervalSince(sceneState.infoCardLastShowTime) < 0.40 { return }
-        sceneState.infoCardEntity  = nil
+        if !bypassDebounce && animated && Date().timeIntervalSince(sceneState.infoCardLastShowTime) < 0.40 { return }
         sceneState.infoCardPlateID = nil
 
         guard animated && !sceneState.isReduceMotionEnabled else {
-            card.removeFromParent()
+            var transaction = Transaction()
+            transaction.animation = nil
+            withTransaction(transaction) {
+                infoCardPlate = nil
+            }
             return
         }
 
-        // Scale-out then remove
-        let hidden = Transform(scale: SIMD3(repeating: 0.01), rotation: simd_quatf(), translation: card.position)
-        card.move(to: hidden, relativeTo: sceneState.sceneRoot, duration: 0.20, timingFunction: .easeIn)
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(220))
-            card.removeFromParent()
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+            infoCardPlate = nil
         }
     }
 
@@ -2140,18 +2148,17 @@ struct BarbellRealityView: View {
 
         // Bar hit zone: invisible input-target spanning the full bar and plate area.
         // Catches swipe-to-unrack gestures on the bar body, sleeves, and left (mirror) side
-        // where no interactive plate entity exists. Positioned slightly behind plates (z=-0.05)
-        // so racked plate hit-tests take priority when plates are present.
+        // where no interactive plate entity exists.
         // barHitZoneCollisionFilter has empty mask -- no physical collisions with plates or floor.
         let barHitZone = Entity()
         barHitZone.name = "barHitZone"
         barHitZone.components.set(InputTargetComponent())
         barHitZone.components.set(CollisionComponent(
-            shapes: [ShapeResource.generateBox(size: SIMD3(1.6, 0.5, 0.05))],
+            shapes: [ShapeResource.generateBox(size: SIMD3(1.6, 0.5, 0.12))],
             filter: barHitZoneCollisionFilter
         ))
         barHitZone.components.set(PlateRoleComponent(role: .bar))
-        barHitZone.position = SIMD3(0, 0, -0.05)
+        barHitZone.position = SIMD3(0, 0, 0)
         sceneState.barAnchor.addChild(barHitZone)
 
         // Slot highlight rings -- one per bar slot, hidden until plate is dragged near bar.
