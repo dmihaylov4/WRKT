@@ -167,7 +167,17 @@ xcodebuild test -scheme WRKT -only-testing WRKTTests/BarbellEntityBuilderTests/p
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Manual performance validation**
+
+This optimization targets GPU draw call batching — unit tests cannot verify it. After the build succeeds, open the rack room on a physical device (not simulator):
+
+1. Earn or add 4 pairs of plates of the same tier (e.g., all cast iron) to the barbell
+2. Rapidly swipe-unrack multiple pairs in quick succession
+3. Drag floor plates around at speed
+
+Expected: no visible stutter or frame drops during simultaneous plate animations. If there is still noticeable lag, check that `_progressionMarkMaterialCache` is actually being hit (add a `#if DEBUG print(...)` temporarily) and that plates are not being rebuilt from scratch on each rack/unrack cycle.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add Features/Rewards/Views/BarbellEntityBuilder.swift WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift
@@ -343,8 +353,8 @@ Add to `WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift`:
         showEngravings: true
     )
     let disc = try #require(entity.children.first { $0.name == "engravingDisc" })
-    // Raised rim face sits at thickness/2 + 0.003; disc must clear it
-    #expect(disc.position.y >= profile.thickness * 0.5 + 0.003)
+    // Must clear rim face (+0.003), weight disc (+0.010), and progression marks (up to +0.012)
+    #expect(disc.position.y >= profile.thickness * 0.5 + 0.015)
 }
 ```
 
@@ -363,7 +373,9 @@ Find `private func makeEngravingDisc(engravingText: String, tier: PlateTier, pro
 ```swift
     let profile = PlateVisualDesign.profile(for: tier.style)
     let normalizedText = normalizedRimEngravingText(engravingText)
-    let cacheKey = normalizedText
+    // Key includes tier.id (determines rim radii via style) and prominent (affects font size).
+    // Same text on bumper vs cast iron has different arc radius — wrong key = wrong geometry.
+    let cacheKey = "\(normalizedText)_\(tier.id)_\(prominent)"
     let material: any RealityKit.Material
     if let cached = _engravingDiscMaterialCache[cacheKey] {
         material = cached
@@ -380,7 +392,9 @@ Find `private func makeEngravingDisc(engravingText: String, tier: PlateTier, pro
         materials: [material]
     )
     disc.name = "engravingDisc"
-    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.004, 0)
+    // +0.016 clears the raised rim face (+0.003), weight disc (+0.010), and
+    // all progression marks (highest polish mark at faceY+0.008 = thickness*0.5+0.012).
+    disc.position = SIMD3(0, profile.thickness * 0.5 + 0.016, 0)
     return disc
 ```
 
@@ -428,6 +442,7 @@ Change to:
 
 ```swift
         let built = makeEngravingDiscMaterial(normalizedText: normalizedText, profile: profile, prominent: prominent)
+        // cacheKey already includes tier.id and prominent — same text on different styles stays separate
 ```
 
 - [ ] **Step 2: Replace `makeEngravingDiscMaterial`**
@@ -502,10 +517,38 @@ git commit -m "feat(barbell): rim engraving uses black metallic PBR arc text"
 **Files:**
 - Modify: `Features/Rewards/Views/BarbellEntityBuilder.swift`
 - Modify: `Features/Profile/Views/BarbellPreviewView.swift`
+- Modify: `Features/Rewards/Views/BarbellWelcomeView.swift`
+- Modify: `Features/Rewards/Views/BarbellMomentView.swift`
 
-**Context:** The ShaderGraph engraving path (`plateMaterialTemplate`, `preloadPlateMaterialTemplate`, `loadPlateMaterial`) is now dead — `makeEngravingDiscMaterial` no longer reads `plateMaterialTemplate`. Remove all of it.
+**Context:** The ShaderGraph engraving path (`plateMaterialTemplate`, `preloadPlateMaterialTemplate`, `loadPlateMaterial`) is now dead — `makeEngravingDiscMaterial` no longer reads `plateMaterialTemplate`. Remove all of it. The function is called from three view files; all call sites must be removed before deleting the declaration or the build fails.
 
-- [ ] **Step 1: Delete dead declarations from BarbellEntityBuilder**
+- [ ] **Step 1: Remove all preload call sites first**
+
+Before deleting the function, remove every call to it — otherwise the build fails mid-cleanup.
+
+In `Features/Profile/Views/BarbellPreviewView.swift` (line ~351), delete:
+```swift
+await preloadPlateMaterialTemplate()
+```
+
+In `Features/Rewards/Views/BarbellWelcomeView.swift` (line ~99), delete:
+```swift
+await preloadPlateMaterialTemplate()
+```
+
+In `Features/Rewards/Views/BarbellMomentView.swift` (line ~82), delete:
+```swift
+await preloadPlateMaterialTemplate()
+```
+
+Confirm no remaining call sites:
+```
+grep -rn "preloadPlateMaterialTemplate\|plateMaterialTemplate\|loadPlateMaterial" /Users/dimitarmihaylov/dev/WRKT --include="*.swift" | grep -v "BarbellEntityBuilder"
+```
+
+Expected: no output.
+
+- [ ] **Step 2: Delete dead declarations from BarbellEntityBuilder**
 
 In `Features/Rewards/Views/BarbellEntityBuilder.swift`, find and delete:
 
@@ -513,23 +556,13 @@ In `Features/Rewards/Views/BarbellEntityBuilder.swift`, find and delete:
 2. The entire `func preloadPlateMaterialTemplate() async { ... }` function (line ~1209)
 3. The entire `func loadPlateMaterial(tier:engravingText:prominent:) async throws -> ShaderGraphMaterial { ... }` function (line ~1220)
 
-- [ ] **Step 2: Remove preload call from BarbellPreviewView**
-
-In `Features/Profile/Views/BarbellPreviewView.swift`, find and delete the line:
-
-```swift
-await preloadPlateMaterialTemplate()
-```
-
-(line ~351, inside a `.task` or scene setup closure)
-
 - [ ] **Step 3: Build and verify**
 
 ```
 xcodebuild build -scheme WRKT 2>&1 | grep -E "error:|BUILD FAILED|BUILD SUCCEEDED"
 ```
 
-Expected: BUILD SUCCEEDED. If any remaining reference to `plateMaterialTemplate` or `preloadPlateMaterialTemplate` causes an error, delete it.
+Expected: BUILD SUCCEEDED.
 
 - [ ] **Step 4: Run all barbell tests**
 
@@ -542,7 +575,7 @@ Expected: all existing tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add Features/Rewards/Views/BarbellEntityBuilder.swift Features/Profile/Views/BarbellPreviewView.swift
+git add Features/Rewards/Views/BarbellEntityBuilder.swift Features/Profile/Views/BarbellPreviewView.swift Features/Rewards/Views/BarbellWelcomeView.swift Features/Rewards/Views/BarbellMomentView.swift
 git commit -m "chore(barbell): remove dead ShaderGraph engraving template code"
 ```
 
@@ -711,10 +744,10 @@ Find `struct BarbellRealityView: View` and add alongside the other `@State` prop
 
 - [ ] **Step 3: Replace `showInfoCard`**
 
-Find `private func showInfoCard(plateID: String)` (line ~1838). Replace the entire function body:
+The actual function signature is `private func showInfoCard(for plateID: String)` with call sites using `showInfoCard(for: tapID)`. Find this function (search for `func showInfoCard(for`) and replace its entire body — keep the existing signature unchanged:
 
 ```swift
-private func showInfoCard(plateID: String) {
+private func showInfoCard(for plateID: String) {
     let allPlates = allRackedPlates + allFloorPlates
     guard let plate = allPlates.first(where: { $0.id == plateID }) else { return }
     dismissInfoCard(animated: false)
