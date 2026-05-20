@@ -7,7 +7,7 @@
 
 ## Problem
 
-1. **Lag when pulling plates fast**: each plate has up to 22 individual `ModelEntity` children for progression marks (tier rings, chalk, wear, polish). Multiple simultaneous `entity.move()` animations drive 44+ transform updates per frame, causing visible stutter.
+1. **Lag when pulling plates fast**: `addProgressionDetails` calls `pbrMaterial(...)` fresh on every plate build, producing unique `PhysicallyBasedMaterial` instances per plate. RealityKit cannot batch draw calls across entities that hold distinct material instances. With multiple plates animating simultaneously each plate's marks cost independent draw calls, causing GPU stutter.
 2. **Bar plates show info card on tap**: tapping a racked plate triggers the detail info card, which is disruptive during gameplay.
 3. **Left-side swipe unreliable**: `barHitZone` exists to handle left-side unrack gestures but sits at z=−0.05 with a 0.05m deep collision box — touch rays at slight angles miss it.
 4. **Unrack animation exits view**: `slideTargetX = 0.78` places the plate at the room wall edge, which exits the visible camera frustum before the 200ms animation ends.
@@ -16,41 +16,36 @@
 
 ## Changes
 
-### 1. Progression Mark Texture Bake
+### 1. Progression Mark Material Caching
 
 **File:** `Features/Rewards/Views/BarbellEntityBuilder.swift`
 
-Replace `addProgressionDetails(to:projection:plateThickness:)` with `makeProgressionOverlayDisc(projection:profile:) -> ModelEntity`.
+**Root cause:** `addProgressionDetails` creates fresh `PhysicallyBasedMaterial` instances on every call — one per mark type per plate build. Four plates on the bar = four distinct chalk materials, four distinct wear materials, etc. RealityKit batches draw calls only across entities that share the same material resource. Unique instances prevent batching.
 
-The new function:
-- Renders all progression marks onto a single 512×512 `UIGraphicsImageRenderer` canvas:
-  - Tier rings: concentric arcs using `BarbellPlateRenderProjection.tierAccentColor` and the same radii currently used for ring entities (0.198, 0.178, 0.158)
-  - Chalk marks: small white rectangles at current angles and radii
-  - Grip wear marks: dark brown short strokes at current positions
-  - Polish marks: small bright squares at current positions
-- Wraps the result as a `TextureResource`
-- Creates one flat disc `ModelEntity`:
-  - Mesh: `cachedPlateRing(height: 0.001, outerRadius: profile.outerRadius - 0.004, innerRadius: plateBoreRadius)` — covers the full plate face from bore edge to just inside the rim, large enough to include tier rings at radius 0.198m
-  - Position: `SIMD3(0, profile.thickness * 0.5 + 0.016, 0)` — sits 3mm above the engraving disc to avoid z-fighting
-- Material: `UnlitMaterial` with `.transparent` blending, black transparent background — same pattern as `makeEngravingDiscUnlitFallback`
+**Fix:** Add a process-level material cache alongside the existing `_weightDiscMaterialCache` and `_engravingDiscMaterialCache`:
 
-**Accepted visual tradeoff:** current tier rings use `metallic: 0.9, clearcoat: 0.35` and polish marks use `metallic: 1.0, roughness: 0.18` (PBR). Baking into a single `UnlitMaterial` disc drops these properties — tier rings and polish marks lose their metallic sheen. Chalk and grip wear marks are near-matte and unaffected in practice. This tradeoff is accepted: progression marks are small secondary details and the performance gain outweighs exact PBR parity. A future ShaderGraph mask approach could restore metallic response if needed.
-
-**Meter-to-pixel coordinate mapping:** marks are placed in the plate's local x/z plane. The canvas radius corresponds to `overlayRadius = profile.outerRadius - 0.004`. For a mark at local position `(x, z)`:
-```
-u = Float((x / overlayRadius + 1.0) * 0.5)
-v = Float(1.0 - (z / overlayRadius + 1.0) * 0.5)   // CoreGraphics y-axis is downward
-```
-Mark rotation around the y-axis by `angle` → `CGAffineTransform(rotationAngle: CGFloat(-angle))` applied to the CGContext before drawing each mark rectangle.
-
-The existing early-exit guard is preserved:
 ```swift
-guard projection != BarbellPlateRenderProjection() else { return }
+nonisolated(unsafe) var _progressionMarkMaterialCache: [String: PhysicallyBasedMaterial] = [:]
 ```
 
-Plates with no progression data skip the disc entirely. Marks are front-face only (matching current behavior — no `addFaceDetailPair`).
+Cache keys and their corresponding materials:
 
-**Result:** up to 22 child entities → 1 per plate.
+| Key | Material |
+|-----|----------|
+| `"chalk"` | `pbrMaterial(color: UIColor(white: 0.88, alpha: 0.72), metallic: 0, roughness: 0.96)` |
+| `"wear"` | `pbrMaterial(color: UIColor(white: 0.10, alpha: 0.55), metallic: 0.15, roughness: 0.82)` |
+| `"polish"` | `pbrMaterial(color: UIColor(white: 1.0, alpha: 0.42), metallic: 1, roughness: 0.18)` |
+| `"tierRing_<tierName>_<index>"` | Ring material with `tierAccentColor`, metallic, roughness, clearcoat per tier+index |
+
+`addProgressionDetails` is otherwise unchanged in structure — same entity count, same positions, same PBR values. Only the material creation path changes: look up the cache key, create and store on miss, reuse on hit.
+
+Also name each mark entity so tests can filter them:
+- Chalk marks: `mark.name = "chalkMark"`
+- Wear marks: `mark.name = "wearMark"`
+- Polish marks: `mark.name = "polishMark"`
+- Tier rings: `ring.name = "tierRing_\(index)"`
+
+**Result:** All chalk marks across all plates share one `PhysicallyBasedMaterial` instance, all wear marks share one, all polish marks share one, tier rings share per-tier-per-index. RealityKit batches these into a small number of draw calls regardless of how many plates are on screen. No visual change — same PBR metallic, roughness, clearcoat properties on every mark.
 
 ---
 
@@ -116,45 +111,41 @@ At x=0.48 the plate lands just past the outermost sleeve — visible on screen, 
 
 | File | Change |
 |------|--------|
-| `Features/Rewards/Views/BarbellEntityBuilder.swift` | Replace `addProgressionDetails` with `makeProgressionOverlayDisc` |
+| `Features/Rewards/Views/BarbellEntityBuilder.swift` | Add `_progressionMarkMaterialCache`; update `addProgressionDetails` to use it; name mark entities |
 | `Features/Rewards/Views/BarbellRealityView.swift` | Tap guard (1 line), barHitZone position+size (2 lines), slideTarget values (2 lines) |
+
+---
 
 ## Tests
 
 **File:** `WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift`
 
-**Update** `plateRealismPassPreservesProgressionAndWeightLayers` (line 437): after the change, a fully progressed plate produces one child named `"progressionOverlayDisc"` instead of many mark entities. Update the test to assert:
-```swift
-#expect(entity.children.contains { $0.name == "progressionOverlayDisc" })
-```
-Remove the bare `entity.children.count >= 8` assertion (count changes with the new structure).
+**Keep unchanged:** `plateRealismPassPreservesProgressionAndWeightLayers` (line 437) — entity count and PBR components are identical after the refactor, so `children.count >= 8` and the component assertions still hold.
 
-**Add** two new tests:
+**Add** one new test verifying mark counts match the projection and named entities are present (relies on the naming added to `addProgressionDetails`):
 
 ```swift
-@Test func plateWithNoProgressionHasNoOverlayDisc() {
-    let entity = makePlateEntity(tierID: 1, weightKg: 10)
-    // Default projection (all zeros) skips the overlay entirely
-    #expect(!entity.children.contains { $0.name == "progressionOverlayDisc" })
-}
-
-@Test func plateWithProgressionHasExactlyOneOverlayDisc() {
-    let entity = makePlateEntity(
-        tierID: 1,
-        weightKg: 10,
-        renderProjection: BarbellPlateRenderProjection(chalkUseCount: 8)
+@Test func progressionMarksRespectProjectionCounts() {
+    // chalkUseCount 16 -> chalkMarkCount 4, gripWearCount 10 -> 2, pressUseCount 12 -> 2
+    let projection = BarbellPlateRenderProjection(
+        progressionTier: .gold,
+        chalkUseCount: 16,
+        gripWearCount: 10,
+        pressUseCount: 12
     )
-    #expect(entity.children.filter { $0.name == "progressionOverlayDisc" }.count == 1)
+    let entity = makePlateEntity(tierID: 1, weightKg: 10, renderProjection: projection)
+    #expect(entity.children.filter { $0.name == "chalkMark" }.count == projection.chalkMarkCount)
+    #expect(entity.children.filter { $0.name == "wearMark" }.count == projection.gripWearMarkCount)
+    #expect(entity.children.filter { $0.name == "polishMark" }.count == projection.pressPolishMarkCount)
+    #expect(entity.children.filter { $0.name.hasPrefix("tierRing") }.count == projection.tierRingCount)
 }
 ```
-
-Starter plates (tierID 7) skip progression details via the existing `tierID != 7` guard — no additional test needed.
 
 ---
 
 ## Out of Scope
 
-- Visual appearance of progression marks (colors, layout, sizes match current)
+- Visual appearance of progression marks — colors, layout, sizes, and PBR properties are unchanged
 - Physics, audio, or haptic changes
 - Storage slot tap behavior
 - `snapToFloor` / `finishUnrack` logic
