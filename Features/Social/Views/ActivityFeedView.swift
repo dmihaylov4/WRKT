@@ -400,7 +400,7 @@ struct BattleLoaderView: View {
             if isLoading {
                 ProgressView("Loading battle...")
             } else if let battle = battle, let viewModel = viewModel {
-                BattleDetailView(battle: battle, viewModel: viewModel)
+                BattleDetailView(battle: battle, viewModel: viewModel, wrapInNavigationStack: false)
                     .environment(\.dependencies, deps)
             } else {
                 VStack(spacing: 16) {

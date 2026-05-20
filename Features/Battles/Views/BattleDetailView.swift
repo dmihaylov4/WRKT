@@ -10,6 +10,10 @@ import SwiftUI
 struct BattleDetailView: View {
     let battle: BattleWithParticipants
     let viewModel: BattleViewModel
+    /// Pass false when this view is pushed onto an existing NavigationStack (e.g. from
+    /// SocialView's path-based navigation). Pass true (default) when presented as a sheet,
+    /// which has no inherited navigation context and needs its own stack for the nav bar.
+    var wrapInNavigationStack: Bool = true
 
     @State private var showingBattleExitConfirmation = false
     @State private var isProcessingBattleExit = false
@@ -25,8 +29,16 @@ struct BattleDetailView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
+        if wrapInNavigationStack {
+            NavigationStack { content }
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     // Battle status header
                     statusHeader
@@ -79,7 +91,6 @@ struct BattleDetailView: View {
                     .foregroundStyle(DS.Semantic.brand)
                 }
             }
-        }
         .alert(battleExitConfirmationTitle, isPresented: $showingBattleExitConfirmation) {
             Button("Keep Battle", role: .cancel) {}
             Button(battleExitActionTitle, role: .destructive) {
