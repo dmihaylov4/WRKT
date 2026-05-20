@@ -34,6 +34,15 @@ The new function:
   - Position: `SIMD3(0, profile.thickness * 0.5 + 0.016, 0)` — sits 3mm above the engraving disc to avoid z-fighting
 - Material: `UnlitMaterial` with `.transparent` blending, black transparent background — same pattern as `makeEngravingDiscUnlitFallback`
 
+**Accepted visual tradeoff:** current tier rings use `metallic: 0.9, clearcoat: 0.35` and polish marks use `metallic: 1.0, roughness: 0.18` (PBR). Baking into a single `UnlitMaterial` disc drops these properties — tier rings and polish marks lose their metallic sheen. Chalk and grip wear marks are near-matte and unaffected in practice. This tradeoff is accepted: progression marks are small secondary details and the performance gain outweighs exact PBR parity. A future ShaderGraph mask approach could restore metallic response if needed.
+
+**Meter-to-pixel coordinate mapping:** marks are placed in the plate's local x/z plane. The canvas radius corresponds to `overlayRadius = profile.outerRadius - 0.004`. For a mark at local position `(x, z)`:
+```
+u = Float((x / overlayRadius + 1.0) * 0.5)
+v = Float(1.0 - (z / overlayRadius + 1.0) * 0.5)   // CoreGraphics y-axis is downward
+```
+Mark rotation around the y-axis by `angle` → `CGAffineTransform(rotationAngle: CGFloat(-angle))` applied to the CGContext before drawing each mark rectangle.
+
 The existing early-exit guard is preserved:
 ```swift
 guard projection != BarbellPlateRenderProjection() else { return }
@@ -79,7 +88,7 @@ barHitZone.position = SIMD3(0, 0, 0)
 shapes: [ShapeResource.generateBox(size: SIMD3(1.6, 0.5, 0.12))]
 ```
 
-Right-side racked plates have their own `CollisionComponent` and remain the preferred hit target for right-side touches. The gesture handler already resolves which plate to unrack via `allRackedPlates.max(by:)` regardless of which entity was touched — no handler changes needed.
+The `.bar` gesture handler resolves which plate to unrack via `allRackedPlates.max(by:)` regardless of which entity was touched — correct unrack behavior is guaranteed no matter which entity wins the hit test. No handler changes needed.
 
 ---
 
@@ -109,6 +118,39 @@ At x=0.48 the plate lands just past the outermost sleeve — visible on screen, 
 |------|--------|
 | `Features/Rewards/Views/BarbellEntityBuilder.swift` | Replace `addProgressionDetails` with `makeProgressionOverlayDisc` |
 | `Features/Rewards/Views/BarbellRealityView.swift` | Tap guard (1 line), barHitZone position+size (2 lines), slideTarget values (2 lines) |
+
+## Tests
+
+**File:** `WRKTTests/FeaturesTests/Barbell/BarbellEntityBuilderTests.swift`
+
+**Update** `plateRealismPassPreservesProgressionAndWeightLayers` (line 437): after the change, a fully progressed plate produces one child named `"progressionOverlayDisc"` instead of many mark entities. Update the test to assert:
+```swift
+#expect(entity.children.contains { $0.name == "progressionOverlayDisc" })
+```
+Remove the bare `entity.children.count >= 8` assertion (count changes with the new structure).
+
+**Add** two new tests:
+
+```swift
+@Test func plateWithNoProgressionHasNoOverlayDisc() {
+    let entity = makePlateEntity(tierID: 1, weightKg: 10)
+    // Default projection (all zeros) skips the overlay entirely
+    #expect(!entity.children.contains { $0.name == "progressionOverlayDisc" })
+}
+
+@Test func plateWithProgressionHasExactlyOneOverlayDisc() {
+    let entity = makePlateEntity(
+        tierID: 1,
+        weightKg: 10,
+        renderProjection: BarbellPlateRenderProjection(chalkUseCount: 8)
+    )
+    #expect(entity.children.filter { $0.name == "progressionOverlayDisc" }.count == 1)
+}
+```
+
+Starter plates (tierID 7) skip progression details via the existing `tierID != 7` guard — no additional test needed.
+
+---
 
 ## Out of Scope
 
