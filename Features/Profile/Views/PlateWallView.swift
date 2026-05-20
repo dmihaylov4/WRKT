@@ -134,8 +134,8 @@ struct PlateWallView: View {
     }
 
     private var selectedPlate: EarnedPlate? {
-        guard let selectedID = sceneState.infoCardPlateID else { return nil }
-        return (rackedPlates + floorPlates).first(where: { $0.id == selectedID })
+        guard let entityName = sceneState.showcaseEntity?.name else { return nil }
+        return (rackedPlates + floorPlates).first(where: { $0.id == entityName })
     }
 
     private var selectedTierName: String? {

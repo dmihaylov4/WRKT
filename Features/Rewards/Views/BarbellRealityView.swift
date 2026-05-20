@@ -221,12 +221,12 @@ final class SceneState {
     var welcomeDragStartPitch: Float = 0
     var isDraggingWelcome: Bool = false
 
-    // MARK: Info card
-    /// Plate ID whose card is currently visible. Used to detect re-tap for dismiss.
-    var infoCardPlateID: String? = nil
-    /// Timestamp of last showInfoCard() call. Prevents the dismiss path running within
-    /// 400ms of a show -- guards against TapGesture double-fire on some iOS versions.
-    var infoCardLastShowTime: Date = .distantPast
+    // MARK: Plate showcase
+    /// Entity currently levitating in showcase mode. Nil when no showcase is active.
+    var showcaseEntity: Entity? = nil
+    /// Opaque token updated on every startShowcase() call. Spin and auto-drop Tasks
+    /// compare against this value to self-cancel when the showcase changes or ends.
+    var showcaseToken: String? = nil
 
     // MARK: Accessibility
     /// Re-read at gesture time so it responds to in-session Reduce Motion changes.
@@ -813,7 +813,6 @@ struct BarbellRealityView: View {
     private let floorPhysicsMaxZ: Float = 0.82
 
     @Environment(\.horizontalSizeClass) private var sizeClass
-    @State private var infoCardPlate: EarnedPlate? = nil
 
     var body: some View {
         ZStack {
@@ -858,11 +857,8 @@ struct BarbellRealityView: View {
             .gesture(floorPanGesture)
             .simultaneousGesture(
                 TapGesture().onEnded {
-                    // Dismiss the info card when the user taps anywhere outside a plate.
-                    // Plate taps that show a card are protected by the 400ms debounce in
-                    // dismissInfoCard, so same-tap conflicts are suppressed automatically.
                     guard allowsInteraction, case .rackRoom = mode else { return }
-                    dismissInfoCard()
+                    dropShowcase()
                 }
             )
             .onChange(of: sizeClass) { _, _ in
@@ -885,30 +881,9 @@ struct BarbellRealityView: View {
 
             overlayView
 
-            if let infoCardPlate {
-                Color.black.opacity(0.5)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-                    .onTapGesture {
-                        dismissInfoCard(bypassDebounce: true)
-                    }
-
-                ScrollView {
-                    PlateInfoCardView(plate: infoCardPlate) {
-                        dismissInfoCard(bypassDebounce: true)
-                    }
-                    .frame(maxWidth: 420)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 100)
-                    .padding(.bottom, 24)
-                }
-                .transition(.scale(scale: 0.92).combined(with: .opacity))
-            }
-
             // Keep this view to one RealityView. Extra hidden RealityViews can trip
             // RealityKit/Metal debug validation during win-screen presentation.
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: infoCardPlate?.id)
         // RealityKit's near-clip plane (~0.5m from camera) prevents geometry from reaching
         // the very bottom of the viewport. Fill that gap with a matching floor color so the
         // room appears to extend to the screen edge.
@@ -1178,6 +1153,12 @@ struct BarbellRealityView: View {
                     // transition() rejects .draggingPlate -> .draggingPlate, so call it
                     // unconditionally but only run reparent when it succeeds.
                     if sceneState.transition(to: .draggingPlate(entity, plateID: entity.name, originRole: .floor)) {
+                        // If this plate was in showcase, cancel the spin without dropping it --
+                        // the drag handler takes over physics from here.
+                        if sceneState.showcaseEntity === entity {
+                            sceneState.showcaseEntity = nil
+                            sceneState.showcaseToken = nil
+                        }
                         // Cancel any pending settle timer for this plate. If not cancelled,
                         // the old timer will fire during a later freeDrop fall and freeze
                         // the plate kinematic mid-air.
@@ -1365,14 +1346,10 @@ struct BarbellRealityView: View {
                 if case .rackRoom = mode, case .idle = sceneState.dragPhase {
                     let tapID = tapped.name.replacingOccurrences(of: "_mirror", with: "")
                     if let roleComp = tapped.components[PlateRoleComponent.self],
-                       roleComp.role != .bar,
+                       roleComp.role == .floor,
                        tapped.name != "barHitZone",
-                       sceneState.entityMap[tapID] != nil {
-                        if sceneState.infoCardPlateID == tapID {
-                            dismissInfoCard()
-                        } else {
-                            showInfoCard(for: tapID)
-                        }
+                       let entity = sceneState.entityMap[tapID] {
+                        startShowcase(entity: entity)
                         return
                     }
                 }
@@ -1855,40 +1832,48 @@ struct BarbellRealityView: View {
         }
     }
 
-    // MARK: - Info card
+    // MARK: - Plate showcase
 
-    private func showInfoCard(for plateID: String) {
-        let allPlates = allRackedPlates + allFloorPlates
-        guard let plate = allPlates.first(where: { $0.id == plateID }) else { return }
+    private func startShowcase(entity: Entity) {
+        // If replacing an existing showcase, drop the previous plate.
+        if let prev = sceneState.showcaseEntity, prev !== entity {
+            prev.components[PhysicsBodyComponent.self]?.mode = .dynamic
+        }
 
-        // Dismiss any existing card without animation (new card replaces it instantly)
-        dismissInfoCard(animated: false)
+        let token = UUID().uuidString
+        sceneState.showcaseEntity = entity
+        sceneState.showcaseToken  = token
 
-        sceneState.infoCardPlateID      = plateID
-        sceneState.infoCardLastShowTime = Date()
-        infoCardPlate = plate
+        // Ensure kinematic so position animation works.
+        entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+
+        // Stand the plate upright facing the camera and move to center-scene.
+        let upright = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
+        let target  = Transform(scale: .one, rotation: upright, translation: SIMD3(0, 0.90, 0.20))
+        entity.move(to: target, relativeTo: sceneState.sceneRoot, duration: 0.45, timingFunction: .easeOut)
+
+        // Spin: ~0.03 rad/frame at 16ms -> one full rotation every ~3.5 s.
+        Task { @MainActor in
+            while sceneState.showcaseToken == token {
+                entity.transform.rotation = entity.transform.rotation *
+                    simd_quatf(angle: 0.03, axis: SIMD3(0, 1, 0))
+                try? await Task.sleep(for: .milliseconds(16))
+            }
+        }
+
+        // Auto-drop after 3 seconds.
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            guard sceneState.showcaseToken == token else { return }
+            dropShowcase()
+        }
     }
 
-    private func dismissInfoCard(animated: Bool = true, bypassDebounce: Bool = false) {
-        guard infoCardPlate != nil else { return }
-        // Debounce: ignore dismiss fired within 400ms of showing.
-        // Prevents TapGesture double-fire (some iOS versions fire onEnded twice)
-        // from immediately collapsing a card that was just shown.
-        if !bypassDebounce && animated && Date().timeIntervalSince(sceneState.infoCardLastShowTime) < 0.40 { return }
-        sceneState.infoCardPlateID = nil
-
-        guard animated && !sceneState.isReduceMotionEnabled else {
-            var transaction = Transaction()
-            transaction.animation = nil
-            withTransaction(transaction) {
-                infoCardPlate = nil
-            }
-            return
-        }
-
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-            infoCardPlate = nil
-        }
+    private func dropShowcase() {
+        guard let entity = sceneState.showcaseEntity else { return }
+        sceneState.showcaseEntity = nil
+        sceneState.showcaseToken  = nil
+        entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
     }
 
     // MARK: RackRoom scene setup
