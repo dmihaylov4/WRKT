@@ -1312,29 +1312,42 @@ struct BarbellRealityView: View {
                     let outerWorldPos = outermostEntity.position(relativeTo: nil)
                     let slideTargetX: Float = 0.48
                     let slideTargetZ: Float = 0.22
-                    let slideTarget = Transform(
-                        scale: outermostEntity.scale,
-                        rotation: outermostEntity.orientation,
-                        translation: SIMD3(slideTargetX, outerWorldPos.y - 0.02, slideTargetZ)
-                    )
                     let slideOutDuration = barbellRackRoomSlideOutDuration(isReduceMotionEnabled: sceneState.isReduceMotionEnabled)
                     // DO NOT call setParent here. Reparenting cancels any in-flight move() animation.
                     // Entity stays on barAnchor so the slide runs to completion.
-                    // snapToFloor (called from onEnded) does the setParent(floorAnchor).
-                    outermostEntity.move(to: slideTarget, relativeTo: nil, duration: slideOutDuration, timingFunction: .easeOut)
+                    // snapToFloor (called from onEnded) does the setParent.
+                    //
+                    // Use relativeTo: barAnchor (local space) instead of relativeTo: nil (world space).
+                    // World-space move() calls setTransformMatrix(relativeTo: nil) each frame, which
+                    // triggers a full RealityKit render graph re-evaluation and ~12 AR material
+                    // re-resolves per frame during the animation. Local-space avoids this.
+                    let barWorldPos = sceneState.barAnchor.position(relativeTo: nil)
+                    let slideTarget = Transform(
+                        scale: outermostEntity.scale,
+                        rotation: outermostEntity.orientation,
+                        translation: SIMD3(
+                            slideTargetX - barWorldPos.x,
+                            (outerWorldPos.y - 0.02) - barWorldPos.y,
+                            slideTargetZ - barWorldPos.z
+                        )
+                    )
+                    outermostEntity.move(to: slideTarget, relativeTo: sceneState.barAnchor, duration: slideOutDuration, timingFunction: .easeOut)
                     // Mirror slides to -slideTargetX and is removed after the animation.
                     // Removing at 200ms (animation end) prevents the ghost-plate-behind-wall
                     // problem: the mirror has no physics, so it would sit past the wall until
-                    // finishUnrack fires at 1400ms. finishUnrack still handles the unrack
-                    // callback and barPositionMap cleanup; it no-ops on the already-gone mirror.
+                    // finishUnrack fires at 1400ms.
                     if let mirrorEntity = sceneState.barMirrorMap[outermostID] {
                         let mirrorWorldPos = mirrorEntity.position(relativeTo: nil)
                         let mirrorSlideTarget = Transform(
                             scale: mirrorEntity.scale,
                             rotation: mirrorEntity.orientation,
-                            translation: SIMD3(-slideTargetX, mirrorWorldPos.y - 0.02, slideTargetZ)
+                            translation: SIMD3(
+                                -slideTargetX - barWorldPos.x,
+                                (mirrorWorldPos.y - 0.02) - barWorldPos.y,
+                                slideTargetZ - barWorldPos.z
+                            )
                         )
-                        mirrorEntity.move(to: mirrorSlideTarget, relativeTo: nil, duration: slideOutDuration, timingFunction: .easeOut)
+                        mirrorEntity.move(to: mirrorSlideTarget, relativeTo: sceneState.barAnchor, duration: slideOutDuration, timingFunction: .easeOut)
                         let capturedMirror = mirrorEntity
                         Task { @MainActor in
                             try? await Task.sleep(for: .milliseconds(Int(slideOutDuration * 1000)))
@@ -1650,10 +1663,11 @@ struct BarbellRealityView: View {
         sceneState.settleTasks[plateID] = nil
         let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
         Task { @MainActor in
-            // 50ms: gives RealityKit's render thread ~3 frames to complete the kinematic
+            // 100ms: gives RealityKit's render thread ~6 frames to complete the kinematic
             // reparent and position update before the physics simulation picks up the entity.
-            // 16ms was too tight — the mode switch coincided with a heavy frame, causing stutter.
-            try? await Task.sleep(for: .milliseconds(50))
+            // 16ms was too tight; 50ms still coincided with AR material re-resolves from the
+            // setParent. 100ms clears the re-resolve burst before dynamics activate.
+            try? await Task.sleep(for: .milliseconds(100))
             guard entity.components[PlateRoleComponent.self]?.role == .floor else {
                 barbellDiagnosticsLog(
                     "SNAP_FLOOR_DYNAMIC_SKIPPED",
