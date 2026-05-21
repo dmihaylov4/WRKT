@@ -412,6 +412,16 @@ struct BarbellEditorView: View {
         let barPlates = displayBarPlates(loadout: loadout)
         let wallPlates = displayWallPlates(loadout: loadout)
         let barFull = barPlates.count >= 4
+        // Use the same displayOrder-based first-8 window that PlateCollectionView uses.
+        // loadout.onWall accumulates every plate ever moved to storage (never shrinks),
+        // so onWallIDs.contains would return true for all 61 plates over time.
+        let wallStoragePlateIDs = Set(
+            nonStarterPlates
+                .filter { !$0.isRacked }
+                .sorted { $0.displayOrder > $1.displayOrder }
+                .prefix(8)
+                .map(\.id)
+        )
 
         return VStack(alignment: .leading, spacing: 20) {
             // On Bar section
@@ -441,6 +451,8 @@ struct BarbellEditorView: View {
                             PlateCollectionCell(
                                 plate: plate,
                                 workoutSummary: workoutSummary(for: plate),
+                                buttonMode: .remove,
+                                isInWallStorage: false,  // bar plates are never in wall storage
                                 onOpenDetail: { selectedPlateForDetail = plate },
                                 onPrimaryAction: { moveToWall(plate) }
                             )
@@ -456,7 +468,7 @@ struct BarbellEditorView: View {
                         .font(.system(size: 18, weight: .black))
                         .foregroundStyle(.white)
                     Text(barFull
-                        ? "Bar full (4/4) - remove a bar plate first"
+                        ? "Bar full (4/4) - tap Rack Storage to add to wall"
                         : "Tap a plate to rack it on the bar")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(DS.Semantic.textSecondary)
@@ -470,16 +482,17 @@ struct BarbellEditorView: View {
                             PlateCollectionCell(
                                 plate: plate,
                                 workoutSummary: workoutSummary(for: plate),
+                                buttonMode: barFull ? .storeReplacing : .rack,
+                                isInWallStorage: wallStoragePlateIDs.contains(plate.id),
                                 onOpenDetail: { selectedPlateForDetail = plate },
                                 onPrimaryAction: {
-                                    guard !barFull else {
-                                        storageRackErrorMessage = "Remove a plate from the bar before adding another one."
-                                        return
+                                    if barFull {
+                                        moveToWall(plate)
+                                    } else {
+                                        moveToBar(plate)
                                     }
-                                    moveToBar(plate)
                                 }
                             )
-                            .opacity(barFull ? 0.35 : 1.0)
                         }
                     }
                 }
@@ -579,11 +592,16 @@ struct BarbellEditorView: View {
     private func moveToWall(_ plate: EarnedPlate) {
         guard let config else { return }
         var loadout = resolvedDisplayLoadout
-        guard !loadout.onWall.contains(plate.id) else { return }
         loadout.onBar.removeAll { $0 == plate.id }
-        loadout.onWall.insert(plate.id, at: 0)
+        if !loadout.onWall.contains(plate.id) {
+            loadout.onWall.insert(plate.id, at: 0)
+        }
         config.setDisplayLoadout(loadout)
         BarbellProgressService.shared.applyDisplayLoadoutToRackedPlates(loadout)
+        // Sync displayOrder so PlateWallView's sorted @Query also surfaces this plate
+        // in the visible 8 wall slots of the 3D scene.
+        plate.displayOrder = Int(Date.now.timeIntervalSince1970)
+        print("[RackStorage][Editor] moveToWall plate=\(plate.id) tier=\(plate.tierID) kg=\(Int(plate.weightKg)) newOrder=\(plate.displayOrder) onWallCount=\(loadout.onWall.count)")
         persistAndSync(config)
     }
 

@@ -164,6 +164,62 @@ struct BarbellViewLogicTests {
         #expect(barbellRackRoomSlideOutDuration(isReduceMotionEnabled: true) == 0.2)
     }
 
+    @Test func rackRoomUnrackSlideTargetMovesPositiveSideOutward() {
+        let target = barbellRackRoomUnrackSlideTargetX(currentBarLocalX: 0.652)
+
+        #expect(target > 0.652)
+        #expect(target <= 0.74)
+    }
+
+    @Test func rackRoomUnrackSlideTargetMovesNegativeSideOutward() {
+        let target = barbellRackRoomUnrackSlideTargetX(currentBarLocalX: -0.652)
+
+        #expect(target < -0.652)
+        #expect(target >= -0.74)
+    }
+
+    @Test func floorReleasePositionPreservesBarHeightInsteadOfJumpingToAnchorHeight() {
+        let release = barbellRackRoomFloorReleasePosition(
+            localPosition: SIMD3<Float>(0.48, -0.02, 1.40),
+            maxAbsX: 0.64,
+            minZ: -0.10,
+            maxZ: 0.82
+        )
+
+        #expect(release.x == 0.48)
+        #expect(release.y == 0.08)
+        #expect(release.z == 0.82)
+    }
+
+    @Test func unloadFloorImpulseDoesNotPushPlateThroughFrontWall() {
+        let motion = barbellRackRoomUnloadFloorImpulse(spreadDirection: 1, spinDirection: 1)
+
+        #expect(motion.linearVelocity.z <= 0)
+        #expect(abs(motion.linearVelocity.x) <= 0.45)
+        #expect(abs(motion.angularVelocity.y) <= 1.6)
+    }
+
+    @Test func unloadFloorRestPositionKeepsPlateAboveVisualFloor() {
+        let rest = barbellRackRoomFloorRestPosition(localPosition: SIMD3<Float>(0.90, -0.04, 1.20))
+
+        #expect(rest.x == 0.64)
+        #expect(rest.y == 0.10)
+        #expect(rest.z == 0.72)
+    }
+
+    @Test func liveRackSceneSyncAddsRackedPlateThatHasNoExistingEntity() {
+        let actions = barbellRackSceneSyncActions(
+            previousVisibleFloorIDs: ["visible-floor"],
+            currentVisibleFloorIDs: ["visible-floor"],
+            rackedPlates: [
+                BarbellRackSceneSyncPlate(id: "owned-only", rackPosition: 1)
+            ],
+            entityRolesByPlateID: [:]
+        )
+
+        #expect(actions == [.addBarPlate(plateID: "owned-only", rackSlot: 1)])
+    }
+
     @Test func barbellEditorBottomPaddingClearsCustomTabBar() {
         #expect(barbellEditorScrollBottomPadding >= 120)
     }

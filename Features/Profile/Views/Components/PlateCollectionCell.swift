@@ -107,11 +107,22 @@ struct PlateMedallionView: View {
     }
 }
 
+// MARK: - PlateButtonMode
+
+enum PlateButtonMode {
+    case remove
+    case rack
+    case store
+    case storeReplacing
+}
+
 // MARK: - PlateCollectionCell
 
 struct PlateCollectionCell: View {
     let plate: EarnedPlate
     let workoutSummary: PlateWorkoutSummary?
+    let buttonMode: PlateButtonMode
+    let isInWallStorage: Bool
     let onOpenDetail: () -> Void
     let onPrimaryAction: () -> Void
 
@@ -149,6 +160,64 @@ struct PlateCollectionCell: View {
         plate.engravingText.isEmpty ? tierName : plate.engravingText
     }
 
+    private var statusLabel: String {
+        if plate.isRacked  { return "RACKED" }
+        if isInWallStorage { return "STORED" }
+        return "OWNED"
+    }
+
+    // Wall was full and user explicitly displaced a plate to put this one in — confirm it.
+    // Only fires for .storeReplacing (wall was at capacity). When bar is full but wall has
+    // space (.store), every plate already fits in the wall by default so no confirmation needed.
+    private var isStorageConfirmed: Bool {
+        buttonMode == .storeReplacing && isInWallStorage
+    }
+
+    private var buttonLabel: String {
+        if isStorageConfirmed    { return "In Storage" }
+        switch buttonMode {
+        case .remove:            return "Remove"
+        case .rack:              return "Rack"
+        case .store, .storeReplacing: return "Rack Storage"
+        }
+    }
+
+    private var buttonIcon: String? {
+        if isStorageConfirmed    { return "checkmark.circle.fill" }
+        switch buttonMode {
+        case .remove:            return "arrow.down.circle.fill"
+        case .rack:              return "plus.circle.fill"
+        case .store, .storeReplacing: return nil
+        }
+    }
+
+    private var buttonForeground: Color {
+        if isStorageConfirmed    { return Color.white.opacity(0.45) }
+        switch buttonMode {
+        case .remove:            return .white
+        case .rack:              return .black
+        case .store, .storeReplacing: return .white
+        }
+    }
+
+    private var buttonBackground: Color {
+        if isStorageConfirmed    { return Color.white.opacity(0.06) }
+        switch buttonMode {
+        case .remove:            return Color.white.opacity(0.10)
+        case .rack:              return DS.Semantic.brand
+        case .store, .storeReplacing: return Color.white.opacity(0.14)
+        }
+    }
+
+    private var buttonBorder: Color {
+        if isStorageConfirmed    { return Color.white.opacity(0.08) }
+        switch buttonMode {
+        case .remove:            return Color.white.opacity(0.10)
+        case .rack:              return .clear
+        case .store, .storeReplacing: return Color.white.opacity(0.22)
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             tappableContent
@@ -157,23 +226,23 @@ struct PlateCollectionCell: View {
 
             Button(action: onPrimaryAction) {
                 HStack(spacing: 7) {
-                    Image(systemName: plate.isRacked ? "arrow.down.circle.fill" : "plus.circle.fill")
-                        .font(.system(size: 14, weight: .bold))
-                    Text(plate.isRacked ? "Remove" : "Rack")
+                    if let icon = buttonIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    Text(buttonLabel)
                         .dsFont(.caption, weight: .bold)
                 }
-                .foregroundStyle(plate.isRacked ? .white : .black)
+                .foregroundStyle(buttonForeground)
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)
-                .background(
-                    plate.isRacked ? Color.white.opacity(0.10) : DS.Semantic.brand,
-                    in: ChamferedRectangle(.medium)
-                )
+                .background(buttonBackground, in: ChamferedRectangle(.medium))
                 .overlay(
                     ChamferedRectangle(.medium)
-                        .stroke(Color.white.opacity(plate.isRacked ? 0.10 : 0), lineWidth: 1)
+                        .stroke(buttonBorder, lineWidth: 1)
                 )
             }
+            .disabled(isStorageConfirmed)
         }
         .frame(minHeight: 214, alignment: .top)
         .padding(14)
@@ -216,7 +285,7 @@ struct PlateCollectionCell: View {
                 HStack(spacing: 6) {
                     Text(rarityLabel.uppercased())
                     Text("/")
-                    Text(plate.isRacked ? "RACKED" : "STORED")
+                    Text(statusLabel)
                 }
                 .font(DS.Typography.custom(size: 10, weight: .bold))
                 .foregroundStyle(.white.opacity(0.48))

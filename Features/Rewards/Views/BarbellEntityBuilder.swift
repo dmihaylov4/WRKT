@@ -51,6 +51,15 @@ struct PlateAudioCategoryComponent: Component {
     let category: PlateAudioCategory
 }
 
+// MARK: - PlateDisplayMetaComponent
+
+/// Stores display parameters on the plate entity so mirror creation can reconstruct
+/// a full-quality entity from cached resources without access to SwiftData.
+struct PlateDisplayMetaComponent: Component {
+    let weightKg: Double
+    let renderProjection: BarbellPlateRenderProjection
+}
+
 // MARK: - Plate entity build options
 
 struct PlateEntityBuildOptions {
@@ -77,6 +86,17 @@ struct PlateEntityBuildOptions {
             includesPhysics: false,
             includesAudio: false,
             role: role
+        )
+    }
+
+    /// Input + collision (for left-side swipe gesture) but no physics or audio.
+    static func barMirror() -> PlateEntityBuildOptions {
+        PlateEntityBuildOptions(
+            includesInput: true,
+            includesCollision: true,
+            includesPhysics: false,
+            includesAudio: false,
+            role: .bar
         )
     }
 }
@@ -280,19 +300,13 @@ private func makePlateRingMesh(height: Float, outerRadius: Float, innerRadius: F
 }
 
 private func plateRingCollisionShapes(outerRadius: Float, innerRadius: Float, thickness: Float) -> [ShapeResource] {
-    let radialDepth = outerRadius - innerRadius
-    let sideCenter = (outerRadius + innerRadius) / 2
-    let crossWidth = innerRadius * 2
-    return [
-        ShapeResource.generateBox(size: SIMD3(radialDepth, thickness, outerRadius * 2))
-            .offsetBy(translation: SIMD3(-sideCenter, 0, 0)),
-        ShapeResource.generateBox(size: SIMD3(radialDepth, thickness, outerRadius * 2))
-            .offsetBy(translation: SIMD3(sideCenter, 0, 0)),
-        ShapeResource.generateBox(size: SIMD3(crossWidth, thickness, radialDepth))
-            .offsetBy(translation: SIMD3(0, 0, -sideCenter)),
-        ShapeResource.generateBox(size: SIMD3(crossWidth, thickness, radialDepth))
-            .offsetBy(translation: SIMD3(0, 0, sideCenter))
-    ]
+    // Single box covering the full plate diameter. The old ring segments had a 34-46 mm thin
+    // axis that, after plateBarOrientation, aligned with world X. Simultaneously-dropped plates
+    // spawning at the same X produced 100 % overlap → explosive separation forces → tunneling.
+    // A solid box eliminates the inter-segment gaps and the 100 mm minimum Y gives the solver
+    // a detection margin well above the ~57 mm/frame travel at peak fall speed (~3.4 m/s).
+    let collisionHeight: Float = thickness < 0.10 ? 0.10 : thickness
+    return [ShapeResource.generateBox(size: SIMD3(outerRadius * 2, collisionHeight, outerRadius * 2))]
 }
 
 // MARK: - PlateTextures
@@ -1582,6 +1596,11 @@ func makePlateEntity(
     if buildOptions.includesAudio {
         attachSpatialAudio(to: entity, category: audioCategory)
     }
+
+    entity.components.set(PlateDisplayMetaComponent(
+        weightKg: weightKg,
+        renderProjection: renderProjection
+    ))
 
     return entity
 }

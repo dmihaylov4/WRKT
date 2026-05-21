@@ -8,6 +8,71 @@ func plateWallTotalWeight(rackedPlates: [EarnedPlate]) -> Double {
     return 20 + earnedRackedPlates.reduce(0) { $0 + $1.weightKg } * 2
 }
 
+struct BarbellRackSceneSyncPlate: Equatable {
+    let id: String
+    let rackPosition: Int?
+}
+
+enum BarbellRackSceneEntityRole: Equatable {
+    case floor
+    case bar
+}
+
+enum BarbellRackSceneSyncAction: Equatable {
+    case placeExistingOnBar(plateID: String, rackSlot: Int)
+    case addBarPlate(plateID: String, rackSlot: Int)
+    case removeStoragePlate(plateID: String)
+    case addStoragePlate(plateID: String)
+}
+
+func barbellRackSceneSyncActions(
+    previousVisibleFloorIDs: Set<String>,
+    currentVisibleFloorIDs: Set<String>,
+    rackedPlates: [BarbellRackSceneSyncPlate],
+    entityRolesByPlateID: [String: BarbellRackSceneEntityRole]
+) -> [BarbellRackSceneSyncAction] {
+    let rackedByID = rackedPlates.reduce(into: [String: BarbellRackSceneSyncPlate]()) { result, plate in
+        result[plate.id] = plate
+    }
+    var handledBarPlateIDs = Set<String>()
+    var actions: [BarbellRackSceneSyncAction] = []
+
+    func appendBarAction(plateID: String, rackSlot: Int) {
+        guard !handledBarPlateIDs.contains(plateID) else { return }
+        handledBarPlateIDs.insert(plateID)
+        switch entityRolesByPlateID[plateID] {
+        case .some(.floor):
+            actions.append(.placeExistingOnBar(plateID: plateID, rackSlot: rackSlot))
+        case .some(.bar):
+            break
+        case .none:
+            actions.append(.addBarPlate(plateID: plateID, rackSlot: rackSlot))
+        }
+    }
+
+    for id in previousVisibleFloorIDs.subtracting(currentVisibleFloorIDs).sorted() {
+        if let racked = rackedByID[id] {
+            if let slot = racked.rackPosition {
+                appendBarAction(plateID: id, rackSlot: slot)
+            }
+        } else {
+            actions.append(.removeStoragePlate(plateID: id))
+        }
+    }
+
+    for id in currentVisibleFloorIDs.subtracting(previousVisibleFloorIDs).sorted()
+    where entityRolesByPlateID[id] == nil {
+        actions.append(.addStoragePlate(plateID: id))
+    }
+
+    for plate in rackedPlates {
+        guard let slot = plate.rackPosition else { continue }
+        appendBarAction(plateID: plate.id, rackSlot: slot)
+    }
+
+    return actions
+}
+
 func barbellPlaygroundPlateVariants(
     weightKg: Double,
     liftTypeID: String?,
@@ -113,7 +178,11 @@ struct PlateWallView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
     private var rackedPlates: [EarnedPlate]
-    @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" && $0.isRacked == false })
+    @Query(
+        filter: #Predicate<EarnedPlate> { plate in plate.earnedByEvent != "starter" && plate.isRacked == false },
+        sort: \EarnedPlate.displayOrder,
+        order: .reverse
+    )
     private var floorPlates: [EarnedPlate]
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" })
     private var ownedPlates: [EarnedPlate]
@@ -123,6 +192,7 @@ struct PlateWallView: View {
     @State private var sceneState = SceneState()
     @State private var barbellService = BarbellProgressService.shared
     @State private var showingCollection = false
+    @State private var visibleFloorIDs: Set<String> = []
     @State private var showingSelectedPlateDetail = false
     /// Guards against the .task{} / RealityView make{} race condition.
     /// Same pattern as BarbellWelcomeView: make{} only runs after cache is populated.
@@ -142,6 +212,23 @@ struct PlateWallView: View {
         guard let selectedPlate,
               let tier = PlateTier.all.first(where: { $0.id == selectedPlate.tierID }) else { return nil }
         return tier.name
+    }
+
+    private var rackSceneSyncPlates: [BarbellRackSceneSyncPlate] {
+        rackedPlates.map { BarbellRackSceneSyncPlate(id: $0.id, rackPosition: $0.rackPosition) }
+    }
+
+    private var sceneEntityRolesByPlateID: [String: BarbellRackSceneEntityRole] {
+        sceneState.entityMap.reduce(into: [:]) { result, entry in
+            switch entry.value.components[PlateRoleComponent.self]?.role {
+            case .some(.floor):
+                result[entry.key] = .floor
+            case .some(.bar):
+                result[entry.key] = .bar
+            case .none:
+                break
+            }
+        }
     }
 
     var body: some View {
@@ -216,6 +303,31 @@ struct PlateWallView: View {
                     sceneState.addPlate(newPlate)
                 }
             }
+            .onChange(of: floorPlates.prefix(8).map(\.id)) { oldIDs, newIDs in
+                let oldSet = Set(oldIDs)
+                let newSet = Set(newIDs)
+                guard oldSet != newSet else { return }
+                applyRackSceneSync(
+                    barbellRackSceneSyncActions(
+                        previousVisibleFloorIDs: oldSet,
+                        currentVisibleFloorIDs: newSet,
+                        rackedPlates: rackSceneSyncPlates,
+                        entityRolesByPlateID: sceneEntityRolesByPlateID
+                    )
+                )
+                visibleFloorIDs = newSet
+            }
+            .onChange(of: rackedPlates.map { "\($0.id)|\($0.rackPosition ?? -1)" }) { _, _ in
+                let visibleFloorIDs = Set(floorPlates.prefix(8).map(\.id))
+                applyRackSceneSync(
+                    barbellRackSceneSyncActions(
+                        previousVisibleFloorIDs: visibleFloorIDs,
+                        currentVisibleFloorIDs: visibleFloorIDs,
+                        rackedPlates: rackSceneSyncPlates,
+                        entityRolesByPlateID: sceneEntityRolesByPlateID
+                    )
+                )
+            }
 
             VStack {
                 topBar
@@ -244,6 +356,26 @@ struct PlateWallView: View {
         .sheet(isPresented: $showingSelectedPlateDetail) {
             if let selectedPlate {
                 PlateDetailView(plate: selectedPlate)
+            }
+        }
+    }
+
+    private func applyRackSceneSync(_ actions: [BarbellRackSceneSyncAction]) {
+        for action in actions {
+            switch action {
+            case .placeExistingOnBar(let plateID, let rackSlot):
+                sceneState.placeOnBarImmediate(plateID: plateID, rackSlot: rackSlot)
+
+            case .addBarPlate(let plateID, let rackSlot):
+                guard let plate = rackedPlates.first(where: { $0.id == plateID }) else { continue }
+                sceneState.addBarPlateImmediate(plate, rackSlot: rackSlot)
+
+            case .removeStoragePlate(let plateID):
+                sceneState.removeStoragePlate(id: plateID)
+
+            case .addStoragePlate(let plateID):
+                guard let plate = floorPlates.first(where: { $0.id == plateID }) else { continue }
+                sceneState.addPlate(plate)
             }
         }
     }
@@ -450,11 +582,23 @@ struct PlateWallView: View {
 
 struct PlateCollectionView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var store: WorkoutStoreV2
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" })
     private var earnedPlates: [EarnedPlate]
     @State private var rackErrorMessage: String?
     @State private var selectedPlateForDetail: EarnedPlate?
+    @State private var lastStoredID: String?
+
+    private let wallStorageMax = 8
+    private let barMax = 4
+
+    private var wallStoragePlateIDs: Set<String> {
+        let sorted = earnedPlates
+            .filter { !$0.isRacked }
+            .sorted { $0.displayOrder > $1.displayOrder }
+        return Set(sorted.prefix(wallStorageMax).map(\.id))
+    }
 
     private var sortedPlates: [EarnedPlate] {
         earnedPlates.sorted {
@@ -465,8 +609,14 @@ struct PlateCollectionView: View {
         }
     }
 
-    private var rackedCount: Int {
-        earnedPlates.filter(\.isRacked).count
+    private var rackedCount: Int { earnedPlates.filter(\.isRacked).count }
+    private var wallCount: Int   { earnedPlates.filter { !$0.isRacked }.count }
+
+    private func buttonMode(for plate: EarnedPlate) -> PlateButtonMode {
+        if plate.isRacked { return .remove }
+        if rackedCount < barMax { return .rack }
+        if wallCount < wallStorageMax { return .store }
+        return .storeReplacing
     }
 
     var body: some View {
@@ -492,6 +642,8 @@ struct PlateCollectionView: View {
                                     PlateCollectionCell(
                                         plate: plate,
                                         workoutSummary: workoutSummary(for: plate),
+                                        buttonMode: buttonMode(for: plate),
+                                        isInWallStorage: wallStoragePlateIDs.contains(plate.id),
                                         onOpenDetail: { selectedPlateForDetail = plate },
                                         onPrimaryAction: { handlePrimaryAction(for: plate) }
                                     )
@@ -499,6 +651,7 @@ struct PlateCollectionView: View {
                             }
                             .padding(16)
                         }
+                        .sensoryFeedback(.success, trigger: lastStoredID)
                     }
                 }
             }
@@ -604,17 +757,39 @@ struct PlateCollectionView: View {
     }
 
     private func handlePrimaryAction(for plate: EarnedPlate) {
-        if plate.isRacked {
+        switch buttonMode(for: plate) {
+        case .remove:
             BarbellProgressService.shared.removeFromBar(plate: plate)
-            return
-        }
 
-        do {
-            try BarbellProgressService.shared.addToBar(plate: plate, replacing: nil)
-        } catch BarbellProgressService.RackError.barIsFull {
-            rackErrorMessage = "Remove a plate from the rack before adding another one."
-        } catch {
-            rackErrorMessage = "The plate could not be added to the rack."
+        case .rack:
+            do {
+                try BarbellProgressService.shared.addToBar(plate: plate, replacing: nil)
+            } catch {
+                rackErrorMessage = "The plate could not be added to the rack."
+            }
+
+        case .store, .storeReplacing:
+            // Snapshot the current visible wall (first wallStorageMax by displayOrder desc)
+            // before mutation so the log shows what gets displaced.
+            let wallBefore = earnedPlates
+                .filter { !$0.isRacked }
+                .sorted { $0.displayOrder > $1.displayOrder }
+            let visibleBefore = Array(wallBefore.prefix(wallStorageMax))
+            let displaced = wallBefore.count >= wallStorageMax ? wallBefore[wallStorageMax - 1] : nil
+
+            let prevOrder = plate.displayOrder
+            plate.displayOrder = Int(Date.now.timeIntervalSince1970)
+            try? modelContext.save()
+            lastStoredID = plate.id
+
+            let wasVisible = visibleBefore.contains(where: { $0.id == plate.id })
+            if let displaced, displaced.id != plate.id {
+                print("[RackStorage] REPLACE slot=\(wallStorageMax) displaced=\(displaced.id) displaced.tier=\(displaced.tierID) displaced.kg=\(Int(displaced.weightKg)) displaced.order=\(displaced.displayOrder) added=\(plate.id) added.tier=\(plate.tierID) added.kg=\(Int(plate.weightKg)) prevOrder=\(prevOrder) newOrder=\(plate.displayOrder)")
+            } else if !wasVisible {
+                print("[RackStorage] ADD_TO_WALL plate=\(plate.id) tier=\(plate.tierID) kg=\(Int(plate.weightKg)) wallSizeBefore=\(wallBefore.count) prevOrder=\(prevOrder) newOrder=\(plate.displayOrder)")
+            } else {
+                print("[RackStorage] REFRESH_ORDER plate=\(plate.id) tier=\(plate.tierID) kg=\(Int(plate.weightKg)) wallPosition=\(visibleBefore.firstIndex(where: { $0.id == plate.id }).map { $0 + 1 } ?? -1) prevOrder=\(prevOrder) newOrder=\(plate.displayOrder)")
+            }
         }
     }
 
