@@ -255,7 +255,7 @@ struct PlateWallView: View {
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .heavy))
+                        .font(DS.Typography.custom(size: 14, weight: .heavy))
                     Text("Done")
                         .dsFont(.subheadline, weight: .semibold)
                         .lineLimit(1)
@@ -280,7 +280,7 @@ struct PlateWallView: View {
                 showingCollection = true
             } label: {
                 Image(systemName: "square.grid.2x2.fill")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(DS.Typography.custom(size: 14, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
                     .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
@@ -347,7 +347,7 @@ struct PlateWallView: View {
                 } label: {
                     HStack(spacing: 7) {
                         Image(systemName: "list.bullet.rectangle.portrait.fill")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(DS.Typography.custom(size: 13, weight: .bold))
                         Text("Details")
                             .dsFont(.caption, weight: .bold)
                     }
@@ -403,7 +403,7 @@ struct PlateWallView: View {
     private var syncUnavailableBanner: some View {
         HStack(spacing: 10) {
             Image(systemName: "icloud.slash")
-                .font(.system(size: 15, weight: .semibold))
+                .font(DS.Typography.custom(size: 15, weight: .semibold))
                 .foregroundStyle(DS.Semantic.brand)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -523,7 +523,7 @@ struct PlateCollectionView: View {
         HStack(spacing: 12) {
             HStack(spacing: 7) {
                 Image(systemName: "square.stack.3d.up.fill")
-                    .font(.system(size: 13, weight: .bold))
+                    .font(DS.Typography.custom(size: 13, weight: .bold))
                 Text("\(earnedPlates.count)")
                     .font(DS.Typography.font(.subheadline, weight: .bold))
                 Text("owned")
@@ -564,7 +564,7 @@ struct PlateCollectionView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .heavy))
+                        .font(DS.Typography.custom(size: 15, weight: .heavy))
                         .foregroundStyle(.white)
                         .frame(width: 42, height: 42)
                         .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
@@ -591,7 +591,7 @@ struct PlateCollectionView: View {
     private var emptyState: some View {
         VStack(spacing: 14) {
             Image(systemName: "circle.hexagongrid.fill")
-                .font(.system(size: 42, weight: .semibold))
+                .font(DS.Typography.custom(size: 42, weight: .semibold))
                 .foregroundStyle(DS.Semantic.brand)
             Text("No plates yet")
                 .dsFont(.headline, weight: .semibold)
@@ -713,7 +713,7 @@ struct PlateDetailView: View {
                         dismiss()
                     } label: {
                         Image(systemName: "xmark")
-                            .font(.system(size: 14, weight: .heavy))
+                            .font(DS.Typography.custom(size: 14, weight: .heavy))
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
                             .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
@@ -885,7 +885,7 @@ struct PlateDetailView: View {
     private func biographyRow(_ event: BarbellPlateEvent) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: iconName(for: event.kind))
-                .font(.system(size: 13, weight: .bold))
+                .font(DS.Typography.custom(size: 13, weight: .bold))
                 .foregroundStyle(tierAccent)
                 .frame(width: 28, height: 28)
                 .background(Color.white.opacity(0.08), in: Circle())
@@ -1030,7 +1030,7 @@ struct BarbellPlaygroundView: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .heavy))
+                    .font(DS.Typography.custom(size: 14, weight: .heavy))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
                     .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
@@ -1078,7 +1078,7 @@ struct BarbellPlaygroundView: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(DS.Typography.custom(size: 15, weight: .bold))
                     .foregroundStyle(DS.Semantic.brand)
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -1094,7 +1094,7 @@ struct BarbellPlaygroundView: View {
                 Spacer()
 
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 14, weight: .heavy))
+                    .font(DS.Typography.custom(size: 14, weight: .heavy))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
                     .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
@@ -1123,7 +1123,7 @@ struct BarbellPlaygroundView: View {
                         isControlsMinimized = true
                     } label: {
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 14, weight: .heavy))
+                            .font(DS.Typography.custom(size: 14, weight: .heavy))
                     }
                     .buttonStyle(PlaygroundIconButtonStyle())
                     .accessibilityLabel("Minimize playground controls")
@@ -1187,7 +1187,7 @@ struct BarbellPlaygroundView: View {
                     addSelectedPlateToFloor()
                 } label: {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 19, weight: .bold))
+                        .font(DS.Typography.custom(size: 19, weight: .bold))
                 }
                 .buttonStyle(PlaygroundIconButtonStyle())
             }

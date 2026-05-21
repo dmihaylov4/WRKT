@@ -792,6 +792,14 @@ private func makeOuterRubberBand(profile: PlateVisualProfile, tier: PlateTier, c
             clearcoat: tier.clearcoat * 0.5,
             clearcoatRoughness: tier.clearcoatRoughness + 0.25
         )]
+    } else if tier.style == .bumper {
+        materials = [pbrMaterial(
+            color: tier.plateColor.barbellDimmed(by: 0.20),
+            metallic: 0,
+            roughness: 0.88,
+            clearcoat: 0.08,
+            clearcoatRoughness: 0.75
+        )]
     } else {
         materials = [cache.darkRubber]
     }
@@ -1003,11 +1011,21 @@ private func makeBumperEntity(
     plate.addChild(makeOuterSidewallBand(profile: profile, tier: tier))
     addFaceDetailPair(makeOuterSidewallLip(profile: profile, tier: tier), to: plate, profile: profile)
     plate.addChild(makeOuterRubberBand(profile: profile, tier: tier, cache: cache))
+    let rimMat = pbrMaterial(
+        color: tier.plateColor.barbellDimmed(by: 0.32),
+        metallic: 0,
+        roughness: 0.84,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.68
+    )
+    plate.addChild(makeRaisedOuterRim(profile: profile, material: rimMat))
     let ringSpecs = PlateVisualDesign.faceRingSpecs(for: tier.style)
+    let shadowMat = shadowDishMaterial(from: tier, factor: 0.52)
     if ringSpecs.count == 2 {
-        addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_outer", outerRadius: ringSpecs[0].outerRadius, innerRadius: ringSpecs[0].innerRadius, profile: profile, material: faceMat), to: plate, profile: profile)
-        addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_inner", outerRadius: ringSpecs[1].outerRadius, innerRadius: ringSpecs[1].innerRadius, profile: profile, material: faceMat), to: plate, profile: profile)
+        addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_outer", outerRadius: ringSpecs[0].outerRadius, innerRadius: ringSpecs[0].innerRadius, profile: profile, material: shadowMat), to: plate, profile: profile)
+        addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_inner", outerRadius: ringSpecs[1].outerRadius, innerRadius: ringSpecs[1].innerRadius, profile: profile, material: shadowMat), to: plate, profile: profile)
     }
+    addFaceDetailPair(makeBoreRing(profile: profile), to: plate, profile: profile)
     addFaceDetailPair(makeCenterBoss(profile: profile, material: BumperPlateSurface.centerHub(for: tier).material), to: plate, profile: profile)
     return plate
 }
@@ -1111,6 +1129,30 @@ private func drawArcText(
     }
 }
 
+// Places characters packed by actual glyph advance widths, centered at centerAngle.
+// Avoids the equal-t distribution that spreads short strings like "PR" to arc endpoints.
+private func drawPackedArcText(
+    _ text: String,
+    center: CGPoint,
+    radius: CGFloat,
+    centerAngle: CGFloat,
+    attributes: [NSAttributedString.Key: Any],
+    outward: Bool
+) {
+    let chars = Array(text)
+    guard !chars.isEmpty else { return }
+    let advances: [CGFloat] = chars.map { (String($0) as NSString).size(withAttributes: attributes).width }
+    let totalWidth = advances.reduce(0, +)
+    var angle = centerAngle - (totalWidth / 2) / radius
+    for (i, char) in chars.enumerated() {
+        let charAngle = angle + (advances[i] / 2) / radius
+        let point = CGPoint(x: center.x + cos(charAngle) * radius, y: center.y + sin(charAngle) * radius)
+        let rotation = outward ? charAngle + .pi / 2 : charAngle - .pi / 2
+        drawCenteredText(String(char), at: point, angle: rotation, attributes: attributes)
+        angle += advances[i] / radius
+    }
+}
+
 private nonisolated(unsafe) var _weightDiscMaterialCache: [String: UnlitMaterial] = [:]
 private nonisolated(unsafe) var _engravingDiscMaterialCache: [String: any RealityKit.Material] = [:]
 private nonisolated(unsafe) var _progressionMarkMaterialCache: [String: PhysicallyBasedMaterial] = [:]
@@ -1149,8 +1191,10 @@ private func makeWeightDiscMaterial(
         ctx.fill(CGRect(x: 0, y: 0, width: side, height: side))
         let textColor = bumperPlateTextColor(for: tier)
         if artwork.showsBrandText {
+            let brandFont = UIFont(name: "BarlowSemiCondensed-Black", size: side * 0.145)
+                ?? UIFont.systemFont(ofSize: side * 0.145, weight: .black)
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: side * 0.145, weight: .black),
+                .font: brandFont,
                 .foregroundColor: textColor.withAlphaComponent(0.82)
             ]
             let center = CGPoint(x: side / 2, y: side / 2)
@@ -1174,8 +1218,10 @@ private func makeWeightDiscMaterial(
                 outward: false
             )
         }
+        let weightFont = UIFont(name: "BarlowSemiCondensed-Bold", size: side * 0.080)
+            ?? UIFont.boldSystemFont(ofSize: side * 0.080)
         let weightAttrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.boldSystemFont(ofSize: side * 0.080),
+            .font: weightFont,
             .foregroundColor: textColor.withAlphaComponent(0.78)
         ]
         let sideLabel = "\(label) KG"
@@ -1331,16 +1377,18 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
         _engravingDiscMaterialCache[cacheKey] = built
         material = built
     }
-    // Rim-band only mesh: innerRadius = profile.rimInnerRadius keeps the center hub visible.
+    // Use the full face zone (rimOuterRadius to bossOuterRadius) so the text arc maps to
+    // a large enough screen area to be readable. The rim-band-only mesh (rimOuter to rimInner
+    // = ~38px wide in the 512px canvas) is ~2px thick at normal render distances — invisible.
     let disc = ModelEntity(
         mesh: cachedPlateRing(height: 0.001,
                               outerRadius: profile.rimOuterRadius,
-                              innerRadius: profile.rimInnerRadius),
+                              innerRadius: profile.bossOuterRadius),
         materials: [material]
     )
     disc.name = mirrored ? "engravingDisc_back" : "engravingDisc"
-    // +0.016 clears the raised rim face, weight disc, and progression mark layers.
-    let faceOffset = profile.thickness * 0.5 + 0.016
+    // +0.019 clears rim face, weight disc, and progression mark layers.
+    let faceOffset = profile.thickness * 0.5 + 0.019
     disc.position = SIMD3(0, mirrored ? -faceOffset : faceOffset, 0)
     return disc
 }
@@ -1348,32 +1396,33 @@ private func makeEngravingDisc(engravingText: String, tier: PlateTier, prominent
 private func makeEngravingDiscMaterial(normalizedText: String, profile: PlateVisualProfile, prominent: Bool, mirrored: Bool = false) -> UnlitMaterial {
     let canvasSize: CGFloat = 512
     let half = canvasSize / 2
-    let rimMidRadius = CGFloat((profile.rimOuterRadius + profile.rimInnerRadius) / 2)
-    // Normalize arc radius against rimOuterRadius (the bounding radius of the ring mesh UV space).
-    let arcRadius = rimMidRadius / CGFloat(profile.rimOuterRadius) * half
-    let fontSize = prominent ? canvasSize * 0.09 : canvasSize * 0.065
+    // Place arc at 75% of the way from bossOuter toward rimOuter — closer to the outer edge
+    // so text is higher and more visible at normal render distances.
+    // Place arc at rim band midpoint — same visual band for bumper and cast iron.
+    let arcWorldRadius = (CGFloat(profile.rimInnerRadius) + CGFloat(profile.rimOuterRadius)) / 2
+    let arcRadius = arcWorldRadius / CGFloat(profile.rimOuterRadius) * half
+    let fontSize = canvasSize * 0.095
+    // Barlow Semi Condensed matches the app brand font; fall back to system if not loaded.
+    let fontName = "BarlowSemiCondensed-Bold"
+    let baseFont = UIFont(name: fontName, size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
     // Silver-toned text: lighter than the plate body, reads as stamped metal without PBR cost.
-    let textColor = UIColor(white: 0.82, alpha: 0.92)
-    let textAttrs: [NSAttributedString.Key: Any] = [
-        .font: UIFont.systemFont(ofSize: fontSize, weight: prominent ? .black : .bold),
-        .foregroundColor: textColor
-    ]
+    let textColor = UIColor(white: 0.88, alpha: 0.95)
+    let textAttrs: [NSAttributedString.Key: Any] = [.font: baseFont, .foregroundColor: textColor]
 
     let format = UIGraphicsImageRendererFormat()
     format.opaque = false
     format.scale = 1
     let renderer = UIGraphicsImageRenderer(size: CGSize(width: canvasSize, height: canvasSize), format: format)
     let image = renderer.image { ctx in
-        if mirrored {
+        if !mirrored {
             ctx.cgContext.translateBy(x: canvasSize, y: 0)
             ctx.cgContext.scaleBy(x: -1, y: 1)
         }
-        drawArcText(
+        drawPackedArcText(
             normalizedText,
             center: CGPoint(x: half, y: half),
             radius: arcRadius,
-            startAngle: -.pi * 0.82,
-            endAngle: -.pi * 0.18,
+            centerAngle: -.pi / 2,
             attributes: textAttrs,
             outward: true
         )
