@@ -40,6 +40,8 @@ struct SocialProfileView: View {
     @State private var isInvitingToRun = false
     @State private var runInviteSent = false
 
+    @State private var selectedPost: PostWithAuthor? = nil
+
     // Barbell showcase
     @State private var friendRackedPlates: [EarnedPlateInfo] = []
     @State private var friendBarbellShowcase: BarbellFriendShowcase?
@@ -1248,9 +1250,16 @@ struct SocialProfileView: View {
             } else {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.posts) { post in
-                        // Simple post preview
-                        postPreview(post: post)
+                        Button {
+                            selectedPost = PostWithAuthor(id: post.id, post: post, author: viewModel.profile)
+                        } label: {
+                            postPreview(post: post)
+                        }
+                        .buttonStyle(.plain)
                     }
+                }
+                .navigationDestination(item: $selectedPost) { post in
+                    PostDetailView(post: post)
                 }
             }
         }

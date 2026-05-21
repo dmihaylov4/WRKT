@@ -254,11 +254,12 @@ Expected: BUILD SUCCEEDED
 The original barHitZone was placed at z=−0.05 specifically so racked plate collisions win for right-side touches. Moving it to z=0 with a deeper box may change hit-test ordering. On a physical device:
 
 1. Rack two plates on the barbell.
-2. Tap directly on a right-side racked plate — the tap should open the info card (plate entity wins the hit test, not barHitZone). If barHitZone now steals the tap and nothing happens, back out the z change to z=−0.02 (a compromise: closer than −0.05 but still behind plates).
+2. Tap directly on a right-side racked plate — nothing should open. Plates mounted on the barbell are for unrack/drag interaction only; info cards are floor-plate interactions.
 3. Swipe horizontally on the LEFT side of the bar where no plate entity exists — both plates should slide out (barHitZone fires).
-4. Drag a floor plate — should track finger correctly with no barHitZone interference.
+4. Tap a floor plate — the info card should open.
+5. Drag a floor plate — should track finger correctly with no barHitZone interference.
 
-If step 2 fails (plate taps broken): change barHitZone position back to `SIMD3(0, 0, -0.02)` (half the original offset) and re-test. Do not proceed to commit until both left-side swipe and right-side plate tap work correctly.
+If step 3 fails (left-side swipe broken): change barHitZone position back to `SIMD3(0, 0, -0.02)` (half the original offset) and re-test. Do not proceed to commit until mounted plates stay non-card-opening, left-side swipe works, and floor-plate tap/drag behavior works correctly.
 
 - [ ] **Step 6: Commit**
 

@@ -1619,19 +1619,17 @@ struct BarbellRealityView: View {
             "SNAP_FLOOR_BEGIN",
             "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) physics=\(String(describing: entity.components[PhysicsBodyComponent.self]?.mode))"
         )
-        // Reparent to sceneRoot (not floorAnchor) for bar→floor transitions.
-        // floorAnchor is always at local (0,0,0) inside sceneRoot — floor panning is
-        // disabled (floorMinX == floorMaxX == 0) so the two are positionally identical.
-        // sceneRoot is the grandparent of barAnchor; reparenting child→grandparent is
-        // cheaper in RealityKit than sibling→sibling (barAnchor→floorAnchor), which
-        // triggers a full render graph re-evaluation and 19 AR material re-resolves.
-        // Using local-space setters after setParent(preservingWorldTransform: false)
-        // avoids setTransformMatrix(relativeTo: nil) (see earlier fix in this function).
+        // Reparent to sceneRoot BEFORE starting the animation. setParent triggers material
+        // re-resolves; doing it here (synchronously) means the animation runs without any
+        // mid-flight parent switch that would cancel it.
+        // Using local-space setters after setParent(preservingWorldTransform: false) avoids
+        // setTransformMatrix(relativeTo: nil), which marks the render graph dirty and triggers
+        // 19 AR material re-resolves per call.
         let worldPos = entity.position(relativeTo: nil)
         let worldRot = entity.orientation(relativeTo: nil)
-        let anchorWorldPos = sceneState.sceneRoot.position(relativeTo: nil)
+        let anchorWPos = sceneState.sceneRoot.position(relativeTo: nil)
         entity.setParent(sceneState.sceneRoot, preservingWorldTransform: false)
-        entity.position = worldPos - anchorWorldPos
+        entity.position = worldPos - anchorWPos
         entity.orientation = worldRot
         entity.components.set(PlateRoleComponent(role: .floor))
         #if DEBUG
@@ -1664,7 +1662,7 @@ struct BarbellRealityView: View {
             try? await Task.sleep(for: .milliseconds(100))
             guard entity.components[PlateRoleComponent.self]?.role == .floor else {
                 barbellDiagnosticsLog(
-                    "SNAP_FLOOR_DYNAMIC_SKIPPED",
+                    "SNAP_FLOOR_ANIM_SKIPPED",
                     "id=\(plateID) reason=roleChanged role=\(String(describing: entity.components[PlateRoleComponent.self]?.role))"
                 )
                 sceneState.platesBeingUnracked.remove(plateID)
@@ -1688,8 +1686,8 @@ struct BarbellRealityView: View {
             barbellLog("SNAP_FLOOR", "id=\(plateID) physics=dynamic localPos=\(v3(entity.position))")
             #endif
             barbellDiagnosticsLog(
-                "SNAP_FLOOR_DYNAMIC",
-                "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) motionLinear=\(barbellDiagnosticsV3(motion.linearVelocity))"
+                "SNAP_FLOOR_LANDED",
+                "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil)))"
             )
             finishUnrack(plateID: plateID, plate: plateToUnrack)
         }
