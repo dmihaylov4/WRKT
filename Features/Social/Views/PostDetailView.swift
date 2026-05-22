@@ -11,6 +11,7 @@ import Charts
 
 struct PostDetailView: View {
     @Environment(\.dependencies) private var deps
+    @Environment(\.dismiss) private var dismiss
 
     let post: PostWithAuthor
 
@@ -38,8 +39,22 @@ struct PostDetailView: View {
         }
         .navigationTitle("Post")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .onDisappear { isCommentFieldFocused = false }
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    isCommentFieldFocused = false
+                    // Let SwiftUI process the focus change (keyboard begins dismissing)
+                    // before the pop transition starts, preventing the layout jump.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        dismiss()
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .fontWeight(.semibold)
+                }
+            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") {
