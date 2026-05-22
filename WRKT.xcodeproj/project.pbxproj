@@ -101,6 +101,8 @@
 		2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */; };
 		2E510B932E9AF17A0089EE2C /* RewardProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B8E2E9AF1250089EE2C /* RewardProgress.swift */; };
 		2E57AA012F5A000000000001 /* StreakRecoverySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */; };
+		2E5F4E692FC07D820036CE23 /* BattleShareCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5F4E682FC07D820036CE23 /* BattleShareCoordinator.swift */; };
+		2E5F4E6B2FC08ABC0036CE23 /* SpinningPlateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5F4E6A2FC08ABC0036CE23 /* SpinningPlateView.swift */; };
 		2E6141322ECE266100B50FDE /* WatchWorkoutModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */; };
 		2E61413B2ECE284200B50FDE /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */; };
 		2E6141642ECF0FDC00B50FDE /* WRKT Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -590,6 +592,8 @@
 		2E510B8F2E9AF1390089EE2C /* RewardEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardEngine.swift; sourceTree = "<group>"; };
 		2E510B902E9AF1430089EE2C /* RewardsRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsRules.swift; sourceTree = "<group>"; };
 		2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakRecoverySheet.swift; sourceTree = "<group>"; };
+		2E5F4E682FC07D820036CE23 /* BattleShareCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleShareCoordinator.swift; sourceTree = "<group>"; };
+		2E5F4E6A2FC08ABC0036CE23 /* SpinningPlateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpinningPlateView.swift; sourceTree = "<group>"; };
 		2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutModels.swift; sourceTree = "<group>"; };
 		2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WRKT Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1540,6 +1544,7 @@
 		2E196EEC2EAE482800EB4780 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				2E5F4E6A2FC08ABC0036CE23 /* SpinningPlateView.swift */,
 				2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */,
 				2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */,
 				2E2F538E2E9D675D00C81656 /* WinScreen.swift */,
@@ -1886,6 +1891,7 @@
 		2EA7DAA72EEDC76F0017683B /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				2E5F4E682FC07D820036CE23 /* BattleShareCoordinator.swift */,
 				2EA7DAAE2EEDC9950017683B /* BattleRepository.swift */,
 			);
 			path = Services;
@@ -2643,6 +2649,7 @@
 				2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */,
 				2EA7DAB42EEDCD7F0017683B /* ChallengesViewModel.swift in Sources */,
 				2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */,
+				2E5F4E692FC07D820036CE23 /* BattleShareCoordinator.swift in Sources */,
 				86DADDB901DB443FA9F75985 /* ExportBundle.swift in Sources */,
 				226FFA5A1F3745D78A805A8E /* ImportRecord.swift in Sources */,
 				2EC89F472F93FD560011159D /* SharedProgramStructure.swift in Sources */,
@@ -2776,6 +2783,7 @@
 				2EEEACC62EA3862200EDD16E /* HealthKitManager.swift in Sources */,
 				2EBE3EF02EB6578B00A26355 /* CreateCustomSplitCard.swift in Sources */,
 				2EA7D9B62EEAFB340017683B /* ActivityFeedView.swift in Sources */,
+				2E5F4E6B2FC08ABC0036CE23 /* SpinningPlateView.swift in Sources */,
 				2EBE3EF12EB6578B00A26355 /* SplitTemplateCard.swift in Sources */,
 				2EBE3F162EB6692900A26355 /* PlannerConstants.swift in Sources */,
 				2EBE3F442EB691FB00A26355 /* TimedSetRow.swift in Sources */,
