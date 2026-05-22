@@ -38,6 +38,7 @@ struct PostDetailView: View {
         }
         .navigationTitle("Post")
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { isCommentFieldFocused = false }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
