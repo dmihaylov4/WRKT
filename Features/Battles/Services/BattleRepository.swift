@@ -445,21 +445,30 @@ final class BattleRepository: Sendable {
         await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: sourceWorkoutID)
     }
 
-    /// Atomically records the post that shared this battle result.
-    func lockSharedPost(battleId: UUID, postId: UUID, userId: UUID) async throws {
+    /// Records the first post that shared this battle result.
+    func lockSharedPost(battleId: UUID, postId: UUID, userId: UUID) async throws -> Battle {
         struct ShareLockUpdate: Encodable {
             let shared_post_id: String
             let shared_by_user_id: String
         }
 
-        try await supabase.database
-            .from("battles")
-            .update(ShareLockUpdate(
-                shared_post_id: postId.uuidString,
-                shared_by_user_id: userId.uuidString
-            ))
-            .eq("id", value: battleId.uuidString)
-            .execute()
+        do {
+            return try await supabase.database
+                .from("battles")
+                .update(ShareLockUpdate(
+                    shared_post_id: postId.uuidString,
+                    shared_by_user_id: userId.uuidString
+                ))
+                .eq("id", value: battleId.uuidString)
+                .filter("shared_post_id", operator: "is", value: "null")
+                .select()
+                .single()
+                .execute()
+                .value
+        } catch let error as PostgrestError
+            where error.message.contains("JSON object requested, multiple (or no) rows returned") {
+            throw SupabaseError.custom(message: "Battle result already shared")
+        }
     }
 
     private func calculateBattleScore(

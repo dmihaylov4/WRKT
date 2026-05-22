@@ -181,11 +181,16 @@ final class BattleViewModel {
                 postType: .battle,
                 battleStats: stats
             )
-            try await battleRepository.lockSharedPost(
-                battleId: battle.id,
-                postId: post.id,
-                userId: currentUserId
-            )
+            do {
+                _ = try await battleRepository.lockSharedPost(
+                    battleId: battle.id,
+                    postId: post.id,
+                    userId: currentUserId
+                )
+            } catch {
+                try? await postRepository.deletePost(post.id)
+                throw error
+            }
             if let refreshed = try? await battleRepository.fetchBattle(id: battle.id) {
                 pendingResultBattle = refreshed
             }
