@@ -347,6 +347,7 @@
 		2EC99E822EABF313006B875E /* WeightSuggestionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */; };
 		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
 		2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00032FC000000000001 /* BattleResultOverlay.swift */; };
+		2ECA00062FC000000000001 /* BattlePostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00052FC000000000001 /* BattlePostCard.swift */; };
 		2ECC7B892F7BF973009119BF /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */; };
 		2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */; };
 		2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */; };
@@ -837,6 +838,7 @@
 		2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightSuggestionHelper.swift; sourceTree = "<group>"; };
 		2ECA00012FC000000000001 /* BattlePostStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostStats.swift; sourceTree = "<group>"; };
 		2ECA00032FC000000000001 /* BattleResultOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleResultOverlay.swift; sourceTree = "<group>"; };
+		2ECA00052FC000000000001 /* BattlePostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostCard.swift; sourceTree = "<group>"; };
 		2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
 		2ECC7D022F7C21C3009119BF /* CastIron_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Color.jpg; sourceTree = "<group>"; };
 		2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Metalness.jpg; sourceTree = "<group>"; };
@@ -1798,6 +1800,7 @@
 				2EA7D9CA2EEB6E9B0017683B /* SkeletonProfileHeader.swift */,
 				2EA7D9BE2EEB18DA0017683B /* SkeletonPostCard.swift */,
 				2EA7D99C2EE9EF540017683B /* PostCard.swift */,
+				2ECA00052FC000000000001 /* BattlePostCard.swift */,
 				2EA7D9FF2EE9EF540017683B /* WorkoutPostStatsViews.swift */,
 				2EA7DA002EE9EF540017683C /* MultiWorkoutCarousel.swift */,
 				2EA7DA022EE9EF540017683C /* WorkoutPostSummaryPresentation.swift */,
@@ -2894,6 +2897,7 @@
 				2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */,
 				2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */,
 				2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */,
+				2ECA00062FC000000000001 /* BattlePostCard.swift in Sources */,
 				2EBE3FA12EB895D800A26355 /* SearchBarComponent.swift in Sources */,
 				2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */,
 				2EBE3FAF2EB8B46100A26355 /* HealthKitWorkoutCategory.swift in Sources */,
