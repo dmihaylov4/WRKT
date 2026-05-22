@@ -823,6 +823,8 @@ struct ExerciseSessionView: View {
                     )
                 }
                 .buttonStyle(.plain)
+                .frame(width: max(0, offset))
+                .clipped()
 
                 content
                     .offset(x: offset)
