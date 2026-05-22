@@ -25,11 +25,9 @@ struct RestTimerLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
                         Image("LaunchLogo")
-                            .renderingMode(.template)
                             .resizable()
                             .scaledToFit()
                             .frame(width: 22, height: 22)
-                            .foregroundStyle(Color.brandAccent)
 
                         VStack(alignment: .leading, spacing: 1) {
                             Text(context.attributes.exerciseName)
@@ -113,11 +111,9 @@ struct RestTimerLiveActivity: Widget {
 
             } compactLeading: {
                 Image("LaunchLogo")
-                    .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 16, height: 16)
-                    .foregroundStyle(Color.brandAccent)
 
             } compactTrailing: {
                 if context.state.isPaused {
@@ -137,11 +133,9 @@ struct RestTimerLiveActivity: Widget {
 
             } minimal: {
                 Image("LaunchLogo")
-                    .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 14, height: 14)
-                    .foregroundStyle(Color.brandAccent)
             }
             .keylineTint(Color.brandAccent)
         }
@@ -162,11 +156,9 @@ struct RestTimerLockScreenView: View {
             // Header
             HStack(spacing: 8) {
                 Image("LaunchLogo")
-                    .renderingMode(.template)
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 18, height: 18)
-                    .foregroundStyle(Color.brandAccent)
+                    .frame(width: 24, height: 24)
 
                 Text(context.attributes.exerciseName)
                     .font(.subheadline.weight(.semibold))
