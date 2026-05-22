@@ -425,6 +425,9 @@ struct AppShellView: View {
                 RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
                 let currentStreak = RewardsEngine.shared.weeklyGoalStreak()
                 Task { await dependencies.authService.syncStreak(currentStreak) }
+
+                // Check for battles that completed while the app was backgrounded
+                await presentPendingBattleRewardsOnLaunch()
             }
         }
     }
