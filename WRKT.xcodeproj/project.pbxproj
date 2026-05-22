@@ -147,6 +147,7 @@
 		2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9922EE9D30B0017683B /* Friendship.swift */; };
 		2EA7D9952EE9D3230017683B /* FriendshipRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */; };
 		2EA7D9972EE9D8B50017683B /* WorkoutPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */; };
+		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
 		2EA7D9992EE9D90F0017683B /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9982EE9D90F0017683B /* PostRepository.swift */; };
 		2EA7D99B2EE9DA160017683B /* ImageUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99A2EE9DA160017683B /* ImageUploadService.swift */; };
 		2EA7D99E2EE9EF540017683B /* PostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99C2EE9EF540017683B /* PostCard.swift */; };
@@ -635,6 +636,7 @@
 		2EA7D9922EE9D30B0017683B /* Friendship.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Friendship.swift; sourceTree = "<group>"; };
 		2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendshipRepository.swift; sourceTree = "<group>"; };
 		2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPost.swift; sourceTree = "<group>"; };
+		2ECA00012FC000000000001 /* BattlePostStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostStats.swift; sourceTree = "<group>"; };
 		2EA7D9982EE9D90F0017683B /* PostRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRepository.swift; sourceTree = "<group>"; };
 		2EA7D99A2EE9DA160017683B /* ImageUploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageUploadService.swift; sourceTree = "<group>"; };
 		2EA7D99C2EE9EF540017683B /* PostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCard.swift; sourceTree = "<group>"; };
@@ -2189,6 +2191,7 @@
 				2E695B772EFC3E43002EA9FC /* PRAchievement.swift */,
 				2EA7D9B32EEAFA940017683B /* Notification.swift */,
 				2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */,
+				2ECA00012FC000000000001 /* BattlePostStats.swift */,
 				2EA7D9922EE9D30B0017683B /* Friendship.swift */,
 				2EE8A0962EE9A10B00A74A3C /* UserProfile.swift */,
 			);
@@ -2896,6 +2899,7 @@
 				2EE39C712EA77FE0000549C3 /* PlannerDebugView.swift in Sources */,
 				2ED2379C2EA60FE1009C742E /* RestTimerState.swift in Sources */,
 				2EA7D9972EE9D8B50017683B /* WorkoutPost.swift in Sources */,
+				2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */,
 				2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */,
 				2E7461CF2E94356D00A71C35 /* WorkoutDetail.swift in Sources */,
 				2E510B6E2E99597D0089EE2C /* SVGHumanBodyView.swift in Sources */,
