@@ -137,7 +137,7 @@ final class PlateSnapshotService {
         try? await Task.sleep(for: .milliseconds(150))
 
         return await withCheckedContinuation { continuation in
-            arView.snapshot(saveToPhotoLibrary: false) { image in
+            arView.snapshot(saveToHDR: false) { image in
                 continuation.resume(returning: image)
             }
         }
