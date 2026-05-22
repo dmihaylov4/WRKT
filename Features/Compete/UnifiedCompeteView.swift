@@ -39,6 +39,22 @@ struct UnifiedCompeteView: View {
                     BattleDetailView(battle: battle, viewModel: vm)
                 }
             }
+            .fullScreenCover(
+                isPresented: Binding(
+                    get: { battlesVM?.pendingResultBattle != nil },
+                    set: { if !$0 { battlesVM?.dismissResult() } }
+                )
+            ) {
+                if let battle = battlesVM?.pendingResultBattle,
+                   let userId = deps.authService.currentUser?.id {
+                    BattleResultOverlay(
+                        battle: battle,
+                        currentUserId: userId,
+                        onShare: { await battlesVM?.shareResult() },
+                        onDismiss: { battlesVM?.dismissResult() }
+                    )
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .openBattleCreateSheet)) { _ in
                 battlesVM?.openCreateBattle()
             }
