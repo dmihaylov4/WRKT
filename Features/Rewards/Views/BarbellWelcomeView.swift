@@ -110,7 +110,9 @@ struct BarbellWelcomeView: View {
 
     private var heroRealityView: some View {
         ZStack {
-            if assetsReady {
+            if let plate = battleShare.earnedPlate {
+                SpinningPlateView(plate: plate)
+            } else if assetsReady {
                 BarbellRealityView(
                     mode: .welcome(plates: welcomeScenePlates),
                     sceneState: sceneState
@@ -132,14 +134,22 @@ struct BarbellWelcomeView: View {
                     .foregroundStyle(DS.Semantic.brand)
                     .tracking(1.1)
 
-                Text("Build Your Barbell")
+                Text(battleShare.pendingBattle != nil ? "Battle Complete!" : "Build Your Barbell")
                     .font(DS.Typography.font(.title2, weight: .bold))
                     .foregroundStyle(.white)
 
-                Text("Collect plates through workouts and build a rack worth showing off.")
-                    .dsFont(.footnote)
-                    .foregroundStyle(.white.opacity(0.66))
-                    .fixedSize(horizontal: false, vertical: true)
+                if let battle = battleShare.pendingBattle {
+                    let opponent = battle.opponentProfile
+                    Text("You won the \(battle.battle.battleType.displayName) battle vs \(opponent.displayName ?? opponent.username)")
+                        .dsFont(.footnote)
+                        .foregroundStyle(.white.opacity(0.66))
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("Collect plates through workouts and build a rack worth showing off.")
+                        .dsFont(.footnote)
+                        .foregroundStyle(.white.opacity(0.66))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Spacer()

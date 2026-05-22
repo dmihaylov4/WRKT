@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Supabase
 
 /// Singleton that carries the pending battle share action to BarbellWelcomeView.
 /// Set by AppShellView.presentPendingBattleRewardsOnLaunch() after battle completion,
@@ -10,6 +11,7 @@ final class BattleShareCoordinator {
 
     var pendingBattle: BattleWithParticipants?
     private(set) var pendingUserId: UUID?
+    private(set) var earnedPlate: EarnedPlateInfo?
     private(set) var isAlreadyShared: Bool = false
     private(set) var isSharing: Bool = false
 
@@ -19,11 +21,13 @@ final class BattleShareCoordinator {
         pendingBattle = battle
         pendingUserId = userId
         isAlreadyShared = battle.battle.sharedPostId != nil
+        earnedPlate = BarbellProgressService.shared.fetchEarnedPlate(forBattle: battle.id)
     }
 
     func clear() {
         pendingBattle = nil
         pendingUserId = nil
+        earnedPlate = nil
         isAlreadyShared = false
         isSharing = false
     }
@@ -41,11 +45,13 @@ final class BattleShareCoordinator {
         let myScore  = battle.battle.score(for: userId)
         let oppScore = battle.battle.opponentScore(for: userId)
 
+        let myProfile = battle.userProfile
         let stats = BattlePostStats(
             battleId: battle.id,
             battleType: battle.battle.battleType,
             myScore: myScore,
             opponentScore: oppScore,
+            myName: myProfile.displayName ?? myProfile.username,
             opponentName: opponent.displayName ?? opponent.username,
             opponentAvatarUrl: opponent.avatarUrl,
             scoreUnit: battle.battle.scoreUnit,
@@ -55,9 +61,9 @@ final class BattleShareCoordinator {
         )
 
         let placeholder = CompletedWorkout(
-            entries: [],
             date: battle.battle.endDate,
-            startedAt: battle.battle.startDate
+            startedAt: battle.battle.startDate,
+            entries: []
         )
 
         do {

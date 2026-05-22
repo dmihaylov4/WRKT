@@ -82,7 +82,11 @@ struct PostDetailView: View {
                             .padding(.horizontal)
                     }
 
-                    if viewModel.post.post.isMultiWorkout {
+                    if viewModel.post.post.postType == .battle,
+                       let stats = viewModel.post.post.battleStats {
+                        BattlePostCard(stats: stats)
+                            .padding(.horizontal)
+                    } else if viewModel.post.post.isMultiWorkout {
                         workoutReport(viewModel: viewModel)
                             .padding(.horizontal)
                     } else if viewModel.post.post.workoutData.isCardioWorkout {

@@ -50,7 +50,7 @@ struct BattlePostCard: View {
                 Text(formatScore(stats.myScore))
                     .dsFont(.title3, weight: .bold)
                     .foregroundStyle(stats.isWinner ? DS.Semantic.accentWarm : DS.Semantic.textPrimary)
-                Text("You")
+                Text(stats.myName?.components(separatedBy: " ").first ?? "—")
                     .dsFont(.caption2)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
