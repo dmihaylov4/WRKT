@@ -1,20 +1,14 @@
-//
-//  RestTimerLiveActivity.swift
-//  WRKTWidgets
-//
-//  Live Activity Widget for Rest Timer
-//  Displays on lock screen and Dynamic Island
-//
-
 import ActivityKit
 import WidgetKit
 import SwiftUI
 import AppIntents
 
 // MARK: - Brand Colors
+
 private extension Color {
     static let brandAccent = Color(red: 0.8, green: 1.0, blue: 0.0) // #CCFF00
-    static let widgetBackground = Color(red: 0.07, green: 0.07, blue: 0.07) // #121212
+    static let widgetBackground = Color(red: 0.03, green: 0.03, blue: 0.03) // #080808
+    static let widgetSurface = Color(red: 0.10, green: 0.10, blue: 0.10)
 }
 
 // MARK: - Main Widget
@@ -22,164 +16,132 @@ private extension Color {
 struct RestTimerLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RestTimerAttributes.self) { context in
-            // MARK: - Lock Screen / Banner / Notification View
             RestTimerLockScreenView(context: context)
-                .activityBackgroundTint(Color.widgetBackground.opacity(0.95))
+                .activityBackgroundTint(Color.widgetBackground)
                 .activitySystemActionForegroundColor(Color.brandAccent)
 
         } dynamicIsland: { context in
             DynamicIsland {
-                // MARK: - Expanded View (when tapped)
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "dumbbell.fill")
-                            .font(.title3)
+                    HStack(spacing: 8) {
+                        Image("LaunchLogo")
+                            .renderingMode(.template)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 22, height: 22)
                             .foregroundStyle(Color.brandAccent)
 
-                        VStack(alignment: .leading, spacing: 2) {
+                        VStack(alignment: .leading, spacing: 1) {
                             Text(context.attributes.exerciseName)
-                                .font(.headline)
+                                .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)
                                 .lineLimit(1)
-
                             if context.state.isPaused {
                                 Text("Paused")
-                                    .font(.caption)
-                                    .foregroundStyle(.orange)
-                            } else if context.state.wasAdjusted {
-                                Text("Adjusted")
-                                    .font(.caption)
-                                    .foregroundStyle(.blue)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.5))
                             }
                         }
                     }
                 }
 
                 DynamicIslandExpandedRegion(.trailing) {
-                    VStack(alignment: .trailing, spacing: 4) {
+                    if context.state.isPaused {
                         Text(timeString(context.state.remainingSeconds))
                             .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
-                            .foregroundStyle(.white)
-
-                        Text("remaining")
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(Color.brandAccent)
+                    } else {
+                        Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
+                            .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
+                            .foregroundStyle(Color.brandAccent)
+                            .multilineTextAlignment(.trailing)
                     }
                 }
 
                 DynamicIslandExpandedRegion(.center) {
-                    if context.state.remainingSeconds > 0 {
-                        VStack(spacing: 4) {
-                            // Progress bar
-                            ProgressView(value: context.state.progress)
-                                .tint(Color.brandAccent)
-                                .scaleEffect(y: 0.8)
-                        }
-                        .padding(.horizontal, 8)
+                    if context.state.isPaused {
+                        ProgressView(value: context.state.progress)
+                            .tint(Color.brandAccent.opacity(0.5))
+                    } else {
+                        ProgressView(
+                            timerInterval: context.attributes.startTime...context.state.endDate,
+                            countsDown: false
+                        )
+                        .tint(Color.brandAccent)
                     }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.remainingSeconds <= 0 {
-                        // Ready state - show action button
+                    if context.state.endDate <= Date() && !context.state.isPaused {
                         Button(intent: StartNextSetIntent()) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "timer")
-                                Text("Log Next Set")
-                            }
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(.black)
+                            Label("Log Next Set", systemImage: "checkmark.circle.fill")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.black)
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(Color.brandAccent)
                         .padding(.top, 4)
                     } else {
-                        // Timer running - show controls
-                        HStack(spacing: 12) {
-                            // Subtract 15 seconds
+                        HStack(spacing: 10) {
                             Button(intent: AdjustRestTimerIntent(seconds: -15)) {
-                                Label("-15s", systemImage: "minus.circle.fill")
-                                    .font(.caption)
+                                Text("-15s")
+                                    .font(.caption.weight(.semibold))
                             }
                             .buttonStyle(.bordered)
-                            .tint(.orange)
+                            .tint(.white.opacity(0.4))
 
-                            // Pause/Resume
-                            if context.state.isPaused {
-                                Button(intent: ResumeRestTimerIntent()) {
-                                    Label("Resume", systemImage: "play.circle.fill")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .tint(.green)
-                            } else {
-                                Button(intent: PauseRestTimerIntent()) {
-                                    Label("Pause", systemImage: "pause.circle.fill")
-                                        .font(.caption)
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(.blue)
-                            }
-
-                            // Add 15 seconds
                             Button(intent: AdjustRestTimerIntent(seconds: 15)) {
-                                Label("+15s", systemImage: "plus.circle.fill")
-                                    .font(.caption)
+                                Text("+15s")
+                                    .font(.caption.weight(.semibold))
                             }
                             .buttonStyle(.bordered)
-                            .tint(.orange)
+                            .tint(.white.opacity(0.4))
 
-                            // Skip
+                            Spacer()
+
                             Button(intent: SkipRestTimerIntent()) {
                                 Label("Skip", systemImage: "forward.fill")
-                                    .font(.caption)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundColor(.black)
                             }
-                            .buttonStyle(.bordered)
-                            .tint(.red)
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color.brandAccent)
                         }
                         .padding(.top, 4)
                     }
                 }
 
             } compactLeading: {
-                // MARK: - Compact Leading (left side when minimized)
-                if context.state.remainingSeconds <= 0 {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.brandAccent)
-                } else {
-                    Image(systemName: "timer")
-                        .foregroundStyle(Color.brandAccent)
-                }
+                Image("LaunchLogo")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(Color.brandAccent)
 
             } compactTrailing: {
-                // MARK: - Compact Trailing (right side when minimized)
-                HStack(spacing: 2) {
-                    if context.state.remainingSeconds <= 0 {
-                        Text("Ready")
-                            .font(.system(.caption2, design: .rounded).weight(.semibold))
-                            .foregroundStyle(Color.brandAccent)
-                    } else {
-                        if context.state.isPaused {
-                            Image(systemName: "pause.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.orange)
-                        }
-
-                        Text(compactTimeString(context.state.remainingSeconds))
-                            .font(.system(.caption, design: .rounded).monospacedDigit().weight(.medium))
-                            .foregroundStyle(.white)
-                    }
+                if context.state.isPaused {
+                    Text(timeString(context.state.remainingSeconds))
+                        .font(.system(.caption, design: .rounded).monospacedDigit().weight(.medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                } else if context.state.endDate <= Date() {
+                    Text("Ready")
+                        .font(.system(.caption2, design: .rounded).weight(.semibold))
+                        .foregroundStyle(Color.brandAccent)
+                } else {
+                    Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
+                        .font(.system(.caption, design: .rounded).monospacedDigit().weight(.medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.trailing)
                 }
 
             } minimal: {
-                // MARK: - Minimal (when multiple activities exist)
-                if context.state.remainingSeconds <= 0 {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.brandAccent)
-                } else {
-                    Image(systemName: "timer")
-                        .foregroundStyle(Color.brandAccent)
-                }
+                Image("LaunchLogo")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 14, height: 14)
+                    .foregroundStyle(Color.brandAccent)
             }
             .keylineTint(Color.brandAccent)
         }
@@ -192,15 +154,18 @@ struct RestTimerLockScreenView: View {
     let context: ActivityViewContext<RestTimerAttributes>
 
     private var isReady: Bool {
-        context.state.remainingSeconds <= 0
+        context.state.endDate <= Date() && !context.state.isPaused
     }
 
     var body: some View {
-        VStack(spacing: 10) {
-            // Header with exercise name
-            HStack {
-                Image(systemName: "dumbbell.fill")
-                    .font(.body)
+        VStack(alignment: .leading, spacing: 12) {
+            // Header
+            HStack(spacing: 8) {
+                Image("LaunchLogo")
+                    .renderingMode(.template)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 18, height: 18)
                     .foregroundStyle(Color.brandAccent)
 
                 Text(context.attributes.exerciseName)
@@ -211,134 +176,106 @@ struct RestTimerLockScreenView: View {
                 Spacer()
 
                 if context.state.isPaused {
-                    Image(systemName: "pause.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                } else if isReady {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(Color.brandAccent)
+                    Text("Paused")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.45))
                 }
             }
 
             if isReady {
-                // Ready state - show action buttons
-                HStack(spacing: 10) {
-                    // Log Next Set button - starts timer for next set
-                    Button(intent: StartNextSetIntent()) {
+                // Ready state
+                Button(intent: StartNextSetIntent()) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Log Next Set")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .foregroundColor(.black)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Color.brandAccent)
+
+            } else {
+                // Timer
+                if context.state.isPaused {
+                    Text(timeString(context.state.remainingSeconds))
+                        .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Color.brandAccent.opacity(0.6))
+                } else {
+                    Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
+                        .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(Color.brandAccent)
+                        .contentTransition(.numericText(countsDown: true))
+                }
+
+                // Progress bar
+                if context.state.isPaused {
+                    ProgressView(value: context.state.progress)
+                        .tint(Color.brandAccent.opacity(0.4))
+                } else {
+                    ProgressView(
+                        timerInterval: context.attributes.startTime...context.state.endDate,
+                        countsDown: false,
+                        label: { EmptyView() },
+                        currentValueLabel: { EmptyView() }
+                    )
+                    .tint(Color.brandAccent)
+                }
+
+                // Controls
+                HStack(spacing: 8) {
+                    Button(intent: AdjustRestTimerIntent(seconds: -15)) {
+                        Image(systemName: "minus")
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(width: 40, height: 36)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white.opacity(0.3))
+
+                    Button(intent: AdjustRestTimerIntent(seconds: 15)) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(width: 40, height: 36)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white.opacity(0.3))
+
+                    Spacer()
+
+                    Button(intent: SkipRestTimerIntent()) {
                         HStack(spacing: 6) {
-                            Image(systemName: "timer")
-                                .font(.body)
-                            Text("Log Next Set")
-                                .font(.subheadline.weight(.semibold))
+                            Text("Skip")
+                                .fontWeight(.semibold)
+                            Image(systemName: "forward.fill")
+                                .font(.caption)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
                         .foregroundColor(.black)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.brandAccent)
-
-                    // Open Workout button - opens app
-                    Button(intent: OpenAppIntent()) {
-                        Image(systemName: "arrow.right.circle")
-                            .font(.title3)
-                            .padding(.vertical, 14)
-                            .padding(.horizontal, 16)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(Color.brandAccent)
-                }
-            } else {
-                // Timer running state
-                HStack(spacing: 10) {
-                    Image(systemName: "timer")
-                        .font(.title2)
-                        .foregroundStyle(Color.brandAccent)
-
-                    Text(timeString(context.state.remainingSeconds))
-                        .font(.system(.title, design: .rounded).monospacedDigit().weight(.bold))
-                        .foregroundStyle(.white)
-
-                    Spacer()
-                }
-
-                // Progress Bar
-                ProgressView(value: context.state.progress)
-                    .tint(Color.brandAccent)
-                    .scaleEffect(y: 1.2)
-
-                // Action Buttons
-                HStack(spacing: 10) {
-                    // Time adjustment
-                    Button(intent: AdjustRestTimerIntent(seconds: -15)) {
-                        Image(systemName: "minus.circle.fill")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.orange)
-
-                    Button(intent: AdjustRestTimerIntent(seconds: 15)) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.orange)
-
-                    Spacer()
-
-                    // Skip button
-                    Button(intent: SkipRestTimerIntent()) {
-                        HStack(spacing: 6) {
-                            Text("Skip")
-                                .font(.subheadline.weight(.semibold))
-                            Image(systemName: "forward.fill")
-                                .font(.caption)
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
                 }
             }
         }
-        .padding(14)
+        .padding(16)
     }
 }
 
-// MARK: - Helper Functions
+// MARK: - Helper
 
-/// Format seconds as MM:SS or HH:MM:SS
 private func timeString(_ seconds: Int) -> String {
-    let absSeconds = abs(seconds)
-    let hours = absSeconds / 3600
-    let minutes = (absSeconds % 3600) / 60
-    let secs = absSeconds % 60
-
-    if hours > 0 {
-        return String(format: "%d:%02d:%02d", hours, minutes, secs)
-    } else {
-        return String(format: "%d:%02d", minutes, secs)
-    }
+    let s = max(0, seconds)
+    let m = s / 60
+    let sec = s % 60
+    return String(format: "%d:%02d", m, sec)
 }
 
-/// Compact time format for Dynamic Island
-private func compactTimeString(_ seconds: Int) -> String {
-    let absSeconds = abs(seconds)
-    let minutes = absSeconds / 60
-    let secs = absSeconds % 60
+// MARK: - Previews
 
-    if minutes > 0 {
-        return String(format: "%d:%02d", minutes, secs)
-    } else {
-        return String(format: "%ds", secs)
-    }
-}
-
-// MARK: - Preview
-
-#Preview("Rest Timer Live Activity", as: .content, using: RestTimerAttributes(
+#Preview("Lock Screen", as: .content, using: RestTimerAttributes(
     exerciseName: "Bench Press",
     originalDuration: 180,
     exerciseID: "bench-press-001",
@@ -355,21 +292,11 @@ private func compactTimeString(_ seconds: Int) -> String {
         wasAdjusted: false,
         lastUpdate: Date()
     )
-
     RestTimerAttributes.ContentState(
         remainingSeconds: 45,
         endDate: Date().addingTimeInterval(45),
         isPaused: true,
         progress: 0.25,
-        wasAdjusted: true,
-        lastUpdate: Date()
-    )
-
-    RestTimerAttributes.ContentState(
-        remainingSeconds: 10,
-        endDate: Date().addingTimeInterval(10),
-        isPaused: false,
-        progress: 0.06,
         wasAdjusted: false,
         lastUpdate: Date()
     )
