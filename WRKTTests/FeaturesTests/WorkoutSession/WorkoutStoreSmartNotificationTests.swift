@@ -22,6 +22,14 @@ struct WorkoutStoreSmartNotificationTests {
         #expect(finishCurrentWorkoutAndReturnPRsBody.contains("updateCompetitiveFeatures(for: completed)"))
     }
 
+    @Test func exerciseSessionUsesCustomBlackLeadingSwipeAction() throws {
+        let source = try String(contentsOfFile: sourcePath("Features/WorkoutSession/Views/ExerciseSession/ExcerciseSessionView.swift"))
+
+        #expect(source.contains("CustomLeadingSwipeAction"))
+        #expect(source.contains(".foregroundStyle(Color.black)"))
+        #expect(!source.contains(".swipeActions(edge: .leading"))
+    }
+
     private func sourcePath(_ relativePath: String) -> String {
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         while directory.path != "/" {

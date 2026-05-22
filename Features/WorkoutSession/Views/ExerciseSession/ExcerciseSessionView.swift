@@ -663,7 +663,6 @@ struct ExerciseSessionView: View {
     private struct SetsSection: View {
         @Binding var sets: [SetInput]
         @Binding var activeSetIndex: Int
-        @EnvironmentObject private var store: WorkoutStoreV2
 
         let unit: WeightUnit
         let exercise: Exercise
@@ -729,35 +728,16 @@ struct ExerciseSessionView: View {
                     .listRowInsets(.init(top: 6, leading: 16, bottom: 6, trailing: 16))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        if isCompleted {
-                            Button(role: .none) {
-                                sets[i].isCompleted = false
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .dsFont(.title3)
-                                    Text("Mark Incomplete")
-                                        .dsFont(.subheadline, weight: .semibold)
-                                }
-                                .foregroundStyle(.black)
+                    .modifier(CustomLeadingSwipeAction(
+                        title: isCompleted ? "Mark Incomplete" : "Mark Complete",
+                        systemName: isCompleted ? "xmark.circle.fill" : "checkmark.circle.fill",
+                        action: {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                sets[i].isCompleted.toggle()
                             }
-                            .tint(DS.Palette.marone)
-                        } else {
-                            Button(role: .none) {
-                                sets[i].isCompleted = true
-                            } label: {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .dsFont(.title3)
-                                    Text("Mark Complete")
-                                        .dsFont(.subheadline, weight: .semibold)
-                                }
-                                .foregroundStyle(.black)
-                            }
-                            .tint(DS.Palette.marone)
+                            Haptics.light()
                         }
-                    }
+                    ))
                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                         Button {
                             onDelete(i)
@@ -776,18 +756,12 @@ struct ExerciseSessionView: View {
                 }
 
                 VStack(spacing: 10) {
-                    HStack(spacing: 8) {
-                        PresetButton(title: "Use Last", icon: "clock.arrow.circlepath") {
-                            useLast()
-                        }
-
-                        // Superset toggle - show for all exercises except first
-                        if canShowSupersetToggle {
-                            SupersetToggleButton(
-                                isActive: isInSuperset,
-                                onToggle: onToggleSuperset
-                            )
-                        }
+                    // Superset toggle - show for all exercises except first
+                    if canShowSupersetToggle {
+                        SupersetToggleButton(
+                            isActive: isInSuperset,
+                            onToggle: onToggleSuperset
+                        )
                     }
 
                     Button(action: onAdd) {
@@ -814,31 +788,88 @@ struct ExerciseSessionView: View {
                 .listRowBackground(Theme.bg)
             }
         }
+    }
 
-        private func useLast() {
-            Haptics.light()
-            if let lastWorkingSet = store.lastWorkingSet(exercise: exercise) {
-                sets.append(SetInput(
-                    reps: lastWorkingSet.reps,
-                    weight: lastWorkingSet.weightKg,
-                    tag: .working,
-                    autoWeight: false,  // Don't auto-recalculate - use explicit values from history
-                    didSeedFromMemory: true
-                ))
-                activeSetIndex = sets.count - 1
-            } else if let lastLogged = sets.last(where: { $0.isCompleted && $0.tag == .working }) {
-                // No history from past workouts: fall back to the last logged set in this session
-                sets.append(SetInput(
-                    reps: lastLogged.reps,
-                    weight: lastLogged.weight,
-                    tag: .working,
-                    autoWeight: false,
-                    didSeedFromMemory: true
-                ))
-                activeSetIndex = sets.count - 1
+    private struct CustomLeadingSwipeAction: ViewModifier {
+        let title: String
+        let systemName: String
+        let action: () -> Void
+
+        @State private var offset: CGFloat = 0
+
+        private let actionWidth: CGFloat = 190
+
+        func body(content: Content) -> some View {
+            ZStack(alignment: .leading) {
+                Button {
+                    performAction()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: systemName)
+                            .dsFont(.title3)
+
+                        Text(title)
+                            .dsFont(.subheadline, weight: .semibold)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                    }
+                    .foregroundStyle(Color.black)
+                    .frame(width: actionWidth, alignment: .leading)
+                    .padding(.leading, 18)
+                    .frame(maxHeight: .infinity)
+                    .background(
+                        ChamferedRectangle(.large)
+                            .fill(Theme.accent)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                content
+                    .offset(x: offset)
+                    .contentShape(Rectangle())
+            }
+            .clipShape(ChamferedRectangle(.large))
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 18)
+                    .onChanged { value in
+                        guard abs(value.translation.width) > abs(value.translation.height),
+                              value.translation.width > 0 else { return }
+                        offset = min(actionWidth, value.translation.width)
+                    }
+                    .onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height),
+                              value.translation.width > 0 else {
+                            close()
+                            return
+                        }
+
+                        if value.predictedEndTranslation.width > actionWidth * 1.15 {
+                            performAction()
+                        } else if value.translation.width > actionWidth * 0.45 {
+                            open()
+                        } else {
+                            close()
+                        }
+                    }
+            )
+        }
+
+        private func open() {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.86)) {
+                offset = actionWidth
             }
         }
 
+        private func close() {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.9)) {
+                offset = 0
+            }
+        }
+
+        private func performAction() {
+            close()
+            action()
+        }
     }
 
     // MARK: - Helper Functions

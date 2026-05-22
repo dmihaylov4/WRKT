@@ -86,7 +86,7 @@ final class ExerciseSessionViewModelTests: WRKTTestCase {
 
         viewModel.currentEntryID = nil
 
-        XCTAssertEqual(viewModel.saveButtonTitle, "Save Exercise")
+        XCTAssertEqual(viewModel.saveButtonTitle, "Done")
     }
 
     func testSaveButtonTitleForExistingEntry() {
@@ -96,7 +96,7 @@ final class ExerciseSessionViewModelTests: WRKTTestCase {
 
         viewModel.currentEntryID = UUID()
 
-        XCTAssertEqual(viewModel.saveButtonTitle, "Update Exercise")
+        XCTAssertEqual(viewModel.saveButtonTitle, "Done")
     }
 
     // MARK: - Add/Delete Set Tests
@@ -112,7 +112,8 @@ final class ExerciseSessionViewModelTests: WRKTTestCase {
         XCTAssertEqual(viewModel.sets.count, initialCount + 1)
 
         let newSet = viewModel.sets.last!
-        XCTAssertTrue(newSet.autoWeight)
+        XCTAssertFalse(newSet.autoWeight)
+        XCTAssertTrue(newSet.didSeedFromMemory)
         XCTAssertEqual(newSet.tag, .working)
     }
 
@@ -127,6 +128,42 @@ final class ExerciseSessionViewModelTests: WRKTTestCase {
         let newSet = viewModel.sets.last!
         XCTAssertEqual(newSet.reps, 8)
         XCTAssertEqual(newSet.weight, 100)
+    }
+
+    func testAddSetCopiesMostRecentCompletedWorkingSetWhenLastSetIsIncomplete() {
+        let exercise = TestFixtures.benchPress
+        let store = makeTestStore()
+        let viewModel = ExerciseSessionViewModel(exercise: exercise, workoutStore: store)
+
+        viewModel.sets = [
+            SetInput(reps: 12, weight: 85, tag: .working, isCompleted: true),
+            SetInput(reps: 10, weight: 20, tag: .warmup, isCompleted: true),
+            SetInput(reps: 6, weight: 40, tag: .working, isCompleted: false)
+        ]
+        viewModel.addSet()
+
+        let newSet = viewModel.sets.last!
+        XCTAssertEqual(newSet.reps, 12)
+        XCTAssertEqual(newSet.weight, 85)
+        XCTAssertFalse(newSet.autoWeight)
+        XCTAssertTrue(newSet.didSeedFromMemory)
+    }
+
+    func testAddSetCopiesOnlyRepsForBodyweightExercises() {
+        var exercise = TestFixtures.benchPress
+        exercise.trackingMode = TrackingMode.bodyweight.rawValue
+        let store = makeTestStore()
+        let viewModel = ExerciseSessionViewModel(exercise: exercise, workoutStore: store)
+
+        viewModel.sets = [
+            SetInput(reps: 9, weight: 42, tag: .working, isCompleted: true)
+        ]
+        viewModel.addSet()
+
+        let newSet = viewModel.sets.last!
+        XCTAssertEqual(newSet.reps, 9)
+        XCTAssertEqual(newSet.weight, 0)
+        XCTAssertEqual(newSet.trackingMode, .bodyweight)
     }
 
     func testDeleteSet() {
@@ -215,20 +252,6 @@ final class ExerciseSessionViewModelTests: WRKTTestCase {
         let viewModel = ExerciseSessionViewModel(exercise: exercise, workoutStore: store)
 
         viewModel.currentTutorialStep = 0
-        viewModel.showTutorial = true
-
-        viewModel.advanceTutorial()
-
-        XCTAssertEqual(viewModel.currentTutorialStep, 1)
-        XCTAssertTrue(viewModel.showTutorial)
-    }
-
-    func testAdvanceTutorialCompletesAtEnd() {
-        let exercise = TestFixtures.benchPress
-        let store = makeTestStore()
-        let viewModel = ExerciseSessionViewModel(exercise: exercise, workoutStore: store)
-
-        viewModel.currentTutorialStep = 5
         viewModel.showTutorial = true
 
         viewModel.advanceTutorial()

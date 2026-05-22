@@ -274,43 +274,24 @@ class ExerciseSessionViewModel: ObservableObject {
     }
 
     func addSet() {
-        let lastSet = sets.last ?? SetInput(reps: 10, weight: 0)
-
-        AppLogger.info("[AddSet] Adding new set - last set was \(lastSet.weight)kg x \(lastSet.reps) reps", category: AppLogger.workout)
-
-        // Try to get progression suggestion based on workout history
-        var suggestedWeight = lastSet.weight
-        var suggestedReps = lastSet.reps
-
-        if let workoutStore = workoutStore {
-            AppLogger.info("[AddSet] Calling progression helper...", category: AppLogger.workout)
-
-            if let progression = WeightSuggestionHelper.suggestProgression(
-                for: exercise,
-                lastSetWeight: lastSet.weight,
-                lastSetReps: lastSet.reps,
-                workoutStore: workoutStore
-            ) {
-                // Use suggested progression
-                suggestedWeight = progression.suggestedWeight
-                suggestedReps = progression.suggestedReps
-
-                // Log for debugging (can remove in production)
-                AppLogger.info("✅ Progressive overload suggestion: \(progression.reason)", category: AppLogger.workout)
-            } else {
-                AppLogger.info("[AddSet] No progression suggestion returned", category: AppLogger.workout)
-            }
-        } else {
-            AppLogger.debug("[AddSet] No workout store available", category: AppLogger.workout)
+        let trackingMode = TrackingMode(rawValue: exercise.trackingMode) ?? .weighted
+        let inSessionTemplate = sets.last { $0.isCompleted && $0.tag == .working && $0.reps > 0 }
+        let historyTemplate = workoutStore?.lastWorkingSet(exercise: exercise).map {
+            SetInput(reps: $0.reps, weight: $0.weightKg, tag: .working, isCompleted: true)
         }
+        let fallback = sets.last ?? SetInput(reps: 10, weight: 0)
+        let template = inSessionTemplate ?? historyTemplate ?? fallback
+        let weight = trackingMode == .bodyweight ? 0 : template.weight
 
         let newSet = SetInput(
-            reps: suggestedReps,
-            weight: suggestedWeight,
+            reps: template.reps,
+            weight: weight,
             tag: .working,
-            autoWeight: true
+            autoWeight: false,
+            didSeedFromMemory: true,
+            trackingMode: trackingMode
         )
-        AppLogger.info("[AddSet] Created new set: \(suggestedWeight)kg x \(suggestedReps) reps", category: AppLogger.workout)
+        AppLogger.info("[AddSet] Created new set from last logged values: \(weight)kg x \(template.reps) reps", category: AppLogger.workout)
         sets.append(newSet)
     }
 

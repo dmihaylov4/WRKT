@@ -127,13 +127,17 @@ struct SetRowUnified: View {
 
             if hasActiveTimer {
                 RestTimerBadgeIsolated()
+                    .layoutPriority(2)
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             Text(completedSummary)
                 .dsFont(.subheadline, weight: .semibold, monospacedDigits: true)
                 .foregroundStyle(Theme.text)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .layoutPriority(1)
 
             if let rpe = set.rpe {
                 Text("RPE \(formatRPE(rpe))")
@@ -676,32 +680,40 @@ private struct RestTimerBadgeIsolated: View {
                 timerManager.stopTimer()
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "timer")
-                        .dsFont(.caption, weight: .medium)
-                    Text(formatTime(timerManager.remainingSeconds))
-                        .dsFont(.caption, weight: .semibold, monospacedDigits: true)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Text("•")
-                        .dsFont(.caption2)
-                    Text("Cancel")
-                        .dsFont(.caption, weight: .semibold)
-                        .lineLimit(1)
-                    Image(systemName: "xmark.circle.fill")
-                        .dsFont(.caption)
+                ViewThatFits(in: .horizontal) {
+                    badgeContent(showsCancelText: true)
+                    badgeContent(showsCancelText: false)
                 }
-                .foregroundStyle(ExerciseSessionTheme.accent)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(ExerciseSessionTheme.accent.opacity(0.15))
-                .clipShape(ChamferedRectangle(.small))
-                .overlay(ChamferedRectangle(.small).stroke(ExerciseSessionTheme.accent.opacity(0.3), lineWidth: 1))
-                .lineLimit(1)
-                .fixedSize(horizontal: false, vertical: true)
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func badgeContent(showsCancelText: Bool) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "timer")
+                .dsFont(.caption, weight: .medium)
+
+            Text(formatTime(timerManager.remainingSeconds))
+                .dsFont(.caption, weight: .semibold, monospacedDigits: true)
+
+            if showsCancelText {
+                Text("•")
+                    .dsFont(.caption2)
+                Text("Cancel")
+                    .dsFont(.caption, weight: .semibold)
+            }
+
+            Image(systemName: "xmark.circle.fill")
+                .dsFont(.caption)
+        }
+        .foregroundStyle(ExerciseSessionTheme.accent)
+        .padding(.horizontal, showsCancelText ? 10 : 8)
+        .padding(.vertical, 5)
+        .background(ExerciseSessionTheme.accent.opacity(0.15))
+        .clipShape(ChamferedRectangle(.small))
+        .overlay(ChamferedRectangle(.small).stroke(ExerciseSessionTheme.accent.opacity(0.3), lineWidth: 1))
+        .lineLimit(1)
     }
 
     private func formatTime(_ seconds: TimeInterval) -> String {
