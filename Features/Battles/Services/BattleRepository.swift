@@ -415,16 +415,8 @@ final class BattleRepository: Sendable {
             .eq("id", value: battleId.uuidString)
             .execute()
 
-        do {
-            try await supabase.database
-                .rpc("send_battle_completed_notifications", params: ["p_battle_id": battleId.uuidString])
-                .execute()
-        } catch {
-            AppLogger.warning(
-                "Failed to send battle completion notifications for \(battleId): \(error.localizedDescription)",
-                category: AppLogger.battles
-            )
-        }
+        // Notifications are sent by the battle_completion_trigger DB trigger (notify_battle_completion)
+        // which fires on the status UPDATE above. No RPC call needed here.
 
         var completedBattle = battle
         completedBattle.status = .completed
