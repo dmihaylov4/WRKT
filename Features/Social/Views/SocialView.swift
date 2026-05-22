@@ -121,6 +121,16 @@ struct SocialView: View {
             // Clear navigation path when switching tabs to prevent accumulation
             navigationPath = NavigationPath()
         }
+        .onChange(of: navigationPath) { old, new in
+            // Dismiss keyboard the moment a pop begins — before the transition animates.
+            // onDisappear fires too late and leaves the keyboard safe-area inset on FeedView.
+            if new.count < old.count {
+                UIApplication.shared.sendAction(
+                    #selector(UIResponder.resignFirstResponder),
+                    to: nil, from: nil, for: nil
+                )
+            }
+        }
         .task {
             AppLogger.info("📱 SocialView .task started", category: AppLogger.app)
 
