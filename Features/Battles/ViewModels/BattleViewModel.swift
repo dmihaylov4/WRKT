@@ -15,6 +15,19 @@ final class BattleViewModel {
     var pendingBattles: [BattleWithParticipants] = [] // Battles waiting for acceptance
     var completedBattles: [BattleWithParticipants] = []
 
+    // MARK: - Battle Result
+    var pendingResultBattle: BattleWithParticipants?
+
+    private var seenBattleResultIds: Set<UUID> {
+        get {
+            let strings = (UserDefaults.standard.array(forKey: "seenBattleResultIds") as? [String]) ?? []
+            return Set(strings.compactMap { UUID(uuidString: $0) })
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue).map(\.uuidString), forKey: "seenBattleResultIds")
+        }
+    }
+
     var isLoading = false
     var isRefreshing = false
     var error: UserFriendlyError?
@@ -92,6 +105,15 @@ final class BattleViewModel {
             activeBattles = allBattles.filter { $0.battle.isActive }
             pendingBattles = allBattles.filter { $0.battle.isPending }
             completedBattles = allBattles.filter { $0.battle.isCompleted }
+            let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
+            var seen = seenBattleResultIds
+            if let unseen = BattleViewModel.unseenResult(from: completedBattles, seen: seen, cutoff: cutoff) {
+                completedBattles
+                    .filter { !seen.contains($0.id) && $0.battle.endDate > cutoff }
+                    .forEach { seen.insert($0.id) }
+                seenBattleResultIds = seen
+                pendingResultBattle = unseen
+            }
             await awardNewlyCompletedBattleRewards(completedBattles, userId: userId)
 
             error = nil
@@ -108,6 +130,22 @@ final class BattleViewModel {
         for battle in battles {
             await battleRepository.awardCompletionReward(for: battle.battle, userId: userId)
         }
+    }
+
+    func dismissResult() {
+        pendingResultBattle = nil
+    }
+
+    /// Returns the most-recently-ended completed battle that is not in `seen`
+    /// and whose endDate is after `cutoff`.
+    nonisolated static func unseenResult(
+        from completed: [BattleWithParticipants],
+        seen: Set<UUID>,
+        cutoff: Date
+    ) -> BattleWithParticipants? {
+        completed
+            .filter { !seen.contains($0.id) && $0.battle.endDate > cutoff }
+            .max(by: { $0.battle.endDate < $1.battle.endDate })
     }
 
     // MARK: - Battle Actions
