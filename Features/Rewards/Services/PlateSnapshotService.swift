@@ -27,7 +27,7 @@ final class PlateSnapshotService {
 
     static func cacheKey(tierID: Int, weightKg: Double, engravingText: String) -> String {
         let engravingHash = engravingText.isEmpty ? "none" : String(engravingText.hashValue & 0xFFFF_FFFF)
-        return "p\(tierID)_\(Int(weightKg * 10))_\(engravingHash)"
+        return "v2_p\(tierID)_\(Int(weightKg * 10))_\(engravingHash)"
     }
 
     // MARK: - Read
@@ -94,7 +94,9 @@ final class PlateSnapshotService {
             cameraMode: .nonAR,
             automaticallyConfigureSession: false
         )
-        arView.environment.background = .color(.black)
+        arView.environment.background = .color(.clear)
+        arView.backgroundColor = .clear
+        arView.isOpaque = false
         window.addSubview(arView)
 
         defer { arView.removeFromSuperview() }

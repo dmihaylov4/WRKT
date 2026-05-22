@@ -24,6 +24,7 @@ struct CachedPlateThumbnail: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
+                    .clipShape(Circle())
             } else {
                 PlateFaceView(
                     tierID: tierID,
