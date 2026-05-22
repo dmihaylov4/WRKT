@@ -732,8 +732,15 @@ struct ExerciseSessionView: View {
                         title: isCompleted ? "Mark Incomplete" : "Mark Complete",
                         systemName: isCompleted ? "xmark.circle.fill" : "checkmark.circle.fill",
                         action: {
+                            let wasCompleted = sets[i].isCompleted
                             withAnimation(.easeInOut(duration: 0.18)) {
                                 sets[i].isCompleted.toggle()
+                            }
+                            if wasCompleted {
+                                let manager = RestTimerManager.shared
+                                if manager.isTimerFor(exerciseID: exercise.id) {
+                                    manager.stopTimer()
+                                }
                             }
                             Haptics.light()
                         }
