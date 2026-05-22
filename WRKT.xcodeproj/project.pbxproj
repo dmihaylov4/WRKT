@@ -147,7 +147,6 @@
 		2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9922EE9D30B0017683B /* Friendship.swift */; };
 		2EA7D9952EE9D3230017683B /* FriendshipRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */; };
 		2EA7D9972EE9D8B50017683B /* WorkoutPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */; };
-		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
 		2EA7D9992EE9D90F0017683B /* PostRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D9982EE9D90F0017683B /* PostRepository.swift */; };
 		2EA7D99B2EE9DA160017683B /* ImageUploadService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99A2EE9DA160017683B /* ImageUploadService.swift */; };
 		2EA7D99E2EE9EF540017683B /* PostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7D99C2EE9EF540017683B /* PostCard.swift */; };
@@ -346,6 +345,8 @@
 		2EC99E7F2EAA2794006B875E /* CarouselSteppers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6F2EAA2794006B875E /* CarouselSteppers.swift */; };
 		2EC99E802EAA2794006B875E /* SetRowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E772EAA2794006B875E /* SetRowViews.swift */; };
 		2EC99E822EABF313006B875E /* WeightSuggestionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */; };
+		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
+		2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00032FC000000000001 /* BattleResultOverlay.swift */; };
 		2ECC7B892F7BF973009119BF /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */; };
 		2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */; };
 		2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */; };
@@ -636,7 +637,6 @@
 		2EA7D9922EE9D30B0017683B /* Friendship.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Friendship.swift; sourceTree = "<group>"; };
 		2EA7D9942EE9D3230017683B /* FriendshipRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendshipRepository.swift; sourceTree = "<group>"; };
 		2EA7D9962EE9D8B50017683B /* WorkoutPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPost.swift; sourceTree = "<group>"; };
-		2ECA00012FC000000000001 /* BattlePostStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostStats.swift; sourceTree = "<group>"; };
 		2EA7D9982EE9D90F0017683B /* PostRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRepository.swift; sourceTree = "<group>"; };
 		2EA7D99A2EE9DA160017683B /* ImageUploadService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageUploadService.swift; sourceTree = "<group>"; };
 		2EA7D99C2EE9EF540017683B /* PostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCard.swift; sourceTree = "<group>"; };
@@ -835,6 +835,8 @@
 		2EC99E762EAA2794006B875E /* RestTimerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerComponents.swift; sourceTree = "<group>"; };
 		2EC99E772EAA2794006B875E /* SetRowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetRowViews.swift; sourceTree = "<group>"; };
 		2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightSuggestionHelper.swift; sourceTree = "<group>"; };
+		2ECA00012FC000000000001 /* BattlePostStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostStats.swift; sourceTree = "<group>"; };
+		2ECA00032FC000000000001 /* BattleResultOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleResultOverlay.swift; sourceTree = "<group>"; };
 		2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
 		2ECC7D022F7C21C3009119BF /* CastIron_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Color.jpg; sourceTree = "<group>"; };
 		2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Metalness.jpg; sourceTree = "<group>"; };
@@ -1892,6 +1894,7 @@
 				2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */,
 				2EA7DABC2EEDCFA30017683B /* BattleDetailView.swift */,
 				2EA7DABD2EEDCFA30017683B /* BattlesListView.swift */,
+				2ECA00032FC000000000001 /* BattleResultOverlay.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -2890,6 +2893,7 @@
 				2E04134B2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */,
 				2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */,
 				2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */,
+				2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */,
 				2EBE3FA12EB895D800A26355 /* SearchBarComponent.swift in Sources */,
 				2EFB65652F56D26100026074 /* iPhoneVirtualRunAudioCues.swift in Sources */,
 				2EBE3FAF2EB8B46100A26355 /* HealthKitWorkoutCategory.swift in Sources */,
