@@ -509,6 +509,15 @@ final class BarbellProgressService {
             if !suppressWinScreen {
                 WinScreenCoordinator.shared.enqueue(.barbellRewards(events))
             }
+            for payload in syncPayloads {
+                Task { @MainActor in
+                    await PlateSnapshotService.shared.renderIfNeeded(
+                        tierID: payload.tierID,
+                        weightKg: payload.weightKg,
+                        engravingText: payload.engravingText
+                    )
+                }
+            }
         } catch {
             context.rollback()
             AppLogger.error("Failed to award barbell plates", error: error, category: AppLogger.rewards)
