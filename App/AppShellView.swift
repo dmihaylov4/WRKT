@@ -207,7 +207,10 @@ struct AppShellView: View {
             }
             .sheet(isPresented: Binding(
                 get: { dependencies.barbellProgressService.needsWelcomeScreen && !whatsNewManager.needsWhatsNew },
-                set: { if !$0 { dependencies.barbellProgressService.needsWelcomeScreen = false } }
+                set: { if !$0 {
+                    dependencies.barbellProgressService.needsWelcomeScreen = false
+                    BattleShareCoordinator.shared.clear()
+                }}
             )) {
                 BarbellWelcomeView()
             }
@@ -598,6 +601,16 @@ struct AppShellView: View {
             let refreshedBattles = try await dependencies.battleRepository.fetchUserBattles()
             for battle in refreshedBattles where battle.battle.isCompleted {
                 await dependencies.battleRepository.awardCompletionReward(for: battle.battle, userId: userId)
+            }
+
+            // Surface the most recently completed battle for sharing in BarbellWelcomeView
+            let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
+            if let latest = refreshedBattles
+                .filter({ $0.battle.isCompleted && $0.battle.endDate > cutoff })
+                .max(by: { $0.battle.endDate < $1.battle.endDate }) {
+                var withUser = latest
+                withUser.currentUserId = userId
+                BattleShareCoordinator.shared.set(battle: withUser, userId: userId)
             }
         } catch {
             AppLogger.warning("Failed to present pending battle rewards on launch: \(error.localizedDescription)", category: AppLogger.battles)

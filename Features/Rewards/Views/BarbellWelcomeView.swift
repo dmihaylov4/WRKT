@@ -5,6 +5,7 @@ import SwiftData
 struct BarbellWelcomeView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var ownedPlates: [EarnedPlate]
+    @ObservedObject private var battleShare = BattleShareCoordinator.shared
     @State private var showPlateWall = false
     @State private var showCollection = false
     @State private var sceneState = SceneState()
@@ -223,6 +224,10 @@ struct BarbellWelcomeView: View {
             .background(DS.Semantic.brand)
             .clipShape(ChamferedRectangle(.large))
 
+            if battleShare.pendingBattle != nil {
+                shareBattleButton
+            }
+
             viewCollectionButton
         }
         .padding(16)
@@ -241,6 +246,34 @@ struct BarbellWelcomeView: View {
             ChamferedRectangle(.xl)
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
+    }
+
+    private var shareBattleButton: some View {
+        let shared = battleShare.isAlreadyShared
+        return Button {
+            guard !shared, !battleShare.isSharing else { return }
+            Task { await BattleShareCoordinator.shared.share() }
+        } label: {
+            Label(
+                shared ? "Battle Shared" : "Share Battle",
+                systemImage: shared ? "checkmark" : "square.and.arrow.up"
+            )
+            .font(DS.ButtonSize.regular.font)
+            .foregroundStyle(shared ? DS.Semantic.textSecondary : .white)
+            .frame(maxWidth: .infinity, minHeight: 46)
+        }
+        .background(
+            shared ? Color.white.opacity(0.06) : DS.Semantic.brand.opacity(0.18),
+            in: ChamferedRectangle(.medium)
+        )
+        .overlay(
+            ChamferedRectangle(.medium)
+                .stroke(
+                    shared ? Color.white.opacity(0.08) : DS.Semantic.brand.opacity(0.45),
+                    lineWidth: 1
+                )
+        )
+        .disabled(shared || battleShare.isSharing)
     }
 
     private var viewCollectionButton: some View {

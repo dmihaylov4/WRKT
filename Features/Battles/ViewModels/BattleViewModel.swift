@@ -15,20 +15,6 @@ final class BattleViewModel {
     var pendingBattles: [BattleWithParticipants] = [] // Battles waiting for acceptance
     var completedBattles: [BattleWithParticipants] = []
 
-    // MARK: - Battle Result
-    var pendingResultBattle: BattleWithParticipants?
-    var pendingResultPlate: EarnedPlateInfo?
-
-    private var seenBattleResultIds: Set<UUID> {
-        get {
-            let strings = (UserDefaults.standard.array(forKey: "seenBattleResultIds") as? [String]) ?? []
-            return Set(strings.compactMap { UUID(uuidString: $0) })
-        }
-        set {
-            UserDefaults.standard.set(Array(newValue).map(\.uuidString), forKey: "seenBattleResultIds")
-        }
-    }
-
     var isLoading = false
     var isRefreshing = false
     var error: UserFriendlyError?
@@ -112,18 +98,7 @@ final class BattleViewModel {
             activeBattles = allBattles.filter { $0.battle.isActive }
             pendingBattles = allBattles.filter { $0.battle.isPending }
             completedBattles = allBattles.filter { $0.battle.isCompleted }
-            // Award plates first so they're in SwiftData before we fetch plate info below
             await awardNewlyCompletedBattleRewards(completedBattles, userId: userId)
-            let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
-            var seen = seenBattleResultIds
-            if let unseen = BattleViewModel.unseenResult(from: completedBattles, seen: seen, cutoff: cutoff) {
-                completedBattles
-                    .filter { !seen.contains($0.id) && $0.battle.endDate > cutoff }
-                    .forEach { seen.insert($0.id) }
-                seenBattleResultIds = seen
-                pendingResultBattle = unseen
-                pendingResultPlate = BarbellProgressService.shared.fetchEarnedPlate(forBattle: unseen.id)
-            }
 
             error = nil
             isLoading = false
@@ -139,84 +114,6 @@ final class BattleViewModel {
         for battle in battles {
             await battleRepository.awardCompletionReward(for: battle.battle, userId: userId)
         }
-    }
-
-    func dismissResult() {
-        pendingResultBattle = nil
-        pendingResultPlate = nil
-    }
-
-    func shareResult() async {
-        guard let battle = pendingResultBattle,
-              let currentUserId = authService.currentUser?.id,
-              battle.battle.sharedPostId == nil else { return }
-
-        let opponent = battle.opponentProfile
-        let isWinner = battle.battle.winnerId == currentUserId
-        let myScore = battle.battle.score(for: currentUserId)
-        let opponentScore = battle.battle.opponentScore(for: currentUserId)
-
-        let stats = BattlePostStats(
-            battleId: battle.id,
-            battleType: battle.battle.battleType,
-            myScore: myScore,
-            opponentScore: opponentScore,
-            opponentName: opponent.displayName ?? opponent.username,
-            opponentAvatarUrl: opponent.avatarUrl,
-            scoreUnit: battle.battle.scoreUnit,
-            isWinner: isWinner,
-            durationDays: battle.battle.duration,
-            endDate: battle.battle.endDate
-        )
-
-        let placeholder = CompletedWorkout(
-            date: battle.battle.endDate,
-            startedAt: battle.battle.startDate,
-            entries: []
-        )
-
-        do {
-            let post = try await postRepository.createPost(
-                workouts: [placeholder],
-                caption: nil,
-                images: nil,
-                visibility: .friends,
-                userId: currentUserId,
-                postType: .battle,
-                battleStats: stats
-            )
-            do {
-                _ = try await battleRepository.lockSharedPost(
-                    battleId: battle.id,
-                    postId: post.id,
-                    userId: currentUserId
-                )
-            } catch {
-                try? await postRepository.deletePost(post.id)
-                throw error
-            }
-            if let refreshed = try? await battleRepository.fetchBattle(id: battle.id) {
-                pendingResultBattle = refreshed
-            }
-            Haptics.success()
-        } catch {
-            AppLogger.error(
-                "Failed to share battle result \(battle.id): \(error.localizedDescription)",
-                category: AppLogger.battles
-            )
-        }
-    }
-
-    /// Returns the most-recently-ended completed battle that is not in `seen`
-    /// and whose endDate is after `cutoff`.
-    nonisolated static func unseenResult(
-        from completed: [BattleWithParticipants],
-        seen: Set<UUID>,
-        cutoff: Date
-    ) -> BattleWithParticipants? {
-        completed
-            .filter { !seen.contains($0.id) && $0.battle.endDate > cutoff }
-            .max(by: { $0.battle.endDate < $1.battle.endDate })
     }
 
     // MARK: - Battle Actions
