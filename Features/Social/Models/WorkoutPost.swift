@@ -3,6 +3,7 @@ import Foundation
 enum PostType: String, Codable, Sendable, Hashable {
     case workout = "workout"
     case weeklyProgress = "weekly_progress"
+    case battle = "battle"
 }
 
 struct WeeklyPostStats: Codable, Sendable, Equatable, Hashable {
@@ -153,6 +154,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
     var updatedAt: Date
     var postType: PostType
     var weeklyStats: WeeklyPostStats?
+    var battleStats: BattlePostStats?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -169,6 +171,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         case updatedAt = "updated_at"
         case postType = "post_type"
         case weeklyStats = "weekly_stats"
+        case battleStats = "battle_stats"
     }
 
     // MARK: - Initializers
@@ -187,7 +190,8 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         updatedAt: Date = Date(),
         workoutDataList: [CompletedWorkout]? = nil,
         postType: PostType = .workout,
-        weeklyStats: WeeklyPostStats? = nil
+        weeklyStats: WeeklyPostStats? = nil,
+        battleStats: BattlePostStats? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -197,6 +201,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         self.images = images
         self.postType = postType
         self.weeklyStats = weeklyStats
+        self.battleStats = battleStats
         self.visibility = visibility
         self.likesCount = likesCount
         self.commentsCount = commentsCount
@@ -264,6 +269,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
 
         postType = (try? container.decode(PostType.self, forKey: .postType)) ?? .workout
         weeklyStats = try? container.decodeIfPresent(WeeklyPostStats.self, forKey: .weeklyStats)
+        battleStats = try? container.decodeIfPresent(BattlePostStats.self, forKey: .battleStats)
     }
 
     // MARK: - Custom Encoding
@@ -279,6 +285,7 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
         try container.encodeIfPresent(images, forKey: .images)
         try container.encode(postType, forKey: .postType)
         try container.encodeIfPresent(weeklyStats, forKey: .weeklyStats)
+        try container.encodeIfPresent(battleStats, forKey: .battleStats)
         try container.encode(visibility, forKey: .visibility)
         try container.encode(likesCount, forKey: .likesCount)
         try container.encode(commentsCount, forKey: .commentsCount)

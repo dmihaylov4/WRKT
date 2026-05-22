@@ -104,3 +104,76 @@ struct BattlePostStatsCodableTests {
         #expect(decoded == original)
     }
 }
+
+@Suite("WorkoutPost battle type decoding")
+struct WorkoutPostBattleDecodeTests {
+
+    @Test("WorkoutPost with postType=battle decodes battleStats")
+    func decodesWithBattleStats() throws {
+        let json = """
+        {
+          "id": "12345678-1234-1234-1234-123456789012",
+          "user_id": "12345678-1234-1234-1234-123456789013",
+          "visibility": "public",
+          "likes_count": 0,
+          "comments_count": 0,
+          "created_at": "2025-01-01T00:00:00Z",
+          "updated_at": "2025-01-01T00:00:00Z",
+          "post_type": "battle",
+          "workout_data": {
+            "id": "12345678-1234-1234-1234-123456789014",
+            "date": "2025-01-01T00:00:00Z",
+            "entries": []
+          },
+          "battle_stats": {
+            "battle_id": "12345678-1234-1234-1234-123456789015",
+            "battle_type": "volume",
+            "my_score": "1500.5",
+            "opponent_score": "1200.0",
+            "opponent_name": "Alice",
+            "score_unit": "kg",
+            "is_winner": true,
+            "duration_days": 7,
+            "end_date": "2025-01-01T00:00:00Z"
+          }
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let post = try decoder.decode(WorkoutPost.self, from: json)
+
+        #expect(post.postType == .battle)
+        #expect(post.battleStats != nil)
+        #expect(post.battleStats?.isWinner == true)
+        #expect(post.battleStats?.opponentName == "Alice")
+    }
+
+    @Test("WorkoutPost without battleStats decodes as nil")
+    func decodesWithoutBattleStats() throws {
+        let json = """
+        {
+          "id": "12345678-1234-1234-1234-123456789012",
+          "user_id": "12345678-1234-1234-1234-123456789013",
+          "visibility": "public",
+          "likes_count": 0,
+          "comments_count": 0,
+          "created_at": "2025-01-01T00:00:00Z",
+          "updated_at": "2025-01-01T00:00:00Z",
+          "post_type": "workout",
+          "workout_data": {
+            "id": "12345678-1234-1234-1234-123456789014",
+            "date": "2025-01-01T00:00:00Z",
+            "entries": []
+          }
+        }
+        """.data(using: .utf8)!
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let post = try decoder.decode(WorkoutPost.self, from: json)
+
+        #expect(post.postType == .workout)
+        #expect(post.battleStats == nil)
+    }
+}

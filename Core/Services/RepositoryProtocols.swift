@@ -21,7 +21,8 @@ import Foundation
         visibility: PostVisibility,
         userId: UUID,
         postType: PostType,
-        weeklyStats: WeeklyPostStats?
+        weeklyStats: WeeklyPostStats?,
+        battleStats: BattlePostStats?
     ) async throws -> WorkoutPost
 
     /// Fetch paginated feed for current user

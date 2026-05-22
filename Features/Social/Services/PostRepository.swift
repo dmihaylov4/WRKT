@@ -10,6 +10,7 @@ struct WorkoutPostInsertPayload: Encodable {
     let visibility: String
     let post_type: String
     let weekly_stats: WeeklyPostStats?
+    let battle_stats: BattlePostStats?
 
     init(
         workouts: [CompletedWorkout],
@@ -18,7 +19,8 @@ struct WorkoutPostInsertPayload: Encodable {
         visibility: PostVisibility,
         userId: UUID,
         postType: PostType = .workout,
-        weeklyStats: WeeklyPostStats? = nil
+        weeklyStats: WeeklyPostStats? = nil,
+        battleStats: BattlePostStats? = nil
     ) throws {
         guard let firstWorkout = workouts.first else {
             throw SupabaseError.serverError("Cannot create workout post without workouts")
@@ -32,6 +34,7 @@ struct WorkoutPostInsertPayload: Encodable {
         self.visibility = visibility.rawValue
         self.post_type = postType.rawValue
         self.weekly_stats = weeklyStats
+        self.battle_stats = battleStats
     }
 }
 
@@ -100,7 +103,8 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         visibility: PostVisibility,
         userId: UUID,
         postType: PostType = .workout,
-        weeklyStats: WeeklyPostStats? = nil
+        weeklyStats: WeeklyPostStats? = nil,
+        battleStats: BattlePostStats? = nil
     ) async throws -> WorkoutPost {
         logInfo("Creating post for user: \(userId), workouts: \(workouts.count)", emoji: "📝")
 
@@ -111,7 +115,8 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             visibility: visibility,
             userId: userId,
             postType: postType,
-            weeklyStats: weeklyStats
+            weeklyStats: weeklyStats,
+            battleStats: battleStats
         )
 
         let newPost: WorkoutPost = try await client
