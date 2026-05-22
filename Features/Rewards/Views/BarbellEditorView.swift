@@ -393,11 +393,12 @@ struct BarbellEditorView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
                 ForEach(previewPlates.prefix(12)) { plate in
-                    PlateFaceView(
+                    CachedPlateThumbnail(
                         tierID: plate.tierID,
                         progressionTier: plate.currentTier,
                         liftTypeID: plate.liftTypeID,
                         weightKg: plate.weightKg,
+                        engravingText: plate.engravingText,
                         showEngravings: config?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings
                     )
                     .frame(width: 64, height: 64)
@@ -610,11 +611,12 @@ struct BarbellEditorView: View {
             if isOnBar { moveToWall(plate) } else { moveToBar(plate) }
         } label: {
             ZStack(alignment: .topTrailing) {
-                PlateFaceView(
+                CachedPlateThumbnail(
                     tierID: plate.tierID,
                     progressionTier: plate.currentTier,
                     liftTypeID: plate.liftTypeID,
                     weightKg: plate.weightKg,
+                    engravingText: plate.engravingText,
                     showEngravings: config?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings
                 )
                 .frame(width: 64, height: 64)

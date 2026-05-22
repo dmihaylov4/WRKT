@@ -103,6 +103,7 @@
 		2E57AA012F5A000000000001 /* StreakRecoverySheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */; };
 		2E5F4E692FC07D820036CE23 /* BattleShareCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5F4E682FC07D820036CE23 /* BattleShareCoordinator.swift */; };
 		2E5F4E6B2FC08ABC0036CE23 /* SpinningPlateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5F4E6A2FC08ABC0036CE23 /* SpinningPlateView.swift */; };
+		2EBB001E2FA0000000000001 /* CachedPlateThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB001D2FA0000000000001 /* CachedPlateThumbnail.swift */; };
 		2E6141322ECE266100B50FDE /* WatchWorkoutModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */; };
 		2E61413B2ECE284200B50FDE /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */; };
 		2E6141642ECF0FDC00B50FDE /* WRKT Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -222,6 +223,7 @@
 		2EAB3FCD2EC26B7F00F1A7CA /* StatsDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */; };
 		2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00002FA0000000000001 /* BarbellProgressService.swift */; };
 		2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */; };
+		2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */; };
 		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
 		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
 		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
@@ -594,6 +596,7 @@
 		2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakRecoverySheet.swift; sourceTree = "<group>"; };
 		2E5F4E682FC07D820036CE23 /* BattleShareCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleShareCoordinator.swift; sourceTree = "<group>"; };
 		2E5F4E6A2FC08ABC0036CE23 /* SpinningPlateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpinningPlateView.swift; sourceTree = "<group>"; };
+		2EBB001D2FA0000000000001 /* CachedPlateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedPlateThumbnail.swift; sourceTree = "<group>"; };
 		2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutModels.swift; sourceTree = "<group>"; };
 		2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchConnectivityManager.swift; sourceTree = "<group>"; };
 		2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "WRKT Watch Watch App.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -714,6 +717,7 @@
 		2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsDebugView.swift; sourceTree = "<group>"; };
 		2EBB00002FA0000000000001 /* BarbellProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellProgressService.swift; sourceTree = "<group>"; };
 		2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellUnlockRules.swift; sourceTree = "<group>"; };
+		2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateSnapshotService.swift; sourceTree = "<group>"; };
 		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
 		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
 		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
@@ -1556,6 +1560,7 @@
 				2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */,
 				2EBB00122FA0000000000001 /* BarbellRealityView.swift */,
 				2EBB00142FA0000000000001 /* PlateFaceView.swift */,
+				2EBB001D2FA0000000000001 /* CachedPlateThumbnail.swift */,
 				2EBB00192FA0000000000001 /* PlateInfoCardView.swift */,
 				ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */,
 			);
@@ -1582,6 +1587,7 @@
 				2EBB00002FA0000000000001 /* BarbellProgressService.swift */,
 				ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */,
 				2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */,
+				2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2784,6 +2790,7 @@
 				2EBE3EF02EB6578B00A26355 /* CreateCustomSplitCard.swift in Sources */,
 				2EA7D9B62EEAFB340017683B /* ActivityFeedView.swift in Sources */,
 				2E5F4E6B2FC08ABC0036CE23 /* SpinningPlateView.swift in Sources */,
+				2EBB001E2FA0000000000001 /* CachedPlateThumbnail.swift in Sources */,
 				2EBE3EF12EB6578B00A26355 /* SplitTemplateCard.swift in Sources */,
 				2EBE3F162EB6692900A26355 /* PlannerConstants.swift in Sources */,
 				2EBE3F442EB691FB00A26355 /* TimedSetRow.swift in Sources */,
@@ -2851,6 +2858,7 @@
 				2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */,
 				2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */,
 				2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */,
+				2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */,
 				2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */,
 				2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */,
 				2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */,

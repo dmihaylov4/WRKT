@@ -458,6 +458,12 @@ final class BarbellProgressService {
         )
     }
 
+    func allOwnedPlateInfos() -> [(tierID: Int, weightKg: Double, engravingText: String)] {
+        guard let context else { return [] }
+        let plates = (try? context.fetch(FetchDescriptor<EarnedPlate>())) ?? []
+        return plates.map { ($0.tierID, $0.weightKg, $0.engravingText) }
+    }
+
     func awardPlates(_ plates: [EarnedPlateInfo], sourceWorkoutID: String?, suppressWinScreen: Bool = false) {
         guard !plates.isEmpty, let context else { return }
 
@@ -508,6 +514,15 @@ final class BarbellProgressService {
             }
             if !suppressWinScreen {
                 WinScreenCoordinator.shared.enqueue(.barbellRewards(events))
+            }
+            for payload in syncPayloads {
+                Task { @MainActor in
+                    await PlateSnapshotService.shared.renderIfNeeded(
+                        tierID: payload.tierID,
+                        weightKg: payload.weightKg,
+                        engravingText: payload.engravingText
+                    )
+                }
             }
         } catch {
             context.rollback()

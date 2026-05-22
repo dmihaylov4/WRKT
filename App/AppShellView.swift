@@ -558,6 +558,7 @@ struct AppShellView: View {
             AppLogger.info("🚀 Calling badgeManager.startRealtimeSubscriptions() from handleAppLaunch", category: AppLogger.app)
             await badgeManager.startRealtimeSubscriptions()
             await presentPendingBattleRewardsOnLaunch()
+            Task { await prewarmPlateSnapshots() }
 
             // Start listening for virtual run invites (Realtime + 30s fallback poll)
             inviteCoordinator.startListening()
@@ -590,6 +591,18 @@ struct AppShellView: View {
         #if DEBUG
         dependencies.logMemoryFootprint()
         #endif
+    }
+
+    private func prewarmPlateSnapshots() async {
+        let plates = dependencies.barbellProgressService.allOwnedPlateInfos()
+        for plate in plates {
+            guard !Task.isCancelled else { return }
+            await PlateSnapshotService.shared.renderIfNeeded(
+                tierID: plate.tierID,
+                weightKg: plate.weightKg,
+                engravingText: plate.engravingText
+            )
+        }
     }
 
     private func presentPendingBattleRewardsOnLaunch() async {
