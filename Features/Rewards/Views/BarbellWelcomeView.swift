@@ -5,7 +5,7 @@ import SwiftData
 struct BarbellWelcomeView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var ownedPlates: [EarnedPlate]
-    @ObservedObject private var battleShare = BattleShareCoordinator.shared
+    private var battleShare: BattleShareCoordinator { BattleShareCoordinator.shared }
     @State private var showPlateWall = false
     @State private var showCollection = false
     @State private var sceneState = SceneState()

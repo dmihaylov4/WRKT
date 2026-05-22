@@ -4,14 +4,14 @@ import SwiftUI
 /// Singleton that carries the pending battle share action to BarbellWelcomeView.
 /// Set by AppShellView.presentPendingBattleRewardsOnLaunch() after battle completion,
 /// cleared when the BarbellWelcomeView sheet dismisses.
-@MainActor
-final class BattleShareCoordinator: ObservableObject {
+@MainActor @Observable
+final class BattleShareCoordinator {
     static let shared = BattleShareCoordinator()
 
-    @Published private(set) var pendingBattle: BattleWithParticipants?
-    @Published private(set) var pendingUserId: UUID?
-    @Published private(set) var isAlreadyShared: Bool = false
-    @Published private(set) var isSharing: Bool = false
+    var pendingBattle: BattleWithParticipants?
+    private(set) var pendingUserId: UUID?
+    private(set) var isAlreadyShared: Bool = false
+    private(set) var isSharing: Bool = false
 
     private init() {}
 
