@@ -445,6 +445,23 @@ final class BattleRepository: Sendable {
         await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: sourceWorkoutID)
     }
 
+    /// Atomically records the post that shared this battle result.
+    func lockSharedPost(battleId: UUID, postId: UUID, userId: UUID) async throws {
+        struct ShareLockUpdate: Encodable {
+            let shared_post_id: String
+            let shared_by_user_id: String
+        }
+
+        try await supabase.database
+            .from("battles")
+            .update(ShareLockUpdate(
+                shared_post_id: postId.uuidString,
+                shared_by_user_id: userId.uuidString
+            ))
+            .eq("id", value: battleId.uuidString)
+            .execute()
+    }
+
     private func calculateBattleScore(
         for battle: Battle,
         workout: CompletedWorkout

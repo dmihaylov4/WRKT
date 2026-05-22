@@ -42,12 +42,18 @@ final class BattleViewModel {
     // MARK: - Dependencies
     private let battleRepository: BattleRepository
     private let authService: SupabaseAuthService
+    private let postRepository: PostRepository
     private let errorHandler = ErrorHandler.shared
 
     // MARK: - Initialization
-    init(battleRepository: BattleRepository, authService: SupabaseAuthService) {
+    init(
+        battleRepository: BattleRepository,
+        authService: SupabaseAuthService,
+        postRepository: PostRepository? = nil
+    ) {
         self.battleRepository = battleRepository
         self.authService = authService
+        self.postRepository = postRepository ?? PostRepository(client: SupabaseClientWrapper.shared.client)
     }
 
     // MARK: - Lifecycle
@@ -134,6 +140,62 @@ final class BattleViewModel {
 
     func dismissResult() {
         pendingResultBattle = nil
+    }
+
+    func shareResult() async {
+        guard let battle = pendingResultBattle,
+              let currentUserId = authService.currentUser?.id,
+              battle.battle.sharedPostId == nil else { return }
+
+        let opponent = battle.opponentProfile
+        let isWinner = battle.battle.winnerId == currentUserId
+        let myScore = battle.battle.score(for: currentUserId)
+        let opponentScore = battle.battle.opponentScore(for: currentUserId)
+
+        let stats = BattlePostStats(
+            battleId: battle.id,
+            battleType: battle.battle.battleType,
+            myScore: myScore,
+            opponentScore: opponentScore,
+            opponentName: opponent.displayName ?? opponent.username,
+            opponentAvatarUrl: opponent.avatarUrl,
+            scoreUnit: battle.battle.scoreUnit,
+            isWinner: isWinner,
+            durationDays: battle.battle.duration,
+            endDate: battle.battle.endDate
+        )
+
+        let placeholder = CompletedWorkout(
+            date: battle.battle.endDate,
+            startedAt: battle.battle.startDate,
+            entries: []
+        )
+
+        do {
+            let post = try await postRepository.createPost(
+                workouts: [placeholder],
+                caption: nil,
+                images: nil,
+                visibility: .publicPost,
+                userId: currentUserId,
+                postType: .battle,
+                battleStats: stats
+            )
+            try await battleRepository.lockSharedPost(
+                battleId: battle.id,
+                postId: post.id,
+                userId: currentUserId
+            )
+            if let refreshed = try? await battleRepository.fetchBattle(id: battle.id) {
+                pendingResultBattle = refreshed
+            }
+            Haptics.success()
+        } catch {
+            AppLogger.error(
+                "Failed to share battle result \(battle.id): \(error.localizedDescription)",
+                category: AppLogger.battles
+            )
+        }
     }
 
     /// Returns the most-recently-ended completed battle that is not in `seen`
