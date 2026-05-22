@@ -257,31 +257,35 @@ struct PostCard: View {
                     onProfileTap()
                 }
 
-            // Username + Time
-            VStack(alignment: .leading, spacing: 2) {
-                Text(post.author.displayName ?? post.author.username)
-                    .dsFont(.subheadline, weight: .bold)
-                    .foregroundStyle(DS.Semantic.textPrimary)
+            // Username + Time + spacer — taps open the post
+            Button {
+                onPostTap()
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(post.author.displayName ?? post.author.username)
+                            .dsFont(.subheadline, weight: .bold)
+                            .foregroundStyle(DS.Semantic.textPrimary)
 
-                HStack(spacing: 4) {
-                    Text(post.relativeTime)
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
+                        HStack(spacing: 4) {
+                            Text(post.relativeTime)
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
 
-                    Text("•")
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
+                            Text("•")
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
 
-                    Image(systemName: post.post.visibility.icon)
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
+                            Image(systemName: post.post.visibility.icon)
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    }
+                    Spacer()
                 }
+                .contentShape(Rectangle())
             }
-            .onTapGesture {
-                onProfileTap()
-            }
-
-            Spacer()
+            .buttonStyle(.plain)
 
             // More menu button
             Button {
