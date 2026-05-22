@@ -65,6 +65,7 @@ struct SocialView: View {
                 // Content
                 Group {
 
+
                         // NORMAL MODE: Use real views with live data
                         switch selectedSection {
                         case .feed:
@@ -94,6 +95,7 @@ struct SocialView: View {
                     }
 
             }
+            .ignoresSafeArea(.keyboard)
             .background(DS.Semantic.surface.ignoresSafeArea())
             .navigationBarHidden(true)
             .navigationDestination(for: UUID.self) { userId in
