@@ -1,67 +1,81 @@
 -- Battle Result Screen: DB Migration
 -- Run in Supabase SQL editor. All changes are additive - safe for existing rows.
+-- Deployable migration copy: supabase/migrations/20260522090000_battle_result_screen.sql
 
--- 1. Add share-lock columns to battles
-ALTER TABLE battles
-  ADD COLUMN IF NOT EXISTS shared_post_id UUID REFERENCES posts(id) NULL,
-  ADD COLUMN IF NOT EXISTS shared_by_user_id UUID REFERENCES profiles(id) NULL;
+-- 1. Add battle_stats JSONB to workout_posts (null for all existing posts)
+ALTER TABLE public.workout_posts
+    ADD COLUMN IF NOT EXISTS battle_stats JSONB;
 
--- 2. Add battle_stats JSONB to posts (null for all existing posts)
-ALTER TABLE posts
-  ADD COLUMN IF NOT EXISTS battle_stats JSONB NULL;
+-- 2. Add share-lock columns to battles
+ALTER TABLE public.battles
+    ADD COLUMN IF NOT EXISTS shared_post_id UUID REFERENCES public.workout_posts(id) ON DELETE SET NULL,
+    ADD COLUMN IF NOT EXISTS shared_by_user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL;
 
--- 3. Add 'battle' to post_type enum (if post_type is stored as a PG enum).
---    Skip this step if post_type is a VARCHAR - no migration needed.
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum
-    WHERE enumlabel = 'battle'
-      AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'post_type')
-  ) THEN
-    ALTER TYPE post_type ADD VALUE 'battle';
-  END IF;
-END $$;
+CREATE INDEX IF NOT EXISTS battles_shared_post_id_idx
+    ON public.battles(shared_post_id)
+    WHERE shared_post_id IS NOT NULL;
 
--- 4. Create battle completion notification function.
---    Replace the body below with the pattern from send_battle_ending_soon_notifications.
-CREATE OR REPLACE FUNCTION send_battle_completed_notifications(p_battle_id UUID)
+-- 3. Create battle completion notification function.
+--    Existing push delivery runs from the notifications insert trigger.
+CREATE OR REPLACE FUNCTION public.send_battle_completed_notifications(p_battle_id UUID)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
-  v_battle battles%ROWTYPE;
-  v_challenger_token TEXT;
-  v_opponent_token TEXT;
-  v_winner_name TEXT;
+    v_battle public.battles%ROWTYPE;
+    v_metadata JSONB;
 BEGIN
-  SELECT * INTO v_battle FROM battles WHERE id = p_battle_id;
-  IF NOT FOUND THEN RETURN; END IF;
+    SELECT *
+    INTO v_battle
+    FROM public.battles
+    WHERE id = p_battle_id;
 
-  -- Avoid double-sending: only notify if status = 'completed'
-  IF v_battle.status != 'completed' THEN RETURN; END IF;
+    IF NOT FOUND OR v_battle.status <> 'completed' THEN
+        RETURN;
+    END IF;
 
-  -- Fetch winner display name (falls back to username)
-  SELECT COALESCE(display_name, username) INTO v_winner_name
-  FROM profiles
-  WHERE id = v_battle.winner_id;
+    v_metadata := jsonb_build_object(
+        'battle_id', v_battle.id,
+        'battle_type', v_battle.battle_type,
+        'winner_id', v_battle.winner_id,
+        'challenger_score', v_battle.challenger_score,
+        'opponent_score', v_battle.opponent_score
+    );
 
-  -- Send push to challenger
-  -- (Use the same push mechanism as send_battle_ending_soon_notifications)
-  PERFORM send_push_notification(
-    p_user_id := v_battle.challenger_id,
-    p_title := 'Battle Complete',
-    p_body := COALESCE(v_winner_name, 'Someone') || ' won the ' ||
-              v_battle.battle_type || ' battle!'
-  );
+    INSERT INTO public.notifications (user_id, type, actor_id, target_id, read, metadata)
+    SELECT
+        v_battle.challenger_id,
+        'battle_completed',
+        v_battle.opponent_id,
+        v_battle.id,
+        false,
+        v_metadata
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.notifications
+        WHERE user_id = v_battle.challenger_id
+          AND type = 'battle_completed'
+          AND target_id = v_battle.id
+    );
 
-  -- Send push to opponent
-  PERFORM send_push_notification(
-    p_user_id := v_battle.opponent_id,
-    p_title := 'Battle Complete',
-    p_body := COALESCE(v_winner_name, 'Someone') || ' won the ' ||
-              v_battle.battle_type || ' battle!'
-  );
+    INSERT INTO public.notifications (user_id, type, actor_id, target_id, read, metadata)
+    SELECT
+        v_battle.opponent_id,
+        'battle_completed',
+        v_battle.challenger_id,
+        v_battle.id,
+        false,
+        v_metadata
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.notifications
+        WHERE user_id = v_battle.opponent_id
+          AND type = 'battle_completed'
+          AND target_id = v_battle.id
+    );
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION public.send_battle_completed_notifications(UUID) TO authenticated, service_role;
