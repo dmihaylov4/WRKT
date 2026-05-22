@@ -388,6 +388,7 @@ final class BattleRepository: Sendable {
             .value
 
         guard let battle = battles.first else { return }
+        guard battle.status == .active else { return }
 
         let userScore = battle.score(for: userId)
         let opponentScore = battle.opponentScore(for: userId)
@@ -413,6 +414,17 @@ final class BattleRepository: Sendable {
             ))
             .eq("id", value: battleId.uuidString)
             .execute()
+
+        do {
+            try await supabase.database
+                .rpc("send_battle_completed_notifications", params: ["p_battle_id": battleId.uuidString])
+                .execute()
+        } catch {
+            AppLogger.warning(
+                "Failed to send battle completion notifications for \(battleId): \(error.localizedDescription)",
+                category: AppLogger.battles
+            )
+        }
 
         var completedBattle = battle
         completedBattle.status = .completed
