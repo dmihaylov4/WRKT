@@ -222,6 +222,7 @@
 		2EAB3FCD2EC26B7F00F1A7CA /* StatsDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */; };
 		2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00002FA0000000000001 /* BarbellProgressService.swift */; };
 		2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */; };
+		2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */; };
 		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
 		2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00062FA0000000000001 /* PlateWallView.swift */; };
 		2EBB00092FA0000000000001 /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00082FA0000000000001 /* BarbellPreviewView.swift */; };
@@ -714,6 +715,7 @@
 		2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsDebugView.swift; sourceTree = "<group>"; };
 		2EBB00002FA0000000000001 /* BarbellProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellProgressService.swift; sourceTree = "<group>"; };
 		2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellUnlockRules.swift; sourceTree = "<group>"; };
+		2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateSnapshotService.swift; sourceTree = "<group>"; };
 		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
 		2EBB00062FA0000000000001 /* PlateWallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateWallView.swift; sourceTree = "<group>"; };
 		2EBB00082FA0000000000001 /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
@@ -1582,6 +1584,7 @@
 				2EBB00002FA0000000000001 /* BarbellProgressService.swift */,
 				ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */,
 				2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */,
+				2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2851,6 +2854,7 @@
 				2E510B922E9AF1750089EE2C /* RewardEngine.swift in Sources */,
 				2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */,
 				2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */,
+				2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */,
 				2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */,
 				2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */,
 				2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */,
