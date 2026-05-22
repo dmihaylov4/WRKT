@@ -198,14 +198,8 @@ struct TimedSetRow: View {
                 .padding(.vertical, 8)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(backgroundColor)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(borderColor, lineWidth: isActive ? 2 : 1)
-        )
+        .background(ChamferedRectangle(.large).fill(backgroundColor))
+        .overlay(ChamferedRectangle(.large).stroke(borderColor, lineWidth: isActive ? 2 : 1))
         .opacity(rowOpacity)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .animation(.easeInOut(duration: 0.2), value: set.isCompleted)
