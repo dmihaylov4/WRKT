@@ -76,11 +76,12 @@ struct BattleRewardPreviewBlock: View {
                     .lineLimit(1)
             }
 
-            PlateFaceView(
+            CachedPlateThumbnail(
                 tierID: tierID,
                 progressionTier: .iron,
                 liftTypeID: liftTypeID,
-                weightKg: isWinner ? 35 : 20
+                weightKg: isWinner ? 35 : 20,
+                engravingText: isWinner ? battleType.winnerEngravingText : battleType.displayName
             )
             .frame(width: 88, height: 88)
             .clipped()

@@ -621,11 +621,12 @@ private struct ChallengeRewardCard: View {
                     .overlay(ChamferedRectangle(.small).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
             }
         case .conditioningPlate:
-            PlateFaceView(
+            CachedPlateThumbnail(
                 tierID: 24,
                 progressionTier: .iron,
                 liftTypeID: nil,
-                weightKg: 20
+                weightKg: 20,
+                engravingText: ""
             )
             .frame(width: 44, height: 44)
             .clipped()
@@ -650,11 +651,12 @@ private struct RealityPlatePreview: View {
         ZStack {
             RoundedRectangle(cornerRadius: 4)
                 .fill(DS.Theme.cardBottom.opacity(0.55))
-            PlateFaceView(
+            CachedPlateThumbnail(
                 tierID: plate.tierID,
                 progressionTier: .iron,
                 liftTypeID: plate.liftTypeID,
-                weightKg: plate.weightKg
+                weightKg: plate.weightKg,
+                engravingText: plate.engravingText
             )
             .padding(6)
         }

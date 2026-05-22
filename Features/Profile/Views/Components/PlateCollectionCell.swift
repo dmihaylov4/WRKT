@@ -96,11 +96,12 @@ struct PlateMedallionView: View {
     let accentColor: Color
 
     var body: some View {
-        PlateFaceView(
+        CachedPlateThumbnail(
             tierID: plate.tierID,
             progressionTier: plate.currentTier,
             liftTypeID: plate.liftTypeID,
-            weightKg: plate.weightKg
+            weightKg: plate.weightKg,
+            engravingText: plate.engravingText
         )
         .frame(width: 44, height: 44)
         .accessibilityHidden(true)
