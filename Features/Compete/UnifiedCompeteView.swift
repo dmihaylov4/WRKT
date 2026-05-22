@@ -50,6 +50,7 @@ struct UnifiedCompeteView: View {
                     BattleResultOverlay(
                         battle: battle,
                         currentUserId: userId,
+                        earnedPlate: battlesVM?.pendingResultPlate,
                         onShare: { await battlesVM?.shareResult() },
                         onDismiss: { battlesVM?.dismissResult() }
                     )

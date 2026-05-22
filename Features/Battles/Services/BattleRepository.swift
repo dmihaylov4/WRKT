@@ -442,7 +442,7 @@ final class BattleRepository: Sendable {
             engravingText: isWinner ? battle.battleType.winnerEngravingText : battle.battleType.displayName,
             earnedByEvent: "battle_\(battle.id.uuidString)"
         )
-        await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: sourceWorkoutID)
+        await BarbellProgressService.shared.awardPlates([plateInfo], sourceWorkoutID: sourceWorkoutID, suppressWinScreen: true)
     }
 
     /// Records the first post that shared this battle result.

@@ -17,6 +17,7 @@ final class BattleViewModel {
 
     // MARK: - Battle Result
     var pendingResultBattle: BattleWithParticipants?
+    var pendingResultPlate: EarnedPlateInfo?
 
     private var seenBattleResultIds: Set<UUID> {
         get {
@@ -111,6 +112,8 @@ final class BattleViewModel {
             activeBattles = allBattles.filter { $0.battle.isActive }
             pendingBattles = allBattles.filter { $0.battle.isPending }
             completedBattles = allBattles.filter { $0.battle.isCompleted }
+            // Award plates first so they're in SwiftData before we fetch plate info below
+            await awardNewlyCompletedBattleRewards(completedBattles, userId: userId)
             let cutoff = Date().addingTimeInterval(-7 * 24 * 3600)
             var seen = seenBattleResultIds
             if let unseen = BattleViewModel.unseenResult(from: completedBattles, seen: seen, cutoff: cutoff) {
@@ -119,8 +122,8 @@ final class BattleViewModel {
                     .forEach { seen.insert($0.id) }
                 seenBattleResultIds = seen
                 pendingResultBattle = unseen
+                pendingResultPlate = BarbellProgressService.shared.fetchEarnedPlate(forBattle: unseen.id)
             }
-            await awardNewlyCompletedBattleRewards(completedBattles, userId: userId)
 
             error = nil
             isLoading = false
@@ -140,6 +143,7 @@ final class BattleViewModel {
 
     func dismissResult() {
         pendingResultBattle = nil
+        pendingResultPlate = nil
     }
 
     func shareResult() async {
@@ -176,7 +180,7 @@ final class BattleViewModel {
                 workouts: [placeholder],
                 caption: nil,
                 images: nil,
-                visibility: .publicPost,
+                visibility: .friends,
                 userId: currentUserId,
                 postType: .battle,
                 battleStats: stats

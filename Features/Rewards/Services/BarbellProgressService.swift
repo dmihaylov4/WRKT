@@ -445,7 +445,20 @@ final class BarbellProgressService {
         }
     }
 
-    func awardPlates(_ plates: [EarnedPlateInfo], sourceWorkoutID: String?) {
+    func fetchEarnedPlate(forBattle battleId: UUID) -> EarnedPlateInfo? {
+        guard let context else { return nil }
+        let event = "battle_\(battleId.uuidString)"
+        let fd = FetchDescriptor<EarnedPlate>(predicate: #Predicate { $0.earnedByEvent == event })
+        guard let plate = (try? context.fetch(fd))?.first else { return nil }
+        return EarnedPlateInfo(
+            tierID: plate.tierID,
+            weightKg: plate.weightKg,
+            engravingText: plate.engravingText,
+            earnedByEvent: plate.earnedByEvent
+        )
+    }
+
+    func awardPlates(_ plates: [EarnedPlateInfo], sourceWorkoutID: String?, suppressWinScreen: Bool = false) {
         guard !plates.isEmpty, let context else { return }
 
         let existingEvents = Set(((try? context.fetch(FetchDescriptor<EarnedPlate>())) ?? []).map(\.earnedByEvent))
@@ -493,7 +506,9 @@ final class BarbellProgressService {
                     plate: plateInfo
                 )
             }
-            WinScreenCoordinator.shared.enqueue(.barbellRewards(events))
+            if !suppressWinScreen {
+                WinScreenCoordinator.shared.enqueue(.barbellRewards(events))
+            }
         } catch {
             context.rollback()
             AppLogger.error("Failed to award barbell plates", error: error, category: AppLogger.rewards)
