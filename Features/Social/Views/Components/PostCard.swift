@@ -133,6 +133,8 @@ struct PostCard: View {
             // Workout Summary
             if post.post.postType == .weeklyProgress, let stats = post.post.weeklyStats {
                 WeeklyProgressFeedCard(stats: stats)
+            } else if post.post.postType == .battle, let stats = post.post.battleStats {
+                BattlePostCard(stats: stats)
             } else if post.post.isMultiWorkout {
                 MultiWorkoutCarousel(
                     workouts: post.post.allWorkouts,
