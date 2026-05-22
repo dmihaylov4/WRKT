@@ -80,6 +80,17 @@ enum BattleType: String, Codable, Sendable, Hashable {
         default: return "Battle Winner"
         }
     }
+
+    var customIconName: String {
+        switch self {
+        case .volume:          return "battle-volume-icon"
+        case .consistency:     return "battle-consistency-icon"
+        case .workoutCount:    return "battle-workout-count-icon"
+        case .pr:              return "battle-flags-icon"
+        case .exercise:        return "battle-opponent-icon"
+        case .runningDistance: return "battle-flags-icon"
+        }
+    }
 }
 
 // MARK: - Battle Status
@@ -114,6 +125,8 @@ struct Battle: Codable, Identifiable, Sendable, Hashable {
     var trashTalkEnabled: Bool
     let createdAt: Date
     var updatedAt: Date
+    var sharedPostId: UUID? = nil
+    var sharedByUserId: UUID? = nil
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -131,6 +144,8 @@ struct Battle: Codable, Identifiable, Sendable, Hashable {
         case trashTalkEnabled = "trash_talk_enabled"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
+        case sharedPostId = "shared_post_id"
+        case sharedByUserId = "shared_by_user_id"
     }
 
     // MARK: - Computed Properties
