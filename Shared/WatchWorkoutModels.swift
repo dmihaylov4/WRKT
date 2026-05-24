@@ -111,13 +111,21 @@ struct WatchSetInfo: Codable, Hashable, Identifiable {
             let formattedWeight = weight.truncatingRemainder(dividingBy: 1) == 0
                 ? String(format: "%.0f", weight)
                 : String(format: "%.1f", weight)
+            #if os(watchOS)
             return "\(reps) × \(formattedWeight) kg"
+            #else
+            return WeightUnit.preferred.formatSet(reps: reps, weightKg: weight)
+            #endif
         case "bodyweight":
             return "\(reps) reps"
         case "timed":
             return formatDuration(durationSeconds)
         default:
+            #if os(watchOS)
             return "\(reps) × \(weight) kg"
+            #else
+            return WeightUnit.preferred.formatSet(reps: reps, weightKg: weight)
+            #endif
         }
     }
 

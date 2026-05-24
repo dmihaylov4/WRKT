@@ -137,9 +137,6 @@ struct SetPerformance: Identifiable {
     var displayValue: String {
         switch trackingMode {
         case .weighted:
-            let formattedWeight = weight.truncatingRemainder(dividingBy: 1) == 0
-                ? String(format: "%.0f", weight)
-                : String(format: "%.1f", weight)
             return WeightUnit.preferred.formatSet(reps: reps, weightKg: weight)
         case .timed:
             return formatDuration(durationSeconds)

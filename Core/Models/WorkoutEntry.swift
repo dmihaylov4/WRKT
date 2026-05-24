@@ -182,10 +182,6 @@ struct SetInput: Hashable, Codable {
     var displayValue: String {
         switch trackingMode {
         case .weighted:
-            // Format weight to 1 decimal place, but remove trailing .0
-            let formattedWeight = weight.truncatingRemainder(dividingBy: 1) == 0
-                ? String(format: "%.0f", weight)
-                : String(format: "%.1f", weight)
             return WeightUnit.preferred.formatSet(reps: reps, weightKg: weight)
         case .timed:
             return formatDuration(durationSeconds)
