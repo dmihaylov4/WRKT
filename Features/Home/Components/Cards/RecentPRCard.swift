@@ -10,6 +10,9 @@ import SwiftUI
 struct RecentPRCard: View {
     let pr: PRSummary
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header
@@ -33,7 +36,7 @@ struct RecentPRCard: View {
                         .foregroundStyle(.primary)
 
                     HStack(spacing: 4) {
-                        Text("\(pr.weight.safeInt) kg")
+                        Text(unit.format(pr.weight))
                             .dsFont(.caption, weight: .medium)
                             .foregroundStyle(.orange)
 

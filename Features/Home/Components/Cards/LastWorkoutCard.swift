@@ -10,6 +10,9 @@ import SwiftUI
 struct LastWorkoutCard: View {
     let workout: CompletedWorkout
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var topExercise: WorkoutEntry? {
         // Get exercise with most volume
         workout.entries.max(by: { lhs, rhs in
@@ -139,7 +142,7 @@ struct LastWorkoutCard: View {
                 Text("•")
                     .dsFont(.caption2)
                     .foregroundStyle(.tertiary)
-                Text(formatVolume(totalVolume) + " kg")
+                Text(unit.formatVolume(totalVolume))
                     .dsFont(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -209,13 +212,6 @@ struct LastWorkoutCard: View {
         .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 
-    private func formatVolume(_ volume: Double) -> String {
-        if volume >= 1000 {
-            return String(format: "%.1fK", volume / 1000)
-        } else {
-            return "\(volume.safeInt)"
-        }
-    }
 
     private func hasPR(entry: WorkoutEntry) -> Bool {
         // Simple heuristic: check if any set has very high weight

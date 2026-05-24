@@ -12,6 +12,9 @@ struct RecentActivityCard: View {
     var onWorkoutTap: ((CompletedWorkout) -> Void)? = nil
     var onCardioTap: ((Run) -> Void)? = nil
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Header with "Recent Activity" label (no arrow for this card)
@@ -128,7 +131,7 @@ struct RecentActivityCard: View {
                     Text(formatVolume(totalVolume(for: workout)))
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.primary)
-                    Text("kg")
+                    Text(unit.label)
                         .font(.system(size: 9))
                         .foregroundStyle(.secondary)
                 }
@@ -249,11 +252,7 @@ struct RecentActivityCard: View {
     }
 
     private func formatVolume(_ volume: Double) -> String {
-        if volume >= 1000 {
-            return String(format: "%.1fK", volume / 1000)
-        } else {
-            return "\(volume.safeInt)"
-        }
+        unit.formatVolumeValue(volume)
     }
 
     private func activityType(for run: Run) -> String {

@@ -63,6 +63,9 @@ struct CurrentWorkoutSheet: View {
     @EnvironmentObject var store: WorkoutStoreV2
     @Environment(\.dismiss) var dismiss
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         NavigationStack {
             List {
@@ -77,9 +80,7 @@ struct CurrentWorkoutSheet: View {
                                     .foregroundStyle(.secondary)
                             } else {
                                 let setsText = e.sets.map { set in
-                                    // Keep this simple for the type-checker; format weight once per set.
-                                    let w = String(format: "%.1f", set.weight)
-                                    return "\(set.reps)x @ \(w)kg"
+                                    return "\(set.reps)x @ \(unit.format(set.weight))"
                                 }.joined(separator: ", ")
 
                                 Text(setsText)
