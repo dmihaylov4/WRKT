@@ -125,7 +125,7 @@ final class ExerciseStatsAggregator {
                                 secondaryValue: set.weight,
                                 date: workout.date,
                                 workoutID: workout.id,
-                                displayText: String(format: "%.1f kg E1RM", e1rm),
+                                displayText: "\(WeightUnit.preferred.format(e1rm)) E1RM",
                                 setCount: nil
                             )
                         }
@@ -139,7 +139,7 @@ final class ExerciseStatsAggregator {
                             secondaryValue: Double(set.reps),
                             date: workout.date,
                             workoutID: workout.id,
-                            displayText: String(format: "%.1f kg × %d reps", set.weight, set.reps),
+                            displayText: WeightUnit.preferred.formatSet(reps: set.reps, weightKg: set.weight),
                             setCount: nil
                         )
                     }
@@ -152,7 +152,7 @@ final class ExerciseStatsAggregator {
                             secondaryValue: set.weight,
                             date: workout.date,
                             workoutID: workout.id,
-                            displayText: "\(set.reps) reps @ \(String(format: "%.1f", set.weight)) kg",
+                            displayText: "\(set.reps) reps @ \(WeightUnit.preferred.format(set.weight))",
                             setCount: nil
                         )
                     }
@@ -200,7 +200,7 @@ final class ExerciseStatsAggregator {
                                 secondaryValue: set.weight,
                                 date: workout.date,
                                 workoutID: workout.id,
-                                displayText: String(format: "%.1f kg E1RM", e1rm),
+                                displayText: "\(WeightUnit.preferred.format(e1rm)) E1RM",
                                 setCount: nil
                             )
                         }
@@ -212,7 +212,7 @@ final class ExerciseStatsAggregator {
                                 secondaryValue: Double(set.reps),
                                 date: workout.date,
                                 workoutID: workout.id,
-                                displayText: String(format: "+%.1f kg × %d reps", set.weight, set.reps),
+                                displayText: "+\(WeightUnit.preferred.formatSet(reps: set.reps, weightKg: set.weight))",
                                 setCount: nil
                             )
                         }
@@ -224,7 +224,7 @@ final class ExerciseStatsAggregator {
                                 secondaryValue: set.weight,
                                 date: workout.date,
                                 workoutID: workout.id,
-                                displayText: "\(set.reps) reps @ +\(String(format: "%.1f", set.weight)) kg",
+                                displayText: "\(set.reps) reps @ +\(WeightUnit.preferred.format(set.weight))",
                                 setCount: nil
                             )
                         }
@@ -257,7 +257,7 @@ final class ExerciseStatsAggregator {
                     secondaryValue: nil,
                     date: workout.date,
                     workoutID: workout.id,
-                    displayText: String(format: "%.0f kg total", sessionVolume),
+                    displayText: "\(WeightUnit.preferred.formatVolume(sessionVolume)) total",
                     setCount: nil
                 )
             }

@@ -390,6 +390,9 @@ private struct VolumeWithTrendChart: View {
     let weekly: [WeeklyTrainingSummary]
     let movingAvgs: [MovingAverage]
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     // Determine if we have enough data for full trend analysis
     private var hasMultipleWeeks: Bool { weekly.count > 1 }
     private var showTrendLine: Bool { weekly.count >= 3 }
@@ -409,7 +412,7 @@ private struct VolumeWithTrendChart: View {
                             message: "Total load lifted across all working sets each week (reps × weight). Useful for spotting big changes in your overall workload. Not a direct measure of strength or muscle growth."
                         )
                     }
-                    Text("reps × kg (working sets)")
+                    Text("reps × \(unit.label) (working sets)")
                         .dsFont(.caption2)
                         .foregroundStyle(.white.opacity(0.5))
                 }

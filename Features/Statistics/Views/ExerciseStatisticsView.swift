@@ -513,6 +513,9 @@ private struct VolumeChart: View {
     let data: [ProgressPoint]
     let trackingMode: TrackingMode
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var yAxisLabel: String {
         switch trackingMode {
         case .weighted: return "Volume"
@@ -567,9 +570,7 @@ private struct VolumeChart: View {
     private func formatVolume(_ v: Double) -> String {
         switch trackingMode {
         case .weighted:
-            // Volume in kg (reps × weight)
-            if v >= 1000 { return String(format: "%.1fk kg", v / 1000) }
-            return String(format: "%.0f kg", v)
+            return unit.formatVolume(v)
         case .bodyweight:
             // Total reps
             return String(format: "%.0f reps", v)
@@ -594,9 +595,12 @@ private struct WeightChart: View {
     let data: [ProgressPoint]
     let trackingMode: TrackingMode
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var yAxisUnit: String {
         switch trackingMode {
-        case .weighted: return "kg"
+        case .weighted: return unit.label
         case .bodyweight: return "reps"
         case .timed: return "sec"
         case .distance: return "m"
@@ -648,6 +652,9 @@ private struct E1RMChart: View {
     let data: [ProgressPoint]
     var plateauState: PlateauState = .none
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     // Linear regression on last 6-8 points; returns (slope kg/day, intercept) relative to data.first
     private func linearRegression(_ points: [ProgressPoint]) -> (slope: Double, intercept: Double)? {
         guard points.count >= 2, let origin = points.first else { return nil }
@@ -681,7 +688,7 @@ private struct E1RMChart: View {
         let projection = projectionPoints
         let projectedLabel: String? = {
             guard let end = projection.last else { return nil }
-            let kg = String(format: "%.1f kg", end.value)
+            let kg = unit.format(end.value)
             let date = end.date.formatted(.dateTime.month(.abbreviated).day())
             return "~\(kg) by \(date)"
         }()
@@ -743,7 +750,7 @@ private struct E1RMChart: View {
                 AxisGridLine()
                 AxisValueLabel {
                     if let e1rm = value.as(Double.self) {
-                        Text(String(format: "%.1f kg", e1rm))
+                        Text(unit.format(e1rm))
                     }
                 }
             }
@@ -755,6 +762,9 @@ private struct E1RMChart: View {
 
 private struct StatisticsGridSection: View {
     let stats: ExerciseStatistics
+
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     private var statItems: [StatItem] {
         var items: [StatItem] = []
@@ -831,8 +841,7 @@ private struct StatisticsGridSection: View {
     }
 
     private func formatVolume(_ v: Double) -> String {
-        if v >= 1000 { return String(format: "%.1fk kg", v / 1000) }
-        return String(format: "%.0f kg", v)
+        unit.formatVolume(v)
     }
 
     private func formatDuration(_ seconds: TimeInterval) -> String {
@@ -948,6 +957,9 @@ private struct WorkoutHistoryCard: View {
     let exerciseName: String
     var isCompact: Bool = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -1024,7 +1036,7 @@ private struct WorkoutHistoryCard: View {
                     if workout.totalVolume > 0 {
                         Text("•")
                             .foregroundStyle(DS.Semantic.textSecondary)
-                        Text(String(format: "%.0f kg", workout.totalVolume))
+                        Text(unit.formatVolume(workout.totalVolume))
                             .dsFont(.caption, monospacedDigits: true)
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
@@ -1084,6 +1096,9 @@ private struct ExerciseLogDetailSheet: View {
     let exerciseName: String
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -1111,7 +1126,7 @@ private struct ExerciseLogDetailSheet: View {
                         }
 
                         if workout.totalVolume > 0 {
-                            SummaryStatPill(value: String(format: "%.0f kg", workout.totalVolume), label: "Volume")
+                            SummaryStatPill(value: unit.formatVolume(workout.totalVolume), label: "Volume")
                         }
 
                         if let avgRest = workout.averageRest, avgRest > 0 {
