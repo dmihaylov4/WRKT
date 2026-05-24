@@ -1086,6 +1086,9 @@ struct ProgramPreviewView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var deps
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     let inviteID: UUID
     let onChanged: (() async -> Void)?
     let bottomActionPadding: CGFloat
@@ -1417,7 +1420,7 @@ private struct ProgramInviteDayCard: View {
     private func detailText(for exercise: PlanBlockExercise) -> String {
         var parts = ["\(exercise.sets) sets", "\(exercise.reps) reps"]
         if let startingWeight = exercise.startingWeight, startingWeight > 0 {
-            parts.append("\(startingWeight.formatted(.number.precision(.fractionLength(0...1)))) kg")
+            parts.append(unit.format(startingWeight))
         }
         return parts.joined(separator: " • ")
     }
@@ -1458,6 +1461,8 @@ private struct ProgramExerciseEditSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @AppStorage("weight_step_kg") private var weightStepKg: Double = 2.5
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
     @FocusState private var isWeightFocused: Bool
 
     let exercise: PlanBlockExercise
@@ -1522,7 +1527,7 @@ private struct ProgramExerciseEditSheet: View {
                                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
                             )
                             .overlay(alignment: .trailing) {
-                                Text("kg")
+                                Text(unit.label)
                                     .dsFont(.caption, weight: .semibold)
                                     .foregroundStyle(DS.Semantic.textSecondary)
                                     .padding(.trailing, 12)

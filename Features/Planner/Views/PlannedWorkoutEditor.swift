@@ -622,6 +622,8 @@ private struct PlannedExerciseRow: View {
     let onDelete: () -> Void
 
     @EnvironmentObject private var store: WorkoutStoreV2
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     private var consecutiveSameWeight: Int {
         store.consecutiveSessionsAtSameWeight(for: exercise.exerciseID)
@@ -637,7 +639,7 @@ private struct PlannedExerciseRow: View {
                 // Ghost sets preview
                 HStack(spacing: 4) {
                     ForEach(exercise.ghostSets.prefix(3)) { set in
-                        Text("\(set.reps)×\(set.weight.safeInt)kg")
+                        Text(unit.formatSetCompact(reps: set.reps, weightKg: set.weight))
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)

@@ -375,6 +375,9 @@ struct DexDetailView: View {
     @EnvironmentObject var store: WorkoutStoreV2
     @Environment(\.dismiss) private var dismiss
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     let item: DexItem
 
     private var exercise: Exercise? { repo.exercise(byID: item.id) }
@@ -398,9 +401,9 @@ struct DexDetailView: View {
 
                 if let bestE1RM {
                     DexDetailSection(title: "Records") {
-                        DexMetricRow(icon: "star.circle.fill", title: "Best est. 1RM", value: String(format: "%.1f kg", bestE1RM))
+                        DexMetricRow(icon: "star.circle.fill", title: "Best est. 1RM", value: unit.format(bestE1RM))
                         if let last = lastWorking {
-                            DexMetricRow(icon: "clock.arrow.circlepath", title: "Last working", value: "\(last.reps) x \(last.weight.safeInt) kg")
+                            DexMetricRow(icon: "clock.arrow.circlepath", title: "Last working", value: unit.formatSet(reps: last.reps, weightKg: last.weight))
                         }
                     }
                 }
@@ -412,7 +415,7 @@ struct DexDetailView: View {
                                 Text("\(cell.r) reps")
                                     .dsFont(.caption2, weight: .medium)
                                     .foregroundStyle(.secondary)
-                                Text(cell.w.map { "\(Int($0)) kg" } ?? "-")
+                                Text(cell.w.map { unit.format($0) } ?? "-")
                                     .dsFont(.footnote, weight: .semibold)
                                     .foregroundStyle(.primary)
                                     .monospacedDigit()
@@ -439,7 +442,7 @@ struct DexDetailView: View {
                                 HStack {
                                     Label("Try a PR", systemImage: "bolt.fill")
                                     Spacer()
-                                    Text("\(nxt.reps) × \(nxt.weightKg.safeInt) kg").monospacedDigit()
+                                    Text(unit.formatSet(reps: nxt.reps, weightKg: nxt.weightKg)).monospacedDigit()
                                 }
                                 .dsFont(.headline, weight: .semibold)
                                 .foregroundStyle(.black)

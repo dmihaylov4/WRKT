@@ -297,6 +297,9 @@ struct ExerciseRowEditable: View {
     let onRemove: () -> Void
     let onEdit: (Int, Int, Double?) -> Void
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     @State private var showEditSheet = false
 
     var body: some View {
@@ -318,7 +321,7 @@ struct ExerciseRowEditable: View {
                             Text("•")
                                 .dsFont(.caption)
                                 .foregroundStyle(.secondary)
-                            Text("\(String(format: "%.1f", weight)) kg")
+                            Text(unit.format(weight))
                                 .dsFont(.caption)
                                 .foregroundStyle(DS.Palette.marone)
                         }
@@ -505,6 +508,9 @@ struct PlannerExerciseRow: View {
 struct ExerciseRowPreview: View {
     let exercise: ExerciseTemplate
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
@@ -521,7 +527,7 @@ struct ExerciseRowPreview: View {
                         Text("•")
                             .dsFont(.caption)
                             .foregroundStyle(.secondary)
-                        Text("\(String(format: "%.1f", weight)) kg")
+                        Text(unit.format(weight))
                             .dsFont(.caption)
                             .foregroundStyle(DS.Palette.marone)
                     }
