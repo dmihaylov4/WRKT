@@ -88,7 +88,7 @@ private struct WorkoutPostSummaryPresentationBuilder {
             title: "Strength Session",
             badge: badge,
             stats: [
-                WorkoutPostSummaryStat(label: "Volume", value: WorkoutPostStatsViews.formatVolume(totalVolume), unit: "KG"),
+                WorkoutPostSummaryStat(label: "Volume", value: WeightUnit.preferred.formatVolumeValue(totalVolume), unit: WeightUnit.preferred.label.uppercased()),
                 WorkoutPostSummaryStat(label: "Exercises", value: "\(entries.count)", unit: "EX"),
                 WorkoutPostSummaryStat(label: "Sets", value: "\(totalSets)", unit: "TOTAL"),
                 WorkoutPostSummaryStat(label: "Duration", value: WorkoutPostStatsViews.durationText(duration), unit: "TIME")
@@ -143,7 +143,7 @@ private struct WorkoutPostSummaryPresentationBuilder {
             title: "Strength + Cardio",
             badge: badge,
             stats: [
-                WorkoutPostSummaryStat(label: "Volume", value: WorkoutPostStatsViews.formatVolume(totalVolume), unit: "KG"),
+                WorkoutPostSummaryStat(label: "Volume", value: WeightUnit.preferred.formatVolumeValue(totalVolume), unit: WeightUnit.preferred.label.uppercased()),
                 WorkoutPostSummaryStat(label: "Workouts", value: "\(workouts.count)", unit: "TOTAL"),
                 WorkoutPostSummaryStat(label: "Duration", value: WorkoutPostStatsViews.durationText(duration), unit: "TIME"),
                 WorkoutPostSummaryStat(label: "Calories", value: calories.map { String(format: "%.0f", $0) } ?? "0", unit: "KCAL")

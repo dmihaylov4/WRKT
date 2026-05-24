@@ -22,6 +22,9 @@ struct PostCreationView: View {
     @State private var viewModel: PostCreationViewModel?
     @State private var showingWorkoutPicker = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     init(workout: CompletedWorkout? = nil, mapImage: UIImage? = nil) {
         self.initialWorkout = workout
         self.initialWorkouts = workout.map { [$0] } ?? []
@@ -178,10 +181,7 @@ struct PostCreationView: View {
     }
 
     private func weeklyProgressCard(stats: WeeklyProgressStats, workouts: [CompletedWorkout], viewModel: PostCreationViewModel) -> some View {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = 0
-        let volumeStr = formatter.string(from: NSNumber(value: stats.totalVolumeKg)) ?? "\(Int(stats.totalVolumeKg))"
+        let volumeStr = unit.formatVolumeValue(stats.totalVolumeKg)
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -201,7 +201,7 @@ struct PostCreationView: View {
             VStack(spacing: 0) {
                 // Top stat row: volume, exercises, sets
                 HStack(spacing: 0) {
-                    progressStatCell(value: "\(volumeStr) kg", label: "Tonnage")
+                    progressStatCell(value: "\(volumeStr) \(unit.label)", label: "Tonnage")
                     statDivider()
                     progressStatCell(value: "\(stats.totalExercises)", label: "Exercises")
                     statDivider()

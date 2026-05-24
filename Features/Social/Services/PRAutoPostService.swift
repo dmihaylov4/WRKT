@@ -81,7 +81,7 @@ final class PRAutoPostService {
             // First time doing this exercise
             return """
             NEW PR: \(pr.exerciseName)!
-            \(formatWeight(pr.weight))kg × \(pr.reps) reps
+            \(WeightUnit.preferred.formatSet(reps: pr.reps, weightKg: pr.weight))
 
             First time crushing this exercise!
             """
@@ -89,7 +89,7 @@ final class PRAutoPostService {
             // Improvement over previous
             return """
             NEW PR: \(pr.exerciseName)!
-            \(formatWeight(pr.weight))kg × \(pr.reps) reps
+            \(WeightUnit.preferred.formatSet(reps: pr.reps, weightKg: pr.weight))
 
             +\(improvement) from previous best!
             """
@@ -97,7 +97,7 @@ final class PRAutoPostService {
             // Standard PR
             return """
             NEW PR: \(pr.exerciseName)!
-            \(formatWeight(pr.weight))kg × \(pr.reps) reps
+            \(WeightUnit.preferred.formatSet(reps: pr.reps, weightKg: pr.weight))
             """
         }
     }
@@ -106,7 +106,7 @@ final class PRAutoPostService {
         let count = prAchievements.count
 
         let prList = prAchievements.prefix(3).map { pr in
-            "• \(pr.exerciseName): \(formatWeight(pr.weight))kg × \(pr.reps)"
+            "• \(pr.exerciseName): \(WeightUnit.preferred.formatSet(reps: pr.reps, weightKg: pr.weight))"
         }.joined(separator: "\n")
 
         let extraText = prAchievements.count > 3 ? "\n• +\(prAchievements.count - 3) more!" : ""
@@ -125,11 +125,4 @@ final class PRAutoPostService {
         return ""
     }
 
-    private func formatWeight(_ weight: Double) -> String {
-        if weight.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(weight.safeInt)
-        } else {
-            return String(format: "%.1f", weight)
-        }
-    }
 }

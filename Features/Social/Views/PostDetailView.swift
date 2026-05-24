@@ -27,6 +27,9 @@ struct PostDetailView: View {
     @State private var selectedImageIndex = 0
     @State private var selectedWorkoutSection: WorkoutPostDetailSection = .overview
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private let imageUploadService = ImageUploadService()
 
     var body: some View {
@@ -431,7 +434,7 @@ struct PostDetailView: View {
                 strengthStatItem(label: "Sets", value: "\(entry.sets.count)")
                 strengthStatItem(label: "Reps", value: "\(totalReps)")
                 if totalVolume > 0 {
-                    strengthStatItem(label: "Volume", value: String(format: "%.0f kg", totalVolume))
+                    strengthStatItem(label: "Volume", value: unit.formatVolume(totalVolume))
                 }
                 Spacer(minLength: 0)
             }
@@ -1131,7 +1134,7 @@ struct PostDetailView: View {
                         .foregroundStyle(DS.Semantic.textSecondary)
 
                     if set.weight > 0 {
-                        Text("\(set.weight.safeInt) kg × \(set.reps) reps")
+                        Text(unit.formatSet(reps: set.reps, weightKg: set.weight))
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     } else {

@@ -593,11 +593,11 @@ struct ImageViewer: View {
 struct WeeklyProgressFeedCard: View {
     let stats: WeeklyPostStats
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var volumeFormatted: String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = 0
-        return (formatter.string(from: NSNumber(value: stats.totalVolumeKg)) ?? "\(Int(stats.totalVolumeKg))") + " kg"
+        unit.formatVolume(stats.totalVolumeKg)
     }
 
     var body: some View {
