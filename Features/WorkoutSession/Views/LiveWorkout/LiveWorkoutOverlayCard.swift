@@ -7,6 +7,8 @@ struct LiveWorkoutOverlayCard: View {
     @ObservedObject private var restTimer = RestTimerManager.shared
     @Environment(\.modelContext) private var context
     @AppStorage("auto_add_set_on_rest_timer") private var autoAddSetOnRestTimer: Bool = true
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     let namespace: Namespace.ID
     let title: String
@@ -493,6 +495,7 @@ struct LiveWorkoutOverlayCard: View {
                     if !completedGroups.isEmpty {
                         SupersetGroupSection(
                             title: "Completed",
+                            unit: unit,
                             groups: completedGroups,
                             onOpen: { entry in
                                 store.setActiveEntry(entry.id)
@@ -517,6 +520,7 @@ struct LiveWorkoutOverlayCard: View {
                             // Hero is in a superset - show the superset card
                             SupersetHeroCard(
                                 group: heroGroup,
+                                unit: unit,
                                 heroEntryID: hero.id,
                                 stateForEntry: exerciseState,
                                 onOpen: { entry in
@@ -530,6 +534,7 @@ struct LiveWorkoutOverlayCard: View {
                             // Standalone hero
                             CurrentExerciseHeroCard(
                                 entry: hero,
+                                unit: unit,
                                 state: exerciseState(hero),
                                 onOpen: {
                                     store.setActiveEntry(hero.id)
@@ -564,6 +569,7 @@ struct LiveWorkoutOverlayCard: View {
                     if !inProgressGroups.isEmpty {
                         SupersetGroupSection(
                             title: "In Progress",
+                            unit: unit,
                             groups: inProgressGroups,
                             onOpen: { entry in
                                 store.setActiveEntry(entry.id)
@@ -585,6 +591,7 @@ struct LiveWorkoutOverlayCard: View {
                     if !upNextGroups.isEmpty {
                         SupersetGroupSection(
                             title: "Up Next",
+                            unit: unit,
                             groups: upNextGroups,
                             onOpen: { entry in
                                 store.setActiveEntry(entry.id)
@@ -855,13 +862,14 @@ private struct DiscardConfirmationDialog: View {
 // MARK: - Row
 private struct LiveWorkoutRow: View {
     let entry: WorkoutEntry
+    let unit: WeightUnit
     let onOpen: () -> Void
     let onRemove: () -> Void
     let onDuplicate: (() -> Void)?
 
     private var summary: String {
         if entry.sets.isEmpty { return "No sets yet" }
-        return entry.sets.map { "\($0.reps)×\($0.weight.safeInt)kg" }.joined(separator: "  •  ")
+        return entry.sets.map { unit.formatSetCompact(reps: $0.reps, weightKg: $0.weight) }.joined(separator: "  •  ")
     }
 
     var body: some View {
@@ -933,6 +941,7 @@ struct WorkoutTimerText: View {
 private struct CurrentExerciseHeroCard: View {
     @EnvironmentObject var store: WorkoutStoreV2
     let entry: WorkoutEntry
+    let unit: WeightUnit
     let state: LiveWorkoutOverlayCard.ExerciseState
     let onOpen: () -> Void
     let onSwap: () -> Void
@@ -1007,7 +1016,7 @@ private struct CurrentExerciseHeroCard: View {
 
                 // Set data pills
                 if !entry.sets.isEmpty {
-                    SetDataDisplay(sets: entry.sets, maxDisplay: 6, style: .detailed)
+                    SetDataDisplay(sets: entry.sets, unit: unit, maxDisplay: 6, style: .detailed)
                         .padding(.top, 2)
                 }
             }
@@ -1064,6 +1073,7 @@ private struct CurrentExerciseHeroCard: View {
 // MARK: - Superset Group Section (Groups superset exercises together)
 private struct SupersetGroupSection: View {
     let title: String
+    let unit: WeightUnit
     let groups: [LiveWorkoutOverlayCard.SupersetGroup]
     let onOpen: (WorkoutEntry) -> Void
     let onRemove: (UUID) -> Void
@@ -1113,6 +1123,7 @@ private struct SupersetGroupSection: View {
                         if group.isSuperset {
                             SupersetGroupRow(
                                 entries: group.entries,
+                                unit: unit,
                                 onOpen: onOpen,
                                 onRemove: onRemove,
                                 onSwap: onSwap
@@ -1120,6 +1131,7 @@ private struct SupersetGroupSection: View {
                         } else if let entry = group.entries.first {
                             ExerciseGroupRow(
                                 entry: entry,
+                                unit: unit,
                                 onOpen: { onOpen(entry) },
                                 onRemove: { onRemove(entry.id) },
                                 onSwap: { onSwap(entry.id) }
@@ -1136,6 +1148,7 @@ private struct SupersetGroupSection: View {
 private struct SupersetGroupRow: View {
     @EnvironmentObject var store: WorkoutStoreV2
     let entries: [WorkoutEntry]
+    let unit: WeightUnit
     let onOpen: (WorkoutEntry) -> Void
     let onRemove: (UUID) -> Void
     let onSwap: (UUID) -> Void
@@ -1179,7 +1192,7 @@ private struct SupersetGroupRow: View {
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .lineLimit(2)
 
-                        SetDataDisplay(sets: entry.sets, maxDisplay: 4, style: .compact)
+                        SetDataDisplay(sets: entry.sets, unit: unit, maxDisplay: 4, style: .compact)
                     }
                     .padding(.leading, 8)
                     .padding(.vertical, 8)
@@ -1225,6 +1238,7 @@ private struct SupersetGroupRow: View {
 private struct SupersetHeroCard: View {
     @EnvironmentObject var store: WorkoutStoreV2
     let group: LiveWorkoutOverlayCard.SupersetGroup
+    let unit: WeightUnit
     let heroEntryID: UUID
     let stateForEntry: (WorkoutEntry) -> LiveWorkoutOverlayCard.ExerciseState
     let onOpen: (WorkoutEntry) -> Void
@@ -1253,6 +1267,7 @@ private struct SupersetHeroCard: View {
 
                     SupersetHeroRow(
                         entry: entry,
+                        unit: unit,
                         isHero: isHero,
                         isCompleted: isCompleted,
                         isFirst: index == 0,
@@ -1277,6 +1292,7 @@ private struct SupersetHeroCard: View {
 // MARK: - Superset Hero Row (Individual exercise in hero superset)
 private struct SupersetHeroRow: View {
     let entry: WorkoutEntry
+    let unit: WeightUnit
     let isHero: Bool
     let isCompleted: Bool
     let isFirst: Bool
@@ -1325,7 +1341,7 @@ private struct SupersetHeroRow: View {
                         .padding(.top, 2)
                 }
 
-                SetDataDisplay(sets: entry.sets, maxDisplay: 5, style: isHero ? .detailed : .compact)
+                SetDataDisplay(sets: entry.sets, unit: unit, maxDisplay: 5, style: isHero ? .detailed : .compact)
             }
             .padding(.leading, 12)
             .padding(.trailing, 16)
@@ -1347,6 +1363,7 @@ private struct SupersetHeroRow: View {
 // MARK: - Exercise Group Section (Generic for all states) - Legacy, kept for compatibility
 private struct ExerciseGroupSection: View {
     let title: String
+    let unit: WeightUnit
     let entries: [WorkoutEntry]
     let onOpen: (WorkoutEntry) -> Void
     let onRemove: (UUID) -> Void
@@ -1390,6 +1407,7 @@ private struct ExerciseGroupSection: View {
                     ForEach(entries, id: \.id) { entry in
                         ExerciseGroupRow(
                             entry: entry,
+                            unit: unit,
                             onOpen: { onOpen(entry) },
                             onRemove: { onRemove(entry.id) },
                             onSwap: {}
@@ -1405,6 +1423,7 @@ private struct ExerciseGroupSection: View {
 private struct ExerciseGroupRow: View {
     @EnvironmentObject var store: WorkoutStoreV2
     let entry: WorkoutEntry
+    let unit: WeightUnit
     let onOpen: () -> Void
     let onRemove: () -> Void
     let onSwap: () -> Void
@@ -1432,7 +1451,7 @@ private struct ExerciseGroupRow: View {
                     }
                 }
 
-                SetDataDisplay(sets: entry.sets, maxDisplay: 4, style: .compact)
+                SetDataDisplay(sets: entry.sets, unit: unit, maxDisplay: 4, style: .compact)
             }
 
             Spacer()
@@ -1479,6 +1498,7 @@ private struct ExerciseGroupRow: View {
 // MARK: - Set Data Display Component
 private struct SetDataDisplay: View {
     let sets: [SetInput]
+    let unit: WeightUnit
     var maxDisplay: Int = 5
     var style: DisplayStyle = .detailed
 
@@ -1503,7 +1523,7 @@ private struct SetDataDisplay: View {
         } else {
             FlowLayout(spacing: 6) {
                 ForEach(Array(displaySets.enumerated()), id: \.offset) { index, set in
-                    SetPill(set: set, index: index + 1, style: style)
+                    SetPill(set: set, index: index + 1, style: style, unit: unit)
                 }
 
                 if remainingCount > 0 {
@@ -1527,13 +1547,14 @@ private struct SetPill: View {
     let set: SetInput
     let index: Int
     var style: SetDataDisplay.DisplayStyle
+    let unit: WeightUnit
 
     private var displayText: String {
         let weight = set.weight.safeInt
         if set.reps > 0 {
-            return weight > 0 ? "\(weight)kg×\(set.reps)" : "\(set.reps) reps"
+            return weight > 0 ? "\(unit.formatCompact(Double(weight)))×\(set.reps)" : "\(set.reps) reps"
         } else {
-            return weight > 0 ? "\(weight)kg" : "—"
+            return weight > 0 ? unit.formatCompact(Double(weight)) : "—"
         }
     }
 

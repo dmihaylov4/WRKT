@@ -20,6 +20,9 @@ struct RetrospectiveWorkoutBuilder: View {
     @State private var startTime: Date
     @State private var endTime: Date
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     init(date: Date) {
         self.date = date
         // Default to 1 hour workout ending at the selected date's end of day
@@ -140,7 +143,7 @@ struct RetrospectiveWorkoutBuilder: View {
                                         editingEntry = entry
                                         Haptics.light()
                                     } label: {
-                                        RetrospectiveExerciseRow(entry: entry)
+                                        RetrospectiveExerciseRow(entry: entry, unit: unit)
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -278,6 +281,7 @@ struct RetrospectiveWorkoutBuilder: View {
 
 private struct RetrospectiveExerciseRow: View {
     let entry: WorkoutEntry
+    let unit: WeightUnit
 
     private var completedSets: Int {
         entry.sets.filter { $0.isCompleted }.count
@@ -303,7 +307,7 @@ private struct RetrospectiveExerciseRow: View {
                 // Sets preview
                 HStack(spacing: 4) {
                     ForEach(Array(entry.sets.prefix(3).enumerated()), id: \.offset) { _, set in
-                        Text("\(set.reps)×\(set.weight.safeInt)kg")
+                        Text(unit.formatSetCompact(reps: set.reps, weightKg: set.weight))
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)

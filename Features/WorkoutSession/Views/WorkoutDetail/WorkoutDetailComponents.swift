@@ -321,6 +321,9 @@ private struct ExerciseCardContent: View {
 struct ExerciseStatsRow: View {
     let entry: WorkoutEntry
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var totalSets: Int {
         entry.sets.count
     }
@@ -338,7 +341,7 @@ struct ExerciseStatsRow: View {
             StatItem(label: "Sets", value: "\(totalSets)")
             StatItem(label: "Reps", value: "\(totalReps)")
             if totalVolume > 0 {
-                StatItem(label: "Volume", value: String(format: "%.0f kg", totalVolume))
+                StatItem(label: "Volume", value: unit.formatVolume(totalVolume))
             }
             Spacer(minLength: 0)
         }

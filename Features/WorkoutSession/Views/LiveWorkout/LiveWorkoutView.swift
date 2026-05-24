@@ -10,6 +10,9 @@ struct LiveWorkoutView: View {
     @State private var editingEntry: WorkoutEntry? = nil
     @State private var showDiscardConfirmation = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         VStack {
             if let current = store.currentWorkout, !current.entries.isEmpty {
@@ -24,7 +27,7 @@ struct LiveWorkoutView: View {
                                     VStack(alignment: .leading, spacing: 6) {
                                         Text(e.exerciseName).dsFont(.headline)
                                         if !e.sets.isEmpty {
-                                            Text(e.sets.map { "\($0.reps)×\($0.weight.safeInt)kg" }
+                                            Text(e.sets.map { unit.formatSetCompact(reps: $0.reps, weightKg: $0.weight) }
                                                 .joined(separator: "  •  "))
                                                 .dsFont(.caption)
                                                 .foregroundStyle(.secondary)

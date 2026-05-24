@@ -17,6 +17,9 @@ struct WorkoutDetailView: View {
     @State private var showDeleteConfirmation = false
     @State private var showingEditor = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var hasHealthData: Bool {
         workout.matchedHealthKitUUID != nil
     }
@@ -170,7 +173,7 @@ struct WorkoutDetailView: View {
                         }
 
                         if workoutStats.hasWeightedVolume {
-                            StatPill(value: String(format: "%.0f kg", workoutStats.weightedVolume), label: "Volume")
+                            StatPill(value: unit.formatVolume(workoutStats.weightedVolume), label: "Volume")
                         }
                     }
                 }

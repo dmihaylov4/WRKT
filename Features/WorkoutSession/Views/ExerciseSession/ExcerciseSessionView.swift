@@ -317,7 +317,7 @@ struct ExerciseSessionView: View {
                 }
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
             } label: {
-                Text("+\(String(format: "%.4g", weightStepKg))kg")
+                Text("+\(String(format: "%.4g", unit == .kg ? weightStepKg : weightStepKg * 2.20462))\(unit.rawValue)")
                     .dsFont(.caption, weight: .semibold)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -803,6 +803,7 @@ struct ExerciseSessionView: View {
         let action: () -> Void
 
         @State private var offset: CGFloat = 0
+        @State private var contentHeight: CGFloat = 56
 
         private let actionWidth: CGFloat = 190
 
@@ -823,7 +824,7 @@ struct ExerciseSessionView: View {
                     .foregroundStyle(Color.black)
                     .frame(width: actionWidth, alignment: .leading)
                     .padding(.leading, 18)
-                    .frame(maxHeight: .infinity)
+                    .frame(height: contentHeight)
                     .background(
                         ChamferedRectangle(.large)
                             .fill(Theme.accent)
@@ -836,8 +837,19 @@ struct ExerciseSessionView: View {
                 content
                     .offset(x: offset)
                     .contentShape(Rectangle())
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: LeadingSwipeContentHeightKey.self,
+                                value: proxy.size.height
+                            )
+                        }
+                    )
             }
             .clipShape(ChamferedRectangle(.large))
+            .onPreferenceChange(LeadingSwipeContentHeightKey.self) { height in
+                contentHeight = max(56, height)
+            }
             .simultaneousGesture(
                 DragGesture(minimumDistance: 18)
                     .onChanged { value in
@@ -878,6 +890,14 @@ struct ExerciseSessionView: View {
         private func performAction() {
             close()
             action()
+        }
+    }
+
+    private struct LeadingSwipeContentHeightKey: PreferenceKey {
+        static var defaultValue: CGFloat = 56
+
+        static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+            value = max(value, nextValue())
         }
     }
 

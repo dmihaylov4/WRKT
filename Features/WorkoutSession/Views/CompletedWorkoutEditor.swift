@@ -22,6 +22,9 @@ struct CompletedWorkoutEditor: View {
     @State private var editingEntry: WorkoutEntry? = nil
     @State private var hasChanges = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     init(workout: CompletedWorkout, isNewWorkout: Bool = false) {
         self.workout = workout
         self.isNewWorkout = isNewWorkout
@@ -75,7 +78,7 @@ struct CompletedWorkoutEditor: View {
                         }
                     } else {
                         ForEach(entries) { entry in
-                            WorkoutExerciseRow(entry: entry)
+                            WorkoutExerciseRow(entry: entry, unit: unit)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
                                     editingEntry = entry
@@ -195,6 +198,7 @@ struct CompletedWorkoutEditor: View {
 
 private struct WorkoutExerciseRow: View {
     let entry: WorkoutEntry
+    let unit: WeightUnit
 
     var body: some View {
         HStack(spacing: 12) {
@@ -206,7 +210,7 @@ private struct WorkoutExerciseRow: View {
                 // Sets preview
                 HStack(spacing: 4) {
                     ForEach(Array(entry.sets.prefix(3).enumerated()), id: \.offset) { _, set in
-                        Text("\(set.reps)×\(set.weight.safeInt)kg")
+                        Text(unit.formatSetCompact(reps: set.reps, weightKg: set.weight))
                             .dsFont(.caption)
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)
