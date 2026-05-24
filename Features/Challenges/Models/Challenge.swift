@@ -126,7 +126,7 @@ struct Challenge: Codable, Identifiable, Sendable, Hashable {
         case .workoutCount:
             return "\(value) workouts"
         case .totalVolume:
-            return "\(formatNumber(goalValue)) kg total"
+            return "\(WeightUnit.preferred.formatVolumeValue(NSDecimalNumber(decimal: goalValue).doubleValue)) \(WeightUnit.preferred.label) total"
         case .specificExercise:
             return "\(value) \(goalMetric)"
         case .streak:

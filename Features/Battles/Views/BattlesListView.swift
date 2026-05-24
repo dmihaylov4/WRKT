@@ -669,6 +669,9 @@ struct ScoreColumn: View {
     let isWinning: Bool
     let battleType: BattleType
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         VStack(spacing: 6) {
             Text(label)
@@ -709,7 +712,7 @@ struct ScoreColumn: View {
     private var scoreLabel: String {
         switch battleType {
         case .volume:
-            return "kg"
+            return unit.label
         case .workoutCount:
             return "workouts"
         case .consistency:
@@ -717,7 +720,7 @@ struct ScoreColumn: View {
         case .exercise:
             return "reps"
         case .pr:
-            return "kg"
+            return unit.label
         case .runningDistance:
             return "km"
         }

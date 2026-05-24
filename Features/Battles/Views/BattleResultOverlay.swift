@@ -250,7 +250,7 @@ struct BattleResultOverlay: View {
     private func formatScore(_ score: Decimal) -> String {
         let value = NSDecimalNumber(decimal: score).doubleValue
         switch battle.battle.scoreUnit {
-        case "kg":   return String(format: "%.1f kg", value)
+        case "kg":   return WeightUnit.preferred.formatVolume(value)
         case "days": return "\(Int(value)) days"
         default:     return "\(Int(value)) \(battle.battle.scoreUnit)"
         }

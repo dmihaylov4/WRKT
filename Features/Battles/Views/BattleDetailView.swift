@@ -21,6 +21,8 @@ struct BattleDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var deps
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     private var authService: SupabaseAuthService { deps.authService }
 
@@ -498,7 +500,7 @@ struct BattleDetailView: View {
     private var scoreUnit: String {
         switch battle.battle.battleType {
         case .volume:
-            return "kg"
+            return unit.label
         case .workoutCount:
             return "workouts"
         case .consistency:
@@ -506,7 +508,7 @@ struct BattleDetailView: View {
         case .exercise:
             return "reps"
         case .pr:
-            return "kg"
+            return unit.label
         case .runningDistance:
             return "km"
         }

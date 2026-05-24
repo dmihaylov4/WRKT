@@ -400,6 +400,9 @@ struct LargeBattleCard: View {
     let viewModel: BattleViewModel
     var isFullWidth = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         Button {
             viewModel.openBattleDetail(battle)
@@ -518,7 +521,7 @@ struct LargeBattleCard: View {
     private var scoreUnit: String {
         switch battle.battle.battleType {
         case .volume, .pr:
-            return "kg"
+            return unit.label
         case .workoutCount:
             return "workouts"
         case .consistency:
@@ -550,6 +553,9 @@ struct LargeChallengeCard: View {
     let challenge: ChallengeWithProgress
     let viewModel: ChallengesViewModel
     var isFullWidth = false
+
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     var body: some View {
         Button {
@@ -722,7 +728,7 @@ struct RecommendedChallengeCard: View {
         case .workoutCount:
             return "\(goal) workouts"
         case .totalVolume:
-            return "\(goal / 1000)K kg goal"
+            return "\(unit.formatVolumeValue(Double(goal))) \(unit.label) goal"
         case .streak:
             return "\(goal) day streak"
         case .specificExercise:

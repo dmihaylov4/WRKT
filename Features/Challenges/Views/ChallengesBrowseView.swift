@@ -517,6 +517,9 @@ struct ChallengeCard: View {
     let isActive: Bool
     let onTap: () -> Void
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     var body: some View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 12) {
@@ -642,7 +645,7 @@ struct ChallengeCard: View {
         case .workoutCount:
             return "\(goal) workouts"
         case .totalVolume:
-            return "\(goal / 1000)K kg"
+            return "\(unit.formatVolumeValue(Double(goal))) \(unit.label)"
         case .streak:
             return "\(goal) days"
         case .specificExercise:
@@ -704,7 +707,7 @@ struct ChallengeCard: View {
         case .totalVolume:
             let current = Int(truncating: currentValue as NSDecimalNumber)
             let goal = Int(truncating: goalValue as NSDecimalNumber)
-            return "\(current / 1000)K/\(goal / 1000)K kg"
+            return "\(unit.formatVolumeValue(Double(current)))/\(unit.formatVolumeValue(Double(goal))) \(unit.label)"
         case .streak:
             return "\(Int(truncating: currentValue as NSDecimalNumber))/\(Int(truncating: goalValue as NSDecimalNumber)) days"
         case .specificExercise:

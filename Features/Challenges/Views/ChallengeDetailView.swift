@@ -9,6 +9,9 @@ struct ChallengeDetailView: View {
     @State private var isProcessing = false
     @State private var showingLeaveConfirmation = false
 
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
+
     private var displayedChallenge: ChallengeWithProgress {
         guard challenge.shouldCompleteFirstRep(from: deps.workoutStore.completedWorkouts) else { return challenge }
         return challenge.completedFirstRepFromWorkoutHistory()
@@ -352,7 +355,7 @@ struct ChallengeDetailView: View {
         let v = NSDecimalNumber(decimal: displayedChallenge.challenge.goalValue).intValue
         switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "\(v)"
-        case .totalVolume:      return "\(v / 1000)K kg"
+        case .totalVolume:      return "\(unit.formatVolumeValue(Double(v))) \(unit.label)"
         case .streak:           return "\(v) days"
         case .specificExercise: return "\(v)"
         case .custom:
@@ -368,7 +371,7 @@ struct ChallengeDetailView: View {
         let goal = NSDecimalNumber(decimal: displayedChallenge.challenge.goalValue).intValue
         switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "\(cur) / \(goal) workouts"
-        case .totalVolume:      return "\(cur / 1000)K / \(goal / 1000)K kg"
+        case .totalVolume:      return "\(unit.formatVolumeValue(Double(cur))) / \(unit.formatVolumeValue(Double(goal))) \(unit.label)"
         case .streak:           return "\(cur) / \(goal) days"
         case .specificExercise: return "\(cur) / \(goal) reps"
         case .custom:
@@ -398,7 +401,7 @@ struct ChallengeDetailView: View {
         let goal = NSDecimalNumber(decimal: target).intValue
         switch displayedChallenge.challenge.challengeType {
         case .workoutCount:     return "\(cur)/\(goal) workouts"
-        case .totalVolume:      return "\(cur / 1000)K/\(goal / 1000)K kg"
+        case .totalVolume:      return "\(unit.formatVolumeValue(Double(cur)))/\(unit.formatVolumeValue(Double(goal))) \(unit.label)"
         case .streak:           return "\(cur)/\(goal) days"
         case .specificExercise: return "\(cur)/\(goal) reps"
         case .custom:           return "\(cur)/\(goal)"

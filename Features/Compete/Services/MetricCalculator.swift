@@ -79,7 +79,7 @@ enum MetricType: String, Codable, CaseIterable {
     var unit: String {
         switch self {
         case .totalVolume, .volumeForMuscleGroup, .volumeForExercise, .avgWeight, .maxWeight, .oneRepMax:
-            return "kg"
+            return WeightUnit.preferred.label
         case .workoutCount, .exerciseCount, .setCount, .repCount, .repsForExercise, .prCount, .uniqueExercises, .muscleGroupsCovered:
             return ""
         case .workoutDuration, .timeUnderTension, .timeInHRZone:
