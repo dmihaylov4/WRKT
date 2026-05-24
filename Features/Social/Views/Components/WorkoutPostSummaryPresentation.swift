@@ -99,7 +99,7 @@ private struct WorkoutPostSummaryPresentationBuilder {
                 WorkoutBreakdownRow(
                     title: entry.exerciseName,
                     detail: "\(entry.sets.count) \(entry.sets.count == 1 ? "set" : "sets")",
-                    value: "\(WorkoutPostStatsViews.formatVolume(entryVolume(entry))) kg"
+                    value: "\(WorkoutPostStatsViews.formatVolume(entryVolume(entry))) \(WeightUnit.preferred.label)"
                 )
             }
         )
