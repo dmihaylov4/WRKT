@@ -223,7 +223,7 @@ struct PreferencesView: View {
                 HStack {
                     Text("Bodyweight").foregroundStyle(.primary)
                     Spacer()
-                    Text(String(format: "%.1f kg", userBodyweightKg)).foregroundStyle(.secondary)
+                    Text(WeightUnit(rawValue: weightUnitRaw).map { $0.format(userBodyweightKg) } ?? String(format: "%.1f kg", userBodyweightKg)).foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.tertiary)
@@ -242,12 +242,25 @@ struct PreferencesView: View {
             Toggle(isOn: $hapticsEnabled) {
                 Label("Haptic feedback", systemImage: "hand.tap.fill")
             }
+            let unit = WeightUnit(rawValue: weightUnitRaw) ?? .kg
+            Picker("Weight unit", selection: $weightUnitRaw) {
+                Text("kg").tag(WeightUnit.kg.rawValue)
+                Text("lb").tag(WeightUnit.lb.rawValue)
+            }
+            .pickerStyle(.segmented)
+
             VStack(alignment: .leading, spacing: 8) {
                 Label("Weight increment", systemImage: "scalemass.fill").dsFont(.subheadline)
                 Picker("Weight increment", selection: $weightStepKg) {
-                    Text("0.5 kg").tag(0.5)
-                    Text("1 kg").tag(1.0)
-                    Text("2.5 kg").tag(2.5)
+                    if unit == .kg {
+                        Text("0.5 kg").tag(0.5)
+                        Text("1 kg").tag(1.0)
+                        Text("2.5 kg").tag(2.5)
+                    } else {
+                        Text("1.25 lb").tag(0.5)
+                        Text("2.5 lb").tag(1.0)
+                        Text("5 lb").tag(2.5)
+                    }
                 }
                 .pickerStyle(.segmented)
             }
