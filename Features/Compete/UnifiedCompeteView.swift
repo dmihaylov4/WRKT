@@ -645,6 +645,8 @@ struct LargeChallengeCard: View {
 struct RecommendedChallengeCard: View {
     let challenge: ChallengeWithProgress
     let viewModel: ChallengesViewModel
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     var body: some View {
         Button {

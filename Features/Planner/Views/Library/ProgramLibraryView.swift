@@ -1340,6 +1340,8 @@ private struct ProgramInviteDayCard: View {
     let onEditExercise: (PlanBlockExercise) -> Void
     let onDropOnBlock: (UUID, UUID) -> Void
     @Binding var draggedBlockID: UUID?
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
