@@ -140,7 +140,7 @@ struct SetPerformance: Identifiable {
             let formattedWeight = weight.truncatingRemainder(dividingBy: 1) == 0
                 ? String(format: "%.0f", weight)
                 : String(format: "%.1f", weight)
-            return "\(reps) × \(formattedWeight) kg"
+            return WeightUnit.preferred.formatSet(reps: reps, weightKg: weight)
         case .timed:
             return formatDuration(durationSeconds)
         case .bodyweight:

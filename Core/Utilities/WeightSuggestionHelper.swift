@@ -236,10 +236,6 @@ struct WeightSuggestionHelper {
 
     /// Format weight for display
     private static func formatWeight(_ weight: Double) -> String {
-        if weight.truncatingRemainder(dividingBy: 1) == 0 {
-            return String(format: "%.0fkg", weight)
-        } else {
-            return String(format: "%.1fkg", weight)
-        }
+        return WeightUnit.preferred.formatCompact(weight)
     }
 }

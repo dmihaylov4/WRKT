@@ -198,7 +198,7 @@ final class PlannerStore {
                 let avgWeight = workingSets.reduce(0.0) { $0 + $1.weight } / Double(workingSets.count)
                 let totalReps = workingSets.reduce(0) { $0 + $1.reps }
 
-                let summary = "\(workingSets.count)×\(totalReps/workingSets.count)@\(String(format: "%.1f", avgWeight))kg (\(totalVolume.safeInt) vol)"
+                let summary = "\(workingSets.count)×\(totalReps/workingSets.count)@\(WeightUnit.preferred.formatCompact(avgWeight)) (\(totalVolume.safeInt) vol)"
 
                 // Get completion percentage if this was from a planned workout
                 var completionPct: Double?

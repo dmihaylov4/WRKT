@@ -186,7 +186,7 @@ struct SetInput: Hashable, Codable {
             let formattedWeight = weight.truncatingRemainder(dividingBy: 1) == 0
                 ? String(format: "%.0f", weight)
                 : String(format: "%.1f", weight)
-            return "\(reps) × \(formattedWeight) kg"
+            return WeightUnit.preferred.formatSet(reps: reps, weightKg: weight)
         case .timed:
             return formatDuration(durationSeconds)
         case .bodyweight:
@@ -310,7 +310,7 @@ struct SetInput: Hashable, Codable {
 
         // Weight shouldn't be unreasonably high (likely a typo)
         guard weight <= 1000 else {
-            return (false, "Weight cannot exceed 1000 kg")
+            return (false, "Weight cannot exceed \(WeightUnit.preferred.format(1000))")
         }
 
         return (true, nil)
