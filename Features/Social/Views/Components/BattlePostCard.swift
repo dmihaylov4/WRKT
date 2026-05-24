@@ -82,7 +82,7 @@ struct BattlePostCard: View {
         let value = NSDecimalNumber(decimal: score).doubleValue
         switch stats.scoreUnit {
         case "kg":
-            return String(format: "%.1f kg", value)
+            return WeightUnit.preferred.formatVolume(value)
         case "days":
             return "\(Int(value)) days"
         default:

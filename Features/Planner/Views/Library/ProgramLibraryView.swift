@@ -1709,6 +1709,8 @@ private struct ProgramFooterButton: View {
 private struct ProgramActivationSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var deps
+    @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
+    private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     let split: WorkoutSplit
     let onActivated: () -> Void
@@ -1747,7 +1749,7 @@ private struct ProgramActivationSheet: View {
                                     Text(exercise.exerciseName)
                                     Spacer()
                                     TextField(
-                                        "kg",
+                                        unit.label,
                                         value: startingWeightBinding(for: exercise, viewModel: viewModel),
                                         format: .number.precision(.fractionLength(0...1))
                                     )
