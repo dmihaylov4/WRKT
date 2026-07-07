@@ -74,7 +74,7 @@ class RestTimerManager: ObservableObject {
         static let stop = "restTimer.command.stop"
         static let startNextSet = "restTimer.command.startNextSet"
         static let timestamp = "restTimer.command.timestamp"
-        // Darwin notification name — must match RestTimerAppIntents.swift
+        // Darwin notification name: must match RestTimerAppIntents.swift
         static let darwinNotification = "group.com.dmihaylov.trak.restTimer.commandReady"
     }
 
@@ -224,10 +224,10 @@ class RestTimerManager: ObservableObject {
             clearPendingSetGeneration(for: exerciseID)
         }
 
-        // IMPORTANT: Stop LiveActivityManager's auto-update loop BEFORE updating to "Ready" state
-        // Otherwise the loop will recalculate remaining time and overwrite our update
+        // Cancel the scheduled completion update BEFORE pushing the "Ready"
+        // state so it cannot race this update
         Task { @MainActor in
-            LiveActivityManager.shared.stopUpdateLoop()
+            LiveActivityManager.shared.cancelScheduledCompletionUpdate()
 
             // Update Live Activity to show "Ready" state (0 time remaining, not paused)
             LiveActivityManager.shared.updateRestTimer(
@@ -425,7 +425,7 @@ class RestTimerManager: ObservableObject {
     // MARK: - Private Methods
 
     private func startTimerLoop() {
-        // Update every 1 second — display is whole seconds; progress bar uses
+        // Update every 1 second: display is whole seconds; progress bar uses
         // .animation(.linear(duration: 1.0)) to interpolate smoothly between ticks.
         // tolerance: 0.1 lets the OS batch this with other 1-second timers.
         timer = Timer.publish(every: 1.0, tolerance: 0.1, on: .main, in: .common)
@@ -485,8 +485,8 @@ class RestTimerManager: ObservableObject {
             clearPendingSetGeneration(for: exerciseID)
         }
 
-        // Note: LiveActivityManager's auto-update loop will stop itself when remaining <= 0
-        // See LiveActivityManager.startUpdateLoop() - it checks and stops when timer reaches 0
+        // Note: LiveActivityManager's scheduled completion update fires at
+        // endDate and flips the Live Activity to the "Ready" state itself
 
         if vibrate {
             // Strong haptic pattern for completion - triple pulse

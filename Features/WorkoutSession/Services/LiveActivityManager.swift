@@ -129,8 +129,8 @@ class LiveActivityManager: ObservableObject {
             isActivityActive = true
             activityID = activity.id
 
-            // Start auto-update loop
-            startUpdateLoop()
+            // Schedule the single "Ready" update at completion time
+            scheduleCompletionUpdate(endDate: endDate)
 
             AppLogger.success("Live Activity started for \(exerciseName)", category: AppLogger.app)
         } catch {
@@ -165,11 +165,19 @@ class LiveActivityManager: ObservableObject {
         Task {
             await activity.update(.init(state: contentState, staleDate: nil))
         }
+
+        // Keep the single completion update in sync with the new end date.
+        // remainingSeconds <= 0 covers both the Ready update itself and skip.
+        if isPaused || remainingSeconds <= 0 {
+            cancelScheduledCompletionUpdate()
+        } else {
+            scheduleCompletionUpdate(endDate: endDate)
+        }
     }
 
     /// End the rest timer Live Activity
     func endRestTimerActivity(dismissalPolicy: ActivityUIDismissalPolicy = .default) {
-        stopUpdateLoop()
+        cancelScheduledCompletionUpdate()
 
         guard let activity = currentRestTimerActivity else {
             return
@@ -201,48 +209,47 @@ class LiveActivityManager: ObservableObject {
         AppLogger.debug("Live Activity ended", category: AppLogger.app)
     }
 
-    // MARK: - Auto-Update Loop
+    // MARK: - Completion Update Scheduling
 
-    /// Starts a timer that automatically updates the Live Activity every second
-    private func startUpdateLoop() {
-        stopUpdateLoop()
+    /// The widget renders the running countdown itself via Text(timerInterval:)
+    /// and ProgressView(timerInterval:), so no per-second pushes are needed.
+    /// The one thing ActivityKit cannot do on its own is re-evaluate the
+    /// "Ready" branches (endDate <= Date()) when the timer hits zero, so we
+    /// schedule exactly one update at endDate. Pause/resume/adjust/skip all
+    /// go through updateRestTimer, which reschedules or cancels this.
+    private func scheduleCompletionUpdate(endDate: Date) {
+        cancelScheduledCompletionUpdate()
 
-        // Use Timer(timeInterval:) + RunLoop.main.add rather than Timer.scheduledTimer.
-        // scheduledTimer auto-adds to .default mode; adding the same instance to .common
-        // would then fire it twice per tick because .common includes .default.
-        let timer = Timer(timeInterval: 1.0, repeats: true) { [weak self] _ in
+        let interval = max(0.1, endDate.timeIntervalSinceNow + 0.25)
+        // Timer(timeInterval:) + RunLoop.main.add rather than Timer.scheduledTimer:
+        // scheduledTimer auto-adds to .default mode; adding the same instance to
+        // .common would fire it twice because .common includes .default.
+        let timer = Timer(timeInterval: interval, repeats: false) { [weak self] _ in
             guard let self = self,
                   let activity = self.currentRestTimerActivity else { return }
 
             let state = activity.content.state
 
-            // Don't update if paused
+            // A pause that raced the timer means the countdown is no longer
+            // ending now; skip and let resume reschedule.
             guard !state.isPaused else { return }
 
-            let remaining = max(0, (state.endDate.timeIntervalSinceNow).safeInt)
-
-            // Update countdown (even if 0 - to show "Ready" state)
+            // Single "Ready" update (0 remaining, not paused).
             self.updateRestTimer(
-                remainingSeconds: remaining,
+                remainingSeconds: 0,
                 endDate: state.endDate,
                 isPaused: false,
                 wasAdjusted: state.wasAdjusted
             )
-
-            // If timer completed, stop the update loop but KEEP the activity alive
-            if remaining <= 0 {
-                self.stopUpdateLoop()
-                AppLogger.debug("Rest timer completed - keeping Live Activity alive in 'Ready' state", category: AppLogger.app)
-            }
+            AppLogger.debug("Rest timer completed - Live Activity flipped to Ready state", category: AppLogger.app)
         }
-        // 10% tolerance lets the OS batch this with other 1-second timers.
-        timer.tolerance = 0.1
+        timer.tolerance = 0.2
         RunLoop.main.add(timer, forMode: .common)
         updateTimer = timer
     }
 
-    /// Stops the auto-update timer
-    func stopUpdateLoop() {
+    /// Cancels the pending completion update (if any)
+    func cancelScheduledCompletionUpdate() {
         updateTimer?.invalidate()
         updateTimer = nil
     }
@@ -257,9 +264,10 @@ class LiveActivityManager: ObservableObject {
             isActivityActive = true
             activityID = activity.id
 
-            // Resume update loop if activity is still running
-            if activity.content.state.remainingSeconds > 0 {
-                startUpdateLoop()
+            // Re-arm the single completion update if still counting down
+            let state = activity.content.state
+            if !state.isPaused && state.endDate > Date() {
+                scheduleCompletionUpdate(endDate: state.endDate)
             }
 
             AppLogger.debug("Restored active Live Activity: \(activity.id)", category: AppLogger.app)
@@ -277,7 +285,7 @@ class LiveActivityManager: ObservableObject {
         currentRestTimerActivity = nil
         isActivityActive = false
         activityID = nil
-        stopUpdateLoop()
+        cancelScheduledCompletionUpdate()
     }
 }
 
