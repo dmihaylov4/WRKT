@@ -66,7 +66,7 @@ struct TimedSetRow: View {
                         HStack(spacing: 4) {
                             Image(systemName: "timer")
                                 .dsFont(.caption, weight: .medium)
-                            Text(formatTime(timerManager.remainingSeconds))
+                            RestTimerCountdownText(format: formatTime)
                                 .dsFont(.caption, weight: .semibold, monospacedDigits: true)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)

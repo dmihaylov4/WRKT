@@ -263,7 +263,7 @@ struct BodyweightSetRow: View {
             Image(systemName: "timer")
                 .dsFont(.caption, weight: .medium)
 
-            Text(formatTime(timerManager.remainingSeconds))
+            RestTimerCountdownText(format: formatTime)
                 .dsFont(.caption, weight: .semibold, monospacedDigits: true)
 
             if showsCancelText {

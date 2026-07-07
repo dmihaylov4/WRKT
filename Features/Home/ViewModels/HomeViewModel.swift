@@ -494,7 +494,7 @@ final class HomeViewModel {
                         completedSets: completedSets,
                         duration: duration,
                         startDate: currentWorkout.startedAt,
-                        restTimeRemaining: restTimerManager.remainingSeconds,
+                        restTimeRemaining: restTimerManager.ticker.remainingSeconds,
                         restExerciseName: exerciseName
                     )
                 )

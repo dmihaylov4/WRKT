@@ -26,6 +26,7 @@ private enum Theme {
 struct RestTimerBanner: View {
     let exerciseID: String
     @ObservedObject var manager = RestTimerManager.shared
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
 
     var body: some View {
         Group {
@@ -38,7 +39,7 @@ struct RestTimerBanner: View {
                 case .running(_, _, let exerciseName, let originalDuration, _):
                     RunningTimerBanner(
                         exerciseName: exerciseName,
-                        remainingSeconds: manager.remainingSeconds,
+                        remainingSeconds: ticker.remainingSeconds,
                         originalDuration: originalDuration,
                         hasBeenAdjusted: manager.hasBeenAdjusted,
                         isCustomTimer: manager.isUsingCustomTimer,
@@ -355,10 +356,11 @@ private struct AdjustButton: View {
 /// Compact inline timer display for grab tab
 struct RestTimerCompact: View {
     @ObservedObject var manager = RestTimerManager.shared
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
 
     private var timeString: String {
-        let minutes = manager.remainingSeconds.safeInt / 60
-        let seconds = manager.remainingSeconds.safeInt % 60
+        let minutes = ticker.remainingSeconds.safeInt / 60
+        let seconds = ticker.remainingSeconds.safeInt % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
 

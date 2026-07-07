@@ -116,41 +116,49 @@ struct SetRowUnified: View {
     // MARK: - Completed row (collapsed)
 
     private var completedRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
                 .dsFont(.body, weight: .semibold)
                 .foregroundStyle(Theme.accent)
+                .frame(width: 22)
 
             Text("Set \(index)")
                 .dsFont(.subheadline, weight: .semibold)
                 .foregroundStyle(Theme.secondary)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(4)
 
             if hasActiveTimer {
                 RestTimerBadgeIsolated()
-                    .layoutPriority(2)
+                    .layoutPriority(1)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: 4)
 
             Text(completedSummary)
                 .dsFont(.subheadline, weight: .semibold, monospacedDigits: true)
                 .foregroundStyle(Theme.text)
                 .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .layoutPriority(1)
+                .minimumScaleFactor(0.78)
+                .layoutPriority(2)
 
             if let rpe = set.rpe {
                 Text("RPE \(formatRPE(rpe))")
                     .dsFont(.caption, weight: .semibold)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.vertical, 4)
                     .padding(.horizontal, 8)
                     .foregroundStyle(Theme.accent)
                     .background(Theme.accent.opacity(0.12), in: Capsule())
                     .overlay(Capsule().stroke(Theme.accent.opacity(0.3), lineWidth: 1))
+                    .layoutPriority(3)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 56)
     }
 
     // MARK: - Pending row (not completed, not active)
@@ -673,6 +681,7 @@ private struct StepperButton: View {
 /// Isolates timer observation to prevent SetRowViews re-renders
 private struct RestTimerBadgeIsolated: View {
     @ObservedObject private var timerManager = RestTimerManager.shared
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
 
     var body: some View {
         if timerManager.isRunning {
@@ -683,6 +692,7 @@ private struct RestTimerBadgeIsolated: View {
                 ViewThatFits(in: .horizontal) {
                     badgeContent(showsCancelText: true)
                     badgeContent(showsCancelText: false)
+                    badgeContent(showsTime: true, showsCancelText: false, horizontalPadding: 6)
                 }
             }
             .buttonStyle(.plain)
@@ -690,12 +700,18 @@ private struct RestTimerBadgeIsolated: View {
     }
 
     private func badgeContent(showsCancelText: Bool) -> some View {
+        badgeContent(showsTime: true, showsCancelText: showsCancelText, horizontalPadding: showsCancelText ? 10 : 8)
+    }
+
+    private func badgeContent(showsTime: Bool, showsCancelText: Bool, horizontalPadding: CGFloat) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "timer")
                 .dsFont(.caption, weight: .medium)
 
-            Text(formatTime(timerManager.remainingSeconds))
-                .dsFont(.caption, weight: .semibold, monospacedDigits: true)
+            if showsTime {
+                Text(formatTime(ticker.remainingSeconds))
+                    .dsFont(.caption, weight: .semibold, monospacedDigits: true)
+            }
 
             if showsCancelText {
                 Text("•")
@@ -708,7 +724,7 @@ private struct RestTimerBadgeIsolated: View {
                 .dsFont(.caption)
         }
         .foregroundStyle(ExerciseSessionTheme.accent)
-        .padding(.horizontal, showsCancelText ? 10 : 8)
+        .padding(.horizontal, horizontalPadding)
         .padding(.vertical, 5)
         .background(ExerciseSessionTheme.accent.opacity(0.15))
         .clipShape(ChamferedRectangle(.small))

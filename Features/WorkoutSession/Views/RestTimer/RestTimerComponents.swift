@@ -14,13 +14,14 @@ private typealias Theme = ExerciseSessionTheme
 struct RestTimerCompactBadge: View {
     let exerciseID: String
     @ObservedObject private var manager = RestTimerManager.shared
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
 
     private var isActive: Bool {
         manager.isTimerFor(exerciseID: exerciseID) && manager.isRunning
     }
 
     private var timeRemaining: String {
-        let remaining = manager.remainingSeconds.safeInt
+        let remaining = ticker.remainingSeconds.safeInt
         let minutes = remaining / 60
         let seconds = remaining % 60
         if minutes > 0 {
@@ -45,6 +46,21 @@ struct RestTimerCompactBadge: View {
             .clipShape(ChamferedRectangle(.small))
             .transition(.scale.combined(with: .opacity))
         }
+    }
+}
+
+// MARK: - Isolated Countdown Text
+
+/// Leaf view that isolates per-second countdown re-renders. Embed this
+/// instead of reading the countdown inside a larger view body: only this
+/// Text re-renders each second. Style it from the call site (dsFont etc.
+/// are View extensions and compose onto it).
+struct RestTimerCountdownText: View {
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
+    let format: (TimeInterval) -> String
+
+    var body: some View {
+        Text(format(ticker.remainingSeconds))
     }
 }
 

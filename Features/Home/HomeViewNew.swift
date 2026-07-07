@@ -396,6 +396,9 @@ struct HomeViewNew: View {
 // body and re-evaluating the CreateExerciseView sheet — resetting the Form scroll position.
 private struct TimerIsolatedHeroButton: View {
     @ObservedObject private var restTimerManager = RestTimerManager.shared
+    // The hero content embeds the remaining rest time, so this leaf also
+    // observes the ticker to keep the countdown updating each second.
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
     @EnvironmentObject private var store: WorkoutStoreV2
 
     let viewModel: HomeViewModel

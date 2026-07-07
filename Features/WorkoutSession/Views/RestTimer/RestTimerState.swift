@@ -21,13 +21,24 @@ enum RestTimerState: Equatable {
     case completed(exerciseID: String, exerciseName: String)
 }
 
+/// Publishes the 1 Hz countdown in isolation. Only leaf views that render
+/// the countdown observe this object; RestTimerManager itself publishes
+/// only state transitions, so @ObservedObject observers of the manager
+/// (LiveWorkoutOverlayCard, set rows, grab tab, completion toast) are no
+/// longer invalidated every second. See RestTimerFanoutTests.
+final class RestTimerTicker: ObservableObject {
+    @Published fileprivate(set) var remainingSeconds: TimeInterval = 0
+}
+
 /// Single source of truth for rest timer state across the app
 class RestTimerManager: ObservableObject {
     static let shared = RestTimerManager()
 
     // MARK: - Published State
     @Published private(set) var state: RestTimerState = .idle
-    @Published private(set) var remainingSeconds: TimeInterval = 0
+    /// Per-second countdown, isolated so ticks do not invalidate observers
+    /// of the manager itself. Read/observe via RestTimerManager.shared.ticker.
+    let ticker = RestTimerTicker()
     @Published private(set) var timerStartDate: Date? = nil  // Track when current timer was started
     @Published private(set) var isManuallyStartedTimer: Bool = false  // True if started from widget without logging a set
 
@@ -142,7 +153,7 @@ class RestTimerManager: ObservableObject {
 
         // Update state
         state = .running(endDate: endDate, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: duration, wasAdjusted: false)
-        remainingSeconds = duration
+        ticker.remainingSeconds = duration
         timerStartDate = startDate  // Track when this timer was started
         isManuallyStartedTimer = isManualStart  // Track if this was started from widget
         hasTriggeredTenSecondWarning = false
@@ -182,7 +193,7 @@ class RestTimerManager: ObservableObject {
         }
 
         state = .idle
-        remainingSeconds = 0
+        ticker.remainingSeconds = 0
         timerStartDate = nil  // Clear timer start timestamp
         isManuallyStartedTimer = false  // Clear manual start flag
         hasTriggeredTenSecondWarning = false
@@ -204,7 +215,7 @@ class RestTimerManager: ObservableObject {
 
         // Mark as completed so new set gets generated
         state = .completed(exerciseID: exerciseID, exerciseName: exerciseName)
-        remainingSeconds = 0
+        ticker.remainingSeconds = 0
         hasTriggeredTenSecondWarning = false
 
         if shouldAutoAddSetOnRestTimer {
@@ -328,13 +339,13 @@ class RestTimerManager: ObservableObject {
         timer?.cancel()
         timer = nil
 
-        state = .paused(remainingSeconds: remainingSeconds, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: originalDuration, wasAdjusted: wasAdjusted)
+        state = .paused(remainingSeconds: ticker.remainingSeconds, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: originalDuration, wasAdjusted: wasAdjusted)
 
         // Update Live Activity to paused state
         Task { @MainActor in
             LiveActivityManager.shared.updateRestTimer(
-                remainingSeconds: Int(remainingSeconds),
-                endDate: Date().addingTimeInterval(remainingSeconds),
+                remainingSeconds: Int(ticker.remainingSeconds),
+                endDate: Date().addingTimeInterval(ticker.remainingSeconds),
                 isPaused: true,
                 wasAdjusted: wasAdjusted
             )
@@ -354,7 +365,7 @@ class RestTimerManager: ObservableObject {
         UserDefaults.standard.set(remaining, forKey: Keys.timerDuration)
 
         state = .running(endDate: endDate, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: originalDuration, wasAdjusted: wasAdjusted)
-        remainingSeconds = remaining
+        ticker.remainingSeconds = remaining
 
         // Update Live Activity to running state
         Task { @MainActor in
@@ -374,7 +385,7 @@ class RestTimerManager: ObservableObject {
         guard case .running(let endDate, let exerciseID, let exerciseName, let originalDuration, _) = state else { return }
 
         let newEndDate = endDate.addingTimeInterval(seconds)
-        let newRemaining = max(0, remainingSeconds + seconds)
+        let newRemaining = max(0, ticker.remainingSeconds + seconds)
 
         // Reset warning flag if we added time
         if seconds > 0 && newRemaining > 10 {
@@ -384,7 +395,7 @@ class RestTimerManager: ObservableObject {
         // Update state - set wasAdjusted to true and update originalDuration to new total
         // This ensures progress bar works correctly after adjustments
         state = .running(endDate: newEndDate, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: newRemaining, wasAdjusted: true)
-        remainingSeconds = newRemaining
+        ticker.remainingSeconds = newRemaining
 
         // Update UserDefaults
         UserDefaults.standard.set(newEndDate, forKey: Keys.timerEndDate)
@@ -408,7 +419,7 @@ class RestTimerManager: ObservableObject {
     func dismissCompleted() {
         guard case .completed = state else { return }
         state = .idle
-        remainingSeconds = 0
+        ticker.remainingSeconds = 0
     }
 
     // MARK: - Private Methods
@@ -437,7 +448,7 @@ class RestTimerManager: ObservableObject {
             // user's auto-add preference allows it.
             completeTimer(exerciseID: exerciseID, exerciseName: exerciseName, vibrate: true)
         } else {
-            remainingSeconds = remaining
+            ticker.remainingSeconds = remaining
 
             // Trigger 10-second warning vibration (only once).
             // At 1 Hz the tick lands anywhere in the current second, so we fire on the
@@ -465,7 +476,7 @@ class RestTimerManager: ObservableObject {
         clearUserDefaults()
 
         state = .completed(exerciseID: exerciseID, exerciseName: exerciseName)
-        remainingSeconds = 0
+        ticker.remainingSeconds = 0
         hasTriggeredTenSecondWarning = false
 
         if shouldAutoAddSetOnRestTimer {
@@ -524,7 +535,7 @@ class RestTimerManager: ObservableObject {
             // Assume it might have been adjusted if remaining != originalDuration
             let wasAdjusted = abs(remaining - originalDuration) > 1.0
             state = .running(endDate: endDate, exerciseID: exerciseID, exerciseName: exerciseName, originalDuration: originalDuration, wasAdjusted: wasAdjusted)
-            remainingSeconds = remaining
+            ticker.remainingSeconds = remaining
             startTimerLoop()
         } else {
             // Timer completed while in background (natural completion - generate next set)
@@ -653,7 +664,7 @@ extension RestTimerManager {
     /// Save current timer duration as default for this exercise
     func saveAsDefaultForCurrentExercise() {
         guard let exerciseID = currentExerciseID else { return }
-        let currentDuration = (remainingSeconds.rounded()).safeInt
+        let currentDuration = (ticker.remainingSeconds.rounded()).safeInt
         RestTimerPreferences.shared.setRestDuration(currentDuration, for: exerciseID)
     }
 
