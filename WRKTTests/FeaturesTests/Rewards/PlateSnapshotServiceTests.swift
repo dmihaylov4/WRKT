@@ -6,6 +6,7 @@ import UIKit
 struct PlateSnapshotServiceTests {
 
     @Test("cacheKey is stable for same inputs")
+    @MainActor
     func cacheKeyStable() {
         let k1 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion")
         let k2 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion")
@@ -13,6 +14,7 @@ struct PlateSnapshotServiceTests {
     }
 
     @Test("cacheKey differs when tierID changes")
+    @MainActor
     func cacheKeyVariesByTier() {
         let k1 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Champion")
         let k2 = PlateSnapshotService.cacheKey(tierID: 6, weightKg: 35, engravingText: "Champion")
@@ -20,6 +22,7 @@ struct PlateSnapshotServiceTests {
     }
 
     @Test("cacheKey differs when engravingText changes")
+    @MainActor
     func cacheKeyVariesByEngraving() {
         let k1 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Alpha")
         let k2 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Beta")

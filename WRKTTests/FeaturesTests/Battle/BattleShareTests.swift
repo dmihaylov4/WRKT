@@ -57,6 +57,7 @@ struct BattleShareGuardTests {
         let stats = BattlePostStats(
             battleId: UUID(), battleType: .volume,
             myScore: 1500, opponentScore: 1200,
+            myName: nil,
             opponentName: "Bob", opponentAvatarUrl: nil,
             scoreUnit: "kg", isWinner: true,
             durationDays: 7, endDate: .now

@@ -51,6 +51,7 @@ struct BattlePostStatsCodableTests {
             battleType: battleType,
             myScore: 1500.5,
             opponentScore: 1200.0,
+            myName: nil,
             opponentName: "Alice",
             opponentAvatarUrl: nil,
             scoreUnit: "kg",
