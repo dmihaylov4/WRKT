@@ -93,14 +93,20 @@ struct RestTimerWatchView: View {
         .onReceive(timer) { _ in
             // Only update if timer is active
             if timerInfo.isActive {
-                displaySeconds = remainingSeconds
+                let secs = remainingSeconds
 
-                // Haptic feedback at specific intervals
-                if remainingSeconds == 10 || remainingSeconds == 5 || remainingSeconds == 3 {
-                    WKInterfaceDevice.current().play(.notification)
-                } else if remainingSeconds == 0 {
-                    WKInterfaceDevice.current().play(.success)
+                // Timer ticks every 0.1s but remainingSeconds only changes once per
+                // whole second. Fire haptics on the second boundary only, otherwise
+                // each threshold plays ~10 times.
+                if secs != displaySeconds {
+                    if secs == 10 || secs == 5 || secs == 3 {
+                        WKInterfaceDevice.current().play(.notification)
+                    } else if secs == 0 {
+                        WKInterfaceDevice.current().play(.success)
+                    }
                 }
+
+                displaySeconds = secs
             }
         }
         .onAppear {

@@ -152,30 +152,33 @@ struct RestTimerLockScreenView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack(spacing: 8) {
                 Image("LaunchLogo")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 24, height: 24)
+                    .frame(width: 16, height: 16)
+                    .layoutPriority(1)
 
                 Text(context.attributes.exerciseName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
-
-                Spacer()
+                    .minimumScaleFactor(0.78)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 if context.state.isPaused {
                     Text("Paused")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.45))
+                        .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity)
 
             if isReady {
-                // Ready state
                 Button(intent: StartNextSetIntent()) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
@@ -183,7 +186,7 @@ struct RestTimerLockScreenView: View {
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 8)
                     .foregroundColor(.black)
                 }
                 .buttonStyle(.borderedProminent)
@@ -193,11 +196,11 @@ struct RestTimerLockScreenView: View {
                 // Timer
                 if context.state.isPaused {
                     Text(timeString(context.state.remainingSeconds))
-                        .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(Color.brandAccent.opacity(0.6))
                 } else {
                     Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
-                        .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                        .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(Color.brandAccent)
                         .contentTransition(.numericText(countsDown: true))
                 }
@@ -220,16 +223,16 @@ struct RestTimerLockScreenView: View {
                 HStack(spacing: 8) {
                     Button(intent: AdjustRestTimerIntent(seconds: -15)) {
                         Image(systemName: "minus")
-                            .font(.system(size: 15, weight: .bold))
-                            .frame(width: 40, height: 36)
+                            .font(.system(size: 13, weight: .bold))
+                            .frame(width: 30, height: 28)
                     }
                     .buttonStyle(.bordered)
                     .tint(.white.opacity(0.3))
 
                     Button(intent: AdjustRestTimerIntent(seconds: 15)) {
                         Image(systemName: "plus")
-                            .font(.system(size: 15, weight: .bold))
-                            .frame(width: 40, height: 36)
+                            .font(.system(size: 13, weight: .bold))
+                            .frame(width: 30, height: 28)
                     }
                     .buttonStyle(.bordered)
                     .tint(.white.opacity(0.3))
@@ -240,11 +243,12 @@ struct RestTimerLockScreenView: View {
                         HStack(spacing: 6) {
                             Text("Skip")
                                 .fontWeight(.semibold)
+                                .lineLimit(1)
                             Image(systemName: "forward.fill")
-                                .font(.caption)
+                                .font(.caption2)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
                         .foregroundColor(.black)
                     }
                     .buttonStyle(.borderedProminent)
@@ -253,6 +257,7 @@ struct RestTimerLockScreenView: View {
             }
         }
         .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

@@ -8,8 +8,8 @@
 // RestTimerManager.shared.ticker so that only leaf countdown views
 // re-render each second. Views holding @ObservedObject
 // RestTimerManager.shared (LiveWorkoutOverlayCard, TimedSetRow,
-// BodyweightSetRow, LiveWorkoutGrabTab, RestTimerCompletionToast) must
-// NOT be invalidated by countdown ticks.
+// BodyweightSetRow, LiveWorkoutGrabTab) must NOT be invalidated by
+// countdown ticks.
 
 import Testing
 import Combine

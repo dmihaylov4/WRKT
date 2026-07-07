@@ -30,6 +30,32 @@ struct WorkoutStoreSmartNotificationTests {
         #expect(!source.contains(".swipeActions(edge: .leading"))
     }
 
+    @Test func bodyweightRowsUseCollapsedCompletedState() throws {
+        let source = try String(contentsOfFile: sourcePath("Features/WorkoutSession/Views/ExerciseSession/BodyweightSetRow.swift"))
+
+        #expect(source.contains("if set.isCompleted {"))
+        #expect(source.contains("completedRow"))
+        #expect(source.contains("private var expandedRow"))
+    }
+
+    @Test func exerciseSessionSetRowsUseTransparentListBackground() throws {
+        let source = try String(contentsOfFile: sourcePath("Features/WorkoutSession/Views/ExerciseSession/ExcerciseSessionView.swift"))
+
+        #expect(source.contains("""
+                    .listRowInsets(.init(top: 6, leading: 16, bottom: 6, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+"""))
+    }
+
+    @Test func lockScreenRestTimerUsesBreathingRoomPadding() throws {
+        let source = try String(contentsOfFile: sourcePath("WRKTWidgets/RestTimerLiveActivity.swift"))
+
+        // The lock screen container keeps uniform breathing-room padding
+        // around the compact layout (16pt on all edges).
+        #expect(source.contains(".padding(16)"))
+    }
+
     private func sourcePath(_ relativePath: String) -> String {
         var directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         while directory.path != "/" {

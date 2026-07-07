@@ -130,10 +130,6 @@ struct ExerciseSessionView: View {
                 // Workout toast overlay for in-session notifications
                 WorkoutToastOverlay()
                     .zIndex(998)
-
-                // Rest timer completion toast - needs to be above all other overlays
-                RestTimerCompletionToast()
-                    .zIndex(1001)
             }
         }
     }
@@ -675,6 +671,8 @@ struct ExerciseSessionView: View {
         let isInSuperset: Bool
         let onToggleSuperset: () -> Void
 
+        @State private var pendingDeleteIndex: Int? = nil
+
         var body: some View {
             Section {
                 // Minimal section header - just a subtle divider
@@ -743,23 +741,16 @@ struct ExerciseSessionView: View {
                                 }
                             }
                             Haptics.light()
-                        }
-                    ))
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        Button {
-                            onDelete(i)
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: "trash.fill")
-                                    .dsFont(.title2)
-                                    .foregroundStyle(DS.Palette.marone)
-                                Text("Delete")
-                                    .dsFont(.caption2, weight: .semibold)
-                                    .foregroundStyle(DS.Palette.marone)
+                        },
+                        onDeleteIntent: {
+                            if sets.count == 1 {
+                                // Last set: let ViewModel show its existing last-set alert
+                                onDelete(i)
+                            } else {
+                                pendingDeleteIndex = i
                             }
                         }
-                        .tint(.black)
-                    }
+                    ))
                 }
 
                 VStack(spacing: 10) {
@@ -794,6 +785,22 @@ struct ExerciseSessionView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Theme.bg)
             }
+            .alert("Delete Set", isPresented: Binding(
+                get: { pendingDeleteIndex != nil },
+                set: { if !$0 { pendingDeleteIndex = nil } }
+            )) {
+                Button("Delete", role: .destructive) {
+                    if let idx = pendingDeleteIndex {
+                        onDelete(idx)
+                        pendingDeleteIndex = nil
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingDeleteIndex = nil
+                }
+            } message: {
+                Text("Are you sure you want to delete this set?")
+            }
         }
     }
 
@@ -801,38 +808,59 @@ struct ExerciseSessionView: View {
         let title: String
         let systemName: String
         let action: () -> Void
+        let onDeleteIntent: () -> Void
 
         @State private var offset: CGFloat = 0
         @State private var contentHeight: CGFloat = 56
 
-        private let actionWidth: CGFloat = 190
+        private let leadingWidth: CGFloat = 190
+        private let trailingWidth: CGFloat = 90
 
         func body(content: Content) -> some View {
             ZStack(alignment: .leading) {
+                // Leading action (right swipe): complete / incomplete
                 Button {
                     performAction()
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: systemName)
                             .dsFont(.title3)
-
                         Text(title)
                             .dsFont(.subheadline, weight: .semibold)
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
                     }
                     .foregroundStyle(Color.black)
-                    .frame(width: actionWidth, alignment: .leading)
+                    .frame(width: leadingWidth, alignment: .leading)
                     .padding(.leading, 18)
                     .frame(height: contentHeight)
-                    .background(
-                        ChamferedRectangle(.large)
-                            .fill(Theme.accent)
-                    )
+                    .background(ChamferedRectangle(.large).fill(Theme.accent))
                 }
                 .buttonStyle(.plain)
-                .frame(width: max(0, offset))
+                .frame(width: offset > 0 ? max(0, offset) : 0)
                 .clipped()
+
+                // Trailing action (left swipe): delete
+                HStack {
+                    Spacer()
+                    Button {
+                        performDeleteIntent()
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: "trash.fill")
+                                .dsFont(.title3)
+                            Text("Delete")
+                                .dsFont(.caption2, weight: .semibold)
+                        }
+                        .foregroundStyle(DS.Palette.marone)
+                        .frame(width: trailingWidth)
+                        .frame(height: contentHeight)
+                        .background(Color.black)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: offset < 0 ? max(0, -offset) : 0)
+                    .clipped()
+                }
 
                 content
                     .offset(x: offset)
@@ -853,31 +881,48 @@ struct ExerciseSessionView: View {
             .simultaneousGesture(
                 DragGesture(minimumDistance: 18)
                     .onChanged { value in
-                        guard abs(value.translation.width) > abs(value.translation.height),
-                              value.translation.width > 0 else { return }
-                        offset = min(actionWidth, value.translation.width)
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        if value.translation.width > 0 {
+                            offset = min(leadingWidth, value.translation.width)
+                        } else {
+                            offset = max(-trailingWidth, value.translation.width)
+                        }
                     }
                     .onEnded { value in
-                        guard abs(value.translation.width) > abs(value.translation.height),
-                              value.translation.width > 0 else {
+                        guard abs(value.translation.width) > abs(value.translation.height) else {
                             close()
                             return
                         }
-
-                        if value.predictedEndTranslation.width > actionWidth * 1.15 {
-                            performAction()
-                        } else if value.translation.width > actionWidth * 0.45 {
-                            open()
+                        if value.translation.width > 0 {
+                            if value.predictedEndTranslation.width > leadingWidth * 1.15 {
+                                performAction()
+                            } else if value.translation.width > leadingWidth * 0.45 {
+                                openLeading()
+                            } else {
+                                close()
+                            }
                         } else {
-                            close()
+                            if abs(value.predictedEndTranslation.width) > trailingWidth * 1.15 {
+                                performDeleteIntent()
+                            } else if abs(value.translation.width) > trailingWidth * 0.45 {
+                                openTrailing()
+                            } else {
+                                close()
+                            }
                         }
                     }
             )
         }
 
-        private func open() {
+        private func openLeading() {
             withAnimation(.spring(response: 0.26, dampingFraction: 0.86)) {
-                offset = actionWidth
+                offset = leadingWidth
+            }
+        }
+
+        private func openTrailing() {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.86)) {
+                offset = -trailingWidth
             }
         }
 
@@ -890,6 +935,11 @@ struct ExerciseSessionView: View {
         private func performAction() {
             close()
             action()
+        }
+
+        private func performDeleteIntent() {
+            close()
+            onDeleteIntent()
         }
     }
 

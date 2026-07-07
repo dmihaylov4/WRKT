@@ -76,9 +76,6 @@ struct AppShellView: View {
     @Query private var goals: [WeeklyGoal]
     @State private var showGoalSetupSheet = false
 
-    // Exercise navigation from rest timer toast
-    @State private var selectedExerciseID: String?
-
     private var needsGoalSetup: Bool {
         guard let g = goals.first else { return true }
         return !g.isSet
@@ -175,22 +172,7 @@ struct AppShellView: View {
     private var contentWithModifiers: some View {
         mainContentWithOverlays
             .overlay(alignment: .bottom) { liveOverlayCard }
-            .overlay(alignment: .top) {
-                RestTimerCompletionToast(onTap: { exerciseID in
-                    selectedExerciseID = exerciseID
-                })
-                .zIndex(1000)
-            }
             .overlay(alignment: .top) { virtualRunInviteBanner }
-            .sheet(item: Binding(
-                get: { selectedExerciseID.flatMap { id in repo.exercises.first(where: { $0.id == id }) } },
-                set: { _ in selectedExerciseID = nil }
-            )) { exercise in
-                NavigationStack {
-                    ExerciseSessionView(exercise: exercise)
-                        .environmentObject(store)
-                }
-            }
             .sheet(isPresented: Binding(
                 get: { whatsNewManager.needsWhatsNew },
                 set: { if !$0 { whatsNewManager.dismiss() } }
