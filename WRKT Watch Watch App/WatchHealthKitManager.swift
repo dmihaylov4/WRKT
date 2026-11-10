@@ -45,17 +45,14 @@ final class WatchHealthKitManager: NSObject {
 
         let typesToShare: Set<HKSampleType> = [
             HKObjectType.workoutType(),
-            HKSeriesType.workoutRoute(),
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
-            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         ]
 
         let typesToRead: Set<HKObjectType> = [
             HKObjectType.workoutType(),
             HKObjectType.quantityType(forIdentifier: .heartRate)!,
-            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
-            HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning)!
+            HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!
         ]
 
         try await healthStore.requestAuthorization(toShare: typesToShare, read: typesToRead)

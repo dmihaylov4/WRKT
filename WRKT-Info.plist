@@ -10,7 +10,6 @@
 	<array>
 		<string>processing</string>
 		<string>fetch</string>
-		<string>audio</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>

@@ -3054,7 +3054,6 @@
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Volia uses your health data to display heart rate and calories during workouts.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "WRKT saves your strength training workouts to Apple Health.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WRKT records your route during runs to display maps and share with friends.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.dmihaylov.trak;
@@ -3095,7 +3094,6 @@
 				INFOPLIST_KEY_CFBundleIconName = AppIcon;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "Volia uses your health data to display heart rate and calories during workouts.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "WRKT saves your strength training workouts to Apple Health.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "WRKT records your route during runs to display maps and share with friends.";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
 				INFOPLIST_KEY_WKBackgroundModes = "workout-processing";
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.dmihaylov.trak;
