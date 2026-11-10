@@ -14,6 +14,8 @@ struct WRKTApp: App {
     @StateObject private var dataStore = WRKTApp.storage
 
     init() {
+        _ = DS.Redesign.roundedShapesEnabled
+
         // Configure navigation and tab bar appearances for accessibility
         configureUIKitAppearances()
 

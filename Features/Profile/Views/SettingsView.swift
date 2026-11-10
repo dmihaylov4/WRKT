@@ -12,6 +12,10 @@ struct SettingsView: View {
     @StateObject private var settings = AppSettings.shared
     @State private var badgeManager = NotificationBadgeManager.shared
     @State private var showLoginSheet = false
+    #if DEBUG
+    @AppStorage(DS.Redesign.roundedShapesPreferenceKey)
+    private var useRoundedShapes = DS.Redesign.roundedShapesDefault
+    #endif
 
     private var isLoggedIn: Bool {
         authService.currentUser != nil
@@ -106,6 +110,16 @@ struct SettingsView: View {
 
                 #if DEBUG
                 settingsCard(title: "Debug") {
+                    settingsRow {
+                        Toggle(isOn: $useRoundedShapes) {
+                            VStack(alignment: .leading) {
+                                Text("Rounded shapes")
+                                Text("Applies after restarting the app")
+                                    .dsFont(.caption)
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                            }
+                        }
+                    }
                     settingsRow(showsDivider: false) {
                         NavigationLink {
                             BarbellPlaygroundView()

@@ -71,6 +71,22 @@ public extension Color {
 // MARK: - DS (Design System)
 public enum DS {
 
+    public enum Redesign {
+        // Release switch for the shape redesign.
+        #if DEBUG
+        public static let roundedShapesDefault = true
+        public static let roundedShapesPreferenceKey = "debug.useRoundedShapes"
+        public static let roundedShapesEnabled: Bool = {
+            UserDefaults.standard.object(forKey: roundedShapesPreferenceKey) == nil
+                ? roundedShapesDefault
+                : UserDefaults.standard.bool(forKey: roundedShapesPreferenceKey)
+        }()
+        #else
+        public static let roundedShapesDefault = false
+        public static let roundedShapesEnabled = roundedShapesDefault
+        #endif
+    }
+
     // MARK: Palette — locked accents + neutrals
     public enum Palette {
         // Main brand color
