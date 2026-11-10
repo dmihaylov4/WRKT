@@ -20,83 +20,56 @@ struct FriendActivityCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Header
-            HStack {
-                Text("Friend Activity")
-                    .dsFont(.caption, weight: .medium)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                if !dedupedActivities.isEmpty {
-                    Text("\(dedupedActivities.count) recent")
-                        .dsFont(.caption2)
+        HomeCarouselCard(accent: DS.tint) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Header
+                HStack {
+                    Text("Friend Activity")
+                        .dsFont(.caption, weight: .medium)
                         .foregroundStyle(.secondary)
-                }
-            }
 
-            // Title
-            if summary.userWorkedOutToday {
-                Text("You're all crushing it!")
-                    .dsFont(.headline, weight: .bold)
-                    .foregroundStyle(.primary)
-                    .padding(.top, 1)
-            } else if summary.activities.isEmpty {
-                Text("Be the first to work out!")
-                    .dsFont(.headline, weight: .bold)
-                    .foregroundStyle(.primary)
-                    .padding(.top, 1)
-            } else {
-                Text("Your friends are working out")
-                    .dsFont(.headline, weight: .bold)
-                    .foregroundStyle(.primary)
-                    .padding(.top, 1)
-            }
+                    Spacer()
 
-            // Friend activities (1 per person, max 2 shown)
-            if !dedupedActivities.isEmpty {
-                VStack(alignment: .leading, spacing: 7) {
-                    ForEach(Array(dedupedActivities.prefix(2))) { activity in
-                        FriendActivityRow(activity: activity)
-                    }
-
-                    if dedupedActivities.count > 2 {
-                        Text("+ \(dedupedActivities.count - 2) more")
+                    if !dedupedActivities.isEmpty {
+                        Text("\(dedupedActivities.count) recent")
                             .dsFont(.caption2)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // Title
+                if summary.userWorkedOutToday {
+                    Text("You're all crushing it!")
+                        .dsFont(.headline, weight: .bold)
+                        .foregroundStyle(.primary)
+                        .padding(.top, 1)
+                } else if summary.activities.isEmpty {
+                    Text("Be the first to work out!")
+                        .dsFont(.headline, weight: .bold)
+                        .foregroundStyle(.primary)
+                        .padding(.top, 1)
+                } else {
+                    Text("Your friends are working out")
+                        .dsFont(.headline, weight: .bold)
+                        .foregroundStyle(.primary)
+                        .padding(.top, 1)
+                }
+
+                // Friend activities (1 per person, max 2 shown)
+                if !dedupedActivities.isEmpty {
+                    VStack(alignment: .leading, spacing: 7) {
+                        ForEach(Array(dedupedActivities.prefix(2))) { activity in
+                            FriendActivityRow(activity: activity)
+                        }
+
+                        if dedupedActivities.count > 2 {
+                            Text("+ \(dedupedActivities.count - 2) more")
+                                .dsFont(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
             }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(
-            DS.card
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            Color.purple.opacity(0.05),
-                            .clear
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(.white.opacity(0.08))
-                .frame(height: 1)
-                .padding(.horizontal, 14)
-        }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(.white.opacity(0.08))
-                .frame(height: 1)
-                .padding(.horizontal, 14)
         }
     }
 }

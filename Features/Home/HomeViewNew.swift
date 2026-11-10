@@ -336,13 +336,13 @@ struct HomeViewNew: View {
         }
     }
 
-    var body: some View {
+    private var contentWithDataUpdates: some View {
         navigationStackView
             .onReceive(NotificationCenter.default.publisher(for: .openHomeRoot)) { _ in
-            expandedRegion = nil
-            showTiles = false
-            path = .init()
-        }
+                expandedRegion = nil
+                showTiles = false
+                path = .init()
+            }
         .onReceive(NotificationCenter.default.publisher(for: .tabSelectionChanged)) { _ in
             collapsePanel()
         }
@@ -361,6 +361,10 @@ struct HomeViewNew: View {
         .onChange(of: store.validRuns.count) { _, _ in
             refreshHome()
         }
+    }
+
+    var body: some View {
+        contentWithDataUpdates
         .onDisappear {
             collapsePanel(animated: false)
         }

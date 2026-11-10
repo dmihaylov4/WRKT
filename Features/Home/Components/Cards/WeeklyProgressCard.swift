@@ -57,92 +57,77 @@ struct WeeklyProgressCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                Text("Weekly Progress")
-                    .dsFont(.headline)
-                    .foregroundStyle(.primary)
+        HomeCarouselCard(accent: DS.tint) {
+            VStack(alignment: .leading, spacing: 12) {
+                // Header
+                HStack {
+                    Text("Weekly Progress")
+                        .dsFont(.headline)
+                        .foregroundStyle(.primary)
 
-                Spacer()
+                    Spacer()
 
-                Text(statusMessage)
-                    .dsFont(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                    Text(statusMessage)
+                        .dsFont(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
-            // Progress numbers
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(progress.completedDays)")
-                    .font(.system(size: 36, weight: .bold))
-                    .foregroundStyle(progressColor)
+                // Progress numbers
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(progress.completedDays)")
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundStyle(progressColor)
 
-                Text("/\(progress.targetDays)")
-                    .dsFont(.title2, weight: .semibold)
-                    .foregroundStyle(.secondary)
+                    Text("/\(progress.targetDays)")
+                        .dsFont(.title2, weight: .semibold)
+                        .foregroundStyle(.secondary)
 
-                Text("workouts")
-                    .dsFont(.subheadline)
-                    .foregroundStyle(.tertiary)
+                    Text("workouts")
+                        .dsFont(.subheadline)
+                        .foregroundStyle(.tertiary)
 
-                Spacer()
+                    Spacer()
 
-                // Percentage badge
-                Text("\(progress.percentage.safeInt)%")
-                    .dsFont(.title2, weight: .bold)
-                    .foregroundStyle(progressColor)
-            }
+                    // Percentage badge
+                    Text("\(progress.percentage.safeInt)%")
+                        .dsFont(.title2, weight: .bold)
+                        .foregroundStyle(progressColor)
+                }
 
-            // Progress bar
-            GeometryReader { geometry in
-                ZStack(alignment: .leading) {
-                    // Background
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.secondary.opacity(0.2))
-                        .frame(height: 12)
+                // Progress bar
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        // Background
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.secondary.opacity(0.2))
+                            .frame(height: 12)
 
-                    // Progress fill
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(progressColor)
-                        .frame(
-                            width: geometry.size.width * min(progress.percentage / 100.0, 1.0),
-                            height: 12
-                        )
-                        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress.percentage)
+                        // Progress fill
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(progressColor)
+                            .frame(
+                                width: geometry.size.width * min(progress.percentage / 100.0, 1.0),
+                                height: 12
+                            )
+                            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: progress.percentage)
+                    }
+                }
+                .frame(height: 12)
+
+                // Plan adherence chip
+                if let adherence = progress.planAdherence {
+                    planAdherenceChip(adherence: adherence)
+                }
+
+                // Missed sessions note: only after week has ended
+                if progress.weekEnded && progress.completedDays < progress.targetDays {
+                    let missed = progress.targetDays - progress.completedDays
+                    Text("Missed by \(missed) session\(missed == 1 ? "" : "s") this week")
+                        .dsFont(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
-            .frame(height: 12)
-
-            // Plan adherence chip
-            if let adherence = progress.planAdherence {
-                planAdherenceChip(adherence: adherence)
-            }
-
-            // Missed sessions note — only after week has ended
-            if progress.weekEnded && progress.completedDays < progress.targetDays {
-                let missed = progress.targetDays - progress.completedDays
-                Text("Missed by \(missed) session\(missed == 1 ? "" : "s") this week")
-                    .dsFont(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(
-            DS.card
-                .overlay(
-                    LinearGradient(
-                        colors: [
-                            DS.tint.opacity(0.05),
-                            .clear
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 
