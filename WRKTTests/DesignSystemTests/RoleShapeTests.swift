@@ -139,6 +139,16 @@ struct RoleShapeTests {
               radius: 25, legacy: MainChamferedRectangle(chamferSize: 12).path(in: rect))
     }
 
+    @Test func iconTilesUseTheirOwnSideLength() {
+        for side in [44, 48, 54] as [CGFloat] {
+            let rect = CGRect(x: 7, y: 11, width: side, height: side)
+            check(DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium)), in: rect,
+                  radius: side * 0.225, legacy: MainChamferedRectangle(chamferSize: 12).path(in: rect))
+            check(DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.medium)), in: rect,
+                  radius: side * 0.225, legacy: MainChamferedRectangleAlt(chamferSize: 12).path(in: rect))
+        }
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)

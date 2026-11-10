@@ -237,7 +237,7 @@ private struct ChallengeArenaCard: View {
             VStack(spacing: 4) {
                 // Challenge icon with progress ring
                 ZStack {
-                    ChamferedRectangle(.medium)
+                    DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium))
                         .stroke(DS.Semantic.surface50, lineWidth: 3)
                         .frame(width: 48, height: 48)
 

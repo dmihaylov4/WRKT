@@ -500,10 +500,10 @@ struct DexDetailView: View {
             .frame(width: 48, height: 48)
             .background(
                 (item.isUnlocked ? DS.Theme.accent.opacity(0.14) : Color.white.opacity(0.05)),
-                in: ChamferedRectangleAlt(.medium)
+                in: DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.medium))
             )
             .overlay(
-                ChamferedRectangleAlt(.medium)
+                DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.medium))
                     .stroke(item.isUnlocked ? DS.Theme.accent.opacity(0.35) : DS.Semantic.border, lineWidth: 1)
             )
             VStack(alignment: .leading) {

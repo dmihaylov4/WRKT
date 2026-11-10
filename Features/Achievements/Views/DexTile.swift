@@ -82,10 +82,10 @@ private struct TrophyBadge: View {
 
     var body: some View {
         ZStack {
-            ChamferedRectangleAlt(.medium)
+            DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.medium))
                 .fill(badgeFill)
                 .overlay(
-                    ChamferedRectangleAlt(.medium)
+                    DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.medium))
                         .stroke(borderColor, lineWidth: unlocked ? 1.5 : 1)
                 )
                 .shadow(color: shadowColor, radius: unlocked ? 6 : 3, y: unlocked ? 3 : 1)

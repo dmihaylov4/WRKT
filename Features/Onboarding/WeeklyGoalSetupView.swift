@@ -88,7 +88,7 @@ struct WeeklyGoalSetupView: View {
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(.black)
                 .frame(width: 54, height: 54)
-                .background(DS.Theme.accent, in: ChamferedRectangle(.medium))
+                .background(DS.Theme.accent, in: DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium)))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Weekly Goal")

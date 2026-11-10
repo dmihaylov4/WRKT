@@ -531,7 +531,7 @@ private struct ProfileCollectionDestinationButton: View {
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                ChamferedRectangle(.medium)
+                DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium))
                     .fill(DS.Semantic.brand.opacity(0.16))
 
                 Image(systemName: destination.iconName)
