@@ -1,4 +1,5 @@
 import XCTest
+import UserNotifications
 @testable import WRKT
 
 @MainActor
@@ -57,4 +58,19 @@ final class RetiredNotificationTests: XCTestCase {
         XCTAssertFalse(NotificationType.shouldIgnoreRemoteNotification([:]))
         XCTAssertTrue(NotificationType.shouldIgnoreRemoteNotification(["type": 123]))
     }
+    func testEveryLocalNudgeAndFutureLocalTypeKeepsPresentationAndRouting() {
+        for type in ["friend_activity", "comparative", "time_based", "streak_urgency",
+                     "weekly_freeze_used", "streak_check", "future_local_type", "virtual_run_invite"] {
+            let content = UNMutableNotificationContent()
+            content.userInfo = ["type": type, "friend": "friend"]
+            content.sound = .default
+            for trigger in [nil, UNTimeIntervalNotificationTrigger(timeInterval: 60, repeats: false)] {
+                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+                XCTAssertEqual(NotificationManager.presentationOptions(for: request), [.banner, .sound, .badge], type)
+                XCTAssertEqual(NotificationManager.navigationUserInfo(for: request)?["type"] as? String, type)
+                XCTAssertEqual(NotificationManager.navigationUserInfo(for: request)?["friend"] as? String, "friend")
+            }
+        }
+    }
+
 }

@@ -64,6 +64,22 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         authorizationStatus = settings.authorizationStatus
     }
 
+    static func presentationOptions(for request: UNNotificationRequest) -> UNNotificationPresentationOptions {
+        if request.trigger is UNPushNotificationTrigger,
+           NotificationType.shouldIgnoreRemoteNotification(request.content.userInfo) {
+            return []
+        }
+        return [.banner, .sound, .badge]
+    }
+
+    static func navigationUserInfo(for request: UNNotificationRequest) -> [AnyHashable: Any]? {
+        if request.trigger is UNPushNotificationTrigger,
+           NotificationType.shouldIgnoreRemoteNotification(request.content.userInfo) {
+            return nil
+        }
+        return request.content.userInfo
+    }
+
     // MARK: - UNUserNotificationCenterDelegate
 
     func userNotificationCenter(
@@ -72,7 +88,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         let userInfo = notification.request.content.userInfo
-        guard !NotificationType.shouldIgnoreRemoteNotification(userInfo) else {
+        guard !Self.presentationOptions(for: notification.request).isEmpty else {
             Task { await NotificationBadgeManager.shared.refreshBadges() }
             completionHandler([])
             return
@@ -80,7 +96,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         AppLogger.debug("Notification received: \(userInfo)", category: AppLogger.app)
 
         // Show notification even when app is in foreground
-        completionHandler([.banner, .sound, .badge])
+        completionHandler(Self.presentationOptions(for: notification.request))
     }
 
     func userNotificationCenter(
@@ -88,8 +104,7 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        let userInfo = response.notification.request.content.userInfo
-        guard !NotificationType.shouldIgnoreRemoteNotification(userInfo) else {
+        guard let userInfo = Self.navigationUserInfo(for: response.notification.request) else {
             Task { await NotificationBadgeManager.shared.refreshBadges() }
             completionHandler()
             return
