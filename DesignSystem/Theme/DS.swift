@@ -823,6 +823,14 @@ public struct ChamferedRectangle: Shape {
     }
 
     public func path(in rect: CGRect) -> Path {
+        path(in: rect, rounded: DS.Redesign.roundedShapesEnabled)
+    }
+
+    func path(in rect: CGRect, rounded: Bool) -> Path {
+        if rounded {
+            return DS.Radius.roundedChamferPath(chamferSize, in: rect)
+        }
+
         var path = Path()
 
         // Start at top-left (square corner)
@@ -872,6 +880,14 @@ public struct ChamferedRectangleAlt: Shape {
     }
 
     public func path(in rect: CGRect) -> Path {
+        path(in: rect, rounded: DS.Redesign.roundedShapesEnabled)
+    }
+
+    func path(in rect: CGRect, rounded: Bool) -> Path {
+        if rounded {
+            return DS.Radius.roundedChamferPath(chamferSize, in: rect)
+        }
+
         var path = Path()
 
         // Start at top-left chamfer start point
@@ -920,6 +936,14 @@ public struct TopLeftChamferedRectangle: Shape {
     }
 
     public func path(in rect: CGRect) -> Path {
+        path(in: rect, rounded: DS.Redesign.roundedShapesEnabled)
+    }
+
+    func path(in rect: CGRect, rounded: Bool) -> Path {
+        if rounded {
+            return DS.Radius.roundedChamferPath(chamferSize, in: rect)
+        }
+
         var path = Path()
 
         // Start after top-left chamfer
@@ -981,6 +1005,14 @@ public struct SingleChamferedRectangle: Shape {
     }
 
     public func path(in rect: CGRect) -> Path {
+        path(in: rect, rounded: DS.Redesign.roundedShapesEnabled)
+    }
+
+    func path(in rect: CGRect, rounded: Bool) -> Path {
+        if rounded {
+            return DS.Radius.roundedChamferPath(chamferSize, in: rect)
+        }
+
         var path = Path()
         let c = chamferSize
 
@@ -1046,6 +1078,14 @@ public struct PairedChamferedRectangle: Shape {
     }
 
     public func path(in rect: CGRect) -> Path {
+        path(in: rect, rounded: DS.Redesign.roundedShapesEnabled)
+    }
+
+    func path(in rect: CGRect, rounded: Bool) -> Path {
+        if rounded {
+            return DS.Radius.roundedChamferPath(chamferSize, in: rect)
+        }
+
         var path = Path()
         let c = chamferSize
 
