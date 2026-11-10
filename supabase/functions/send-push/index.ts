@@ -1,8 +1,8 @@
 // Supabase Edge Function to send APNs Push Notifications
 // Deploy with: supabase functions deploy send-push --no-verify-jwt
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.117.2"
+import { handlePushRequest } from './handler.ts'
 
 // APNs configuration from environment variables
 const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID')!          // 623J5TADK8
@@ -13,15 +13,6 @@ const BUNDLE_ID = Deno.env.get('BUNDLE_ID') || 'com.dmihaylov.trak'
 // APNs endpoints
 const APNS_HOST_PRODUCTION = 'api.push.apple.com'
 const APNS_HOST_SANDBOX = 'api.sandbox.push.apple.com'
-
-interface PushRequest {
-  user_id: string
-  title: string
-  body: string
-  data?: Record<string, unknown>
-  badge?: number
-  sound?: string
-}
 
 interface DeviceToken {
   id: string
@@ -95,6 +86,7 @@ async function sendToDevice(
   const host = environment === 'production' ? APNS_HOST_PRODUCTION : APNS_HOST_SANDBOX
 
   const apnsPayload = {
+    ...payload.data,
     aps: {
       alert: {
         title: payload.title,
@@ -104,7 +96,6 @@ async function sendToDevice(
       sound: payload.sound || 'default',
       'mutable-content': 1,
     },
-    ...payload.data,
   }
 
   try {
@@ -125,10 +116,12 @@ async function sendToDevice(
       return { success: true }
     } else {
       const errorBody = await response.text()
-      console.error(`APNs error for token ${token.substring(0, 10)}...: ${response.status} ${errorBody}`)
+      console.error(`APNs delivery failed: ${response.status}`)
 
       // If token is invalid, we should remove it from the database
-      if (response.status === 410 || response.status === 400) {
+      let reason: string | undefined
+      try { reason = JSON.parse(errorBody).reason } catch { /* APNs may return a non-JSON error. */ }
+      if (reason === 'Unregistered' || reason === 'BadDeviceToken' || reason === 'DeviceTokenNotForTopic') {
         return { success: false, error: `invalid_token: ${errorBody}` }
       }
 
@@ -140,32 +133,14 @@ async function sendToDevice(
   }
 }
 
-serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    })
-  }
-
+Deno.serve(req => handlePushRequest(
+  req,
+  Deno.env.get('PUSH_DISPATCH_SECRET'),
+  async ({ user_id, title, body, data, badge, sound }) => {
   try {
     // Validate required environment variables
     if (!APNS_KEY_ID || !APNS_TEAM_ID || !APNS_PRIVATE_KEY) {
       throw new Error('Missing APNs configuration. Set APNS_KEY_ID, APNS_TEAM_ID, and APNS_PRIVATE_KEY.')
-    }
-
-    // Parse request body
-    const { user_id, title, body, data, badge, sound } = await req.json() as PushRequest
-
-    if (!user_id || !title || !body) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: user_id, title, body' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
     }
 
     // Create Supabase client with service role
@@ -178,17 +153,17 @@ serve(async (req) => {
       .from('device_tokens')
       .select('id, token, environment')
       .eq('user_id', user_id)
+      .not('verified_at', 'is', null)
 
     if (fetchError) {
       console.error('Failed to fetch device tokens:', fetchError)
       return new Response(
-        JSON.stringify({ error: 'Failed to fetch device tokens', details: fetchError }),
+        JSON.stringify({ error: 'Failed to fetch device tokens' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     if (!tokens || tokens.length === 0) {
-      console.log(`No device tokens found for user ${user_id}`)
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: 'No device tokens registered' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
@@ -210,7 +185,6 @@ serve(async (req) => {
 
         // Remove invalid tokens
         if (!result.success && result.error?.startsWith('invalid_token')) {
-          console.log(`Removing invalid token ${deviceToken.id}`)
           await supabase.from('device_tokens').delete().eq('id', deviceToken.id)
         }
 
@@ -221,7 +195,7 @@ serve(async (req) => {
     const successCount = results.filter(r => r.success).length
     const failedCount = results.filter(r => !r.success).length
 
-    console.log(`Push notification sent to user ${user_id}: ${successCount} success, ${failedCount} failed`)
+    console.log(`Push delivery: ${successCount} sent, ${failedCount} failed`)
 
     return new Response(
       JSON.stringify({
@@ -235,8 +209,9 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in send-push function:', error)
     return new Response(
-      JSON.stringify({ error: String(error) }),
+      JSON.stringify({ error: 'Push delivery failed' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
-})
+  },
+))

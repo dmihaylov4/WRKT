@@ -99,7 +99,7 @@ import Foundation
     func fetchNotifications(userId: UUID, limit: Int, offset: Int) async throws -> [NotificationWithActor]
 
     /// Fetch unread notification count
-    func fetchUnreadCount(userId: UUID) async throws -> Int
+    func fetchUnreadCount(userId: UUID, forceRefresh: Bool) async throws -> Int
 
     /// Mark a notification as read
     func markAsRead(notificationId: UUID) async throws

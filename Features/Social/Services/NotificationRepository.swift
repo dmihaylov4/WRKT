@@ -61,10 +61,13 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
     }
 
     /// Fetch unread notification count with caching
-    func fetchUnreadCount(userId: UUID) async throws -> Int {
+    /// - Parameter forceRefresh: bypass the client-side cache and always hit the DB.
+    ///   Used by the realtime insert path where a new notification just landed and the
+    ///   cached count (TTL 2 min) would otherwise be stale.
+    func fetchUnreadCount(userId: UUID, forceRefresh: Bool = false) async throws -> Int {
         // Try cache first
         let cacheKey = "notifications:unread:\(userId.uuidString)"
-        if let cached: Int = cache.get(cacheKey) {
+        if !forceRefresh, let cached: Int = cache.get(cacheKey) {
             logSuccess("Cache hit for unread count")
             return cached
         }
@@ -121,41 +124,6 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
 
         // Invalidate notification caches
         cache.invalidateAllNotifications()
-    }
-
-    // MARK: - Create Notification
-
-    /// Create a notification manually (fallback if triggers don't work)
-    func createNotification(userId: UUID, type: NotificationType, actorId: UUID, targetId: UUID?) async throws {
-        struct NewNotification: Encodable {
-            let user_id: String
-            let type: String
-            let actor_id: String
-            let target_id: String?
-            let read: Bool
-        }
-
-        // IMPORTANT: Use lowercase UUIDs to match Postgres storage and realtime filters
-        let newNotification = NewNotification(
-            user_id: userId.uuidString.lowercased(),
-            type: type.rawValue,
-            actor_id: actorId.uuidString.lowercased(),
-            target_id: targetId?.uuidString.lowercased(),
-            read: false
-        )
-
-        let _: AppNotification = try await client
-            .from("notifications")
-            .insert(newNotification)
-            .select()
-            .single()
-            .execute()
-            .value
-
-        // Invalidate notification caches
-        cache.invalidateAllNotifications()
-
-        logSuccess("Created notification: type=\(type.rawValue), userId=\(userId)")
     }
 
     // MARK: - Delete

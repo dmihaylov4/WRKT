@@ -411,16 +411,6 @@ final class ChallengeRepository: Sendable {
                     )
                 )
 
-                Task {
-                    await notifyDisplacedParticipants(
-                        challengeId: challenge.id,
-                        actorId: userId,
-                        oldProgress: participation.currentProgress,
-                        newProgress: newProgress,
-                        challengeTitle: challenge.title
-                    )
-                }
-
                 // Check for milestone
                 if (oldPercentage < 25 && newPercentage >= 25) ||
                    (oldPercentage < 50 && newPercentage >= 50) ||
@@ -438,17 +428,9 @@ final class ChallengeRepository: Sendable {
                         )
                     )
 
-                    // Send milestone notification (database trigger also sends, but this gives immediate feedback)
-                    Task {
-                        try? await notificationService.createChallengeMilestoneNotification(
-                            challengeId: challenge.id,
-                            userId: userId,
-                            milestone: milestone,
-                            progress: newProgress,
-                            goal: challenge.goalValue,
-                            challengeTitle: challenge.title
-                        )
-                    }
+                    await notificationService.showChallengeMilestoneToast(
+                        milestone: min(milestone, 100), title: challenge.title
+                    )
 
                     AppLogger.success("Challenge milestone reached: \(milestone)%", category: AppLogger.challenges)
                 }
@@ -540,60 +522,6 @@ final class ChallengeRepository: Sendable {
     }
 
     // MARK: - Helper Methods
-
-    private func notifyDisplacedParticipants(
-        challengeId: UUID,
-        actorId: UUID,
-        oldProgress: Decimal,
-        newProgress: Decimal,
-        challengeTitle: String
-    ) async {
-        guard newProgress > oldProgress else { return }
-
-        do {
-            let oldProgressValue = NSDecimalNumber(decimal: oldProgress).doubleValue
-            let newProgressValue = NSDecimalNumber(decimal: newProgress).doubleValue
-            let displaced: [ChallengeParticipant] = try await supabase.database
-                .from("challenge_participants")
-                .select()
-                .eq("challenge_id", value: challengeId)
-                .neq("user_id", value: actorId)
-                .eq("completed", value: false)
-                .gt("current_progress", value: oldProgressValue)
-                .lt("current_progress", value: newProgressValue)
-                .order("current_progress", ascending: false)
-                .limit(5)
-                .execute()
-                .value
-
-            guard !displaced.isEmpty else { return }
-
-            let ahead: [ChallengeParticipant] = try await supabase.database
-                .from("challenge_participants")
-                .select()
-                .eq("challenge_id", value: challengeId)
-                .neq("user_id", value: actorId)
-                .gt("current_progress", value: newProgressValue)
-                .execute()
-                .value
-
-            let actorNewRank = ahead.count + 1
-            for (offset, participant) in displaced.enumerated() {
-                let participantNewRank = actorNewRank + 1 + offset
-                try? await notificationService.createChallengeLeaderboardChangeNotification(
-                    challengeId: challengeId,
-                    actorId: actorId,
-                    recipientId: participant.userId,
-                    recipientNewRank: participantNewRank,
-                    challengeTitle: challengeTitle
-                )
-            }
-
-            AppLogger.info("Sent leaderboard displacement notifications to \(displaced.count) participants", category: AppLogger.challenges)
-        } catch {
-            AppLogger.error("Failed to notify displaced challenge participants", error: error, category: AppLogger.challenges)
-        }
-    }
 
     private func fetchTopParticipants(challengeId: UUID, limit: Int) async throws -> [ChallengeParticipantProfile] {
         let participations: [ChallengeParticipant] = try await supabase.database

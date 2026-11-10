@@ -104,6 +104,20 @@ struct BattlePostStatsCodableTests {
         let decoded  = try decoder.decode(BattlePostStats.self, from: try encoder.encode(original))
         #expect(decoded == original)
     }
+
+    @Test("legacy string scores preserve precision and reject malformed numbers")
+    func legacyScores() throws {
+        var json = try #require(JSONSerialization.jsonObject(with: encoder.encode(makeStats())) as? [String: Any])
+        let precise = "12345678901234567890.123456789"
+        json["my_score"] = precise
+        let decoded = try decoder.decode(BattlePostStats.self, from: JSONSerialization.data(withJSONObject: json))
+        #expect(decoded.myScore == Decimal(string: precise, locale: Locale(identifier: "en_US_POSIX")))
+        for invalid in ["NaN", "Infinity", "1500.5 points", "", "null"] {
+            json["my_score"] = invalid
+            let data = try JSONSerialization.data(withJSONObject: json)
+            #expect(throws: (any Error).self) { try decoder.decode(BattlePostStats.self, from: data) }
+        }
+    }
 }
 
 @Suite("WorkoutPost battle type decoding")

@@ -66,45 +66,8 @@ final class BattleRepository: Sendable {
 
     /// Fetch active battles only
     func fetchActiveBattles() async throws -> [BattleWithParticipants] {
-        // Check for battles ending soon (sends notifications if needed)
-        await checkBattlesEndingSoon()
-
         let allBattles = try await fetchUserBattles()
         return allBattles.filter { $0.battle.isActive }
-    }
-
-    /// Check for battles ending within 24 hours and send notifications
-    private func checkBattlesEndingSoon() async {
-        do {
-            // Early return if task was cancelled (e.g., user navigated away)
-            if Task.isCancelled { return }
-
-            // Call database function to check and send ending soon notifications
-            // Function returns TABLE(battle_id UUID, notifications_sent INTEGER)
-            struct BattleEndingSoonResult: Codable {
-                let battleId: UUID?
-                let notificationsSent: Int
-
-                enum CodingKeys: String, CodingKey {
-                    case battleId = "battle_id"
-                    case notificationsSent = "notifications_sent"
-                }
-            }
-
-            let results: [BattleEndingSoonResult] = try await supabase.database
-                .rpc("send_battle_ending_soon_notifications")
-                .execute()
-                .value
-
-            let totalNotifications = results.reduce(0) { $0 + $1.notificationsSent }
-            AppLogger.info("✅ Checked battles ending soon - sent \(totalNotifications) notifications", category: AppLogger.battles)
-        } catch is CancellationError {
-            // Task was cancelled - this is normal, don't log as error
-            return
-        } catch {
-            // Don't fail the entire fetch if this check fails
-            AppLogger.error("⚠️ Failed to check battles ending soon", error: error, category: AppLogger.battles)
-        }
     }
 
     /// Fetch pending battle invitations
@@ -560,22 +523,6 @@ final class BattleRepository: Sendable {
                 milestone: nil
             )
         )
-
-        // Send opponent activity notification with score context
-        let opponentId = isChallenger ? battle.opponentId : battle.challengerId
-        let capturedScoreAdded = scoreIncrease
-        let capturedActorNewScore = newScore
-        let capturedRecipientScore = opponentCurrentScore
-        Task {
-            try? await notificationService.createBattleOpponentActivityNotification(
-                battleId: battle.id,
-                actorId: userId,
-                recipientId: opponentId,
-                scoreAdded: capturedScoreAdded,
-                actorNewScore: capturedActorNewScore,
-                recipientScore: capturedRecipientScore
-            )
-        }
 
         // Check if user took the lead
         let wasLosing = currentScore <= opponentCurrentScore

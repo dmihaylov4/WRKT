@@ -60,9 +60,9 @@ final class NotificationBadgeManager {
         }
     }
 
-    private func fetchNotificationCount(userId: UUID) async -> Int {
+    private func fetchNotificationCount(userId: UUID, forceRefresh: Bool = false) async -> Int {
         do {
-            return try await notificationRepository.fetchUnreadCount(userId: userId)
+            return try await notificationRepository.fetchUnreadCount(userId: userId, forceRefresh: forceRefresh)
         } catch {
             return 0
         }
@@ -180,8 +180,10 @@ final class NotificationBadgeManager {
     }
 
     /// Refresh just the notification count
+    /// Called from the realtime insert path, so bypass the client-side cache: a new
+    /// notification just landed in the DB and the cached count would be stale.
     private func refreshNotificationCount(userId: UUID) async {
-        let count = await fetchNotificationCount(userId: userId)
+        let count = await fetchNotificationCount(userId: userId, forceRefresh: true)
         notificationCount = count
     }
 
@@ -273,6 +275,8 @@ final class NotificationBadgeManager {
                 return ("Comment Reply", "\(actorName) replied to your comment", "arrowshape.turn.up.left.fill", .info)
             case .commentMention:
                 return ("Mentioned You", "\(actorName) mentioned you in a comment", "at", .info)
+            case .postParticipantTag:
+                return ("Workout Together", "\(actorName) tagged you in a shared workout", "person.2.fill", .info)
 
             // Social notifications (already handled separately, but included for completeness)
             case .friendRequest:

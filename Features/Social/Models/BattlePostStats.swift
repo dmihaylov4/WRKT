@@ -27,3 +27,29 @@ struct BattlePostStats: Codable, Sendable, Equatable, Hashable {
         case endDate = "end_date"
     }
 }
+
+extension BattlePostStats {
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        // Older battle posts stored decimal scores as JSON strings.
+        func score(_ key: CodingKeys) throws -> Decimal {
+            if let number = try? values.decode(Decimal.self, forKey: key) { return number }
+            let text = try values.decode(String.self, forKey: key)
+            guard let number = try? JSONDecoder().decode(Decimal.self, from: Data(text.utf8)) else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: values, debugDescription: "Expected a decimal score")
+            }
+            return number
+        }
+        battleId = try values.decode(UUID.self, forKey: .battleId)
+        battleType = try values.decode(BattleType.self, forKey: .battleType)
+        myScore = try score(.myScore)
+        opponentScore = try score(.opponentScore)
+        myName = try values.decodeIfPresent(String.self, forKey: .myName)
+        opponentName = try values.decode(String.self, forKey: .opponentName)
+        opponentAvatarUrl = try values.decodeIfPresent(String.self, forKey: .opponentAvatarUrl)
+        scoreUnit = try values.decode(String.self, forKey: .scoreUnit)
+        isWinner = try values.decode(Bool.self, forKey: .isWinner)
+        durationDays = try values.decode(Int.self, forKey: .durationDays)
+        endDate = try values.decode(Date.self, forKey: .endDate)
+    }
+}

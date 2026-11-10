@@ -16,6 +16,7 @@ struct Friendship: Codable, Identifiable, Sendable {
     let createdAt: Date
     var updatedAt: Date
     var mutedNotifications: Bool
+    var requiresReconfirmation: Bool
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -25,6 +26,7 @@ struct Friendship: Codable, Identifiable, Sendable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case mutedNotifications = "muted_notifications"
+        case requiresReconfirmation = "requires_reconfirmation"
     }
 
     init(from decoder: Decoder) throws {
@@ -37,6 +39,7 @@ struct Friendship: Codable, Identifiable, Sendable {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
         // Default to false for backward compatibility if the column doesn't exist yet
         mutedNotifications = try container.decodeIfPresent(Bool.self, forKey: .mutedNotifications) ?? false
+        requiresReconfirmation = try container.decodeIfPresent(Bool.self, forKey: .requiresReconfirmation) ?? false
     }
 }
 
@@ -50,6 +53,9 @@ struct FriendRequest: Identifiable, Sendable {
     var statusText: String {
         switch friendship.status {
         case .pending:
+            if friendship.requiresReconfirmation {
+                return isIncoming ? "Confirm this friendship again" : "Waiting for friendship confirmation"
+            }
             return isIncoming ? "Wants to be friends" : "Request pending"
         case .accepted:
             return "Friends"

@@ -146,8 +146,8 @@ final class PushNotificationService: NSObject, ObservableObject {
             AppLogger.error("Failed to remove device token", error: error, category: AppLogger.app)
         }
 
-        deviceToken = nil
-        isRegistered = false
+        // APNs registration belongs to this installation, not the signed-out account.
+        // Keep the token so the next authenticated account can register ownership.
     }
 
     // MARK: - Notification Handling

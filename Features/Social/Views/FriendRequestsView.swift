@@ -260,6 +260,11 @@ struct IncomingRequestRow: View {
                             .dsFont(.headline)
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
+                    if request.friendship.requiresReconfirmation {
+                        Text("Confirm this friendship to share friends-only activity again.")
+                            .dsFont(.caption)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
                 }
             }
             .buttonStyle(.plain)
@@ -276,6 +281,7 @@ struct IncomingRequestRow: View {
                         .background(DS.Semantic.fillSubtle)
                         .clipShape(Hexagon())
                 }
+                .accessibilityLabel("Decline friendship")
 
                 Button(action: onAccept) {
                     Image(systemName: "checkmark")
@@ -285,6 +291,7 @@ struct IncomingRequestRow: View {
                         .background(DS.Palette.marone)
                         .clipShape(Hexagon())
                 }
+                .accessibilityLabel(request.friendship.requiresReconfirmation ? "Confirm friendship" : "Accept friend request")
             }
         }
         .padding()
@@ -337,7 +344,7 @@ struct OutgoingRequestRow: View {
                             .foregroundStyle(DS.Semantic.textPrimary)
                     }
 
-                    Text("Request pending")
+                    Text(request.statusText)
                         .dsFont(.caption)
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }

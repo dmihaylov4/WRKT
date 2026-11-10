@@ -81,9 +81,6 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         // Telemetry
         VirtualRunTelemetry.shared.log(.inviteSent, runId: run.id, userId: currentUserId)
 
-        // Send push notification to invitee (fire-and-forget)
-        Task { await self.sendInvitePush(to: userId, from: currentUserId, runId: run.id) }
-
         return run
     }
 
@@ -660,43 +657,4 @@ final class VirtualRunRepository: BaseRepository<VirtualRun> {
         )
     }
 
-    // MARK: - Push Notifications
-
-    /// Send a push notification to the invitee about a new virtual run invite
-    private func sendInvitePush(to inviteeId: UUID, from inviterId: UUID, runId: UUID) async {
-        // Fetch inviter display name
-        let name: String
-        if let profile = try? await SupabaseAuthService.shared.fetchProfile(userId: inviterId) {
-            name = profile.displayName ?? profile.username
-        } else {
-            name = "Someone"
-        }
-
-        struct PushPayload: Encodable {
-            let user_id: String
-            let title: String
-            let body: String
-            let data: [String: String]
-            let sound: String
-        }
-
-        let payload = PushPayload(
-            user_id: inviteeId.uuidString,
-            title: "Virtual Run Invite",
-            body: "\(name) wants to run with you!",
-            data: [
-                "type": "virtual_run_invite",
-                "run_id": runId.uuidString,
-                "actor_id": inviterId.uuidString
-            ],
-            sound: "default"
-        )
-
-        do {
-            try await client.functions.invoke("send-push", options: .init(body: payload))
-            logSuccess("Sent invite push to \(inviteeId)")
-        } catch {
-            logError("Failed to send invite push: \(error.localizedDescription)")
-        }
-    }
 }
