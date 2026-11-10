@@ -47,6 +47,7 @@ struct VirtualRunDebugView: View {
         Form {
             statusSection
             actionsSection
+            appReviewDemoSection
             liveDataSection
             watchLogsSection
             logSection
@@ -121,6 +122,54 @@ struct VirtualRunDebugView: View {
 
             Button("Cleanup", role: .destructive) { Task { await cleanup() } }
                 .disabled(currentRun == nil)
+        }
+    }
+
+    // MARK: - App Review Demo Section
+
+    /// Produces the background-audio screen recording App Review requires for
+    /// Guideline 2.5.4. Activates the real virtual-run audio session, then plays
+    /// the genuine spoken cues (kilometer, lead change, partner finished) after a
+    /// delay so the recorder can return to the Home Screen first. The cues fire
+    /// while the app is backgrounded precisely because the active AVAudioSession
+    /// keeps the app alive — the same mechanism used during a real Virtual Run.
+    private var appReviewDemoSection: some View {
+        Section {
+            Button("Play Background Audio Cues (10s delay)") {
+                triggerBackgroundAudioDemo()
+            }
+        } header: {
+            Text("App Review Demo")
+        } footer: {
+            Text("Tap, then immediately swipe to the Home Screen. After ~10s the app speaks each cue while backgrounded. Keep iOS screen recording running the whole time.")
+        }
+    }
+
+    private func triggerBackgroundAudioDemo() {
+        let cues = iPhoneVirtualRunAudioCues.shared
+        cues.isEnabled = true
+        cues.startSession()
+        log("Audio session active — go to the Home Screen now. Cues start in 10s.")
+
+        // Single MainActor task so every cue call stays MainActor-isolated.
+        // Task.sleep keeps running while the app is backgrounded because the
+        // active audio session keeps the app alive (the behavior being demoed).
+        Task { @MainActor in
+            let schedule: [(wait: Int, action: () -> Void, label: String)] = [
+                (10, { cues.announceKilometer(1) }, "Kilometer 1"),
+                (5,  { cues.announceKilometer(2) }, "Kilometer 2"),
+                (5,  { cues.announceLeadChange(isLeading: false) }, "Partner is ahead"),
+                (5,  { cues.announcePartnerFinished() }, "Partner finished")
+            ]
+            for step in schedule {
+                try? await Task.sleep(for: .seconds(step.wait))
+                step.action()
+                log("Spoke: \(step.label)")
+            }
+            // Release the session after the last cue so audio routing returns to normal.
+            try? await Task.sleep(for: .seconds(4))
+            cues.endSession()
+            log("Demo complete — audio session ended.")
         }
     }
 

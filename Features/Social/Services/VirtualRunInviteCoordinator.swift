@@ -496,8 +496,10 @@ final class VirtualRunInviteCoordinator {
 
         isWaitingForAcceptance = false
         isInActiveRun = true
+        // The active AVAudioSession (.playback) keeps the app alive in the background
+        // for the duration of the run, keeping the Supabase WebSocket and WCSession
+        // relay live while the screen is locked. No background location is used.
         iPhoneVirtualRunAudioCues.shared.startSession()
-        LocationManager.shared.startVirtualRunBackgroundSession()
         activeRunId = run.id
         didSendPartnerFinished = false
 
@@ -654,7 +656,6 @@ final class VirtualRunInviteCoordinator {
     /// Called when the virtual run ends (from any source) to reset all state.
     func runEnded() {
         iPhoneVirtualRunAudioCues.shared.endSession()
-        LocationManager.shared.stopVirtualRunBackgroundSession()
         lastAnnouncedKm = 0
         lastAnnouncedLeader = nil
         lastLeadChangeTime = .distantPast
