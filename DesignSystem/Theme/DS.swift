@@ -795,13 +795,17 @@ public enum DS {
     // MARK: Cards & Chips
     public struct Card: ViewModifier {
         @Environment(\.colorScheme) private var scheme
+        var surfaceShape: DS.RoleShape<RoundedRectangle> {
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+        }
+
         public func body(content: Content) -> some View {
             let (shadowColor, radius, x, y) = Elevation.level1(scheme)
             return content
                 .padding(Space.l)
-                .background(Semantic.card, in: RoundedRectangle(cornerRadius: Radius.xl, style: .continuous))
+                .background(Semantic.card, in: surfaceShape)
                 .overlay(
-                    RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+                    surfaceShape
                         .stroke(Semantic.border, lineWidth: 1)
                 )
                 .shadow(color: shadowColor, radius: radius, x: x, y: y)
@@ -1249,10 +1253,10 @@ public extension View {
         .padding(.horizontal, DS.Space.l)
     }
 
-    func dsInputField() -> some View {
+    func dsInputField(role: DS.Shape.Role = .control) -> some View {
         self
             .padding(12)
-            .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: DS.Radius.l, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: DS.Radius.l).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Semantic.fillSubtle, in: DS.RoleShape(role, legacy: RoundedRectangle(cornerRadius: DS.Radius.l, style: .continuous)))
+            .overlay(DS.RoleShape(role, legacy: RoundedRectangle(cornerRadius: DS.Radius.l)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }

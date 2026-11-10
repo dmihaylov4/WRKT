@@ -72,6 +72,18 @@ struct RoleShapeTests {
         }
     }
 
+    @Test func cardsAndInputRolesPreserveNativeLegacyContours() {
+        let rect = CGRect(x: 5, y: 9, width: 240, height: 80)
+        check(DS.Card().surfaceShape, in: rect, radius: 26,
+              legacy: RoundedRectangle(cornerRadius: 24, style: .continuous).path(in: rect))
+        for (role, radius) in [(DS.Shape.Role.control, CGFloat(40)), (.card, 26), (.nested, 10)] {
+            for style in [RoundedCornerStyle.circular, .continuous] {
+                let legacy = RoundedRectangle(cornerRadius: 16, style: style)
+                check(DS.RoleShape(role, legacy: legacy), in: rect, radius: radius, legacy: legacy.path(in: rect))
+            }
+        }
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)
