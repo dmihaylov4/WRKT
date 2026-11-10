@@ -180,7 +180,6 @@
 		2EA7DA322EEC3EBE0017683B /* BaseRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA312EEC3EBE0017683B /* BaseRepository.swift */; };
 		2EA7DA342EEC3EC60017683B /* RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA332EEC3EC60017683B /* RepositoryProtocols.swift */; };
 		2EA7DA3A2EEC471F0017683B /* FeedViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA352EEC471F0017683B /* FeedViewModel.swift */; };
-		2EA7DA3B2EEC471F0017683B /* ViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA372EEC471F0017683B /* ViewModelProtocol.swift */; };
 		2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA3C2EEC49860017683B /* ProfileViewModel.swift */; };
 		2EA7DA3F2EEC4B070017683B /* PostCreationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA3E2EEC4B070017683B /* PostCreationViewModel.swift */; };
 		2EA7DA412EEC4E5D0017683B /* PostDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA402EEC4E5D0017683B /* PostDetailViewModel.swift */; };
@@ -275,7 +274,6 @@
 		2EC202322EF166CB00D6BAEF /* UnifiedCompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */; };
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
-		2EC2023A2EF1A04200D6BAEF /* MetricExamples.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202382EF1A04200D6BAEF /* MetricExamples.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
 		2EC2028C2EF2A2D000D6BAEF /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */; };
 		2EC202992EF2A54400D6BAEF /* RecentPRCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028F2EF2A54400D6BAEF /* RecentPRCard.swift */; };
@@ -312,7 +310,6 @@
 		2EC245D52E9FF0B700100333 /* FavoritesFirst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245D42E9FF0A900100333 /* FavoritesFirst.swift */; };
 		2EC245D92EA1186C00100333 /* ExerciseClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245D72EA1186C00100333 /* ExerciseClassifier.swift */; };
 		2EC245DA2EA1186C00100333 /* TrainingBalanceSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245D82EA1186C00100333 /* TrainingBalanceSection.swift */; };
-		2EC245DC2EA2773D00100333 /* GoalOnboardingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */; };
 		2EC245DE2EA2774D00100333 /* WeeklyGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245DD2EA2774D00100333 /* WeeklyGoal.swift */; };
 		2EC245E02EA277C100100333 /* WeeklyGoalCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */; };
 		2EC245E22EA280E700100333 /* WeeklyProgressTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245E12EA280E100100333 /* WeeklyProgressTypes.swift */; };
@@ -661,7 +658,6 @@
 		2EA7DA312EEC3EBE0017683B /* BaseRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseRepository.swift; sourceTree = "<group>"; };
 		2EA7DA332EEC3EC60017683B /* RepositoryProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryProtocols.swift; sourceTree = "<group>"; };
 		2EA7DA352EEC471F0017683B /* FeedViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewModel.swift; sourceTree = "<group>"; };
-		2EA7DA372EEC471F0017683B /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
 		2EA7DA3C2EEC49860017683B /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 		2EA7DA3E2EEC4B070017683B /* PostCreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCreationViewModel.swift; sourceTree = "<group>"; };
 		2EA7DA402EEC4E5D0017683B /* PostDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailViewModel.swift; sourceTree = "<group>"; };
@@ -757,7 +753,6 @@
 		2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedCompeteView.swift; sourceTree = "<group>"; };
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
-		2EC202382EF1A04200D6BAEF /* MetricExamples.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricExamples.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
 		2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationEngine.swift; sourceTree = "<group>"; };
 		2EC2028D2EF2A54400D6BAEF /* ActiveCompetitionCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveCompetitionCard.swift; sourceTree = "<group>"; };
@@ -795,7 +790,6 @@
 		2EC245D42E9FF0A900100333 /* FavoritesFirst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesFirst.swift; sourceTree = "<group>"; };
 		2EC245D72EA1186C00100333 /* ExerciseClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseClassifier.swift; sourceTree = "<group>"; };
 		2EC245D82EA1186C00100333 /* TrainingBalanceSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingBalanceSection.swift; sourceTree = "<group>"; };
-		2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalOnboardingCard.swift; sourceTree = "<group>"; };
 		2EC245DD2EA2774D00100333 /* WeeklyGoal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoal.swift; sourceTree = "<group>"; };
 		2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalCard.swift; sourceTree = "<group>"; };
 		2EC245E12EA280E100100333 /* WeeklyProgressTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyProgressTypes.swift; sourceTree = "<group>"; };
@@ -1468,7 +1462,6 @@
 				2E2F539E2E9E715200C81656 /* PreferencesView.swift */,
 				2E2F53A02E9E716600C81656 /* ConnectionsView.swift */,
 				2EC245DF2EA277C100100333 /* WeeklyGoalCard.swift */,
-				2EC245DB2EA2773D00100333 /* GoalOnboardingCard.swift */,
 				2EBB00062FA0000000000001 /* PlateWallView.swift */,
 				2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */,
 				24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */,
@@ -1818,7 +1811,6 @@
 				2EA7DA3E2EEC4B070017683B /* PostCreationViewModel.swift */,
 				2EA7DA3C2EEC49860017683B /* ProfileViewModel.swift */,
 				2EA7DA352EEC471F0017683B /* FeedViewModel.swift */,
-				2EA7DA372EEC471F0017683B /* ViewModelProtocol.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -2099,7 +2091,6 @@
 		2EC202392EF1A04200D6BAEF /* Examples */ = {
 			isa = PBXGroup;
 			children = (
-				2EC202382EF1A04200D6BAEF /* MetricExamples.swift */,
 			);
 			path = Examples;
 			sourceTree = "<group>";
@@ -2738,7 +2729,6 @@
 				2E2F53AD2E9ED6DB00C81656 /* ExerciseBrowserView.swift in Sources */,
 				2EBE3F032EB6595000A26355 /* CustomSplitSteps.swift in Sources */,
 				2E196EC72EAE2FA500EB4780 /* CurrentWorkout.swift in Sources */,
-				2EC245DC2EA2773D00100333 /* GoalOnboardingCard.swift in Sources */,
 				2E2F53AB2E9ED6CF00C81656 /* ExerciseFilters.swift in Sources */,
 				2E34D87B2F269B1A00043649 /* HRZoneCalculator.swift in Sources */,
 				2E34D87C2F269B1A00043649 /* OneRepMaxCalculator.swift in Sources */,
@@ -2807,7 +2797,6 @@
 				2E196EAD2EAD3A0B00EB4780 /* AppShellView.swift in Sources */,
 				2EAA00032FA1000000000001 /* WhatsNewManager.swift in Sources */,
 				2EAA00042FA1000000000001 /* WhatsNewView.swift in Sources */,
-				2EC2023A2EF1A04200D6BAEF /* MetricExamples.swift in Sources */,
 				2EBE3F952EB7D37B00A26355 /* SmartSearch.swift in Sources */,
 				2E196EFB2EAE4CC400EB4780 /* AppResetReason.swift in Sources */,
 				2EC245DE2EA2774D00100333 /* WeeklyGoal.swift in Sources */,
@@ -2846,7 +2835,6 @@
 				2EBE3F9F2EB895B100A26355 /* CrossMuscleSearch.swift in Sources */,
 				2E7461A32E93ED4E00A71C35 /* CalendarMonthView.swift in Sources */,
 				2EA7DA3A2EEC471F0017683B /* FeedViewModel.swift in Sources */,
-				2EA7DA3B2EEC471F0017683B /* ViewModelProtocol.swift in Sources */,
 				2E04133A2F2FA4CE0090EF16 /* CardioDataExtractor.swift in Sources */,
 				2EA7DABA2EEDCF910017683B /* ChallengeDetailView.swift in Sources */,
 				2EA7DABB2EEDCF910017683B /* ChallengesBrowseView.swift in Sources */,
