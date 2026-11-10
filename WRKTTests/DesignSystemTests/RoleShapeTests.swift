@@ -43,6 +43,24 @@ struct RoleShapeTests {
         check(DS.RoleShape(.control, legacy: Capsule()), in: rect, radius: 50, legacy: Capsule().path(in: rect))
     }
 
+    @Test func buttonSizesAndFloatingControlsUseCapsules() {
+        for size in [DS.ButtonSize.compact, .regular, .large] {
+            for width in [20, 60, 240] as [CGFloat] {
+                let rect = CGRect(x: 3, y: 5, width: width, height: size.height)
+                let legacy = RoundedRectangle(cornerRadius: 16, style: .continuous).path(in: rect)
+                check(DS.PrimaryButtonStyle(size: size).surfaceShape, in: rect,
+                      radius: min(width, size.height) / 2, legacy: legacy)
+                check(DS.SecondaryButtonStyle(size: size).surfaceShape, in: rect,
+                      radius: min(width, size.height) / 2, legacy: legacy)
+            }
+        }
+        for side in [48, 56] as [CGFloat] {
+            let rect = CGRect(x: 3, y: 5, width: side, height: side)
+            check(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large)), in: rect,
+                  radius: side / 2, legacy: MainChamferedRectangleAlt(chamferSize: 16).path(in: rect))
+        }
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)

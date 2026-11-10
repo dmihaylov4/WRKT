@@ -64,7 +64,7 @@ struct FloatingActionButton: View {
                 Haptics.light()
             } label: {
                 ZStack {
-                    ChamferedRectangleAlt(.large)
+                    DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                         .fill(DS.Semantic.brand)
                         .frame(width: 56, height: 56)
                         .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
@@ -102,13 +102,13 @@ private struct FABActionButton: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .background(DS.Semantic.card)
-                        .clipShape(Capsule())
+                        .clipShape(DS.RoleShape(.control, legacy: Capsule()))
                         .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
 
                 ZStack {
-                    ChamferedRectangleAlt(.large)
+                    DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                         .fill(color)
                         .frame(width: 48, height: 48)
                         .shadow(color: .black.opacity(0.2), radius: 6, x: 0, y: 3)

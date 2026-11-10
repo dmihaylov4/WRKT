@@ -726,6 +726,10 @@ public enum DS {
         public init(size: ButtonSize = .regular) { self.size = size }
         private let size: ButtonSize
 
+        var surfaceShape: DS.RoleShape<RoundedRectangle> {
+            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        }
+
         public func makeBody(configuration: Configuration) -> some View {
             let base = Semantic.brand.desaturate(0.08).darken(0.02)
             let pressed = base.darken(0.06)
@@ -735,9 +739,9 @@ public enum DS {
                 .frame(minHeight: size.height)
                 .padding(.horizontal, size.hPadding)
                 .background(configuration.isPressed ? pressed : base)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+                .clipShape(surfaceShape)
                 .overlay(
-                    RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                    surfaceShape
                         .stroke(Semantic.brand.darken(0.12).opacity(0.25), lineWidth: 1)
                 )
                 .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
@@ -750,6 +754,10 @@ public enum DS {
         public init(size: ButtonSize = .regular) { self.size = size }
         private let size: ButtonSize
 
+        var surfaceShape: DS.RoleShape<RoundedRectangle> {
+            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+        }
+
         public func makeBody(configuration: Configuration) -> some View {
             configuration.label
                 .font(size.font)
@@ -757,9 +765,9 @@ public enum DS {
                 .frame(minHeight: size.height)
                 .padding(.horizontal, size.hPadding)
                 .background(Semantic.brandSoft)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.l, style: .continuous))
+                .clipShape(surfaceShape)
                 .overlay(
-                    RoundedRectangle(cornerRadius: Radius.l, style: .continuous)
+                    surfaceShape
                         .stroke(Semantic.brand.opacity(0.28), lineWidth: 1)
                 )
                 .opacity(configuration.isPressed ? 0.8 : 1)
