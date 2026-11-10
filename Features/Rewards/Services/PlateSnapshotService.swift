@@ -1,6 +1,7 @@
 import UIKit
 import RealityKit
 import Foundation
+import CryptoKit
 
 @MainActor
 final class PlateSnapshotService {
@@ -10,6 +11,7 @@ final class PlateSnapshotService {
 
     private init() {
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try? Self.removeLegacyCacheFiles(in: cacheDirectory)
     }
 
     // MARK: - Cache Directory
@@ -26,8 +28,26 @@ final class PlateSnapshotService {
     // MARK: - Cache Key
 
     static func cacheKey(tierID: Int, weightKg: Double, engravingText: String) -> String {
-        let engravingHash = engravingText.isEmpty ? "none" : String(engravingText.hashValue & 0xFFFF_FFFF)
-        return "v2_p\(tierID)_\(Int(weightKg * 10))_\(engravingHash)"
+        var input = Data("\(tierID)|\(weightKg.bitPattern)|".utf8)
+        input.append(contentsOf: engravingText.utf8)
+        let digest = SHA256.hash(data: input).map { String(format: "%02x", $0) }.joined()
+        return "v3_" + digest
+    }
+
+    static func removeLegacyCacheFiles(in directory: URL) throws {
+        let manager = FileManager.default
+        let marker = directory.appendingPathComponent(".v3-cleanup-complete")
+        guard !manager.fileExists(atPath: marker.path) else { return }
+        let entries = try manager.contentsOfDirectory(at: directory,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+        for entry in entries {
+            let values = try entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else { continue }
+            guard entry.lastPathComponent.range(of: "^v3_[0-9a-f]{64}\\.png$",
+                                                 options: .regularExpression) == nil else { continue }
+            try manager.removeItem(at: entry)
+        }
+        try Data().write(to: marker, options: .atomic)
     }
 
     // MARK: - Read
