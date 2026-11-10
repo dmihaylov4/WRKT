@@ -179,7 +179,6 @@
 		2EA7DA302EEC3EA40017683B /* ProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA2F2EEC3EA40017683B /* ProfileRepository.swift */; };
 		2EA7DA322EEC3EBE0017683B /* BaseRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA312EEC3EBE0017683B /* BaseRepository.swift */; };
 		2EA7DA342EEC3EC60017683B /* RepositoryProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA332EEC3EC60017683B /* RepositoryProtocols.swift */; };
-		2EA7DA392EEC471F0017683B /* FeedViewModel.swift.tmp in Resources */ = {isa = PBXBuildFile; fileRef = 2EA7DA362EEC471F0017683B /* FeedViewModel.swift.tmp */; };
 		2EA7DA3A2EEC471F0017683B /* FeedViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA352EEC471F0017683B /* FeedViewModel.swift */; };
 		2EA7DA3B2EEC471F0017683B /* ViewModelProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA372EEC471F0017683B /* ViewModelProtocol.swift */; };
 		2EA7DA3D2EEC49860017683B /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EA7DA3C2EEC49860017683B /* ProfileViewModel.swift */; };
@@ -662,7 +661,6 @@
 		2EA7DA312EEC3EBE0017683B /* BaseRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseRepository.swift; sourceTree = "<group>"; };
 		2EA7DA332EEC3EC60017683B /* RepositoryProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RepositoryProtocols.swift; sourceTree = "<group>"; };
 		2EA7DA352EEC471F0017683B /* FeedViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewModel.swift; sourceTree = "<group>"; };
-		2EA7DA362EEC471F0017683B /* FeedViewModel.swift.tmp */ = {isa = PBXFileReference; lastKnownFileType = text; path = FeedViewModel.swift.tmp; sourceTree = "<group>"; };
 		2EA7DA372EEC471F0017683B /* ViewModelProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModelProtocol.swift; sourceTree = "<group>"; };
 		2EA7DA3C2EEC49860017683B /* ProfileViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileViewModel.swift; sourceTree = "<group>"; };
 		2EA7DA3E2EEC4B070017683B /* PostCreationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostCreationViewModel.swift; sourceTree = "<group>"; };
@@ -1820,7 +1818,6 @@
 				2EA7DA3E2EEC4B070017683B /* PostCreationViewModel.swift */,
 				2EA7DA3C2EEC49860017683B /* ProfileViewModel.swift */,
 				2EA7DA352EEC471F0017683B /* FeedViewModel.swift */,
-				2EA7DA362EEC471F0017683B /* FeedViewModel.swift.tmp */,
 				2EA7DA372EEC471F0017683B /* ViewModelProtocol.swift */,
 			);
 			path = ViewModels;
@@ -2537,7 +2534,6 @@
 				2E510B8A2E9AEEA60089EE2C /* muscles_index.json in Resources */,
 				2E7461D82E9439F100A71C35 /* exercise_tags.json in Resources */,
 				2E510B882E9AE2F00089EE2C /* muscle_id_map.json in Resources */,
-				2EA7DA392EEC471F0017683B /* FeedViewModel.swift.tmp in Resources */,
 				2E510B7E2E9987CE0089EE2C /* torso.svg in Resources */,
 				2E510B7F2E9987CE0089EE2C /* torso_back.svg in Resources */,
 				93161F3B853C46B89E5B8058 /* PrivacyInfo.xcprivacy in Resources */,
