@@ -265,7 +265,7 @@ struct ChallengeBattleIconDesignTests {
         #expect(rewardSummarySource.contains("rewardKind: ChallengeRewardPreviewKind(challenge: challenge)"))
         #expect(winChallengeCardSource.contains("rewardPreview"))
         #expect(winChallengeCardSource.contains("BarSkinPreviewTile"))
-        #expect(winChallengeCardSource.contains("PlateFaceView"))
+        #expect(winChallengeCardSource.contains("CachedPlateThumbnail"))
         #expect(!winChallengeCardSource.contains("Image(systemName: \"flag.checkered\")"))
     }
 

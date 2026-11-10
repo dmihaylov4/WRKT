@@ -56,13 +56,14 @@ class WRKTTestCase: XCTestCase {
 
     // MARK: - Date Helpers
 
-    /// Create date from components for consistent testing
+    /// Match the calendar used by the feature; pass a fixed calendar when testing UTC.
     func makeDate(
         year: Int,
         month: Int,
         day: Int,
         hour: Int = 12,
-        minute: Int = 0
+        minute: Int = 0,
+        calendar: Calendar = .current
     ) -> Date {
         var components = DateComponents()
         components.year = year
@@ -70,9 +71,9 @@ class WRKTTestCase: XCTestCase {
         components.day = day
         components.hour = hour
         components.minute = minute
-        components.timeZone = TimeZone(identifier: "UTC")
+        components.timeZone = calendar.timeZone
 
-        return Calendar.current.date(from: components)!
+        return calendar.date(from: components)!
     }
 
     /// Assert dates are equal within tolerance

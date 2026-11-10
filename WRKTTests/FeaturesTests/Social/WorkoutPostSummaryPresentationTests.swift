@@ -2,6 +2,19 @@ import XCTest
 @testable import WRKT
 
 final class WorkoutPostSummaryPresentationTests: WRKTTestCase {
+    private var originalWeightUnit: Any?
+
+    override func setUp() {
+        super.setUp()
+        originalWeightUnit = UserDefaults.standard.object(forKey: "weight_unit")
+        UserDefaults.standard.set("kg", forKey: "weight_unit")
+    }
+
+    override func tearDown() {
+        UserDefaults.standard.set(originalWeightUnit, forKey: "weight_unit")
+        super.tearDown()
+    }
+
     func testSingleStrengthSummaryUsesExistingWorkoutData() {
         let workout = makeStrengthWorkout(
             name: "Pull",
@@ -19,7 +32,7 @@ final class WorkoutPostSummaryPresentationTests: WRKTTestCase {
         XCTAssertEqual(summary.title, "Strength Session")
         XCTAssertEqual(summary.badge, nil)
         XCTAssertEqual(summary.stats.map(\.label), ["Volume", "Exercises", "Sets", "Duration"])
-        XCTAssertEqual(summary.stats.map(\.value), ["1.5k", "2", "5", "48m"])
+        XCTAssertEqual(summary.stats.map(\.value), ["1.5K", "2", "5", "48m"])
         XCTAssertEqual(summary.stats.map(\.unit), ["KG", "EX", "TOTAL", "TIME"])
         XCTAssertEqual(summary.biometrics, ["116 BPM", "274 kcal"])
         XCTAssertEqual(summary.previewLine, "Barbell Romanian Deadlift, Bench Press")
@@ -46,7 +59,7 @@ final class WorkoutPostSummaryPresentationTests: WRKTTestCase {
 
         XCTAssertEqual(summary.title, "Strength Session")
         XCTAssertEqual(summary.badge, "2 workouts")
-        XCTAssertEqual(summary.stats.map(\.value), ["2.5k", "2", "6", "48m"])
+        XCTAssertEqual(summary.stats.map(\.value), ["2.5K", "2", "6", "48m"])
         XCTAssertEqual(summary.biometrics, ["116 BPM", "274 kcal"])
         XCTAssertEqual(summary.previewLine, "Romanian Deadlift, Bench Press")
     }
