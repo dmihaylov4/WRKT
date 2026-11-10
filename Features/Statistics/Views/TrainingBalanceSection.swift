@@ -59,37 +59,10 @@ struct TrainingBalanceSection: View {
         _muscleFreq = Query(sort: \MuscleGroupFrequency.lastTrained, order: .reverse)
     }
 
-    private var fourWeekRatioImbalanced: Bool {
-        let recent = pushPull.suffix(4)
-        let totalPush = recent.reduce(0.0) { $0 + $1.pushVolume }
-        let totalPull = recent.reduce(0.0) { $0 + $1.pullVolume }
-        guard totalPush > 0 || totalPull > 0 else { return false }
-        let ratio = totalPush > 0 ? totalPull / totalPush : 999.0
-        return ratio > 2.0 || ratio < 0.8
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Premium section header
             HStack(alignment: .center, spacing: 12) {
-                // Icon with gradient background + caution ring when push:pull is imbalanced
-                ZStack {
-                    LinearGradient(
-                        colors: [DS.Theme.accent.opacity(0.3), DS.Theme.accent.opacity(0.15)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                    ProfileSectionIcon(kind: .trainingBalance)
-                }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(DS.Semantic.accentWarm, lineWidth: 1.5)
-                        .opacity(fourWeekRatioImbalanced ? 1 : 0)
-                )
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Training Balance")
                         .dsFont(.title3, weight: .bold)
@@ -226,7 +199,7 @@ private struct PushPullBalanceCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Label("Push/Pull Balance", systemImage: "arrow.left.arrow.right")
+                        Text("Push/Pull Balance")
                             .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.white.opacity(0.9))
                         InfoButton(

@@ -53,71 +53,124 @@ struct ProfileSectionIcon: View {
 private struct TrainingTrendsIcon: View {
     var body: some View {
         ZStack {
-            HStack(alignment: .bottom, spacing: 3) {
-                Capsule()
-                    .frame(width: 3, height: 7)
-                Capsule()
-                    .frame(width: 3, height: 11)
-                Capsule()
-                    .frame(width: 3, height: 16)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-            .padding(.leading, 3)
-            .padding(.bottom, 3)
-            .opacity(0.75)
+            AngularTrendBarsGlyph()
+                .opacity(0.65)
 
-            Path { path in
-                path.move(to: CGPoint(x: 5, y: 16))
-                path.addLine(to: CGPoint(x: 10, y: 11))
-                path.addLine(to: CGPoint(x: 14, y: 13))
-                path.addLine(to: CGPoint(x: 20, y: 6))
-            }
-            .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
-
-            Circle()
-                .frame(width: 3.5, height: 3.5)
-                .position(x: 20, y: 6)
+            AngularTrendGlyph()
+                .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
         }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+private struct AngularTrendBarsGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+
+        addBar(to: &path, rect: rect, x: 0.12, width: 0.14, top: 0.58, bottom: 0.88)
+        addBar(to: &path, rect: rect, x: 0.35, width: 0.14, top: 0.45, bottom: 0.88)
+        addBar(to: &path, rect: rect, x: 0.58, width: 0.14, top: 0.30, bottom: 0.88)
+
+        return path
+    }
+
+    private func addBar(to path: inout Path, rect: CGRect, x: CGFloat, width: CGFloat, top: CGFloat, bottom: CGFloat) {
+        let minX = rect.minX + rect.width * x
+        let maxX = minX + rect.width * width
+        let topY = rect.minY + rect.height * top
+        let bottomY = rect.minY + rect.height * bottom
+        let cut = rect.width * 0.04
+
+        path.move(to: CGPoint(x: minX, y: bottomY))
+        path.addLine(to: CGPoint(x: minX, y: topY + cut))
+        path.addLine(to: CGPoint(x: minX + cut, y: topY))
+        path.addLine(to: CGPoint(x: maxX, y: topY))
+        path.addLine(to: CGPoint(x: maxX, y: bottomY))
+        path.closeSubpath()
+    }
+}
+
+private struct AngularTrendGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+
+        var path = Path()
+        path.move(to: point(0.16, 0.70))
+        path.addLine(to: point(0.36, 0.52))
+        path.addLine(to: point(0.53, 0.58))
+        path.addLine(to: point(0.79, 0.28))
+        path.move(to: point(0.70, 0.28))
+        path.addLine(to: point(0.79, 0.28))
+        path.addLine(to: point(0.80, 0.38))
+        return path
     }
 }
 
 private struct TrainingBalanceIcon: View {
     var body: some View {
         ZStack {
-            Path { path in
-                path.move(to: CGPoint(x: 4, y: 8))
-                path.addLine(to: CGPoint(x: 20, y: 8))
-                path.move(to: CGPoint(x: 12, y: 8))
-                path.addLine(to: CGPoint(x: 12, y: 16))
-            }
-            .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            AngularBalanceGlyph()
+                .stroke(style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
 
-            Path { path in
-                path.move(to: CGPoint(x: 12, y: 15))
-                path.addLine(to: CGPoint(x: 17, y: 21))
-                path.addLine(to: CGPoint(x: 7, y: 21))
-                path.closeSubpath()
-            }
-            .fill()
-
-            HStack(spacing: 10) {
-                VStack(spacing: 2) {
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .frame(width: 5, height: 9)
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .frame(width: 7, height: 3)
-                }
-
-                VStack(spacing: 2) {
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .frame(width: 5, height: 9)
-                    RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                        .frame(width: 7, height: 3)
-                }
-            }
-            .frame(maxHeight: .infinity, alignment: .top)
-            .padding(.top, 9)
+            AngularBalanceMassGlyph()
+                .opacity(0.72)
         }
+        .aspectRatio(1, contentMode: .fit)
+    }
+}
+
+private struct AngularBalanceGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+
+        var path = Path()
+        path.move(to: point(0.18, 0.26))
+        path.addLine(to: point(0.82, 0.26))
+        path.move(to: point(0.50, 0.23))
+        path.addLine(to: point(0.50, 0.70))
+        path.move(to: point(0.32, 0.28))
+        path.addLine(to: point(0.22, 0.54))
+        path.addLine(to: point(0.42, 0.54))
+        path.addLine(to: point(0.32, 0.28))
+        path.move(to: point(0.68, 0.28))
+        path.addLine(to: point(0.58, 0.54))
+        path.addLine(to: point(0.78, 0.54))
+        path.addLine(to: point(0.68, 0.28))
+        path.move(to: point(0.34, 0.84))
+        path.addLine(to: point(0.66, 0.84))
+        return path
+    }
+}
+
+private struct AngularBalanceMassGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x, y: rect.minY + rect.height * y)
+        }
+
+        var path = Path()
+        path.move(to: point(0.23, 0.57))
+        path.addLine(to: point(0.41, 0.57))
+        path.addLine(to: point(0.36, 0.66))
+        path.addLine(to: point(0.18, 0.66))
+        path.closeSubpath()
+
+        path.move(to: point(0.59, 0.57))
+        path.addLine(to: point(0.77, 0.57))
+        path.addLine(to: point(0.82, 0.66))
+        path.addLine(to: point(0.64, 0.66))
+        path.closeSubpath()
+
+        path.move(to: point(0.50, 0.66))
+        path.addLine(to: point(0.65, 0.83))
+        path.addLine(to: point(0.35, 0.83))
+        path.closeSubpath()
+
+        return path
     }
 }
 
@@ -196,19 +249,6 @@ struct ProfileStatsView: View {
         VStack(alignment: .leading, spacing: 20) {
             // Premium section header
             HStack(alignment: .center, spacing: 12) {
-                // Icon with gradient background
-                ZStack {
-                    LinearGradient(
-                        colors: [DS.Theme.accent.opacity(0.3), DS.Theme.accent.opacity(0.15)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .frame(width: 44, height: 44)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                    ProfileSectionIcon(kind: .trainingTrends)
-                }
-
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Training Trends")
                         .dsFont(.title3, weight: .bold)
@@ -404,7 +444,7 @@ private struct VolumeWithTrendChart: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Label("Weekly Tonnage", systemImage: "chart.line.uptrend.xyaxis")
+                        Text("Weekly Tonnage")
                             .dsFont(.subheadline, weight: .semibold)
                             .foregroundStyle(.white.opacity(0.9))
                         InfoButton(
@@ -614,12 +654,7 @@ private struct TrainingTotalsGrid: View {
             }
             GridRow {
                 let hasBodyweightEst = weekly.contains { $0.containsBodyweightEstimates }
-                VStack(spacing: 2) {
-                    StatPill(title: "Volume", value: prettyVolume(t.volume))
-                    if hasBodyweightEst {
-                        DataQualityBadge(quality: .bodyweightEst)
-                    }
-                }
+                StatPill(title: "Volume", value: prettyVolume(t.volume), footnote: hasBodyweightEst ? "estimated" : nil)
                 StatPill(title: "Minutes",  value: "\(t.minutes)")
                 Spacer().gridCellUnsizedAxes([.horizontal, .vertical])
             }
@@ -648,7 +683,7 @@ private struct TopLiftsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Label("Top lifts (by volume)", systemImage: "trophy")
+                Text("Top lifts (by volume)")
                     .dsFont(.subheadline, weight: .semibold)
                     .foregroundStyle(.white.opacity(0.9))
                 InfoButton(
@@ -817,17 +852,36 @@ private struct InfoButton: View {
 private struct StatPill: View {
     let title: String
     let value: String
+    var footnote: String? = nil
+
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             Text(value)
                 .dsFont(.headline, monospacedDigits: true)
                 .foregroundStyle(.white.opacity(0.95))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
             Text(title)
                 .dsFont(.caption)
                 .foregroundStyle(.white.opacity(0.6))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            if let footnote {
+                Text(footnote)
+                    .dsFont(.caption2, weight: .medium)
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 78)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
         .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
     }
