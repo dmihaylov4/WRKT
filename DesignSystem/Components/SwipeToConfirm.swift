@@ -52,18 +52,23 @@ struct SwipeToConfirm: View {
         self.isEnabled = isEnabled
     }
 
+    func trackShape(height: CGFloat) -> DS.RoleShape<RoundedRectangle> {
+        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: height / 2, style: .continuous))
+    }
+
+    var knobShape: DS.RoleShape<Circle> { DS.RoleShape(.control, legacy: Circle()) }
+
     var body: some View {
         GeometryReader { geo in
             let width = geo.size.width
             let height = geo.size.height
             let inset: CGFloat = 6
-            let corner: CGFloat = height / 2
             let maxX = max(0, width - inset * 2 - knobSize)
             let progress = maxX > 0 ? (dragX / maxX).clamped(to: 0...1) : 0
 
             ZStack(alignment: .leading) {
                 // TRACK
-                let track = RoundedRectangle(cornerRadius: corner, style: .continuous)
+                let track = trackShape(height: height)
 
                 // Single hairline stroke to avoid double-border look
                 track
@@ -92,7 +97,7 @@ struct SwipeToConfirm: View {
                 .allowsHitTesting(false)
 
                 // KNOB
-                Circle()
+                knobShape
                     .fill(Theme.accent) // solid accent knob
                     .overlay(
                         Image(systemName: "chevron.right")

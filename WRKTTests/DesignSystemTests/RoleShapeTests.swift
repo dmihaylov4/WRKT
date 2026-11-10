@@ -106,6 +106,17 @@ struct RoleShapeTests {
               in: rect, radius: 50, legacy: Capsule().path(in: rect))
     }
 
+    @Test func swipeTrackAndKnobUseControlContours() {
+        let control = SwipeToConfirm(text: "Confirm", systemImage: "checkmark", onConfirm: {})
+        for height in [48, 64, 80] as [CGFloat] {
+            let rect = CGRect(x: 3, y: 5, width: 280, height: height)
+            check(control.trackShape(height: height), in: rect, radius: height / 2,
+                  legacy: RoundedRectangle(cornerRadius: height / 2, style: .continuous).path(in: rect))
+            let square = CGRect(x: 3, y: 5, width: height, height: height)
+            check(control.knobShape, in: square, radius: height / 2, legacy: Circle().path(in: square))
+        }
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)
