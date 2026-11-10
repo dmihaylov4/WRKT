@@ -149,6 +149,14 @@ struct RoleShapeTests {
         }
     }
 
+    @Test func skinSwatchesStayTilesInsteadOfHeuristicCapsules() {
+        for height in [40, 60] as [CGFloat] {
+            let rect = CGRect(x: 7, y: 11, width: 120, height: height)
+            check(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)), in: rect,
+                  radius: 16, legacy: MainChamferedRectangle(chamferSize: 8).path(in: rect))
+        }
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)

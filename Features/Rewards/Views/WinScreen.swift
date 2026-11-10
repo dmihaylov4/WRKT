@@ -544,8 +544,8 @@ private struct SkinRevealCard: View {
             if let skin {
                 BarSkinPreviewTile(skin: skin)
                     .frame(width: 120, height: 40)
-                    .clipShape(ChamferedRectangle(.small))
-                    .overlay(ChamferedRectangle(.small).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
+                    .clipShape(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)))
+                    .overlay(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -617,8 +617,8 @@ private struct ChallengeRewardCard: View {
             if let skin = BarSkin.skin(forCosmeticID: "volia") {
                 BarSkinPreviewTile(skin: skin)
                     .frame(width: 120, height: 40)
-                    .clipShape(ChamferedRectangle(.small))
-                    .overlay(ChamferedRectangle(.small).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
+                    .clipShape(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)))
+                    .overlay(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)).stroke(skin.rarity.color.opacity(0.35), lineWidth: 1))
             }
         case .conditioningPlate:
             CachedPlateThumbnail(
