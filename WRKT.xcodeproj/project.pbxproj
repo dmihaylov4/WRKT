@@ -55,7 +55,6 @@
 		2E2F538D2E9D670700C81656 /* StreakResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F538C2E9D670700C81656 /* StreakResult.swift */; };
 		2E2F538F2E9D675F00C81656 /* WinScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F538E2E9D675D00C81656 /* WinScreen.swift */; };
 		2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 2E2F53902E9E223400C81656 /* rewards_rules_v1.json */; };
-		2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */; };
 		2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53962E9E4FF000C81656 /* ProfileView.swift */; };
 		2E2F53992E9E578B00C81656 /* RewardSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F53982E9E578B00C81656 /* RewardSummary.swift */; };
 		2E2F539B2E9E582F00C81656 /* WinScreenCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */; };
@@ -218,7 +217,6 @@
 		2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00122FA0000000000001 /* BarbellRealityView.swift */; };
 		2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00142FA0000000000001 /* PlateFaceView.swift */; };
 		2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00162FA0000000000001 /* PlateVisualDesign.swift */; };
-		2EBB001A2FA0000000000001 /* PlateInfoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00192FA0000000000001 /* PlateInfoCardView.swift */; };
 		2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */; };
 		2EBB001E2FA0000000000001 /* CachedPlateThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB001D2FA0000000000001 /* CachedPlateThumbnail.swift */; };
 		2EBC10002FA2000000000001 /* BarSkinPreviewTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */; };
@@ -334,7 +332,6 @@
 		2EC99E802EAA2794006B875E /* SetRowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E772EAA2794006B875E /* SetRowViews.swift */; };
 		2EC99E822EABF313006B875E /* WeightSuggestionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */; };
 		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
-		2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00032FC000000000001 /* BattleResultOverlay.swift */; };
 		2ECA00062FC000000000001 /* BattlePostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00052FC000000000001 /* BattlePostCard.swift */; };
 		2ECC7B892F7BF973009119BF /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */; };
 		2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */; };
@@ -532,7 +529,6 @@
 		2E2F538C2E9D670700C81656 /* StreakResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreakResult.swift; sourceTree = "<group>"; };
 		2E2F538E2E9D675D00C81656 /* WinScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreen.swift; sourceTree = "<group>"; };
 		2E2F53902E9E223400C81656 /* rewards_rules_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = rewards_rules_v1.json; sourceTree = "<group>"; };
-		2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardsHubView.swift; sourceTree = "<group>"; };
 		2E2F53962E9E4FF000C81656 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2E2F53982E9E578B00C81656 /* RewardSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardSummary.swift; sourceTree = "<group>"; };
 		2E2F539A2E9E582F00C81656 /* WinScreenCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinScreenCoordinator.swift; sourceTree = "<group>"; };
@@ -696,7 +692,6 @@
 		2EBB00122FA0000000000001 /* BarbellRealityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellRealityView.swift; sourceTree = "<group>"; };
 		2EBB00142FA0000000000001 /* PlateFaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateFaceView.swift; sourceTree = "<group>"; };
 		2EBB00162FA0000000000001 /* PlateVisualDesign.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateVisualDesign.swift; sourceTree = "<group>"; };
-		2EBB00192FA0000000000001 /* PlateInfoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateInfoCardView.swift; sourceTree = "<group>"; };
 		2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateSnapshotService.swift; sourceTree = "<group>"; };
 		2EBB001D2FA0000000000001 /* CachedPlateThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedPlateThumbnail.swift; sourceTree = "<group>"; };
 		2EBC10012FA2000000000001 /* BarSkinPreviewTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarSkinPreviewTile.swift; sourceTree = "<group>"; };
@@ -814,7 +809,6 @@
 		2EC99E772EAA2794006B875E /* SetRowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetRowViews.swift; sourceTree = "<group>"; };
 		2EC99E812EABF313006B875E /* WeightSuggestionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightSuggestionHelper.swift; sourceTree = "<group>"; };
 		2ECA00012FC000000000001 /* BattlePostStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostStats.swift; sourceTree = "<group>"; };
-		2ECA00032FC000000000001 /* BattleResultOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattleResultOverlay.swift; sourceTree = "<group>"; };
 		2ECA00052FC000000000001 /* BattlePostCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BattlePostCard.swift; sourceTree = "<group>"; };
 		2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellPreviewView.swift; sourceTree = "<group>"; };
 		2ECC7D022F7C21C3009119BF /* CastIron_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Color.jpg; sourceTree = "<group>"; };
@@ -1532,7 +1526,6 @@
 			isa = PBXGroup;
 			children = (
 				2E5F4E6A2FC08ABC0036CE23 /* SpinningPlateView.swift */,
-				2E2F53932E9E4F6000C81656 /* RewardsHubView.swift */,
 				2E57AA002F5A000000000001 /* StreakRecoverySheet.swift */,
 				2E2F538E2E9D675D00C81656 /* WinScreen.swift */,
 				2E2F53982E9E578B00C81656 /* RewardSummary.swift */,
@@ -1544,7 +1537,6 @@
 				2EBB00122FA0000000000001 /* BarbellRealityView.swift */,
 				2EBB00142FA0000000000001 /* PlateFaceView.swift */,
 				2EBB001D2FA0000000000001 /* CachedPlateThumbnail.swift */,
-				2EBB00192FA0000000000001 /* PlateInfoCardView.swift */,
 				ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */,
 			);
 			path = Views;
@@ -1886,7 +1878,6 @@
 				2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */,
 				2EA7DABC2EEDCFA30017683B /* BattleDetailView.swift */,
 				2EA7DABD2EEDCFA30017683B /* BattlesListView.swift */,
-				2ECA00032FC000000000001 /* BattleResultOverlay.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -2804,7 +2795,6 @@
 				A33727316DE84470A3F70F70 /* WeightUnit+Formatting.swift in Sources */,
 				2EE39C6B2EA67691000549C3 /* SpotlightOverlay.swift in Sources */,
 				2EA7D9BB2EEB0E960017683B /* ImageCacheService.swift in Sources */,
-				2E2F53942E9E4F6000C81656 /* RewardsHubView.swift in Sources */,
 				2E57AA012F5A000000000001 /* StreakRecoverySheet.swift in Sources */,
 				2E29392E2ECA38730057F60C /* WorkoutToast.swift in Sources */,
 				2E2F53A32E9E764700C81656 /* AchievementsDexView.swift in Sources */,
@@ -2821,7 +2811,6 @@
 				2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */,
 				2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */,
 				2EBB00172FA0000000000001 /* PlateVisualDesign.swift in Sources */,
-				2EBB001A2FA0000000000001 /* PlateInfoCardView.swift in Sources */,
 				2EFFC0012FB0000000000001 /* Components/PlateCollectionCell.swift in Sources */,
 				2E05A72C2FBC955000A62E2E /* ProgressShareCoordinator.swift in Sources */,
 				AA20261000CC000000000001 /* LegacyStoreSchema.swift in Sources */,
@@ -2867,7 +2856,6 @@
 				2E196F312EAE682900EB4780 /* ExerciseSessionViewModel.swift in Sources */,
 				2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */,
 				2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */,
-				2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */,
 				2ECA00062FC000000000001 /* BattlePostCard.swift in Sources */,
 				2EBE3FA12EB895D800A26355 /* SearchBarComponent.swift in Sources */,
 				2EBE3FAF2EB8B46100A26355 /* HealthKitWorkoutCategory.swift in Sources */,
