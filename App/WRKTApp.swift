@@ -9,38 +9,21 @@ import OSLog
 
 @main
 struct WRKTApp: App {
-    // Connect AppDelegate for push notification handling
+    static let storage = AppDataStore()
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-
-    // Create exactly once, with fallback handling
-    private let container: ModelContainer
-    private let containerError: Error?
-    private let isCriticalError: Bool
-    @State private var showStorageError = false
-    @State private var showCriticalError = false
+    @StateObject private var dataStore = WRKTApp.storage
 
     init() {
-        let result = Self.makeContainer()
-        self.container = result.container
-        self.containerError = result.error
-        self.isCriticalError = result.isCritical
-
-        // Show appropriate error alert based on severity
-        if result.isCritical {
-            _showCriticalError = State(initialValue: true)
-        } else if result.error != nil {
-            _showStorageError = State(initialValue: true)
-        }
-
         // Configure navigation and tab bar appearances for accessibility
         configureUIKitAppearances()
 
         // Register background tasks BEFORE app finishes launching (required by iOS)
         registerBackgroundTasks()
+    }
 
-        // Preload MuscleIndex synchronously during app init to avoid first-render lag
-        // This triggers the expensive SVG parsing during app launch (split-screen splash)
-        // instead of blocking the UI when user first opens exercise info
+    @MainActor
+    private func prepareServices() async {
+        // Prepare optional services only after the user database opens successfully.
         let startTime = CFAbsoluteTimeGetCurrent()
         _ = MuscleIndex.shared  // Force initialization synchronously
         let elapsed = CFAbsoluteTimeGetCurrent() - startTime
@@ -55,20 +38,18 @@ struct WRKTApp: App {
         AppLogger.success("Google Sign-In configured", category: AppLogger.app)
 
         // Set up notification delegate to handle notification interactions
-        Task { @MainActor in
-            let center = UNUserNotificationCenter.current()
-            center.delegate = NotificationManager.shared
-            AppLogger.success("Notification delegate configured", category: AppLogger.app)
+        let center = UNUserNotificationCenter.current()
+        center.delegate = NotificationManager.shared
+        AppLogger.success("Notification delegate configured", category: AppLogger.app)
 
-            // Setup smart nudge notification categories
-            await SmartNudgeManager.shared.setupNotificationCategories()
+        // Setup smart nudge notification categories
+        await SmartNudgeManager.shared.setupNotificationCategories()
 
-            // Reset daily nudge counters on app launch
-            SmartNudgeManager.shared.resetDailyCounts()
+        // Reset daily nudge counters on app launch
+        SmartNudgeManager.shared.resetDailyCounts()
 
-            // Register for push notifications
-            await PushNotificationService.shared.registerForPushNotifications()
-        }
+        // Register for push notifications
+        await PushNotificationService.shared.registerForPushNotifications()
     }
 
     private func registerBackgroundTasks() {
@@ -174,25 +155,20 @@ struct WRKTApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AppShellView()
-                .modelContainer(container)   // <- reuse the same instance
-                .preferredColorScheme(.dark)  // Force dark mode throughout the app
-                .onOpenURL { url in
-                    handleURL(url)
+            Group {
+                if let container = dataStore.container {
+                    WorkoutDataGate(recoveryCopy: dataStore.recoveryCopy)
+                        .modelContainer(container)
+                        .task { await prepareServices() }
+                } else {
+                    StorageRecoveryView(recoveryCopy: dataStore.recoveryCopy, retry: dataStore.retry)
                 }
-                .alert("Storage Warning", isPresented: $showStorageError) {
-                    Button("OK", role: .cancel) { }
-                } message: {
-                    Text("App data storage encountered an issue and is running in temporary mode. Your data may not be saved permanently. Error: \(containerError?.localizedDescription ?? "Unknown error")")
-                }
-                .alert("Critical Storage Error", isPresented: $showCriticalError) {
-                    Button("Continue", role: .cancel) {
-                        // User acknowledges risk and continues with limited functionality
-                        AppLogger.warning("User chose to continue despite critical storage error", category: AppLogger.storage)
-                    }
-                } message: {
-                    Text("Unable to initialize data storage. The app is running in limited mode and data may not be saved.\n\nPlease try:\n• Force closing and reopening the app\n• Restarting your device\n• Reinstalling the app if issue persists\n\nError: \(containerError?.localizedDescription ?? "Unknown error")")
-                }
+            }
+            .preferredColorScheme(.dark)
+            .onOpenURL { url in
+                guard dataStore.container != nil else { return }
+                handleURL(url)
+            }
         }
     }
 
@@ -236,84 +212,4 @@ struct WRKTApp: App {
         await authService.handleEmailConfirmation(url: url)
     }
 
-    static func makeContainer() -> (container: ModelContainer, error: Error?, isCritical: Bool) {
-        // Create schema with all models
-        let schema = Schema([
-            RewardProgress.self, Achievement.self, ChallengeAssignment.self, RewardLedgerEntry.self,
-            Wallet.self, ExercisePR.self, DexStamp.self, WeeklyTrainingSummary.self, DailyAppleExerciseSummary.self, ExerciseVolumeSummary.self,
-            MovingAverage.self, ExerciseProgressionSummary.self, ExerciseTrend.self, PushPullBalance.self,
-            MuscleGroupFrequency.self, MovementPatternBalance.self, WeeklyGoal.self,
-            HealthSyncAnchor.self, RouteFetchTask.self, MapSnapshotCache.self,
-            PlannedWorkout.self, PlannedExercise.self, WorkoutSplit.self, PlanBlock.self, PlanBlockExercise.self,
-            EarnedPlate.self, BarbellPlateEvent.self, BarbellConfig.self, BarbellCosmeticUnlock.self, BarbellProcessedHKWorkout.self  // barbell gamification
-        ])
-
-        // Attempt to create persistent container with file protection
-        let persistentConfig = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false,
-            allowsSave: true,
-            groupContainer: .none,
-            cloudKitDatabase: .none
-        )
-
-        do {
-            let container = try ModelContainer(for: schema, configurations: persistentConfig)
-            AppLogger.success("ModelContainer initialized successfully (persistent storage)", category: AppLogger.storage)
-            return (container, nil, false)
-        } catch {
-            // Log the error for debugging
-            AppLogger.error("Failed to create persistent ModelContainer", error: error, category: AppLogger.storage)
-
-            // Fallback to in-memory container so app can continue
-            let inMemoryConfig = ModelConfiguration(
-                schema: schema,
-                isStoredInMemoryOnly: true,
-                allowsSave: false,
-                groupContainer: .none,
-                cloudKitDatabase: .none
-            )
-
-            do {
-                let fallbackContainer = try ModelContainer(for: schema, configurations: inMemoryConfig)
-                AppLogger.success("Fallback to in-memory ModelContainer successful", category: AppLogger.storage)
-                return (fallbackContainer, error, false)
-            } catch let fallbackError {
-                // If even in-memory fails, try one last time with an empty schema as absolute fallback
-                AppLogger.critical("Both persistent and in-memory container creation failed. Attempting emergency fallback with empty schema.", category: AppLogger.storage)
-
-                let emptySchema = Schema([])
-                let emergencyConfig = ModelConfiguration(
-                    schema: emptySchema,
-                    isStoredInMemoryOnly: true,
-                    allowsSave: false,
-                    groupContainer: .none,
-                    cloudKitDatabase: .none
-                )
-
-                do {
-                    let emergencyContainer = try ModelContainer(for: emptySchema, configurations: emergencyConfig)
-                    AppLogger.warning("Emergency fallback container created with empty schema. App will not function normally.", category: AppLogger.storage)
-                    // Return with critical error flag set
-                    return (emergencyContainer, fallbackError, true)
-                } catch let emergencyError {
-                    // This should theoretically never happen, but if it does, we have no choice
-                    AppLogger.critical("Complete failure: All container creation attempts failed. Persistent: \(error.localizedDescription), In-memory: \(fallbackError.localizedDescription), Emergency: \(emergencyError.localizedDescription)", category: AppLogger.storage)
-
-                    // Last resort: create the absolute simplest container with default configuration
-                    // This allows the app to show the error UI instead of crashing immediately
-                    do {
-                        let minimalContainer = try ModelContainer(for: emptySchema)
-                        AppLogger.critical("All storage mechanisms failed, running in minimal emergency mode", category: AppLogger.storage)
-                        return (minimalContainer, fallbackError, true)
-                    } catch {
-                        AppLogger.critical("Complete storage failure - app cannot initialize storage", category: AppLogger.storage)
-                        // If even this fails, we must crash, but we've logged everything for debugging
-                        // Using preconditionFailure instead of fatalError to allow debugging in debug builds
-                        preconditionFailure("Unable to initialize any ModelContainer. This indicates a serious system-level issue. Please reinstall the app. Errors - Persistent: \(error), In-memory: \(fallbackError), Emergency: \(emergencyError)")
-                    }
-                }
-            }
-        }
-    }
 }

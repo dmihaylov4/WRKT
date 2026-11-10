@@ -13,7 +13,7 @@ import PhotosUI
 @Observable
 final class ProfileViewModel {
     var profile: UserProfile
-    var posts: [WorkoutPost] = []
+    var posts: [PostWithAuthor] = []
     var isLoadingPosts = false
     var isUploadingAvatar = false
     var selectedPhoto: PhotosPickerItem?
@@ -90,7 +90,7 @@ final class ProfileViewModel {
         error = nil
 
         do {
-            posts = try await postRepository.fetchUserPosts(userId: profile.id)
+            posts = try await postRepository.fetchProfilePosts(userId: profile.id)
             isLoadingPosts = false
         } catch {
             self.error = error.localizedDescription

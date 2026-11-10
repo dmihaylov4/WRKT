@@ -9,6 +9,7 @@ enum NotificationType: String, Codable, Sendable {
     case postComment = "post_comment"
     case commentReply = "comment_reply"
     case commentMention = "comment_mention"
+    case postParticipantTag = "post_participant_tag"
 
     // Battle notifications
     case battleInvite = "battle_invite"
@@ -49,6 +50,7 @@ enum NotificationType: String, Codable, Sendable {
         case .postComment: return "bubble.left.fill"
         case .commentReply: return "arrowshape.turn.up.left.fill"
         case .commentMention: return "at"
+        case .postParticipantTag: return "person.2.fill"
 
         // Battle
         case .battleInvite: return "flag.2.crossed.fill"
@@ -91,6 +93,7 @@ enum NotificationType: String, Codable, Sendable {
         case .postComment: return "purple"
         case .commentReply: return "orange"
         case .commentMention: return "pink"
+        case .postParticipantTag: return "blue"
 
         // Battle
         case .battleInvite: return "orange"
@@ -128,7 +131,7 @@ enum NotificationType: String, Codable, Sendable {
         switch self {
         case .friendRequest, .friendAccepted:
             return .social
-        case .postLike, .postComment, .commentReply, .commentMention:
+        case .postLike, .postComment, .commentReply, .commentMention, .postParticipantTag:
             return .engagement
         case .battleInvite, .battleAccepted, .battleDeclined, .battleLeadTaken, .battleLeadLost,
              .battleOpponentActivity, .battleEndingSoon, .battleCompleted, .battleVictory, .battleDefeat:
@@ -230,6 +233,8 @@ struct NotificationWithActor: Identifiable, Sendable {
             return "\(actorName) replied to your comment"
         case .commentMention:
             return "\(actorName) mentioned you in a comment"
+        case .postParticipantTag:
+            return "\(actorName) tagged you in a shared workout"
 
         // Battle
         case .battleInvite:

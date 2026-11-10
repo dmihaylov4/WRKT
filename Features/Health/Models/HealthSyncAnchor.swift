@@ -30,13 +30,25 @@ final class HealthSyncAnchor {
         return try? NSKeyedUnarchiver.unarchivedObject(ofClass: HKQueryAnchor.self, from: data)
     }
 
-    // Update with new anchor
-    func updateAnchor(_ newAnchor: HKQueryAnchor?) {
-        if let newAnchor {
-            self.anchorData = try? NSKeyedArchiver.archivedData(withRootObject: newAnchor, requiringSecureCoding: true)
+    /// Advance only after the imported data is durable. Keep the old in-memory
+    /// anchor too if SwiftData rejects the commit, so the next attempt replays safely.
+    func commit(_ newAnchor: HKQueryAnchor?, in context: ModelContext,
+                after persistData: () async throws -> Void) async throws {
+        try await persistData()
+        try Task.checkCancellation()
+        let encoded = try newAnchor.map {
+            try NSKeyedArchiver.archivedData(withRootObject: $0, requiringSecureCoding: true)
         }
-        self.lastSyncDate = .now
-        self.syncCount += 1
+        let previous = (anchorData, lastSyncDate, syncCount)
+        if let encoded { anchorData = encoded }
+        lastSyncDate = .now
+        syncCount += 1
+        do {
+            try context.save()
+        } catch {
+            (anchorData, lastSyncDate, syncCount) = previous
+            throw error
+        }
     }
 }
 

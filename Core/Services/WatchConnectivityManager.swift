@@ -596,7 +596,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                         duration: duration,
                         exerciseID: entry.exerciseID,
                         exerciseName: entry.exerciseName,
-                        isManualStart: false  // This is like logging a set, so it appears on the set row
+                        isManualStart: false,
+                        workoutID: workoutStore?.currentWorkout?.id,
+                        entryID: entry.id
                     )
                 }
             }
@@ -686,7 +688,9 @@ class WatchConnectivityManager: NSObject, ObservableObject {
                         duration: duration,
                         exerciseID: entry.exerciseID,
                         exerciseName: entry.exerciseName,
-                        isManualStart: false  // This is like logging a set, not manually starting timer
+                        isManualStart: false,
+                        workoutID: workoutStore?.currentWorkout?.id,
+                        entryID: entry.id
                     )
                 }
             } else {
@@ -996,10 +1000,11 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         }
 
         // Defer summary — wait for partner to finish so we get final stats from server
-        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
+        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId, let partnerUserId = activeVirtualRunPartnerId {
             VirtualRunSummaryCoordinator.shared.awaitPartner(
                 runId: runId,
                 currentUserId: userId,
+                partnerUserId: partnerUserId,
                 partnerName: activeVirtualRunPartnerName ?? "Partner",
                 myDistance: finalDistance,
                 myDuration: finalDuration,

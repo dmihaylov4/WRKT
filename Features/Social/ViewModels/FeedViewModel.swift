@@ -62,13 +62,9 @@ final class FeedViewModel {
                   let index = self.posts.firstIndex(where: { $0.post.id == postId }) else { return }
             var updatedWorkoutPost = self.posts[index].post
             updatedWorkoutPost.commentsCount = count
-            let existing = self.posts[index]
-            self.posts[index] = PostWithAuthor(
-                id: existing.id,
-                post: updatedWorkoutPost,
-                author: existing.author,
-                isLikedByCurrentUser: existing.isLikedByCurrentUser
-            )
+            var updated = self.posts[index]
+            updated.post = updatedWorkoutPost
+            self.posts[index] = updated
         }
     }
 
@@ -214,12 +210,8 @@ final class FeedViewModel {
             updatedWorkoutPost.likesCount = newLikesCount
 
             var updatedPost = currentPost
-            updatedPost = PostWithAuthor(
-                id: currentPost.id,
-                post: updatedWorkoutPost,
-                author: currentPost.author,
-                isLikedByCurrentUser: !currentPost.isLikedByCurrentUser
-            )
+            updatedPost.post = updatedWorkoutPost
+            updatedPost.isLikedByCurrentUser = !currentPost.isLikedByCurrentUser
 
             posts[index] = updatedPost
 
@@ -244,12 +236,10 @@ final class FeedViewModel {
                 var revertedWorkoutPost = revertedPost.post
                 revertedWorkoutPost.likesCount = revertedLikesCount
 
-                posts[index] = PostWithAuthor(
-                    id: revertedPost.id,
-                    post: revertedWorkoutPost,
-                    author: revertedPost.author,
-                    isLikedByCurrentUser: !revertedPost.isLikedByCurrentUser
-                )
+                var updated = revertedPost
+                updated.post = revertedWorkoutPost
+                updated.isLikedByCurrentUser = !revertedPost.isLikedByCurrentUser
+                posts[index] = updated
 
                 self.error = UserFriendlyError(
                     title: "Like Failed",
@@ -307,6 +297,34 @@ final class FeedViewModel {
         }
     }
 
+    func removeMeFromSharedPost(_ post: PostWithAuthor) async {
+        guard let currentUserId = authService.currentUser?.id else { return }
+        guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+
+        let previous = posts[index]
+        var updated = previous
+        updated.partners = updated.partners.filter { $0.userId != currentUserId }
+        posts[index] = updated
+
+        do {
+            try await postRepository.removeParticipant(postId: post.post.id)
+            Haptics.success()
+            WorkoutToastManager.shared.show(message: "Removed from post")
+        } catch {
+            if let restoreIndex = posts.firstIndex(where: { $0.id == post.id }) {
+                posts[restoreIndex] = previous
+            }
+            self.error = UserFriendlyError(
+                title: "Update Failed",
+                message: "Failed to remove you from this post",
+                suggestion: "Try again",
+                isRetryable: true,
+                originalError: error
+            )
+            Haptics.error()
+        }
+    }
+
     /// Restore deleted post (undo operation)
     private func undoDeletePost(_ postId: UUID) {
         guard let pendingDeletion = pendingDeletions.removeValue(forKey: postId) else { return }
@@ -343,12 +361,9 @@ final class FeedViewModel {
                 updatedWorkoutPost.visibility = visibilityValue
                 updatedWorkoutPost.updatedAt = Date()
 
-                posts[index] = PostWithAuthor(
-                    id: posts[index].id,
-                    post: updatedWorkoutPost,
-                    author: posts[index].author,
-                    isLikedByCurrentUser: posts[index].isLikedByCurrentUser
-                )
+                var updated = posts[index]
+                updated.post = updatedWorkoutPost
+                posts[index] = updated
             }
 
             Haptics.success()
@@ -426,12 +441,9 @@ final class FeedViewModel {
             updatedWorkoutPost.images = allImages
             updatedWorkoutPost.updatedAt = Date()
 
-            posts[index] = PostWithAuthor(
-                id: posts[index].id,
-                post: updatedWorkoutPost,
-                author: posts[index].author,
-                isLikedByCurrentUser: posts[index].isLikedByCurrentUser
-            )
+            var updated = posts[index]
+            updated.post = updatedWorkoutPost
+            posts[index] = updated
         }
 
         return true

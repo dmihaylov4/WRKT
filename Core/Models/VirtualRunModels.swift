@@ -110,6 +110,7 @@ struct RunSummary: Codable, Sendable {
 
 struct VirtualRunCompletionData {
     let runId: UUID
+    let partnerUserId: UUID
     let partnerName: String
 
     // My stats (from Watch payload)
@@ -123,6 +124,22 @@ struct VirtualRunCompletionData {
     let partnerDurationS: Int
     let partnerPaceSecPerKm: Int?
     let partnerAvgHR: Int?
+}
+
+extension VirtualRunCompletionData {
+    func makeCreatorWorkout() -> CompletedWorkout {
+        var workout = CompletedWorkout(
+            date: Date(),
+            startedAt: Date().addingTimeInterval(-TimeInterval(myDurationS)),
+            entries: [],
+            workoutName: "Virtual Run"
+        )
+        workout.matchedHealthKitDistance = myDistanceM
+        workout.matchedHealthKitDuration = myDurationS
+        workout.matchedHealthKitHeartRate = myAvgHR.map(Double.init)
+        workout.cardioWorkoutType = "Running"
+        return workout
+    }
 }
 
 // MARK: - Errors

@@ -186,7 +186,7 @@ struct SocialView: View {
         case .friendRequest, .friendAccepted:
             navigationPath.append(notification.actorId)
 
-        case .postLike, .postComment, .commentReply, .commentMention:
+        case .postLike, .postComment, .commentReply, .commentMention, .postParticipantTag:
             // Navigate to the specific post
             if let postId = notification.targetId {
                 navigationPath.append(PostDestination(postId: postId))

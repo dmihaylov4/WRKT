@@ -46,6 +46,7 @@ struct AppShellView: View {
 
     // Observed object to ensure state changes are detected
     @ObservedObject private var store: WorkoutStoreV2 = AppDependencies.shared.workoutStore
+    @ObservedObject private var restTimer = RestTimerManager.shared
     @ObservedObject private var authService: SupabaseAuthService = AppDependencies.shared.authService
 
     // Badge manager for social notifications
@@ -120,6 +121,14 @@ struct AppShellView: View {
         .background(DS.Semantic.surface.ignoresSafeArea())
         .font(DS.FontType.body)
         .withDependencies(dependencies)
+        .alert("Rest Timer Unavailable", isPresented: Binding(
+            get: { restTimer.persistenceError != nil },
+            set: { if !$0 { restTimer.dismissPersistenceError() } }
+        )) {
+            Button("OK", role: .cancel) { restTimer.dismissPersistenceError() }
+        } message: {
+            Text(restTimer.persistenceError ?? "")
+        }
         .onReceive(NotificationCenter.default.publisher(for: .hideShellTabBar)) { _ in
             isShellTabBarHidden = true
         }
@@ -354,11 +363,7 @@ struct AppShellView: View {
             withAnimation(ShellAnim.spring) { showLiveOverlay = false; showContent = false }
         }
 
-        // Track app lifecycle to detect force quit
-        // When backgrounding, store timestamp + active workout status
-        // When activating, mark as running
         if newPhase == .background {
-            UserDefaults.standard.markBackgrounded(hasActiveWorkout: hasActiveWorkout)
             AppLogger.debug("App backgrounded - hasActiveWorkout: \(hasActiveWorkout)", category: AppLogger.app)
 
             // During active virtual runs, keep all Supabase subscriptions alive.
@@ -375,8 +380,6 @@ struct AppShellView: View {
                 AppLogger.info("📱 App backgrounded - stopped invite coordinator, keeping badge subscriptions", category: AppLogger.app)
             }
         } else if newPhase == .active {
-            UserDefaults.standard.markActive()
-            AppLogger.debug("App activated - marked as running", category: AppLogger.app)
             guard didCompleteInitialLaunchSync, !isPerformingInitialLaunchSync else {
                 AppLogger.info("⏭️ App became active during initial launch - skipping duplicate startup work", category: AppLogger.app)
                 return
@@ -400,8 +403,7 @@ struct AppShellView: View {
                 // Sync HealthKit workouts when app comes to foreground (catches Apple Watch workouts)
                 if healthKit.connectionState == .connected {
                     AppLogger.info("📊 App became active - syncing HealthKit workouts", category: AppLogger.health)
-                    try? await healthKit.syncWorkoutsIncremental()
-                    await healthKit.syncExerciseTimeIncremental()
+                    await healthKit.catchUpHealthChanges()
                 }
 
                 RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)
@@ -511,8 +513,7 @@ struct AppShellView: View {
 
         if healthKit.connectionState == .connected {
             AppLogger.info("Running launch HealthKit sync after dependency configuration", category: AppLogger.health)
-            await healthKit.syncWorkoutsIncremental()
-            await healthKit.syncExerciseTimeIncremental()
+            await healthKit.catchUpHealthChanges()
         }
 
         RewardsEngine.shared.validateWeeklyStreakOnAppear(store: store)

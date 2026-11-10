@@ -134,12 +134,7 @@ final class AppDependencies: ObservableObject {
     func configure(with modelContext: ModelContext) {
         AppLogger.info("Configuring AppDependencies with ModelContext...", category: AppLogger.app)
 
-        // Configure HealthKit with required dependencies
-        healthKitManager.modelContext = modelContext
-        healthKitManager.workoutStore = workoutStore
-        healthKitManager.challengeRepository = challengeRepository
-        healthKitManager.authService = authService
-        // Note: Background tasks are registered in WRKTApp.init() before app finishes launching
+        configureHealthSync(with: modelContext)
 
         // Configure RewardsEngine
         rewardsEngine.configure(context: modelContext)
@@ -196,6 +191,14 @@ final class AppDependencies: ObservableObject {
             }
 
         AppLogger.success("AppDependencies configuration complete", category: AppLogger.app)
+    }
+
+    /// Available during a background launch before the app shell is mounted.
+    func configureHealthSync(with modelContext: ModelContext) {
+        healthKitManager.modelContext = modelContext
+        healthKitManager.workoutStore = workoutStore
+        healthKitManager.challengeRepository = challengeRepository
+        healthKitManager.authService = authService
     }
 
     /// Bootstrap services that have async initialization

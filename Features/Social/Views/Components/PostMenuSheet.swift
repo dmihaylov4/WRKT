@@ -6,6 +6,8 @@ struct PostMenuSheet: View {
     let isOwnPost: Bool
     let onEdit: () -> Void
     let onDelete: () -> Void
+    let canRemoveMe: Bool
+    let onRemoveMe: () -> Void
     let onShare: () -> Void
     let onReport: () -> Void
     @Environment(\.dismiss) private var dismiss
@@ -29,6 +31,17 @@ struct PostMenuSheet: View {
                             onDelete()
                         } label: {
                             Label("Delete Post", systemImage: "trash")
+                        }
+                    }
+                }
+
+                if canRemoveMe {
+                    Section {
+                        Button(role: .destructive) {
+                            dismiss()
+                            onRemoveMe()
+                        } label: {
+                            Label("Remove Me from Post", systemImage: "person.crop.circle.badge.xmark")
                         }
                     }
                 }

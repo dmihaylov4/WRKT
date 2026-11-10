@@ -371,6 +371,18 @@ struct PreferencesView: View {
                         }
                     } icon: { Image(systemName: "figure.run") }
                 }
+                Toggle(isOn: Binding(
+                    get: { user.profile?.autoPostWatchWorkouts ?? false },
+                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostWatchWorkouts: newValue) } }
+                )) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Auto-post Watch workouts").dsFont(.body)
+                            Text("Automatically share HIIT, functional training, and other Apple Watch workouts")
+                                .dsFont(.caption).foregroundStyle(.secondary)
+                        }
+                    } icon: { Image(systemName: "applewatch.watchface") }
+                }
             }
         }
     }

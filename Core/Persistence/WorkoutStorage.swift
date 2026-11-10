@@ -133,7 +133,7 @@ actor WorkoutStorage {
 
     // MARK: - Initialization
 
-    private init() {
+    init(directory: URL? = nil) {
         // Setup encoder/decoder
         self.encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes, .sortedKeys]
@@ -142,23 +142,9 @@ actor WorkoutStorage {
         self.decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        // Setup directories with safe fallback
-        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            // Fallback to temporary directory (should never happen, but prevents crash)
-            AppLogger.warning("Documents directory not available, using temporary directory", category: AppLogger.storage)
-            let tempDir = fileManager.temporaryDirectory
-            self.storageDirectory = tempDir.appendingPathComponent("WRKT_Storage", isDirectory: true)
-            self.backupsDirectory = storageDirectory.appendingPathComponent("Backups", isDirectory: true)
-            self.workoutsFileURL = storageDirectory.appendingPathComponent("workouts_v2.json")
-            self.currentWorkoutFileURL = storageDirectory.appendingPathComponent("current_workout_v2.json")
-            self.runsFileURL = storageDirectory.appendingPathComponent("runs_v2.json")
-            self.ignoredHealthKitUUIDsFileURL = storageDirectory.appendingPathComponent("ignored_healthkit_uuids.json")
-            self.discardedWorkoutWindowsFileURL = storageDirectory.appendingPathComponent("discarded_workout_windows.json")
-            self.migrationFlagURL = storageDirectory.appendingPathComponent(".migrated")
-            return
-        }
-
-        self.storageDirectory = documentsDir.appendingPathComponent("WRKT_Storage", isDirectory: true)
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        self.storageDirectory = directory ?? documents.appendingPathComponent("WRKT_Storage", isDirectory: true)
         self.backupsDirectory = storageDirectory.appendingPathComponent("Backups", isDirectory: true)
 
         // Setup file URLs
@@ -182,15 +168,43 @@ actor WorkoutStorage {
 
     // MARK: - Workouts (with PR Index)
 
-    /// Returns true if the main workouts file exists on disk (i.e. user is not brand-new).
-    /// Used to distinguish "never saved workouts" from "workouts were wiped to empty".
-    func hasWorkoutsFile() -> Bool {
-        fileManager.fileExists(atPath: workoutsFileURL.path)
-    }
-
-    /// Returns true if the main runs file exists on disk.
-    func hasRunsFile() -> Bool {
-        fileManager.fileExists(atPath: runsFileURL.path)
+    /// Read-only startup validation, before any service can interpret unreadable data as empty.
+    @MainActor
+    static func validateExistingData(applicationSupport: URL, documents: URL) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let fm = FileManager.default
+        func read<T: Decodable>(_ type: T.Type, at url: URL) throws -> T? {
+            guard fm.fileExists(atPath: url.path) else { return nil }
+            return try decoder.decode(type, from: Data(contentsOf: url))
+        }
+        let current = documents.appendingPathComponent("WRKT_Storage")
+        let workouts = try read(WorkoutStorageContainer.self, at: current.appendingPathComponent("workouts_v2.json"))
+        if let workouts {
+            guard workouts.metadata.version == StorageMetadata.currentVersion,
+                  workouts.metadata.itemCount == workouts.workouts.count else {
+                throw StorageError.validationFailed("Workout history format or count needs recovery")
+            }
+        }
+        let runs = try read([Run].self, at: current.appendingPathComponent("runs_v2.json"))
+        let active = try read(CurrentWorkout.self, at: current.appendingPathComponent("current_workout_v2.json"))
+        _ = try read([UUID].self, at: current.appendingPathComponent("ignored_healthkit_uuids.json"))
+        _ = try read([DiscardedWorkoutWindow].self, at: current.appendingPathComponent("discarded_workout_windows.json"))
+        guard !fm.fileExists(atPath: current.appendingPathComponent(".migrated").path) else { return }
+        if workouts != nil || runs != nil || active != nil {
+            guard workouts != nil && runs != nil else {
+                throw StorageError.migrationFailed("An interrupted history import needs recovery")
+            }
+            return
+        }
+        let legacy = applicationSupport.appendingPathComponent("WRKT")
+        _ = try read([CompletedWorkout].self, at: legacy.appendingPathComponent("completed_workouts.json"))
+        _ = try read([String: ExercisePRs].self, at: legacy.appendingPathComponent("pr_index.json"))
+        for root in [legacy, documents] {
+            _ = try read([Run].self, at: root.appendingPathComponent("runs.json"))
+            _ = try read(CurrentWorkout.self, at: root.appendingPathComponent("current_workout.json"))
+        }
+        _ = try read([CompletedWorkout].self, at: documents.appendingPathComponent("workouts.json"))
     }
 
     /// Load workouts and PR index atomically
@@ -248,15 +262,10 @@ actor WorkoutStorage {
             return nil
         }
 
-        do {
-            let data = try Data(contentsOf: currentWorkoutFileURL)
-            let workout = try decoder.decode(CurrentWorkout.self, from: data)
-            AppLogger.info("Loaded current workout with \(workout.entries.count) entries", category: AppLogger.storage)
-            return workout
-        } catch let error as DecodingError {
-            AppLogger.warning("Failed to decode current workout: \(error)", category: AppLogger.storage)
-            return nil
-        }
+        let data = try Data(contentsOf: currentWorkoutFileURL)
+        let workout = try decoder.decode(CurrentWorkout.self, from: data)
+        AppLogger.info("Loaded current workout with \(workout.entries.count) entries", category: AppLogger.storage)
+        return workout
     }
 
     func saveCurrentWorkout(_ workout: CurrentWorkout?) async throws {
@@ -327,7 +336,7 @@ actor WorkoutStorage {
             return Set(uuids)
         } catch {
             AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
-            return []
+            throw error
         }
     }
 
@@ -338,6 +347,7 @@ actor WorkoutStorage {
             AppLogger.success("Saved \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
         } catch {
             AppLogger.error("Failed to save ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
+            throw error
         }
     }
 
@@ -360,7 +370,7 @@ actor WorkoutStorage {
             return windows
         } catch {
             AppLogger.warning("Failed to load discarded workout windows: \(error)", category: AppLogger.storage)
-            return []
+            throw error
         }
     }
 
@@ -410,7 +420,7 @@ actor WorkoutStorage {
 
         let timestamp = ISO8601DateFormatter().string(from: Date())
             .replacingOccurrences(of: ":", with: "-")
-        let backupURL = backupsDirectory.appendingPathComponent("workouts_backup_\(timestamp).json")
+        let backupURL = backupsDirectory.appendingPathComponent("workouts_backup_\(timestamp)_\(UUID().uuidString).json")
 
         do {
             try fileManager.copyItem(at: workoutsFileURL, to: backupURL)
@@ -430,7 +440,7 @@ actor WorkoutStorage {
 
         let timestamp = ISO8601DateFormatter().string(from: Date())
             .replacingOccurrences(of: ":", with: "-")
-        let backupURL = backupsDirectory.appendingPathComponent("runs_backup_\(timestamp).json")
+        let backupURL = backupsDirectory.appendingPathComponent("runs_backup_\(timestamp)_\(UUID().uuidString).json")
 
         do {
             try fileManager.copyItem(at: runsFileURL, to: backupURL)
@@ -461,27 +471,6 @@ actor WorkoutStorage {
         }
     }
 
-    /// Find and load the most recent backup that contains at least one workout.
-    /// Used for auto-recovery when the main storage file was overwritten with
-    /// empty data (e.g. after a failed background load with .complete protection).
-    func loadMostRecentNonEmptyBackup() async throws -> (workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2])? {
-        let backups = try await listBackups()
-        for backupURL in backups {
-            do {
-                let data = try Data(contentsOf: backupURL)
-                let container = try decoder.decode(WorkoutStorageContainer.self, from: data)
-                if !container.workouts.isEmpty {
-                    AppLogger.info("Found non-empty backup: \(backupURL.lastPathComponent) with \(container.workouts.count) workouts", category: AppLogger.storage)
-                    return (container.workouts, container.prIndex)
-                }
-            } catch {
-                // Corrupt backup — try next
-                continue
-            }
-        }
-        return nil
-    }
-
     func listBackups() async throws -> [URL] {
         let backupFiles = try fileManager.contentsOfDirectory(
             at: backupsDirectory,
@@ -498,36 +487,6 @@ actor WorkoutStorage {
         return backupFiles
     }
 
-    /// Find and load the most recent runs backup that contains at least one run.
-    func loadMostRecentNonEmptyRunsBackup() async throws -> [Run]? {
-        let backupFiles = try fileManager.contentsOfDirectory(
-            at: backupsDirectory,
-            includingPropertiesForKeys: [.creationDateKey],
-            options: [.skipsHiddenFiles]
-        )
-        .filter { $0.lastPathComponent.hasPrefix("runs_backup_") }
-        .sorted { url1, url2 in
-            let date1 = (try? url1.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
-            let date2 = (try? url2.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
-            return date1 > date2
-        }
-
-        for backupURL in backupFiles {
-            do {
-                let data = try Data(contentsOf: backupURL)
-                let runs = try decoder.decode([Run].self, from: data)
-                if !runs.isEmpty {
-                    AppLogger.info("Found non-empty runs backup: \(backupURL.lastPathComponent) with \(runs.count) runs", category: AppLogger.storage)
-                    return runs
-                }
-            } catch {
-                continue
-            }
-        }
-
-        return nil
-    }
-
     func restoreFromBackup(at url: URL) async throws {
         guard fileManager.fileExists(atPath: url.path) else {
             throw StorageError.fileNotFound(url.path)
@@ -535,10 +494,15 @@ actor WorkoutStorage {
 
         // Validate backup before restoring
         let data = try Data(contentsOf: url)
-        let _ = try decoder.decode(WorkoutStorageContainer.self, from: data)
+        let container = try decoder.decode(WorkoutStorageContainer.self, from: data)
+        guard container.workouts.count == container.metadata.itemCount else {
+            throw StorageError.validationFailed("Backup item count mismatch")
+        }
 
-        // Copy backup to main storage
-        try fileManager.copyItem(at: url, to: workoutsFileURL)
+        // Retain the current file for recovery and atomically replace it only after validation.
+        try await createWorkoutsBackup()
+        try data.write(to: workoutsFileURL, options: [.atomic])
+        enableFileProtection(for: workoutsFileURL)
         AppLogger.success("Restored from backup: \(url.lastPathComponent)", category: AppLogger.storage)
     }
 
@@ -548,16 +512,31 @@ actor WorkoutStorage {
         return !fileManager.fileExists(atPath: migrationFlagURL.path)
     }
 
-    func migrateFromLegacyStorage() async throws {
+    func migrateFromLegacyStorage(applicationSupport: URL? = nil, documents: URL? = nil) async throws {
         AppLogger.info("Starting migration from legacy storage...", category: AppLogger.storage)
 
-        guard let appSupportDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+        guard let appSupportDir = applicationSupport ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             throw StorageError.migrationFailed("Application Support directory not accessible")
         }
         let oldAppDir = appSupportDir.appendingPathComponent("WRKT", isDirectory: true)
 
-        guard let documentsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+        guard let documentsDir = documents ?? fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
             throw StorageError.migrationFailed("Documents directory not accessible")
+        }
+
+        let existingWorkouts = fileManager.fileExists(atPath: workoutsFileURL.path)
+        let existingRuns = fileManager.fileExists(atPath: runsFileURL.path)
+        let existingCurrent = fileManager.fileExists(atPath: currentWorkoutFileURL.path)
+        if existingWorkouts || existingRuns || existingCurrent {
+            // A missing marker is not permission to overwrite history with legacy or empty data.
+            guard existingWorkouts && existingRuns else {
+                throw StorageError.migrationFailed("An interrupted history import needs recovery")
+            }
+            _ = try await loadWorkouts()
+            _ = try await loadRuns()
+            _ = try await loadCurrentWorkout()
+            try "migrated".write(to: migrationFlagURL, atomically: true, encoding: .utf8)
+            return
         }
 
         var migratedWorkouts: [CompletedWorkout] = []
@@ -568,8 +547,9 @@ actor WorkoutStorage {
         // 1. Load from legacy Application Support location
         let oldWorkoutsURL = oldAppDir.appendingPathComponent("completed_workouts.json")
         if fileManager.fileExists(atPath: oldWorkoutsURL.path) {
-            if let data = try? Data(contentsOf: oldWorkoutsURL),
-               let workouts = try? decoder.decode([CompletedWorkout].self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldWorkoutsURL)
+                let workouts = try decoder.decode([CompletedWorkout].self, from: data)
                 migratedWorkouts.append(contentsOf: workouts)
                 AppLogger.info("Found \(workouts.count) workouts in legacy Application Support", category: AppLogger.storage)
             }
@@ -577,8 +557,9 @@ actor WorkoutStorage {
 
         let oldPRURL = oldAppDir.appendingPathComponent("pr_index.json")
         if fileManager.fileExists(atPath: oldPRURL.path) {
-            if let data = try? Data(contentsOf: oldPRURL),
-               let oldPRIndex = try? decoder.decode([String: ExercisePRs].self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldPRURL)
+                let oldPRIndex = try decoder.decode([String: ExercisePRs].self, from: data)
                 // Convert old PR format to new
                 migratedPRIndex = convertOldPRIndex(oldPRIndex)
                 AppLogger.info("Found \(migratedPRIndex.count) PR entries in legacy storage", category: AppLogger.storage)
@@ -587,8 +568,9 @@ actor WorkoutStorage {
 
         let oldRunsURL = oldAppDir.appendingPathComponent("runs.json")
         if fileManager.fileExists(atPath: oldRunsURL.path) {
-            if let data = try? Data(contentsOf: oldRunsURL),
-               let runs = try? decoder.decode([Run].self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldRunsURL)
+                let runs = try decoder.decode([Run].self, from: data)
                 migratedRuns.append(contentsOf: runs)
                 AppLogger.info("Found \(runs.count) runs in legacy storage", category: AppLogger.storage)
             }
@@ -596,8 +578,9 @@ actor WorkoutStorage {
 
         let oldCurrentURL = oldAppDir.appendingPathComponent("current_workout.json")
         if fileManager.fileExists(atPath: oldCurrentURL.path) {
-            if let data = try? Data(contentsOf: oldCurrentURL),
-               let current = try? decoder.decode(CurrentWorkout.self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldCurrentURL)
+                let current = try decoder.decode(CurrentWorkout.self, from: data)
                 migratedCurrent = current
                 AppLogger.info("Found current workout in legacy storage", category: AppLogger.storage)
             }
@@ -606,8 +589,9 @@ actor WorkoutStorage {
         // 2. Load from old Persistence location (Documents)
         let oldPersistenceWorkoutsURL = documentsDir.appendingPathComponent("workouts.json")
         if fileManager.fileExists(atPath: oldPersistenceWorkoutsURL.path) {
-            if let data = try? Data(contentsOf: oldPersistenceWorkoutsURL),
-               let workouts = try? decoder.decode([CompletedWorkout].self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldPersistenceWorkoutsURL)
+                let workouts = try decoder.decode([CompletedWorkout].self, from: data)
                 migratedWorkouts.append(contentsOf: workouts)
                 AppLogger.info("Found \(workouts.count) workouts in old Persistence location", category: AppLogger.storage)
             }
@@ -615,8 +599,9 @@ actor WorkoutStorage {
 
         let oldPersistenceRunsURL = documentsDir.appendingPathComponent("runs.json")
         if fileManager.fileExists(atPath: oldPersistenceRunsURL.path) {
-            if let data = try? Data(contentsOf: oldPersistenceRunsURL),
-               let runs = try? decoder.decode([Run].self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldPersistenceRunsURL)
+                let runs = try decoder.decode([Run].self, from: data)
                 migratedRuns.append(contentsOf: runs)
                 AppLogger.info("Found \(runs.count) runs in old Persistence location", category: AppLogger.storage)
             }
@@ -624,8 +609,9 @@ actor WorkoutStorage {
 
         let oldPersistenceCurrentURL = documentsDir.appendingPathComponent("current_workout.json")
         if fileManager.fileExists(atPath: oldPersistenceCurrentURL.path) {
-            if let data = try? Data(contentsOf: oldPersistenceCurrentURL),
-               let current = try? decoder.decode(CurrentWorkout.self, from: data) {
+            do {
+                let data = try Data(contentsOf: oldPersistenceCurrentURL)
+                let current = try decoder.decode(CurrentWorkout.self, from: data)
                 if migratedCurrent == nil {
                     migratedCurrent = current
                     AppLogger.info("Found current workout in old Persistence location", category: AppLogger.storage)

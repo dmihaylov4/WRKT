@@ -286,8 +286,16 @@ struct FeedView: View {
                                         await viewModel.deletePost(post)
                                     }
                                 },
+                                onRemoveMe: {
+                                    Task {
+                                        await viewModel.removeMeFromSharedPost(post)
+                                    }
+                                },
                                 onBackfillRoute: {
                                     await viewModel.backfillRouteMap(for: post)
+                                },
+                                onPartnerProfileTap: { userId in
+                                    onNavigateToProfile?(userId)
                                 }
                             )
                             .onAppear {

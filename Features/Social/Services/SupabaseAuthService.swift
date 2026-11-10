@@ -341,6 +341,7 @@ final class SupabaseAuthService: ObservableObject {
                 isPrivate: false,
                 autoPostPRs: true,
                 autoPostCardio: true,
+                autoPostWatchWorkouts: false,
                 updatedAt: Date()
             )
 
@@ -521,7 +522,7 @@ final class SupabaseAuthService: ObservableObject {
     // MARK: - Profile Management
 
     /// Update current user's profile
-    func updateProfile(username: String? = nil, displayName: String? = nil, bio: String? = nil, avatarUrl: String? = nil, isPrivate: Bool? = nil, autoPostPRs: Bool? = nil, autoPostCardio: Bool? = nil, birthYear: Int? = nil, restingHR: Int? = nil) async throws {
+    func updateProfile(username: String? = nil, displayName: String? = nil, bio: String? = nil, avatarUrl: String? = nil, isPrivate: Bool? = nil, autoPostPRs: Bool? = nil, autoPostCardio: Bool? = nil, autoPostWatchWorkouts: Bool? = nil, birthYear: Int? = nil, restingHR: Int? = nil) async throws {
         guard let userId = currentUser?.id else {
             throw SupabaseError.notAuthenticated
         }
@@ -558,6 +559,9 @@ final class SupabaseAuthService: ObservableObject {
         }
         if let autoPostCardio = autoPostCardio {
             updates["auto_post_cardio"] = .bool(autoPostCardio)
+        }
+        if let autoPostWatchWorkouts = autoPostWatchWorkouts {
+            updates["auto_post_watch_workouts"] = .bool(autoPostWatchWorkouts)
         }
         if let birthYear = birthYear {
             updates["birth_year"] = .integer(birthYear)
@@ -722,6 +726,7 @@ private struct OAuthProfilePayload: Encodable {
     let isPrivate: Bool
     let autoPostPRs: Bool
     let autoPostCardio: Bool
+    let autoPostWatchWorkouts: Bool
     let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -731,6 +736,7 @@ private struct OAuthProfilePayload: Encodable {
         case isPrivate = "is_private"
         case autoPostPRs = "auto_post_prs"
         case autoPostCardio = "auto_post_cardio"
+        case autoPostWatchWorkouts = "auto_post_watch_workouts"
         case updatedAt = "updated_at"
     }
 }

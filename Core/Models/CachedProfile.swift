@@ -10,7 +10,8 @@ final class CachedProfile {
     var avatarUrl: String?
     var bio: String?
     var isPrivate: Bool
-    var autoPostPRs: Bool = true  // Default to true to match database default
+    var autoPostPRs: Bool = true
+    var autoPostWatchWorkouts: Bool = false
     var birthYear: Int?
     var createdAt: Date
     var updatedAt: Date
@@ -24,6 +25,7 @@ final class CachedProfile {
         bio: String?,
         isPrivate: Bool,
         autoPostPRs: Bool,
+        autoPostWatchWorkouts: Bool = false,
         birthYear: Int? = nil,
         createdAt: Date,
         updatedAt: Date
@@ -35,6 +37,7 @@ final class CachedProfile {
         self.bio = bio
         self.isPrivate = isPrivate
         self.autoPostPRs = autoPostPRs
+        self.autoPostWatchWorkouts = autoPostWatchWorkouts
         self.birthYear = birthYear
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -59,6 +62,7 @@ extension CachedProfile {
             bio: profile.bio,
             isPrivate: profile.isPrivate,
             autoPostPRs: profile.autoPostPRs,
+            autoPostWatchWorkouts: profile.autoPostWatchWorkouts,
             birthYear: profile.birthYear,
             createdAt: profile.createdAt,
             updatedAt: profile.updatedAt
@@ -79,6 +83,7 @@ extension CachedProfile {
             bio: bio,
             isPrivate: isPrivate,
             autoPostPRs: autoPostPRs,
+            autoPostWatchWorkouts: autoPostWatchWorkouts,
             birthYear: birthYear,
             createdAt: createdAt,
             updatedAt: updatedAt

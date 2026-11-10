@@ -10,6 +10,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
     var isPrivate: Bool
     var autoPostPRs: Bool
     var autoPostCardio: Bool
+    var autoPostWatchWorkouts: Bool
     var birthYear: Int?
     var restingHR: Int?
     var weeklyGoalStreak: Int
@@ -25,6 +26,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         case isPrivate = "is_private"
         case autoPostPRs = "auto_post_prs"
         case autoPostCardio = "auto_post_cardio"
+        case autoPostWatchWorkouts = "auto_post_watch_workouts"
         case birthYear = "birth_year"
         case restingHR = "resting_hr"
         case weeklyGoalStreak = "weekly_goal_streak"
@@ -41,6 +43,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         isPrivate: Bool = false,
         autoPostPRs: Bool = true,
         autoPostCardio: Bool = true,
+        autoPostWatchWorkouts: Bool = false,
         birthYear: Int? = nil,
         restingHR: Int? = nil,
         weeklyGoalStreak: Int = 0,
@@ -55,6 +58,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         self.isPrivate = isPrivate
         self.autoPostPRs = autoPostPRs
         self.autoPostCardio = autoPostCardio
+        self.autoPostWatchWorkouts = autoPostWatchWorkouts
         self.birthYear = birthYear
         self.restingHR = restingHR
         self.weeklyGoalStreak = weeklyGoalStreak
@@ -72,6 +76,7 @@ struct UserProfile: Codable, Identifiable, Sendable, Hashable {
         isPrivate = try container.decode(Bool.self, forKey: .isPrivate)
         autoPostPRs = try container.decode(Bool.self, forKey: .autoPostPRs)
         autoPostCardio = try container.decodeIfPresent(Bool.self, forKey: .autoPostCardio) ?? true
+        autoPostWatchWorkouts = try container.decodeIfPresent(Bool.self, forKey: .autoPostWatchWorkouts) ?? false
         birthYear = try container.decodeIfPresent(Int.self, forKey: .birthYear)
         restingHR = try container.decodeIfPresent(Int.self, forKey: .restingHR)
         weeklyGoalStreak = try container.decodeIfPresent(Int.self, forKey: .weeklyGoalStreak) ?? 0

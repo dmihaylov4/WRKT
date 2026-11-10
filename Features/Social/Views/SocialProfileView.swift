@@ -581,11 +581,12 @@ struct SocialProfileView: View {
     }
 
     private func profileStatusStack(viewModel: ProfileViewModel) -> some View {
-        let thisWeekCount = friendWorkoutsThisWeek(posts: viewModel.posts)
+        let workoutPosts = viewModel.posts.map(\.post)
+        let thisWeekCount = friendWorkoutsThisWeek(posts: workoutPosts)
         return VStack(alignment: .leading, spacing: 10) {
             profileMetaRow(
                 label: "Last Active",
-                value: latestActivityDate(for: viewModel.posts).map { relativeTimeText(for: $0) } ?? "No recent sessions"
+                value: latestActivityDate(for: workoutPosts).map { relativeTimeText(for: $0) } ?? "No recent sessions"
             )
 
             profileMetaRow(
@@ -682,9 +683,10 @@ struct SocialProfileView: View {
     }
 
     private func accountabilitySnapshot(viewModel: ProfileViewModel) -> some View {
-        let thisWeek = friendWorkoutsThisWeek(posts: viewModel.posts)
-        let active14 = activeDays(for: viewModel.posts, days: 14)
-        let lastActive = latestActivityDate(for: viewModel.posts).map { relativeTimeText(for: $0) } ?? "No activity"
+        let workoutPosts = viewModel.posts.map(\.post)
+        let thisWeek = friendWorkoutsThisWeek(posts: workoutPosts)
+        let active14 = activeDays(for: workoutPosts, days: 14)
+        let lastActive = latestActivityDate(for: workoutPosts).map { relativeTimeText(for: $0) } ?? "No activity"
 
         return VStack(alignment: .leading, spacing: 12) {
             Text("Accountability Snapshot")
@@ -701,10 +703,11 @@ struct SocialProfileView: View {
     }
 
     private func headToHeadCard(viewModel: ProfileViewModel) -> some View {
+        let workoutPosts = viewModel.posts.map(\.post)
         let yourWeek = viewerWorkoutsThisWeek()
-        let friendWeek = friendWorkoutsThisWeek(posts: viewModel.posts)
+        let friendWeek = friendWorkoutsThisWeek(posts: workoutPosts)
         let yourActiveDays = viewerActiveDays(days: 14)
-        let friendActiveDays = activeDays(for: viewModel.posts, days: 14)
+        let friendActiveDays = activeDays(for: workoutPosts, days: 14)
         let maxCount = max(yourWeek, friendWeek, 1)
         let friendName = displayName(for: viewModel.profile)
 
@@ -939,10 +942,11 @@ struct SocialProfileView: View {
 
     private func primaryInsight(for viewModel: ProfileViewModel) -> (title: String, message: String, icon: String) {
         let friendName = displayName(for: viewModel.profile)
-        let friendWeek = friendWorkoutsThisWeek(posts: viewModel.posts)
+        let workoutPosts = viewModel.posts.map(\.post)
+        let friendWeek = friendWorkoutsThisWeek(posts: workoutPosts)
         let yourWeek = viewerWorkoutsThisWeek()
 
-        if let lastWorkout = latestActivityDate(for: viewModel.posts) {
+        if let lastWorkout = latestActivityDate(for: workoutPosts) {
             let hoursAgo = Date().timeIntervalSince(lastWorkout) / 3600
             if hoursAgo <= 24 {
                 return (
@@ -971,7 +975,7 @@ struct SocialProfileView: View {
             )
         }
 
-        let active14 = activeDays(for: viewModel.posts, days: 14)
+        let active14 = activeDays(for: workoutPosts, days: 14)
         return (
             "It’s close",
             active14 > 0 ? "\(friendName) has been active \(active14) day\(active14 == 1 ? "" : "s") in the last two weeks. The next move matters." : "\(friendName) has no recent shared activity. Use this profile to pull them back in.",
@@ -1251,9 +1255,9 @@ struct SocialProfileView: View {
                 LazyVStack(spacing: 16) {
                     ForEach(viewModel.posts) { post in
                         Button {
-                            selectedPost = PostWithAuthor(id: post.id, post: post, author: viewModel.profile)
+                            selectedPost = post
                         } label: {
-                            postPreview(post: post)
+                            postPreview(post: post.post)
                         }
                         .buttonStyle(.plain)
                     }

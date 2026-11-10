@@ -38,6 +38,45 @@ struct WorkoutPostInsertPayload: Encodable {
     }
 }
 
+struct CreateSharedPostParams: Encodable {
+    let p_caption: String?
+    let p_visibility: String
+    let p_images: [PostImage]?
+    let p_workout_data: CompletedWorkout
+    let p_workout_data_list: [CompletedWorkout]?
+    let p_partner_user_id: String
+    let p_partner_vr_stats: VRPartnerSummary?
+    let p_run_id: String?
+
+    enum CodingKeys: String, CodingKey {
+        case p_caption, p_visibility, p_images, p_workout_data, p_workout_data_list
+        case p_partner_user_id, p_partner_vr_stats, p_run_id
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        // The RPC distinguishes a missing argument from an explicit SQL NULL.
+        try container.encode(p_caption, forKey: .p_caption)
+        try container.encode(p_visibility, forKey: .p_visibility)
+        try container.encode(p_images, forKey: .p_images)
+        try container.encode(p_workout_data, forKey: .p_workout_data)
+        try container.encode(p_workout_data_list, forKey: .p_workout_data_list)
+        try container.encode(p_partner_user_id, forKey: .p_partner_user_id)
+        try container.encode(p_partner_vr_stats, forKey: .p_partner_vr_stats)
+        try container.encode(p_run_id, forKey: .p_run_id)
+    }
+}
+
+private struct RemovePostParticipantParams: Encodable {
+    let p_post_id: String
+}
+
+private struct FriendFeedParams: Encodable {
+    let p_limit: Int
+    let p_cursor_created_at: String?
+    let p_cursor_id: String?
+}
+
 private struct FeedCursor {
     let createdAt: Date
     let id: UUID
@@ -133,6 +172,40 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
         return newPost
     }
 
+    func createSharedPost(
+        caption: String?,
+        visibility: PostVisibility,
+        images: [PostImage]?,
+        workoutData: CompletedWorkout,
+        workoutDataList: [CompletedWorkout]?,
+        partnerUserId: UUID,
+        partnerVRStats: VRPartnerSummary?,
+        runId: UUID?
+    ) async throws -> UUID {
+        logInfo("Creating shared post with partner: \(partnerUserId)", emoji: "📝")
+
+        let params = CreateSharedPostParams(
+            p_caption: caption,
+            p_visibility: visibility.rawValue,
+            p_images: images,
+            p_workout_data: workoutData,
+            p_workout_data_list: workoutDataList,
+            p_partner_user_id: partnerUserId.uuidString,
+            p_partner_vr_stats: partnerVRStats,
+            p_run_id: runId?.uuidString
+        )
+
+        let postId: UUID = try await client
+            .rpc("create_shared_post", params: params)
+            .execute()
+            .value
+
+        cache.invalidateAllFeeds()
+
+        logSuccess("Shared post created: \(postId)")
+        return postId
+    }
+
     func invalidateFeedCache() {
         cache.invalidateAllFeeds()
     }
@@ -163,39 +236,47 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             return cached
         }
 
-        // Cutoff date to avoid very old/corrupted posts (30 days)
-        let cutoffDate = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
         let parsedCursor = cursor.flatMap(FeedCursor.init(rawValue:))
 
-        // Single feed query. RLS is responsible for visibility/friend filtering.
-        var feedQuery = client
-            .from("workout_posts")
-            .select()
-            .gte("created_at", value: cutoffDate.ISO8601Format())
+        let params = FriendFeedParams(
+            p_limit: limit + 1,
+            p_cursor_created_at: parsedCursor?.createdAt.ISO8601Format(),
+            p_cursor_id: parsedCursor?.id.uuidString
+        )
 
-        if let parsedCursor {
-            let cursorDate = parsedCursor.createdAt.ISO8601Format()
-            feedQuery = feedQuery.or(
-                "created_at.lt.\(cursorDate),and(created_at.eq.\(cursorDate),id.lt.\(parsedCursor.id.uuidString))"
-            )
+        let fetchedPosts: [WorkoutPost]
+        do {
+            fetchedPosts = try await client
+                .rpc("get_friend_feed", params: params)
+                .execute()
+                .value
+        } catch {
+            logWarning("Friend feed RPC failed, falling back to RLS feed query: \(error)")
+            fetchedPosts = try await fetchFeedPostsWithRLSFallback(userId: userId, limit: limit + 1, cursor: parsedCursor)
+        }
+        logInfo("Fetched \(fetchedPosts.count) posts from friend feed RPC")
+
+        let resolvedPosts: [WorkoutPost]
+        if fetchedPosts.isEmpty, cursor == nil {
+            let fallbackPosts = try await fetchFeedPostsWithRLSFallback(userId: userId, limit: limit + 1, cursor: parsedCursor)
+            if !fallbackPosts.isEmpty {
+                logWarning("Friend feed RPC returned empty initial page; using RLS fallback with \(fallbackPosts.count) posts")
+                resolvedPosts = fallbackPosts
+            } else {
+                resolvedPosts = fetchedPosts
+            }
+        } else {
+            resolvedPosts = fetchedPosts
         }
 
-        let fetchedPosts: [WorkoutPost] = (try? await feedQuery
-            .order("created_at", ascending: false)
-            .order("id", ascending: false)
-            .limit(limit + 1)
-            .execute()
-            .value) ?? []
-        logInfo("Fetched \(fetchedPosts.count) posts from merged feed query")
-
         // Log warning for posts with empty workout data (legacy data issue)
-        let postsWithEmptyData = fetchedPosts.filter { $0.workoutData.entries.isEmpty }
+        let postsWithEmptyData = resolvedPosts.filter { $0.workoutData.entries.isEmpty }
         if !postsWithEmptyData.isEmpty {
             logWarning("Found \(postsWithEmptyData.count) posts with empty workout data (legacy format)")
         }
 
-        let hasMore = fetchedPosts.count > limit
-        let posts = Array(fetchedPosts.prefix(limit))
+        let hasMore = resolvedPosts.count > limit
+        let posts = Array(resolvedPosts.prefix(limit))
         let nextCursor = posts.last.map { FeedCursor(post: $0).rawValue }
 
         logInfo("Total posts in page: \(posts.count), hasMore: \(hasMore)")
@@ -222,6 +303,7 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             .value
 
         let likedPostIds = Set(likes.map { $0.postId })
+        let participantsByPost = (try? await fetchParticipantsForPosts(posts.map(\.id))) ?? [:]
 
         // Combine posts with authors
         let postsWithAuthors = posts.compactMap { post -> PostWithAuthor? in
@@ -233,7 +315,8 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
                 id: post.id,
                 post: post,
                 author: author,
-                isLikedByCurrentUser: likedPostIds.contains(post.id)
+                isLikedByCurrentUser: likedPostIds.contains(post.id),
+                partners: participantsByPost[post.id] ?? []
             )
         }
 
@@ -248,6 +331,56 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
 
         logSuccess("Fetched \(postsWithAuthors.count) posts with authors, hasMore: \(hasMore)")
         return result
+    }
+
+    private func fetchFeedPostsWithRLSFallback(userId: UUID, limit: Int, cursor: FeedCursor?) async throws -> [WorkoutPost] {
+        let cutoffDate = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+
+        var ownQuery = client
+            .from("workout_posts")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .gte("created_at", value: cutoffDate.ISO8601Format())
+
+        var otherQuery = client
+            .from("workout_posts")
+            .select()
+            .neq("user_id", value: userId.uuidString)
+            .gte("created_at", value: cutoffDate.ISO8601Format())
+
+        if let cursor {
+            ownQuery = ownQuery.or(
+                "created_at.lt.\(cursor.createdAt.ISO8601Format()),and(created_at.eq.\(cursor.createdAt.ISO8601Format()),id.lt.\(cursor.id.uuidString))"
+            )
+            otherQuery = otherQuery.or(
+                "created_at.lt.\(cursor.createdAt.ISO8601Format()),and(created_at.eq.\(cursor.createdAt.ISO8601Format()),id.lt.\(cursor.id.uuidString))"
+            )
+        }
+
+        let ownPosts: [WorkoutPost] = (try? await ownQuery
+            .order("created_at", ascending: false)
+            .order("id", ascending: false)
+            .limit(limit * 2)
+            .execute()
+            .value) ?? []
+
+        let otherPosts: [WorkoutPost] = (try? await otherQuery
+            .order("created_at", ascending: false)
+            .order("id", ascending: false)
+            .limit(limit * 2)
+            .execute()
+            .value) ?? []
+
+        var seenPostIds = Set<UUID>()
+        return Array((ownPosts + otherPosts)
+            .filter { post in
+                seenPostIds.insert(post.id).inserted
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt { return lhs.id.uuidString > rhs.id.uuidString }
+                return lhs.createdAt > rhs.createdAt
+            }
+            .prefix(limit))
     }
 
     /// Legacy method for backward compatibility (uses offset-based pagination)
@@ -275,6 +408,102 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
 
         logSuccess("Found \(posts.count) user posts")
         return posts
+    }
+
+    func fetchParticipantsForPosts(_ postIds: [UUID]) async throws -> [UUID: [PostParticipant]] {
+        guard !postIds.isEmpty else { return [:] }
+
+        var participants: [PostParticipant] = try await client
+            .from("post_participants")
+            .select()
+            .in("post_id", values: postIds.map { $0.uuidString })
+            .is("removed_at", value: nil)
+            .execute()
+            .value
+
+        let profiles = try await fetchProfilesBatched(Array(Set(participants.map(\.userId))))
+        for index in participants.indices {
+            participants[index].profile = profiles.first { $0.id == participants[index].userId }
+        }
+
+        return Dictionary(grouping: participants, by: \.postId)
+    }
+
+    func fetchProfilePosts(userId: UUID, limit: Int = 20, offset: Int = 0) async throws -> [PostWithAuthor] {
+        logInfo("Fetching profile posts for user: \(userId)")
+
+        let authoredPosts: [WorkoutPost] = try await client
+            .from("workout_posts")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .range(from: offset, to: offset + limit - 1)
+            .execute()
+            .value
+
+        let participationRows: [PostParticipant] = try await client
+            .from("post_participants")
+            .select()
+            .eq("user_id", value: userId.uuidString)
+            .is("removed_at", value: nil)
+            .execute()
+            .value
+
+        let authoredIds = Set(authoredPosts.map(\.id))
+        let participantPostIds = participationRows
+            .map(\.postId)
+            .filter { !authoredIds.contains($0) }
+
+        let participantPosts: [WorkoutPost]
+        if participantPostIds.isEmpty {
+            participantPosts = []
+        } else {
+            participantPosts = try await client
+                .from("workout_posts")
+                .select()
+                .in("id", values: participantPostIds.map { $0.uuidString })
+                .execute()
+                .value
+        }
+
+        var seenPostIds = Set<UUID>()
+        let mergedPosts = (authoredPosts + participantPosts)
+            .filter { post in
+                seenPostIds.insert(post.id).inserted
+            }
+            .sorted { lhs, rhs in
+                if lhs.createdAt == rhs.createdAt { return lhs.id.uuidString > rhs.id.uuidString }
+                return lhs.createdAt > rhs.createdAt
+            }
+            .dropFirst(offset)
+            .prefix(limit)
+
+        let posts = Array(mergedPosts)
+        let authorProfiles = try await fetchProfilesBatched(Array(Set(posts.map(\.userId))))
+        let participantsByPost = try await fetchParticipantsForPosts(posts.map(\.id))
+
+        let result = posts.compactMap { post -> PostWithAuthor? in
+            guard let author = authorProfiles.first(where: { $0.id == post.userId }) else { return nil }
+            return PostWithAuthor(
+                id: post.id,
+                post: post,
+                author: author,
+                partners: participantsByPost[post.id] ?? []
+            )
+        }
+
+        logSuccess("Found \(result.count) profile posts")
+        return result
+    }
+
+    func removeParticipant(postId: UUID) async throws {
+        try await client
+            .rpc("remove_post_participant", params: RemovePostParticipantParams(p_post_id: postId.uuidString))
+            .execute()
+
+        cache.invalidatePost(postId.uuidString)
+        cache.invalidateAllFeeds()
     }
 
     // MARK: - Delete Post

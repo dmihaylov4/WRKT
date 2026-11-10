@@ -139,6 +139,50 @@ final class WorkoutPostMultiWorkoutTests: WRKTTestCase {
         XCTAssertEqual(restored.post.allWorkouts.map { $0.workoutName ?? $0.workoutTypeDisplayName }, ["HIIT", "Elliptical"])
     }
 
+    func testCachedPostRoundTripPreservesSharedPostPartner() throws {
+        let creatorId = UUID(uuidString: "22222222-2222-2222-2222-222222222222")!
+        let partnerId = UUID(uuidString: "77777777-7777-7777-7777-777777777777")!
+        let workout = CompletedWorkout(
+            id: UUID(uuidString: "33333333-3333-3333-3333-333333333333")!,
+            date: makeDate(year: 2026, month: 5, day: 28, hour: 8),
+            entries: [],
+            workoutName: "Virtual Run"
+        )
+        let post = WorkoutPost(
+            id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!,
+            userId: creatorId,
+            caption: "together",
+            workoutData: workout,
+            visibility: .friends,
+            postType: .shared
+        )
+        let partner = PostParticipant(
+            id: UUID(uuidString: "88888888-8888-8888-8888-888888888888")!,
+            postId: post.id,
+            userId: partnerId,
+            workoutData: nil,
+            vrStats: VRPartnerSummary(distanceM: 4900, durationS: 1800, paceSecPerKm: 367, avgHR: 151),
+            joinedAt: makeDate(year: 2026, month: 5, day: 28, hour: 8),
+            removedAt: nil,
+            profile: UserProfile(id: partnerId, username: "partner")
+        )
+        let postWithAuthor = PostWithAuthor(
+            id: post.id,
+            post: post,
+            author: UserProfile(id: creatorId, username: "creator"),
+            isLikedByCurrentUser: false,
+            partners: [partner]
+        )
+
+        let restored = try XCTUnwrap(CachedPost.from(postWithAuthor).toPostWithAuthor())
+
+        XCTAssertEqual(restored.post.postType, .shared)
+        XCTAssertEqual(restored.partners.count, 1)
+        XCTAssertEqual(restored.partners.first?.userId, partnerId)
+        XCTAssertEqual(restored.partners.first?.vrStats?.distanceM, 4900)
+        XCTAssertEqual(restored.partners.first?.profile?.username, "partner")
+    }
+
     private func decodePost(_ json: String) throws -> WorkoutPost {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601

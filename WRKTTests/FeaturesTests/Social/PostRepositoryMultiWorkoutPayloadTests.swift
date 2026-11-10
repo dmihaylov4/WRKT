@@ -2,6 +2,28 @@ import XCTest
 @testable import WRKT
 
 final class PostRepositoryMultiWorkoutPayloadTests: WRKTTestCase {
+    func testSharedPostIncludesNullArgumentsForSingleWorkoutWithoutCaptionOrPhotos() throws {
+        let params = CreateSharedPostParams(
+            p_caption: nil,
+            p_visibility: "friends",
+            p_images: nil,
+            p_workout_data: makeWorkout(name: "Running", id: UUID()),
+            p_workout_data_list: nil,
+            p_partner_user_id: UUID().uuidString,
+            p_partner_vr_stats: nil,
+            p_run_id: nil
+        )
+        let data = try JSONEncoder().encode(params)
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+
+        XCTAssertEqual(payload.count, 8)
+        for key in ["p_caption", "p_images", "p_workout_data_list", "p_partner_vr_stats", "p_run_id"] {
+            XCTAssertTrue(payload[key] is NSNull, "RPC argument \(key) must be present as null")
+        }
+        XCTAssertEqual(payload["p_visibility"] as? String, "friends")
+        XCTAssertNotNil(payload["p_workout_data"] as? [String: Any])
+    }
+
     func testSingleWorkoutPayloadOmitsWorkoutDataList() throws {
         let workout = makeWorkout(name: "Strength", id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!)
 

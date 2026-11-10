@@ -9,6 +9,8 @@ final class CachedPost {
     var caption: String?
     var workoutDataJSON: String // Store as JSON string
     var workoutDataListJSON: String?
+    var postType: String?
+    var partnersJSON: String?
     var imageUrls: [String]
     var visibility: String
     var likesCount: Int
@@ -29,6 +31,8 @@ final class CachedPost {
         caption: String?,
         workoutDataJSON: String,
         workoutDataListJSON: String? = nil,
+        postType: String? = PostType.workout.rawValue,
+        partnersJSON: String? = nil,
         imageUrls: [String],
         visibility: String,
         likesCount: Int,
@@ -45,6 +49,8 @@ final class CachedPost {
         self.caption = caption
         self.workoutDataJSON = workoutDataJSON
         self.workoutDataListJSON = workoutDataListJSON
+        self.postType = postType
+        self.partnersJSON = partnersJSON
         self.imageUrls = imageUrls
         self.visibility = visibility
         self.likesCount = likesCount
@@ -86,6 +92,15 @@ extension CachedPost {
             workoutDataListJSON = nil
         }
 
+        let partnersJSON: String?
+        if !post.partners.isEmpty,
+           let data = try? JSONEncoder().encode(post.partners),
+           let jsonString = String(data: data, encoding: .utf8) {
+            partnersJSON = jsonString
+        } else {
+            partnersJSON = nil
+        }
+
         // Convert PostImage array to legacy string URLs for caching
         let imageUrls = post.post.images?.map { $0.storagePath } ?? []
 
@@ -95,6 +110,8 @@ extension CachedPost {
             caption: post.post.caption,
             workoutDataJSON: workoutDataJSON,
             workoutDataListJSON: workoutDataListJSON,
+            postType: post.post.postType.rawValue,
+            partnersJSON: partnersJSON,
             imageUrls: imageUrls,
             visibility: post.post.visibility.rawValue,
             likesCount: post.post.likesCount,
@@ -130,6 +147,15 @@ extension CachedPost {
             workoutDataList = nil
         }
 
+        let partners: [PostParticipant]
+        if let partnersJSON,
+           let partnersData = partnersJSON.data(using: .utf8),
+           let decodedPartners = try? JSONDecoder().decode([PostParticipant].self, from: partnersData) {
+            partners = decodedPartners
+        } else {
+            partners = []
+        }
+
         // Convert legacy imageUrls to PostImage format
         let images: [PostImage]? = imageUrls.isEmpty ? nil : imageUrls.map { url in
             PostImage(storagePath: url, isPublic: true)
@@ -146,7 +172,8 @@ extension CachedPost {
             commentsCount: commentsCount,
             createdAt: createdAt,
             updatedAt: updatedAt,
-            workoutDataList: workoutDataList
+            workoutDataList: workoutDataList,
+            postType: postType.flatMap(PostType.init(rawValue:)) ?? .workout
         )
 
         let author = UserProfile(
@@ -165,7 +192,8 @@ extension CachedPost {
             id: postId,
             post: post,
             author: author,
-            isLikedByCurrentUser: isLiked
+            isLikedByCurrentUser: isLiked,
+            partners: partners
         )
     }
 }

@@ -1,5 +1,6 @@
 import UIKit
 import UserNotifications
+import SwiftData
 
 /// AppDelegate to handle push notification registration callbacks
 class AppDelegate: NSObject, UIApplicationDelegate {
@@ -9,12 +10,29 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         AppLogger.info("AppDelegate: didFinishLaunchingWithOptions", category: AppLogger.app)
+        let healthKit = HealthKitManager.shared
+        if healthKit.connectionState == .connected {
+            let storage = WRKTApp.storage
+            if let container = storage.container {
+                AppDependencies.shared.configureHealthSync(with: container.mainContext)
+            }
+            healthKit.setupBackgroundObservers()
+            Task { await healthKit.catchUpHealthChanges() }
+        }
         if let userInfo = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
             Task { @MainActor in
                 PushNotificationService.shared.storeLaunchNotification(userInfo: userInfo)
             }
         }
         return true
+    }
+
+    func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) {
+        let storage = WRKTApp.storage
+        storage.retry()
+        guard let container = storage.container else { return }
+        AppDependencies.shared.configureHealthSync(with: container.mainContext)
+        Task { await HealthKitManager.shared.catchUpHealthChanges() }
     }
 
     // MARK: - Push Notification Registration

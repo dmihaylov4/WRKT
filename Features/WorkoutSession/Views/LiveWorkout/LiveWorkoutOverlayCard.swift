@@ -129,16 +129,7 @@ struct LiveWorkoutOverlayCard: View {
         .onAppear {
             checkForPendingSetGeneration()
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("GeneratePendingSetBeforeTimer"))) { notification in
-            let shouldLogSet = notification.userInfo?["shouldLogSet"] as? Bool ?? false
-            if shouldLogSet {
-                return
-            }
 
-            if let exerciseID = notification.userInfo?["exerciseID"] as? String {
-                generatePendingSetImmediately(exerciseID: exerciseID)
-            }
-        }
     }
 
     // MARK: - Timer Completion Handler
@@ -180,31 +171,6 @@ struct LiveWorkoutOverlayCard: View {
                 generateNewSetAfterRest(for: entry)
                 restTimer.clearPendingSetGeneration(for: entry.exerciseID)
             }
-        }
-    }
-
-    /// Generate pending set immediately (called from notification)
-    private func generatePendingSetImmediately(exerciseID: String) {
-        guard let workout = store.currentWorkout else { return }
-
-        // Find the entry for this exercise
-        guard let entry = workout.entries.first(where: { $0.exerciseID == exerciseID }) else {
-            AppLogger.warning("Cannot generate set - exercise not found: \(exerciseID)", category: AppLogger.workout)
-            return
-        }
-
-        // Only generate if there's a pending flag
-        if restTimer.hasPendingSetGeneration(for: exerciseID) {
-            guard autoAddSetOnRestTimer else {
-                restTimer.clearPendingSetGeneration(for: exerciseID)
-                return
-            }
-
-            AppLogger.debug("Generating pending set immediately for \(entry.exerciseName) before starting timer", category: AppLogger.workout)
-            generateNewSetAfterRest(for: entry)
-            restTimer.clearPendingSetGeneration(for: exerciseID)
-        } else {
-            AppLogger.debug("No pending set for \(entry.exerciseName), skipping generation", category: AppLogger.workout)
         }
     }
 

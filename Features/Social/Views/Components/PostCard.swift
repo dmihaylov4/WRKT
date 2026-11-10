@@ -18,11 +18,14 @@ struct PostCard: View {
     let onPostTap: () -> Void
     let onEdit: (() -> Void)?
     let onDelete: (() -> Void)?
+    let onRemoveMe: (() -> Void)?
     let onBackfillRoute: (() async -> Bool)?
+    var onPartnerProfileTap: ((UUID) -> Void)? = nil
 
     @State private var showingImageViewer = false
     @State private var selectedImageIndex = 0
     @State private var showingDeleteAlert = false
+    @State private var showingRemoveMeAlert = false
     @State private var showingReportAlert = false
     @State private var showingMenuSheet = false
     @State private var displayImageURLs: [URL] = []
@@ -42,6 +45,19 @@ struct PostCard: View {
     // For single cardio posts: route map(s) first, then user photos
     private var allCardioImageURLs: [URL] {
         generatedMapURLs + userImageURLs
+    }
+
+    private var activePartner: PostParticipant? {
+        post.partners.first { $0.removedAt == nil }
+    }
+
+    private var shouldShowSharedPostPresentation: Bool {
+        post.post.postType == .shared && activePartner != nil
+    }
+
+    private var canRemoveCurrentUserFromPost: Bool {
+        guard let currentUserId, post.post.userId != currentUserId else { return false }
+        return post.partners.contains { $0.userId == currentUserId && $0.removedAt == nil }
     }
 
     var body: some View {
@@ -81,6 +97,10 @@ struct PostCard: View {
                 onDelete: {
                     showingDeleteAlert = true
                 },
+                canRemoveMe: canRemoveCurrentUserFromPost,
+                onRemoveMe: {
+                    showingRemoveMeAlert = true
+                },
                 onShare: {
                     sharePost()
                 },
@@ -96,6 +116,14 @@ struct PostCard: View {
             }
         } message: {
             Text("Are you sure you want to delete this post? This action cannot be undone.")
+        }
+        .alert("Remove Me", isPresented: $showingRemoveMeAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Remove", role: .destructive) {
+                onRemoveMe?()
+            }
+        } message: {
+            Text("This post will no longer appear as one you shared together.")
         }
         .alert("Report Post", isPresented: $showingReportAlert) {
             Button("Cancel", role: .cancel) { }
@@ -135,6 +163,8 @@ struct PostCard: View {
                 WeeklyProgressFeedCard(stats: stats)
             } else if post.post.postType == .battle, let stats = post.post.battleStats {
                 BattlePostCard(stats: stats)
+            } else if shouldShowSharedPostPresentation, let partner = activePartner {
+                sharedPostContent(partner: partner)
             } else if post.post.isMultiWorkout {
                 MultiWorkoutCarousel(
                     workouts: post.post.allWorkouts,
@@ -235,24 +265,22 @@ struct PostCard: View {
 
     // MARK: - Header
 
+    @ViewBuilder
     private var header: some View {
+        if let partner = activePartner, shouldShowSharedPostPresentation {
+            sharedHeader(partner: partner)
+        } else {
+            standardHeader
+        }
+    }
+
+    private var standardHeader: some View {
         HStack(spacing: 12) {
-            // Avatar with chamfered logo style
-            KFImage(URL(string: post.author.avatarUrl ?? ""))
-                .placeholder {
-                    ChamferedRectangleAlt(.small)
-                        .fill(DS.Semantic.brandSoft)
-                        .overlay(
-                            Text(post.author.username.prefix(1).uppercased())
-                                .dsFont(.title3, weight: .bold)
-                                .foregroundStyle(DS.Semantic.brand)
-                        )
-                }
-                .fade(duration: 0.25)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 40, height: 40)
-                .clipShape(ChamferedRectangleAlt(.small))
+            PostAvatar(
+                avatarUrl: post.author.avatarUrl,
+                fallbackName: post.author.displayName ?? post.author.username,
+                size: 40
+            )
                 .onTapGesture {
                     onProfileTap()
                 }
@@ -297,6 +325,212 @@ struct PostCard: View {
                     .padding(8)
             }
         }
+    }
+
+    private func sharedHeader(partner: PostParticipant) -> some View {
+        HStack(spacing: 12) {
+            ZStack(alignment: .leading) {
+                PostAvatar(
+                    avatarUrl: post.author.avatarUrl,
+                    fallbackName: post.author.displayName ?? post.author.username,
+                    size: 40
+                )
+                .onTapGesture {
+                    onProfileTap()
+                }
+
+                PostAvatar(
+                    avatarUrl: partner.profile?.avatarUrl,
+                    fallbackName: partnerDisplayName(partner),
+                    size: 40
+                )
+                .overlay(
+                    ChamferedRectangleAlt(.small)
+                        .stroke(DS.Semantic.card, lineWidth: 2)
+                )
+                .offset(x: 28)
+                .onTapGesture {
+                    onPartnerProfileTap?(partner.userId)
+                }
+            }
+            .frame(width: 68, height: 40, alignment: .leading)
+
+            Button {
+                onPostTap()
+            } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(post.author.displayName ?? post.author.username) and \(partnerDisplayName(partner))")
+                            .dsFont(.subheadline, weight: .bold)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                            .lineLimit(1)
+
+                        HStack(spacing: 4) {
+                            Text(post.relativeTime)
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+
+                            Text("•")
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+
+                            Image(systemName: post.post.visibility.icon)
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                showingMenuSheet = true
+            } label: {
+                Image(systemName: "ellipsis")
+                    .dsFont(.body)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                    .padding(8)
+            }
+        }
+    }
+
+    // MARK: - Shared Post Content
+
+    @ViewBuilder
+    private func sharedPostContent(partner: PostParticipant) -> some View {
+        if let stats = partner.vrStats {
+            if post.post.workoutData.isCardioWorkout {
+                cardioImagesSection
+            }
+            sharedRunComparison(partner: partner, stats: stats)
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                WorkoutPostHeroSummaryCard(
+                    summary: .make(for: [post.post.workoutData]),
+                    context: .feed
+                )
+
+                if post.post.workoutData.isCardioWorkout {
+                    cardioImagesSection
+                } else if !userImageURLs.isEmpty {
+                    PostImageStrip(
+                        imageUrls: userImageURLs.map { $0.absoluteString },
+                        selectedImageIndex: $selectedImageIndex
+                    ) {
+                        showingImageViewer = true
+                    }
+                }
+
+                sharedPartnerStrip(partner: partner)
+            }
+        }
+    }
+
+    private func sharedPartnerStrip(partner: PostParticipant) -> some View {
+        HStack(spacing: 10) {
+            PostAvatar(
+                avatarUrl: partner.profile?.avatarUrl,
+                fallbackName: partnerDisplayName(partner),
+                size: 28
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Worked out with")
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+                Text(partnerDisplayName(partner))
+                    .dsFont(.caption, weight: .bold)
+                    .foregroundStyle(DS.Semantic.textPrimary)
+            }
+
+            Spacer()
+
+            Image(systemName: "person.2.fill")
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.brand)
+        }
+        .padding(12)
+        .background(DS.Semantic.fillSubtle)
+        .clipShape(ChamferedRectangle(.small))
+        .overlay(
+            ChamferedRectangle(.small)
+                .stroke(DS.Semantic.border.opacity(0.8), lineWidth: 1)
+        )
+    }
+
+    private func sharedRunComparison(partner: PostParticipant, stats: VRPartnerSummary) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Label("Shared Run", systemImage: "figure.run")
+                    .dsFont(.caption, weight: .bold)
+                    .foregroundStyle(DS.Semantic.brand)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
+
+            Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
+
+            sharedRunMetricRow(
+                label: "DISTANCE",
+                leftValue: distanceText(post.post.workoutData.matchedHealthKitDistance),
+                rightValue: distanceText(stats.distanceM),
+                partner: partner
+            )
+
+            Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
+
+            sharedRunMetricRow(
+                label: "PACE",
+                leftValue: paceText(for: post.post.workoutData),
+                rightValue: stats.paceSecPerKm.map { "\(WorkoutPostStatsViews.formatPace(Double($0))) /km" } ?? "--",
+                partner: partner
+            )
+
+            Rectangle().fill(DS.Semantic.border.opacity(0.6)).frame(height: 1)
+
+            sharedRunMetricRow(
+                label: "DURATION",
+                leftValue: durationText(post.post.workoutData.matchedHealthKitDuration),
+                rightValue: durationText(stats.durationS),
+                partner: partner
+            )
+        }
+        .background(DS.Semantic.card)
+        .clipShape(ChamferedRectangle(.medium))
+        .overlay(
+            ChamferedRectangle(.medium)
+                .stroke(DS.Semantic.border, lineWidth: 1)
+        )
+    }
+
+    private func sharedRunMetricRow(
+        label: String,
+        leftValue: String,
+        rightValue: String,
+        partner: PostParticipant
+    ) -> some View {
+        HStack(spacing: 0) {
+            SharedMetricColumn(
+                name: post.author.displayName ?? post.author.username,
+                value: leftValue,
+                label: label
+            )
+
+            Rectangle()
+                .fill(DS.Semantic.border)
+                .frame(width: 1, height: 44)
+
+            SharedMetricColumn(
+                name: partnerDisplayName(partner),
+                value: rightValue,
+                label: label
+            )
+        }
+        .padding(.vertical, 12)
     }
 
     // MARK: - Cardio Images Section
@@ -478,6 +712,40 @@ struct PostCard: View {
 
     // MARK: - Helpers
 
+    private func partnerDisplayName(_ partner: PostParticipant) -> String {
+        partner.profile?.displayName ?? partner.profile?.username ?? "Partner"
+    }
+
+    private func distanceText(_ meters: Double?) -> String {
+        guard let meters, meters > 0 else { return "--" }
+        let km = meters / 1000
+        if km >= 10 {
+            return "\(Int(km.rounded())) km"
+        }
+        return String(format: "%.1f km", km)
+    }
+
+    private func durationText(_ seconds: Int?) -> String {
+        guard let seconds, seconds > 0 else { return "--" }
+        let hours = seconds / 3600
+        let minutes = (seconds % 3600) / 60
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        }
+        return "\(minutes)m"
+    }
+
+    private func paceText(for workout: CompletedWorkout) -> String {
+        guard let distance = workout.matchedHealthKitDistance,
+              let duration = workout.matchedHealthKitDuration,
+              distance > 0,
+              duration > 0 else {
+            return "--"
+        }
+        let pace = Double(duration) / (distance / 1000)
+        return "\(WorkoutPostStatsViews.formatPace(pace)) /km"
+    }
+
     private func sharePost() {
         // Create share URL or text
         let shareText = "Check out this workout on WRKT!"
@@ -510,6 +778,62 @@ private struct ResolvedPostImage: Identifiable {
     let url: URL
 
     var id: UUID { image.id }
+}
+
+// MARK: - Post Avatar
+
+private struct PostAvatar: View {
+    let avatarUrl: String?
+    let fallbackName: String
+    let size: CGFloat
+
+    var body: some View {
+        KFImage(URL(string: avatarUrl ?? ""))
+            .placeholder {
+                ChamferedRectangleAlt(.small)
+                    .fill(DS.Semantic.brandSoft)
+                    .overlay(
+                        Text(fallbackName.prefix(1).uppercased())
+                            .dsFont(size > 32 ? .title3 : .caption, weight: .bold)
+                            .foregroundStyle(DS.Semantic.brand)
+                    )
+            }
+            .fade(duration: 0.25)
+            .resizable()
+            .scaledToFill()
+            .frame(width: size, height: size)
+            .clipShape(ChamferedRectangleAlt(.small))
+            .contentShape(ChamferedRectangleAlt(.small))
+    }
+}
+
+// MARK: - Shared Metric Column
+
+private struct SharedMetricColumn: View {
+    let name: String
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(name)
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .lineLimit(1)
+
+            Text(value)
+                .dsFont(.subheadline, weight: .bold)
+                .foregroundStyle(DS.Semantic.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+
+            Text(label)
+                .dsFont(.caption)
+                .foregroundStyle(DS.Semantic.textSecondary)
+                .tracking(0.5)
+        }
+        .frame(maxWidth: .infinity)
+    }
 }
 
 // MARK: - Post Image Strip

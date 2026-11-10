@@ -30,6 +30,50 @@ final class CardioAutoPostService {
         self.imageUploadService = ImageUploadService()
     }
 
+    /// Create a post for a non-run Watch workout (HIIT, Functional Training, etc.) if enabled.
+    /// Called immediately after the workout is imported — no route queue involved.
+    func handleWatchWorkoutIfNeeded(run: Run) async {
+        guard let user = authService.currentUser,
+              let profile = user.profile,
+              profile.autoPostWatchWorkouts else {
+            AppLogger.info("Watch workout auto-post disabled or user not logged in", category: AppLogger.social)
+            return
+        }
+
+        // Running and cycling are excluded: runs have their own toggle, cycling is not a gym workout
+        let workoutType = run.workoutType?.lowercased() ?? ""
+        guard !workoutType.contains("run"), !workoutType.contains("cycling") else { return }
+
+        // Only post recent workouts — prevents flooding on fresh install / data clear
+        // when the anchor is nil and all historical workouts are imported as "new".
+        // 48h covers Watch sync delays (data can lag 1-2h after a workout ends).
+        let ageHours = Date.now.timeIntervalSince(run.date) / 3600
+        guard ageHours <= 48 else {
+            AppLogger.info("Watch workout too old for auto-post: \(String(format: "%.1f", ageHours))h", category: AppLogger.social)
+            return
+        }
+
+        // Require at least 5 minutes to filter accidental activations
+        guard run.durationSec >= 300 else {
+            AppLogger.info("Watch workout too short for auto-post: \(run.durationSec)s", category: AppLogger.social)
+            return
+        }
+
+        guard !recentlyPostedRunIds.contains(run.id) else {
+            AppLogger.info("Watch workout already posted recently: \(run.id)", category: AppLogger.social)
+            return
+        }
+
+        AppLogger.info("Creating auto-post for Watch workout: \(run.workoutType ?? "unknown")", category: AppLogger.social)
+
+        recentlyPostedRunIds.insert(run.id)
+        if recentlyPostedRunIds.count > 50 {
+            recentlyPostedRunIds = Set(Array(recentlyPostedRunIds).suffix(50))
+        }
+
+        await createCardioPost(run: run, route: nil, routeWithHR: nil, userId: user.id)
+    }
+
     /// Check if user has auto-posting enabled and create cardio post if needed
     /// - Parameters:
     ///   - run: The imported run from HealthKit

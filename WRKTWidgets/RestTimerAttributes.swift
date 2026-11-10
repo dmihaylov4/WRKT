@@ -32,6 +32,13 @@ struct RestTimerAttributes: ActivityAttributes {
 
         /// Last update timestamp (helps with synchronization)
         var lastUpdate: Date
+
+        var errorMessage: String? = nil
+
+        func countdownInterval(at now: Date) -> ClosedRange<Date>? {
+            guard !isPaused, endDate > now else { return nil }
+            return now...endDate
+        }
     }
 
     // MARK: - Static Attributes (Don't Change During Activity)
@@ -50,4 +57,7 @@ struct RestTimerAttributes: ActivityAttributes {
 
     /// Start time of the timer
     var startTime: Date
+
+    /// Optional so activities created by the previous app version remain decodable.
+    var timerID: UUID? = nil
 }

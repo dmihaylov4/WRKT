@@ -18,6 +18,7 @@ final class VirtualRunSummaryCoordinator {
     // Stored while waiting for partner
     private var waitingRunId: UUID?
     private var waitingUserId: UUID?
+    private var waitingPartnerUserId: UUID?
     private var waitingPartnerName: String?
     private var waitingMyStats: (distance: Double, duration: Int, pace: Int?, hr: Int?)?
     private var waitTimeout: Task<Void, Never>?
@@ -31,9 +32,10 @@ final class VirtualRunSummaryCoordinator {
     }
 
     /// Called when local user ends first — wait for partner to finish
-    func awaitPartner(runId: UUID, currentUserId: UUID, partnerName: String, myDistance: Double, myDuration: Int, myPace: Int?, myHR: Int?) {
+    func awaitPartner(runId: UUID, currentUserId: UUID, partnerUserId: UUID, partnerName: String, myDistance: Double, myDuration: Int, myPace: Int?, myHR: Int?) {
         waitingRunId = runId
         waitingUserId = currentUserId
+        waitingPartnerUserId = partnerUserId
         waitingPartnerName = partnerName
         waitingMyStats = (myDistance, myDuration, myPace, myHR)
         isWaitingForPartner = true
@@ -67,6 +69,7 @@ final class VirtualRunSummaryCoordinator {
         guard let my = waitingMyStats else { return }
 
         let isInviter = (currentUserId == run.inviterId)
+        let partnerUserId = isInviter ? run.inviteeId : run.inviterId
         let partnerDistance = isInviter ? (run.inviteeDistanceM ?? 0) : (run.inviterDistanceM ?? 0)
         let partnerDuration = isInviter ? (run.inviteeDurationS ?? 0) : (run.inviterDurationS ?? 0)
         let partnerPace = isInviter ? run.inviteeAvgPaceSecPerKm : run.inviterAvgPaceSecPerKm
@@ -74,6 +77,7 @@ final class VirtualRunSummaryCoordinator {
 
         let completionData = VirtualRunCompletionData(
             runId: run.id,
+            partnerUserId: partnerUserId,
             partnerName: waitingPartnerName ?? "Partner",
             myDistanceM: my.distance,
             myDurationS: my.duration,
@@ -102,6 +106,7 @@ final class VirtualRunSummaryCoordinator {
         // Show summary with our stats only — partner data unavailable after timeout
         let completionData = VirtualRunCompletionData(
             runId: waitingRunId ?? UUID(),
+            partnerUserId: waitingPartnerUserId ?? UUID(),
             partnerName: waitingPartnerName ?? "Partner",
             myDistanceM: my.distance,
             myDurationS: my.duration,
@@ -119,6 +124,7 @@ final class VirtualRunSummaryCoordinator {
         waitTimeout?.cancel()
         waitingRunId = nil
         waitingUserId = nil
+        waitingPartnerUserId = nil
         waitingPartnerName = nil
         waitingMyStats = nil
     }

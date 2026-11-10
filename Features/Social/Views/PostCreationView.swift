@@ -21,6 +21,8 @@ struct PostCreationView: View {
 
     @State private var viewModel: PostCreationViewModel?
     @State private var showingWorkoutPicker = false
+    @State private var showingPartnerPicker = false
+    @State private var showingSubmissionError = false
 
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
@@ -54,6 +56,13 @@ struct PostCreationView: View {
             }
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .alert(viewModel?.error?.title ?? "Can't Share Workout", isPresented: $showingSubmissionError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                if let error = viewModel?.error {
+                    Text([error.message, error.suggestion].compactMap { $0 }.joined(separator: "\n\n"))
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -84,12 +93,25 @@ struct PostCreationView: View {
                     )
                 }
             }
+            .sheet(isPresented: $showingPartnerPicker) {
+                if let viewModel = viewModel {
+                    PartnerPickerSheet(
+                        friends: viewModel.friends,
+                        selectedPartner: Binding(
+                            get: { viewModel.selectedPartner },
+                            set: { viewModel.selectPartner($0) }
+                        ),
+                        isLoading: viewModel.isLoadingFriends
+                    )
+                }
+            }
             .task {
                 if viewModel == nil {
                     let vm = PostCreationViewModel(
                         postRepository: deps.postRepository,
                         imageUploadService: deps.imageUploadService,
-                        authService: deps.authService
+                        authService: deps.authService,
+                        friendshipRepository: deps.friendshipRepository
                     )
                     viewModel = vm
 
@@ -112,6 +134,7 @@ struct PostCreationView: View {
 
                     // Load recent workouts (populates cachedRuns for map generation)
                     await vm.loadRecentWorkouts()
+                    await vm.loadFriends()
 
                     // If cardio workout with no map provided, generate one now
                     // (cachedRuns is populated so route lookup will succeed)
@@ -144,6 +167,10 @@ struct PostCreationView: View {
                     noWorkoutState(viewModel: viewModel)
                 }
 
+                if weeklyStats == nil, !viewModel.selectedWorkouts.isEmpty {
+                    partnerSection(viewModel: viewModel)
+                }
+
                 // Caption Input
                 captionSection(viewModel: viewModel)
 
@@ -155,12 +182,11 @@ struct PostCreationView: View {
 
                 // Error Message
                 if let error = viewModel.error, !viewModel.selectedWorkouts.isEmpty {
-                    let workouts = viewModel.selectedWorkouts
                     InlineErrorView(
                         error: error,
                         onRetry: {
                             Task {
-                                try? await viewModel.createPost(with: workouts)
+                                await sharePost(viewModel: viewModel)
                             }
                         },
                         onDismiss: {
@@ -177,6 +203,63 @@ struct PostCreationView: View {
             } else if viewModel.isGeneratingMap {
                 mapGeneratingOverlay
             }
+        }
+    }
+
+    private func partnerSection(viewModel: PostCreationViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Partner")
+                .dsFont(.headline)
+                .foregroundStyle(DS.Semantic.textPrimary)
+
+            Button {
+                showingPartnerPicker = true
+            } label: {
+                HStack(spacing: 12) {
+                    if let partner = viewModel.selectedPartner {
+                        PartnerAvatar(friend: partner, size: 36)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(partner.profile.displayName ?? partner.profile.username)
+                                .dsFont(.subheadline, weight: .bold)
+                                .foregroundStyle(DS.Semantic.textPrimary)
+                            Text("Shared post")
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    } else {
+                        Image(systemName: "person.badge.plus")
+                            .dsFont(.title3)
+                            .foregroundStyle(DS.Semantic.brand)
+                            .frame(width: 36, height: 36)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Tag a workout partner")
+                                .dsFont(.subheadline, weight: .bold)
+                                .foregroundStyle(DS.Semantic.textPrimary)
+                            Text("Optional")
+                                .dsFont(.caption)
+                                .foregroundStyle(DS.Semantic.textSecondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    if viewModel.isLoadingFriends {
+                        ProgressView()
+                            .scaleEffect(0.75)
+                    } else {
+                        Image(systemName: "chevron.right")
+                            .dsFont(.caption, weight: .bold)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                    }
+                }
+                .padding()
+                .background(DS.Semantic.fillSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isLoadingFriends)
         }
     }
 
@@ -597,6 +680,7 @@ struct PostCreationView: View {
     }
 
     private func sharePost(viewModel: PostCreationViewModel) async {
+        guard !viewModel.isUploading else { return }
         let workouts = viewModel.selectedWorkouts
         guard !workouts.isEmpty else { return }
 
@@ -604,7 +688,11 @@ struct PostCreationView: View {
             try await viewModel.createPost(with: workouts)
             dismiss()
         } catch {
-            // Error is already set in viewModel
+            if viewModel.error == nil {
+                viewModel.error = ErrorHandler.shared.handleError(error, context: .post)
+                Haptics.error()
+            }
+            showingSubmissionError = true
         }
     }
 }
@@ -659,6 +747,123 @@ struct WorkoutPickerSheet: View {
                 pendingSelection = Set(selectedWorkouts.map(\.id))
             }
         }
+    }
+}
+
+// MARK: - Partner Picker Sheet
+
+private struct PartnerPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let friends: [Friend]
+    @Binding var selectedPartner: Friend?
+    let isLoading: Bool
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView()
+                } else if friends.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "person.2.slash")
+                            .dsFont(.largeTitle)
+                            .foregroundStyle(DS.Semantic.textSecondary)
+                        Text("No friends yet")
+                            .dsFont(.headline)
+                            .foregroundStyle(DS.Semantic.textPrimary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        Button {
+                            selectedPartner = nil
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Image(systemName: "person.crop.circle.badge.xmark")
+                                    .dsFont(.title3)
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                                    .frame(width: 36, height: 36)
+
+                                Text("No partner")
+                                    .dsFont(.subheadline, weight: .bold)
+                                    .foregroundStyle(DS.Semantic.textPrimary)
+
+                                Spacer()
+
+                                if selectedPartner == nil {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(DS.Semantic.brand)
+                                }
+                            }
+                        }
+
+                        ForEach(friends) { friend in
+                            Button {
+                                selectedPartner = friend
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    PartnerAvatar(friend: friend, size: 36)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(friend.profile.displayName ?? friend.profile.username)
+                                            .dsFont(.subheadline, weight: .bold)
+                                            .foregroundStyle(DS.Semantic.textPrimary)
+                                        Text("@\(friend.profile.username)")
+                                            .dsFont(.caption)
+                                            .foregroundStyle(DS.Semantic.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    if selectedPartner?.id == friend.id {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(DS.Semantic.brand)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Tag Partner")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct PartnerAvatar: View {
+    let friend: Friend
+    let size: CGFloat
+
+    var body: some View {
+        AsyncImage(url: URL(string: friend.profile.avatarUrl ?? "")) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .scaledToFill()
+            default:
+                ChamferedRectangleAlt(.small)
+                    .fill(DS.Semantic.brandSoft)
+                    .overlay(
+                        Text((friend.profile.displayName ?? friend.profile.username).prefix(1).uppercased())
+                            .dsFont(size > 32 ? .subheadline : .caption, weight: .bold)
+                            .foregroundStyle(DS.Semantic.brand)
+                    )
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(ChamferedRectangleAlt(.small))
     }
 }
 

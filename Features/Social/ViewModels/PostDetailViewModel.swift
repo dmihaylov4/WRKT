@@ -80,12 +80,8 @@ final class PostDetailViewModel {
                 updatedPost.likesCount = max(0, updatedPost.likesCount - 1)
             }
 
-            post = PostWithAuthor(
-                id: post.id,
-                post: updatedPost,
-                author: post.author,
-                isLikedByCurrentUser: isLiked
-            )
+            post.post = updatedPost
+            post.isLikedByCurrentUser = isLiked
         } catch {
             AppLogger.warning("Failed to refresh post like state: \(error)", category: AppLogger.social)
         }
@@ -106,7 +102,7 @@ final class PostDetailViewModel {
                 let postId = post.post.id
                 var updatedPost = post.post
                 updatedPost.commentsCount = totalCount
-                post = PostWithAuthor(id: post.id, post: updatedPost, author: post.author, isLikedByCurrentUser: post.isLikedByCurrentUser)
+                post.post = updatedPost
                 // Sync corrected count to cache so feed reflects it
                 CacheManager.shared.updateCachedPost(id: postId, commentsCount: totalCount)
                 NotificationCenter.default.post(
@@ -269,12 +265,8 @@ final class PostDetailViewModel {
             updatedPost.likesCount = max(0, updatedPost.likesCount - 1)
         }
 
-        post = PostWithAuthor(
-            id: post.id,
-            post: updatedPost,
-            author: post.author,
-            isLikedByCurrentUser: newIsLiked
-        )
+        post.post = updatedPost
+        post.isLikedByCurrentUser = newIsLiked
 
         // Perform actual API call
         do {
@@ -296,12 +288,8 @@ final class PostDetailViewModel {
                 revertedPost.likesCount = max(0, revertedPost.likesCount - 1)
             }
 
-            post = PostWithAuthor(
-                id: post.id,
-                post: revertedPost,
-                author: post.author,
-                isLikedByCurrentUser: revertedIsLiked
-            )
+            post.post = revertedPost
+            post.isLikedByCurrentUser = revertedIsLiked
 
             self.error = "Failed to update like"
             Haptics.error()
@@ -352,12 +340,7 @@ final class PostDetailViewModel {
             updatedAt: post.post.updatedAt
         )
 
-        post = PostWithAuthor(
-            id: post.id,
-            post: updatedPostData,
-            author: post.author,
-            isLikedByCurrentUser: post.isLikedByCurrentUser
-        )
+        post.post = updatedPostData
 
         isRefreshingCardioData = false
 

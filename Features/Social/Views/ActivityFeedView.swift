@@ -217,7 +217,7 @@ private struct NotificationRow: View {
             SocialProfileView(userId: notification.actor.id)
                 .environment(\.dependencies, deps)
 
-        case .postLike, .postComment, .commentReply, .commentMention:
+        case .postLike, .postComment, .commentReply, .commentMention, .postParticipantTag:
             // Navigate to the post if we have a target ID
             if let targetId = notification.targetId {
                 PostLoaderView(postId: targetId)

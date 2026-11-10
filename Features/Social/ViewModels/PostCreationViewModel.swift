@@ -29,6 +29,9 @@ final class PostCreationViewModel {
     var recentWorkouts: [CompletedWorkout] = []
     var selectedWorkouts: [CompletedWorkout] = []
     var mapImagesByWorkoutID: [UUID: UIImage] = [:]
+    var friends: [Friend] = []
+    var selectedPartner: Friend?
+    var isLoadingFriends = false
 
     var selectedWorkout: CompletedWorkout? {
         get { selectedWorkouts.first }
@@ -45,6 +48,7 @@ final class PostCreationViewModel {
     private let postRepository: PostRepository
     private let imageUploadService: ImageUploadService
     private let authService: SupabaseAuthService
+    private let friendshipRepository: FriendshipRepository
     private let workoutStorage: WorkoutStorage
     private let retryManager = RetryManager.shared
     private let errorHandler = ErrorHandler.shared
@@ -53,11 +57,13 @@ final class PostCreationViewModel {
         postRepository: PostRepository,
         imageUploadService: ImageUploadService,
         authService: SupabaseAuthService,
+        friendshipRepository: FriendshipRepository,
         workoutStorage: WorkoutStorage = .shared
     ) {
         self.postRepository = postRepository
         self.imageUploadService = imageUploadService
         self.authService = authService
+        self.friendshipRepository = friendshipRepository
         self.workoutStorage = workoutStorage
     }
 
@@ -76,6 +82,7 @@ final class PostCreationViewModel {
 
         selectedWorkouts = workouts
         isUploading = true
+        defer { isUploading = false }
         error = nil
         retryAttempt = 0
 
@@ -112,7 +119,9 @@ final class PostCreationViewModel {
         // Step 2: Check if an auto-post already exists for this workout.
         // If so, extend it with the user's photo instead of creating a duplicate.
         // Only applies to single-workout posts.
-        if workouts.count == 1,
+        if selectedPartner == nil,
+           weeklyProgressStats == nil,
+           workouts.count == 1,
            let workout = workouts.first,
            let hkUUID = workout.matchedHealthKitUUID,
            let existingPost = try? await postRepository.fetchOwnPost(forHealthKitUUID: hkUUID, userId: currentUserId),
@@ -157,6 +166,39 @@ final class PostCreationViewModel {
         }
 
         let allImages = uploadedUserPhotos + mapUploadedImages
+        if let selectedPartner, weeklyProgressStats == nil {
+            let sharedPostResult = await retryManager.fetchWithRetry {
+                try await self.postRepository.createSharedPost(
+                    caption: self.caption.isEmpty ? nil : self.caption,
+                    visibility: self.selectedVisibility,
+                    images: allImages.isEmpty ? nil : allImages,
+                    workoutData: workouts[0],
+                    workoutDataList: workouts.count > 1 ? workouts : nil,
+                    partnerUserId: selectedPartner.id,
+                    partnerVRStats: nil,
+                    runId: nil
+                )
+            }
+
+            switch sharedPostResult {
+            case .success:
+                isUploading = false
+                error = nil
+                Haptics.success()
+
+            case .failure(let err, let attempts):
+                let userError = errorHandler.handleError(err, context: .post)
+                errorHandler.logError(userError, context: .post)
+                self.error = userError
+                self.retryAttempt = attempts
+                isUploading = false
+                Haptics.error()
+                throw err
+            }
+
+            return
+        }
+
         let postResult = await retryManager.fetchWithRetry {
             try await self.postRepository.createPost(
                 workouts: workouts,
@@ -184,6 +226,24 @@ final class PostCreationViewModel {
             Haptics.error()
             throw err
         }
+    }
+
+    func loadFriends() async {
+        guard friends.isEmpty, !isLoadingFriends else { return }
+        guard let currentUserId = authService.currentUser?.id else { return }
+
+        isLoadingFriends = true
+        defer { isLoadingFriends = false }
+
+        do {
+            friends = try await friendshipRepository.fetchFriends(userId: currentUserId)
+        } catch {
+            AppLogger.error("Failed to load friends for post partner picker", error: error, category: AppLogger.app)
+        }
+    }
+
+    func selectPartner(_ friend: Friend?) {
+        selectedPartner = friend
     }
 
     private func mapIdentity(for workout: CompletedWorkout) -> UUID {

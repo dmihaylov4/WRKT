@@ -11,6 +11,8 @@ import UIKit
 import HealthKit
 
 struct VirtualRunMapComparisonView: View {
+    @Environment(\.dependencies) private var deps
+
     let data: VirtualRunCompletionData
     let onDismiss: () -> Void
 
@@ -22,6 +24,8 @@ struct VirtualRunMapComparisonView: View {
     @State private var isLoadingPartnerRoute = true
     @State private var isRetryingMyRoute = false
     @State private var isRetryingPartnerRoute = false
+    @State private var isSharingTogether = false
+    @State private var didShareTogether = false
 
     // Staggered reveal
     @State private var showMyLabel = false
@@ -76,6 +80,32 @@ struct VirtualRunMapComparisonView: View {
 
                     // Continue button
                     if showButton {
+                        Button {
+                            Task { await shareTogether() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                if isSharingTogether {
+                                    ProgressView()
+                                        .tint(.black)
+                                        .scaleEffect(0.8)
+                                } else {
+                                    Image(systemName: didShareTogether ? "checkmark" : "person.2.fill")
+                                        .dsFont(.subheadline, weight: .bold)
+                                }
+
+                                Text(didShareTogether ? "Shared Together" : "Share Together")
+                                    .dsFont(.headline)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                            .contentShape(Rectangle())
+                        }
+                        .disabled(isSharingTogether || didShareTogether)
+                        .background(DS.Theme.accent)
+                        .foregroundStyle(.black)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .padding(.horizontal, 20)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+
                         Button {
                             Haptics.light()
                             onDismiss()
@@ -583,6 +613,40 @@ struct VirtualRunMapComparisonView: View {
             }
             isRetryingPartnerRoute = false
         }
+    }
+
+    private func shareTogether() async {
+        guard !isSharingTogether, !didShareTogether else { return }
+        isSharingTogether = true
+
+        do {
+            let partnerStats = VRPartnerSummary(
+                distanceM: data.partnerDistanceM,
+                durationS: data.partnerDurationS,
+                paceSecPerKm: data.partnerPaceSecPerKm,
+                avgHR: data.partnerAvgHR
+            )
+
+            _ = try await deps.postRepository.createSharedPost(
+                caption: "Virtual run with \(data.partnerName)",
+                visibility: .friends,
+                images: nil,
+                workoutData: data.makeCreatorWorkout(),
+                workoutDataList: nil,
+                partnerUserId: data.partnerUserId,
+                partnerVRStats: partnerStats,
+                runId: data.runId
+            )
+
+            didShareTogether = true
+            Haptics.success()
+            WorkoutToastManager.shared.show(message: "Shared together")
+        } catch {
+            Haptics.error()
+            WorkoutToastManager.shared.show(message: "Could not share run")
+        }
+
+        isSharingTogether = false
     }
 
     // MARK: - Helpers

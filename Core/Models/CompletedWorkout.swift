@@ -43,7 +43,7 @@ struct HRZoneSummary: Codable, Hashable, Identifiable {
         minutes = try c.decode(Double.self, forKey: .minutes)
         rangeDisplay = try c.decode(String.self, forKey: .rangeDisplay)
         colorHex = try c.decode(String.self, forKey: .colorHex)
-        isEstimated = (try? c.decode(Bool.self, forKey: .isEstimated)) ?? false
+        isEstimated = (try c.decodeIfPresent(Bool.self, forKey: .isEstimated)) ?? false
     }
 }
 
@@ -186,42 +186,42 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
+        id = (try container.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
 
         // Handle legacy data without entries field
-        entries = (try? container.decode([WorkoutEntry].self, forKey: .entries)) ?? []
+        entries = (try container.decodeIfPresent([WorkoutEntry].self, forKey: .entries)) ?? []
 
         // Try to decode date, use .now if missing (legacy data without dates)
-        date = (try? container.decode(Date.self, forKey: .date)) ?? .now
+        date = (try container.decodeIfPresent(Date.self, forKey: .date)) ?? .now
 
         // Decode startedAt (optional, for backwards compatibility with old workouts)
-        startedAt = try? container.decode(Date.self, forKey: .startedAt)
+        startedAt = try container.decodeIfPresent(Date.self, forKey: .startedAt)
 
         // Decode workoutName (optional, for backwards compatibility)
-        workoutName = try? container.decode(String.self, forKey: .workoutName)
+        workoutName = try container.decodeIfPresent(String.self, forKey: .workoutName)
 
         // Decode plannedWorkoutID (optional, for backwards compatibility)
-        plannedWorkoutID = try? container.decode(UUID.self, forKey: .plannedWorkoutID)
+        plannedWorkoutID = try container.decodeIfPresent(UUID.self, forKey: .plannedWorkoutID)
 
-        matchedHealthKitUUID = try? container.decode(UUID.self, forKey: .matchedHealthKitUUID)
-        matchedHealthKitCalories = try? container.decode(Double.self, forKey: .matchedHealthKitCalories)
-        matchedHealthKitHeartRate = try? container.decode(Double.self, forKey: .matchedHealthKitHeartRate)
-        matchedHealthKitMaxHeartRate = try? container.decode(Double.self, forKey: .matchedHealthKitMaxHeartRate)
-        matchedHealthKitMinHeartRate = try? container.decode(Double.self, forKey: .matchedHealthKitMinHeartRate)
-        matchedHealthKitDuration = try? container.decode(Int.self, forKey: .matchedHealthKitDuration)
-        matchedHealthKitHeartRateSamples = try? container.decode([HeartRateSample].self, forKey: .matchedHealthKitHeartRateSamples)
-        matchedHealthKitDistance = try? container.decode(Double.self, forKey: .matchedHealthKitDistance)
-        matchedHealthKitElevationGain = try? container.decode(Double.self, forKey: .matchedHealthKitElevationGain)
-        detectedPRCount = try? container.decode(Int.self, forKey: .detectedPRCount)
-        cardioSplits = try? container.decode([KilometerSplit].self, forKey: .cardioSplits)
-        cardioHRZones = try? container.decode([HRZoneSummary].self, forKey: .cardioHRZones)
-        cardioWorkoutType = try? container.decode(String.self, forKey: .cardioWorkoutType)
-        cardioAvgPower = try? container.decode(Double.self, forKey: .cardioAvgPower)
-        cardioAvgCadence = try? container.decode(Double.self, forKey: .cardioAvgCadence)
-        cardioAvgStrideLength = try? container.decode(Double.self, forKey: .cardioAvgStrideLength)
-        cardioAvgGroundContactTime = try? container.decode(Double.self, forKey: .cardioAvgGroundContactTime)
-        cardioAvgVerticalOscillation = try? container.decode(Double.self, forKey: .cardioAvgVerticalOscillation)
-        excusedPlannedExerciseIDs = (try? container.decode(Set<UUID>.self, forKey: .excusedPlannedExerciseIDs)) ?? []
+        matchedHealthKitUUID = try container.decodeIfPresent(UUID.self, forKey: .matchedHealthKitUUID)
+        matchedHealthKitCalories = try container.decodeIfPresent(Double.self, forKey: .matchedHealthKitCalories)
+        matchedHealthKitHeartRate = try container.decodeIfPresent(Double.self, forKey: .matchedHealthKitHeartRate)
+        matchedHealthKitMaxHeartRate = try container.decodeIfPresent(Double.self, forKey: .matchedHealthKitMaxHeartRate)
+        matchedHealthKitMinHeartRate = try container.decodeIfPresent(Double.self, forKey: .matchedHealthKitMinHeartRate)
+        matchedHealthKitDuration = try container.decodeIfPresent(Int.self, forKey: .matchedHealthKitDuration)
+        matchedHealthKitHeartRateSamples = try container.decodeIfPresent([HeartRateSample].self, forKey: .matchedHealthKitHeartRateSamples)
+        matchedHealthKitDistance = try container.decodeIfPresent(Double.self, forKey: .matchedHealthKitDistance)
+        matchedHealthKitElevationGain = try container.decodeIfPresent(Double.self, forKey: .matchedHealthKitElevationGain)
+        detectedPRCount = try container.decodeIfPresent(Int.self, forKey: .detectedPRCount)
+        cardioSplits = try container.decodeIfPresent([KilometerSplit].self, forKey: .cardioSplits)
+        cardioHRZones = try container.decodeIfPresent([HRZoneSummary].self, forKey: .cardioHRZones)
+        cardioWorkoutType = try container.decodeIfPresent(String.self, forKey: .cardioWorkoutType)
+        cardioAvgPower = try container.decodeIfPresent(Double.self, forKey: .cardioAvgPower)
+        cardioAvgCadence = try container.decodeIfPresent(Double.self, forKey: .cardioAvgCadence)
+        cardioAvgStrideLength = try container.decodeIfPresent(Double.self, forKey: .cardioAvgStrideLength)
+        cardioAvgGroundContactTime = try container.decodeIfPresent(Double.self, forKey: .cardioAvgGroundContactTime)
+        cardioAvgVerticalOscillation = try container.decodeIfPresent(Double.self, forKey: .cardioAvgVerticalOscillation)
+        excusedPlannedExerciseIDs = (try container.decodeIfPresent(Set<UUID>.self, forKey: .excusedPlannedExerciseIDs)) ?? []
     }
 
     // Custom encoder to ensure all fields are properly saved

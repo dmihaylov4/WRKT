@@ -152,15 +152,9 @@ struct ExerciseSessionView: View {
                 onScenePhaseChange: handleScenePhaseChange,
                 onTimerStateChange: handleTimerStateChange
             ))
-            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("GeneratePendingSetBeforeTimer"))) { notification in
-                // WorkoutStoreV2 handles the actual set generation/logging
-                // ExerciseSessionView just needs to reload the sets to show the update
-                if let exerciseID = notification.userInfo?["exerciseID"] as? String,
-                   exerciseID == exercise.id {
-                    // Small delay to let WorkoutStoreV2 finish updating
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        reloadSetsFromStore()
-                    }
+            .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("WorkoutSetCommitted"))) { notification in
+                if notification.userInfo?["exerciseID"] as? String == exercise.id {
+                    reloadSetsFromStore()
                 }
             }
     }
@@ -1426,7 +1420,8 @@ struct ExerciseSessionView: View {
         // Always start with full rest duration when completing a set
         // Don't reuse remaining time from previous timer
         let duration = prefs.restDuration(for: exercise)
-        manager.startTimer(duration: duration, exerciseID: exercise.id, exerciseName: exercise.name)
+        manager.startTimer(duration: duration, exerciseID: exercise.id, exerciseName: exercise.name,
+            workoutID: store.currentWorkout?.id, entryID: viewModel.currentEntryID)
     }
 }
 

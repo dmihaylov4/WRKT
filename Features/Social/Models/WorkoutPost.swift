@@ -4,6 +4,43 @@ enum PostType: String, Codable, Sendable, Hashable {
     case workout = "workout"
     case weeklyProgress = "weekly_progress"
     case battle = "battle"
+    case shared = "shared"
+}
+
+struct VRPartnerSummary: Codable, Sendable, Equatable, Hashable {
+    let distanceM: Double
+    let durationS: Int
+    let paceSecPerKm: Int?
+    let avgHR: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case distanceM = "distance_m"
+        case durationS = "duration_s"
+        case paceSecPerKm = "pace_sec_per_km"
+        case avgHR = "avg_hr"
+    }
+}
+
+struct PostParticipant: Codable, Identifiable, Sendable, Hashable {
+    let id: UUID
+    let postId: UUID
+    let userId: UUID
+    let workoutData: CompletedWorkout?
+    let vrStats: VRPartnerSummary?
+    let joinedAt: Date
+    let removedAt: Date?
+    var profile: UserProfile?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case postId = "post_id"
+        case userId = "user_id"
+        case workoutData = "workout_data"
+        case vrStats = "vr_stats"
+        case joinedAt = "joined_at"
+        case removedAt = "removed_at"
+        case profile
+    }
 }
 
 struct WeeklyPostStats: Codable, Sendable, Equatable, Hashable {
@@ -341,9 +378,10 @@ struct WorkoutPost: Codable, Identifiable, Sendable, Hashable {
 /// Post with author information
 struct PostWithAuthor: Identifiable, Sendable, Hashable {
     let id: UUID
-    let post: WorkoutPost
+    var post: WorkoutPost
     let author: UserProfile
     var isLikedByCurrentUser: Bool = false
+    var partners: [PostParticipant] = []
 
     var relativeTime: String {
         let formatter = RelativeDateTimeFormatter()

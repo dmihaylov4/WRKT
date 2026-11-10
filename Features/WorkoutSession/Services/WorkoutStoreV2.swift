@@ -100,9 +100,14 @@ final class WorkoutStoreV2: ObservableObject {
     /// preventing a failed load (e.g. device locked during background task) from
     /// overwriting good data with an empty array.
     @Published private(set) var isStorageLoaded = false
+    @Published private(set) var storageLoadError: Error?
+    private var isLoadingStorage = false
 
     // MARK: - Dependencies
-    private let storage = WorkoutStorage.shared
+    private let storage: WorkoutStorage
+    private let rewardsEngine: RewardsEngine
+    private var storageLoadTask: Task<Void, Never>?
+    private var pendingSave: Task<Void, Error>?
     private let repo: ExerciseRepository
     private var cancellables = Set<AnyCancellable>()
 
@@ -113,11 +118,18 @@ final class WorkoutStoreV2: ObservableObject {
     private var plannedWorkoutCompletionHandler: ((UUID, CompletedWorkout) -> Void)?
 
     // MARK: - UserDefaults keys
-    private let defaults = UserDefaults.standard
+    private let defaults: UserDefaults
     private let lastImportKey = "health.lastImport.endDate"
 
     private var _stats: StatsAggregator?
     var stats: StatsAggregator? { _stats }
+
+    func waitForStorage() async throws {
+        await storageLoadTask?.value
+        guard isStorageLoaded else {
+            throw StorageError.validationFailed("Workout history could not be loaded")
+        }
+    }
 
     func installStats(_ stats: StatsAggregator) {
         self._stats = stats
@@ -128,10 +140,33 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     // MARK: - Init
-    init(repo: ExerciseRepository = .shared) {
+    init(
+        repo: ExerciseRepository = .shared,
+        storage: WorkoutStorage = .shared,
+        defaults: UserDefaults = .standard,
+        rewardsEngine: RewardsEngine = .shared
+    ) {
         self.repo = repo
+        self.storage = storage
+        self.defaults = defaults
+        self.rewardsEngine = rewardsEngine
 
-        Task {
+        retryStorageLoad()
+
+        repo.$exercises
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.refreshCurrentWorkoutEntryNames() }
+            .store(in: &cancellables)
+
+
+    }
+
+    func retryStorageLoad() {
+        guard !isStorageLoaded, !isLoadingStorage else { return }
+        isLoadingStorage = true
+        storageLoadError = nil
+        storageLoadTask = Task {
+            defer { isLoadingStorage = false }
             do {
                 // Check if migration is needed
                 if await storage.needsMigration() {
@@ -139,33 +174,7 @@ final class WorkoutStoreV2: ObservableObject {
                     try await storage.migrateFromLegacyStorage()
                 }
 
-                // Check if app was force quit (backgrounded < 5 seconds ago with active workout)
-                let wasForceQuit = defaults.wasForceQuit
-
-                // Log timestamp info for debugging
-                if let backgroundTimestamp = defaults.object(forKey: "app.backgroundTimestamp") as? Date {
-                    let timeSinceBackground = Date().timeIntervalSince(backgroundTimestamp)
-                    let hadActiveWorkout = defaults.bool(forKey: "app.hadActiveWorkout")
-                    AppLogger.info("App launch - wasForceQuit: \(wasForceQuit), backgrounded \(String(format: "%.1f", timeSinceBackground))s ago, hadActiveWorkout: \(hadActiveWorkout)", category: AppLogger.storage)
-                } else {
-                    AppLogger.info("App launch - wasForceQuit: \(wasForceQuit) (first launch)", category: AppLogger.storage)
-                }
-
-                if wasForceQuit {
-                    AppLogger.warning("App was force quit with active workout - discarding workout", category: AppLogger.storage)
-                    try? await storage.deleteCurrentWorkout()
-                    // Clean up rest timer notifications and haptics
-                    await MainActor.run {
-                        RestTimerManager.shared.stopTimer()
-                    }
-                } else {
-                    AppLogger.info("App exited cleanly - preserving active workout if exists", category: AppLogger.storage)
-                }
-
-                // Mark that app has launched and is now running
-                defaults.markAppLaunched()
-                defaults.markActive()
-
+                // Restore saved work regardless of how the previous process ended.
                 // Load all data from unified storage
                 let (workouts, prIndex) = try await storage.loadWorkouts()
                 let runs = try await storage.loadRuns()
@@ -173,21 +182,7 @@ final class WorkoutStoreV2: ObservableObject {
                 let ignoredUUIDs = try await storage.loadIgnoredHealthKitUUIDs()
                 let discardWindows = try await storage.loadDiscardedWorkoutWindows()
 
-                // Auto-recovery: if the main runs file exists but loaded empty, try to restore
-                // from the most recent backup that has runs. This mirrors the workouts path
-                // and protects durable cardio history from empty-file overwrite cases.
-                if runs.isEmpty, await storage.hasRunsFile() {
-                    if let backupRuns = try? await storage.loadMostRecentNonEmptyRunsBackup() {
-                        AppLogger.warning("Runs storage empty but backup has \(backupRuns.count) runs — auto-restoring", category: AppLogger.storage)
-                        self.runs = backupRuns.sorted(by: { $0.date > $1.date })
-                        self.isStorageLoaded = true
-                        self.persistRuns()
-                    } else {
-                        self.runs = runs
-                    }
-                } else {
-                    self.runs = runs
-                }
+                self.runs = runs
 
                 // IMPORTANT: Sort workouts by date to ensure proper ordering
                 self.currentWorkout = currentWorkout
@@ -195,26 +190,9 @@ final class WorkoutStoreV2: ObservableObject {
                 self.discardedWorkoutWindows = discardWindows
                 self.lastHealthImportEndDate = defaults.object(forKey: lastImportKey) as? Date
 
-                // Auto-recovery: if the main file exists but loaded empty, try to restore
-                // from the most recent backup that has workouts. This recovers from the
-                // bug where .complete file protection + background HealthKit sync caused
-                // an empty-array write over good data.
-                if workouts.isEmpty, await storage.hasWorkoutsFile() {
-                    if let backup = try? await storage.loadMostRecentNonEmptyBackup() {
-                        AppLogger.warning("Main storage empty but backup has \(backup.workouts.count) workouts — auto-restoring", category: AppLogger.storage)
-                        self.completedWorkouts = backup.workouts.sorted(by: { $0.date < $1.date })
-                        self.prIndex = backup.prIndex
-                        // Persist recovered data back to main storage
-                        self.isStorageLoaded = true
-                        self.persistWorkouts()
-                    } else {
-                        self.completedWorkouts = []
-                        self.prIndex = prIndex
-                    }
-                } else {
-                    self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
-                    self.prIndex = prIndex
-                }
+                // A decoded empty collection is a committed deletion, not corruption.
+                self.completedWorkouts = workouts.sorted(by: { $0.date < $1.date })
+                self.prIndex = prIndex
 
                 // Storage is confirmed loaded — allow writes from this point
                 self.isStorageLoaded = true
@@ -236,28 +214,13 @@ final class WorkoutStoreV2: ObservableObject {
                 matchAllWorkoutsWithHealthKit()
 
             } catch {
+                isStorageLoaded = false
+                storageLoadError = error
                 AppLogger.error("Failed to load from storage: \(error)", category: AppLogger.storage)
                 // Leave isStorageLoaded = false so persistWorkouts() won't overwrite good data.
                 // State stays as empty defaults; HealthKit sync will add data once storage is accessible.
             }
         }
-
-        repo.$exercises
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refreshCurrentWorkoutEntryNames() }
-            .store(in: &cancellables)
-
-        // Listen for set generation requests from widget (even when ExerciseSessionView is not open)
-        NotificationCenter.default.publisher(for: NSNotification.Name("GeneratePendingSetBeforeTimer"))
-            .receive(on: RunLoop.main)
-            .sink { [weak self] notification in
-                guard let self = self else { return }
-                if let exerciseID = notification.userInfo?["exerciseID"] as? String,
-                   let shouldLogSet = notification.userInfo?["shouldLogSet"] as? Bool {
-                    self.handleGeneratePendingSet(exerciseID: exerciseID, shouldLogSet: shouldLogSet)
-                }
-            }
-            .store(in: &cancellables)
     }
 
     // MARK: - Current Workout lifecycle
@@ -265,10 +228,8 @@ final class WorkoutStoreV2: ObservableObject {
     func startWorkoutIfNeeded() {
         if currentWorkout == nil {
             currentWorkout = CurrentWorkout()
-            // Mark app as having active state (force quit detection)
-            defaults.didExitCleanly = false
             persistCurrentWorkout()
-            AppLogger.debug("Started new workout - marked didExitCleanly = false", category: AppLogger.workout)
+            AppLogger.debug("Started new workout", category: AppLogger.workout)
         }
     }
 
@@ -302,10 +263,8 @@ final class WorkoutStoreV2: ObservableObject {
             plannedWorkoutID: planned.id,
             activeEntryID: entries.first?.id  // Set first exercise as active
         )
-        // Mark app as having active state (force quit detection)
-        defaults.didExitCleanly = false
         persistCurrentWorkout()
-        AppLogger.info("Started planned workout: \(planned.splitDayName) - marked didExitCleanly = false", category: AppLogger.workout)
+        AppLogger.info("Started planned workout: \(planned.splitDayName)", category: AppLogger.workout)
     }
 
     func discardCurrentWorkout() {
@@ -407,7 +366,7 @@ final class WorkoutStoreV2: ObservableObject {
                 return isValidSetForDex(set)
             }
             if didWork {
-                RewardsEngine.shared.ensureDexUnlocked(exerciseKey: canonicalExerciseKey(from: e.exerciseID))
+                rewardsEngine.ensureDexUnlocked(exerciseKey: canonicalExerciseKey(from: e.exerciseID))
             }
         }
 
@@ -474,75 +433,12 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     func updateEntrySets(entryID: UUID, sets: [SetInput]) {
-        guard var w = currentWorkout else { return }
-        guard let idx = w.entries.firstIndex(where: { $0.id == entryID }) else { return }
-
-        // Check if this is the first completed set
-        let hadCompletedSets = w.entries[idx].sets.contains { $0.isCompleted }
-        let willHaveCompletedSets = sets.contains { $0.isCompleted }
-
-        w.entries[idx].sets = sets
-
-        // Auto-set as active when logging first completed set
-        if !hadCompletedSets && willHaveCompletedSets {
-            w.activeEntryID = entryID
-        }
-
-        // Auto-advance with superset support
-        if w.activeEntryID == entryID && !sets.isEmpty {
-            let entry = w.entries[idx]
-            let completedCount = sets.filter { $0.isCompleted }.count
-            let allCompleted = sets.allSatisfy { $0.isCompleted }
-
-            if let groupID = entry.supersetGroupID {
-                // SUPERSET: Switch to next exercise in group after each completed set
-                if let nextEntry = w.nextSupersetEntry(after: entryID) {
-                    let nextCompletedCount = nextEntry.sets.filter { $0.isCompleted }.count
-                    // Switch if next exercise has fewer completed sets
-                    if nextCompletedCount < completedCount {
-                        w.activeEntryID = nextEntry.id
-                    }
-                }
-
-                // If all superset exercises are fully complete, advance outside group
-                let allSupersetComplete = w.entriesInSuperset(groupID).allSatisfy { e in
-                    e.sets.allSatisfy { $0.isCompleted }
-                }
-                if allSupersetComplete {
-                    if let nextEntry = w.entries.first(where: { e in
-                        e.supersetGroupID != groupID && !e.sets.allSatisfy { $0.isCompleted }
-                    }) {
-                        w.activeEntryID = nextEntry.id
-                    }
-                }
-            } else {
-                // STANDALONE: Original logic - advance when all sets completed
-                if allCompleted {
-                    if let nextEntry = w.entries.first(where: { entry in
-                        entry.id != entryID && !entry.sets.contains(where: { $0.isCompleted })
-                    }) {
-                        w.activeEntryID = nextEntry.id
-                    }
-                }
-            }
-        }
-
-        currentWorkout = w
-        persistCurrentWorkout()
-        updateLastWorkingFromCurrent()
-
-        let entry = w.entries[idx]
-        let hasCompletedWorking = entry.sets.contains { set in
-            guard set.tag == .working && set.isCompleted else { return false }
-            return isValidSetForDex(set)
-        }
-        if hasCompletedWorking {
-            let key = canonicalExerciseKey(from: entry.exerciseID)
-            RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
-        }
+        guard let entry = currentWorkout?.entries.first(where: { $0.id == entryID }) else { return }
+        updateEntrySetsAndActiveIndex(entryID: entryID, sets: sets, activeSetIndex: entry.activeSetIndex)
     }
 
-    func updateEntrySetsAndActiveIndex(entryID: UUID, sets: [SetInput], activeSetIndex: Int) {
+    func updateEntrySetsAndActiveIndex(entryID: UUID, sets: [SetInput], activeSetIndex: Int,
+                                      receipt: SetLogReceipt? = nil) {
         guard var w = currentWorkout else { return }
         guard let idx = w.entries.firstIndex(where: { $0.id == entryID }) else { return }
 
@@ -552,6 +448,7 @@ final class WorkoutStoreV2: ObservableObject {
 
         w.entries[idx].sets = sets
         w.entries[idx].activeSetIndex = activeSetIndex
+        if let receipt { w.setLogReceipts.append(receipt) }
 
         // Auto-set as active when logging first completed set
         if !hadCompletedSets && willHaveCompletedSets {
@@ -608,7 +505,7 @@ final class WorkoutStoreV2: ObservableObject {
         }
         if hasCompletedWorking {
             let key = canonicalExerciseKey(from: entry.exerciseID)
-            RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key)
+            rewardsEngine.ensureDexUnlocked(exerciseKey: key)
         }
     }
 
@@ -891,102 +788,81 @@ final class WorkoutStoreV2: ObservableObject {
         currentWorkout?.entries.first(where: { $0.exerciseID == exerciseID })
     }
 
-    /// Handle set generation request from widget (works even when ExerciseSessionView is not open)
-    /// - Parameters:
-    ///   - exerciseID: The exercise to generate a set for
-    ///   - shouldLogSet: If true, marks the generated set as completed
-    private func handleGeneratePendingSet(exerciseID: String, shouldLogSet: Bool) {
-        // Only generate if there's a pending flag for this exercise
-        let manager = RestTimerManager.shared
-        guard manager.hasPendingSetGeneration(for: exerciseID) else {
-            AppLogger.debug("No pending set for exercise \(exerciseID), skipping generation", category: AppLogger.workout)
-            return
+    /// Explicit logging records the action receipt alongside the set before acknowledging it.
+    /// A failed write can be retried with the same ID, including after process restart.
+    func logNextSet(workoutID: UUID, entryID: UUID, exerciseID: String, operationID: UUID,
+                    restDuration: TimeInterval) async throws -> SetLogReceipt {
+        guard restDuration.isFinite, restDuration > 0, restDuration <= 86_400 else {
+            throw StorageError.validationFailed("The rest duration is invalid.")
         }
-
-        // Find the entry for this exercise
-        guard let entry = existingEntry(for: exerciseID) else {
-            AppLogger.warning("Cannot generate set - exercise not in workout: \(exerciseID)", category: AppLogger.workout)
-            manager.clearPendingSetGeneration(for: exerciseID)
-            return
+        try await waitForStorage()
+        guard let workout = currentWorkout, workout.id == workoutID,
+              let entry = workout.entries.first(where: { $0.id == entryID && $0.exerciseID == exerciseID }) else {
+            throw StorageError.validationFailed("This workout or exercise is no longer available.")
         }
-
-        var sets = entry.sets
-        var activeSetIndex = entry.activeSetIndex
-
-        // Find last completed set to use as template (or last set if none completed)
-        let templateSet = sets.last(where: { $0.isCompleted }) ?? sets.last
-
-        // Find the next incomplete set to log, respecting activeSetIndex for prefilled workouts
-        // First, try to find the first incomplete set starting from activeSetIndex
-        let nextIncompleteIndex = sets.indices.first { index in
-            index >= activeSetIndex && !sets[index].isCompleted
-        } ?? sets.firstIndex { !$0.isCompleted }
-
-        // If we have an incomplete set, mark it as completed (if shouldLogSet)
-        if let index = nextIncompleteIndex {
-            if shouldLogSet {
-                sets[index].isCompleted = true
-                // Update activeSetIndex to the next set (or stay at current if it's the last one)
-                activeSetIndex = min(index + 1, sets.count - 1)
-                updateEntrySetsAndActiveIndex(entryID: entry.id, sets: sets, activeSetIndex: activeSetIndex)
-                AppLogger.info("Logged existing incomplete set #\(index + 1) from widget for \(entry.exerciseName)", category: AppLogger.workout)
-            } else {
-                AppLogger.debug("Set already exists and not logging, skipping generation", category: AppLogger.workout)
+        let receipt: SetLogReceipt
+        if let existing = workout.setLogReceipts.first(where: { $0.operationID == operationID }) {
+            guard existing.entryID == entryID else {
+                throw StorageError.validationFailed("This action belongs to another exercise.")
             }
-            manager.clearPendingSetGeneration(for: exerciseID)
-            return
-        }
-
-        // Check if we should auto-generate a new set
-        // Only auto-add sets up to 4 total completed sets (best practice to prevent annoying auto-generation)
-        let completedSetsCount = sets.filter { $0.isCompleted }.count
-        if completedSetsCount >= 4 {
-            AppLogger.info("Already have \(completedSetsCount) completed sets for \(entry.exerciseName), not auto-generating more", category: AppLogger.workout)
-
-            // Show success notification to inform user they need to manually add more sets
-            AppNotificationManager.shared.showSetsCompleted(count: completedSetsCount)
-
-            manager.clearPendingSetGeneration(for: exerciseID)
-            return
-        }
-
-        // Generate a new set based on template
-        let newSet: SetInput
-        if let template = templateSet {
-            newSet = SetInput(
-                reps: template.reps,
-                weight: template.weight,
-                tag: template.tag,
-                autoWeight: false,
-                didSeedFromMemory: false,
-                isCompleted: shouldLogSet,  // Mark as completed if requested
-                isGhost: false,
-                isAutoGeneratedPlaceholder: !shouldLogSet  // Mark as auto-generated if not logging
-            )
+            receipt = existing
+            // The earlier attempt may still be in memory after a write failure.
+            persistCurrentWorkout()
         } else {
-            // No template - create default set
-            newSet = SetInput(
-                reps: 10,
-                weight: 0,
-                tag: .working,
-                autoWeight: true,
-                didSeedFromMemory: false,
-                isCompleted: shouldLogSet,
-                isGhost: false,
-                isAutoGeneratedPlaceholder: !shouldLogSet
-            )
+            var updated = entry
+            guard let index = prepareNextSet(in: &updated, shouldLogSet: true) else {
+                throw StorageError.validationFailed("The next set could not be prepared.")
+            }
+            updated.sets[index].completionTime = .now
+            updated.sets[index].restAfterSeconds = Int(restDuration)
+            receipt = SetLogReceipt(operationID: operationID, entryID: entryID, setIndex: index)
+            updateEntrySetsAndActiveIndex(entryID: entryID, sets: updated.sets,
+                activeSetIndex: updated.activeSetIndex, receipt: receipt)
         }
+        // Capture this exact write, not whichever operation becomes latest while awaiting.
+        guard let save = pendingSave else {
+            throw StorageError.validationFailed("The workout could not be saved.")
+        }
+        try await save.value
+        return receipt
+    }
 
-        sets.append(newSet)
+    func handleGeneratePendingSet(exerciseID: String, shouldLogSet: Bool) {
+        let manager = RestTimerManager.shared
+        guard manager.hasPendingSetGeneration(for: exerciseID) else { return }
+        defer { manager.clearPendingSetGeneration(for: exerciseID) }
+        guard var entry = existingEntry(for: exerciseID) else { return }
+        guard prepareNextSet(in: &entry, shouldLogSet: shouldLogSet) != nil else { return }
+        updateEntrySetsAndActiveIndex(entryID: entry.id, sets: entry.sets, activeSetIndex: entry.activeSetIndex)
+    }
 
-        // Update the workout with new sets
-        updateEntrySets(entryID: entry.id, sets: sets)
-
-        let action = shouldLogSet ? "Logged" : "Generated"
-        AppLogger.info("\(action) set #\(sets.count) from widget for \(entry.exerciseName) (\(completedSetsCount + (shouldLogSet ? 1 : 0)) completed)", category: AppLogger.workout)
-
-        // Clear the pending flag
-        manager.clearPendingSetGeneration(for: exerciseID)
+    private func prepareNextSet(in entry: inout WorkoutEntry, shouldLogSet: Bool) -> Int? {
+        let incomplete = entry.sets.indices.first {
+            $0 >= entry.activeSetIndex && !entry.sets[$0].isCompleted
+        } ?? entry.sets.firstIndex { !$0.isCompleted }
+        if let index = incomplete {
+            guard shouldLogSet else { return nil }
+            entry.sets[index].isCompleted = true
+            entry.activeSetIndex = min(index + 1, entry.sets.count - 1)
+            return index
+        }
+        let completedCount = entry.sets.filter { $0.isCompleted }.count
+        guard shouldLogSet || completedCount < 4 else {
+            AppNotificationManager.shared.showSetsCompleted(count: completedCount)
+            return nil
+        }
+        let template = entry.sets.last(where: { $0.isCompleted }) ?? entry.sets.last
+        entry.sets.append(SetInput(
+            reps: template?.reps ?? 10, weight: template?.weight ?? 0,
+            tag: template?.tag ?? .working, autoWeight: template == nil,
+            didSeedFromMemory: false, isCompleted: shouldLogSet, isGhost: false,
+            isAutoGeneratedPlaceholder: !shouldLogSet,
+            durationSeconds: template?.durationSeconds ?? 0,
+            distanceMeters: template?.distanceMeters ?? 0,
+            trackingMode: template?.trackingMode ?? .weighted
+        ))
+        entry.activeSetIndex = entry.sets.count - 1
+        return entry.activeSetIndex
     }
 
     private func refreshCurrentWorkoutEntryNames() {
@@ -1355,36 +1231,55 @@ final class WorkoutStoreV2: ObservableObject {
 
     // MARK: - Persistence Helpers
 
-    private func persistWorkouts() {
-        guard isStorageLoaded else {
-            AppLogger.warning("persistWorkouts() skipped — storage not yet loaded", category: AppLogger.storage)
-            return
-        }
-        let workouts = completedWorkouts
-        let prIndex = prIndex
-        Task.detached(priority: .utility) {
+    func flushPendingSaves() async throws {
+        try await pendingSave?.value
+    }
+
+    @discardableResult
+    private func enqueueSave(_ operation: @escaping @Sendable (WorkoutStorage) async throws -> Void) -> Task<Void, Error> {
+        let previous = pendingSave
+        let save = Task { [storage] in
+            _ = try? await previous?.value
             do {
-                try await WorkoutStorage.shared.saveWorkouts(workouts, prIndex: prIndex)
+                try await operation(storage)
             } catch {
-                AppLogger.error("Failed to persist workouts: \(error)", category: AppLogger.storage)
+                AppLogger.error("Failed to persist workout data: \(error)", category: AppLogger.storage)
+                throw error
             }
         }
+        pendingSave = save
+        return save
+    }
+
+    /// A later save of another collection must not mask an earlier failed run write.
+    func flushHealthKitChanges() async throws {
+        try await waitForStorage()
+        let runs = runs
+        let ignored = ignoredHealthKitUUIDs
+        let save = enqueueSave {
+            try await $0.saveRuns(runs)
+            try await $0.saveIgnoredHealthKitUUIDs(ignored)
+        }
+        try await save.value
+    }
+
+    private func persistWorkouts() {
+        guard isStorageLoaded else { return }
+        let workouts = completedWorkouts
+        let prIndex = prIndex
+        enqueueSave { try await $0.saveWorkouts(workouts, prIndex: prIndex) }
     }
 
     private func persistCurrentWorkout() {
         guard isStorageLoaded else { return }
         let current = currentWorkout
-        Task.detached(priority: .utility) {
-            try? await WorkoutStorage.shared.saveCurrentWorkout(current)
-        }
+        enqueueSave { try await $0.saveCurrentWorkout(current) }
     }
 
     private func persistRuns() {
         guard isStorageLoaded else { return }
         let runs = runs
-        Task.detached(priority: .utility) {
-            try? await WorkoutStorage.shared.saveRuns(runs)
-        }
+        enqueueSave { try await $0.saveRuns(runs) }
     }
 
     private func startOfWeek(for date: Date) -> Date {
@@ -1713,7 +1608,7 @@ extension WorkoutStoreV2 {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(800))
             for key in uniqueDexKeysToUnlock {
-                RewardsEngine.shared.ensureDexUnlocked(exerciseKey: key, date: dexUnlockDate)
+                rewardsEngine.ensureDexUnlocked(exerciseKey: key, date: dexUnlockDate)
             }
         }
 

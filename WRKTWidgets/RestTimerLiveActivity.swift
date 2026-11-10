@@ -21,7 +21,9 @@ struct RestTimerLiveActivity: Widget {
                 .activitySystemActionForegroundColor(Color.brandAccent)
 
         } dynamicIsland: { context in
-            DynamicIsland {
+            let now = Date.now
+            let countdown = context.state.countdownInterval(at: now)
+            return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
                         Image("LaunchLogo")
@@ -48,11 +50,15 @@ struct RestTimerLiveActivity: Widget {
                         Text(timeString(context.state.remainingSeconds))
                             .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
                             .foregroundStyle(Color.brandAccent)
-                    } else {
-                        Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
+                    } else if let countdown {
+                        Text(timerInterval: countdown, countsDown: true)
                             .font(.system(.title2, design: .rounded).monospacedDigit().weight(.bold))
                             .foregroundStyle(Color.brandAccent)
                             .multilineTextAlignment(.trailing)
+                    } else {
+                        Text("Ready")
+                            .font(.system(.title2, design: .rounded).weight(.bold))
+                            .foregroundStyle(Color.brandAccent)
                     }
                 }
 
@@ -60,18 +66,24 @@ struct RestTimerLiveActivity: Widget {
                     if context.state.isPaused {
                         ProgressView(value: context.state.progress)
                             .tint(Color.brandAccent.opacity(0.5))
-                    } else {
+                    } else if let countdown {
                         ProgressView(
-                            timerInterval: context.attributes.startTime...context.state.endDate,
+                            timerInterval: min(context.attributes.startTime, countdown.lowerBound)...countdown.upperBound,
                             countsDown: false
                         )
                         .tint(Color.brandAccent)
+                    } else {
+                        ProgressView(value: 1)
+                            .tint(Color.brandAccent)
                     }
                 }
 
                 DynamicIslandExpandedRegion(.bottom) {
-                    if context.state.endDate <= Date() && !context.state.isPaused {
-                        Button(intent: StartNextSetIntent()) {
+                    if let message = context.state.errorMessage {
+                        Text(message).font(.caption2).foregroundStyle(.white).lineLimit(2)
+                    }
+                    if countdown == nil && !context.state.isPaused {
+                        Button(intent: StartNextSetIntent(timerID: context.attributes.timerID)) {
                             Label("Log Next Set", systemImage: "checkmark.circle.fill")
                                 .font(.caption.weight(.semibold))
                                 .foregroundColor(.black)
@@ -81,14 +93,21 @@ struct RestTimerLiveActivity: Widget {
                         .padding(.top, 4)
                     } else {
                         HStack(spacing: 10) {
-                            Button(intent: AdjustRestTimerIntent(seconds: -15)) {
+                            Button(intent: StartNextSetIntent(timerID: context.attributes.timerID)) {
+                                Label("Log Set", systemImage: "checkmark")
+                                    .font(.caption.weight(.semibold))
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(Color.brandAccent)
+
+                            Button(intent: AdjustRestTimerIntent(timerID: context.attributes.timerID, seconds: -15)) {
                                 Text("-15s")
                                     .font(.caption.weight(.semibold))
                             }
                             .buttonStyle(.bordered)
                             .tint(.white.opacity(0.4))
 
-                            Button(intent: AdjustRestTimerIntent(seconds: 15)) {
+                            Button(intent: AdjustRestTimerIntent(timerID: context.attributes.timerID, seconds: 15)) {
                                 Text("+15s")
                                     .font(.caption.weight(.semibold))
                             }
@@ -97,7 +116,7 @@ struct RestTimerLiveActivity: Widget {
 
                             Spacer()
 
-                            Button(intent: SkipRestTimerIntent()) {
+                            Button(intent: SkipRestTimerIntent(timerID: context.attributes.timerID)) {
                                 Label("Skip", systemImage: "forward.fill")
                                     .font(.caption.weight(.semibold))
                                     .foregroundColor(.black)
@@ -120,12 +139,12 @@ struct RestTimerLiveActivity: Widget {
                     Text(timeString(context.state.remainingSeconds))
                         .font(.system(.caption, design: .rounded).monospacedDigit().weight(.medium))
                         .foregroundStyle(.white.opacity(0.6))
-                } else if context.state.endDate <= Date() {
+                } else if countdown == nil {
                     Text("Ready")
                         .font(.system(.caption2, design: .rounded).weight(.semibold))
                         .foregroundStyle(Color.brandAccent)
-                } else {
-                    Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
+                } else if let countdown {
+                    Text(timerInterval: countdown, countsDown: true)
                         .font(.system(.caption, design: .rounded).monospacedDigit().weight(.medium))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.trailing)
@@ -147,11 +166,10 @@ struct RestTimerLiveActivity: Widget {
 struct RestTimerLockScreenView: View {
     let context: ActivityViewContext<RestTimerAttributes>
 
-    private var isReady: Bool {
-        context.state.endDate <= Date() && !context.state.isPaused
-    }
-
     var body: some View {
+        let now = Date.now
+        let countdown = context.state.countdownInterval(at: now)
+        let isReady = countdown == nil && !context.state.isPaused
         VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack(spacing: 8) {
@@ -179,7 +197,7 @@ struct RestTimerLockScreenView: View {
             .frame(maxWidth: .infinity)
 
             if isReady {
-                Button(intent: StartNextSetIntent()) {
+                Button(intent: StartNextSetIntent(timerID: context.attributes.timerID)) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Log Next Set")
@@ -198,8 +216,8 @@ struct RestTimerLockScreenView: View {
                     Text(timeString(context.state.remainingSeconds))
                         .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(Color.brandAccent.opacity(0.6))
-                } else {
-                    Text(timerInterval: Date.now...context.state.endDate, countsDown: true)
+                } else if let countdown {
+                    Text(timerInterval: countdown, countsDown: true)
                         .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(Color.brandAccent)
                         .contentTransition(.numericText(countsDown: true))
@@ -209,9 +227,9 @@ struct RestTimerLockScreenView: View {
                 if context.state.isPaused {
                     ProgressView(value: context.state.progress)
                         .tint(Color.brandAccent.opacity(0.4))
-                } else {
+                } else if let countdown {
                     ProgressView(
-                        timerInterval: context.attributes.startTime...context.state.endDate,
+                        timerInterval: min(context.attributes.startTime, countdown.lowerBound)...countdown.upperBound,
                         countsDown: false,
                         label: { EmptyView() },
                         currentValueLabel: { EmptyView() }
@@ -221,7 +239,14 @@ struct RestTimerLockScreenView: View {
 
                 // Controls
                 HStack(spacing: 8) {
-                    Button(intent: AdjustRestTimerIntent(seconds: -15)) {
+                    Button(intent: StartNextSetIntent(timerID: context.attributes.timerID)) {
+                        Label("Log Set", systemImage: "checkmark")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color.brandAccent)
+
+                    Button(intent: AdjustRestTimerIntent(timerID: context.attributes.timerID, seconds: -15)) {
                         Image(systemName: "minus")
                             .font(.system(size: 13, weight: .bold))
                             .frame(width: 30, height: 28)
@@ -229,7 +254,7 @@ struct RestTimerLockScreenView: View {
                     .buttonStyle(.bordered)
                     .tint(.white.opacity(0.3))
 
-                    Button(intent: AdjustRestTimerIntent(seconds: 15)) {
+                    Button(intent: AdjustRestTimerIntent(timerID: context.attributes.timerID, seconds: 15)) {
                         Image(systemName: "plus")
                             .font(.system(size: 13, weight: .bold))
                             .frame(width: 30, height: 28)
@@ -239,7 +264,7 @@ struct RestTimerLockScreenView: View {
 
                     Spacer()
 
-                    Button(intent: SkipRestTimerIntent()) {
+                    Button(intent: SkipRestTimerIntent(timerID: context.attributes.timerID)) {
                         HStack(spacing: 6) {
                             Text("Skip")
                                 .fontWeight(.semibold)
@@ -254,6 +279,9 @@ struct RestTimerLockScreenView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(Color.brandAccent)
                 }
+            }
+            if let message = context.state.errorMessage {
+                Text(message).font(.caption2).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)

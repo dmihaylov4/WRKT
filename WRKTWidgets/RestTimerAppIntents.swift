@@ -1,164 +1,124 @@
-//
-//  RestTimerAppIntents.swift
-//  WRKT
-//
-//  App Intents for interactive Live Activity buttons
-//  These allow users to control the rest timer from the lock screen
-//
-//  Communication Strategy:
-//  Widget Extension cannot directly access main app code, so we use:
-//  1. UserDefaults with App Groups to send commands
-//  2. Main app's RestTimerManager observes these commands
-//  3. URL scheme as fallback to wake app if needed
-//
-
 import Foundation
 import AppIntents
+#if !WRKT_WIDGET_EXTENSION
+import SwiftData
+#endif
 
-// MARK: - Shared Constants
-
-/// App Group identifier for sharing data between main app and widget extension
-private let appGroupIdentifier = "group.com.dmihaylov.trak.shared"
-
-/// Keys for UserDefaults commands
-private enum CommandKey {
-    static let adjustTime = "restTimer.command.adjustTime"
-    static let pause = "restTimer.command.pause"
-    static let resume = "restTimer.command.resume"
-    static let skip = "restTimer.command.skip"
-    static let stop = "restTimer.command.stop"
-    static let startNextSet = "restTimer.command.startNextSet"
-    static let timestamp = "restTimer.command.timestamp"
+enum RestTimerAction: Sendable {
+    case adjust(Int), pause, resume, skip, nextSet, stop
 }
 
-/// Helper to post commands to the main app
-private func postCommand(_ key: String, value: Any? = nil) {
-    guard let sharedDefaults = UserDefaults(suiteName: appGroupIdentifier) else {
-        
-        return
-    }
-
-    
-
-    // Set command value
-    if let value = value {
-        sharedDefaults.set(value, forKey: key)
-    } else {
-        sharedDefaults.set(true, forKey: key)
-    }
-
-    // Set timestamp to ensure main app sees the update
-    let timestamp = Date().timeIntervalSince1970
-    sharedDefaults.set(timestamp, forKey: CommandKey.timestamp)
-
-    // Darwin notification: zero-cost cross-process signal. The main app receives this
-    // immediately and reads UserDefaults once — replaces 0.5 s polling in the host app.
-    // Name must match CommandKey.darwinNotification in RestTimerState.swift.
-    CFNotificationCenterPostNotification(
-        CFNotificationCenterGetDarwinNotifyCenter(),
-        CFNotificationName("group.com.dmihaylov.trak.restTimer.commandReady" as CFString),
-        nil,
-        nil,
-        true
-    )
+struct RestTimerIntentError: LocalizedError {
+    let message: String
+    init(_ message: String) { self.message = message }
+    var errorDescription: String? { message }
 }
 
-// MARK: - Adjust Time Intent
+@MainActor
+private func performTimerAction(_ action: RestTimerAction, timerID: String) async throws {
+    #if WRKT_WIDGET_EXTENSION
+    throw RestTimerIntentError("Open your workout in the app to update the timer.")
+    #else
+    guard let id = UUID(uuidString: timerID) else {
+        throw RestTimerIntentError("Open your workout in the app to restore this timer.")
+    }
+    // Bootstrap the same container even when no AppShellView has appeared.
+    let storage = WRKTApp.storage
+    guard let container = storage.container else {
+        throw RestTimerIntentError("Workout storage is unavailable. Open the app to recover it.")
+    }
+    RewardsEngine.shared.configure(context: container.mainContext)
+    try await RestTimerManager.shared.perform(action, timerID: id, operationID: UUID(),
+        using: AppDependencies.shared.workoutStore)
+    #endif
+}
 
-/// Adjust the rest timer by adding or subtracting seconds
-struct AdjustRestTimerIntent: AppIntent {
+struct AdjustRestTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Adjust Rest Timer"
-    static var description: IntentDescription = "Add or subtract time from the rest timer"
 
-    @Parameter(title: "Seconds to Add", default: 15)
-    var seconds: Int
+    @Parameter(title: "Timer", default: "") var timerID: String
+    @Parameter(title: "Seconds to Add", default: 15) var seconds: Int
 
-    init() {
-        self.seconds = 15
-    }
-
-    init(seconds: Int) {
+    init() { }
+    init(timerID: UUID?, seconds: Int) {
+        self.timerID = timerID?.uuidString ?? ""
         self.seconds = seconds
     }
 
     func perform() async throws -> some IntentResult {
-        postCommand(CommandKey.adjustTime, value: seconds)
+        try await performTimerAction(.adjust(seconds), timerID: timerID)
         return .result()
     }
 }
 
-// MARK: - Pause/Resume Intent
-
-/// Pause the rest timer
-struct PauseRestTimerIntent: AppIntent {
+struct PauseRestTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Pause Rest Timer"
-    static var description: IntentDescription = "Pause the rest timer"
+    @Parameter(title: "Timer", default: "") var timerID: String
+
+    init() { }
+    init(timerID: UUID?) { self.timerID = timerID?.uuidString ?? "" }
 
     func perform() async throws -> some IntentResult {
-        postCommand(CommandKey.pause)
+        try await performTimerAction(.pause, timerID: timerID)
         return .result()
     }
 }
 
-/// Resume the rest timer
-struct ResumeRestTimerIntent: AppIntent {
+struct ResumeRestTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Resume Rest Timer"
-    static var description: IntentDescription = "Resume the rest timer"
+    @Parameter(title: "Timer", default: "") var timerID: String
+
+    init() { }
+    init(timerID: UUID?) { self.timerID = timerID?.uuidString ?? "" }
 
     func perform() async throws -> some IntentResult {
-        postCommand(CommandKey.resume)
+        try await performTimerAction(.resume, timerID: timerID)
         return .result()
     }
 }
 
-// MARK: - Skip Intent
-
-/// Skip the rest timer and go to the next set
-struct SkipRestTimerIntent: AppIntent {
+struct SkipRestTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Skip Rest"
-    static var description: IntentDescription = "Skip the remaining rest time"
+    @Parameter(title: "Timer", default: "") var timerID: String
+
+    init() { }
+    init(timerID: UUID?) { self.timerID = timerID?.uuidString ?? "" }
 
     func perform() async throws -> some IntentResult {
-        postCommand(CommandKey.skip)
+        try await performTimerAction(.skip, timerID: timerID)
         return .result()
     }
 }
 
-// MARK: - Start Next Set Intent
+struct StartNextSetIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Log Next Set"
+    @Parameter(title: "Timer", default: "") var timerID: String
 
-/// Start the rest timer for the next set
-struct StartNextSetIntent: AppIntent {
-    static var title: LocalizedStringResource = "Start Next Set"
-    static var description: IntentDescription = "Log the completed set and start rest timer for next set"
+    init() { }
+    init(timerID: UUID?) { self.timerID = timerID?.uuidString ?? "" }
 
     func perform() async throws -> some IntentResult {
-        postCommand(CommandKey.startNextSet)
+        try await performTimerAction(.nextSet, timerID: timerID)
         return .result()
     }
 }
 
-// MARK: - Stop Intent
-
-/// Stop/cancel the rest timer
-struct StopRestTimerIntent: AppIntent {
+struct StopRestTimerIntent: LiveActivityIntent {
     static var title: LocalizedStringResource = "Stop Rest Timer"
-    static var description: IntentDescription = "Stop and cancel the rest timer"
+    @Parameter(title: "Timer", default: "") var timerID: String
+
+    init() { }
+    init(timerID: UUID?) { self.timerID = timerID?.uuidString ?? "" }
 
     func perform() async throws -> some IntentResult {
-        postCommand(CommandKey.stop)
+        try await performTimerAction(.stop, timerID: timerID)
         return .result()
     }
 }
 
-// MARK: - Open App Intent
-
-/// Open the main app
 struct OpenAppIntent: AppIntent {
     static var title: LocalizedStringResource = "Open WRKT"
-    static var description: IntentDescription = "Open the WRKT app"
     static var openAppWhenRun: Bool = true
 
-    func perform() async throws -> some IntentResult {
-        return .result()
-    }
+    func perform() async throws -> some IntentResult { .result() }
 }

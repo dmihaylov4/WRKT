@@ -7,6 +7,12 @@
 
 import Foundation
 
+struct SetLogReceipt: Codable, Hashable {
+    let operationID: UUID
+    let entryID: UUID
+    let setIndex: Int
+}
+
 struct CurrentWorkout: Identifiable, Codable, Hashable {
     var id = UUID()
     var startedAt: Date = .now
@@ -16,6 +22,8 @@ struct CurrentWorkout: Identifiable, Codable, Hashable {
     /// Planned exercise IDs intentionally removed during this session.
     /// Used by the planner to treat them as completed when marking the workout done.
     var excusedPlannedExerciseIDs: Set<UUID> = []
+    /// Saved in the same file as the set so retrying an acknowledged action cannot log it twice.
+    var setLogReceipts: [SetLogReceipt] = []
 
     init(
         id: UUID = UUID(),
@@ -36,17 +44,18 @@ struct CurrentWorkout: Identifiable, Codable, Hashable {
     // MARK: - Codable
 
     enum CodingKeys: String, CodingKey {
-        case id, startedAt, entries, plannedWorkoutID, activeEntryID, excusedPlannedExerciseIDs
+        case id, startedAt, entries, plannedWorkoutID, activeEntryID, excusedPlannedExerciseIDs, setLogReceipts
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = (try? c.decode(UUID.self, forKey: .id)) ?? UUID()
-        startedAt = (try? c.decode(Date.self, forKey: .startedAt)) ?? .now
-        entries = (try? c.decode([WorkoutEntry].self, forKey: .entries)) ?? []
-        plannedWorkoutID = try? c.decode(UUID.self, forKey: .plannedWorkoutID)
-        activeEntryID = try? c.decode(UUID.self, forKey: .activeEntryID)
-        excusedPlannedExerciseIDs = (try? c.decode(Set<UUID>.self, forKey: .excusedPlannedExerciseIDs)) ?? []
+        id = (try c.decodeIfPresent(UUID.self, forKey: .id)) ?? UUID()
+        startedAt = (try c.decodeIfPresent(Date.self, forKey: .startedAt)) ?? .now
+        entries = (try c.decodeIfPresent([WorkoutEntry].self, forKey: .entries)) ?? []
+        plannedWorkoutID = try c.decodeIfPresent(UUID.self, forKey: .plannedWorkoutID)
+        activeEntryID = try c.decodeIfPresent(UUID.self, forKey: .activeEntryID)
+        excusedPlannedExerciseIDs = (try c.decodeIfPresent(Set<UUID>.self, forKey: .excusedPlannedExerciseIDs)) ?? []
+        setLogReceipts = try c.decodeIfPresent([SetLogReceipt].self, forKey: .setLogReceipts) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -57,6 +66,7 @@ struct CurrentWorkout: Identifiable, Codable, Hashable {
         try c.encodeIfPresent(plannedWorkoutID, forKey: .plannedWorkoutID)
         try c.encodeIfPresent(activeEntryID, forKey: .activeEntryID)
         try c.encode(excusedPlannedExerciseIDs, forKey: .excusedPlannedExerciseIDs)
+        try c.encode(setLogReceipts, forKey: .setLogReceipts)
     }
 }
 

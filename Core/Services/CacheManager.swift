@@ -6,29 +6,28 @@ import SwiftData
 final class CacheManager {
     static let shared = CacheManager()
 
-    private let modelContainer: ModelContainer
-    private let modelContext: ModelContext
+    private let modelContainer: ModelContainer?
+    private let modelContext: ModelContext?
 
-    private init() {
-        let schema = Schema([
-            CachedPost.self,
-            CachedProfile.self,
-            CachedNotification.self
-        ])
+    static var storeURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("SocialCache/cache.store")
+    }
 
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false
-        )
-
+    init(storeURL: URL? = nil) {
+        let storeURL = storeURL ?? Self.storeURL
+        let schema = Schema(versionedSchema: CacheStoreSchema.self)
+        let configuration = ModelConfiguration("SocialCache", schema: schema, url: storeURL, cloudKitDatabase: .none)
         do {
-            modelContainer = try ModelContainer(
-                for: schema,
-                configurations: [modelConfiguration]
-            )
-            modelContext = ModelContext(modelContainer)
+            try FileManager.default.createDirectory(at: storeURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let container = try ModelContainer(for: schema, migrationPlan: CacheStoreMigration.self, configurations: configuration)
+            modelContainer = container
+            modelContext = ModelContext(container)
         } catch {
-            fatalError("Failed to initialize CacheManager: \(error)")
+            // Cached server responses are optional. Never open, reset or delete the user store.
+            modelContainer = nil
+            modelContext = nil
+            AppLogger.error("Social cache unavailable; continuing without disk caching", error: error, category: AppLogger.storage)
         }
     }
 
@@ -38,7 +37,7 @@ final class CacheManager {
     func cachePosts(_ posts: [PostWithAuthor]) {
         for post in posts {
             let cachedPost = CachedPost.from(post)
-            modelContext.insert(cachedPost)
+            modelContext?.insert(cachedPost)
         }
         saveContext()
     }
@@ -49,7 +48,7 @@ final class CacheManager {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
 
-        guard let cachedPosts = try? modelContext.fetch(descriptor) else {
+        guard let cachedPosts = try? modelContext?.fetch(descriptor) else {
             return []
         }
 
@@ -65,7 +64,7 @@ final class CacheManager {
             }
             let descriptor = FetchDescriptor(predicate: predicate)
 
-            let cachedPosts = try modelContext.fetch(descriptor)
+            guard let cachedPosts = try modelContext?.fetch(descriptor) else { return }
             guard let cachedPost = cachedPosts.first else {
                 return
             }
@@ -81,7 +80,7 @@ final class CacheManager {
             }
 
             cachedPost.cachedAt = Date() // Refresh cache timestamp
-            try modelContext.save()
+            try modelContext?.save()
         } catch {
             // Don't propagate the error - cache updates are non-critical
         }
@@ -95,17 +94,17 @@ final class CacheManager {
             }
             let descriptor = FetchDescriptor(predicate: predicate)
 
-            let cachedPosts = try modelContext.fetch(descriptor)
+            guard let cachedPosts = try modelContext?.fetch(descriptor) else { return }
 
             guard !cachedPosts.isEmpty else {
                 return
             }
 
             for post in cachedPosts {
-                modelContext.delete(post)
+                modelContext?.delete(post)
             }
 
-            try modelContext.save()
+            try modelContext?.save()
         } catch {
             // Don't propagate the error - cache deletion is non-critical
         }
@@ -113,7 +112,7 @@ final class CacheManager {
 
     /// Clear all cached posts
     func clearAllPosts() {
-        try? modelContext.delete(model: CachedPost.self)
+        try? modelContext?.delete(model: CachedPost.self)
         saveContext()
     }
 
@@ -127,7 +126,7 @@ final class CacheManager {
         }
         let descriptor = FetchDescriptor(predicate: predicate)
 
-        if let existingProfiles = try? modelContext.fetch(descriptor),
+        if let existingProfiles = try? modelContext?.fetch(descriptor),
            let existingProfile = existingProfiles.first {
             // Update existing
             existingProfile.username = profile.username
@@ -140,7 +139,7 @@ final class CacheManager {
         } else {
             // Insert new
             let cachedProfile = CachedProfile.from(profile)
-            modelContext.insert(cachedProfile)
+            modelContext?.insert(cachedProfile)
         }
         saveContext()
     }
@@ -152,7 +151,7 @@ final class CacheManager {
         }
         let descriptor = FetchDescriptor(predicate: predicate)
 
-        guard let cachedProfiles = try? modelContext.fetch(descriptor),
+        guard let cachedProfiles = try? modelContext?.fetch(descriptor),
               let cachedProfile = cachedProfiles.first else {
             return nil
         }
@@ -167,7 +166,7 @@ final class CacheManager {
 
     /// Clear all cached profiles
     func clearAllProfiles() {
-        try? modelContext.delete(model: CachedProfile.self)
+        try? modelContext?.delete(model: CachedProfile.self)
         saveContext()
     }
 
@@ -177,7 +176,7 @@ final class CacheManager {
     func cacheNotifications(_ notifications: [NotificationWithActor]) {
         for notification in notifications {
             let cachedNotification = CachedNotification.from(notification)
-            modelContext.insert(cachedNotification)
+            modelContext?.insert(cachedNotification)
         }
         saveContext()
     }
@@ -192,7 +191,7 @@ final class CacheManager {
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
 
-        guard let cachedNotifications = try? modelContext.fetch(descriptor) else {
+        guard let cachedNotifications = try? modelContext?.fetch(descriptor) else {
             return []
         }
 
@@ -207,7 +206,7 @@ final class CacheManager {
         }
         let descriptor = FetchDescriptor(predicate: predicate)
 
-        guard let cachedNotifications = try? modelContext.fetch(descriptor),
+        guard let cachedNotifications = try? modelContext?.fetch(descriptor),
               let cachedNotification = cachedNotifications.first else {
             return
         }
@@ -219,7 +218,7 @@ final class CacheManager {
 
     /// Clear all cached notifications
     func clearAllNotifications() {
-        try? modelContext.delete(model: CachedNotification.self)
+        try? modelContext?.delete(model: CachedNotification.self)
         saveContext()
     }
 
@@ -229,25 +228,25 @@ final class CacheManager {
     func clearExpiredCache() {
         // Clear expired posts
         let postDescriptor = FetchDescriptor<CachedPost>()
-        if let posts = try? modelContext.fetch(postDescriptor) {
+        if let posts = try? modelContext?.fetch(postDescriptor) {
             for post in posts where post.isExpired {
-                modelContext.delete(post)
+                modelContext?.delete(post)
             }
         }
 
         // Clear expired profiles
         let profileDescriptor = FetchDescriptor<CachedProfile>()
-        if let profiles = try? modelContext.fetch(profileDescriptor) {
+        if let profiles = try? modelContext?.fetch(profileDescriptor) {
             for profile in profiles where profile.isExpired {
-                modelContext.delete(profile)
+                modelContext?.delete(profile)
             }
         }
 
         // Clear expired notifications
         let notificationDescriptor = FetchDescriptor<CachedNotification>()
-        if let notifications = try? modelContext.fetch(notificationDescriptor) {
+        if let notifications = try? modelContext?.fetch(notificationDescriptor) {
             for notification in notifications where notification.isExpired {
-                modelContext.delete(notification)
+                modelContext?.delete(notification)
             }
         }
 
@@ -263,9 +262,9 @@ final class CacheManager {
 
     /// Get cache statistics
     func getCacheStats() -> (posts: Int, profiles: Int, notifications: Int) {
-        let postCount = (try? modelContext.fetchCount(FetchDescriptor<CachedPost>())) ?? 0
-        let profileCount = (try? modelContext.fetchCount(FetchDescriptor<CachedProfile>())) ?? 0
-        let notificationCount = (try? modelContext.fetchCount(FetchDescriptor<CachedNotification>())) ?? 0
+        let postCount = (try? modelContext?.fetchCount(FetchDescriptor<CachedPost>())) ?? 0
+        let profileCount = (try? modelContext?.fetchCount(FetchDescriptor<CachedProfile>())) ?? 0
+        let notificationCount = (try? modelContext?.fetchCount(FetchDescriptor<CachedNotification>())) ?? 0
         return (postCount, profileCount, notificationCount)
     }
 
@@ -273,7 +272,7 @@ final class CacheManager {
 
     private func saveContext() {
         do {
-            try modelContext.save()
+            try modelContext?.save()
         } catch {
         }
     }
