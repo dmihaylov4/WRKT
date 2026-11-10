@@ -181,7 +181,6 @@ struct AppShellView: View {
     private var contentWithModifiers: some View {
         mainContentWithOverlays
             .overlay(alignment: .bottom) { liveOverlayCard }
-            .overlay(alignment: .top) { virtualRunInviteBanner }
             .sheet(isPresented: Binding(
                 get: { whatsNewManager.needsWhatsNew },
                 set: { if !$0 { whatsNewManager.dismiss() } }
@@ -211,15 +210,8 @@ struct AppShellView: View {
     private var mainContentWithOverlays: some View {
         mainContent
             .overlay(WinScreenOverlay())
-            .overlay(VirtualRunSummaryOverlay())
             .overlay { NotificationOverlay() }
             .overlay { UndoToastOverlay() }
-            .overlay(alignment: .bottom) {
-                VirtualRunFlowStatusCard()
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, TabBarLayout.contentHeight + 25) // tab bar + gap
-                    .zIndex(998)
-            }
     }
 
     @ViewBuilder
@@ -682,25 +674,6 @@ struct AppShellView: View {
             .padding(.bottom, TabBarLayout.contentHeight + 13) // tab bar + gap
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(11)
-        }
-    }
-
-    // MARK: - Virtual Run Invite Banner
-
-    @ViewBuilder
-    private var virtualRunInviteBanner: some View {
-        if let invite = inviteCoordinator.pendingInvite,
-           let profile = inviteCoordinator.inviterProfile {
-            VirtualRunInviteBanner(
-                invite: invite,
-                inviterProfile: profile,
-                onAccept: { inviteCoordinator.acceptInvite() },
-                onDecline: { inviteCoordinator.declineInvite() }
-            )
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(.spring(response: 0.4, dampingFraction: 0.85), value: inviteCoordinator.pendingInvite?.id)
-            .padding(.top, 8)
-            .zIndex(999)
         }
     }
 

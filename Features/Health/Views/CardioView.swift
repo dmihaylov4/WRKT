@@ -77,7 +77,6 @@ struct CardioView: View {
     @EnvironmentObject var store: WorkoutStoreV2
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var showingAuthSheet = false
-    @State private var showingVirtualRunInvite = false
     @State private var isResyncing = false
     @State private var selectedType: CardioType = .running
     @State private var selectedWeekOffset: Int = 0  // 0 = current week, 1 = last week, 2 = 2 weeks ago, etc.
@@ -257,22 +256,6 @@ struct CardioView: View {
 
     private var cardioNavRow: some View {
         HStack(spacing: 10) {
-            Button {
-                showingVirtualRunInvite = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "figure.run.square.stack")
-                        .dsFont(.subheadline, weight: .semibold)
-                    Text("Run Together")
-                        .dsFont(.caption, weight: .semibold)
-                }
-                .foregroundStyle(DS.Semantic.textPrimary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(DS.Semantic.card, in: ChamferedRectangle(.small))
-                .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
-            }
-
             Spacer()
 
             switch healthKit.connectionState {
@@ -505,10 +488,6 @@ struct CardioView: View {
         } // VStack
         .background(Theme.bg.ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
-        .sheet(isPresented: $showingVirtualRunInvite) {
-            VirtualRunInviteView()
-                .environment(\.dependencies, deps)
-        }
         .sheet(isPresented: $showingAuthSheet, onDismiss: {
             // Don't call verifyAuthorizationStatus here - requestAuthorization already did proper check
             // If now connected, trigger immediate sync

@@ -36,10 +36,6 @@ struct SocialProfileView: View {
     @State private var isBattleLoading = false
     @State private var showingFriendBarbellRoom = false
 
-    // Virtual run invite
-    @State private var isInvitingToRun = false
-    @State private var runInviteSent = false
-
     @State private var selectedPost: PostWithAuthor? = nil
 
     // Barbell showcase
@@ -307,11 +303,6 @@ struct SocialProfileView: View {
             EditProfileView(profile: viewModel.profile) { updatedProfile in
                 viewModel.profile = updatedProfile
             }
-        }
-        .alert("Run Invite Sent!", isPresented: $runInviteSent) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Your friend will be notified. Get ready to run!")
         }
     }
 
@@ -1095,22 +1086,6 @@ struct SocialProfileView: View {
                     .foregroundStyle(DS.Semantic.textPrimary)
 
                 HStack(spacing: 12) {
-                    Button {
-                        Task { await sendRunInvite() }
-                    } label: {
-                        HStack {
-                            if isInvitingToRun {
-                                ProgressView()
-                                    .tint(.black)
-                            } else {
-                                Image(systemName: "figure.run")
-                                Text("Invite to Run")
-                            }
-                        }
-                    }
-                    .buttonStyle(PrimaryButtonStyle())
-                    .disabled(isInvitingToRun)
-
                     Menu {
                         Button {
                             Task { await viewModel.toggleMuteNotifications() }
@@ -1147,7 +1122,7 @@ struct SocialProfileView: View {
                     }
                 }
 
-                Text("Use the run invite when you want action now. Use the friend menu when you need quieter control.")
+                Text("Use the friend menu to manage this friendship.")
                     .dsFont(.caption)
                     .foregroundStyle(DS.Semantic.textSecondary)
             }
@@ -1456,20 +1431,6 @@ struct SocialProfileView: View {
                 .dsFont(.subheadline, weight: .bold)
                 .foregroundStyle(DS.Semantic.textPrimary)
         }
-    }
-
-    private func sendRunInvite() async {
-        guard let currentUserId = deps.authService.currentUser?.id else { return }
-        isInvitingToRun = true
-        do {
-            try await deps.virtualRunRepository.sendInvite(to: userId, from: currentUserId)
-            Haptics.success()
-            runInviteSent = true
-        } catch {
-            AppLogger.error("Failed to send run invite", error: error, category: AppLogger.social)
-            Haptics.error()
-        }
-        isInvitingToRun = false
     }
 
     private func acceptBattle(battle: Battle) async {

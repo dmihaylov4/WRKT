@@ -106,12 +106,6 @@ struct SettingsView: View {
 
                 #if DEBUG
                 settingsCard(title: "Debug") {
-                    settingsRow {
-                        NavigationLink("Virtual Run Debug") {
-                            VirtualRunDebugView()
-                                .environmentObject(authService)
-                        }
-                    }
                     settingsRow(showsDivider: false) {
                         NavigationLink {
                             BarbellPlaygroundView()
