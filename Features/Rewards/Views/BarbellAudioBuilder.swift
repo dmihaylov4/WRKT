@@ -62,16 +62,18 @@ extension PlateAudioCategory {
 
 // MARK: - Audio resource cache
 
-// Process-level cache -- resources are loaded once and reused across view instances
-// and mode switches. nonisolated(unsafe) because writes are guarded by call-site
-// sequencing (all loads happen in .task{} before gesture handlers can fire).
-private nonisolated(unsafe) var audioResourceCache: [String: AudioFileResource] = [:]
+// Resources are loaded and cached on the main actor before gesture playback.
+@MainActor private var audioResourceCache: [String: AudioFileResource] = [:]
 
+@MainActor
 func loadAudioResource(named name: String) -> AudioFileResource? {
-    if let cached = audioResourceCache[name] { return cached }
-    guard let resource = try? AudioFileResource.load(named: name, in: .main,
+    // Material-specific recordings are optional; every shipped build includes this clink.
+    let resourceName = Bundle.main.url(forResource: name, withExtension: "caf")?.lastPathComponent
+        ?? "plate_clink.caf"
+    if let cached = audioResourceCache[resourceName] { return cached }
+    guard let resource = try? AudioFileResource.load(named: resourceName, in: .main,
                                                       configuration: .init()) else { return nil }
-    audioResourceCache[name] = resource
+    audioResourceCache[resourceName] = resource
     return resource
 }
 

@@ -3,6 +3,7 @@ import Testing
 import RealityKit
 @testable import WRKT
 
+@MainActor
 struct BarbellAudioBuilderTests {
 
     @Test func audioResourceLoadsForEveryTier() {

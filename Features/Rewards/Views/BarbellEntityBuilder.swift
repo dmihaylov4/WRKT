@@ -414,7 +414,10 @@ struct PlateDisplaySurface {
     }
 
     static func lipColor(for tier: PlateTier) -> UIColor {
-        readableColor(for: tier, saturationBoost: saturationBoost(for: tier) + 0.08, brightnessBoost: brightnessBoost(for: tier) + 0.05, minimumBrightness: minimumSidewallBrightness(for: tier))
+        let minimumBrightness = min(1, faceColor(for: tier).barbellHSB.brightness + 0.05)
+        return readableColor(for: tier, saturationBoost: saturationBoost(for: tier) + 0.08,
+            brightnessBoost: brightnessBoost(for: tier) + 0.05,
+            minimumBrightness: max(minimumSidewallBrightness(for: tier), minimumBrightness))
     }
 
     static func metallic(for tier: PlateTier) -> Float {
@@ -429,7 +432,7 @@ struct PlateDisplaySurface {
 
     static func sidewallRoughness(for tier: PlateTier) -> Float {
         guard usesReadableMetal(tier) else { return tier.roughness }
-        return max(0.12, min(0.26, tier.roughness + 0.10))
+        return max(0.20, min(0.34, tier.roughness + 0.18))
     }
 
     static func clearcoat(for tier: PlateTier) -> Float {

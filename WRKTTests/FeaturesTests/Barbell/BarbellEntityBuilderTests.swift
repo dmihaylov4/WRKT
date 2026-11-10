@@ -8,7 +8,8 @@ import UIKit
 struct BarbellEntityBuilderTests {
 
     @Test func plateTierCatalogHasExpectedIDs() {
-        #expect(PlateTier.all.map(\.id) == [0, 1, 2, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 3, 4, 5, 6, 8, 9, 13, 10, 11, 12, 7])
+        #expect(PlateTier.all.map(\.id) == [0, 1, 2, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 30, 31, 3, 4, 5, 6, 8, 9, 13, 10, 11, 12, 7])
     }
 
     @Test func starterTierIsLastAndMarkedStarterStyle() throws {
