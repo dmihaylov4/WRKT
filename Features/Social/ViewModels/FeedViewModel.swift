@@ -22,6 +22,8 @@ final class FeedViewModel {
     private let postRepository: PostRepository
     private let authService: SupabaseAuthService
     private let realtimeService: RealtimeService
+    private let notificationCenter: NotificationCenter
+    @ObservationIgnored private var commentObserver: NSObjectProtocol?
     private let networkMonitor = NetworkMonitor.shared
     private let offlineQueue = OfflineQueueManager.shared
     private let retryManager = RetryManager.shared
@@ -46,12 +48,14 @@ final class FeedViewModel {
         offlineQueue.queueCount
     }
 
-    init(postRepository: PostRepository, authService: SupabaseAuthService, realtimeService: RealtimeService) {
+    init(postRepository: PostRepository, authService: SupabaseAuthService, realtimeService: RealtimeService,
+         notificationCenter: NotificationCenter = .default) {
         self.postRepository = postRepository
         self.authService = authService
         self.realtimeService = realtimeService
+        self.notificationCenter = notificationCenter
 
-        NotificationCenter.default.addObserver(
+        commentObserver = notificationCenter.addObserver(
             forName: .postCommentCountDidChange,
             object: nil,
             queue: .main
@@ -69,6 +73,7 @@ final class FeedViewModel {
     }
 
     deinit {
+        if let commentObserver { notificationCenter.removeObserver(commentObserver) }
         // Don't create async tasks in deinit as they create retain cycles
         // cleanup() will be called from the view's onDisappear
         for (_, pendingDeletion) in pendingDeletions {
@@ -513,6 +518,10 @@ final class FeedViewModel {
 
     /// Cleanup realtime subscriptions
     func cleanup() async {
+        if let commentObserver {
+            notificationCenter.removeObserver(commentObserver)
+            self.commentObserver = nil
+        }
         if let channelId = realtimeChannelId {
             await realtimeService.unsubscribe(channelId: channelId)
             realtimeChannelId = nil
