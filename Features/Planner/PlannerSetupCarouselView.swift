@@ -355,8 +355,8 @@ struct PlannerSetupCarouselView: View {
         config.startDate = split.anchorDate
 
         // Count training days and rest days in one cycle
-        let trainingDaysInCycle = split.planBlocks.filter { !$0.isRestDay }.count
-        let totalDaysInCycle = split.planBlocks.count
+        let trainingDaysInCycle = split.orderedPlanBlocks.filter { !$0.isRestDay }.count
+        let totalDaysInCycle = split.orderedPlanBlocks.count
 
         // Deduce training days per week based on cycle length
         // If cycle is 7 days, it's a full week
@@ -364,7 +364,7 @@ struct PlannerSetupCarouselView: View {
         config.trainingDaysPerWeek = min(trainingDaysInCycle, 7)
 
         // Analyze rest day placement pattern
-        config.restDayPlacement = analyzeRestDayPlacement(planBlocks: split.planBlocks)
+        config.restDayPlacement = analyzeRestDayPlacement(planBlocks: split.orderedPlanBlocks)
 
         // Set a default program length (user can change this)
         config.programWeeks = 12
@@ -392,7 +392,7 @@ struct PlannerSetupCarouselView: View {
             }
 
             // Load customized exercises if they differ from template
-            for (index, block) in split.planBlocks.enumerated() where !block.isRestDay {
+            for (index, block) in split.orderedPlanBlocks.enumerated() where !block.isRestDay {
                 if index < matchedTemplate.days.count {
                     let templateDay = matchedTemplate.days[index]
                     // Convert PlanBlockExercise to ExerciseTemplate
@@ -414,7 +414,7 @@ struct PlannerSetupCarouselView: View {
             config.isCreatingCustom = true
             config.customSplitName = split.name
 
-            let workoutBlocks = split.planBlocks.filter { !$0.isRestDay }
+            let workoutBlocks = split.orderedPlanBlocks.filter { !$0.isRestDay }
             config.numberOfParts = workoutBlocks.count
             config.partNames = workoutBlocks.map { $0.dayName }
 

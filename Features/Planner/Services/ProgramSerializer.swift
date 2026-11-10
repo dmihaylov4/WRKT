@@ -35,7 +35,7 @@ enum ProgramSerializer {
             creator: creator.map {
                 .init(userID: $0.userID, username: $0.username, displayName: $0.displayName)
             },
-            planBlocks: split.planBlocks
+            planBlocks: split.orderedPlanBlocks
                 .enumerated()
                 .map { index, block in
                     SharedProgramStructure.Block(

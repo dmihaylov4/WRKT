@@ -374,7 +374,7 @@ private struct SplitsListView: View {
                             }
                         }
 
-                        Text("\(split.planBlocks.count) days")
+                        Text("\(split.orderedPlanBlocks.count) days")
                             .dsFont(.caption)
                             .foregroundStyle(.secondary)
 

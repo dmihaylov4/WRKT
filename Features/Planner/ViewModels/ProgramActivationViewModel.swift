@@ -25,9 +25,9 @@ final class ProgramActivationViewModel {
     ) {
         self.plannerStore = plannerStore
         self.startDate = Calendar.current.startOfDay(for: .now)
-        self.restDayOverrides = Dictionary(uniqueKeysWithValues: split.planBlocks.map { ($0.id, $0.isRestDay) })
+        self.restDayOverrides = Dictionary(uniqueKeysWithValues: split.orderedPlanBlocks.map { ($0.id, $0.isRestDay) })
         self.startingWeights = Dictionary(
-            uniqueKeysWithValues: split.planBlocks
+            uniqueKeysWithValues: split.orderedPlanBlocks
                 .flatMap(\.exercises)
                 .compactMap { exercise in
                     guard let weight = exercise.startingWeight else { return nil }

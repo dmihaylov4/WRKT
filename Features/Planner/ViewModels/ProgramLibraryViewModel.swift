@@ -159,9 +159,9 @@ final class ProgramLibraryViewModel {
     private func defaultActivationCustomization(for split: WorkoutSplit) -> ActivationCustomization {
         ActivationCustomization(
             startDate: Calendar.current.startOfDay(for: .now),
-            restDayOverrides: Dictionary(uniqueKeysWithValues: split.planBlocks.map { ($0.id, $0.isRestDay) }),
+            restDayOverrides: Dictionary(uniqueKeysWithValues: split.orderedPlanBlocks.map { ($0.id, $0.isRestDay) }),
             startingWeights: Dictionary(
-                uniqueKeysWithValues: split.planBlocks
+                uniqueKeysWithValues: split.orderedPlanBlocks
                     .flatMap(\.exercises)
                     .compactMap { exercise in
                         guard let weight = exercise.startingWeight else { return nil }

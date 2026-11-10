@@ -289,8 +289,8 @@ private struct ProgramRowView: View {
     }
 
     private var metadataText: String {
-        let dayCount = split.planBlocks.count
-        let exerciseCount = split.planBlocks.flatMap(\.exercises).count
+        let dayCount = split.orderedPlanBlocks.count
+        let exerciseCount = split.orderedPlanBlocks.flatMap(\.exercises).count
         return "\(dayCount) days • \(exerciseCount) exercises"
     }
 
@@ -949,7 +949,7 @@ private struct ProgramShareSummaryCard: View {
                 .dsFont(.headline)
                 .foregroundStyle(DS.Semantic.textPrimary)
 
-            Text("\(split.planBlocks.count) days • \(split.planBlocks.flatMap(\.exercises).count) exercises")
+            Text("\(split.orderedPlanBlocks.count) days • \(split.orderedPlanBlocks.flatMap(\.exercises).count) exercises")
                 .dsFont(.subheadline)
                 .foregroundStyle(DS.Semantic.textSecondary)
 
@@ -1218,7 +1218,7 @@ struct ProgramPreviewView: View {
 
     @ViewBuilder
     private func blockList(for viewModel: ProgramInviteViewModel) -> some View {
-        if let blocks = viewModel.previewSplit?.planBlocks {
+        if let blocks = viewModel.previewSplit?.orderedPlanBlocks {
             ProgramSection(title: "Schedule", subtitle: "\(blocks.count) days in this program.") {
                 VStack(spacing: 12) {
                     ForEach(Array(blocks.enumerated()), id: \.element.id) { index, block in
@@ -1249,7 +1249,7 @@ struct ProgramPreviewView: View {
             get: {
                 guard
                     let editingExercise,
-                    let exercise = viewModel?.previewSplit?.planBlocks
+                    let exercise = viewModel?.previewSplit?.orderedPlanBlocks
                         .first(where: { $0.id == editingExercise.blockID })?
                         .exercises
                         .first(where: { $0.id == editingExercise.exerciseID })
@@ -1736,7 +1736,7 @@ private struct ProgramActivationSheet: View {
                         }
 
                         Section {
-                            ForEach(split.planBlocks, id: \.id) { block in
+                            ForEach(split.orderedPlanBlocks, id: \.id) { block in
                                 Toggle(block.dayName, isOn: restDayBinding(for: block, viewModel: viewModel))
                             }
                         } header: {
@@ -1746,7 +1746,7 @@ private struct ProgramActivationSheet: View {
                         }
 
                         Section("Starting Weights") {
-                            ForEach(split.planBlocks.flatMap(\.exercises), id: \.id) { exercise in
+                            ForEach(split.orderedPlanBlocks.flatMap(\.exercises), id: \.id) { exercise in
                                 HStack {
                                     Text(exercise.exerciseName)
                                     Spacer()

@@ -157,13 +157,13 @@ final class ProgramInviteViewModel {
     func dropBlock(id sourceID: UUID, on targetID: UUID) {
         guard
             let previewSplit,
-            let sourceIndex = previewSplit.planBlocks.firstIndex(where: { $0.id == sourceID }),
-            let targetIndex = previewSplit.planBlocks.firstIndex(where: { $0.id == targetID }),
+            let sourceIndex = previewSplit.orderedPlanBlocks.firstIndex(where: { $0.id == sourceID }),
+            let targetIndex = previewSplit.orderedPlanBlocks.firstIndex(where: { $0.id == targetID }),
             sourceIndex != targetIndex
         else { return }
 
-        let sourceBlock = previewSplit.planBlocks[sourceIndex]
-        let targetBlock = previewSplit.planBlocks[targetIndex]
+        let sourceBlock = previewSplit.orderedPlanBlocks[sourceIndex]
+        let targetBlock = previewSplit.orderedPlanBlocks[targetIndex]
         let sourceSnapshot = snapshot(from: sourceBlock)
         let targetSnapshot = snapshot(from: targetBlock)
 
@@ -217,9 +217,9 @@ final class ProgramInviteViewModel {
     private func defaultActivationCustomization(for split: WorkoutSplit) -> ActivationCustomization {
         ActivationCustomization(
             startDate: Calendar.current.startOfDay(for: .now),
-            restDayOverrides: Dictionary(uniqueKeysWithValues: split.planBlocks.map { ($0.id, $0.isRestDay) }),
+            restDayOverrides: Dictionary(uniqueKeysWithValues: split.orderedPlanBlocks.map { ($0.id, $0.isRestDay) }),
             startingWeights: Dictionary(
-                uniqueKeysWithValues: split.planBlocks
+                uniqueKeysWithValues: split.orderedPlanBlocks
                     .flatMap(\.exercises)
                     .compactMap { exercise in
                         guard let weight = exercise.startingWeight else { return nil }

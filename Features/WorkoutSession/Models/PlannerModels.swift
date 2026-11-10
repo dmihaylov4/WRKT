@@ -196,7 +196,8 @@ enum CompletionColor {
 final class WorkoutSplit {
     @Attribute(.unique) var id: UUID
     var name: String                      // "PPL", "Upper/Lower", "Custom"
-    var planBlocks: [PlanBlock]           // Ordered sequence of workout days
+    var planBlocks: [PlanBlock]           // SwiftData relationships do not retain array order.
+    var planBlockOrder: [UUID]?
     var anchorDate: Date                  // When this split started
     var cursor: Int                       // Current position (Rolling mode)
     var reschedulePolicy: String          // ReschedulePolicy raw value
@@ -224,6 +225,7 @@ final class WorkoutSplit {
         self.id = id
         self.name = name
         self.planBlocks = planBlocks
+        self.planBlockOrder = planBlocks.map(\.id)
         self.anchorDate = anchorDate
         self.cursor = 0
         self.reschedulePolicy = reschedulePolicy.rawValue
@@ -243,12 +245,19 @@ final class WorkoutSplit {
         set { reschedulePolicy = newValue.rawValue }
     }
 
+    var orderedPlanBlocks: [PlanBlock] {
+        // Leave legacy plans unchanged until their intended order can be recovered.
+        guard let planBlockOrder else { return planBlocks }
+        let ordered = planBlockOrder.compactMap { id in planBlocks.first { $0.id == id } }
+        return ordered + planBlocks.filter { !planBlockOrder.contains($0.id) }
+    }
+
     /// Align the schedule so the selected date lands on the first non-rest block.
     /// This keeps the existing block order intact while making the chosen start
     /// date behave like the first workout date.
     func anchorDateAligningFirstWorkout(to startDate: Date, calendar: Calendar = .current) -> Date {
         let normalizedStartDate = calendar.startOfDay(for: startDate)
-        guard let firstWorkoutIndex = planBlocks.firstIndex(where: { !$0.isRestDay }) else {
+        guard let firstWorkoutIndex = orderedPlanBlocks.firstIndex(where: { !$0.isRestDay }) else {
             return normalizedStartDate
         }
 
@@ -257,6 +266,7 @@ final class WorkoutSplit {
 
     /// Get plan block for a given date based on reschedule policy
     func planBlock(for date: Date, cursor: Int) -> PlanBlock? {
+        let planBlocks = orderedPlanBlocks
         guard !planBlocks.isEmpty else { return nil }
 
         switch policy {
