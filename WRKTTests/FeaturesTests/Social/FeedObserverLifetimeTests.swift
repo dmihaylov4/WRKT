@@ -60,12 +60,35 @@ final class FeedObserverLifetimeTests: XCTestCase {
             XCTAssertEqual(center.callbackCount, index)
             await model?.cleanup()
             await model?.cleanup()
+            XCTAssertEqual(center.activeCount, 1)
             model = nil
             XCTAssertNil(released)
             XCTAssertEqual(center.activeCount, 0)
             center.post(name: .postCommentCountDidChange, object: nil)
             XCTAssertEqual(center.callbackCount, index)
         }
+    }
+
+    func testCleanupKeepsCommentUpdatesForMatchingPost() async {
+        let center = CountingNotificationCenter()
+        let model = makeModel(center: center)
+        let author = UserProfile(id: UUID(), username: "author")
+        let workout = CompletedWorkout(date: .now, entries: [])
+        let matching = WorkoutPost(id: UUID(), userId: author.id, workoutData: workout,
+                                   visibility: .friends)
+        let other = WorkoutPost(id: UUID(), userId: author.id, workoutData: workout,
+                                visibility: .friends)
+        model.posts = [PostWithAuthor(id: matching.id, post: matching, author: author),
+                       PostWithAuthor(id: other.id, post: other, author: author)]
+
+        await model.cleanup()
+        center.post(name: .postCommentCountDidChange, object: nil,
+                    userInfo: ["postId": matching.id, "count": 7])
+
+        XCTAssertEqual(center.activeCount, 1)
+        XCTAssertEqual(center.callbackCount, 1)
+        XCTAssertEqual(model.posts[0].post.commentsCount, 7)
+        XCTAssertEqual(model.posts[1].post.commentsCount, other.commentsCount)
     }
 
     func testReleaseWithoutExplicitCleanupAlsoUnregistersObserver() {

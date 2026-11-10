@@ -518,10 +518,6 @@ final class FeedViewModel {
 
     /// Cleanup realtime subscriptions
     func cleanup() async {
-        if let commentObserver {
-            notificationCenter.removeObserver(commentObserver)
-            self.commentObserver = nil
-        }
         if let channelId = realtimeChannelId {
             await realtimeService.unsubscribe(channelId: channelId)
             realtimeChannelId = nil
