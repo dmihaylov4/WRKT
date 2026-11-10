@@ -270,7 +270,98 @@ public enum DS {
 
     // MARK: Spacing / Radii / Elevation
     public enum Space { public static let xs: CGFloat = 4; public static let s: CGFloat = 8; public static let m: CGFloat = 12; public static let l: CGFloat = 16; public static let xl: CGFloat = 24; public static let xxl: CGFloat = 32 }
-    public enum Radius { public static let s: CGFloat = 8; public static let m: CGFloat = 12; public static let l: CGFloat = 16; public static let xl: CGFloat = 24; public static let pill: CGFloat = 999 }
+    public enum Radius {
+        public static let s: CGFloat = 8
+        public static let m: CGFloat = 12
+        public static let l: CGFloat = 16
+        public static let xl: CGFloat = 24
+        public static let pill: CGFloat = 999
+
+        public static let card: CGFloat = 26
+        public static let nested: CGFloat = 10
+        public static let tile: CGFloat = 16
+        public static let popover: CGFloat = 32
+        public static let alert: CGFloat = 36
+        public static let sheet: CGFloat = 36
+        public static let control: CGFloat = pill
+
+        public static func nested(parentRadius: CGFloat, padding: CGFloat) -> CGFloat {
+            max(8, parentRadius - padding)
+        }
+
+        public static func iconTile(side: CGFloat) -> CGFloat {
+            max(0, side) * 0.225
+        }
+
+        static let chamferCapsuleMaximumHeight: CGFloat = 40
+        static let chamferCapsuleMinimumAspectRatio: CGFloat = 1.5
+
+        static func clamped(_ radius: CGFloat, in rect: CGRect) -> CGFloat {
+            max(0, min(radius, rect.width / 2, rect.height / 2))
+        }
+
+        static func mappedChamferRadius(_ size: CGFloat) -> CGFloat {
+            switch size {
+            case ...0: return 0
+            case ..<4: return size * 1.5
+            case ..<8: return 6 + (size - 4)
+            case ..<12: return 10 + (size - 8) * 1.5
+            case ..<16: return 16 + (size - 12) * 2.5
+            default: return card
+            }
+        }
+
+        static func roundedChamferRadius(_ size: CGFloat, in rect: CGRect) -> CGFloat {
+            let mapped = mappedChamferRadius(size)
+            let usesCapsule = rect.height <= chamferCapsuleMaximumHeight
+                && rect.width >= chamferCapsuleMinimumAspectRatio * rect.height
+            return clamped(usesCapsule ? rect.height / 2 : mapped, in: rect)
+        }
+
+        static func roundedChamferPath(_ size: CGFloat, in rect: CGRect) -> Path {
+            RoundedRectangle(cornerRadius: roundedChamferRadius(size, in: rect), style: .continuous)
+                .path(in: rect)
+        }
+    }
+
+    /// Role-based continuous surfaces for new code. Insets never add layout padding.
+    public struct Shape: SwiftUI.InsettableShape {
+        public enum Role {
+            case card, nested, tile, popover, alert, sheet, control, iconTile
+        }
+
+        public let role: Role
+        private var insetAmount: CGFloat = 0
+
+        public init(_ role: Role) {
+            self.role = role
+        }
+
+        public func path(in rect: CGRect) -> Path {
+            let radius: CGFloat
+            switch role {
+            case .card: radius = Radius.card
+            case .nested: radius = Radius.nested
+            case .tile: radius = Radius.tile
+            case .popover: radius = Radius.popover
+            case .alert: radius = Radius.alert
+            case .sheet: radius = Radius.sheet
+            case .control: radius = min(rect.width, rect.height) / 2
+            case .iconTile: radius = Radius.iconTile(side: min(rect.width, rect.height))
+            }
+            let bounds = rect.insetBy(dx: insetAmount, dy: insetAmount)
+            guard bounds.width > 0, bounds.height > 0 else { return Path() }
+            let insetRadius = Radius.clamped(radius, in: rect) - insetAmount
+            return RoundedRectangle(cornerRadius: Radius.clamped(insetRadius, in: bounds), style: .continuous)
+                .path(in: bounds)
+        }
+
+        public func inset(by amount: CGFloat) -> Self {
+            var shape = self
+            shape.insetAmount += amount
+            return shape
+        }
+    }
 
     // MARK: Chamfer Sizes (for consistent angled corner cuts)
     /// Standardized chamfer sizes to maintain consistent 45° diagonal cuts across the app.
