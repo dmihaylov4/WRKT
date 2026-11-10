@@ -129,6 +129,16 @@ struct RoleShapeTests {
               in: button, radius: 28, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: button))
     }
 
+    @Test func narrowAllChipsAndFiftyPointSteppersIgnoreTheHeuristic() {
+        for rect in [CGRect(x: 0, y: 0, width: 44, height: 36), CGRect(x: 3, y: 7, width: 70, height: 60)] {
+            check(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)), in: rect,
+                  radius: min(rect.width, rect.height) / 2, legacy: MainChamferedRectangle(chamferSize: 8).path(in: rect))
+        }
+        let rect = CGRect(x: 0, y: 0, width: 50, height: 50)
+        check(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)), in: rect,
+              radius: 25, legacy: MainChamferedRectangle(chamferSize: 12).path(in: rect))
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)

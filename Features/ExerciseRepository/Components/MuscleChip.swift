@@ -38,8 +38,8 @@ struct MuscleChip: View {
                 .foregroundStyle(isSelected ? DS.Palette.marone : DS.Semantic.textPrimary.opacity(0.8))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(ChamferedRectangle(.small).fill(fillColor))
-                .overlay(ChamferedRectangle(.small).stroke(borderColor, lineWidth: borderWidth))
+                .background(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).fill(fillColor))
+                .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(borderColor, lineWidth: borderWidth))
         }
         .buttonStyle(.plain)
         .scaleEffect(isPressed ? 0.95 : 1.0)

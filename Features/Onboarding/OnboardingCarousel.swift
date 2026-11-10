@@ -250,8 +250,8 @@ private struct OnboardingStepButton: View {
             .font(.system(size: 20, weight: .bold))
             .foregroundStyle(DS.Semantic.textPrimary)
             .frame(width: 50, height: 50)
-            .background(DS.Semantic.surface50.opacity(0.85), in: ChamferedRectangle(.medium))
-            .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Semantic.surface50.opacity(0.85), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
+            .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 

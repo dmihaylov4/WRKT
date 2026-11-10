@@ -886,11 +886,11 @@ private struct FilterChip: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(
-                    ChamferedRectangle(.small)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                         .fill(isSelected ? DS.Palette.marone : DS.Semantic.fillSubtle)
                 )
                 .overlay(
-                    ChamferedRectangle(.small)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                         .stroke(isSelected ? DS.Palette.marone : DS.Semantic.border, lineWidth: 1)
                 )
         }
