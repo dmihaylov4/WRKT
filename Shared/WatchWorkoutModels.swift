@@ -197,16 +197,6 @@ enum WatchMessage: String, Codable {
     case endWatchWorkout = "endWatchWorkout"        // iOS → Watch: End & save HKWorkoutSession
     case discardWatchWorkout = "discardWatchWorkout" // iOS → Watch: Discard HKWorkoutSession (don't save)
 
-    // Virtual Run messages
-    case vrSnapshot = "vr_snapshot"              // Watch → iOS: My latest stats
-    case vrHeartbeat = "vr_heartbeat"            // Bidirectional: Keep-alive
-    case vrPartnerUpdate = "vr_partner"          // iOS → Watch: Partner's latest stats
-    case vrRunStarted = "vr_started"             // iOS → Watch: Run accepted, start tracking
-    case vrRunEnded = "vr_ended"                 // Bidirectional: Run completed
-    case vrPartnerFinished = "vr_partner_finished" // iOS → Watch: Partner ended their run
-    case vrWatchConfirmed = "vr_watch_confirmed"   // Watch → iOS: User confirmed, countdown started
-    case vrPause = "vr_pause"                    // Watch → iOS: User paused the run
-    case vrResume = "vr_resume"                  // Watch → iOS: User resumed the run
 }
 
 /// Payload for completing a set

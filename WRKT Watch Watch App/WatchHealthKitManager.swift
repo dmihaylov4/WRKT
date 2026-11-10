@@ -8,7 +8,6 @@
 
 import Foundation
 import HealthKit
-import CoreLocation
 import OSLog
 
 @Observable
@@ -21,12 +20,6 @@ final class WatchHealthKitManager: NSObject {
     var elapsedTime: TimeInterval = 0
     var activeCalories: Double = 0
     var heartRate: Double = 0
-    var distance: Double = 0  // meters
-
-    // MARK: - GPS / Route
-    private(set) var lastLocation: CLLocation?
-    private var locationManager: CLLocationManager?
-    private var routeBuilder: HKWorkoutRouteBuilder?
 
     // MARK: - Private Properties
     private let healthStore = HKHealthStore()
@@ -72,11 +65,6 @@ final class WatchHealthKitManager: NSObject {
     /// Start a workout session
     func startWorkout() async throws {
         try await startWorkout(activityType: .traditionalStrengthTraining, locationType: .indoor)
-    }
-
-    /// Start a running workout session (for virtual runs)
-    func startRunningWorkout() async throws {
-        try await startWorkout(activityType: .running, locationType: .outdoor)
     }
 
     /// Start a workout session with specified activity type
@@ -125,22 +113,12 @@ final class WatchHealthKitManager: NSObject {
             elapsedTime = 0
             activeCalories = 0
             heartRate = 0
-            distance = 0
 
-            // Start GPS location tracking for outdoor workouts
-            if locationType == .outdoor {
-                startLocationUpdates()
-                routeBuilder = HKWorkoutRouteBuilder(healthStore: healthStore, device: nil)
-            }
 
             // Start elapsed time timer
             startElapsedTimer()
 
             logger.info("✅ Workout session started - isWorkoutActive: \(self.isWorkoutActive), startDate: \(startDate)")
-            VirtualRunFileLogger.shared.log(category: .healthkit, message: "Workout started", data: [
-                "activityType": configuration.activityType.rawValue,
-                "locationType": configuration.locationType.rawValue
-            ])
 
         } catch {
             logger.error("Failed to start workout: \(error.localizedDescription)")
@@ -157,18 +135,15 @@ final class WatchHealthKitManager: NSObject {
         }
 
         // Capture references locally and clear self's properties immediately.
-        // This prevents a concurrent startWorkout() (e.g. strength after VR) from
-        // having its new session/builder wiped when our async cleanup (especially
-        // routeBuilder.finishRoute) eventually completes and would call resetState().
+        // This prevents a concurrent startWorkout() from having its new session
+        // or builder cleared by an earlier asynchronous save.
         let sessionToEnd = session
         let builderToEnd = builder
-        let routeBuilderToEnd = routeBuilder
 
         isWorkoutActive = false
         self.session = nil
         self.builder = nil
         stopElapsedTimer()
-        stopLocationUpdates()   // also nils self.routeBuilder and self.locationManager
 
         // Check session state before ending
         guard sessionToEnd.state != .ended else {
@@ -177,7 +152,7 @@ final class WatchHealthKitManager: NSObject {
             elapsedTime = 0
             activeCalories = 0
             heartRate = 0
-            distance = 0
+
             return
         }
 
@@ -189,7 +164,6 @@ final class WatchHealthKitManager: NSObject {
             do {
                 try await builderToEnd.discardWorkout()
                 logger.info("🗑️ Workout discarded - not saved to HealthKit")
-                VirtualRunFileLogger.shared.log(category: .healthkit, message: "Workout discarded")
             } catch {
                 logger.error("Failed to discard workout: \(error.localizedDescription)")
             }
@@ -197,31 +171,9 @@ final class WatchHealthKitManager: NSObject {
             // Save the workout to HealthKit
             do {
                 try await builderToEnd.endCollection(at: Date())
-                let workout = try await builderToEnd.finishWorkout()
-
-                // Attach GPS route if we recorded one
-                if let rb = routeBuilderToEnd, let workout = workout {
-                    do {
-                        try await rb.finishRoute(with: workout, metadata: nil)
-                        logger.info("✅ Route saved to workout")
-                        VirtualRunFileLogger.shared.log(category: .healthkit, message: "Route saved to workout")
-                    } catch {
-                        logger.error("Failed to save route: \(error.localizedDescription)")
-                        VirtualRunFileLogger.shared.log(category: .error, message: "Route save FAILED", data: ["error": error.localizedDescription])
-                    }
-                } else {
-                    VirtualRunFileLogger.shared.log(category: .healthkit, message: "No route to save", data: [
-                        "hasRouteBuilder": routeBuilderToEnd != nil,
-                        "hasWorkout": workout != nil
-                    ])
-                }
+                _ = try await builderToEnd.finishWorkout()
 
                 logger.info("✅ Workout saved - Duration: \(self.elapsedTime)s, Calories: \(self.activeCalories)")
-                VirtualRunFileLogger.shared.log(category: .healthkit, message: "Workout saved", data: [
-                    "duration": Int(self.elapsedTime),
-                    "calories": Int(self.activeCalories),
-                    "distance": Int(self.distance)
-                ])
             } catch {
                 logger.error("Failed to save workout: \(error.localizedDescription)")
             }
@@ -233,24 +185,8 @@ final class WatchHealthKitManager: NSObject {
             elapsedTime = 0
             activeCalories = 0
             heartRate = 0
-            distance = 0
+
         }
-    }
-
-    /// Pause the workout session
-    func pauseWorkout() {
-        guard isWorkoutActive, let session = session else { return }
-        session.pause()
-        stopElapsedTimer()
-        logger.info("Workout paused")
-    }
-
-    /// Resume the workout session
-    func resumeWorkout() {
-        guard isWorkoutActive, let session = session else { return }
-        session.resume()
-        startElapsedTimer()
-        logger.info("Workout resumed")
     }
 
     // MARK: - Private Methods
@@ -263,35 +199,8 @@ final class WatchHealthKitManager: NSObject {
         elapsedTime = 0
         activeCalories = 0
         heartRate = 0
-        distance = 0
+
         stopElapsedTimer()
-        stopLocationUpdates()
-    }
-
-    // MARK: - Location
-
-    private func startLocationUpdates() {
-        let manager = CLLocationManager()
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.activityType = .fitness
-        manager.delegate = self
-        locationManager = manager
-
-        let status = manager.authorizationStatus
-        if status == .authorizedWhenInUse || status == .authorizedAlways {
-            manager.startUpdatingLocation()
-            logger.info("Started GPS location updates")
-        } else {
-            manager.requestWhenInUseAuthorization()
-            logger.info("Requesting location authorization before starting updates")
-        }
-    }
-
-    private func stopLocationUpdates() {
-        locationManager?.stopUpdatingLocation()
-        locationManager = nil
-        routeBuilder = nil
-        lastLocation = nil
     }
 
     private func startElapsedTimer() {
@@ -320,22 +229,11 @@ final class WatchHealthKitManager: NSObject {
         case HKQuantityType.quantityType(forIdentifier: .heartRate):
             if let heartRateValue = statistics.mostRecentQuantity() {
                 heartRate = heartRateValue.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
-                VirtualRunFileLogger.shared.log(category: .healthkit, message: "HR update", data: [
-                    "bpm": Int(heartRate)
-                ])
             }
 
         case HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned):
             if let energyValue = statistics.sumQuantity() {
                 activeCalories = energyValue.doubleValue(for: .kilocalorie())
-            }
-
-        case HKQuantityType.quantityType(forIdentifier: .distanceWalkingRunning):
-            if let distanceValue = statistics.sumQuantity() {
-                distance = distanceValue.doubleValue(for: .meter())
-                VirtualRunFileLogger.shared.log(category: .healthkit, message: "Distance update", data: [
-                    "meters": Int(distance)
-                ])
             }
 
         default:
@@ -402,44 +300,6 @@ extension WatchHealthKitManager: HKLiveWorkoutBuilderDelegate {
 
     nonisolated func workoutBuilderDidCollectEvent(_ workoutBuilder: HKLiveWorkoutBuilder) {
         // Handle workout events if needed
-    }
-}
-
-// MARK: - CLLocationManagerDelegate
-
-extension WatchHealthKitManager: CLLocationManagerDelegate {
-    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        let filtered = locations.filter { $0.horizontalAccuracy > 0 && $0.horizontalAccuracy < VirtualRunConstants.gpsMinAccuracyMeters }
-        guard !filtered.isEmpty else { return }
-
-        Task { @MainActor in
-            lastLocation = filtered.last
-
-            guard let routeBuilder = routeBuilder else { return }
-            do {
-                try await routeBuilder.insertRouteData(filtered)
-            } catch {
-                logger.error("Failed to insert route data: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        let status = manager.authorizationStatus
-        Task { @MainActor in
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
-                manager.startUpdatingLocation()
-                logger.info("Location authorized — started GPS updates")
-            } else if status == .denied || status == .restricted {
-                logger.warning("Location authorization denied/restricted")
-            }
-        }
-    }
-
-    nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        Task { @MainActor in
-            logger.error("Location error: \(error.localizedDescription)")
-        }
     }
 }
 

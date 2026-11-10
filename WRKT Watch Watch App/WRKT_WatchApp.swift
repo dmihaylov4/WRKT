@@ -22,14 +22,10 @@ struct RootView: View {
 
     // Store reference to the observable singletons
     let healthManager = WatchHealthKitManager.shared
-    let virtualRunManager = VirtualRunManager.shared
 
     var body: some View {
         Group {
-            if virtualRunManager.showVirtualRunUI {
-                VirtualRunView(isLuminanceReduced: isLuminanceReduced)
-                    .environment(virtualRunManager)
-            } else if healthManager.isWorkoutActive {
+            if healthManager.isWorkoutActive {
                 ActiveWorkoutView(isLuminanceReduced: isLuminanceReduced)
             } else {
                 SimpleTimerView()

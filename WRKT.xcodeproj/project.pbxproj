@@ -24,8 +24,6 @@
 		2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */; };
 		2E04133A2F2FA4CE0090EF16 /* CardioDataExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413392F2FA4CE0090EF16 /* CardioDataExtractor.swift */; };
 		2E04133C2F3013BB0090EF16 /* SetNewPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04133B2F3013BB0090EF16 /* SetNewPasswordView.swift */; };
-		2E04134A2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */; };
-		2E04134B2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */; };
 		2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */; };
 		2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */; };
 		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
@@ -505,7 +503,6 @@
 		2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioAutoPostService.swift; sourceTree = "<group>"; };
 		2E0413392F2FA4CE0090EF16 /* CardioDataExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDataExtractor.swift; sourceTree = "<group>"; };
 		2E04133B2F3013BB0090EF16 /* SetNewPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetNewPasswordView.swift; sourceTree = "<group>"; };
-		2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSharedModels.swift; sourceTree = "<group>"; };
 		2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityService.swift; sourceTree = "<group>"; };
 		2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHistoryView.swift; sourceTree = "<group>"; };
 		2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityView.swift; sourceTree = "<group>"; };
@@ -1703,7 +1700,6 @@
 		2E61412E2ECE266100B50FDE /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */,
 				2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */,
 			);
 			path = Shared;
@@ -2569,7 +2565,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2E04134A2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */,
 				2E6141772ECF1A8E00B50FDE /* WatchWorkoutModels.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2886,7 +2881,6 @@
 				2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */,
 				2E2938F72EC9EF8E0057F60C /* CompletedWorkoutEditor.swift in Sources */,
 				2E196F312EAE682900EB4780 /* ExerciseSessionViewModel.swift in Sources */,
-				2E04134B2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */,
 				2E2F539D2E9E714A00C81656 /* AchievementsView.swift in Sources */,
 				2E2F53972E9E4FF400C81656 /* ProfileView.swift in Sources */,
 				2ECA00042FC000000000001 /* BattleResultOverlay.swift in Sources */,
