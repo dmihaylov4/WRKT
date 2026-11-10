@@ -1,4 +1,5 @@
 import XCTest
+import SwiftUI
 @testable import WRKT
 
 final class WorkoutPostMultiWorkoutTests: WRKTTestCase {
@@ -181,6 +182,45 @@ final class WorkoutPostMultiWorkoutTests: WRKTTestCase {
         XCTAssertEqual(restored.partners.first?.userId, partnerId)
         XCTAssertEqual(restored.partners.first?.vrStats?.distanceM, 4900)
         XCTAssertEqual(restored.partners.first?.profile?.username, "partner")
+    }
+
+
+    @MainActor
+    func testHistoricalSharedRunCardRendersWithPartnerStats() throws {
+        try assertSharedCardRenders(stats: VRPartnerSummary(distanceM: 4900, durationS: 1800,
+                                                          paceSecPerKm: 367, avgHR: 151))
+    }
+
+    @MainActor
+    func testOrdinarySharedWorkoutCardRendersWithoutRunStats() throws {
+        try assertSharedCardRenders(stats: nil)
+    }
+
+    @MainActor
+    private func assertSharedCardRenders(stats: VRPartnerSummary?) throws {
+        let creator = UserProfile(id: UUID(), username: "creator")
+        let partner = UserProfile(id: UUID(), username: "partner")
+        var workout = CompletedWorkout(date: makeDate(year: 2026, month: 5, day: 28),
+                                       entries: [], workoutName: stats == nil ? "Strength" : "Virtual Run")
+        if stats != nil {
+            workout.cardioWorkoutType = "Running"
+            workout.matchedHealthKitDistance = 5000
+            workout.matchedHealthKitDuration = 1800
+        }
+        let post = WorkoutPost(id: UUID(), userId: creator.id, workoutData: workout,
+                               visibility: .friends, postType: .shared)
+        let participant = PostParticipant(id: UUID(), postId: post.id, userId: partner.id,
+            workoutData: nil, vrStats: stats, joinedAt: workout.date, removedAt: nil, profile: partner)
+        let value = PostWithAuthor(id: post.id, post: post, author: creator, partners: [participant])
+        let restored = try XCTUnwrap(CachedPost.from(value).toPostWithAuthor())
+        XCTAssertEqual(restored.partners.first?.vrStats, stats)
+        let card = PostCard(post: restored, currentUserId: creator.id, onLike: {}, onComment: {},
+            onShowLikes: nil, onProfileTap: {}, onPostTap: {}, onEdit: nil, onDelete: nil,
+            onRemoveMe: nil, onBackfillRoute: nil)
+        let renderer = ImageRenderer(content: card.frame(width: 390))
+        let image = try XCTUnwrap(renderer.uiImage)
+        XCTAssertGreaterThan(image.size.height, 100)
+        XCTAssertEqual(image.size.width, 390)
     }
 
     private func decodePost(_ json: String) throws -> WorkoutPost {
