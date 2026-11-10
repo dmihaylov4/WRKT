@@ -379,6 +379,41 @@ public enum DS {
         }
     }
 
+    /// Selects a semantic contour while preserving the exact legacy shape.
+    struct RoleShape<Legacy: SwiftUI.Shape>: SwiftUI.Shape {
+        let roundedShape: DS.Shape
+        let legacy: Legacy
+
+        init(_ role: DS.Shape.Role, legacy: Legacy) {
+            self.roundedShape = DS.Shape(role)
+            self.legacy = legacy
+        }
+
+        fileprivate init(roundedShape: DS.Shape, legacy: Legacy) {
+            self.roundedShape = roundedShape
+            self.legacy = legacy
+        }
+
+        func path(in rect: CGRect) -> Path {
+            resolvedPath(in: rect, rounded: DS.Redesign.roundedShapesEnabled)
+        }
+
+        #if DEBUG
+        // Test seam only: Release always uses the production switch.
+        func path(in rect: CGRect, rounded: Bool) -> Path {
+            resolvedPath(in: rect, rounded: rounded)
+        }
+        #endif
+
+        private func resolvedPath(in rect: CGRect, rounded: Bool) -> Path {
+            if rounded { return roundedShape.path(in: rect) }
+            if let chamfer = legacy as? any RoleLegacyChamfer {
+                return chamfer.path(in: rect, rounded: false)
+            }
+            return legacy.path(in: rect)
+        }
+    }
+
     // MARK: Chamfer Sizes (for consistent angled corner cuts)
     /// Standardized chamfer sizes to maintain consistent 45° diagonal cuts across the app.
     /// Use these tokens instead of hardcoded values to ensure visual consistency.
@@ -803,6 +838,26 @@ public enum DS {
         }
     }
 }
+
+extension DS.RoleShape: InsettableShape where Legacy: InsettableShape {
+    func inset(by amount: CGFloat) -> DS.RoleShape<Legacy.InsetShape> {
+        DS.RoleShape<Legacy.InsetShape>(
+            roundedShape: roundedShape.inset(by: amount),
+            legacy: legacy.inset(by: amount)
+        )
+    }
+}
+
+// Legacy dispatch bypasses the central heuristic only for the disabled branch.
+protocol RoleLegacyChamfer: SwiftUI.Shape {
+    func path(in rect: CGRect, rounded: Bool) -> Path
+}
+
+extension ChamferedRectangle: RoleLegacyChamfer {}
+extension ChamferedRectangleAlt: RoleLegacyChamfer {}
+extension TopLeftChamferedRectangle: RoleLegacyChamfer {}
+extension SingleChamferedRectangle: RoleLegacyChamfer {}
+extension PairedChamferedRectangle: RoleLegacyChamfer {}
 
 // MARK: - Chamfered Rectangle Shape (Hexagonal-style corners)
 
