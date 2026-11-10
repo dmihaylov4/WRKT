@@ -61,6 +61,17 @@ struct RoleShapeTests {
         }
     }
 
+    @Test func chipsAndBadgesRemainControlsAtNarrowAndLargeSizes() {
+        for rect in [CGRect(x: 0, y: 0, width: 28, height: 36), CGRect(x: 4, y: 7, width: 180, height: 60)] {
+            let radius = min(rect.width, rect.height) / 2
+            check(DS.Chip(title: "All").surfaceShape, in: rect, radius: radius, legacy: Capsule().path(in: rect))
+            check(PremiumChip(title: "All", icon: "star", color: .blue).surfaceShape,
+                  in: rect, radius: radius, legacy: Capsule().path(in: rect))
+            check(DataQualityBadge(quality: .estimated).surfaceShape, in: rect, radius: radius,
+                  legacy: RoundedRectangle(cornerRadius: 4).path(in: rect))
+        }
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)

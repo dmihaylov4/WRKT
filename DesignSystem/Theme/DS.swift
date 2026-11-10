@@ -832,6 +832,7 @@ public enum DS {
             }
         }
         private var stroke: Color { fg.opacity(0.35) }
+        var surfaceShape: DS.RoleShape<Capsule> { DS.RoleShape(.control, legacy: Capsule()) }
 
         public var body: some View {
             HStack(spacing: 6) {
@@ -841,8 +842,8 @@ public enum DS {
             .padding(.vertical, 6)
             .padding(.horizontal, 10)
             .foregroundStyle(fg)
-            .background(bg, in: Capsule())
-            .overlay(Capsule().stroke(stroke, lineWidth: 1))
+            .background(bg, in: surfaceShape)
+            .overlay(surfaceShape.stroke(stroke, lineWidth: 1))
         }
     }
 }

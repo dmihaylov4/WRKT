@@ -11,6 +11,8 @@ struct PremiumChip: View {
     let icon: String
     let color: Color
 
+    var surfaceShape: DS.RoleShape<Capsule> { DS.RoleShape(.control, legacy: Capsule()) }
+
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: icon)
@@ -26,11 +28,11 @@ struct PremiumChip: View {
         .background(
             ZStack {
                 // Base dark background
-                Capsule()
+                surfaceShape
                     .fill(Color(hex: "#1A1A1A"))
 
                 // Subtle color glow
-                Capsule()
+                surfaceShape
                     .fill(
                         LinearGradient(
                             colors: [color.opacity(0.15), color.opacity(0.05)],
@@ -41,7 +43,7 @@ struct PremiumChip: View {
             }
         )
         .overlay(
-            Capsule()
+            surfaceShape
                 .stroke(
                     LinearGradient(
                         colors: [color.opacity(0.4), color.opacity(0.2)],

@@ -24,12 +24,16 @@ enum DataQuality {
 struct DataQualityBadge: View {
     let quality: DataQuality
 
+    var surfaceShape: DS.RoleShape<RoundedRectangle> {
+        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 4))
+    }
+
     var body: some View {
         Text(quality.label)
             .dsFont(.caption2)
             .foregroundStyle(DS.Semantic.textSecondary)
             .padding(.horizontal, 4)
             .padding(.vertical, 1)
-            .background(DS.Semantic.card, in: RoundedRectangle(cornerRadius: 4))
+            .background(DS.Semantic.card, in: surfaceShape)
     }
 }
