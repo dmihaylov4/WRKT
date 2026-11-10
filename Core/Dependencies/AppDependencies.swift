@@ -77,9 +77,6 @@ final class AppDependencies: ObservableObject {
     /// Battle repository - manages 1v1 battles between friends
     let battleRepository: BattleRepository
 
-    /// Virtual run repository - manages virtual running together sessions
-    let virtualRunRepository: VirtualRunRepository
-
     /// Barbell progress service - manages plate earn/rack state
     let barbellProgressService: BarbellProgressService
 
@@ -120,7 +117,6 @@ final class AppDependencies: ObservableObject {
         self.programSharingRepository = ProgramSharingRepository()
         self.challengeRepository = ChallengeRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
         self.battleRepository = BattleRepository(supabase: SupabaseClientWrapper.shared.client, authService: self.authService)
-        self.virtualRunRepository = VirtualRunRepository()
         self.barbellProgressService = BarbellProgressService.shared
         self.barbellCustomizationService = BarbellCustomizationService.shared
 
@@ -161,10 +157,6 @@ final class AppDependencies: ObservableObject {
         workoutStore.challengeRepository = challengeRepository
         workoutStore.authService = authService
         AppLogger.success("Competitive features wired to workout store", category: AppLogger.app)
-
-        // Wire up virtual run repository to WatchConnectivity
-        WatchConnectivityManager.shared.virtualRunRepository = virtualRunRepository
-        AppLogger.success("Virtual run repository wired to WatchConnectivity", category: AppLogger.app)
 
         // Configure BarbellProgressService
         barbellProgressService.configure(context: modelContext)

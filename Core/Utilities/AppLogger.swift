@@ -57,8 +57,6 @@ enum AppLogger {
     /// Social features (posts, comments, friends)
     nonisolated static let social = Logger(subsystem: subsystem, category: "Social")
 
-    /// Virtual run feature
-    nonisolated static let virtualRun = Logger(subsystem: subsystem, category: "VirtualRun")
 
     // MARK: - Configuration
 

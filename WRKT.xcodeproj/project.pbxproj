@@ -24,13 +24,8 @@
 		2E04123B2F2BE5770090EF16 /* CardioAutoPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */; };
 		2E04133A2F2FA4CE0090EF16 /* CardioDataExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413392F2FA4CE0090EF16 /* CardioDataExtractor.swift */; };
 		2E04133C2F3013BB0090EF16 /* SetNewPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04133B2F3013BB0090EF16 /* SetNewPasswordView.swift */; };
-		2E04133E2F34AFB00090EF16 /* VirtualRunModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04133D2F34AFB00090EF16 /* VirtualRunModels.swift */; };
-		2E0413402F34AFC90090EF16 /* VirtualRunRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04133F2F34AFC90090EF16 /* VirtualRunRepository.swift */; };
 		2E04134A2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */; };
 		2E04134B2F34B2960090EF16 /* VirtualRunSharedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */; };
-		2E0413512F34C0000090EF16 /* VirtualRunInviteCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413502F34C0000090EF16 /* VirtualRunInviteCoordinator.swift */; };
-		2E0413532F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413522F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift */; };
-		2E0413602F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E04135F2F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift */; };
 		2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */; };
 		2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */; };
 		2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */; };
@@ -81,7 +76,6 @@
 		2E3D8EEC2EAF85EB00AC8A53 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EEB2EAF85EB00AC8A53 /* AppLogger.swift */; };
 		2E3D8EEE2EB0AB1B00AC8A53 /* CustomExerciseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EED2EB0AB1B00AC8A53 /* CustomExerciseStore.swift */; };
 		2E3D8EF02EB0ACFA00AC8A53 /* CreateExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */; };
-		2E46E0192F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E46E0182F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift */; };
 		2E46E7AB2F4C687300F57EE7 /* KeychainAuthStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E46E7A92F4C687300F57EE7 /* KeychainAuthStorage.swift */; };
 		2E510B532E96B3920089EE2C /* InteractiveRouteMapHeat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B522E96B3920089EE2C /* InteractiveRouteMapHeat.swift */; };
 		2E510B562E9793720089EE2C /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E510B552E97936A0089EE2C /* Haptics.swift */; };
@@ -107,7 +101,6 @@
 		2E61413B2ECE284200B50FDE /* WatchConnectivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6141392ECE284200B50FDE /* WatchConnectivityManager.swift */; };
 		2E6141642ECF0FDC00B50FDE /* WRKT Watch Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 2E6141442ECF0FDB00B50FDE /* WRKT Watch Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2E6141772ECF1A8E00B50FDE /* WatchWorkoutModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E61412D2ECE266100B50FDE /* WatchWorkoutModels.swift */; };
-		2E6732E1D7BDDE590ADB8BF5 /* VirtualRunRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3E75F88BF3D8FBC377C8E7 /* VirtualRunRoute.swift */; };
 		2E695B762EFAFD9D002EA9FC /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E695B752EFAFD9D002EA9FC /* NotificationService.swift */; };
 		2E695B782EFC3E43002EA9FC /* PRAchievement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E695B772EFC3E43002EA9FC /* PRAchievement.swift */; };
 		2E695B7A2EFC3EB5002EA9FC /* PRAutoPostService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E695B792EFC3EB5002EA9FC /* PRAutoPostService.swift */; };
@@ -512,12 +505,7 @@
 		2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioAutoPostService.swift; sourceTree = "<group>"; };
 		2E0413392F2FA4CE0090EF16 /* CardioDataExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDataExtractor.swift; sourceTree = "<group>"; };
 		2E04133B2F3013BB0090EF16 /* SetNewPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetNewPasswordView.swift; sourceTree = "<group>"; };
-		2E04133D2F34AFB00090EF16 /* VirtualRunModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunModels.swift; sourceTree = "<group>"; };
-		2E04133F2F34AFC90090EF16 /* VirtualRunRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunRepository.swift; sourceTree = "<group>"; };
 		2E0413492F34B2960090EF16 /* VirtualRunSharedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSharedModels.swift; sourceTree = "<group>"; };
-		2E0413502F34C0000090EF16 /* VirtualRunInviteCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunInviteCoordinator.swift; sourceTree = "<group>"; };
-		2E0413522F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iPhoneVirtualRunAudioCues.swift; sourceTree = "<group>"; };
-		2E04135F2F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunSummaryCoordinator.swift; sourceTree = "<group>"; };
 		2E0413652F3AD0010090EF16 /* DataPortabilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityService.swift; sourceTree = "<group>"; };
 		2E0413662F3AD0010090EF17 /* ImportHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportHistoryView.swift; sourceTree = "<group>"; };
 		2E0413672F3AD0010090EF16 /* DataPortabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataPortabilityView.swift; sourceTree = "<group>"; };
@@ -570,8 +558,6 @@
 		2E3D8EEB2EAF85EB00AC8A53 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
 		2E3D8EED2EB0AB1B00AC8A53 /* CustomExerciseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomExerciseStore.swift; sourceTree = "<group>"; };
 		2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateExerciseView.swift; sourceTree = "<group>"; };
-		2E3E75F88BF3D8FBC377C8E7 /* VirtualRunRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunRoute.swift; sourceTree = "<group>"; };
-		2E46E0182F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualRunTelemetry.swift; sourceTree = "<group>"; };
 		2E46E7A92F4C687300F57EE7 /* KeychainAuthStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainAuthStorage.swift; sourceTree = "<group>"; };
 		2E46FCB02EAF7B2E006756AE /* WRKT-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "WRKT-Info.plist"; sourceTree = "<group>"; };
 		2E510B522E96B3920089EE2C /* InteractiveRouteMapHeat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveRouteMapHeat.swift; sourceTree = "<group>"; };
@@ -1094,7 +1080,6 @@
 			isa = PBXGroup;
 			children = (
 				2EC89F462F93FD560011159D /* SharedProgramStructure.swift */,
-				2E04133D2F34AFB00090EF16 /* VirtualRunModels.swift */,
 				2EA7DA1B2EEC15540017683B /* CachedNotification.swift */,
 				2EA7DA1C2EEC15540017683B /* CachedPost.swift */,
 				2EA7DA1D2EEC15540017683B /* CachedProfile.swift */,
@@ -2212,7 +2197,6 @@
 		2EE8A0972EE9A10B00A74A3C /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				2E3E75F88BF3D8FBC377C8E7 /* VirtualRunRoute.swift */,
 				2E0412382F2B9F6F0090EF16 /* ActiveFriend.swift */,
 				2E695B772EFC3E43002EA9FC /* PRAchievement.swift */,
 				2EA7D9B32EEAFA940017683B /* Notification.swift */,
@@ -2227,11 +2211,6 @@
 		2EE8A0982EE9A10B00A74A3C /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				2E46E0182F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift */,
-				2E04133F2F34AFC90090EF16 /* VirtualRunRepository.swift */,
-				2E0413502F34C0000090EF16 /* VirtualRunInviteCoordinator.swift */,
-				2E0413522F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift */,
-				2E04135F2F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift */,
 				2E04123A2F2BE5770090EF16 /* CardioAutoPostService.swift */,
 				2E695B792EFC3EB5002EA9FC /* PRAutoPostService.swift */,
 				2E695B752EFAFD9D002EA9FC /* NotificationService.swift */,
@@ -2668,7 +2647,6 @@
 				2EBE3F9D2EB8958600A26355 /* ExerciseListComponents.swift in Sources */,
 				2EA7DAB12EEDC9B50017683B /* PresetChallenges.swift in Sources */,
 				2EBE3EF82EB6580900A26355 /* Step2TrainingFrequency.swift in Sources */,
-				2E46E0192F3F7B3D00F57EE7 /* VirtualRunTelemetry.swift in Sources */,
 				2EBE3EF92EB6580900A26355 /* Step1ChooseSplit.swift in Sources */,
 				2EC245E22EA280E700100333 /* WeeklyProgressTypes.swift in Sources */,
 				2E7461F12E950F6E00A71C35 /* LiveWorkoutView.swift in Sources */,
@@ -2815,7 +2793,6 @@
 				2E3D8EEE2EB0AB1B00AC8A53 /* CustomExerciseStore.swift in Sources */,
 				2E695B7A2EFC3EB5002EA9FC /* PRAutoPostService.swift in Sources */,
 				2EAB3EF52EBCA5D700F1A7CA /* MuscleGroupClassifier.swift in Sources */,
-				2E04133E2F34AFB00090EF16 /* VirtualRunModels.swift in Sources */,
 				2EEEACC22EA3816600EDD16E /* HealthAuthSheet.swift in Sources */,
 				2E2F538F2E9D675F00C81656 /* WinScreen.swift in Sources */,
 				2EA7DA2A2EEC325C0017683B /* PostMenuSheet.swift in Sources */,
@@ -2877,9 +2854,6 @@
 				2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */,
 				2EBE3F9F2EB895B100A26355 /* CrossMuscleSearch.swift in Sources */,
 				2E7461A32E93ED4E00A71C35 /* CalendarMonthView.swift in Sources */,
-				2E0413402F34AFC90090EF16 /* VirtualRunRepository.swift in Sources */,
-				2E0413512F34C0000090EF16 /* VirtualRunInviteCoordinator.swift in Sources */,
-				2E0413532F34C0000090EF16 /* iPhoneVirtualRunAudioCues.swift in Sources */,
 				2EA7DA3A2EEC471F0017683B /* FeedViewModel.swift in Sources */,
 				2EA7DA3B2EEC471F0017683B /* ViewModelProtocol.swift in Sources */,
 				2E04133A2F2FA4CE0090EF16 /* CardioDataExtractor.swift in Sources */,
@@ -2962,7 +2936,6 @@
 				2EC89F5A2F93FD860011159D /* ProgramShareViewModel.swift in Sources */,
 				2E2938B82EC8BFB10057F60C /* AggregatedExerciseListView.swift in Sources */,
 				2E7461A12E93ED2C00A71C35 /* ExcerciseSessionView.swift in Sources */,
-				2E0413602F3AD0010090EF16 /* VirtualRunSummaryCoordinator.swift in Sources */,
 				2E7461C82E941FBA00A71C35 /* InteractiveRouteMap.swift in Sources */,
 				2E196EC52EAE2F9D00EB4780 /* CompletedWorkout.swift in Sources */,
 				2EBE3FAB2EB8B0DE00A26355 /* DayDetailView.swift in Sources */,
@@ -2978,7 +2951,6 @@
 				2EA7DA3F2EEC4B070017683B /* PostCreationViewModel.swift in Sources */,
 				2EC245C62E9FB54600100333 /* YouTubeInlinePlayer.swift in Sources */,
 				2E2938B62EC8BA190057F60C /* FilteredExerciseBrowser.swift in Sources */,
-				2E6732E1D7BDDE590ADB8BF5 /* VirtualRunRoute.swift in Sources */,
 				2EBB00072FA0000000000001 /* PlateWallView.swift in Sources */,
 				2E0413682F3AD0010090EF16 /* DataPortabilityView.swift in Sources */,
 				2E0413692F3AD0010090EF17 /* ImportHistoryView.swift in Sources */,

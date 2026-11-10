@@ -96,8 +96,6 @@ struct AppShellView: View {
     @State private var repoIsBootstrapped = false
     @State private var workoutsLoaded = false
 
-    // Virtual run invite coordinator
-    @State private var inviteCoordinator = VirtualRunInviteCoordinator.shared
     @State private var isPerformingInitialLaunchSync = false
     @State private var didCompleteInitialLaunchSync = false
     @State private var lastForegroundSyncAt: Date?
@@ -358,19 +356,6 @@ struct AppShellView: View {
         if newPhase == .background {
             AppLogger.debug("App backgrounded - hasActiveWorkout: \(hasActiveWorkout)", category: AppLogger.app)
 
-            // During active virtual runs, keep all Supabase subscriptions alive.
-            // Background execution modes (audio + location) prevent suspension, so the
-            // WebSocket stays open. Tearing down + rebuilding on every lock/unlock cycle
-            // creates reconnection windows where broadcast messages are silently dropped.
-            if inviteCoordinator.isInActiveRun {
-                AppLogger.info("📱 App backgrounded during active VR — keeping subscriptions alive", category: AppLogger.app)
-            } else {
-                // Stop invite coordinator polling and Realtime subscription.
-                // iOS kills WebSockets ~5s after suspension anyway — keeping them alive wastes resources.
-                // Push notifications handle invite delivery while truly backgrounded.
-                inviteCoordinator.stopListening()
-                AppLogger.info("📱 App backgrounded - stopped invite coordinator, keeping badge subscriptions", category: AppLogger.app)
-            }
         } else if newPhase == .active {
             guard didCompleteInitialLaunchSync, !isPerformingInitialLaunchSync else {
                 AppLogger.info("⏭️ App became active during initial launch - skipping duplicate startup work", category: AppLogger.app)
@@ -386,8 +371,6 @@ struct AppShellView: View {
                 }
                 lastForegroundSyncAt = .now
 
-                // Restart invite coordinator on true resume.
-                inviteCoordinator.startListening()
 
                 AppLogger.info("🚀 App became active - ensuring realtime subscriptions are running", category: AppLogger.app)
                 await badgeManager.startRealtimeSubscriptions()
@@ -535,8 +518,6 @@ struct AppShellView: View {
             await presentPendingBattleRewardsOnLaunch()
             Task { await prewarmPlateSnapshots() }
 
-            // Start listening for virtual run invites (Realtime + 30s fallback poll)
-            inviteCoordinator.startListening()
         } else {
             AppLogger.warning("⚠️ Not starting real-time subscriptions in handleAppLaunch", category: AppLogger.app)
         }

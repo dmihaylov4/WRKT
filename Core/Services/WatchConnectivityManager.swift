@@ -11,7 +11,6 @@ import WatchConnectivity
 import Combine
 import OSLog
 import UserNotifications
-import HealthKit
 
 @MainActor
 class WatchConnectivityManager: NSObject, ObservableObject {
@@ -44,54 +43,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
     // Track pending discard to send when watch becomes reachable
     private var hasPendingDiscard: Bool = false
 
-    // Virtual run active state (for cleanup when Watch ends)
-    // Persisted to UserDefaults for crash recovery — if the iOS app is killed mid-run,
-    // the state can be restored on relaunch so incoming vrRunEnded messages still work.
-    private(set) var activeVirtualRunId: UUID? {
-        didSet {
-            if let id = activeVirtualRunId {
-                UserDefaults.standard.set(id.uuidString, forKey: "activeVirtualRunId")
-            } else {
-                UserDefaults.standard.removeObject(forKey: "activeVirtualRunId")
-            }
-        }
-    }
-    private(set) var activeVirtualRunUserId: UUID? {
-        didSet {
-            if let id = activeVirtualRunUserId {
-                UserDefaults.standard.set(id.uuidString, forKey: "activeVirtualRunUserId")
-            } else {
-                UserDefaults.standard.removeObject(forKey: "activeVirtualRunUserId")
-            }
-        }
-    }
-
-    // Virtual run partner context (for summary screen + reconnect catch-up)
-    private(set) var activeVirtualRunPartnerId: UUID?
-    private(set) var activeVirtualRunPartnerName: String? {
-        didSet {
-            if let name = activeVirtualRunPartnerName {
-                UserDefaults.standard.set(name, forKey: "activeVirtualRunPartnerName")
-            } else {
-                UserDefaults.standard.removeObject(forKey: "activeVirtualRunPartnerName")
-            }
-        }
-    }
-    private(set) var lastPartnerSnapshot: VirtualRunSnapshot?
-
-    // Latest partner snapshot queued when Watch was not reachable during a VR.
-    // Flushed immediately when sessionReachabilityDidChange fires true.
-    private var pendingPartnerSnapshot: VirtualRunSnapshot?
-
-    // Pending virtual run start (queued when Watch is unreachable)
-    private var pendingVirtualRunStart: [String: Any]?
-
-    // Dedup for runEnded (both sendMessage and transferUserInfo may deliver)
-    private var lastProcessedVREndRunId: UUID? {
-        get { UserDefaults.standard.string(forKey: "lastProcessedVREndRunId").flatMap(UUID.init) }
-        set { UserDefaults.standard.set(newValue?.uuidString, forKey: "lastProcessedVREndRunId") }
-    }
-
     // MARK: - Initialization
     private override init() {
         super.init()
@@ -100,15 +51,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     // MARK: - Setup
     private func setupSession() {
-        // Restore active virtual run state from UserDefaults (crash recovery)
-        if let savedId = UserDefaults.standard.string(forKey: "activeVirtualRunId"),
-           let runId = UUID(uuidString: savedId) {
-            activeVirtualRunId = runId
-            activeVirtualRunUserId = UserDefaults.standard.string(forKey: "activeVirtualRunUserId").flatMap(UUID.init)
-            activeVirtualRunPartnerName = UserDefaults.standard.string(forKey: "activeVirtualRunPartnerName")
-            AppLogger.info("Restored active virtual run from crash recovery: \(runId.uuidString)", category: AppLogger.virtualRun)
-        }
-
         guard let session = session else {
             AppLogger.warning("WatchConnectivity not supported on this device", category: AppLogger.app)
             return
@@ -205,13 +147,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Build WatchWorkoutState from current app state
     private func buildWatchWorkoutState() -> WatchWorkoutState {
-        // A virtual run is an active workout from the Watch's perspective.
-        // Return isActive: true so the Watch's auto-end guard doesn't kill
-        // the Watch's HKWorkoutSession mid-run (the Watch owns HK during VR).
-        if VirtualRunInviteCoordinator.shared.isInActiveRun {
-            return WatchWorkoutState(isActive: true)
-        }
-
         guard let workout = workoutStore?.currentWorkout else {
             return WatchWorkoutState(isActive: false)
         }
@@ -344,7 +279,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
 
     /// Handle message received from watch
     private func handleWatchMessage(_ message: [String: Any]) {
-        AppLogger.info("📨 Handling watch message: \(message.keys.joined(separator: ", "))", category: AppLogger.app)
 
         // Check for simple action messages (like "openApp")
         if let action = message["action"] as? String {
@@ -359,6 +293,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
             AppLogger.warning("Received watch message without type. Keys: \(message.keys)", category: AppLogger.app)
             return
         }
+
+        guard WatchMessage(rawValue: messageType) != nil, !messageType.hasPrefix("vr_") else { return }
 
         AppLogger.info("🎯 Processing watch message type: \(messageType)", category: AppLogger.app)
 
@@ -396,27 +332,8 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         case WatchMessage.startQuickWorkout.rawValue:
             handleStartQuickWorkout()
 
-        // Virtual Run messages from Watch
-        case WatchMessage.vrSnapshot.rawValue:
-            handleVirtualRunSnapshot(message)
-
-        case WatchMessage.vrHeartbeat.rawValue:
-            handleVirtualRunHeartbeat()
-
-        case WatchMessage.vrRunEnded.rawValue:
-            handleVirtualRunEnded(message)
-
-        case WatchMessage.vrWatchConfirmed.rawValue:
-            handleVirtualRunWatchConfirmed(message)
-
-        case WatchMessage.vrPause.rawValue:
-            handleVirtualRunPause()
-
-        case WatchMessage.vrResume.rawValue:
-            handleVirtualRunResume()
-
         default:
-            AppLogger.warning("Unknown watch message type: \(messageType)", category: AppLogger.app)
+            return
         }
     }
 
@@ -874,470 +791,6 @@ class WatchConnectivityManager: NSObject, ObservableObject {
         AppLogger.info("📲 Sent discardWatchWorkout to Watch", category: AppLogger.app)
     }
 
-    // MARK: - Virtual Run Handlers
-
-    /// Reference to virtual run repository (set externally)
-    var virtualRunRepository: VirtualRunRepository?
-
-    /// Handle snapshot from Watch → publish to Supabase for partner to receive
-    private func handleVirtualRunSnapshot(_ message: [String: Any]) {
-        guard let payloadData = message["payload"] as? Data else {
-            AppLogger.error("VR snapshot message missing payload", category: AppLogger.virtualRun)
-            return
-        }
-
-        do {
-            let dict = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any] ?? [:]
-            guard let snapshot = VirtualRunSnapshot.fromCompactDict(dict) else {
-                AppLogger.error("Failed to decode VR snapshot from compact dict", category: AppLogger.virtualRun)
-                return
-            }
-
-            AppLogger.debug("Forwarding VR snapshot to Supabase (seq: \(snapshot.seq))", category: AppLogger.virtualRun)
-
-            // Expose to the live stats card on iPhone
-            Task { @MainActor in
-                VirtualRunInviteCoordinator.shared.updateMySnapshot(snapshot)
-            }
-
-            let publishStart = Date()
-            Task {
-                do {
-                    try await virtualRunRepository?.publishSnapshot(snapshot)
-
-                    // Track publish latency (time from Watch send to Supabase broadcast)
-                    let latencyMs = Int(Date().timeIntervalSince(publishStart) * 1000)
-                    if latencyMs > 500, let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
-                        VirtualRunTelemetry.shared.logLatency(
-                            runId: runId, userId: userId,
-                            latencyMs: latencyMs, method: "broadcast"
-                        )
-                    }
-                } catch {
-                    AppLogger.error("Failed to publish VR snapshot: \(error.localizedDescription)", category: AppLogger.virtualRun)
-                }
-            }
-        } catch {
-            AppLogger.error("Failed to deserialize VR snapshot payload: \(error.localizedDescription)", category: AppLogger.virtualRun)
-        }
-    }
-
-    private func handleVirtualRunHeartbeat() {
-        AppLogger.debug("💓 Received VR heartbeat from Watch", category: AppLogger.app)
-    }
-
-    private func handleVirtualRunEnded(_ message: [String: Any]) {
-        AppLogger.info("🏁 Watch reported virtual run ended", category: AppLogger.virtualRun)
-
-        // Parse final stats from Watch payload
-        var finalDistance: Double = 0
-        var finalDuration: Int = 0
-        var finalPace: Int?
-        var finalHR: Int?
-        var runIdFromPayload: UUID?
-
-        if let payload = message["payload"] as? Data,
-           let dict = try? JSONSerialization.jsonObject(with: payload) as? [String: Any] {
-            finalDistance = dict["distance"] as? Double ?? 0
-            finalDuration = dict["duration"] as? Int ?? 0
-            finalPace = dict["pace"] as? Int
-            finalHR = dict["heartRate"] as? Int
-            if let runIdStr = dict["runId"] as? String {
-                runIdFromPayload = UUID(uuidString: runIdStr)
-            }
-            AppLogger.info("Watch final stats: \(String(format: "%.0f", finalDistance))m, \(finalDuration)s", category: AppLogger.app)
-        }
-
-        // Guard: ignore stale transferUserInfo from a previous run.
-        // WCSession guarantees delivery of transferUserInfo even across app restarts — a
-        // runEnded transfer queued from an old run can arrive during a new run.
-        // If the payload's run ID doesn't match the currently active run, discard it.
-        if let payloadRunId = runIdFromPayload, let currentRunId = activeVirtualRunId,
-           payloadRunId != currentRunId {
-            AppLogger.warning("[VR] Ignoring stale vrRunEnded from run \(payloadRunId) — active run is \(currentRunId)", category: AppLogger.virtualRun)
-            return
-        }
-
-        // Dedup: both sendMessage and transferUserInfo may deliver this message
-        let dedupId = runIdFromPayload ?? activeVirtualRunId
-        if let dedupId, lastProcessedVREndRunId == dedupId {
-            AppLogger.info("⏭️ Already processed VR end for run \(dedupId.uuidString), skipping duplicate", category: AppLogger.virtualRun)
-            return
-        }
-        if let dedupId {
-            lastProcessedVREndRunId = dedupId
-        }
-
-        Haptics.success()
-
-        // Complete run via server-side RPC (submit our stats to server)
-        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
-            let durationMin = finalDuration / 60
-            let partnerDistance = lastPartnerSnapshot?.distanceM ?? 0
-            Task {
-                do {
-                    try await virtualRunRepository?.completeRun(
-                        runId: runId,
-                        userId: userId,
-                        distanceM: finalDistance,
-                        durationS: finalDuration,
-                        avgPaceSecPerKm: finalPace,
-                        avgHeartRate: finalHR
-                    )
-                    AppLogger.success("Completed virtual run via server RPC", category: AppLogger.app)
-                } catch {
-                    AppLogger.error("Failed to complete virtual run: \(error.localizedDescription)", category: AppLogger.app)
-                }
-
-                // Telemetry: log after RPC attempt (winner is estimated from last partner snapshot)
-                let winnerIsMe = finalDistance > partnerDistance
-                VirtualRunTelemetry.shared.log(
-                    .runCompleted(durationMinutes: durationMin, winnerIsMe: winnerIsMe),
-                    runId: runId,
-                    userId: userId
-                )
-            }
-        }
-
-        // Defer summary — wait for partner to finish so we get final stats from server
-        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId, let partnerUserId = activeVirtualRunPartnerId {
-            VirtualRunSummaryCoordinator.shared.awaitPartner(
-                runId: runId,
-                currentUserId: userId,
-                partnerUserId: partnerUserId,
-                partnerName: activeVirtualRunPartnerName ?? "Partner",
-                myDistance: finalDistance,
-                myDuration: finalDuration,
-                myPace: finalPace,
-                myHR: finalHR
-            )
-            AppLogger.info("📊 Deferred summary — waiting for partner to finish", category: AppLogger.app)
-        }
-
-        // Fire-and-forget route upload (GPS data for map comparison)
-        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
-            Task {
-                await self.uploadVirtualRunRoute(runId: runId, userId: userId)
-            }
-        }
-
-        // Reset invite coordinator active run tracking so Realtime updates for
-        // this old run don't trigger false "Partner Finished" on new runs.
-        // The SummaryCoordinator handles partner completion detection independently.
-        VirtualRunInviteCoordinator.shared.runEnded()
-
-        // Clear stale application context so Watch doesn't replay VR start on next launch
-        clearVirtualRunApplicationContext()
-
-        // Clear active run state
-        activeVirtualRunId = nil
-        activeVirtualRunUserId = nil
-        activeVirtualRunPartnerId = nil
-        activeVirtualRunPartnerName = nil
-        lastPartnerSnapshot = nil
-
-        // Post notification so any observing view can update
-        NotificationCenter.default.post(
-            name: NSNotification.Name("VirtualRunEndedFromWatch"),
-            object: nil
-        )
-    }
-
-    /// Upload the virtual run route from HealthKit to Supabase Storage
-    /// Retries up to 6 times with 10s delays (60s window) — Watch→iPhone HealthKit sync
-    /// can take 30-60 seconds after a workout ends
-    private func uploadVirtualRunRoute(runId: UUID, userId: UUID) async {
-        let maxRetries = 18
-        let retryDelay: UInt64 = 10_000_000_000 // 10 seconds (total: 3 min window)
-
-        for attempt in 1...maxRetries {
-            do {
-                // Find the most recent running workout (within last 5 minutes)
-                let recentWorkout = try await findRecentRunningWorkout()
-                guard let workout = recentWorkout else {
-                    if attempt < maxRetries {
-                        AppLogger.info("Route upload attempt \(attempt)/\(maxRetries): no recent workout found, retrying...", category: AppLogger.virtualRun)
-                        try? await Task.sleep(nanoseconds: retryDelay)
-                        continue
-                    }
-                    AppLogger.warning("Route upload: no recent workout found after \(maxRetries) attempts, skipping", category: AppLogger.virtualRun)
-                    return
-                }
-
-                // Fetch route with heart rate data
-                let routePoints = try await HealthKitManager.shared.fetchRouteWithHeartRate(for: workout)
-                guard !routePoints.isEmpty else {
-                    if attempt < maxRetries {
-                        AppLogger.info("Route upload attempt \(attempt)/\(maxRetries): empty route, retrying...", category: AppLogger.virtualRun)
-                        try? await Task.sleep(nanoseconds: retryDelay)
-                        continue
-                    }
-                    AppLogger.warning("Route upload: empty route after \(maxRetries) attempts, skipping", category: AppLogger.virtualRun)
-                    return
-                }
-
-                // Convert to compact format with Douglas-Peucker simplification
-                let routeData = VirtualRunRouteData.from(
-                    routePoints: routePoints,
-                    userId: userId,
-                    runId: runId,
-                    runStartDate: workout.startDate
-                )
-
-                // Upload to Supabase
-                try await virtualRunRepository?.uploadRoute(
-                    runId: runId,
-                    userId: userId,
-                    routeData: routeData
-                )
-
-                AppLogger.success("Uploaded virtual run route: \(routeData.points.count) points", category: AppLogger.virtualRun)
-                return
-
-            } catch {
-                if attempt < maxRetries {
-                    AppLogger.warning("Route upload attempt \(attempt)/\(maxRetries) failed: \(error.localizedDescription), retrying...", category: AppLogger.virtualRun)
-                    try? await Task.sleep(nanoseconds: retryDelay)
-                } else {
-                    AppLogger.error("Route upload failed after \(maxRetries) attempts: \(error.localizedDescription)", category: AppLogger.virtualRun)
-                }
-            }
-        }
-    }
-
-    /// Find the most recent running workout from HealthKit (within last 15 minutes)
-    private func findRecentRunningWorkout() async throws -> HKWorkout? {
-        let store = HealthKitManager.shared.store
-        let fiveMinutesAgo = Date().addingTimeInterval(-900)
-
-        return try await withCheckedThrowingContinuation { continuation in
-            let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                HKQuery.predicateForSamples(withStart: fiveMinutesAgo, end: Date(), options: []),
-                HKQuery.predicateForWorkouts(with: .running)
-            ])
-            let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
-
-            let query = HKSampleQuery(
-                sampleType: .workoutType(),
-                predicate: predicate,
-                limit: 1,
-                sortDescriptors: [sortDescriptor]
-            ) { _, results, error in
-                if let error = error {
-                    continuation.resume(throwing: error)
-                    return
-                }
-                continuation.resume(returning: results?.first as? HKWorkout)
-            }
-
-            store.execute(query)
-        }
-    }
-
-    private func handleVirtualRunWatchConfirmed(_ message: [String: Any]) {
-        AppLogger.info("Watch user confirmed virtual run — countdown started", category: AppLogger.app)
-
-        // Parse coordinated start time from Watch
-        var startTime: Date?
-        if let payload = message["payload"] as? Data,
-           let dict = try? JSONSerialization.jsonObject(with: payload) as? [String: Any],
-           let ts = dict["startTime"] as? TimeInterval {
-            startTime = Date(timeIntervalSince1970: ts)
-        }
-
-        // Post notification with start time so any observing view can coordinate
-        NotificationCenter.default.post(
-            name: NSNotification.Name("VirtualRunWatchConfirmed"),
-            object: nil,
-            userInfo: startTime.map { ["startTime": $0] }
-        )
-
-        // Advance the flow status card to watchReady → auto-dismisses after 2 s
-        Task { @MainActor in
-            VirtualRunInviteCoordinator.shared.onWatchConfirmed()
-        }
-    }
-
-    private func handleVirtualRunPause() {
-        AppLogger.info("Watch user paused virtual run", category: AppLogger.app)
-
-        // Relay pause state to partner via next snapshot (isPaused flag)
-        // The Watch already sets isPaused=true in its snapshots while paused
-        NotificationCenter.default.post(
-            name: NSNotification.Name("VirtualRunPausedFromWatch"),
-            object: nil
-        )
-    }
-
-    private func handleVirtualRunResume() {
-        AppLogger.info("Watch user resumed virtual run", category: AppLogger.app)
-
-        NotificationCenter.default.post(
-            name: NSNotification.Name("VirtualRunResumedFromWatch"),
-            object: nil
-        )
-    }
-
-    /// Send partner snapshot update to Watch
-    func sendVirtualRunPartnerUpdate(_ snapshot: VirtualRunSnapshot) {
-        // Store for summary screen when run ends (always, regardless of reachability)
-        lastPartnerSnapshot = snapshot
-
-        let dict = snapshot.toCompactDict()
-        guard let data = try? JSONSerialization.data(withJSONObject: dict) else { return }
-
-        guard let session = session, session.isReachable else {
-            AppLogger.warning("[VR] Watch not reachable — queuing partner snapshot (seq: \(snapshot.seq), dist: \(Int(snapshot.distanceM))m)", category: AppLogger.virtualRun)
-            pendingPartnerSnapshot = snapshot
-            return
-        }
-
-        // We're about to send the latest — clear any stale queue
-        pendingPartnerSnapshot = nil
-
-        let message: [String: Any] = [
-            "type": WatchMessage.vrPartnerUpdate.rawValue,
-            "data": data
-        ]
-
-        AppLogger.debug("[VR] Sending partner snapshot to Watch (seq: \(snapshot.seq))", category: AppLogger.virtualRun)
-        session.sendMessage(message, replyHandler: nil) { error in
-            AppLogger.error("Failed to send VR partner update: \(error.localizedDescription)", category: AppLogger.app)
-        }
-    }
-
-    /// Notify Watch that a virtual run has started
-    func sendVirtualRunStarted(runId: UUID, partnerId: UUID, partnerName: String, myUserId: UUID, myMaxHR: Int? = nil, myRestingHR: Int = 0, partnerMaxHR: Int = 190, partnerRestingHR: Int = 0) {
-        // Track active run for cleanup when Watch ends
-        activeVirtualRunId = runId
-        activeVirtualRunUserId = myUserId
-        activeVirtualRunPartnerId = partnerId
-        activeVirtualRunPartnerName = partnerName
-        lastPartnerSnapshot = nil
-        pendingPartnerSnapshot = nil
-
-        // Telemetry
-        VirtualRunTelemetry.shared.log(.runStarted, runId: runId, userId: myUserId)
-
-        let resolvedMaxHR = myMaxHR ?? HRZoneCalculator.shared.maxHR
-
-        let info: [String: Any] = [
-            "runId": runId.uuidString,
-            "partnerId": partnerId.uuidString,
-            "partnerName": partnerName,
-            "myUserId": myUserId.uuidString,
-            "myMaxHR": resolvedMaxHR,
-            "myRestingHR": myRestingHR,
-            "partnerMaxHR": partnerMaxHR,
-            "partnerRestingHR": partnerRestingHR
-        ]
-
-        guard let data = try? JSONSerialization.data(withJSONObject: info) else { return }
-
-        let message: [String: Any] = [
-            "type": WatchMessage.vrRunStarted.rawValue,
-            "data": data
-        ]
-
-        guard let session = session else { return }
-
-        // Always send via transferUserInfo for guaranteed delivery (survives app not running)
-        session.transferUserInfo(message)
-        AppLogger.info("Queued VR started via transferUserInfo (guaranteed delivery)", category: AppLogger.app)
-
-        if session.isReachable {
-            pendingVirtualRunStart = nil
-            session.sendMessage(message, replyHandler: { _ in
-                AppLogger.success("Watch acknowledged VR started", category: AppLogger.app)
-            }) { [weak self] error in
-                AppLogger.error("Failed to send VR started: \(error.localizedDescription)", category: AppLogger.app)
-                // Queue for retry on reachability change
-                Task { @MainActor in
-                    self?.pendingVirtualRunStart = message
-                }
-            }
-        } else {
-            // Watch not reachable — queue for retry and also push via application context
-            AppLogger.warning("Watch not reachable, queuing VR started for delivery", category: AppLogger.app)
-            pendingVirtualRunStart = message
-            try? session.updateApplicationContext(message)
-        }
-    }
-
-    /// Notify Watch that the virtual run has ended
-    func sendVirtualRunEnded() {
-        guard let session = session, session.isReachable else { return }
-
-        // Telemetry: log run cancelled from iPhone side
-        if let runId = activeVirtualRunId, let userId = activeVirtualRunUserId {
-            VirtualRunTelemetry.shared.log(
-                .runCancelled(reason: "ended_from_iphone"),
-                runId: runId,
-                userId: userId
-            )
-        }
-
-        // Clear active run state (Supabase update handled by the caller, e.g. DebugView)
-        activeVirtualRunId = nil
-        activeVirtualRunUserId = nil
-        activeVirtualRunPartnerName = nil
-        lastPartnerSnapshot = nil
-
-        // Reset invite coordinator state
-        VirtualRunInviteCoordinator.shared.runEnded()
-
-        // Clear stale application context so Watch doesn't replay VR start on next launch
-        clearVirtualRunApplicationContext()
-
-        let message: [String: Any] = [
-            "type": WatchMessage.vrRunEnded.rawValue
-        ]
-
-        session.sendMessage(message, replyHandler: nil) { error in
-            AppLogger.error("Failed to send VR ended: \(error.localizedDescription)", category: AppLogger.app)
-        }
-    }
-
-    /// Clear the application context so stale VR start messages don't replay on Watch launch
-    private func clearVirtualRunApplicationContext() {
-        guard let session = session else { return }
-        // Overwrite with an empty context to clear the stale vrRunStarted message
-        try? session.updateApplicationContext(["type": "cleared"])
-        AppLogger.info("Cleared VR application context", category: AppLogger.virtualRun)
-    }
-
-    /// Notify Watch that the partner finished their run
-    func sendVirtualRunPartnerFinished(partnerDistance: Double, partnerDuration: Int = 0, partnerPace: Int? = nil) {
-        guard let session = session else { return }
-
-        var info: [String: Any] = [
-            "type": WatchMessage.vrPartnerFinished.rawValue,
-            "partnerDistance": partnerDistance,
-            "partnerDuration": partnerDuration
-        ]
-        if let pace = partnerPace {
-            info["partnerPace"] = pace
-        }
-
-        // 1. Instant delivery (if Watch is reachable)
-        if session.isReachable {
-            session.sendMessage(info, replyHandler: nil) { error in
-                AppLogger.error("Failed to send VR partner finished: \(error.localizedDescription)", category: AppLogger.app)
-            }
-        }
-
-        // 2. Guaranteed delivery via transferUserInfo (Watch may have screen off)
-        // Must use "type" key — Watch's handleIncomingMessage dispatches on message["type"]
-        var userInfoMsg: [String: Any] = ["type": WatchMessage.vrPartnerFinished.rawValue]
-        userInfoMsg["partnerDistance"] = partnerDistance
-        userInfoMsg["partnerDuration"] = partnerDuration
-        if let pace = partnerPace {
-            userInfoMsg["partnerPace"] = pace
-        }
-        session.transferUserInfo(userInfoMsg)
-        AppLogger.info("📨 Queued partner-finished via transferUserInfo (guaranteed delivery)", category: AppLogger.app)
-    }
-
     /// Handle open app request from watch
     private func handleOpenApp() {
         AppLogger.info("📱 Sending notification to iPhone to open app", category: AppLogger.app)
@@ -1447,36 +900,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
                     sendDiscardWatchWorkout()
                 }
 
-                // Send pending virtual run start if queued
-                if let pendingVR = pendingVirtualRunStart {
-                    AppLogger.info("📲 Watch became reachable, sending pending VR started", category: AppLogger.app)
-                    pendingVirtualRunStart = nil
-                    session.sendMessage(pendingVR, replyHandler: nil) { error in
-                        AppLogger.error("Failed to send queued VR started: \(error.localizedDescription)", category: AppLogger.app)
-                    }
-                }
-
-                // Flush in-memory queued partner snapshot (instant, no DB round-trip)
-                if let queued = pendingPartnerSnapshot {
-                    AppLogger.info("📲 Watch reachable — flushing queued partner snapshot (seq: \(queued.seq))", category: AppLogger.virtualRun)
-                    sendVirtualRunPartnerUpdate(queued)
-                }
-
-                // Catch up on missed partner data during disconnect (Gap 5)
-                if let runId = activeVirtualRunId, let partnerId = lastPartnerSnapshot?.userId ?? activeVirtualRunPartnerId {
-                    Task {
-                        do {
-                            if let latestSnapshot = try await virtualRunRepository?.fetchLatestSnapshot(runId: runId, partnerUserId: partnerId) {
-                                AppLogger.info("📡 Fetched catch-up snapshot after reconnect (seq: \(latestSnapshot.seq))", category: AppLogger.virtualRun)
-                                // Forward to Watch so partner stats update
-                                self.sendVirtualRunPartnerUpdate(latestSnapshot)
-                            }
-                        } catch {
-                            AppLogger.warning("Failed to fetch catch-up snapshot: \(error.localizedDescription)", category: AppLogger.virtualRun)
-                        }
-                    }
-                }
-
                 // Watch became reachable, send current state
                 sendWorkoutStateToWatch()
             }
@@ -1494,7 +917,6 @@ extension WatchConnectivityManager: WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
-        AppLogger.info("✅ Received message from watch with reply handler: \(message)", category: AppLogger.app)
         Task { @MainActor in
             handleWatchMessage(message)
             replyHandler(["status": "ok"])
@@ -1502,19 +924,8 @@ extension WatchConnectivityManager: WCSessionDelegate {
     }
 
     nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        AppLogger.info("📨 Received transferUserInfo from Watch with keys: \(userInfo.keys.joined(separator: ", "))", category: AppLogger.app)
         Task { @MainActor in
             self.handleWatchMessage(userInfo)
-        }
-    }
-
-    nonisolated func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
-        // VR snapshots delivered via applicationContext when Watch couldn't use sendMessage
-        // (iPhone screen locked → isReachable false → Watch falls back to updateApplicationContext).
-        guard applicationContext["messageType"] as? String == WatchMessage.vrSnapshot.rawValue else { return }
-        AppLogger.debug("Received VR snapshot via applicationContext (background delivery)", category: AppLogger.virtualRun)
-        Task { @MainActor in
-            self.handleVirtualRunSnapshot(applicationContext)
         }
     }
 
@@ -1531,36 +942,4 @@ extension WatchConnectivityManager: WCSessionDelegate {
         replyHandler(Data())
     }
 
-    nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
-        let metadata = file.metadata ?? [:]
-        let fileType = metadata["type"] as? String ?? "unknown"
-        let fileName = metadata["name"] as? String ?? file.fileURL.lastPathComponent
-
-        guard fileType == "vrLog" else {
-            AppLogger.info("Received non-log file transfer: \(fileType)", category: AppLogger.app)
-            return
-        }
-
-        // Copy file synchronously — WCSession deletes the temp file after this method returns
-        let destDir = FileManager.default.temporaryDirectory.appendingPathComponent("WatchVRLogs", isDirectory: true)
-        try? FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
-        let destURL = destDir.appendingPathComponent(fileName)
-
-        try? FileManager.default.removeItem(at: destURL)
-
-        do {
-            try FileManager.default.copyItem(at: file.fileURL, to: destURL)
-            AppLogger.success("Saved watch VR log: \(fileName)", category: AppLogger.app)
-
-            Task { @MainActor in
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("WatchVRLogReceived"),
-                    object: nil,
-                    userInfo: ["url": destURL, "name": fileName]
-                )
-            }
-        } catch {
-            AppLogger.error("Failed to save watch VR log: \(error.localizedDescription)", category: AppLogger.app)
-        }
-    }
 }

@@ -33,7 +33,7 @@ final class KeychainAuthStorage: @unchecked Sendable, AuthLocalStorage {
     ///
     /// Migration path 1 (accessibility): upgrades any WhenUnlocked Keychain items to
     /// AfterFirstUnlock so the auth token is readable while the screen is locked (needed
-    /// for background virtual run snapshot publishing). Runs once while device is unlocked.
+    /// for background authenticated requests). Runs once while device is unlocked.
     ///
     /// Migration path 2 (legacy): if the Keychain has no entry but UserDefaults does
     /// (i.e. the user has upgraded from an older build), the data is copied
@@ -90,7 +90,7 @@ private enum Keychain {
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
             // AfterFirstUnlock: readable in background (e.g. while screen is locked during
-            // active virtual run). Still excluded from iCloud/iTunes backups.
+            // authenticated requests). Still excluded from iCloud/iTunes backups.
             // Previously WhenUnlockedThisDeviceOnly — that blocked Keychain access when the
             // screen was locked, causing the Supabase auth token to be unreadable and every
             // REST call to fail with an RLS policy violation.
