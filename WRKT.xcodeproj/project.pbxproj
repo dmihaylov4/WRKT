@@ -317,7 +317,6 @@
 		2EC202B62EF4316700D6BAEF /* MentionAutocomplete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B52EF4316700D6BAEF /* MentionAutocomplete.swift */; };
 		2EC202B82EF4317600D6BAEF /* MentionText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B72EF4317600D6BAEF /* MentionText.swift */; };
 		2EC202BA2EF4324A00D6BAEF /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B92EF4324A00D6BAEF /* AppSettings.swift */; };
-		2EC203562EF59D4C00D6BAEF /* appLogs.md in Resources */ = {isa = PBXBuildFile; fileRef = 2EC203552EF59D4C00D6BAEF /* appLogs.md */; };
 		2EC245C22E9F877800100333 /* exercise_media_final.json in Resources */ = {isa = PBXBuildFile; fileRef = 2EC245C12E9F877800100333 /* exercise_media_final.json */; };
 		2EC245C42E9FB4F400100333 /* ExerciseMedia.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245C32E9FB4F400100333 /* ExerciseMedia.swift */; };
 		2EC245C62E9FB54600100333 /* YouTubeInlinePlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC245C52E9FB54600100333 /* YouTubeInlinePlayer.swift */; };
@@ -818,7 +817,6 @@
 		2EC202B52EF4316700D6BAEF /* MentionAutocomplete.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionAutocomplete.swift; sourceTree = "<group>"; };
 		2EC202B72EF4317600D6BAEF /* MentionText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionText.swift; sourceTree = "<group>"; };
 		2EC202B92EF4324A00D6BAEF /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
-		2EC203552EF59D4C00D6BAEF /* appLogs.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = appLogs.md; path = ../appLogs.md; sourceTree = SOURCE_ROOT; };
 		2EC245C12E9F877800100333 /* exercise_media_final.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = exercise_media_final.json; sourceTree = "<group>"; };
 		2EC245C32E9FB4F400100333 /* ExerciseMedia.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseMedia.swift; sourceTree = "<group>"; };
 		2EC245C52E9FB54600100333 /* YouTubeInlinePlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeInlinePlayer.swift; sourceTree = "<group>"; };
@@ -2257,7 +2255,6 @@
 				2E695B752EFAFD9D002EA9FC /* NotificationService.swift */,
 				2EA7DA2F2EEC3EA40017683B /* ProfileRepository.swift */,
 				2EA7D9C02EEB43460017683B /* RealtimeService.swift */,
-				2EC203552EF59D4C00D6BAEF /* appLogs.md */,
 				2EA7D9B12EEAF9080017683B /* NotificationRepository.swift */,
 				2EA7D9AF2EEABF600017683B /* NotificationBadgeManager.swift */,
 				2EA7D9982EE9D90F0017683B /* PostRepository.swift */,
@@ -2568,7 +2565,6 @@
 				84BC9435E0674897A910D943 /* plate_clink.caf in Resources */,
 				2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */,
 				2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */,
-				2EC203562EF59D4C00D6BAEF /* appLogs.md in Resources */,
 				2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */,
 				2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */,
 				2ECC7D0D2F7C21C3009119BF /* CastIron_Color.jpg in Resources */,
