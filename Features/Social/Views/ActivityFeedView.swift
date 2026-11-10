@@ -246,10 +246,8 @@ private struct NotificationRow: View {
                 Text("Challenge not found")
             }
 
-        case .virtualRunInvite:
-            // Navigate to the inviter's profile
-            SocialProfileView(userId: notification.actor.id)
-                .environment(\.dependencies, deps)
+        case .virtualRunInvite, .unknown:
+            EmptyView()
 
         case .workoutCompleted:
             // Navigate to the workout post if we have a target ID

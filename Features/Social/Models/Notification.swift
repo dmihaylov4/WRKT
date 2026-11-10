@@ -2,6 +2,20 @@ import Foundation
 
 /// Notification type
 enum NotificationType: String, Codable, Sendable {
+    case unknown
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .unknown
+    }
+
+    var isVisible: Bool { self != .virtualRunInvite && self != .unknown }
+
+    static func shouldIgnoreRemoteNotification(_ userInfo: [AnyHashable: Any]) -> Bool {
+        guard let raw = userInfo["type"] as? String else { return userInfo["type"] != nil }
+        return !(Self(rawValue: raw)?.isVisible ?? false)
+    }
+
     // Social notifications
     case friendRequest = "friend_request"
     case friendAccepted = "friend_accepted"
@@ -74,7 +88,7 @@ enum NotificationType: String, Codable, Sendable {
         case .challengeNewParticipant: return "person.badge.plus"
 
         // Virtual run
-        case .virtualRunInvite: return "figure.run.circle.fill"
+        case .virtualRunInvite, .unknown: return ""
 
         // Workout
         case .workoutCompleted: return "figure.strengthtraining.traditional"
@@ -117,7 +131,7 @@ enum NotificationType: String, Codable, Sendable {
         case .challengeNewParticipant: return "blue"
 
         // Virtual run
-        case .virtualRunInvite: return "green"
+        case .virtualRunInvite, .unknown: return "gray"
 
         // Workout
         case .workoutCompleted: return "green"
@@ -139,7 +153,7 @@ enum NotificationType: String, Codable, Sendable {
         case .challengeInvite, .challengeJoined, .challengeMilestone, .challengeLeaderboardChange,
              .challengeEndingSoon, .challengeCompleted, .challengeNewParticipant:
             return .challenge
-        case .virtualRunInvite:
+        case .virtualRunInvite, .unknown:
             return .social
         case .workoutCompleted:
             return .social
@@ -295,8 +309,8 @@ struct NotificationWithActor: Identifiable, Sendable {
             return "\(actorName) joined the challenge you're in"
 
         // Virtual run
-        case .virtualRunInvite:
-            return "\(actorName) wants to run with you!"
+        case .virtualRunInvite, .unknown:
+            return ""
 
         // Workout
         case .workoutCompleted:

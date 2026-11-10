@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UserNotifications
 
 /// Manages notification badges for social features with real-time updates
 @MainActor
@@ -49,6 +50,7 @@ final class NotificationBadgeManager {
         let (friendCount, notifCount) = await (friendRequests, notifications)
         friendRequestCount = friendCount
         notificationCount = notifCount
+        try? await UNUserNotificationCenter.current().setBadgeCount(notifCount)
     }
 
     private func fetchFriendRequestCount(userId: UUID) async -> Int {
@@ -185,6 +187,7 @@ final class NotificationBadgeManager {
     private func refreshNotificationCount(userId: UUID) async {
         let count = await fetchNotificationCount(userId: userId, forceRefresh: true)
         notificationCount = count
+        try? await UNUserNotificationCenter.current().setBadgeCount(count)
     }
 
     /// Fetch user profile by ID
@@ -194,6 +197,7 @@ final class NotificationBadgeManager {
 
     /// Show in-app toast for notification
     private func showNotificationToast(_ notification: AppNotification) async {
+        guard notification.type.isVisible else { return }
         // Fetch actor profile for personalized message
         guard let actorProfile = try? await fetchProfile(userId: notification.actorId) else {
             AppLogger.warning("Failed to fetch actor profile for notification", category: AppLogger.app)
@@ -285,8 +289,8 @@ final class NotificationBadgeManager {
                 return ("Friend Request Accepted", "\(actorName) accepted your request", "person.badge.check", .success)
 
             // Virtual run notifications
-            case .virtualRunInvite:
-                return ("Virtual Run Invite", "\(actorName) wants to run with you!", "figure.run.circle.fill", .info)
+            case .virtualRunInvite, .unknown:
+                return ("", "", "", .info)
 
             // Workout notifications
             case .workoutCompleted:

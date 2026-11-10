@@ -66,7 +66,7 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
     ///   cached count (TTL 2 min) would otherwise be stale.
     func fetchUnreadCount(userId: UUID, forceRefresh: Bool = false) async throws -> Int {
         // Try cache first
-        let cacheKey = "notifications:unread:\(userId.uuidString)"
+        let cacheKey = "notifications:visible-unread:\(userId.uuidString)"
         if !forceRefresh, let cached: Int = cache.get(cacheKey) {
             logSuccess("Cache hit for unread count")
             return cached
@@ -80,7 +80,7 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
             .execute()
             .value
 
-        let count = response.count
+        let count = response.filter { $0.type.isVisible }.count
 
         // Cache with short TTL (2 minutes)
         cache.set(cacheKey, value: count, ttl: .notifications)
@@ -158,7 +158,7 @@ final class NotificationRepository: BaseRepository<AppNotification>, Notificatio
     private func filterVisibleNotifications(_ notifications: [AppNotification]) async -> [AppNotification] {
         var visible: [AppNotification] = []
 
-        for notification in notifications {
+        for notification in notifications where notification.type.isVisible {
             guard notification.type == .programInvite else {
                 visible.append(notification)
                 continue

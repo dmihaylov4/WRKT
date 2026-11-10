@@ -72,6 +72,11 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         let userInfo = notification.request.content.userInfo
+        guard !NotificationType.shouldIgnoreRemoteNotification(userInfo) else {
+            Task { await NotificationBadgeManager.shared.refreshBadges() }
+            completionHandler([])
+            return
+        }
         AppLogger.debug("Notification received: \(userInfo)", category: AppLogger.app)
 
         // Show notification even when app is in foreground
@@ -84,6 +89,11 @@ class NotificationManager: NSObject, ObservableObject, UNUserNotificationCenterD
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let userInfo = response.notification.request.content.userInfo
+        guard !NotificationType.shouldIgnoreRemoteNotification(userInfo) else {
+            Task { await NotificationBadgeManager.shared.refreshBadges() }
+            completionHandler()
+            return
+        }
         AppLogger.debug("Notification tapped: \(userInfo)", category: AppLogger.app)
 
         NotificationCenter.default.post(

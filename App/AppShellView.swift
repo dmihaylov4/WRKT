@@ -625,6 +625,7 @@ struct AppShellView: View {
     // MARK: - Notification Navigation
 
     private func handleNotificationNavigation(_ notification: AppNotification) {
+        guard notification.type.isVisible else { return }
         AppLogger.info("🧭 Handling notification navigation: type=\(notification.type.rawValue)", category: AppLogger.app)
 
         switch notification.type {

@@ -238,6 +238,7 @@ final class RealtimeService {
                     // Try to decode
                     do {
                         let notification = try insertAction.decodeRecord(as: AppNotification.self, decoder: decoder)
+                        guard notification.type.isVisible else { return }
                         AppLogger.info("✉️ Decoded notification from realtime: type=\(notification.type.rawValue), id=\(notification.id), userId=\(notification.userId)", category: AppLogger.app)
 
                         // Only call onInsert if it matches the user

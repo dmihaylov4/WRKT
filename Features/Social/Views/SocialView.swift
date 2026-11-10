@@ -157,6 +157,7 @@ struct SocialView: View {
     }
 
     private func handleNotificationNavigation(_ notification: AppNotification) {
+        guard notification.type.isVisible else { return }
         AppLogger.info("🧭 SocialView handling notification: type=\(notification.type.rawValue), actorId=\(notification.actorId), targetId=\(notification.targetId?.uuidString ?? "nil")", category: AppLogger.app)
 
         switch notification.type {
@@ -195,9 +196,8 @@ struct SocialView: View {
                 selectedSection = .feed
             }
 
-        case .virtualRunInvite:
-            // Navigate to the inviter's profile
-            navigationPath.append(notification.actorId)
+        case .virtualRunInvite, .unknown:
+            return
 
         case .workoutCompleted:
             // Navigate to the workout post or actor's profile

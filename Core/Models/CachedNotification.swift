@@ -76,7 +76,7 @@ extension CachedNotification {
         guard let notificationId = UUID(uuidString: id),
               let userId = UUID(uuidString: userId),
               let actorId = UUID(uuidString: actorId),
-              let notificationType = NotificationType(rawValue: type) else {
+              let notificationType = NotificationType(rawValue: type), notificationType.isVisible else {
             return nil
         }
 

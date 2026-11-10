@@ -154,6 +154,11 @@ final class PushNotificationService: NSObject, ObservableObject {
 
     /// Handle received remote notification
     func handleRemoteNotification(userInfo: [AnyHashable: Any], completion: @escaping (UIBackgroundFetchResult) -> Void) {
+        guard !NotificationType.shouldIgnoreRemoteNotification(userInfo) else {
+            Task { await NotificationBadgeManager.shared.refreshBadges() }
+            completion(.noData)
+            return
+        }
         AppLogger.info("Received remote notification: \(userInfo)", category: AppLogger.app)
 
         // Parse notification data
@@ -172,6 +177,7 @@ final class PushNotificationService: NSObject, ObservableObject {
     }
 
     func storeLaunchNotification(userInfo: [AnyHashable: Any]) {
+        guard !NotificationType.shouldIgnoreRemoteNotification(userInfo) else { return }
         pendingLaunchNotificationUserInfo = userInfo
     }
 
@@ -187,7 +193,7 @@ final class PushNotificationService: NSObject, ObservableObject {
     static func appNotification(from userInfo: [AnyHashable: Any]) -> AppNotification? {
         guard
             let typeRaw = stringValue(userInfo["type"]),
-            let type = NotificationType(rawValue: typeRaw),
+            let type = NotificationType(rawValue: typeRaw), type.isVisible,
             let actorIdRaw = stringValue(userInfo["actor_id"]),
             let actorId = UUID(uuidString: actorIdRaw)
         else {
