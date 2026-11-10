@@ -5,6 +5,8 @@ struct OfflineBanner: View {
     let queueCount: Int
     let onSync: () -> Void
 
+    var syncShape: DS.RoleShape<Capsule> { DS.RoleShape(.control, legacy: Capsule()) }
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "wifi.slash")
@@ -36,7 +38,7 @@ struct OfflineBanner: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(.white.opacity(0.2))
-                        .clipShape(Capsule())
+                        .clipShape(syncShape)
                 }
             }
         }

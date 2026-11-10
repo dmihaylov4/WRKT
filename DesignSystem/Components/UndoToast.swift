@@ -13,6 +13,10 @@ struct UndoToast: View {
     let onUndo: () -> Void
     @Binding var isShowing: Bool
 
+    var surfaceShape: DS.RoleShape<ChamferedRectangle> {
+        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
+    }
+
     var body: some View {
         if isShowing {
             HStack(spacing: 14) {
@@ -40,12 +44,12 @@ struct UndoToast: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .background(
-                ChamferedRectangle(.large)
+                surfaceShape
                     .fill(
                         DS.Theme.cardTop
                     )
                     .overlay(
-                        ChamferedRectangle(.large)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
                     .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 8)

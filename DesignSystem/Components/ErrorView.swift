@@ -17,6 +17,8 @@ struct ErrorView: View {
         self.onRetry = error.isRetryable ? onRetry : nil
     }
 
+    var retryShape: DS.RoleShape<Capsule> { DS.RoleShape(.control, legacy: Capsule()) }
+
     var body: some View {
         VStack(spacing: 20) {
             // Error icon
@@ -58,7 +60,7 @@ struct ErrorView: View {
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
                         .background(DS.Semantic.brand)
-                        .clipShape(Capsule())
+                        .clipShape(retryShape)
                 }
             }
         }
@@ -69,6 +71,11 @@ struct ErrorView: View {
 
 /// Inline error view (smaller, for banners)
 struct InlineErrorView: View {
+    var surfaceShape: DS.RoleShape<RoundedRectangle> {
+        DS.RoleShape(role, legacy: RoundedRectangle(cornerRadius: 12))
+    }
+
+    let role: DS.Shape.Role
     let error: UserFriendlyError
     let onRetry: (() -> Void)?
     let onDismiss: (() -> Void)?
@@ -76,8 +83,10 @@ struct InlineErrorView: View {
     init(
         error: UserFriendlyError,
         onRetry: (() -> Void)? = nil,
-        onDismiss: (() -> Void)? = nil
+        onDismiss: (() -> Void)? = nil,
+        role: DS.Shape.Role = .card
     ) {
+        self.role = role
         self.error = error
         self.onRetry = error.isRetryable ? onRetry : nil
         self.onDismiss = onDismiss
@@ -129,13 +138,18 @@ struct InlineErrorView: View {
         }
         .padding()
         .background(DS.Status.warningBg)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(surfaceShape)
         .padding(.horizontal)
     }
 }
 
 /// Compact error view (for list items)
 struct CompactErrorView: View {
+    var role: DS.Shape.Role = .card
+    var surfaceShape: DS.RoleShape<RoundedRectangle> {
+        DS.RoleShape(role, legacy: RoundedRectangle(cornerRadius: 8))
+    }
+
     let message: String
     let onRetry: (() -> Void)?
 
@@ -161,7 +175,7 @@ struct CompactErrorView: View {
         }
         .padding()
         .background(DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(surfaceShape)
     }
 }
 

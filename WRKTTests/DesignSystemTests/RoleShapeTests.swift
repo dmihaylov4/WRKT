@@ -84,6 +84,28 @@ struct RoleShapeTests {
         }
     }
 
+    @Test func feedbackSurfacesRespectPlacementAndKeepTheirLegacyShapes() {
+        let rect = CGRect(x: 3, y: 5, width: 240, height: 100)
+        let error = UserFriendlyError(title: "Offline", message: "Retry", isRetryable: true)
+        for (role, radius) in [(DS.Shape.Role.card, CGFloat(26)), (.nested, 10)] {
+            check(InlineErrorView(error: error, role: role).surfaceShape, in: rect, radius: radius,
+                  legacy: RoundedRectangle(cornerRadius: 12).path(in: rect))
+            var compact = CompactErrorView(message: "Retry", onRetry: nil)
+            compact.role = role
+            check(compact.surfaceShape, in: rect, radius: radius,
+                  legacy: RoundedRectangle(cornerRadius: 8).path(in: rect))
+        }
+        #expect(InlineErrorView(error: error).surfaceShape.roundedShape.role == .card)
+        #expect(CompactErrorView(message: "Retry", onRetry: nil).surfaceShape.roundedShape.role == .card)
+        check(UndoToast(message: "Undo", onUndo: {}, isShowing: .constant(true)).surfaceShape,
+              in: rect, radius: 26, legacy: MainChamferedRectangle(chamferSize: 16).path(in: rect))
+        check(WorkoutToast(message: "Saved", isShowing: .constant(true)).surfaceShape,
+              in: rect, radius: 26, legacy: MainChamferedRectangle(chamferSize: 16).path(in: rect))
+        check(ErrorView(error: error).retryShape, in: rect, radius: 50, legacy: Capsule().path(in: rect))
+        check(OfflineBanner(queueCount: 1, onSync: {}).syncShape,
+              in: rect, radius: 50, legacy: Capsule().path(in: rect))
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)
