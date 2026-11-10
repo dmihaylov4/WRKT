@@ -167,7 +167,9 @@ struct HeroStartWorkoutButton: View {
                 let chamferSize: CGFloat = 28
                 let segmentLength: CGFloat = 40
                 let chamferDiag = sqrt(2 * chamferSize * chamferSize)
-                let perimeter = 2 * (w + h) - 4 * chamferSize + 2 * chamferDiag
+                let perimeter = DS.Redesign.roundedShapesEnabled
+                    ? BroadcastBorderShape.roundedPerimeter(in: CGRect(origin: .zero, size: geo.size))
+                    : 2 * (w + h) - 4 * chamferSize + 2 * chamferDiag
                 let gap = perimeter - segmentLength
 
                 TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
@@ -202,7 +204,11 @@ private struct BroadcastBorderShape: Shape {
     let chamferSize: CGFloat
 
     func path(in rect: CGRect) -> Path {
-        Path { path in
+        if DS.Redesign.roundedShapesEnabled {
+            return DS.Radius.roundedChamferPath(DS.Chamfer.hero.size, in: rect)
+        }
+
+        return Path { path in
             let w = rect.width
             let h = rect.height
 
@@ -223,6 +229,59 @@ private struct BroadcastBorderShape: Shape {
             // Left edge back to start
             path.closeSubpath()
         }
+    }
+
+    /// Measure the hero's continuous contour, including its actual curve segments.
+    static func roundedPerimeter(in rect: CGRect) -> CGFloat {
+        let path = DS.Radius.roundedChamferPath(DS.Chamfer.hero.size, in: rect)
+        var current = CGPoint.zero
+        var start = CGPoint.zero
+        var length: CGFloat = 0
+
+        func distance(_ a: CGPoint, _ b: CGPoint) -> CGFloat {
+            hypot(b.x - a.x, b.y - a.y)
+        }
+
+        func cubicLength(from: CGPoint, control1: CGPoint, control2: CGPoint, to: CGPoint) -> CGFloat {
+            var previous = from
+            var result: CGFloat = 0
+            // Subdivision measures continuous corners without assuming circular arcs.
+            let subdivisions = 64
+            for index in 1...subdivisions {
+                let t = CGFloat(index) / CGFloat(subdivisions)
+                let u = 1 - t
+                let point = CGPoint(
+                    x: u * u * u * from.x + 3 * u * u * t * control1.x + 3 * u * t * t * control2.x + t * t * t * to.x,
+                    y: u * u * u * from.y + 3 * u * u * t * control1.y + 3 * u * t * t * control2.y + t * t * t * to.y
+                )
+                result += distance(previous, point)
+                previous = point
+            }
+            return result
+        }
+
+        path.forEach { element in
+            switch element {
+            case .move(to: let point):
+                current = point
+                start = point
+            case .line(to: let point):
+                length += distance(current, point)
+                current = point
+            case .quadCurve(to: let point, control: let control):
+                let control1 = CGPoint(x: current.x + (control.x - current.x) * 2 / 3, y: current.y + (control.y - current.y) * 2 / 3)
+                let control2 = CGPoint(x: point.x + (control.x - point.x) * 2 / 3, y: point.y + (control.y - point.y) * 2 / 3)
+                length += cubicLength(from: current, control1: control1, control2: control2, to: point)
+                current = point
+            case .curve(to: let point, control1: let control1, control2: let control2):
+                length += cubicLength(from: current, control1: control1, control2: control2, to: point)
+                current = point
+            case .closeSubpath:
+                length += distance(current, start)
+                current = start
+            }
+        }
+        return length
     }
 }
 
