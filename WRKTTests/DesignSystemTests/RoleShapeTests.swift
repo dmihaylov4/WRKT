@@ -117,6 +117,18 @@ struct RoleShapeTests {
         }
     }
 
+    @Test func tutorialUsesPopoverAndControlWithExactLegacyInsets() {
+        let rect = CGRect(x: 3, y: 5, width: 300, height: 160)
+        let legacy = RoundedRectangle(cornerRadius: 20, style: .continuous)
+        let tooltip = DS.RoleShape(.popover, legacy: legacy)
+        check(tooltip, in: rect, radius: 32, legacy: legacy.path(in: rect))
+        #expect(tooltip.inset(by: 0.5).path(in: rect, rounded: false).cgPath == legacy.inset(by: 0.5).path(in: rect).cgPath)
+        #expect(tooltip.inset(by: 0.5).path(in: rect, rounded: true).cgPath == DS.Shape(.popover).inset(by: 0.5).path(in: rect).cgPath)
+        let button = CGRect(x: 0, y: 0, width: 120, height: 56)
+        check(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)),
+              in: button, radius: 28, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: button))
+    }
+
     private func check<L: SwiftUI.Shape>(_ shape: DS.RoleShape<L>, in rect: CGRect,
                                         radius: CGFloat, legacy: Path) {
         let rounded = RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect)

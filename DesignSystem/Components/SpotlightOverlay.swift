@@ -158,7 +158,7 @@ struct SpotlightOverlay: View {
                             startPoint: .leading,
                             endPoint: .trailing
                         ),
-                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     )
                 }
             }
@@ -166,10 +166,10 @@ struct SpotlightOverlay: View {
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            DS.RoleShape(.popover, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    DS.RoleShape(.popover, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .strokeBorder(.white.opacity(0.2), lineWidth: 1)
                 )
                 .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
