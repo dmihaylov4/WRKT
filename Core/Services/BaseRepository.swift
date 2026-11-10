@@ -1,20 +1,6 @@
 import Foundation
 import Supabase
 
-/// Base repository protocol defining common repository operations
-protocol RepositoryProtocol {
-    associatedtype Entity: Codable
-
-    /// The Supabase table name this repository manages
-    var tableName: String { get }
-
-    /// The Supabase client for database operations
-    var client: SupabaseClient { get }
-
-    /// The query cache for performance optimization
-    var cache: QueryCache { get }
-}
-
 /// Base repository class providing common CRUD operations and utilities
 @MainActor
 class BaseRepository<T: Codable> {
