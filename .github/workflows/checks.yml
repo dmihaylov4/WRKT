@@ -1,0 +1,63 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: xcode-27
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Unit tests and unsigned Release build
+        run: bash scripts/ci/test-ios.sh
+      - name: Preserve test results and build logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ios-results
+          path: ${{ runner.temp }}/wrkt-ci/results
+          retention-days: 7
+
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      WRKT_POSTGRES_CONTAINER: wrkt-ci-postgres
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start isolated PostgreSQL
+        run: |
+          docker run --detach --name "$WRKT_POSTGRES_CONTAINER" --network none \
+            -e POSTGRES_PASSWORD=wrkt-local-tests-only \
+            public.ecr.aws/supabase/postgres:17.6.1.166
+          for attempt in {1..30}; do
+            if docker exec "$WRKT_POSTGRES_CONTAINER" pg_isready -h 127.0.0.1 -U postgres; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Authorization and installed-client API regressions
+        run: sh scripts/ci/test-backend.sh
+      - name: Push endpoint tests and type checking
+        run: |
+          npm exec --yes --package deno@2.9.6 -- deno test --frozen \
+            --lock=supabase/functions/send-push/deno.lock supabase/functions/send-push/handler_test.ts
+          npm exec --yes --package deno@2.9.6 -- deno check --frozen \
+            --lock=supabase/functions/send-push/deno.lock supabase/functions/send-push/index.ts
+      - name: Stop isolated PostgreSQL
+        if: always()
+        run: docker rm --force "$WRKT_POSTGRES_CONTAINER"
