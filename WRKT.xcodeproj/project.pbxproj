@@ -205,7 +205,6 @@
 		2EAB3EF32EBC89C900F1A7CA /* WorkoutDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3EF22EBC89C900F1A7CA /* WorkoutDetailComponents.swift */; };
 		2EAB3EF52EBCA5D700F1A7CA /* MuscleGroupClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3EF42EBCA5D700F1A7CA /* MuscleGroupClassifier.swift */; };
 		2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3F2B2EC0AB6300F1A7CA /* LocationManager.swift */; };
-		2EAB3FCD2EC26B7F00F1A7CA /* StatsDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */; };
 		2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00002FA0000000000001 /* BarbellProgressService.swift */; };
 		2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */; };
 		2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00042FA0000000000001 /* BarbellMomentView.swift */; };
@@ -363,7 +362,6 @@
 		2EE39C6B2EA67691000549C3 /* SpotlightOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */; };
 		2EE39C6D2EA77A95000549C3 /* PlannerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */; };
 		2EE39C6F2EA77AA6000549C3 /* PlannerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6E2EA77AA6000549C3 /* PlannerStore.swift */; };
-		2EE39C712EA77FE0000549C3 /* PlannerDebugView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C702EA77FE0000549C3 /* PlannerDebugView.swift */; };
 		2EE39C732EA784A4000549C3 /* SplitTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C722EA784A4000549C3 /* SplitTemplates.swift */; };
 		2EE39C752EA784B2000549C3 /* PlannerSetupCarouselView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */; };
 		2EE8A0842EE99DB700A74A3C /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 2EE8A0832EE99DB700A74A3C /* Auth */; };
@@ -680,7 +678,6 @@
 		2EAB3EF22EBC89C900F1A7CA /* WorkoutDetailComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailComponents.swift; sourceTree = "<group>"; };
 		2EAB3EF42EBCA5D700F1A7CA /* MuscleGroupClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupClassifier.swift; sourceTree = "<group>"; };
 		2EAB3F2B2EC0AB6300F1A7CA /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
-		2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsDebugView.swift; sourceTree = "<group>"; };
 		2EBB00002FA0000000000001 /* BarbellProgressService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellProgressService.swift; sourceTree = "<group>"; };
 		2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellUnlockRules.swift; sourceTree = "<group>"; };
 		2EBB00042FA0000000000001 /* BarbellMomentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellMomentView.swift; sourceTree = "<group>"; };
@@ -840,7 +837,6 @@
 		2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightOverlay.swift; sourceTree = "<group>"; };
 		2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerModels.swift; sourceTree = "<group>"; };
 		2EE39C6E2EA77AA6000549C3 /* PlannerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerStore.swift; sourceTree = "<group>"; };
-		2EE39C702EA77FE0000549C3 /* PlannerDebugView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerDebugView.swift; sourceTree = "<group>"; };
 		2EE39C722EA784A4000549C3 /* SplitTemplates.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitTemplates.swift; sourceTree = "<group>"; };
 		2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerSetupCarouselView.swift; sourceTree = "<group>"; };
 		2EE8A08F2EE99EC100A74A3C /* SupabaseClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClient.swift; sourceTree = "<group>"; };
@@ -1188,7 +1184,6 @@
 				2EBE3F092EB65F5100A26355 /* Services */,
 				2EBE3EE62EB6569B00A26355 /* Views */,
 				2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */,
-				2EE39C702EA77FE0000549C3 /* PlannerDebugView.swift */,
 				2E7461A22E93ED4A00A71C35 /* CalendarMonthView.swift */,
 			);
 			path = Planner;
@@ -1495,7 +1490,6 @@
 			isa = PBXGroup;
 			children = (
 				2E2938762EC5F8220057F60C /* ExerciseStatisticsView.swift */,
-				2EAB3FCC2EC26B7F00F1A7CA /* StatsDebugView.swift */,
 				2EC245CD2E9FD98400100333 /* ProfileStatsSection.swift */,
 				2EC245D82EA1186C00100333 /* TrainingBalanceSection.swift */,
 			);
@@ -2769,7 +2763,6 @@
 				2E2F538F2E9D675F00C81656 /* WinScreen.swift in Sources */,
 				2EA7DA2A2EEC325C0017683B /* PostMenuSheet.swift in Sources */,
 				2E7461F32E95163D00A71C35 /* LiveWorkoutGrabTab.swift in Sources */,
-				2EAB3FCD2EC26B7F00F1A7CA /* StatsDebugView.swift in Sources */,
 				2E04133C2F3013BB0090EF16 /* SetNewPasswordView.swift in Sources */,
 				2E2F53A72E9E910F00C81656 /* DexKeying.swift in Sources */,
 				2E2938B42EC8B91B0057F60C /* QuickWorkoutTypeSelector.swift in Sources */,
@@ -2862,7 +2855,6 @@
 				2EBE3F0E2EB6650B00A26355 /* PlanConfigValidator.swift in Sources */,
 				2EBE3F0F2EB6650B00A26355 /* SplitValidation.swift in Sources */,
 				2EBE3FE62EB8C23700A26355 /* LiveActivityManager.swift in Sources */,
-				2EE39C712EA77FE0000549C3 /* PlannerDebugView.swift in Sources */,
 				2ED2379C2EA60FE1009C742E /* RestTimerState.swift in Sources */,
 				2EA7D9972EE9D8B50017683B /* WorkoutPost.swift in Sources */,
 				2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */,
