@@ -31,6 +31,7 @@ struct SwipeToConfirm: View {
 
     // State
     @State private var dragX: CGFloat = 0
+    @State private var hasConfirmed = false
     @GestureState private var isPressing = false
 
     init(
@@ -58,7 +59,7 @@ struct SwipeToConfirm: View {
             let inset: CGFloat = 6
             let corner: CGFloat = height / 2
             let maxX = max(0, width - inset * 2 - knobSize)
-            let progress = (dragX / maxX).clamped(to: 0...1)
+            let progress = maxX > 0 ? (dragX / maxX).clamped(to: 0...1) : 0
 
             ZStack(alignment: .leading) {
                 // TRACK
@@ -107,24 +108,14 @@ struct SwipeToConfirm: View {
                         DragGesture(minimumDistance: 0)
                             .updating($isPressing) { _, st, _ in st = true }
                             .onChanged { value in
-                                guard isEnabled else { return }
+                                guard isEnabled, !hasConfirmed else { return }
                                 dragX = (value.translation.width).clamped(to: 0...maxX)
                             }
                             .onEnded { _ in
-                                guard isEnabled else { return }
+                                guard isEnabled, !hasConfirmed, maxX > 0 else { return }
                                 let threshold = maxX * 0.65
                                 if dragX >= threshold {
-                                    // snap to end, confirm, reset
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                                        dragX = maxX
-                                    }
-                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                        onConfirm()
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-                                            dragX = 0
-                                        }
-                                    }
+                                    confirm(at: maxX)
                                 } else {
                                     withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
                                         dragX = 0
@@ -133,25 +124,34 @@ struct SwipeToConfirm: View {
                                 }
                             }
                     )
-                    .accessibilityLabel(text)
-                    .accessibilityHint("Swipe right to confirm")
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityValue("\((progress * 100).safeInt) percent")
-                    .accessibilityAdjustableAction { dir in
-                        guard isEnabled else { return }
-                        let step = maxX / 4
-                        switch dir {
-                        case .increment: dragX = min(maxX, dragX + step)
-                        case .decrement: dragX = max(0, dragX - step)
-                        default: break
-                        }
-                    }
                     .opacity(isEnabled ? 1 : 0.5)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(text)
+            .accessibilityHint("Double-tap to confirm")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { confirm(at: maxX) }
+            .disabled(!isEnabled || hasConfirmed)
         }
         .frame(maxWidth: .infinity)
         .frame(height: max(48, knobSize + 12))
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onChange(of: isEnabled) { _, enabled in
+            if enabled {
+                hasConfirmed = false
+                dragX = 0
+            }
+        }
+    }
+
+    private func confirm(at endPosition: CGFloat) {
+        guard isEnabled, !hasConfirmed else { return }
+        hasConfirmed = true
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
+            dragX = endPosition
+        }
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        onConfirm()
     }
 }
 
