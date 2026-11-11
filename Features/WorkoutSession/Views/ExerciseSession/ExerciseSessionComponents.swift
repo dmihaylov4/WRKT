@@ -88,9 +88,9 @@ struct SupersetToggleButton: View {
             .frame(minWidth: 60, maxWidth: .infinity)
             .frame(height: 60)
             .background(isActive ? Theme.accent : Theme.surface2)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             .overlay(
-                ChamferedRectangle(.medium)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                     .stroke(isActive ? Theme.accent : Theme.border, lineWidth: 1)
             )
         }
@@ -117,7 +117,7 @@ struct PrimaryCTA: View {
                 .contentShape(Rectangle())
         }
         .background(Theme.accent)
-        .clipShape(ChamferedRectangle(.large))
+        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
     }
 }
 

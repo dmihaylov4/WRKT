@@ -42,8 +42,8 @@ struct BodyweightSetRow: View {
                 expandedRow
             }
         }
-        .background(ChamferedRectangle(.large).fill(backgroundColor))
-        .overlay(ChamferedRectangle(.large).stroke(borderColor, lineWidth: isActive ? 2 : 1))
+        .background(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).fill(backgroundColor))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(borderColor, lineWidth: isActive ? 2 : 1))
         .opacity(rowOpacity)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .animation(.easeInOut(duration: 0.2), value: set.isCompleted)
@@ -126,7 +126,7 @@ struct BodyweightSetRow: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)

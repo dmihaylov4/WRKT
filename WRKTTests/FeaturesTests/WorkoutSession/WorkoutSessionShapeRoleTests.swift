@@ -41,5 +41,22 @@ struct WorkoutSessionShapeRoleTests {
                   radius: min(rect.width, rect.height) / 2, legacy: MainChamferedRectangle(.large).path(in: rect))
         }
     }
+    @Test func exerciseSessionControlsAndCardsKeepLegacyPaths() throws {
+        let quickTime = try source("ExerciseSession/TimedSetRow.swift", from: "private struct QuickTimeButton")
+        #expect(quickTime.contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8, style: .continuous))"))
+        let swipe = try source("ExerciseSession/ExcerciseSessionView.swift", from: "private struct CustomLeadingSwipeAction", until: "private func")
+        #expect(swipe.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.large))"))
+        let tips = try source("ExerciseSession/OverviewComponents.swift", from: "struct OverviewCard", until: "struct ChipItem")
+        #expect(tips.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))"))
+        let button = CGRect(x: 3, y: 7, width: 90, height: 36)
+        check(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8, style: .continuous)),
+              rect: button, radius: 18, legacy: RoundedRectangle(cornerRadius: 8, style: .continuous).path(in: button))
+        let card = CGRect(x: 3, y: 7, width: 320, height: 160)
+        check(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)),
+              rect: card, radius: 26, legacy: RoundedRectangle(cornerRadius: 12).path(in: card))
+        let toggle = CGRect(x: 3, y: 7, width: 90, height: 60)
+        check(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)), rect: toggle, radius: 30,
+              legacy: MainChamferedRectangle(.medium).path(in: toggle))
+    }
     #endif
 }

@@ -160,7 +160,7 @@ struct TimedSetRow: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(isRunningExercise ? Color.red : Theme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -191,15 +191,15 @@ struct TimedSetRow: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
             }
         }
-        .background(ChamferedRectangle(.large).fill(backgroundColor))
-        .overlay(ChamferedRectangle(.large).stroke(borderColor, lineWidth: isActive ? 2 : 1))
+        .background(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).fill(backgroundColor))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(borderColor, lineWidth: isActive ? 2 : 1))
         .opacity(rowOpacity)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .animation(.easeInOut(duration: 0.2), value: set.isCompleted)
@@ -328,9 +328,9 @@ private struct QuickTimeButton: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)
                 .background(disabled ? Theme.surface : Theme.accent.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8, style: .continuous)))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         .stroke(disabled ? Theme.border : Theme.accent.opacity(0.3), lineWidth: 1)
                 )
         }

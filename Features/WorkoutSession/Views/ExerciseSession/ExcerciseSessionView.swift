@@ -115,7 +115,7 @@ struct ExerciseSessionView: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(
-                            ChamferedRectangle(.medium)
+                            DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                                 .fill(Theme.accent)
                                 .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
                         )
@@ -331,8 +331,8 @@ struct ExerciseSessionView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(DS.Semantic.accentGold.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.Semantic.accentGold.opacity(0.3), lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)).stroke(DS.Semantic.accentGold.opacity(0.3), lineWidth: 1))
     }
 
     // MARK: - Compact Header (Focus on Sets)
@@ -530,7 +530,7 @@ struct ExerciseSessionView: View {
 
                     YouTubePlayerView(url: videoURL)
                         .frame(height: 220)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16, style: .continuous)))
                         .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
                         .padding(.horizontal, 16)
                 }
@@ -767,9 +767,9 @@ struct ExerciseSessionView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(Theme.accent.opacity(0.1))
-                        .clipShape(ChamferedRectangle(.medium))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                         .overlay(
-                            ChamferedRectangle(.medium)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                 .stroke(Theme.accent.opacity(0.3), lineWidth: 1)
                         )
                     }
@@ -828,7 +828,7 @@ struct ExerciseSessionView: View {
                     .frame(width: leadingWidth, alignment: .leading)
                     .padding(.leading, 18)
                     .frame(height: contentHeight)
-                    .background(ChamferedRectangle(.large).fill(Theme.accent))
+                    .background(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).fill(Theme.accent))
                 }
                 .buttonStyle(.plain)
                 .frame(width: offset > 0 ? max(0, offset) : 0)
@@ -868,7 +868,7 @@ struct ExerciseSessionView: View {
                         }
                     )
             }
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .onPreferenceChange(LeadingSwipeContentHeightKey.self) { height in
                 contentHeight = max(56, height)
             }
@@ -1546,8 +1546,8 @@ private struct ProgressionCard: View {
         }
         .padding(16)
         .background(ExerciseSessionTheme.surface)
-        .clipShape(ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(ExerciseSessionTheme.border, lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(ExerciseSessionTheme.border, lineWidth: 1))
     }
 }
 

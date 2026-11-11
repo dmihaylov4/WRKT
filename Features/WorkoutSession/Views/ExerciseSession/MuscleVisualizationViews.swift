@@ -27,8 +27,8 @@ struct ExerciseMusclesSection: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(MusclesTheme.surface)
-            RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(MusclesTheme.border, lineWidth: 1)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)).fill(MusclesTheme.surface)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)).stroke(MusclesTheme.border, lineWidth: 1)
 
             HStack(spacing: 12) {
                 SVGHumanBodyView(side: .front, focus: focus, primary: primary, secondary: secondary, tertiary: tertiary)

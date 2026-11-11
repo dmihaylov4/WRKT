@@ -78,8 +78,8 @@ struct SetRowUnified: View {
                 pendingRow
             }
         }
-        .background(ChamferedRectangle(.large).fill(backgroundColor))
-        .overlay(ChamferedRectangle(.large).stroke(borderColor, lineWidth: isActive ? 2 : 1))
+        .background(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).fill(backgroundColor))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(borderColor, lineWidth: isActive ? 2 : 1))
         .opacity(rowOpacity)
         .animation(.easeInOut(duration: 0.2), value: isActive)
         .animation(.easeInOut(duration: 0.2), value: set.isCompleted)
@@ -379,7 +379,7 @@ struct SetRowUnified: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Theme.accent)
-                    .clipShape(ChamferedRectangle(.medium))
+                    .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -727,8 +727,8 @@ private struct RestTimerBadgeIsolated: View {
         .padding(.horizontal, horizontalPadding)
         .padding(.vertical, 5)
         .background(ExerciseSessionTheme.accent.opacity(0.15))
-        .clipShape(ChamferedRectangle(.small))
-        .overlay(ChamferedRectangle(.small).stroke(ExerciseSessionTheme.accent.opacity(0.3), lineWidth: 1))
+        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
+        .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(ExerciseSessionTheme.accent.opacity(0.3), lineWidth: 1))
         .lineLimit(1)
     }
 

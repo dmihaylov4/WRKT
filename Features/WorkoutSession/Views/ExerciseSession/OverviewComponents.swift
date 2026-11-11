@@ -63,8 +63,8 @@ struct OverviewCard: View {
                 }
                 .padding(12)
                 .background(Theme.surface)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.border, lineWidth: 1))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)).stroke(Theme.border, lineWidth: 1))
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
             }
         }
     }
