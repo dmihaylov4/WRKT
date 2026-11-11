@@ -37,7 +37,7 @@ struct ExerciseSearchBar: View {
             }
             .padding(10)
             .background(Color(.systemGray6))
-            .cornerRadius(10)
+            .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
 
             Button("Cancel") {
                 onCancel()

@@ -65,8 +65,8 @@ struct CustomExerciseBadge: View {
             .foregroundStyle(.black.opacity(0.8))
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(DS.Palette.marone, in: ChamferedRectangle(.micro))
-            .overlay(ChamferedRectangle(.micro).stroke(DS.Palette.marone.opacity(0.5), lineWidth: 0.5))
+            .background(DS.Palette.marone, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
+            .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)).stroke(DS.Palette.marone.opacity(0.5), lineWidth: 0.5))
     }
 }
 
@@ -89,7 +89,7 @@ struct MechanicPill: View {
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(color.opacity(0.12), in: ChamferedRectangle(.small))
-            .overlay(ChamferedRectangle(.small).stroke(color.opacity(0.3), lineWidth: 1))
+            .background(color.opacity(0.12), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
+            .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(color.opacity(0.3), lineWidth: 1))
     }
 }

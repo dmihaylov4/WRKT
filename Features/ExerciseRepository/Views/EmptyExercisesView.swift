@@ -48,8 +48,8 @@ struct EmptyExercisesView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity)
-        .background(DS.Semantic.surface.opacity(0.5), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(DS.Semantic.border.opacity(0.3), lineWidth: 0.5))
+        .background(DS.Semantic.surface.opacity(0.5), in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)).stroke(DS.Semantic.border.opacity(0.3), lineWidth: 0.5))
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
     }

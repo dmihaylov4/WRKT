@@ -47,7 +47,7 @@ struct CrossMuscleSuggestionSection: View {
                                 .foregroundStyle(.white.opacity(0.7))
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 3)
-                                .background(Color.white.opacity(0.15), in: ChamferedRectangle(.micro))
+                                .background(Color.white.opacity(0.15), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
                         }
 
                         Text("\(suggestion.totalCount) exercise\(suggestion.totalCount == 1 ? "" : "s") match your search")
@@ -60,11 +60,11 @@ struct CrossMuscleSuggestionSection: View {
                 .padding(.vertical, 16)
                 .padding(.horizontal, 16)
                 .background(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                         .fill(DS.Palette.marone.opacity(0.2))
                 )
                 .overlay(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                         .stroke(DS.Palette.marone.opacity(0.4), lineWidth: 1.5)
                 )
                 .shadow(color: DS.Palette.marone.opacity(0.15), radius: 8, y: 4)
@@ -107,7 +107,7 @@ struct CrossMuscleSuggestionSection: View {
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
                         .background(DS.Semantic.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
                     }
                     .buttonStyle(.plain)
                     .listRowBackground(Color.clear)
@@ -133,11 +133,11 @@ struct CrossMuscleSuggestionSection: View {
                         .padding(.vertical, 12)
                         .padding(.horizontal, 16)
                         .background(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 .fill(DS.Palette.marone.opacity(0.12))
                         )
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous))
                                 .stroke(DS.Palette.marone.opacity(0.3), lineWidth: 1.5)
                         )
                     }
