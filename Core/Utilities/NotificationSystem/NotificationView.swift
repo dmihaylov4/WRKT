@@ -65,12 +65,12 @@ struct NotificationView: View {
         }
         .padding(16)
         .background(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .fill(.black)
                 .shadow(color: .black.opacity(0.3), radius: 10, y: 5)
         )
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(notification.type.color.opacity(0.5), lineWidth: 1)
         )
         .padding(.horizontal)
@@ -164,11 +164,11 @@ struct NotificationView: View {
         }
         .padding(12)
         .background(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .fill(.black)
         )
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(notification.type.color.opacity(0.5), lineWidth: 1)
         )
         .contentShape(Rectangle())
