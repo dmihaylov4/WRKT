@@ -1,8 +1,48 @@
 import XCTest
+import SwiftData
 @testable import WRKT
 
 @MainActor
 final class HomeRefreshCoalescingTests: XCTestCase {
+    func testAutomaticRequestsUpdateTodaysPlanBeforeDebounceCompletes() async throws {
+        let schema = Schema([
+            PlannedWorkout.self, PlannedExercise.self, WorkoutSplit.self,
+            PlanBlock.self, PlanBlockExercise.self
+        ])
+        let container = try ModelContainer(for: schema,
+            configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true))
+        let context = container.mainContext
+        let plan = PlannedWorkout(scheduledDate: Calendar.current.startOfDay(for: .now),
+                                  splitDayName: "Upper Body", exercises: [])
+        context.insert(plan)
+        try context.save()
+
+        let delay = HomeRefreshTestDelay()
+        let fetch = HomeRefreshTestFetch()
+        let model = try await makeModel(delay: delay, fetch: fetch, plannerContainer: container)
+        let first = Task { await model.refresh() }
+        await waitUntil { delay.pendingCount == 1 }
+
+        XCTAssertEqual(model.todaysPlan?.id, plan.id)
+        XCTAssertTrue(model.hasActivePlan)
+        XCTAssertEqual(fetch.calls, 0)
+
+        plan.workoutStatus = .completed
+        try context.save()
+        let second = Task { await model.refresh() }
+        await waitUntil { delay.calls == 2 && delay.pendingCount == 1 }
+
+        XCTAssertNil(model.todaysPlan)
+        XCTAssertFalse(model.hasActivePlan)
+        XCTAssertEqual(fetch.calls, 0)
+
+        // Cancel the held delay for cleanup without ever completing it normally.
+        await model.refresh(userInitiated: true)
+        await first.value
+        await second.value
+        await waitUntil { delay.pendingCount == 0 }
+    }
+
     func testBurstFetchesOnceAndPublishesCards() async throws {
         let delay = HomeRefreshTestDelay()
         let fetch = HomeRefreshTestFetch()
@@ -121,7 +161,11 @@ final class HomeRefreshCoalescingTests: XCTestCase {
         XCTAssertEqual(fetch.calls, 3)
     }
 
-    private func makeModel(delay: HomeRefreshTestDelay, fetch: HomeRefreshTestFetch) async throws -> HomeViewModel {
+    private func makeModel(
+        delay: HomeRefreshTestDelay,
+        fetch: HomeRefreshTestFetch,
+        plannerContainer: ModelContainer? = nil
+    ) async throws -> HomeViewModel {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let suite = "HomeRefreshCoalescingTests." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -129,6 +173,10 @@ final class HomeRefreshCoalescingTests: XCTestCase {
         try Data().write(to: directory.appendingPathComponent(".migrated"))
         let store = WorkoutStoreV2(storage: storage, defaults: defaults)
         try await store.waitForStorage()
+        if let plannerContainer {
+            PlannerStore.shared.configure(container: plannerContainer,
+                                          context: plannerContainer.mainContext, workoutStore: store)
+        }
         addTeardownBlock {
             try? FileManager.default.removeItem(at: directory)
             UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)

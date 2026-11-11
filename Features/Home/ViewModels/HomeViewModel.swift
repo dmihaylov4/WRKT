@@ -70,6 +70,7 @@ final class HomeViewModel {
 
     /// Coalesce automatic changes; explicit actions bypass the pending delay.
     func refresh(userInitiated: Bool = false) async {
+        checkTodaysPlan()
         await withCheckedContinuation { continuation in
             refreshGeneration += 1
             refreshWaiters.append((refreshGeneration, continuation))
