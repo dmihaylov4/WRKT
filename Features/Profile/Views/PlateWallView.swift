@@ -397,7 +397,7 @@ struct PlateWallView: View {
                 .padding(.horizontal, 14)
                 .frame(minWidth: 98)
                 .frame(height: 38)
-                .background(DS.Semantic.brand, in: ChamferedRectangle(.medium))
+                .background(DS.Semantic.brand, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             }
 
             Spacer(minLength: 8)
@@ -415,9 +415,9 @@ struct PlateWallView: View {
                     .font(DS.Typography.custom(size: 14, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+                    .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     .overlay(
-                        ChamferedRectangle(.medium)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                             .stroke(Color.white.opacity(0.10), lineWidth: 1)
                     )
             }
@@ -433,9 +433,9 @@ struct PlateWallView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
-            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             .overlay(
-                ChamferedRectangle(.medium)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             )
         }
@@ -446,10 +446,10 @@ struct PlateWallView: View {
                 startPoint: .leading,
                 endPoint: .trailing
             ),
-            in: ChamferedRectangle(.large)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
         )
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
@@ -486,7 +486,7 @@ struct PlateWallView: View {
                     .foregroundStyle(.black)
                     .frame(height: 34)
                     .padding(.horizontal, 12)
-                    .background(DS.Semantic.brand, in: ChamferedRectangle(.medium))
+                    .background(DS.Semantic.brand, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                 }
 
                 Text("Tap empty space to dismiss. Drag to rack, unrack, or reposition this plate.")
@@ -524,10 +524,10 @@ struct PlateWallView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: ChamferedRectangle(.xl)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
         )
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
     }
@@ -551,9 +551,9 @@ struct PlateWallView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
-        .background(Color.black.opacity(0.62), in: ChamferedRectangle(.medium))
+        .background(Color.black.opacity(0.62), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
@@ -686,9 +686,9 @@ struct PlateCollectionView: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .frame(height: 42)
-            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             .overlay(
-                ChamferedRectangle(.medium)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             )
 
@@ -707,9 +707,9 @@ struct PlateCollectionView: View {
                     .font(DS.Typography.font(.subheadline, weight: .bold))
                     .foregroundStyle(DS.Semantic.brand)
                     .frame(width: 44, height: 42)
-                    .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+                    .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     .overlay(
-                        ChamferedRectangle(.medium)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                             .stroke(Color.white.opacity(0.10), lineWidth: 1)
                     )
 
@@ -720,9 +720,9 @@ struct PlateCollectionView: View {
                         .font(DS.Typography.custom(size: 15, weight: .heavy))
                         .foregroundStyle(.white)
                         .frame(width: 42, height: 42)
-                        .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+                        .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                         .overlay(
-                            ChamferedRectangle(.medium)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                 .stroke(Color.white.opacity(0.10), lineWidth: 1)
                         )
                 }
@@ -891,7 +891,7 @@ struct PlateDetailView: View {
                             .font(DS.Typography.custom(size: 14, weight: .heavy))
                             .foregroundStyle(.white)
                             .frame(width: 36, height: 36)
-                            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+                            .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     }
                     .accessibilityLabel("Close")
                 }
@@ -934,9 +934,9 @@ struct PlateDetailView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.075), in: ChamferedRectangle(.large))
+        .background(Color.white.opacity(0.075), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(tierAccent.opacity(0.24), lineWidth: 1)
         )
     }
@@ -1054,7 +1054,7 @@ struct PlateDetailView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
-        .background(Color.white.opacity(0.065), in: ChamferedRectangle(.medium))
+        .background(Color.white.opacity(0.065), in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
     }
 
     private func biographyRow(_ event: BarbellPlateEvent) -> some View {
@@ -1085,7 +1085,7 @@ struct PlateDetailView: View {
             Spacer(minLength: 0)
         }
         .padding(10)
-        .background(Color.white.opacity(0.055), in: ChamferedRectangle(.medium))
+        .background(Color.white.opacity(0.055), in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
     }
 
     private func iconName(for kind: BarbellPlateEvent.Kind) -> String {
@@ -1111,9 +1111,9 @@ private extension View {
         self
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.07), in: ChamferedRectangle(.large))
+            .background(Color.white.opacity(0.07), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             )
     }
@@ -1208,7 +1208,7 @@ struct BarbellPlaygroundView: View {
                     .font(DS.Typography.custom(size: 14, weight: .heavy))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+                    .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             }
             .accessibilityLabel("Close")
 
@@ -1227,9 +1227,9 @@ struct BarbellPlaygroundView: View {
             loadStat("\(Int(plateWallTotalWeight(rackedPlates: rackState.racked)))kg", "load")
         }
         .padding(10)
-        .background(Color.black.opacity(0.66), in: ChamferedRectangle(.large))
+        .background(Color.black.opacity(0.66), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
@@ -1272,15 +1272,15 @@ struct BarbellPlaygroundView: View {
                     .font(DS.Typography.custom(size: 14, weight: .heavy))
                     .foregroundStyle(.white)
                     .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+                    .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             }
             .padding(.horizontal, 14)
             .frame(height: barbellPlaygroundControlsMaxHeight(isMinimized: true))
         }
         .buttonStyle(.plain)
-        .background(Color.black.opacity(0.72), in: ChamferedRectangle(.xl))
+        .background(Color.black.opacity(0.72), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
         .accessibilityLabel("Show playground controls")
@@ -1329,9 +1329,9 @@ struct BarbellPlaygroundView: View {
             .padding(14)
         }
         .frame(maxHeight: barbellPlaygroundControlsMaxHeight(isMinimized: false))
-        .background(Color.black.opacity(0.72), in: ChamferedRectangle(.xl))
+        .background(Color.black.opacity(0.72), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
@@ -1438,7 +1438,7 @@ struct BarbellPlaygroundView: View {
         }
         .padding(.horizontal, 10)
         .frame(height: 38)
-        .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+        .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
     }
 
     private var selectedPlateTierName: String {
@@ -1523,7 +1523,7 @@ private struct PlaygroundButtonStyle: ButtonStyle {
             .frame(height: 42)
             .background(
                 isPrimary ? DS.Semantic.brand : Color.white.opacity(0.08),
-                in: ChamferedRectangle(.medium)
+                in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
             )
             .opacity(configuration.isPressed ? 0.75 : 1)
     }
@@ -1534,7 +1534,7 @@ private struct PlaygroundIconButtonStyle: ButtonStyle {
         configuration.label
             .foregroundStyle(DS.Semantic.brand)
             .frame(width: 40, height: 40)
-            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
@@ -1546,9 +1546,9 @@ private struct PlaygroundTextFieldStyle: TextFieldStyle {
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .frame(height: 42)
-            .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+            .background(Color.white.opacity(0.08), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
             .overlay(
-                ChamferedRectangle(.medium)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             )
     }

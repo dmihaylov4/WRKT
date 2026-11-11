@@ -237,9 +237,9 @@ struct PlateCollectionCell: View {
                 .foregroundStyle(buttonForeground)
                 .frame(maxWidth: .infinity)
                 .frame(height: 36)
-                .background(buttonBackground, in: ChamferedRectangle(.medium))
+                .background(buttonBackground, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                 .overlay(
-                    ChamferedRectangle(.medium)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                         .stroke(buttonBorder, lineWidth: 1)
                 )
             }
@@ -253,10 +253,10 @@ struct PlateCollectionCell: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: ChamferedRectangle(.large)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
         )
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(accentColor.opacity(0.28), lineWidth: 1)
         )
     }
