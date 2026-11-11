@@ -560,9 +560,9 @@ private struct ProfileCollectionDestinationButton: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .contentShape(ChamferedRectangle(.large))
@@ -672,9 +672,9 @@ struct ProgressOverviewCard: View {
                     .frame(width: 17, height: 17)
                     .foregroundStyle(.white.opacity(0.82))
                     .frame(width: 32, height: 32)
-                    .background(.black.opacity(0.15), in: ChamferedRectangle(.small))
+                    .background(.black.opacity(0.15), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                     .overlay(
-                        ChamferedRectangle(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
             }
@@ -933,16 +933,16 @@ struct ProgressOverviewCard: View {
                             .foregroundStyle(DS.Theme.accent)
                     }
                     .padding(12)
-                    .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.10), lineWidth: 1))
+                    .background(.white.opacity(0.06), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)))
+                    .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)).stroke(.white.opacity(0.10), lineWidth: 1))
                 }
             }
         }
         .padding(16)
         .background(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .fill(Color.black)
-                .overlay(ChamferedRectangle(.xl).stroke(.white.opacity(0.08), lineWidth: 1))
+                .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(.white.opacity(0.08), lineWidth: 1))
         )
         .contextMenu {
             if let goal = goal {
@@ -1125,7 +1125,7 @@ private struct WeeklyGoalDetailView: View {
                     }
                     .padding(.vertical, 8)
                     .padding(.horizontal, 12)
-                    .background(paceColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                    .background(paceColor.opacity(0.1), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                 }
                 .padding(.vertical, 8)
             }

@@ -40,8 +40,8 @@ struct PlanAdherenceCard: View {
             }
         }
         .padding(12)
-        .background(DS.Semantic.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     @ViewBuilder
