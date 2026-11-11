@@ -101,5 +101,14 @@ struct WorkoutSessionShapeRoleTests {
         check(DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)), rect: badge, radius: 12,
               legacy: MainChamferedRectangle(.micro).path(in: badge))
     }
+    @Test func workoutSelectorCardsKeepLegacyPathsAndCircleIcons() throws {
+        let selector = try source("QuickWorkoutTypeSelector.swift", from: "private struct WorkoutTypeCard")
+        #expect(selector.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.large))"))
+        #expect(selector.contains(".background(DS.Theme.accent.opacity(0.1), in: Circle())"))
+        #expect(selector.contains(".contentShape(ChamferedRectangle(.large))"))
+        let rect = CGRect(x: 3, y: 7, width: 340, height: 90)
+        check(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)), rect: rect, radius: 26,
+              legacy: MainChamferedRectangle(.large).path(in: rect))
+    }
     #endif
 }

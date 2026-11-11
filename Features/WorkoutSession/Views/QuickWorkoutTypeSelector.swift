@@ -144,9 +144,9 @@ private struct WorkoutTypeCard: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+            .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
             .contentShape(ChamferedRectangle(.large))
