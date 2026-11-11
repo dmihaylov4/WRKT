@@ -54,7 +54,7 @@ struct MentionAutocomplete: View {
                 }
             }
             .background(DS.card)
-            .cornerRadius(12)
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
             .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
             .padding(.horizontal)
         }

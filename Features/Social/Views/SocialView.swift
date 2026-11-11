@@ -287,11 +287,11 @@ struct SocialView: View {
         } label: {
             ZStack(alignment: .topTrailing) {
                 ZStack {
-                    ChamferedRectangle(.small)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                         .fill(DS.Semantic.card.opacity(0.78))
                         .frame(width: 48, height: 48)
                         .overlay(
-                            ChamferedRectangle(.small)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                                 .stroke(DS.Semantic.border.opacity(0.75), lineWidth: 1)
                         )
 
@@ -310,9 +310,9 @@ struct SocialView: View {
                         .frame(minWidth: 18, minHeight: 18)
                         .padding(.horizontal, badgeManager.notificationCount > 9 ? 3 : 0)
                         .background(DS.Semantic.brand)
-                        .clipShape(ChamferedRectangleAlt(.micro))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                         .overlay(
-                            ChamferedRectangleAlt(.micro)
+                            DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro))
                                 .stroke(DS.Semantic.surface, lineWidth: 2)
                         )
                         .offset(x: 5, y: -5)
@@ -368,12 +368,12 @@ struct SocialView: View {
         }
         .padding(4)
         .background(
-            ChamferedRectangleAlt(.large)
+            DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                 .fill(DS.Semantic.card.opacity(0.5))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
         .overlay(
-            ChamferedRectangleAlt(.large)
+            DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                 .stroke(DS.Semantic.border.opacity(0.3), lineWidth: 1)
         )
         .padding(.horizontal, 16)
@@ -426,7 +426,7 @@ struct PillSegmentButton: View {
             .background(
                 Group {
                     if isSelected {
-                        ChamferedRectangleAlt(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small))
                             .fill(DS.Semantic.brand)
                             .shadow(color: DS.Semantic.brand.opacity(0.3), radius: 6, x: 0, y: 2)
                     }

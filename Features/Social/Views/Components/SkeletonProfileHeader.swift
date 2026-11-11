@@ -75,7 +75,7 @@ struct SkeletonProfileHeader: View {
             .padding(.top, 8)
 
             // Action button skeleton
-            RoundedRectangle(cornerRadius: 12)
+            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12))
                 .fill(DS.Semantic.fillSubtle)
                 .frame(height: 44)
                 .padding(.horizontal, 40)

@@ -63,9 +63,9 @@ private struct BattleArenaCard: View {
                         .frame(width: 13, height: 13)
                         .foregroundStyle(.black)
                         .frame(width: 24, height: 24)
-                        .background(DS.Semantic.brand, in: ChamferedRectangle(.micro))
+                        .background(DS.Semantic.brand, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
                         .overlay(
-                            ChamferedRectangle(.micro)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.micro))
                                 .stroke(DS.Semantic.surface, lineWidth: 2)
                         )
                         .offset(x: 4, y: 4)
@@ -119,9 +119,9 @@ private struct BattleArenaCard: View {
             }
             .padding(.horizontal, 12)
             .frame(width: 210, height: 92, alignment: .leading)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(
                         battle.isUserLeading ? DS.Semantic.brand.opacity(0.45) : DS.Semantic.border,
                         lineWidth: 1.2
@@ -278,9 +278,9 @@ private struct ChallengeArenaCard: View {
             .frame(width: 72)
             .padding(.vertical, 6)
             .padding(.horizontal, 6)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.brand.opacity(0.15), lineWidth: 1.5)
             )
             .contentShape(ChamferedRectangle(.large))

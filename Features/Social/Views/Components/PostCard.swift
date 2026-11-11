@@ -75,9 +75,9 @@ struct PostCard: View {
         }
         .padding(16)
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.large))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .contentShape(Rectangle())
@@ -453,9 +453,9 @@ struct PostCard: View {
         }
         .padding(12)
         .background(DS.Semantic.fillSubtle)
-        .clipShape(ChamferedRectangle(.small))
+        .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.small)))
         .overlay(
-            ChamferedRectangle(.small)
+            DS.RoleShape(.nested, legacy: ChamferedRectangle(.small))
                 .stroke(DS.Semantic.border.opacity(0.8), lineWidth: 1)
         )
     }
@@ -500,9 +500,9 @@ struct PostCard: View {
             )
         }
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.medium))
+        .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -560,7 +560,7 @@ struct PostCard: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
+                .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8)))
             }
             .disabled(isBackfilling)
             .buttonStyle(.plain)
@@ -991,7 +991,7 @@ struct WeeklyProgressFeedCard: View {
             }
         }
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.medium))
+        .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
     }
 
     private func weekStatCell(value: String, label: String, valueColor: Color = DS.Semantic.textPrimary) -> some View {

@@ -21,6 +21,22 @@ struct SocialShapeRoleTests {
             ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: 26)
         }
     }
+    @Test func feedSurfacesAndContextualHeroKeepLegacyContours() throws {
+        let post = try ShapeRoleTestSupport.source("Social/Views/Components/PostCard.swift")
+        #expect(post.contains("DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))"))
+        let arena = try ShapeRoleTestSupport.source("Social/Views/Components/ActiveArena.swift")
+        #expect(arena.contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.micro))"))
+        let hero = try ShapeRoleTestSupport.source("Social/Views/Components/WorkoutPostHeroSummaryCard.swift")
+        #expect(hero.contains("DS.RoleShape(context == .detail ? .card : .nested, legacy: ChamferedRectangle(.medium))"))
+        #expect(try ShapeRoleTestSupport.source("Social/Views/Components/MentionAutocomplete.swift").contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))"))
+        for rect in ShapeRoleTestSupport.rects {
+            for (role, radius) in [(DS.Shape.Role.nested, CGFloat(10)), (.card, 26)] {
+                ShapeRoleTestSupport.check(role, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: radius)
+            }
+            ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.micro), expected: MainChamferedRectangle(.micro).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: 26)
+        }
+    }
     #endif
 }
 

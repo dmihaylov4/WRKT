@@ -96,9 +96,9 @@ struct WorkoutPostHeroSummaryCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: context.minHeight, alignment: .topLeading)
-        .background(context == .carousel ? Color.clear : DS.Semantic.card, in: ChamferedRectangle(.medium))
+        .background(context == .carousel ? Color.clear : DS.Semantic.card, in: DS.RoleShape(context == .detail ? .card : .nested, legacy: ChamferedRectangle(.medium)))
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(context == .detail ? .card : .nested, legacy: ChamferedRectangle(.medium))
                 .stroke(DS.Semantic.border, lineWidth: context == .carousel ? 0 : 1)
         )
         .accessibilityElement(children: .combine)

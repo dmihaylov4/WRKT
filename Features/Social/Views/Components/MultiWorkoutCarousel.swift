@@ -29,9 +29,9 @@ struct MultiWorkoutCarousel: View {
             }
             .frame(height: 340)
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.medium))
-            .clipShape(ChamferedRectangle(.medium))
-            .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
+            .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
+            .overlay(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
 
             if tabCount > 1 {
                 HStack(spacing: 5) {
@@ -152,7 +152,7 @@ private struct WorkoutSlide: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
+                .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
             }
 
             if summary.breakdownRows.count > 4 {

@@ -86,7 +86,7 @@ struct SkeletonPostCard: View {
             }
             .padding(16)
             .background(DS.Semantic.fillSubtle.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)))
 
             // Action buttons skeleton
             HStack(spacing: 20) {
@@ -107,9 +107,9 @@ struct SkeletonPostCard: View {
         }
         .padding(16)
         .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .opacity(isAnimating ? 0.5 : 1.0)
