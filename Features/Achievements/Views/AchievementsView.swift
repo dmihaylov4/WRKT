@@ -120,8 +120,8 @@ private struct AchievementSection: View {
                 }
             }
             .padding(.vertical, 12)
-            .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
-            .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 }
@@ -145,10 +145,10 @@ private struct AchievementRow: View {
             .frame(width: 40, height: 40)
             .background(
                 (a.unlockedAt == nil ? Color.white.opacity(0.04) : DS.Theme.accent.opacity(0.12)),
-                in: ChamferedRectangleAlt(.small)
+                in: DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small))
             )
             .overlay(
-                ChamferedRectangleAlt(.small)
+                DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small))
                     .stroke(a.unlockedAt == nil ? DS.Semantic.border : DS.Theme.accent.opacity(0.35), lineWidth: 1)
             )
 

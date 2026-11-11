@@ -56,10 +56,10 @@ struct DexTile: View, Equatable {
                         endPoint: .bottomTrailing
                     )
                 )
-                .clipShape(ChamferedRectangle(.large))
+                .clipShape(DS.RoleShape(.tile, legacy: ChamferedRectangle(.large)))
         }
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.tile, legacy: ChamferedRectangle(.large))
                 .stroke(DexTileColors.cardStroke, lineWidth: 1)
         )
         .contentShape(ChamferedRectangle(.large))

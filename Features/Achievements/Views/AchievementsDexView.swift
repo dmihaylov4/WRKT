@@ -125,7 +125,7 @@ struct AchievementsDexView: View {
             Text("\(vm.unlockedCount)/\(vm.totalCount)")
                 .dsFont(.caption2, weight: .semibold)
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                 .foregroundColor(.black)
         }
         .accessibilityLabel("Unlocked \(vm.unlockedCount) of \(vm.totalCount)")
@@ -358,8 +358,8 @@ private struct RecordRow: View {
             Text(value).dsFont(.footnote, monospacedDigits: true).foregroundStyle(.secondary)
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -421,8 +421,8 @@ struct DexDetailView: View {
                                     .monospacedDigit()
                             }
                             .frame(maxWidth: .infinity, minHeight: 56)
-                            .background(Color.white.opacity(0.045), in: ChamferedRectangle(.small))
-                            .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
+                            .background(Color.white.opacity(0.045), in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.small)))
+                            .overlay(DS.RoleShape(.nested, legacy: ChamferedRectangle(.small)).stroke(DS.Semantic.border, lineWidth: 1))
                         }
                     }
                 }
@@ -448,7 +448,7 @@ struct DexDetailView: View {
                                 .foregroundStyle(.black)
                                 .padding(.horizontal, 18)
                                 .frame(maxWidth: .infinity, minHeight: 54)
-                                .background(DS.Theme.accent, in: ChamferedRectangle(.medium))
+                                .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                             }
                             .buttonStyle(.plain)
                         }
@@ -471,8 +471,8 @@ struct DexDetailView: View {
                         .buttonStyle(.plain)
                     }
                     .padding(18)
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
-                    .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
 
                     DexDetailSection(title: "Exercise") {
                         ExerciseMusclesSection(exercise: ex, focus: .full)
@@ -519,8 +519,8 @@ struct DexDetailView: View {
             Spacer()
         }
         .padding(18)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
-        .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func rebuildLadder() {
@@ -558,8 +558,8 @@ private struct DexDetailSection<Content: View>: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Theme.cardTop, in: ChamferedRectangle(.xl))
-            .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 }
