@@ -40,7 +40,7 @@ struct Step5ProgramLength: View {
             Toggle("Include deload weeks", isOn: $config.includeDeload)
                 .padding()
                 .background(DS.Semantic.surface)
-                .cornerRadius(12)
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
                 .padding(.horizontal)
 
             if config.includeDeload {
@@ -97,9 +97,9 @@ struct ProgramLengthButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 130)
             .background(isSelected ? DS.Palette.marone.opacity(0.12) : DS.Semantic.surface)
-            .cornerRadius(16)
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16))
                     .stroke(
                         isSelected ? DS.Palette.marone : (isRecommended ? DS.Palette.marone.opacity(0.4) : Color.gray.opacity(0.2)),
                         lineWidth: isSelected ? 2.5 : (isRecommended ? 2 : 1.5)

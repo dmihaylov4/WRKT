@@ -43,9 +43,9 @@ struct RestDayOptionCard: View {
             }
             .padding()
             .background(isSelected ? DS.Palette.marone.opacity(0.1) : DS.Semantic.surface)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
             .overlay(
-                ChamferedRectangle(.medium)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                     .stroke(isSelected ? DS.Palette.marone : Color.gray.opacity(0.3), lineWidth: 2)
             )
         }

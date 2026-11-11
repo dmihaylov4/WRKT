@@ -189,9 +189,9 @@ struct Step4CustomizeExercises: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(DS.Palette.marone.opacity(0.1))
-                            .clipShape(ChamferedRectangle(.medium))
+                            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                             .overlay(
-                                ChamferedRectangle(.medium)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                     .stroke(DS.Palette.marone.opacity(0.3), lineWidth: 1.5)
                             )
                         }
@@ -281,9 +281,9 @@ struct DayTab: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
                 .background(isSelected ? DS.Palette.marone.opacity(0.15) : DS.Palette.marone.opacity(0.05))
-                .clipShape(ChamferedRectangle(.small))
+                .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                 .overlay(
-                    ChamferedRectangle(.small)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                         .stroke(isSelected ? DS.Palette.marone : Color.clear, lineWidth: 1.5)
                 )
         }
@@ -343,7 +343,7 @@ struct ExerciseRowEditable: View {
             }
             .padding(12)
             .background(DS.Semantic.surface)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showEditSheet) {
@@ -542,7 +542,7 @@ struct ExerciseRowPreview: View {
         }
         .padding(12)
         .background(DS.Semantic.surface)
-        .clipShape(ChamferedRectangle(.medium))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
     }
 }
 

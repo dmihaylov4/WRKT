@@ -59,10 +59,10 @@ struct CreateCustomSplitCard: View {
             .padding()
             .background(isSelected ? DS.Palette.marone.opacity(0.1) : DS.Semantic.surface)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))
                     .stroke(isSelected ? DS.Palette.marone : DS.Semantic.border, lineWidth: isSelected ? 2 : 1)
             )
-            .cornerRadius(12)
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
         }
         .buttonStyle(.plain)
         .padding(.horizontal)

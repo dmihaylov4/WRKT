@@ -41,5 +41,19 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func predefinedOptionCardsAndNavigationKeepLegacyPaths() throws {
+        #expect(try ShapeRoleTestSupport.source("Planner/Views/PredefinedSplit/Step2TrainingFrequency.swift").contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.large))"))
+        let length = try ShapeRoleTestSupport.source("Planner/Views/PredefinedSplit/Step5ProgramLength.swift")
+        #expect(length.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16))"))
+        #expect(length.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))"))
+        #expect(try ShapeRoleTestSupport.source("Planner/PlannerSetupCarouselView.swift").contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12))"))
+        #expect(try ShapeRoleTestSupport.source("Planner/Views/PredefinedSplit/Step4CustomizeExercises.swift").contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.small))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.card, legacy: ChamferedRectangle(.large), expected: MainChamferedRectangle(.large).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 16), expected: RoundedRectangle(cornerRadius: 16).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }

@@ -33,7 +33,7 @@ struct Step6Review: View {
                 }
                 .padding()
                 .background(DS.Semantic.surface)
-                .cornerRadius(12)
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
                 .padding(.horizontal)
 
                 // Configuration summary
@@ -96,7 +96,7 @@ struct Step6Review: View {
                     }
                     .padding()
                     .background(DS.Semantic.surface)
-                    .cornerRadius(12)
+                    .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
                     .padding(.horizontal)
                 }
 

@@ -70,7 +70,7 @@ struct Step2TrainingFrequency: View {
                 }
                 .padding()
                 .background(DS.Semantic.surface)
-                .clipShape(ChamferedRectangle(.medium))
+                .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
                 .padding(.horizontal)
             }
 
@@ -121,9 +121,9 @@ struct FrequencyButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 110)
             .background(isSelected ? DS.Palette.marone.opacity(0.12) : DS.Semantic.surface)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(isSelected ? DS.Palette.marone : Color.gray.opacity(0.2), lineWidth: isSelected ? 2.5 : 1.5)
             )
             .shadow(color: isSelected ? DS.Palette.marone.opacity(0.2) : .clear, radius: 8, x: 0, y: 4)

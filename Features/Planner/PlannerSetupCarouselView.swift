@@ -183,9 +183,9 @@ struct PlannerSetupCarouselView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(DS.Palette.marone.opacity(0.15))
-                    .cornerRadius(12)
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12)))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12))
                             .stroke(DS.Palette.marone, lineWidth: 1.5)
                     )
                 }
@@ -217,9 +217,9 @@ struct PlannerSetupCarouselView: View {
                     .padding(.horizontal, 24)
                     .background(config.isValid ? DS.Palette.marone.opacity(0.15) : DS.Palette.marone.opacity(0.08))
                     .foregroundStyle(config.isValid ? DS.Palette.marone : DS.Palette.marone.opacity(0.5))
-                    .cornerRadius(12)
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12)))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12))
                             .stroke(config.isValid ? DS.Palette.marone : DS.Palette.marone.opacity(0.3), lineWidth: 2)
                     )
                 }
