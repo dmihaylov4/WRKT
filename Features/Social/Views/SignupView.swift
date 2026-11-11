@@ -46,9 +46,9 @@ struct SignupView: View {
                             .keyboardType(.emailAddress)
                             .padding()
                             .background(hasEmailError ? Color.red.opacity(0.1) : DS.Semantic.surface50)
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10)
+                                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10))
                                     .stroke(hasEmailError ? Color.red : Color.clear, lineWidth: 2)
                             )
                             .focused($focusedField, equals: .email)
@@ -76,9 +76,9 @@ struct SignupView: View {
                             .autocapitalization(.none)
                             .padding()
                             .background(hasUsernameError ? Color.red.opacity(0.1) : DS.Semantic.surface50)
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 10)
+                                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10))
                                     .stroke(hasUsernameError ? Color.red : Color.clear, lineWidth: 2)
                             )
                             .focused($focusedField, equals: .username)
@@ -106,7 +106,7 @@ struct SignupView: View {
                             .textContentType(.name)
                             .padding()
                             .background(DS.Semantic.surface50)
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
                             .focused($focusedField, equals: .displayName)
                             .submitLabel(.next)
                             .onSubmit {
@@ -118,7 +118,7 @@ struct SignupView: View {
                                 .textContentType(.newPassword)
                                 .padding()
                                 .background(DS.Semantic.surface50)
-                                .cornerRadius(10)
+                                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
                                 .focused($focusedField, equals: .password)
                                 .submitLabel(.next)
                                 .onSubmit {
@@ -146,7 +146,7 @@ struct SignupView: View {
                             .textContentType(.newPassword)
                             .padding()
                             .background(DS.Semantic.surface50)
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
                             .focused($focusedField, equals: .confirmPassword)
                             .submitLabel(.done)
                             .onSubmit {
@@ -194,7 +194,7 @@ struct SignupView: View {
                         .padding()
                         .background(canSignup ? DS.Palette.marone : Color.gray)
                         .foregroundColor(.black)
-                        .cornerRadius(10)
+                        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                         .disabled(!canSignup || authService.isLoading)
                     }
                     .padding(.horizontal, 32)

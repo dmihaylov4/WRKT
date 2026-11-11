@@ -78,7 +78,7 @@ struct UserSearchView: View {
         }
         .padding()
         .background(DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12)))
         .padding()
     }
 

@@ -56,7 +56,7 @@ struct SetNewPasswordView: View {
                                 .padding()
                                 .background(DS.Palette.marone)
                                 .foregroundColor(.black)
-                                .cornerRadius(10)
+                                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                         }
                         .padding(.top, 16)
                     }
@@ -81,13 +81,13 @@ struct SetNewPasswordView: View {
                             .textContentType(.newPassword)
                             .padding()
                             .background(Color(.systemGray6))
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
 
                         SecureField("Confirm Password", text: $confirmPassword)
                             .textContentType(.newPassword)
                             .padding()
                             .background(Color(.systemGray6))
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
 
                         // Validation messages
                         VStack(alignment: .leading, spacing: 4) {
@@ -140,7 +140,7 @@ struct SetNewPasswordView: View {
                         .padding()
                         .background(canSubmit ? DS.Palette.marone : Color.gray)
                         .foregroundColor(.black)
-                        .cornerRadius(10)
+                        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                         .disabled(!canSubmit)
                     }
                     .padding(.horizontal, 32)

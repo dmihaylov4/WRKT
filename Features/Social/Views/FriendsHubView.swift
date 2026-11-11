@@ -102,9 +102,9 @@ struct FriendsHubView: View {
             }
             .padding()
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangleAlt(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)))
             .overlay(
-                ChamferedRectangleAlt(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large))
                     .stroke(DS.Semantic.brand.opacity(0.3), lineWidth: 1)
             )
         }
@@ -170,7 +170,7 @@ struct FriendsHubView: View {
                 }
             }
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangleAlt(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)))
             .padding(.horizontal)
         }
     }
@@ -203,7 +203,7 @@ struct FriendsHubView: View {
             }
         }
         .background(DS.Semantic.fillSubtle)
-        .clipShape(ChamferedRectangleAlt(.large))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)))
         .padding(.horizontal)
     }
 

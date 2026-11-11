@@ -83,9 +83,9 @@ struct LoginView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 58)
-                        .background(canLogin ? DS.Theme.accent : DS.Semantic.surface50, in: ChamferedRectangle(.large))
+                        .background(canLogin ? DS.Theme.accent : DS.Semantic.surface50, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                         .foregroundColor(canLogin ? .black : DS.Semantic.textSecondary)
-                        .overlay(ChamferedRectangle(.large).stroke(canLogin ? DS.Theme.accent : DS.Semantic.border, lineWidth: 1))
+                        .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)).stroke(canLogin ? DS.Theme.accent : DS.Semantic.border, lineWidth: 1))
                     }
                     .disabled(!canLogin || authService.isLoading)
 
@@ -129,8 +129,8 @@ struct LoginView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                         .foregroundStyle(.black)
-                        .background(.white, in: ChamferedRectangle(.large))
-                        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                        .background(.white, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
+                        .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
                     }
                     .disabled(authService.isLoading)
 
@@ -151,8 +151,8 @@ struct LoginView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                         .foregroundStyle(DS.Semantic.textPrimary)
-                        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
-                        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                        .background(DS.Semantic.card, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
+                        .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
                     }
                     .disabled(authService.isLoading)
 
@@ -342,9 +342,9 @@ struct LoginFieldStyle: ViewModifier {
             .tint(DS.Theme.accent)
             .padding(.horizontal, 18)
             .frame(height: 58)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(isFocused ? DS.Theme.accent : DS.Semantic.border, lineWidth: isFocused ? 1.5 : 1)
             )
     }

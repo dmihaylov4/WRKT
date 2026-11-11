@@ -61,7 +61,7 @@ struct EmailVerificationView: View {
                     }
                     .padding()
                     .background(Color.green.opacity(0.1))
-                    .cornerRadius(10)
+                    .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
                 }
 
                 if let errorMessage = errorMessage {
@@ -87,7 +87,7 @@ struct EmailVerificationView: View {
                 .padding()
                 .background(Color.gray.opacity(0.2))
                 .foregroundColor(DS.Semantic.textPrimary)
-                .cornerRadius(10)
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                 .disabled(isResending)
 
                 Button {
@@ -101,7 +101,7 @@ struct EmailVerificationView: View {
                 .padding()
                 .background(DS.Palette.marone)
                 .foregroundColor(.black)
-                .cornerRadius(10)
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 32)

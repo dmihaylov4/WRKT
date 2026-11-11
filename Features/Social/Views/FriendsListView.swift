@@ -152,7 +152,7 @@ struct FriendPickerSearchBar: View {
         }
         .padding()
         .background(DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12)))
         .padding()
     }
 }
@@ -217,7 +217,7 @@ struct FriendsEmptyState: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(DS.Palette.marone)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12)))
             }
             .padding(.horizontal, 40)
             .padding(.top, 8)

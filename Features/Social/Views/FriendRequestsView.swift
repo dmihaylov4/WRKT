@@ -204,7 +204,7 @@ struct FriendRequestsView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(DS.Palette.marone)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12)))
             }
             .padding(.horizontal, 40)
             .padding(.top, 8)
@@ -361,7 +361,7 @@ struct OutgoingRequestRow: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(DS.Semantic.fillSubtle)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8)))
             }
         }
         .padding()

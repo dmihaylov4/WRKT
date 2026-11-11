@@ -38,7 +38,7 @@ struct ForgotPasswordView: View {
                                 .padding()
                                 .background(DS.Palette.marone)
                                 .foregroundColor(.black)
-                                .cornerRadius(10)
+                                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                         }
                         .padding(.top, 16)
                     }
@@ -65,7 +65,7 @@ struct ForgotPasswordView: View {
                             .keyboardType(.emailAddress)
                             .padding()
                             .background(Color(.systemGray6))
-                            .cornerRadius(10)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10)))
 
                         // Error message
                         if let errorMessage = errorMessage {
@@ -92,7 +92,7 @@ struct ForgotPasswordView: View {
                         .padding()
                         .background(canSend ? DS.Palette.marone : Color.gray)
                         .foregroundColor(.black)
-                        .cornerRadius(10)
+                        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                         .disabled(!canSend || authService.isLoading)
                     }
                     .padding(.horizontal, 32)

@@ -84,10 +84,10 @@ struct OAuthUsernameSetupView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 58)
-                        .background(canContinue ? DS.Theme.accent : DS.Semantic.surface50, in: ChamferedRectangle(.large))
+                        .background(canContinue ? DS.Theme.accent : DS.Semantic.surface50, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                         .foregroundColor(canContinue ? .black : DS.Semantic.textSecondary)
                         .overlay(
-                            ChamferedRectangle(.large)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                 .stroke(canContinue ? DS.Theme.accent : DS.Semantic.border, lineWidth: 1)
                         )
                     }
