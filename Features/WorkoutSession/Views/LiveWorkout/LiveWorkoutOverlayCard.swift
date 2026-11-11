@@ -52,7 +52,7 @@ struct LiveWorkoutOverlayCard: View {
         }
         .foregroundStyle(DS.Semantic.textPrimary)
         .background(
-            ChamferedRectangle(.hero)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
                 .fill(
                     LinearGradient(
                         colors: [DS.Theme.cardBottom, DS.Theme.cardBottom],
@@ -60,12 +60,12 @@ struct LiveWorkoutOverlayCard: View {
                     )
                 )
                 .overlay(
-                    ChamferedRectangle(.hero)
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
                         .stroke(DS.Semantic.border, lineWidth: 1)
                 )
                 .matchedGeometryEffect(id: "liveCardBG", in: namespace)
         )
-        .clipShape(ChamferedRectangle(.hero))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.hero)))
         .shadow(color: .black.opacity(0.6), radius: 18, x: 0, y: 10)
         .offset(y: dragOffset)
         .gesture(
@@ -676,10 +676,10 @@ private struct OverlayBottomActions: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                         .fill(DS.Theme.accent.opacity(0.12))
                         .overlay(
-                            ChamferedRectangle(.large)
+                            DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                                 .stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1)
                         )
                 )
@@ -711,10 +711,10 @@ private struct OverlayBottomActions: View {
                 }
                 .padding(.vertical, 14)
                 .background(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                         .fill(Color.white.opacity(0.04))
                         .overlay(
-                            ChamferedRectangle(.large)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
                         )
                 )
@@ -778,7 +778,7 @@ private struct DiscardConfirmationDialog: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
-                                ChamferedRectangle(.large)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                     .fill(Color.red)
                             )
                     }
@@ -795,10 +795,10 @@ private struct DiscardConfirmationDialog: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(
-                                ChamferedRectangle(.large)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                     .fill(Color.white.opacity(0.08))
                                     .overlay(
-                                        ChamferedRectangle(.large)
+                                        DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                                     )
                             )
@@ -808,10 +808,10 @@ private struct DiscardConfirmationDialog: View {
             }
             .padding(24)
             .background(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.alert, legacy: ChamferedRectangle(.xl))
                     .fill(Color.black)
                     .overlay(
-                        ChamferedRectangle(.xl)
+                        DS.RoleShape(.alert, legacy: ChamferedRectangle(.xl))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
             )
@@ -989,10 +989,10 @@ private struct CurrentExerciseHeroCard: View {
         }
         .padding(16)
         .background(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                 .fill(Color.white.opacity(0.05))
                 .overlay(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                         .stroke(stateColor.opacity(0.4), lineWidth: 2)
                 )
         )
@@ -1193,7 +1193,7 @@ private struct SupersetGroupRow: View {
         }
         .padding(.bottom, 10)
         .background(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))
                 .fill(DS.Theme.accent.opacity(0.08))
         )
         .padding(.horizontal, 16)
@@ -1245,10 +1245,10 @@ private struct SupersetHeroCard: View {
             .padding(.bottom, 12)
         }
         .background(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                 .fill(Color.white.opacity(0.05))
                 .overlay(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                         .stroke(DS.Theme.accent.opacity(0.4), lineWidth: 2)
                 )
         )
@@ -1315,7 +1315,7 @@ private struct SupersetHeroRow: View {
         }
         .background(
             isHero
-                ? RoundedRectangle(cornerRadius: 10)
+                ? DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10))
                     .fill(DS.Theme.accent.opacity(0.1))
                     .padding(.leading, 8)
                     .padding(.trailing, 8)
