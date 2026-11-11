@@ -133,39 +133,6 @@ struct BarbellEditorView: View {
         }
     }
 
-    private var editorBarPreview: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let centerY = geo.size.height * 0.58
-            let sleeveLength = min(width * 0.24, 106)
-
-            ZStack {
-                subtleFloor(width: width * 0.78)
-                    .position(x: width * 0.5, y: centerY + 34)
-
-                barShaft(width: width * 0.86, height: 6)
-                    .position(x: width * 0.5, y: centerY)
-
-                barSleeve(width: sleeveLength, height: 13)
-                    .position(x: width * 0.25, y: centerY)
-                barSleeve(width: sleeveLength, height: 13)
-                    .position(x: width * 0.75, y: centerY)
-
-                plateStack(side: .left)
-                    .position(x: width * 0.235, y: centerY)
-                plateStack(side: .right)
-                    .position(x: width * 0.765, y: centerY)
-
-                collar
-                    .position(x: width * 0.385, y: centerY)
-                collar
-                    .position(x: width * 0.615, y: centerY)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 12)
-    }
-
     private func plateStack(side: PreviewSide) -> some View {
         let plates = Array(previewPlates.prefix(4))
         return ZStack {
@@ -604,54 +571,6 @@ struct BarbellEditorView: View {
         plate.displayOrder = Int(Date.now.timeIntervalSince1970)
         print("[RackStorage][Editor] moveToWall plate=\(plate.id) tier=\(plate.tierID) kg=\(Int(plate.weightKg)) newOrder=\(plate.displayOrder) onWallCount=\(loadout.onWall.count)")
         persistAndSync(config)
-    }
-
-    private func loadoutPlateTile(plate: EarnedPlate, isOnBar: Bool, barFull: Bool) -> some View {
-        Button {
-            if isOnBar { moveToWall(plate) } else { moveToBar(plate) }
-        } label: {
-            ZStack(alignment: .topTrailing) {
-                CachedPlateThumbnail(
-                    tierID: plate.tierID,
-                    progressionTier: plate.currentTier,
-                    liftTypeID: plate.liftTypeID,
-                    weightKg: plate.weightKg,
-                    engravingText: plate.engravingText,
-                    showEngravings: config?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings
-                )
-                .frame(width: 64, height: 64)
-                .clipped()
-
-                Circle()
-                    .fill(DS.Semantic.card)
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                        Image(systemName: isOnBar ? "minus" : "plus")
-                            .font(.system(size: 10, weight: .black))
-                            .foregroundStyle(isOnBar ? DS.Semantic.textSecondary : DS.Semantic.brand)
-                    )
-                    .offset(x: 4, y: -4)
-            }
-        }
-        .buttonStyle(.plain)
-        .opacity((!isOnBar && barFull) ? 0.35 : 1.0)
-        .disabled(!isOnBar && barFull)
-        .accessibilityLabel(plate.engravingText.isEmpty ? "Plate" : plate.engravingText)
-        .accessibilityHint(
-            isOnBar
-                ? "Move to wall"
-                : barFull ? "Bar full, move a bar plate to make room" : "Move to bar"
-        )
-    }
-
-    private func loadoutEmptyHint(_ message: String) -> some View {
-        Text(message)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(DS.Semantic.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func sectionHeader(title: String, subtitle: String) -> some View {

@@ -319,35 +319,6 @@ struct DexItem: Identifiable, Hashable {
 
 // MARK: - Badge
 
-// MARK: - Progress
-
-private struct TinyProgressBar: View {
-    var fraction: Double
-
-    var clamped: Double { min(max(fraction, 0), 1) }
-
-    var body: some View {
-        GeometryReader { geo in
-            let w = geo.size.width * clamped
-            ZStack(alignment: .leading) {
-                Capsule().fill(Color.secondary.opacity(0.18))
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [DS.Theme.accent.opacity(0.95), DS.Charts.pull.opacity(0.90)],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
-                    .frame(width: w)
-            }
-        }
-        .frame(height: 6)
-        .clipShape(ChamferedRectangle(.micro))
-        .accessibilityLabel("Progress")
-        .accessibilityValue("\((clamped * 100).safeInt) percent")
-    }
-}
-
 private struct RecordRow: View {
     let icon: String; let title: String; let value: String
     var body: some View {
