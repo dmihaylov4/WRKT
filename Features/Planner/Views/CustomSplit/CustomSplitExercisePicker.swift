@@ -73,7 +73,7 @@ struct CustomSplitExercisePicker: View {
                     }
                 }
                 .padding(12)
-                .background(DS.Semantic.surface, in: RoundedRectangle(cornerRadius: 10))
+                .background(DS.Semantic.surface, in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                 .padding()
 
                 // Selected count

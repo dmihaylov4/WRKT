@@ -15,10 +15,10 @@ struct PlannerTextFieldStyle: TextFieldStyle {
             .foregroundStyle(.white)
             .padding(16)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .fill(.white.opacity(0.06))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .stroke(.white.opacity(0.1), lineWidth: 1)
                     )
             )
@@ -164,10 +164,10 @@ struct PartsOptionButton: View {
             .padding()
             .background(isSelected ? DS.Palette.marone.opacity(0.1) : DS.Semantic.surface)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))
                     .stroke(isSelected ? DS.Palette.marone : Color.clear, lineWidth: 2)
             )
-            .cornerRadius(12)
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
         }
         .buttonStyle(.plain)
         .padding(.horizontal)
@@ -252,7 +252,7 @@ struct ExercisePickerCard: View {
                     .padding(12)
                     .background(DS.Palette.marone.opacity(0.1))
                     .foregroundStyle(DS.Palette.marone)
-                    .cornerRadius(10)
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
             }
             .sheet(isPresented: $showPicker) {
                 CustomSplitExercisePicker(config: config, partName: partName)
@@ -260,7 +260,7 @@ struct ExercisePickerCard: View {
         }
         .padding()
         .background(DS.Semantic.surface)
-        .cornerRadius(12)
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
         .padding(.horizontal)
     }
 }
@@ -303,10 +303,10 @@ struct CustomSplitStep3FrequencyAndRest: View {
                             .padding()
                             .background(config.trainingDaysPerWeek == days ? DS.Palette.marone.opacity(0.1) : DS.Semantic.surface)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))
                                     .stroke(config.trainingDaysPerWeek == days ? DS.Palette.marone : Color.clear, lineWidth: 2)
                             )
-                            .cornerRadius(12)
+                            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
                         }
                         .buttonStyle(.plain)
                         .padding(.horizontal)

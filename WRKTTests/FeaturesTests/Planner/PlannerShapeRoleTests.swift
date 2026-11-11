@@ -55,5 +55,17 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func customSplitFieldsOptionCardsAndSearchPreserveLegacyPaths() throws {
+        let custom = try ShapeRoleTestSupport.source("Planner/Views/CustomSplit/CustomSplitSteps.swift")
+        #expect(custom.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))"))
+        #expect(custom.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12))"))
+        #expect(custom.contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10))"))
+        #expect(try ShapeRoleTestSupport.source("Planner/Views/CustomSplit/CustomSplitExercisePicker.swift").contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous), expected: RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }
