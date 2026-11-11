@@ -71,7 +71,7 @@ struct BarbellMomentView: View {
                     }
                     .background(DS.Semantic.brand)
                     .foregroundStyle(.black)
-                    .clipShape(ChamferedRectangle(.medium))
+                    .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
                     .transition(.move(edge: .bottom).combined(with: .opacity))

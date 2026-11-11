@@ -85,10 +85,10 @@ struct BarbellEditorView: View {
             }
 
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8))
                     .fill(Color.white.opacity(0.045))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
+                        DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8))
                             .stroke(Color.white.opacity(0.12), lineWidth: 1)
                     )
 
@@ -101,17 +101,17 @@ struct BarbellEditorView: View {
                 )
                 .id(previewIdentity)
                     .frame(height: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
             }
             .frame(height: 220)
         }
         .padding(18)
         .background(DS.Semantic.card)
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 8))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 8)))
     }
 
     private var tabPicker: some View {
@@ -126,7 +126,7 @@ struct BarbellEditorView: View {
                         .frame(height: 42)
                         .foregroundStyle(selectedTab == tab ? Color.black : DS.Semantic.textSecondary)
                         .background(selectedTab == tab ? DS.Semantic.brand : DS.Semantic.fillSubtle)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8)))
                 }
                 .accessibilityLabel(tab.title)
             }
@@ -336,10 +336,10 @@ struct BarbellEditorView: View {
             .frame(minHeight: 136, alignment: .top)
             .background(isSelected ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle)
             .overlay(
-                RoundedRectangle(cornerRadius: 8)
+                DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 8))
                     .stroke(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: isSelected ? 2 : 1)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 8)))
             .opacity(isUnlocked ? 1 : 0.45)
         }
         .buttonStyle(.plain)
@@ -388,7 +388,7 @@ struct BarbellEditorView: View {
                 .tint(DS.Semantic.brand)
                 .padding(14)
                 .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 8)))
             }
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 10)], spacing: 10) {
@@ -520,7 +520,7 @@ struct BarbellEditorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 8)))
     }
 
     private func workoutSummary(for plate: EarnedPlate) -> PlateWorkoutSummary? {
@@ -671,10 +671,10 @@ struct BarbellEditorView: View {
                 BarSkinPreviewTile(skin: skin)
                     .frame(width: 54, height: 18)
             } else {
-                RoundedRectangle(cornerRadius: 6)
+                DS.RoleShape(.iconTile, legacy: RoundedRectangle(cornerRadius: 6))
                     .fill(cosmeticColor(for: item))
                     .frame(width: 34, height: 34)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.white.opacity(0.18), lineWidth: 1))
+                    .overlay(DS.RoleShape(.iconTile, legacy: RoundedRectangle(cornerRadius: 6)).stroke(Color.white.opacity(0.18), lineWidth: 1))
             }
         }
     }
@@ -907,8 +907,8 @@ private struct EditorTextFieldStyle: TextFieldStyle {
             .padding(.horizontal, 14)
             .frame(height: 50)
             .background(DS.Semantic.fillSubtle)
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(DS.Semantic.border, lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 8)).stroke(DS.Semantic.border, lineWidth: 1))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 8)))
     }
 }
 

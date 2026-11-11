@@ -232,7 +232,7 @@ struct BarbellWelcomeView: View {
                 .foregroundStyle(.black)
             }
             .background(DS.Semantic.brand)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
 
             if battleShare.pendingBattle != nil {
                 shareBattleButton
@@ -250,10 +250,10 @@ struct BarbellWelcomeView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: ChamferedRectangle(.xl)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
         )
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
@@ -274,10 +274,10 @@ struct BarbellWelcomeView: View {
         }
         .background(
             shared ? Color.white.opacity(0.06) : DS.Semantic.brand.opacity(0.18),
-            in: ChamferedRectangle(.medium)
+            in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
         )
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                 .stroke(
                     shared ? Color.white.opacity(0.08) : DS.Semantic.brand.opacity(0.45),
                     lineWidth: 1
@@ -295,9 +295,9 @@ struct BarbellWelcomeView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity, minHeight: 46)
         }
-        .background(Color.white.opacity(0.08), in: ChamferedRectangle(.medium))
+        .background(Color.white.opacity(0.08), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                 .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
