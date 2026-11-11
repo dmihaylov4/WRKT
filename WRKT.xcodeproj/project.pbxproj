@@ -341,7 +341,6 @@
 		2ED2379C2EA60FE1009C742E /* RestTimerState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED2379B2EA60FDD009C742E /* RestTimerState.swift */; };
 		2ED2379E2EA60FEA009C742E /* RestTimerPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED2379D2EA60FE5009C742E /* RestTimerPreferences.swift */; };
 		2EE39C632EA65A67000549C3 /* OnboardingCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C622EA65A67000549C3 /* OnboardingCarousel.swift */; };
-		2EE39C672EA65D36000549C3 /* NotificationPermissionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C662EA65D36000549C3 /* NotificationPermissionView.swift */; };
 		2EE39C692EA6766B000549C3 /* OnboardingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C682EA6766B000549C3 /* OnboardingManager.swift */; };
 		2EE39C6B2EA67691000549C3 /* SpotlightOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */; };
 		2EE39C6D2EA77A95000549C3 /* PlannerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */; };
@@ -807,7 +806,6 @@
 		2ED2379B2EA60FDD009C742E /* RestTimerState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerState.swift; sourceTree = "<group>"; };
 		2ED2379D2EA60FE5009C742E /* RestTimerPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerPreferences.swift; sourceTree = "<group>"; };
 		2EE39C622EA65A67000549C3 /* OnboardingCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingCarousel.swift; sourceTree = "<group>"; };
-		2EE39C662EA65D36000549C3 /* NotificationPermissionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPermissionView.swift; sourceTree = "<group>"; };
 		2EE39C682EA6766B000549C3 /* OnboardingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingManager.swift; sourceTree = "<group>"; };
 		2EE39C6A2EA67691000549C3 /* SpotlightOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightOverlay.swift; sourceTree = "<group>"; };
 		2EE39C6C2EA77A95000549C3 /* PlannerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannerModels.swift; sourceTree = "<group>"; };
@@ -1117,7 +1115,6 @@
 			children = (
 				2EE39C622EA65A67000549C3 /* OnboardingCarousel.swift */,
 				2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */,
-				2EE39C662EA65D36000549C3 /* NotificationPermissionView.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -2567,7 +2564,6 @@
 				2EA7DA202EEC15540017683B /* CachedProfile.swift in Sources */,
 				2E2938772EC5F8220057F60C /* ExerciseStatisticsView.swift in Sources */,
 				2EE8A09D2EE9A12400A74A3C /* SupabaseAuthService.swift in Sources */,
-				2EE39C672EA65D36000549C3 /* NotificationPermissionView.swift in Sources */,
 				2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */,
 				2EA7DAB42EEDCD7F0017683B /* ChallengesViewModel.swift in Sources */,
 				2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */,
