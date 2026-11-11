@@ -143,8 +143,8 @@ struct RestTimerSettingsCard: View {
                 }
                 .padding(12)
                 .background(Theme.surface)
-                .overlay(ChamferedRectangle(.medium).stroke(Theme.border, lineWidth: 1))
-                .clipShape(ChamferedRectangle(.medium))
+                .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(Theme.border, lineWidth: 1))
+                .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
             }
             .buttonStyle(.plain)
         }
@@ -231,9 +231,9 @@ struct CustomTimerEditorView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(Theme.surface)
-                    .clipShape(ChamferedRectangle(.medium))
+                    .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     .overlay(
-                        ChamferedRectangle(.medium)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                             .stroke(Theme.border, lineWidth: 1)
                     )
                 }

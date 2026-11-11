@@ -58,5 +58,17 @@ struct WorkoutSessionShapeRoleTests {
         check(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)), rect: toggle, radius: 30,
               legacy: MainChamferedRectangle(.medium).path(in: toggle))
     }
+    @Test func restTimerSettingsAndResetKeepLegacyPaths() throws {
+        let settings = try source("RestTimer/RestTimerComponents.swift", from: "struct RestTimerSettingsCard", until: "struct CustomTimerEditorView")
+        #expect(settings.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))"))
+        let editor = try source("RestTimer/RestTimerComponents.swift", from: "struct CustomTimerEditorView")
+        #expect(editor.contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))"))
+        let rect = CGRect(x: 3, y: 7, width: 320, height: 70)
+        check(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)), rect: rect, radius: 26,
+              legacy: MainChamferedRectangle(.medium).path(in: rect))
+        let button = CGRect(x: 3, y: 7, width: 300, height: 44)
+        check(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)), rect: button, radius: 22,
+              legacy: MainChamferedRectangle(.medium).path(in: button))
+    }
     #endif
 }
