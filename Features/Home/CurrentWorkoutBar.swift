@@ -50,7 +50,7 @@ private struct CurrentWorkoutBarLabel: View {
         }
         .padding(.horizontal)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background(.ultraThinMaterial, in: DS.RoleShape(.control, legacy: Capsule()))
         .shadow(radius: 2, y: 1)
     }
 

@@ -486,15 +486,15 @@ private struct ExpandedRegionPanel: View {
             .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showTiles)
         }
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .fill(DS.Semantic.surface)
                 .matchedGeometryEffect(id: matchedID, in: namespace)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous)))
         .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 4)
     }
 }
@@ -521,9 +521,9 @@ private struct SubregionTile: View {
         }
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, minHeight: 56)
-        .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .foregroundStyle(DS.Semantic.textPrimary)
