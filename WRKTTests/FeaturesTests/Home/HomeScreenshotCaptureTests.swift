@@ -6,7 +6,8 @@ import UIKit
 
 @MainActor
 struct HomeScreenshotCaptureTests {
-    @Test func captureHomeComponents() async throws {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_HOME"] == "1"))
+    func captureHomeComponents() async throws {
         // Opt-in preparation uses only the dedicated screenshot simulator's data.
         if ProcessInfo.processInfo.environment["VOLIA_HOME_PREPARE_PROGRAM"] == "1" {
             let planner = AppDependencies.shared.plannerStore
