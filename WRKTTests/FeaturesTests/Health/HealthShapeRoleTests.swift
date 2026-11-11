@@ -24,5 +24,31 @@ struct HealthShapeRoleTests {
             ShapeRoleTestSupport.check(.nested, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous), expected: RoundedRectangle(cornerRadius: 10, style: .continuous).path(in: rect), rect: rect, radius: 10)
         }
     }
+    @Test func cardioDetailAndChartsKeepLegacyPaths() throws {
+        let detail = try ShapeRoleTestSupport.source("Health/Views/CardioDetailView.swift")
+        #expect(detail.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))"))
+        #expect(detail.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16))"))
+        #expect(detail.contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))"))
+        #expect(detail.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))"))
+        #expect(detail.contains("DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))"))
+        // Route map clips stay untouched by decision.
+        #expect(detail.contains(".clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))"))
+        let charts = try ShapeRoleTestSupport.source("Health/Views/CardioCharts.swift")
+        #expect(charts.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14))"))
+        #expect(charts.contains("DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10))"))
+        #expect(charts.contains("DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large))"))
+        #expect(charts.contains("DS.RoleShape(.nested, legacy: ChamferedRectangleAlt(.medium))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous), expected: RoundedRectangle(cornerRadius: 14, style: .continuous).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 16), expected: RoundedRectangle(cornerRadius: 16).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous), expected: RoundedRectangle(cornerRadius: 14, style: .continuous).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous), expected: RoundedRectangle(cornerRadius: 20, style: .continuous).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.tile, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous), expected: RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: rect), rect: rect, radius: 16)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 14), expected: RoundedRectangle(cornerRadius: 14).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.nested, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: 10)
+            ShapeRoleTestSupport.check(.card, legacy: ChamferedRectangleAlt(.large), expected: MainChamferedRectangleAlt(.large).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.nested, legacy: ChamferedRectangleAlt(.medium), expected: MainChamferedRectangleAlt(.medium).path(in: rect), rect: rect, radius: 10)
+        }
+    }
     #endif
 }

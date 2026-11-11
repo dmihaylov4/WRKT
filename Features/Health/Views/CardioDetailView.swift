@@ -80,8 +80,8 @@ struct CardioDetailView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
+                    .background(Theme.surface, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                    .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)).stroke(Theme.border, lineWidth: 1))
                 }
 
                 Spacer(minLength: 20)
@@ -162,7 +162,7 @@ struct CardioDetailView: View {
                             .foregroundStyle(.white)
                     }
                     .padding(24)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                    .background(.ultraThinMaterial, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
                 }
             }
         }
@@ -223,7 +223,7 @@ struct CardioDetailView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(Theme.accent.opacity(isFetchingRoute ? 0.5 : 1))
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
             }
             .disabled(isFetchingRoute)
             .buttonStyle(.plain)
@@ -400,9 +400,9 @@ private struct HeroCard: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))
         )
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous)).stroke(Theme.border, lineWidth: 1))
     }
 
     private func formatTime(_ sec: Int) -> String {
@@ -523,8 +523,8 @@ private struct HeartRateTab: View {
                         .foregroundStyle(Theme.accent.opacity(0.3))
                 }
                 .padding(16)
-                .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
+                .background(Theme.surface, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+                .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)).stroke(Theme.border, lineWidth: 1))
             }
 
             if run.maxHeartRate != nil || run.minHeartRate != nil {
@@ -665,8 +665,8 @@ private struct MetricCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+        .overlay(DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(Theme.border, lineWidth: 1))
     }
 }
 
@@ -733,8 +733,8 @@ private struct QuickStatTile: View {
             Spacer()
         }
         .padding(12)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+        .overlay(DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(Theme.border, lineWidth: 1))
     }
 }
 

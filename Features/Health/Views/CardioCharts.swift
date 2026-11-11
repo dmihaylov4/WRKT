@@ -36,8 +36,8 @@ struct SplitsChart: View {
             content
                 .padding(16)
                 .background(DS.Semantic.card)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.Semantic.border, lineWidth: 1))
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14)))
+                .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14)).stroke(DS.Semantic.border, lineWidth: 1))
         } else {
             content
         }
@@ -76,7 +76,7 @@ struct SplitsChart: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(Color.white.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10)))
                 }
 
                 Chart {
@@ -192,8 +192,8 @@ struct HRZoneChart: View {
             contentView
                 .padding(16)
                 .background(DS.Semantic.card)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(DS.Semantic.border, lineWidth: 1))
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14)))
+                .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14)).stroke(DS.Semantic.border, lineWidth: 1))
         } else {
             contentView
         }
@@ -390,8 +390,8 @@ struct RunningDynamicsGrid: View {
             }
             .padding(16)
             .background(DS.Semantic.card)
-            .clipShape(ChamferedRectangleAlt(.large))
-            .overlay(ChamferedRectangleAlt(.large).stroke(DS.Semantic.border, lineWidth: 1))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 
@@ -412,6 +412,6 @@ struct RunningDynamicsGrid: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(DS.Semantic.fillSubtle)
-        .clipShape(ChamferedRectangleAlt(.medium))
+        .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangleAlt(.medium)))
     }
 }
