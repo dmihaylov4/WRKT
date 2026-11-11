@@ -294,8 +294,8 @@ struct CardioView: View {
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(DS.Semantic.card, in: ChamferedRectangle(.small))
-                    .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Semantic.card, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
+                    .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(DS.Semantic.border, lineWidth: 1))
                 }
                 .disabled(healthKit.isSyncing)
 
@@ -312,8 +312,8 @@ struct CardioView: View {
                     .foregroundStyle(DS.Theme.accent)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
-                    .background(DS.Semantic.card, in: ChamferedRectangle(.small))
-                    .overlay(ChamferedRectangle(.small).stroke(DS.Theme.accent.opacity(0.4), lineWidth: 1))
+                    .background(DS.Semantic.card, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
+                    .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(DS.Theme.accent.opacity(0.4), lineWidth: 1))
                 }
 
             default:
@@ -577,12 +577,12 @@ private struct CardioTypeCarousel: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 24)
                     .background(
-                        ChamferedRectangle(.xl)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                             .fill(Theme.surface)
                             .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                     )
                     .overlay(
-                        ChamferedRectangle(.xl)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                             .stroke(
                                 LinearGradient(
                                     colors: [Theme.border, Theme.border.opacity(0.3)],
@@ -736,8 +736,8 @@ private struct WeeklySummaryCard: View {
             }
         }
         .padding(14)
-        .background(Theme.surface, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(Theme.border, lineWidth: 1))
     }
 
     private func formatDuration(_ seconds: Int) -> String {
@@ -862,7 +862,7 @@ private struct PaceInsightsCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 4) {
@@ -888,7 +888,7 @@ private struct PaceInsightsCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 }
 
                 if let trend = paceTrend {
@@ -902,7 +902,7 @@ private struct PaceInsightsCard: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface2.opacity(0.5), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .background(Theme.surface2.opacity(0.5), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
                 }
             } else {
                 HStack(spacing: 12) {
@@ -927,7 +927,7 @@ private struct PaceInsightsCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
 
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 4) {
@@ -950,13 +950,13 @@ private struct PaceInsightsCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 }
             }
         }
         .padding(14)
-        .background(Theme.surface, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(Theme.border, lineWidth: 1))
     }
 
     private func paceString(_ secPerKm: Double) -> String {
@@ -1062,7 +1062,7 @@ private struct ConsistencyCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
 
                 // Current streak (weekly)
                 VStack(alignment: .leading, spacing: 6) {
@@ -1083,7 +1083,7 @@ private struct ConsistencyCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
 
                 // Total distance or total time
                 if activityType.showsPace {
@@ -1105,7 +1105,7 @@ private struct ConsistencyCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 4) {
@@ -1122,7 +1122,7 @@ private struct ConsistencyCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 }
             }
 
@@ -1147,7 +1147,7 @@ private struct ConsistencyCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 } else {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 4) {
@@ -1164,7 +1164,7 @@ private struct ConsistencyCard: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 }
 
                 // Average per week
@@ -1186,12 +1186,12 @@ private struct ConsistencyCard: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
-                .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
             }
         }
         .padding(14)
-        .background(Theme.surface, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(Theme.border, lineWidth: 1))
     }
 
     private func formatDuration(_ seconds: Int) -> String {
@@ -1258,7 +1258,7 @@ private struct OdometerTile: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
     }
 }
 
@@ -1308,7 +1308,7 @@ private struct StatTile: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface2, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .background(Theme.surface2, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
     }
 }
 
@@ -1454,8 +1454,8 @@ private struct RunRowCard: View {
             }
         }
         .padding(12)
-        .background(Theme.surface, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(Theme.border, lineWidth: 1))
     }
 
     private func formatDuration(_ seconds: Int) -> String {
