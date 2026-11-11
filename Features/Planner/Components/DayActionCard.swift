@@ -66,8 +66,8 @@ struct DayActionCard: View {
                 futureDayAction
             }
         }
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     // MARK: - Past Day Action
@@ -279,8 +279,8 @@ struct DayActionCard: View {
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(Color.white.opacity(0.05), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
+                    .overlay(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)).stroke(DS.Semantic.border, lineWidth: 1))
                 }
 
                 Button {
@@ -296,7 +296,7 @@ struct DayActionCard: View {
                     .foregroundStyle(Color.black)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(DS.Theme.accent, in: RoundedRectangle(cornerRadius: 10))
+                    .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                 }
             }
             .padding(.horizontal, 16)

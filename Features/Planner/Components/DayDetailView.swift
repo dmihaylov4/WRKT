@@ -104,8 +104,8 @@ struct DayDetail: View {
                 ContentUnavailableView("No activity", systemImage: "calendar")
                     .foregroundStyle(DS.Semantic.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
             } else {
                 // Unified Strength Workouts Section
                 if !workouts.isEmpty || !healthKitStrengthWorkouts.isEmpty {
@@ -132,8 +132,8 @@ struct DayDetail: View {
                             }
                         }
                     }
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
                 }
 
                 // Cardio Runs (kept minimal)
@@ -188,8 +188,8 @@ struct DayDetail: View {
                             }
                         }
                     }
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
                 }
             }
         }
@@ -259,8 +259,8 @@ struct DailySummaryCard: View {
             if isExpanded {
                 SummaryGrid(tiles: tiles)
                     .frame(height: 108)
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
-                    .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
                     .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
             }
         }
@@ -282,7 +282,7 @@ private struct SummaryGrid: View {
                 HStack(spacing: 0) { cell(tiles[safe: 2]); VLine(); cell(tiles[safe: 3]) }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
         .background(Color.clear)
     }
 

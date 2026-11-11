@@ -180,8 +180,8 @@ struct PlannedWorkoutCard: View {
                                 .foregroundStyle(DS.Semantic.textPrimary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(Color.white.opacity(0.05), in: ChamferedRectangle(.medium))
-                                .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+                                .background(Color.white.opacity(0.05), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
+                                .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
                             }
                             .buttonStyle(.plain)
                         }
@@ -215,11 +215,11 @@ struct PlannedWorkoutCard: View {
                                 isCompleted
                                     ? Color.white.opacity(0.05)
                                     : DS.Theme.accent,
-                                in: ChamferedRectangle(.medium)
+                                in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                             )
                             .overlay(
                                 isCompleted
-                                    ? ChamferedRectangle(.medium)
+                                    ? DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                                     : nil
                             )
@@ -232,9 +232,9 @@ struct PlannedWorkoutCard: View {
                 }
             }
         }
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .stroke(isCompleted ? DS.Theme.accent.opacity(0.6) : Color.clear, lineWidth: 2)
         )
         .contextMenu {

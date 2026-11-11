@@ -18,5 +18,17 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.small), expected: MainChamferedRectangle(.small).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func dayDetailsAndPlannedCardsKeepLegacyContours() throws {
+        let detail = try ShapeRoleTestSupport.source("Planner/Components/DayDetailView.swift")
+        #expect(detail.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))"))
+        #expect(detail.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous))"))
+        #expect(try ShapeRoleTestSupport.source("Planner/Components/DayActionCard.swift").contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10))"))
+        #expect(try ShapeRoleTestSupport.source("Planner/Components/PlannedWorkoutComponents.swift").contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.card, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous), expected: RoundedRectangle(cornerRadius: 14, style: .continuous).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }
