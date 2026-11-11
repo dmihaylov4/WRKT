@@ -114,7 +114,7 @@
 		2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */; };
 		2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */; };
 		2E7461C82E941FBA00A71C35 /* InteractiveRouteMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */; };
-		2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461CA2E942F9D00A71C35 /* HomeView.swift */; };
+		2E7461CB2E942FA500A71C35 /* BrowseRoute.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461CA2E942F9D00A71C35 /* BrowseRoute.swift */; };
 		2E7461CD2E942FC900A71C35 /* MuscleTaxonomy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461CC2E942FC000A71C35 /* MuscleTaxonomy.swift */; };
 		2E7461CF2E94356D00A71C35 /* WorkoutDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461CE2E94355F00A71C35 /* WorkoutDetail.swift */; };
 		2E7461D42E94377F00A71C35 /* MapRouteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461D32E94377F00A71C35 /* MapRouteView.swift */; };
@@ -582,7 +582,7 @@
 		2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyBrowse.swift; sourceTree = "<group>"; };
 		2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentWorkoutBar.swift; sourceTree = "<group>"; };
 		2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveRouteMap.swift; sourceTree = "<group>"; };
-		2E7461CA2E942F9D00A71C35 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		2E7461CA2E942F9D00A71C35 /* BrowseRoute.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowseRoute.swift; sourceTree = "<group>"; };
 		2E7461CC2E942FC000A71C35 /* MuscleTaxonomy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleTaxonomy.swift; sourceTree = "<group>"; };
 		2E7461CE2E94355F00A71C35 /* WorkoutDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetail.swift; sourceTree = "<group>"; };
 		2E7461D32E94377F00A71C35 /* MapRouteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapRouteView.swift; sourceTree = "<group>"; };
@@ -1134,7 +1134,7 @@
 				2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */,
 				2EC202982EF2A54400D6BAEF /* Components */,
 				2EC2028A2EF2A2D000D6BAEF /* ViewModels */,
-				2E7461CA2E942F9D00A71C35 /* HomeView.swift */,
+				2E7461CA2E942F9D00A71C35 /* BrowseRoute.swift */,
 				2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */,
 			);
 			path = Home;
@@ -2838,7 +2838,7 @@
 				2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */,
 				2E7461CF2E94356D00A71C35 /* WorkoutDetail.swift in Sources */,
 				2E510B6E2E99597D0089EE2C /* SVGHumanBodyView.swift in Sources */,
-				2E7461CB2E942FA500A71C35 /* HomeView.swift in Sources */,
+				2E7461CB2E942FA500A71C35 /* BrowseRoute.swift in Sources */,
 				2EA7DA282EEC17E80017683B /* CacheManager.swift in Sources */,
 				2E0412352F2B62B20090EF16 /* MapSnapshotService.swift in Sources */,
 				2E0413662F3AD0010090EF16 /* DataPortabilityService.swift in Sources */,
