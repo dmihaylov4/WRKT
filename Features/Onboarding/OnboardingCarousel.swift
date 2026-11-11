@@ -100,7 +100,7 @@ struct OnboardingCarouselView: View {
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(DS.Theme.accent, in: ChamferedRectangle(.large))
+                        .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 40)
@@ -215,8 +215,8 @@ private struct BodyweightInputPageView: View {
                 .padding(.horizontal, 32)
             }
             .padding(18)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
-            .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
             .padding(.horizontal, 24)
             .padding(.top, 16)
 
@@ -230,10 +230,10 @@ private struct OnboardingIcon: View {
 
     var body: some View {
         ZStack {
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.xl))
                 .fill(DS.Theme.accent.opacity(0.12))
                 .frame(width: 132, height: 132)
-                .overlay(ChamferedRectangle(.xl).stroke(DS.Theme.accent.opacity(0.35), lineWidth: 1.5))
+                .overlay(DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.xl)).stroke(DS.Theme.accent.opacity(0.35), lineWidth: 1.5))
 
             Image(systemName: systemName)
                 .font(.system(size: 58, weight: .bold))

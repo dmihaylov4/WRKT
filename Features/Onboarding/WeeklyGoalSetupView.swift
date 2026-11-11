@@ -48,7 +48,7 @@ struct WeeklyGoalSetupView: View {
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
-                            .background(DS.Theme.accent, in: ChamferedRectangle(.large))
+                            .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -104,8 +104,8 @@ struct WeeklyGoalSetupView: View {
             Spacer(minLength: 0)
         }
         .padding(18)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
-        .overlay(ChamferedRectangle(.xl).stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1))
     }
 
     private var ageCard: some View {
@@ -294,11 +294,11 @@ struct WeeklyGoalSetupView: View {
                             }
                             .frame(width: 60, height: 60)
                             .background(
-                                ChamferedRectangle(.small)
+                                DS.RoleShape(.nested, legacy: ChamferedRectangle(.small))
                                     .fill(weekStartDay == day ? DS.Theme.accent : DS.Semantic.fillSubtle)
                             )
                             .overlay(
-                                ChamferedRectangle(.small)
+                                DS.RoleShape(.nested, legacy: ChamferedRectangle(.small))
                                     .stroke(weekStartDay == day ? DS.Theme.accent : DS.Semantic.border, lineWidth: 1.5)
                             )
                         }
@@ -364,9 +364,9 @@ private extension View {
         self
             .padding(18)
             .background(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                     .fill(DS.Semantic.card)
-                    .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
             )
     }
 }
