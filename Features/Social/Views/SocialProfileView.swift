@@ -643,36 +643,6 @@ struct SocialProfileView: View {
         }
     }
 
-    private func accountabilityInsightCard(viewModel: ProfileViewModel) -> some View {
-        let insight = primaryInsight(for: viewModel)
-
-        return VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: insight.icon)
-                    .dsFont(.headline)
-                    .foregroundStyle(DS.Semantic.brand)
-
-                Text(insight.title)
-                    .dsFont(.headline)
-                    .foregroundStyle(DS.Semantic.textPrimary)
-            }
-
-            Text(insight.message)
-                .dsFont(.subheadline)
-                .foregroundStyle(DS.Semantic.textSecondary)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ChamferedRectangle(.large)
-                .fill(DS.Semantic.fillSubtle)
-        )
-        .overlay(
-            ChamferedRectangle(.large)
-                .stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1)
-        )
-    }
-
     private func accountabilitySnapshot(viewModel: ProfileViewModel) -> some View {
         let workoutPosts = viewModel.posts.map(\.post)
         let thisWeek = friendWorkoutsThisWeek(posts: workoutPosts)
@@ -875,27 +845,6 @@ struct SocialProfileView: View {
             }
             .frame(height: 10)
         }
-    }
-
-    private func relationshipBadge(viewModel: ProfileViewModel) -> some View {
-        let badge: (String, String) = {
-            if viewModel.isOwnProfile {
-                return ("You", "person.fill")
-            }
-
-            switch viewModel.friendshipStatus {
-            case .none:
-                return ("Not Friends", "plus")
-            case .friends:
-                return ("Friends", "person.2.fill")
-            case .pendingSent:
-                return ("Request Sent", "arrow.up.right")
-            case .pendingReceived:
-                return ("Wants to Connect", "arrow.down.left")
-            }
-        }()
-
-        return pillLabel(icon: badge.1, text: badge.0, tint: DS.Semantic.brand)
     }
 
     private func pillLabel(icon: String, text: String, tint: Color = DS.Semantic.brand) -> some View {

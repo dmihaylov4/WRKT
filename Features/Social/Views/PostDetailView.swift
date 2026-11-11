@@ -181,24 +181,6 @@ struct PostDetailView: View {
         .padding(.horizontal)
     }
 
-    private func imageCarousel(imageUrls: [String]) -> some View {
-        TabView {
-            ForEach(imageUrls, id: \.self) { urlString in
-                KFImage(URL(string: urlString))
-                    .placeholder {
-                        Rectangle()
-                            .fill(DS.Semantic.fillSubtle)
-                            .overlay(ProgressView())
-                    }
-                    .fade(duration: 0.25)
-                    .resizable()
-                    .scaledToFit()
-            }
-        }
-        .frame(height: 350)
-        .tabViewStyle(.page(indexDisplayMode: imageUrls.count > 1 ? .always : .never))
-    }
-
     // MARK: - Workout Report
 
     private func workoutReport(viewModel: PostDetailViewModel) -> some View {
@@ -1099,63 +1081,6 @@ struct PostDetailView: View {
         } else {
             return String(format: "%d:%02d", m, s)
         }
-    }
-
-    private func statCard(icon: String, value: String, label: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .dsFont(.title3)
-                .foregroundStyle(DS.Semantic.brand)
-
-            Text(value)
-                .dsFont(.headline)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            Text(label)
-                .dsFont(.caption)
-                .foregroundStyle(DS.Semantic.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-    }
-
-    private func exerciseRow(entry: WorkoutEntry) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(entry.exerciseName)
-                .dsFont(.subheadline, weight: .bold)
-                .foregroundStyle(DS.Semantic.textPrimary)
-
-            ForEach(Array(entry.sets.enumerated()), id: \.offset) { index, set in
-                HStack {
-                    Text("Set \(index + 1):")
-                        .dsFont(.caption)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-
-                    if set.weight > 0 {
-                        Text(unit.formatSet(reps: set.reps, weightKg: set.weight))
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textPrimary)
-                    } else {
-                        Text("\(set.reps) reps")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Semantic.textPrimary)
-                    }
-
-                    Spacer()
-
-                    if set.isCompleted {
-                        Image(systemName: "checkmark.circle.fill")
-                            .dsFont(.caption)
-                            .foregroundStyle(DS.Status.success)
-                    }
-                }
-            }
-        }
-        .padding(12)
-        .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 
     private func statsSection(viewModel: PostDetailViewModel) -> some View {
