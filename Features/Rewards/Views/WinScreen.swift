@@ -291,9 +291,9 @@ struct WinScreenView: View {
                             }
                         .background(.white.opacity(0.15))
                         .foregroundStyle(.white)
-                            .clipShape(ChamferedRectangle(.medium))
+                            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                             .overlay(
-                                ChamferedRectangle(.medium)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                     .stroke(.white.opacity(0.2), lineWidth: 1)
                             )
                         }
@@ -316,7 +316,7 @@ struct WinScreenView: View {
                         }
                         .background(DS.Theme.accent)
                         .foregroundStyle(.black)
-                        .clipShape(ChamferedRectangle(.medium))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
@@ -453,8 +453,8 @@ struct WinScreenView: View {
             .dsFont(.subheadline, weight: .semibold)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isLucky ? DS.Theme.accent.opacity(0.16) : .white.opacity(0.10), in: ChamferedRectangle(.small))
-            .overlay(ChamferedRectangle(.small).stroke(isLucky ? DS.Theme.accent.opacity(0.45) : .white.opacity(0.15), lineWidth: 1))
+            .background(isLucky ? DS.Theme.accent.opacity(0.16) : .white.opacity(0.10), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
+            .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(isLucky ? DS.Theme.accent.opacity(0.45) : .white.opacity(0.15), lineWidth: 1))
             .foregroundStyle(isLucky ? DS.Theme.accent : .white)
     }
 
@@ -500,8 +500,8 @@ private struct PlateRevealCard: View {
         HStack(spacing: 12) {
             RealityPlatePreview(plate: plate)
                 .frame(width: 72, height: 58)
-                .clipShape(ChamferedRectangle(.small))
-                .overlay(ChamferedRectangle(.small).stroke(rarityColor.opacity(0.35), lineWidth: 1))
+                .clipShape(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)))
+                .overlay(DS.RoleShape(.tile, legacy: ChamferedRectangle(.small)).stroke(rarityColor.opacity(0.35), lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -513,7 +513,7 @@ private struct PlateRevealCard: View {
                         .foregroundStyle(rarityColor)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(rarityColor.opacity(0.15), in: ChamferedRectangle(.small))
+                        .background(rarityColor.opacity(0.15), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                 }
                 Text(plate.engravingText)
                     .dsFont(.caption)
@@ -526,8 +526,8 @@ private struct PlateRevealCard: View {
                 .foregroundStyle(DS.Semantic.brand)
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(rarityColor.opacity(0.35), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(rarityColor.opacity(0.35), lineWidth: 1))
     }
 
 }
@@ -558,7 +558,7 @@ private struct SkinRevealCard: View {
                         .foregroundStyle(skin?.rarity.color ?? DS.Semantic.brand)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.15), in: ChamferedRectangle(.small))
+                        .background((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.15), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                 }
 
                 Text("Exclusive bar skin - equip it in your Barbell")
@@ -572,8 +572,8 @@ private struct SkinRevealCard: View {
                 .foregroundStyle(DS.Semantic.brand)
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.35), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke((skin?.rarity.color ?? DS.Semantic.brand).opacity(0.35), lineWidth: 1))
         .onAppear {
             BarbellProgressService.shared.playCosmeticEquipFeedback()
         }
@@ -606,8 +606,8 @@ private struct ChallengeRewardCard: View {
                 .foregroundStyle(DS.Semantic.brand)
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -638,8 +638,8 @@ private struct ChallengeRewardCard: View {
                 .frame(width: 24, height: 24)
                 .foregroundStyle(DS.Semantic.brand)
                 .frame(width: 44, height: 44)
-                .background(DS.Semantic.brand.opacity(0.12), in: ChamferedRectangle(.small))
-                .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1))
+                .background(DS.Semantic.brand.opacity(0.12), in: DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.small)))
+                .overlay(DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.small)).stroke(DS.Semantic.brand.opacity(0.35), lineWidth: 1))
         }
     }
 }
@@ -649,7 +649,7 @@ private struct RealityPlatePreview: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 4)
+            DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 4))
                 .fill(DS.Theme.cardBottom.opacity(0.55))
             CachedPlateThumbnail(
                 tierID: plate.tierID,
@@ -683,11 +683,11 @@ private struct LuckyBonusBanner: View {
             .padding(.vertical, 10)
             .background(
                 ZStack {
-                    ChamferedRectangle(.medium)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                         .fill(DS.Theme.accent)
 
                     // Shimmer effect
-                    ChamferedRectangle(.medium)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                         .fill(
                             LinearGradient(
                                 colors: [.clear, .white.opacity(0.4), .clear],
@@ -696,7 +696,7 @@ private struct LuckyBonusBanner: View {
                             )
                         )
                         .offset(x: shimmer ? 100 : -100)
-                        .mask(ChamferedRectangle(.medium))
+                        .mask(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                 }
             )
             .shadow(color: DS.Theme.accent.opacity(0.35), radius: 10, x: 0, y: 0)
@@ -733,8 +733,8 @@ private struct HighlightsOnlyCard: View {
             }
         }
         .padding(14)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.10), lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(.white.opacity(0.10), lineWidth: 1))
     }
 }
 
@@ -915,10 +915,10 @@ private struct XPGainCardStaggered: View {
             isLuckyBonus
                 ? DS.Theme.accent.opacity(0.08)
                 : DS.Theme.cardTop,
-            in: ChamferedRectangle(.large)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
         )
         .overlay(
-            ChamferedRectangle(.large).stroke(
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(
                 isLuckyBonus ? DS.Theme.accent.opacity(0.26) : .white.opacity(0.10),
                 lineWidth: 1
             )
