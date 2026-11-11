@@ -292,10 +292,10 @@ struct ProfileStatsView: View {
         }
         .padding(10)
         .background(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .fill(Color.black)
                 .overlay(
-                    ChamferedRectangle(.xl)
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                         .stroke(.white.opacity(0.08), lineWidth: 1)
                 )
         )
@@ -558,8 +558,8 @@ private struct VolumeWithTrendChart: View {
             .padding(.leading, 8)
             .padding(.trailing, 8)
             .padding(.vertical, 12)
-            .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
+            .background(.white.opacity(0.03), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 16, style: .continuous)))
+            .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 16, style: .continuous)).stroke(.white.opacity(0.08), lineWidth: 1))
 
             // Legend (only show if we have trend analysis)
             if hasMultipleWeeks {
@@ -705,8 +705,8 @@ private struct TopLiftsCard: View {
                     Spacer()
                 }
                 .padding(16)
-                .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
+                .background(.white.opacity(0.03), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+                .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(.white.opacity(0.08), lineWidth: 1))
             } else {
                 VStack(spacing: 8) {
                     ForEach(items) { item in
@@ -779,8 +779,8 @@ private struct TopLiftsCard: View {
                                     .foregroundStyle(.white.opacity(0.4))
                             }
                             .padding(10)
-                            .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
+                            .background(.white.opacity(0.03), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+                            .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(.white.opacity(0.08), lineWidth: 1))
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -876,14 +876,14 @@ private struct StatPill: View {
                     .minimumScaleFactor(0.8)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .background(.white.opacity(0.07), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 5, style: .continuous)))
             }
         }
         .frame(maxWidth: .infinity, minHeight: 78)
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.12), lineWidth: 1))
+        .background(.white.opacity(0.05), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+        .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(.white.opacity(0.12), lineWidth: 1))
     }
 }
 

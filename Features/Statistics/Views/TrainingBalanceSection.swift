@@ -134,10 +134,10 @@ struct TrainingBalanceSection: View {
         }
         .padding(20)
         .background(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .fill(Color.black)
                 .overlay(
-                    ChamferedRectangle(.xl)
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                         .stroke(.white.opacity(0.08), lineWidth: 1)
                 )
         )
@@ -161,8 +161,8 @@ private struct EmptyDataCard: View {
             Spacer()
         }
         .padding(16)
-        .background(.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(.white.opacity(0.08), lineWidth: 1))
+        .background(.white.opacity(0.03), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
+        .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 
@@ -483,7 +483,7 @@ private struct MuscleFrequencyHeatMap: View {
                             .dsFont(.subheadline)
                             .foregroundStyle(.white.opacity(0.7))
                             .padding(6)
-                            .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+                            .background(.white.opacity(0.1), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 6)))
                     }
                     .buttonStyle(.plain)
                 }
@@ -618,8 +618,8 @@ private struct MuscleTile: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .padding(.horizontal, 4)
-        .background(status.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(status.color.opacity(0.4), lineWidth: 1))
+        .background(status.color.opacity(0.12), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
+        .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)).stroke(status.color.opacity(0.4), lineWidth: 1))
     }
 }
 
@@ -853,13 +853,13 @@ private struct EnhancedRecoveryView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(.white.opacity(0.1), lineWidth: 1))
+            .background(.white.opacity(0.05), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
+            .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)).stroke(.white.opacity(0.1), lineWidth: 1))
 
             // SVG Body Diagram with recovery coloring
             ZStack {
                 // Background
-                RoundedRectangle(cornerRadius: 12)
+                DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12))
                     .fill(.white.opacity(0.03))
 
                 // Body SVG
@@ -873,7 +873,7 @@ private struct EnhancedRecoveryView: View {
                 .frame(height: 320)
                 .padding(.vertical, 16)
             }
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(.white.opacity(0.08), lineWidth: 1))
+            .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)).stroke(.white.opacity(0.08), lineWidth: 1))
 
             // Legend
             RecoveryLegend()
@@ -1042,8 +1042,8 @@ private struct RecoveryLegend: View {
             }
         }
         .padding(12)
-        .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.08), lineWidth: 1))
+        .background(.white.opacity(0.05), in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10)))
+        .overlay(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 
