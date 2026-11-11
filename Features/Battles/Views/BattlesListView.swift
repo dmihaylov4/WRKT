@@ -137,12 +137,12 @@ struct BattlesListView: View {
         }
         .padding(4)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .fill(DS.Semantic.card.opacity(0.5))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .strokeBorder(DS.Semantic.border.opacity(0.3), lineWidth: 1)
         )
         .padding(.horizontal, 16)
@@ -380,9 +380,9 @@ struct BattleCard: View {
                     endPoint: .bottomTrailing
                 )
             )
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16))
                     .stroke(
                         viewModel.isCurrentUserWinning(for: battle)
                             ? DS.Semantic.brand.opacity(0.4)
@@ -442,9 +442,9 @@ struct PendingBattleCard: View {
                     .frame(width: 22, height: 22)
                     .foregroundStyle(DS.Semantic.brand)
                     .frame(width: 38, height: 38)
-                    .background(DS.Semantic.brandSoft, in: ChamferedRectangleAlt(.small))
+                    .background(DS.Semantic.brandSoft, in: DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small)))
                     .overlay(
-                        ChamferedRectangleAlt(.small)
+                        DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small))
                             .stroke(DS.Semantic.brand.opacity(0.24), lineWidth: 1)
                     )
             }
@@ -469,9 +469,9 @@ struct PendingBattleCard: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                             .background(DS.Semantic.surface50)
-                            .clipShape(ChamferedRectangle(.large))
+                            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                             .overlay(
-                                ChamferedRectangle(.large)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                     .stroke(DS.Semantic.border, lineWidth: 1)
                             )
                     }
@@ -497,9 +497,9 @@ struct PendingBattleCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                         .background(DS.Semantic.brand)
-                        .clipShape(ChamferedRectangle(.large))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                         .overlay(
-                            ChamferedRectangle(.large)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                 .stroke(DS.Semantic.brand.opacity(0.4), lineWidth: 1)
                         )
                     }
@@ -514,9 +514,9 @@ struct PendingBattleCard: View {
         }
         .padding(16)
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.large))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.brand.opacity(0.3), lineWidth: 1.5)
         )
         .contentShape(ChamferedRectangle(.large))
@@ -621,9 +621,9 @@ struct CompletedBattleCard: View {
             }
             .padding(16)
             .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -689,7 +689,7 @@ struct ScoreColumn: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(isWinning ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)))
     }
 
     private var scoreText: String {
@@ -751,17 +751,17 @@ struct SkeletonBattleCard: View {
                 Rectangle()
                     .fill(DS.Semantic.fillSubtle)
                     .frame(height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)))
 
                 Rectangle()
                     .fill(DS.Semantic.fillSubtle)
                     .frame(height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 12)))
             }
         }
         .padding(16)
         .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isAnimating)
         .onAppear { isAnimating = true }

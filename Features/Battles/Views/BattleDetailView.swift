@@ -129,9 +129,9 @@ struct BattleDetailView: View {
             statusLine
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -174,9 +174,9 @@ struct BattleDetailView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(DS.Semantic.fillSubtle, in: ChamferedRectangleAlt(.medium))
+                .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.medium)))
                 .overlay(
-                    ChamferedRectangleAlt(.medium)
+                    DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.medium))
                         .stroke(DS.Semantic.border, lineWidth: 1)
                 )
             }
@@ -210,9 +210,9 @@ struct BattleDetailView: View {
             }
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -234,7 +234,7 @@ struct BattleDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(DS.Semantic.brand, in: SingleChamferedRectangle(corner: .topTrailing, .large))
+                .background(DS.Semantic.brand, in: DS.RoleShape(.control, legacy: SingleChamferedRectangle(corner: .topTrailing, .large)))
             }
             .buttonStyle(.plain)
             .disabled(isProcessingBattleAccept || isProcessingBattleExit)
@@ -247,9 +247,9 @@ struct BattleDetailView: View {
                     .foregroundStyle(DS.Status.error)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .background(DS.Semantic.card, in: SingleChamferedRectangle(corner: .topLeading, .large))
+                    .background(DS.Semantic.card, in: DS.RoleShape(.control, legacy: SingleChamferedRectangle(corner: .topLeading, .large)))
                     .overlay(
-                        SingleChamferedRectangle(corner: .topLeading, .large)
+                        DS.RoleShape(.control, legacy: SingleChamferedRectangle(corner: .topLeading, .large))
                             .stroke(DS.Status.error.opacity(0.4), lineWidth: 1)
                     )
             }
@@ -271,9 +271,9 @@ struct BattleDetailView: View {
                     .frame(width: 18, height: 18)
                     .foregroundStyle(DS.Status.error)
                     .frame(width: 36, height: 36)
-                    .background(DS.Status.error.opacity(0.12), in: ChamferedRectangleAlt(.small))
+                    .background(DS.Status.error.opacity(0.12), in: DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small)))
                     .overlay(
-                        ChamferedRectangleAlt(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small))
                             .stroke(DS.Status.error.opacity(0.25), lineWidth: 1)
                     )
 
@@ -299,14 +299,14 @@ struct BattleDetailView: View {
                         .foregroundStyle(DS.Status.error)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
-                        .background(DS.Status.error.opacity(0.12), in: ChamferedRectangle(.micro))
+                        .background(DS.Status.error.opacity(0.12), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
                 }
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Status.error.opacity(0.32), lineWidth: 1)
             )
         }
@@ -338,9 +338,9 @@ struct BattleDetailView: View {
             }
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -370,10 +370,10 @@ struct BattleDetailView: View {
             .padding(24)
             .background(
                 isCurrentUserWinner(winner) ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle,
-                in: ChamferedRectangle(.large)
+                in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
             )
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(
                         isCurrentUserWinner(winner)
                             ? DS.Semantic.brand.opacity(0.3)
@@ -391,9 +391,9 @@ struct BattleDetailView: View {
             .foregroundStyle(statusTextColor)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(statusColor, in: ChamferedRectangle(.small))
+            .background(statusColor, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
             .overlay(
-                ChamferedRectangle(.small)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                     .stroke(statusColor.opacity(0.35), lineWidth: 1)
             )
     }
@@ -465,9 +465,9 @@ struct BattleDetailView: View {
                 .frame(width: 16, height: 16)
                 .foregroundStyle(DS.Semantic.brand)
                 .frame(width: 30, height: 30)
-                .background(DS.Semantic.brandSoft, in: ChamferedRectangleAlt(.small))
+                .background(DS.Semantic.brandSoft, in: DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small)))
                 .overlay(
-                    ChamferedRectangleAlt(.small)
+                    DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small))
                         .stroke(DS.Semantic.brand.opacity(0.24), lineWidth: 1)
                 )
 
@@ -745,17 +745,17 @@ private struct BattleScorePanel: View {
                 .padding(.vertical, 5)
                 .background(
                     isLeading && !isTied ? DS.Semantic.brandSoft : DS.Semantic.surface50,
-                    in: ChamferedRectangle(.micro)
+                    in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro))
                 )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(
             isLeading && !isTied ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle,
-            in: ChamferedRectangle(.large)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
         )
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(isLeading && !isTied ? DS.Semantic.brand.opacity(0.42) : DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -812,9 +812,9 @@ private struct BattleDetailMetric: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(DS.Semantic.fillSubtle, in: ChamferedRectangleAlt(.medium))
+        .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: ChamferedRectangleAlt(.medium)))
         .overlay(
-            ChamferedRectangleAlt(.medium)
+            DS.RoleShape(.nested, legacy: ChamferedRectangleAlt(.medium))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }

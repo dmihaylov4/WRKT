@@ -84,9 +84,9 @@ struct CreateBattleView: View {
                     .dsFont(.subheadline, weight: .medium)
                     .foregroundStyle(DS.Semantic.brand)
                     .frame(width: 96, height: 46)
-                    .background(DS.Semantic.card.opacity(0.72), in: ChamferedRectangleAlt(.large))
+                    .background(DS.Semantic.card.opacity(0.72), in: DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large)))
                     .overlay(
-                        ChamferedRectangleAlt(.large)
+                        DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                             .stroke(DS.Semantic.border.opacity(0.55), lineWidth: 1)
                     )
             }
@@ -148,9 +148,9 @@ struct CreateBattleView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 64)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(selectedFriend != nil ? DS.Semantic.brand.opacity(0.35) : DS.Semantic.border, lineWidth: 1.5)
             )
             .contentShape(ChamferedRectangle(.large))
@@ -261,10 +261,10 @@ struct CreateBattleView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(hasOpponent ? DS.Semantic.brand : DS.Semantic.surface50, in: ChamferedRectangle(.large))
+                .background(hasOpponent ? DS.Semantic.brand : DS.Semantic.surface50, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                 .foregroundStyle(hasOpponent ? .black : DS.Semantic.textPrimary)
                 .overlay(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                         .stroke(hasOpponent ? DS.Semantic.brand.opacity(0.35) : DS.Semantic.border.opacity(0.4), lineWidth: 1)
                 )
                 .shadow(color: hasOpponent ? DS.Semantic.brand.opacity(0.25) : .clear, radius: 12, y: 4)
@@ -285,9 +285,9 @@ struct CreateBattleView: View {
                 summaryRow(label: "Start", value: "Starts when accepted")
             }
             .padding(12)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -367,7 +367,7 @@ private struct BattleTypeCard: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 ZStack {
-                    ChamferedRectangleAlt(.small)
+                    DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small))
                         .fill(isSelected ? DS.Semantic.brand.opacity(0.16) : DS.Semantic.fillSubtle)
 
                     BattleAssetIcon(
@@ -392,10 +392,10 @@ private struct BattleTypeCard: View {
                 Spacer()
 
                 ZStack {
-                    ChamferedRectangleAlt(.small)
+                    DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small))
                         .fill(isSelected ? DS.Semantic.brand : Color.clear)
                         .overlay(
-                            ChamferedRectangleAlt(.small)
+                            DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small))
                                 .stroke(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: 2)
                         )
 
@@ -411,9 +411,9 @@ private struct BattleTypeCard: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 64)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(isSelected ? DS.Semantic.brand : DS.Semantic.border, lineWidth: isSelected ? 2.5 : 1)
             )
             .contentShape(ChamferedRectangle(.large))
@@ -442,9 +442,9 @@ private struct DurationButton: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 58)
-            .background(isSelected ? DS.Semantic.brand : DS.Semantic.card, in: ChamferedRectangleAlt(.medium))
+            .background(isSelected ? DS.Semantic.brand : DS.Semantic.card, in: DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.medium)))
             .overlay(
-                ChamferedRectangleAlt(.medium)
+                DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.medium))
                     .stroke(isSelected ? DS.Semantic.brand.opacity(0.3) : DS.Semantic.border, lineWidth: 1)
             )
             .contentShape(ChamferedRectangleAlt(.medium))
