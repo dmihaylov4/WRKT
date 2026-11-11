@@ -92,5 +92,13 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.large), expected: MainChamferedRectangle(.large).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func allFilterChipIsAControlEvenAtNarrowAspectRatios() throws {
+        let filters = try ShapeRoleTestSupport.source("ExerciseRepository/Components/FilterComponents.swift")
+        #expect(filters.contains(".background(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).fill(fillColor))"))
+        #expect(filters.contains(".overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(borderColor, lineWidth: borderWidth))"))
+        for rect in ShapeRoleTestSupport.rects + [CGRect(x: 3, y: 7, width: 46, height: 34), CGRect(x: 3, y: 7, width: 80, height: 34)] {
+            ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.small), expected: MainChamferedRectangle(.small).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }
