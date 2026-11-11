@@ -171,7 +171,7 @@ struct LastWorkoutCard: View {
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 1)
                                 .background(Color.orange)
-                                .cornerRadius(3)
+                                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 3)))
                         }
 
                         Spacer()
@@ -208,8 +208,8 @@ struct LastWorkoutCard: View {
                     )
                 )
         )
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 
 

@@ -77,7 +77,7 @@ struct ComparativeStatsCard: View {
                     )
                 )
         )
-        .clipShape(ChamferedRectangle(.large))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
     }
 }
 

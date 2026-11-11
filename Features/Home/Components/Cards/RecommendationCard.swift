@@ -48,7 +48,7 @@ struct RecommendationCard: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(DS.tint.opacity(0.15))
-                        .cornerRadius(8)
+                        .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8)))
                 }
             }
         }
@@ -67,8 +67,8 @@ struct RecommendationCard: View {
                     )
                 )
         )
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 

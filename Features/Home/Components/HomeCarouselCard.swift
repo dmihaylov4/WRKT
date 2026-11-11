@@ -11,6 +11,10 @@ struct HomeCarouselCard<Content: View>: View {
     var accent: Color = DS.tint
     @ViewBuilder let content: Content
 
+    var surfaceShape: DS.RoleShape<ChamferedRectangle> {
+        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
+    }
+
     var body: some View {
         content
             .padding(14)
@@ -28,7 +32,7 @@ struct HomeCarouselCard<Content: View>: View {
                         )
                     )
             )
-            .clipShape(ChamferedRectangle(.large))
-            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+            .clipShape(surfaceShape)
+            .overlay(surfaceShape.stroke(DS.Semantic.border, lineWidth: 1))
     }
 }

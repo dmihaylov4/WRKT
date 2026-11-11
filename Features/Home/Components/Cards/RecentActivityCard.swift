@@ -76,8 +76,8 @@ struct RecentActivityCard: View {
                     )
                 )
         )
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 
     // MARK: - Strength Section
@@ -297,11 +297,15 @@ struct RecentActivityCard: View {
 
 /// Custom button style for clickable card sections
 struct ClickableSectionStyle: ButtonStyle {
+    var surfaceShape: DS.RoleShape<RoundedRectangle> {
+        DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding(10)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                surfaceShape
                     .fill(configuration.isPressed ? DS.Semantic.fillSubtle.opacity(0.8) : DS.Semantic.fillSubtle.opacity(0.5))
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)

@@ -17,7 +17,9 @@ struct HomeCarouselCardStyleTests {
         )
 
         #expect(sharedSource.contains("struct HomeCarouselCard<Content: View>: View"))
-        #expect(sharedSource.contains("ChamferedRectangle(.large).stroke"))
+        #expect(sharedSource.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.large))"))
+        #expect(sharedSource.contains(".clipShape(surfaceShape)"))
+        #expect(sharedSource.contains("surfaceShape.stroke"))
         #expect(weeklySource.contains("HomeCarouselCard("))
         #expect(friendSource.contains("HomeCarouselCard("))
         #expect(!weeklySource.contains(".clipShape(ChamferedRectangle(.large))"))

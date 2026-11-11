@@ -165,8 +165,8 @@ struct LastCardioCard: View {
                     )
                 )
         )
-        .clipShape(ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 }
 
