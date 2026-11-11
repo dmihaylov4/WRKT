@@ -78,5 +78,19 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.large), expected: MainChamferedRectangle(.large).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func inviteNestedFieldsStandaloneSteppersAndFootersPreserveLegacyPaths() throws {
+        let library = try ShapeRoleTestSupport.source("Planner/Views/Library/ProgramLibraryView.swift")
+        let start = try #require(library.range(of: "private struct ProgramExerciseStepperRow"))
+        let end = try #require(library.range(of: "private struct ProgramInviteUnavailableCard"))
+        #expect(library[start.lowerBound..<end.lowerBound].contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.large))"))
+        #expect(library.contains("DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))"))
+        let footer = try #require(library.range(of: "private struct ProgramFooterButton"))
+        #expect(library[footer.lowerBound...].contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.large))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.nested, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: 10)
+            ShapeRoleTestSupport.check(.card, legacy: ChamferedRectangle(.large), expected: MainChamferedRectangle(.large).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.large), expected: MainChamferedRectangle(.large).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }

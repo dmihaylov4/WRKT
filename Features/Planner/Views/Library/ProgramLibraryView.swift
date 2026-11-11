@@ -1208,10 +1208,10 @@ struct ProgramPreviewView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: ChamferedRectangle(.xl)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
         )
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1)
         )
     }
@@ -1385,9 +1385,9 @@ private struct ProgramInviteDayCard: View {
                     }
                     .buttonStyle(.plain)
                     .padding(12)
-                    .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.medium))
+                    .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
                     .overlay(
-                        ChamferedRectangle(.medium)
+                        DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))
                             .stroke(Color.white.opacity(0.06), lineWidth: 1)
                     )
                 }
@@ -1395,9 +1395,9 @@ private struct ProgramInviteDayCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
         .onDrag {
@@ -1523,9 +1523,9 @@ private struct ProgramExerciseEditSheet: View {
                             .dsFont(.headline, weight: .semibold)
                             .foregroundStyle(DS.Semantic.textPrimary)
                             .padding(.vertical, 10)
-                            .background(DS.Semantic.surface50.opacity(0.9), in: ChamferedRectangle(.medium))
+                            .background(DS.Semantic.surface50.opacity(0.9), in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
                             .overlay(
-                                ChamferedRectangle(.medium)
+                                DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))
                                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
                             )
                             .overlay(alignment: .trailing) {
@@ -1547,9 +1547,9 @@ private struct ProgramExerciseEditSheet: View {
                         .foregroundStyle(DS.Theme.accent)
                     }
                     .padding(14)
-                    .background(DS.Semantic.surface50.opacity(0.65), in: ChamferedRectangle(.large))
+                    .background(DS.Semantic.surface50.opacity(0.65), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                     .overlay(
-                        ChamferedRectangle(.large)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     )
                 }
@@ -1607,9 +1607,9 @@ private struct ProgramExerciseStepperRow: View {
             .fixedSize()
         }
         .padding(14)
-        .background(DS.Semantic.surface50.opacity(0.65), in: ChamferedRectangle(.large))
+        .background(DS.Semantic.surface50.opacity(0.65), in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
@@ -1645,9 +1645,9 @@ private struct ProgramInviteUnavailableCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(DS.Semantic.warning.opacity(0.22), lineWidth: 1)
         )
     }
@@ -1678,9 +1678,9 @@ private struct ProgramFooterButton: View {
                 .foregroundStyle(kind == .primary ? Color.black : DS.Theme.accent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(background, in: ChamferedRectangle(.large))
+                .background(background, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                 .overlay(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                         .stroke(borderColor, lineWidth: 1)
                 )
                 .opacity(isDisabled ? 0.35 : 1)
