@@ -105,49 +105,4 @@ struct OverviewCard: View {
         }
     }
 
-    private struct ChipView: View {
-        let item: ChipItem
-
-        var body: some View {
-            HStack(spacing: 7) {
-                Image(systemName: item.icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(item.color)
-
-                Text(item.label)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(
-                ZStack {
-                    // Base dark background
-                    Capsule()
-                        .fill(Color(hex: "#1A1A1A"))
-
-                    // Subtle color glow
-                    Capsule()
-                        .fill(
-                            LinearGradient(
-                                colors: [item.color.opacity(0.15), item.color.opacity(0.05)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                }
-            )
-            .overlay(
-                Capsule()
-                    .stroke(
-                        LinearGradient(
-                            colors: [item.color.opacity(0.4), item.color.opacity(0.2)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-        }
-    }
 }

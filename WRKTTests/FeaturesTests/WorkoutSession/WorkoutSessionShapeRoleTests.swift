@@ -27,7 +27,7 @@ struct WorkoutSessionShapeRoleTests {
     @Test func liveOverlayRolesKeepLegacyPaths() throws {
         let hero = try source("LiveWorkout/LiveWorkoutOverlayCard.swift", from: "private struct CurrentExerciseHeroCard", until: "private struct SupersetGroupSection")
         #expect(hero.contains("DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))"))
-        let dialog = try source("LiveWorkout/LiveWorkoutOverlayCard.swift", from: "private struct DiscardConfirmationDialog", until: "private struct LiveWorkoutRow")
+        let dialog = try source("LiveWorkout/LiveWorkoutOverlayCard.swift", from: "private struct DiscardConfirmationDialog", until: "struct WorkoutTimerText")
         #expect(dialog.contains("DS.RoleShape(.alert, legacy: ChamferedRectangle(.xl))"))
         #expect(dialog.contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.large))"))
         for rect in [CGRect(x: 3, y: 7, width: 340, height: 180), CGRect(x: 3, y: 7, width: 40, height: 30)] {

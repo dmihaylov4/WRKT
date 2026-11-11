@@ -9,46 +9,6 @@ import SwiftUI
 
 private typealias Theme = ExerciseSessionTheme
 
-// MARK: - Compact Rest Timer Badge (Inline)
-
-struct RestTimerCompactBadge: View {
-    let exerciseID: String
-    @ObservedObject private var manager = RestTimerManager.shared
-    @ObservedObject private var ticker = RestTimerManager.shared.ticker
-
-    private var isActive: Bool {
-        manager.isTimerFor(exerciseID: exerciseID) && manager.isRunning
-    }
-
-    private var timeRemaining: String {
-        let remaining = ticker.remainingSeconds.safeInt
-        let minutes = remaining / 60
-        let seconds = remaining % 60
-        if minutes > 0 {
-            return String(format: "%d:%02d", minutes, seconds)
-        } else {
-            return "\(seconds)s"
-        }
-    }
-
-    var body: some View {
-        if isActive {
-            HStack(spacing: 4) {
-                Image(systemName: "timer")
-                    .dsFont(.caption2)
-                Text(timeRemaining)
-                    .dsFont(.caption, weight: .semibold, monospacedDigits: true)
-            }
-            .foregroundStyle(Theme.accent)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(Theme.accent.opacity(0.12))
-            .clipShape(ChamferedRectangle(.small))
-            .transition(.scale.combined(with: .opacity))
-        }
-    }
-}
-
 // MARK: - Isolated Countdown Text
 
 /// Leaf view that isolates per-second countdown re-renders. Embed this

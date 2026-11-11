@@ -825,64 +825,6 @@ private struct DiscardConfirmationDialog: View {
     }
 }
 
-// MARK: - Row
-private struct LiveWorkoutRow: View {
-    let entry: WorkoutEntry
-    let unit: WeightUnit
-    let onOpen: () -> Void
-    let onRemove: () -> Void
-    let onDuplicate: (() -> Void)?
-
-    private var summary: String {
-        if entry.sets.isEmpty { return "No sets yet" }
-        return entry.sets.map { unit.formatSetCompact(reps: $0.reps, weightKg: $0.weight) }.joined(separator: "  •  ")
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(entry.exerciseName)
-                    .dsFont(.subheadline, weight: .medium)
-                Text(summary)
-                    .dsFont(.caption)
-                    .foregroundStyle(.white.opacity(0.65))
-            }
-
-            Spacer()
-            Button(role: .destructive, action: onRemove) {
-                Image(systemName: "xmark.circle.fill")
-                    .dsFont(.title3)
-            }
-            .buttonStyle(.plain)
-            .padding(.leading, 4)
-            .accessibilityLabel("Remove \(entry.exerciseName)")
-        }
-    
-        .contentShape(Rectangle())
-        .onTapGesture { onOpen() }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive, action: onRemove) {
-                Label("Remove", systemImage: "trash")
-            }
-            if let onDuplicate {
-                Button(action: onDuplicate) {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
-                }
-            }
-        }
-        .contextMenu {
-            Button(role: .destructive, action: onRemove) {
-                Label("Remove", systemImage: "trash")
-            }
-            if let onDuplicate {
-                Button(action: onDuplicate) {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
-                }
-            }
-        }
-    }
-}
-
 // MARK: - Timer (numbers only, tiny neon pill)
 struct WorkoutTimerText: View {
     let startDate: Date
@@ -1323,65 +1265,6 @@ private struct SupersetHeroRow: View {
         )
         .contentShape(Rectangle())
         .onTapGesture { onOpen() }
-    }
-}
-
-// MARK: - Exercise Group Section (Generic for all states) - Legacy, kept for compatibility
-private struct ExerciseGroupSection: View {
-    let title: String
-    let unit: WeightUnit
-    let entries: [WorkoutEntry]
-    let onOpen: (WorkoutEntry) -> Void
-    let onRemove: (UUID) -> Void
-
-    @State private var isExpanded = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack {
-                    Text(title)
-                        .dsFont(.subheadline, weight: .semibold)
-                        .foregroundStyle(DS.Semantic.textPrimary)
-
-                    Spacer()
-
-                    Text("\(entries.count)")
-                        .dsFont(.caption, weight: .medium)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-
-                    Image(systemName: "chevron.right")
-                        .dsFont(.caption, weight: .semibold)
-                        .foregroundStyle(DS.Semantic.textSecondary)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .animation(.spring(response: 0.3, dampingFraction: 0.75), value: isExpanded)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            // Expandable list
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(entries, id: \.id) { entry in
-                        ExerciseGroupRow(
-                            entry: entry,
-                            unit: unit,
-                            onOpen: { onOpen(entry) },
-                            onRemove: { onRemove(entry.id) },
-                            onSwap: {}
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
