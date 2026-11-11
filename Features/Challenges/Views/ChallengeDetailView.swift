@@ -100,9 +100,9 @@ struct ChallengeDetailView: View {
                         .foregroundStyle(DS.Semantic.textSecondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
-                        .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.small))
+                        .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                         .overlay(
-                            ChamferedRectangle(.small)
+                            DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                                 .stroke(DS.Semantic.border, lineWidth: 1)
                         )
                 }
@@ -123,9 +123,9 @@ struct ChallengeDetailView: View {
             .foregroundStyle(displayedChallenge.challenge.daysRemaining > 0 || displayedChallenge.challenge.isEvergreen ? DS.Semantic.brand : DS.Semantic.textSecondary)
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -165,9 +165,9 @@ struct ChallengeDetailView: View {
             }
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -202,9 +202,9 @@ struct ChallengeDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -243,9 +243,9 @@ struct ChallengeDetailView: View {
             }
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -256,7 +256,7 @@ struct ChallengeDetailView: View {
                 .dsFont(.subheadline, weight: .black)
                 .foregroundStyle(rankColor(rank))
                 .frame(width: 28, height: 28)
-                .background(rankColor(rank).opacity(0.14), in: ChamferedRectangle(.micro))
+                .background(rankColor(rank).opacity(0.14), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(username)
@@ -277,9 +277,9 @@ struct ChallengeDetailView: View {
                 .foregroundStyle(rank == 1 ? DS.Semantic.brand : DS.Semantic.textSecondary)
         }
         .padding(12)
-        .background(rank <= 3 ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle, in: ChamferedRectangle(.large))
+        .background(rank <= 3 ? DS.Semantic.brandSoft : DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))
                 .stroke(rank <= 3 ? DS.Semantic.brand.opacity(0.2) : DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -304,9 +304,9 @@ struct ChallengeDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(DS.Status.error.opacity(0.1), in: ChamferedRectangle(.large))
+                .background(DS.Status.error.opacity(0.1), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
                 .overlay(
-                    ChamferedRectangle(.large)
+                    DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                         .stroke(DS.Status.error.opacity(0.4), lineWidth: 1)
                 )
             }
@@ -332,7 +332,7 @@ struct ChallengeDetailView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(DS.Semantic.brand, in: ChamferedRectangle(.large))
+                .background(DS.Semantic.brand, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
             }
             .buttonStyle(.plain)
             .disabled(isProcessing)

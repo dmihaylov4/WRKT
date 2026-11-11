@@ -142,12 +142,12 @@ struct ChallengesBrowseView: View {
         }
         .padding(4)
         .background(
-            ChamferedRectangleAlt(.large)
+            DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                 .fill(DS.Semantic.card.opacity(0.5))
                 .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
         .overlay(
-            ChamferedRectangleAlt(.large)
+            DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.large))
                 .stroke(DS.Semantic.border.opacity(0.3), lineWidth: 1)
         )
         .padding(.horizontal, 16)
@@ -483,7 +483,7 @@ struct ChallengePillButton: View {
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(DS.Semantic.accentWarm)
-                            .clipShape(ChamferedRectangleAlt(.micro))
+                            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                             .offset(x: 12, y: -10)
                     }
                 }
@@ -499,7 +499,7 @@ struct ChallengePillButton: View {
             .background(
                 Group {
                     if isSelected {
-                        ChamferedRectangleAlt(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.small))
                             .fill(DS.Semantic.brand)
                             .shadow(color: DS.Semantic.brand.opacity(0.3), radius: 6, x: 0, y: 2)
                     }
@@ -608,9 +608,9 @@ struct ChallengeCard: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(16)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
             .contentShape(ChamferedRectangle(.large))
@@ -663,7 +663,7 @@ struct ChallengeCard: View {
                 .foregroundStyle(difficultyTextColor)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(difficultyColor, in: ChamferedRectangle(.small))
+                .background(difficultyColor, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
         }
     }
 
@@ -751,7 +751,7 @@ struct PresetChallengeCard: View {
                     .foregroundStyle(difficultyTextColor)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(difficultyBackgroundColor, in: ChamferedRectangle(.small))
+                    .background(difficultyBackgroundColor, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
             }
 
             HStack {
@@ -768,9 +768,9 @@ struct PresetChallengeCard: View {
             .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .contentShape(ChamferedRectangle(.large))
@@ -822,7 +822,7 @@ struct SkeletonChallengeCard: View {
 
                 Spacer()
 
-                ChamferedRectangle(.small)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                     .fill(DS.Semantic.fillSubtle)
                     .frame(width: 60, height: 24)
             }
@@ -830,10 +830,10 @@ struct SkeletonChallengeCard: View {
             Rectangle()
                 .fill(DS.Semantic.fillSubtle)
                 .frame(height: 40)
-                .clipShape(ChamferedRectangle(.medium))
+                .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .opacity(isAnimating ? 0.5 : 1.0)
         .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isAnimating)
         .onAppear { isAnimating = true }
