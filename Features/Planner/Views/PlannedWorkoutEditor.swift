@@ -378,17 +378,6 @@ struct PlannedWorkoutEditor: View {
             .foregroundStyle(DS.Semantic.textPrimary)
     }
 
-    private func detailRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(DS.Semantic.textPrimary)
-            Spacer()
-            Text(value)
-                .foregroundStyle(DS.Semantic.textSecondary)
-        }
-        .padding(16)
-    }
-
     // MARK: - Exercise Management
 
     private func addExercise(_ exercise: Exercise) {

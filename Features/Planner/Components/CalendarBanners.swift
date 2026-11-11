@@ -7,42 +7,6 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Streak Banner (Daily Streak - Legacy)
-struct StreakBanner: View {
-    let streak: Int
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image("streak-icon")
-                .renderingMode(.template)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 18, height: 18)
-                .foregroundStyle(Color.black)
-                .padding(8)
-                .background(DS.Theme.accent, in: Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(streak)-day streak")
-                    .dsFont(.headline, weight: .semibold)
-                    .foregroundStyle(DS.Semantic.textPrimary)
-                Text("Don't break the chain.")
-                    .dsFont(.caption)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-            }
-
-            Spacer()
-
-            ProgressView(value: min(Double(streak)/30.0, 1.0))
-                .tint(DS.Theme.accent)
-                .frame(width: 80)
-        }
-        .padding(12)
-        .background(DS.Theme.cardTop, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(DS.Semantic.border, lineWidth: 1))
-    }
-}
-
 // MARK: - Weekly Streak Banner
 struct WeeklyStreakBanner: View {
     let streak: Int

@@ -62,24 +62,6 @@ struct MonthHeader: View {
     }
 }
 
-// MARK: - Weekday Row
-struct WeekdayRow: View {
-    var body: some View {
-        let sym = Calendar.current.shortStandaloneWeekdaySymbols
-        let first = Calendar.current.firstWeekday - 1
-        let days = Array(sym[first..<sym.count] + sym[0..<first])
-
-        HStack {
-            ForEach(days, id: \.self) { d in
-                Text(d.uppercased())
-                    .dsFont(.caption2, weight: .semibold)
-                    .foregroundStyle(DS.Semantic.textSecondary)
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
-}
-
 // MARK: - Day Cell
 struct DayCellV2: View {
     @EnvironmentObject var store: WorkoutStoreV2
@@ -176,32 +158,6 @@ struct DayCellV2: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 2)
         .opacity(inMonth ? 1.0 : 0.45)
-    }
-
-    @ViewBuilder
-    private var plannedWorkoutIndicator: some View {
-        if isPlannedWorkoutCompleted {
-            // Completed: checkmark
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 11))
-                .foregroundStyle(DS.Theme.accent)
-        } else if stats.isPlannedScheduled || stats.isPlannedRescheduled {
-            // Scheduled: outlined circle
-            Circle()
-                .stroke(DS.Theme.accent, lineWidth: 2)
-                .frame(width: 8, height: 8)
-        } else if stats.isPlannedPartial {
-            // Partial: half-filled circle
-            Circle()
-                .trim(from: 0, to: 0.5)
-                .stroke(.yellow, lineWidth: 2)
-                .frame(width: 8, height: 8)
-        } else if stats.isPlannedSkipped {
-            // Skipped: X mark
-            Image(systemName: "xmark")
-                .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(.gray.opacity(0.5))
-        }
     }
 
     @ViewBuilder
