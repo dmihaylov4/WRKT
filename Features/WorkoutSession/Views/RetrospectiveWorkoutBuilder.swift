@@ -50,9 +50,9 @@ struct RetrospectiveWorkoutBuilder: View {
                             TextField("e.g., Upper Body, Leg Day", text: $workoutName)
                                 .textFieldStyle(.plain)
                                 .padding(12)
-                                .background(DS.Semantic.fillSubtle, in: ChamferedRectangle(.small))
+                                .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.small)))
                                 .overlay(
-                                    ChamferedRectangle(.small)
+                                    DS.RoleShape(.nested, legacy: ChamferedRectangle(.small))
                                         .stroke(DS.Semantic.border, lineWidth: 1)
                                 )
                         }
@@ -85,9 +85,9 @@ struct RetrospectiveWorkoutBuilder: View {
                             .foregroundStyle(DS.Semantic.textSecondary)
                     }
                     .padding(16)
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                     .overlay(
-                        ChamferedRectangle(.large)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
                     .padding(.horizontal, 16)
@@ -106,7 +106,7 @@ struct RetrospectiveWorkoutBuilder: View {
                                 .foregroundStyle(DS.Semantic.textSecondary)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
-                                .background(DS.Theme.accent.opacity(0.1), in: ChamferedRectangle(.micro))
+                                .background(DS.Theme.accent.opacity(0.1), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
                         }
                         .padding(.horizontal, 16)
 
@@ -127,9 +127,9 @@ struct RetrospectiveWorkoutBuilder: View {
                                     Spacer()
                                 }
                                 .padding(16)
-                                .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+                                .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                                 .overlay(
-                                    ChamferedRectangle(.large)
+                                    DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                                         .stroke(DS.Semantic.border.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [5]))
                                 )
                             }
@@ -167,9 +167,9 @@ struct RetrospectiveWorkoutBuilder: View {
                                     Spacer()
                                 }
                                 .padding(12)
-                                .background(DS.Theme.accent.opacity(0.05), in: ChamferedRectangle(.medium))
+                                .background(DS.Theme.accent.opacity(0.05), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                                 .overlay(
-                                    ChamferedRectangle(.medium)
+                                    DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                         .stroke(DS.Theme.accent.opacity(0.2), lineWidth: 1)
                                 )
                             }
@@ -312,7 +312,7 @@ private struct RetrospectiveExerciseRow: View {
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(DS.Theme.accent.opacity(0.1), in: ChamferedRectangle(.micro))
+                            .background(DS.Theme.accent.opacity(0.1), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
                     }
 
                     if entry.sets.count > 3 {
@@ -331,9 +331,9 @@ private struct RetrospectiveExerciseRow: View {
                 .opacity(0.6)
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .contentShape(Rectangle())

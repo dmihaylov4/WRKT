@@ -85,5 +85,21 @@ struct WorkoutSessionShapeRoleTests {
                   radius: min(badge.width, badge.height) / 2, legacy: MainChamferedRectangleAlt(.micro).path(in: badge))
         }
     }
+    @Test func retrospectiveFieldsPanelsAndBadgesKeepLegacyPaths() throws {
+        let builder = try source("RetrospectiveWorkoutBuilder.swift", from: "struct RetrospectiveWorkoutBuilder", until: "private struct RetrospectiveExerciseRow")
+        #expect(builder.contains("DS.RoleShape(.nested, legacy: ChamferedRectangle(.small))"))
+        #expect(builder.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.large))"))
+        #expect(builder.contains("style: StrokeStyle(lineWidth: 1, dash: [5])"))
+        let editor = try source("RetrospectiveSetEditor.swift", from: "struct RetrospectiveSetEditor", until: "private struct RetrospectiveSetRow")
+        #expect(editor.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))"))
+        let rect = CGRect(x: 3, y: 7, width: 300, height: 140)
+        check(DS.RoleShape(.nested, legacy: ChamferedRectangle(.small)), rect: rect, radius: 10,
+              legacy: MainChamferedRectangle(.small).path(in: rect))
+        check(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)),
+              rect: rect, radius: 26, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous).path(in: rect))
+        let badge = CGRect(x: 3, y: 7, width: 24, height: 28)
+        check(DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)), rect: badge, radius: 12,
+              legacy: MainChamferedRectangle(.micro).path(in: badge))
+    }
     #endif
 }

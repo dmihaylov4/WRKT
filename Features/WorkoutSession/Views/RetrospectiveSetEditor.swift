@@ -70,9 +70,9 @@ struct RetrospectiveSetEditor: View {
                         .padding(.vertical, 8)
                     }
                     .background(DS.Theme.cardTop)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
                 }
