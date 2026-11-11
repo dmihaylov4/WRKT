@@ -134,7 +134,7 @@ struct WorkoutDetailView: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(DS.Theme.accent.opacity(0.15))
-                            .clipShape(ChamferedRectangleAlt(.micro))
+                            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                             .padding(.top, 4)
                         }
                     }
@@ -160,8 +160,8 @@ struct WorkoutDetailView: View {
                         }
                     }
                     .padding(12)
-                    .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-                    .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                    .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+                    .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
 
                     // Summary stats
                     HStack(spacing: 12) {
@@ -299,8 +299,8 @@ private struct HRZoneDistributionSection: View {
                 HRZoneChart(zones: zoneSummaries, samples: samples)
             }
             .padding(14)
-            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 }
@@ -352,7 +352,7 @@ private struct StatPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
     }
 }
 
@@ -541,7 +541,7 @@ private struct HeartRateGraph: View {
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
                             .background(.black.opacity(0.6))
-                            .clipShape(ChamferedRectangleAlt(.micro))
+                            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                     }
             }
             .chartYScale(domain: (minHR - 10)...(maxHR + 10))
@@ -570,8 +570,8 @@ private struct HeartRateGraph: View {
             .frame(height: 220)
         }
         .padding(14)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func formatTimeAxis(_ seconds: Double) -> String {
@@ -604,7 +604,7 @@ private struct HRStat: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(color.opacity(0.15))
-        .clipShape(ChamferedRectangleAlt(.micro))
+        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
     }
 }
 

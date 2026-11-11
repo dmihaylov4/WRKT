@@ -22,7 +22,7 @@ struct ExerciseTimingCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.large)))
     }
 }
 
@@ -88,11 +88,11 @@ struct SetTimingRow: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(set.tag.color)
-                .clipShape(ChamferedRectangleAlt(.micro))
+                .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.large)))
     }
 }
 
@@ -270,7 +270,7 @@ private struct ExerciseCardContent: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(DS.Theme.accent)
-                        .clipShape(ChamferedRectangleAlt(.micro))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                 }
                 .buttonStyle(.plain)
 
@@ -310,8 +310,8 @@ private struct ExerciseCardContent: View {
             }
         }
         .padding(14)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
         .contentShape(Rectangle())
     }
 }
@@ -347,7 +347,7 @@ struct ExerciseStatsRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(8)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.nested, legacy: ChamferedRectangle(.large)))
     }
 }
 

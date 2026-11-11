@@ -70,5 +70,20 @@ struct WorkoutSessionShapeRoleTests {
         check(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)), rect: button, radius: 22,
               legacy: MainChamferedRectangle(.medium).path(in: button))
     }
+    @Test func workoutDetailNestedSummariesAndPillsKeepLegacyPaths() throws {
+        let summary = try source("WorkoutDetail/WorkoutDetailComponents.swift", from: "struct ExerciseTimingCard", until: "private struct TimingStat")
+        #expect(summary.contains("DS.RoleShape(.nested, legacy: ChamferedRectangle(.large))"))
+        let pill = try source("WorkoutDetail/WorkoutDetail.swift", from: "private struct StatPill", until: "private struct StatRow")
+        #expect(pill.contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.large))"))
+        let rect = CGRect(x: 3, y: 7, width: 300, height: 60)
+        check(DS.RoleShape(.nested, legacy: ChamferedRectangle(.large)), rect: rect, radius: 10,
+              legacy: MainChamferedRectangle(.large).path(in: rect))
+        check(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)), rect: rect, radius: 30,
+              legacy: MainChamferedRectangle(.large).path(in: rect))
+        for badge in [CGRect(x: 3, y: 7, width: 28, height: 28), CGRect(x: 3, y: 7, width: 100, height: 60)] {
+            check(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)), rect: badge,
+                  radius: min(badge.width, badge.height) / 2, legacy: MainChamferedRectangleAlt(.micro).path(in: badge))
+        }
+    }
     #endif
 }
