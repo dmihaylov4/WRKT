@@ -79,8 +79,8 @@ struct WeeklyStreakBanner: View {
             }
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -213,8 +213,8 @@ struct CurrentWeekProgressBanner: View {
             }
         }
         .padding(12)
-        .background(DS.Theme.cardTop, in: ChamferedRectangleAlt(.large))
-        .overlay(ChamferedRectangleAlt(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangleAlt(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -279,8 +279,8 @@ struct PushPullBanner: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(DS.Semantic.accentWarm.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(DS.Semantic.accentWarm.opacity(0.3), lineWidth: 1))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
+            .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)).stroke(DS.Semantic.accentWarm.opacity(0.3), lineWidth: 1))
             .transition(.opacity.combined(with: .move(edge: .top)))
         }
     }

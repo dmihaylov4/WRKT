@@ -131,10 +131,10 @@ struct DayCellV2: View {
     var body: some View {
         ZStack {
             // Background and border for entire cell (including activity bar area)
-            TopLeftChamferedRectangle(.small, cornerRadius: 10)
+            DS.RoleShape(.nested, legacy: TopLeftChamferedRectangle(.small, cornerRadius: 10))
                 .fill(backgroundColor)
                 .overlay(
-                    TopLeftChamferedRectangle(.small, cornerRadius: 10)
+                    DS.RoleShape(.nested, legacy: TopLeftChamferedRectangle(.small, cornerRadius: 10))
                         .stroke(borderColor, lineWidth: borderWidth)
                 )
 

@@ -380,7 +380,7 @@ struct CalendarMonthView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
                         .frame(minWidth: 60, minHeight: 28)
-                        .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                        .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                         .contentShape(Rectangle())
                 }
                 .fixedSize(horizontal: true, vertical: false)
@@ -419,7 +419,7 @@ struct CalendarMonthView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
                     .frame(minWidth: 68, minHeight: 44)
-                    .background(DS.Theme.accent, in: ChamferedRectangle(.small))
+                    .background(DS.Theme.accent, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                     .fixedSize(horizontal: true, vertical: false)
                     .layoutPriority(2)
             }
