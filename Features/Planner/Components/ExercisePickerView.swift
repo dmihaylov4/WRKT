@@ -112,7 +112,7 @@ struct ExercisePickerView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(DS.Semantic.surface)
-                .cornerRadius(10)
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
 

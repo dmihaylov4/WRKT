@@ -125,9 +125,9 @@ struct PlannedWorkoutEditor: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
-                        ChamferedRectangle(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                             .fill(DS.Theme.cardTop)
-                            .overlay(ChamferedRectangle(.small).stroke(DS.Semantic.border, lineWidth: 1))
+                            .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)).stroke(DS.Semantic.border, lineWidth: 1))
                     )
             }
             .buttonStyle(.plain)
@@ -149,10 +149,10 @@ struct PlannedWorkoutEditor: View {
                     .padding(.horizontal, 18)
                     .padding(.vertical, 12)
                     .background(
-                        ChamferedRectangle(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                             .fill(plannedExercises.isEmpty ? DS.Semantic.surface50 : DS.Theme.accent)
                             .overlay(
-                                ChamferedRectangle(.small)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                                     .stroke(plannedExercises.isEmpty ? DS.Semantic.border : DS.Theme.accent.opacity(0.4), lineWidth: 1)
                             )
                     )
@@ -199,9 +199,9 @@ struct PlannedWorkoutEditor: View {
                 .padding(16)
             }
             .background(DS.Theme.cardTop)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -278,9 +278,9 @@ struct PlannedWorkoutEditor: View {
                 }
             }
             .background(DS.Theme.cardTop)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -298,9 +298,9 @@ struct PlannedWorkoutEditor: View {
             }
             .padding(.vertical, 18)
             .background(DS.Theme.cardTop)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                     .stroke(.red.opacity(0.35), lineWidth: 1)
             )
         }
@@ -337,9 +337,9 @@ struct PlannedWorkoutEditor: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(
-                                ChamferedRectangle(.medium)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                     .fill(DS.Semantic.surface50)
-                                    .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+                                    .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
                             )
                     }
                     .buttonStyle(.plain)
@@ -354,9 +354,9 @@ struct PlannedWorkoutEditor: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                             .background(
-                                ChamferedRectangle(.medium)
+                                DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))
                                     .fill(Color.red.opacity(0.9))
-                                    .overlay(ChamferedRectangle(.medium).stroke(Color.red.opacity(0.35), lineWidth: 1))
+                                    .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)).stroke(Color.red.opacity(0.35), lineWidth: 1))
                             )
                     }
                     .buttonStyle(.plain)
@@ -364,9 +364,9 @@ struct PlannedWorkoutEditor: View {
             }
             .padding(20)
             .background(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.alert, legacy: ChamferedRectangle(.xl))
                     .fill(DS.Theme.cardTop)
-                    .overlay(ChamferedRectangle(.xl).stroke(DS.Semantic.border, lineWidth: 1))
+                    .overlay(DS.RoleShape(.alert, legacy: ChamferedRectangle(.xl)).stroke(DS.Semantic.border, lineWidth: 1))
             )
             .padding(.horizontal, 20)
         }
@@ -644,7 +644,7 @@ private struct PlannedExerciseRow: View {
                             .foregroundStyle(DS.Semantic.textSecondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(DS.Theme.accent.opacity(0.1), in: ChamferedRectangle(.micro))
+                            .background(DS.Theme.accent.opacity(0.1), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.micro)))
                     }
 
                     if exercise.ghostSets.count > 3 {
@@ -690,7 +690,7 @@ private struct PlannedExerciseRow: View {
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.red.opacity(0.85))
                         .padding(8)
-                        .background(DS.Semantic.surface50, in: ChamferedRectangle(.small))
+                        .background(DS.Semantic.surface50, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
                 }
                 .buttonStyle(.plain)
 
@@ -776,9 +776,9 @@ private struct ExerciseDetailEditor: View {
                         .padding(.vertical, 8)
                     }
                     .background(DS.Theme.cardTop)
-                    .clipShape(ChamferedRectangle(.large))
+                    .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                     .overlay(
-                        ChamferedRectangle(.large)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
 
@@ -803,9 +803,9 @@ private struct ExerciseDetailEditor: View {
                         .padding(16)
                     }
                     .background(DS.Theme.cardTop)
-                    .clipShape(ChamferedRectangle(.large))
+                    .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                     .overlay(
-                        ChamferedRectangle(.large)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
                 }

@@ -30,5 +30,16 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func plannedEditorAlertAndSearchKeepLegacyPaths() throws {
+        let editor = try ShapeRoleTestSupport.source("Planner/Views/PlannedWorkoutEditor.swift")
+        #expect(editor.contains("DS.RoleShape(.alert, legacy: ChamferedRectangle(.xl))"))
+        #expect(editor.contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))"))
+        #expect(try ShapeRoleTestSupport.source("Planner/Components/ExercisePickerView.swift").contains("DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.alert, legacy: ChamferedRectangle(.xl), expected: MainChamferedRectangle(.xl).path(in: rect), rect: rect, radius: 36)
+            ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+            ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }
