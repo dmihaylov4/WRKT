@@ -50,8 +50,8 @@ struct BattleRewardPreviewBlock: View {
             }
         }
         .padding(16)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func rewardColumn(

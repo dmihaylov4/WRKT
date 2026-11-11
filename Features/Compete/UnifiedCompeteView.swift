@@ -351,7 +351,7 @@ struct CreationGridButton: View {
     var gridPosition: DS.GridChamferPosition = .rowLeading
 
     var body: some View {
-        let shape = PairedChamferedRectangle(pair: tilePair, .xl)
+        let shape = DS.RoleShape(.card, legacy: PairedChamferedRectangle(pair: tilePair, .xl))
         content
             .clipShape(shape)
             .overlay(shape.stroke(color.opacity(0.2), lineWidth: 1.25))
@@ -478,9 +478,9 @@ struct LargeBattleCard: View {
                     ? DS.Semantic.brandSoft
                     : DS.Semantic.card
             )
-            .clipShape(ChamferedRectangle(.xl))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
             .overlay(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                     .stroke(
                         viewModel.isCurrentUserWinning(for: battle)
                             ? DS.Semantic.brand.opacity(0.5)
@@ -603,9 +603,9 @@ struct LargeChallengeCard: View {
             .frame(width: isFullWidth ? nil : 260, height: 138)
             .frame(maxWidth: isFullWidth ? .infinity : nil)
             .background(DS.Semantic.card)
-            .clipShape(ChamferedRectangle(.xl))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
             .overlay(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                     .stroke(DS.Semantic.brand.opacity(0.3), lineWidth: 2)
             )
         }
@@ -661,9 +661,9 @@ struct RecommendedChallengeCard: View {
                     .foregroundStyle(DS.Semantic.brand)
                     .frame(width: 44, height: 44)
                     .background(DS.Semantic.brandSoft)
-                    .clipShape(ChamferedRectangleAlt(.small))
+                    .clipShape(DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small)))
                     .overlay(
-                        ChamferedRectangleAlt(.small)
+                        DS.RoleShape(.iconTile, legacy: ChamferedRectangleAlt(.small))
                             .stroke(DS.Semantic.brand.opacity(0.24), lineWidth: 1)
                     )
 
@@ -695,9 +695,9 @@ struct RecommendedChallengeCard: View {
             }
             .padding(12)
             .background(DS.Semantic.card)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -798,7 +798,7 @@ struct CompeteStatTile: View {
     var gridPosition: DS.GridChamferPosition = .topLeading
 
     var body: some View {
-        let shape = SingleChamferedRectangle(corner: gridPosition.chamferCorner, .large)
+        let shape = DS.RoleShape(.card, legacy: SingleChamferedRectangle(corner: gridPosition.chamferCorner, .large))
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(color)
@@ -862,9 +862,9 @@ struct CompletedChallengeCard: View {
             }
             .padding(12)
             .background(DS.Status.success.opacity(0.1))
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Status.success.opacity(0.3), lineWidth: 1)
             )
         }
