@@ -198,12 +198,12 @@ private struct HeaderSection: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(DS.Theme.accent)
-                    .clipShape(ChamferedRectangleAlt(.micro))
+                    .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
             }
         }
         .padding(14)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -355,12 +355,12 @@ private struct PRCardShape: ViewModifier {
     func body(content: Content) -> some View {
         if useAlt {
             content
-                .clipShape(ChamferedRectangleAlt(.large))
-                .overlay(ChamferedRectangleAlt(.large).stroke(strokeColor, lineWidth: 1))
+                .clipShape(DS.RoleShape(.tile, legacy: ChamferedRectangleAlt(.large)))
+                .overlay(DS.RoleShape(.tile, legacy: ChamferedRectangleAlt(.large)).stroke(strokeColor, lineWidth: 1))
         } else {
             content
-                .clipShape(ChamferedRectangle(.large))
-                .overlay(ChamferedRectangle(.large).stroke(strokeColor, lineWidth: 1))
+                .clipShape(DS.RoleShape(.tile, legacy: ChamferedRectangle(.large)))
+                .overlay(DS.RoleShape(.tile, legacy: ChamferedRectangle(.large)).stroke(strokeColor, lineWidth: 1))
         }
     }
 }
@@ -479,15 +479,15 @@ private struct ProgressChartsSection: View {
                                 .padding(.vertical, 8)
                                 .background(
                                     selectedChart == chartType ? DS.Theme.accent : Color.clear,
-                                    in: ChamferedRectangle(.large)
+                                    in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                                 )
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(3)
-                .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-                .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+                .background(DS.Theme.cardTop, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
+                .overlay(DS.RoleShape(.control, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
             }
 
             // Chart
@@ -503,8 +503,8 @@ private struct ProgressChartsSection: View {
             }
             .frame(height: 220)
             .padding(12)
-            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 }
@@ -835,8 +835,8 @@ private struct StatisticsGridSection: View {
                     }
                 }
             }
-            .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-            .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+            .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+            .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
         }
     }
 
@@ -986,7 +986,7 @@ private struct WorkoutHistoryCard: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(DS.Theme.accent.opacity(0.15))
-                    .clipShape(ChamferedRectangleAlt(.micro))
+                    .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                 }
             }
 
@@ -1053,9 +1053,9 @@ private struct WorkoutHistoryCard: View {
                 )
                 : LinearGradient(colors: [DS.Theme.cardTop, DS.Theme.cardTop], startPoint: .top, endPoint: .bottom)
         )
-        .clipShape(ChamferedRectangle(.large))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(workout.isPR ? DS.Theme.accent.opacity(0.4) : DS.Semantic.border, lineWidth: workout.isPR ? 2 : 1)
         )
         .shadow(color: workout.isPR ? DS.Theme.accent.opacity(0.15) : .clear, radius: workout.isPR ? 8 : 0, x: 0, y: 2)
@@ -1084,8 +1084,8 @@ private struct InsufficientDataView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(32)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
 
@@ -1147,7 +1147,7 @@ private struct ExerciseLogDetailSheet: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(DS.Theme.accent.opacity(0.15))
-                        .clipShape(ChamferedRectangleAlt(.micro))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
                         .padding(.horizontal, 16)
                     }
 
@@ -1213,7 +1213,7 @@ private struct SummaryStatPill: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.tile, legacy: ChamferedRectangle(.large)))
     }
 }
 
@@ -1258,13 +1258,13 @@ private struct SetDetailRow: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(set.tag.color)
-                .clipShape(ChamferedRectangleAlt(.micro))
+                .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro)))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(DS.Theme.cardTop, in: ChamferedRectangle(.large))
+        .background(DS.Theme.cardTop, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(set.isPR ? DS.Theme.accent.opacity(0.4) : DS.Semantic.border, lineWidth: set.isPR ? 2 : 1)
         )
     }
