@@ -45,7 +45,7 @@ struct WhatsNewView: View {
                     .font(DS.ButtonSize.large.font)
                     .foregroundStyle(.black)
             }
-            .background(DS.Semantic.brand, in: ChamferedRectangle(.large))
+            .background(DS.Semantic.brand, in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
