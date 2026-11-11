@@ -15,6 +15,10 @@ struct HeroStartWorkoutButton: View {
     var addExercise: (() -> Void)? = nil
     var extendRest: (() -> Void)? = nil
 
+    var surfaceShape: DS.RoleShape<ChamferedRectangle> {
+        DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
+    }
+
     @State private var isPressed = false
 
     var body: some View {
@@ -79,7 +83,7 @@ struct HeroStartWorkoutButton: View {
             .background(dynamicBackground)
             .overlay(leftAccentStripe)
             .overlay(subtlePulseBorder)
-            .clipShape(ChamferedRectangle(.hero))
+            .clipShape(surfaceShape)
             .scaleEffect(isPressed ? 0.97 : 1.0)
             .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         }

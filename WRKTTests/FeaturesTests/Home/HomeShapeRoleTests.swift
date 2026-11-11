@@ -36,5 +36,25 @@ struct HomeShapeRoleTests {
             #expect(shape.path(in: rect, rounded: true).cgPath == RoundedRectangle(cornerRadius: radius, style: .continuous).path(in: rect).cgPath)
         }
     }
+
+    @Test func heroKeepsItsLegacyChamferAndRoundedBorderContour() {
+        let hero = HeroStartWorkoutButton(
+            content: HeroButtonContent(icon: "", mainText: "Start Workout", secondaryText: "", hasPlan: false),
+            onTap: {}
+        )
+        let rect = CGRect(x: 3, y: 7, width: 340, height: 210)
+        #expect(hero.surfaceShape.path(in: rect, rounded: false).cgPath == MainChamferedRectangle(.hero).path(in: rect).cgPath)
+        #expect(hero.surfaceShape.path(in: rect, rounded: true).cgPath == DS.Radius.roundedChamferPath(DS.Chamfer.hero.size, in: rect).cgPath)
+    }
+
+    @Test func liveWorkoutControlPreservesNativeCornersAndUsesCapsule() {
+        let content = LiveWorkoutHeroContent(exercises: 2, completedSets: 3, startDate: .now,
+                                             onAddExercise: {}, onViewWorkout: {})
+        for height in [40, 60] as [CGFloat] {
+            let rect = CGRect(x: 3, y: 7, width: 240, height: height)
+            #expect(content.viewWorkoutShape.path(in: rect, rounded: false).cgPath == RoundedRectangle(cornerRadius: 12, style: .continuous).path(in: rect).cgPath)
+            #expect(content.viewWorkoutShape.path(in: rect, rounded: true).cgPath == RoundedRectangle(cornerRadius: height / 2, style: .continuous).path(in: rect).cgPath)
+        }
+    }
     #endif
 }

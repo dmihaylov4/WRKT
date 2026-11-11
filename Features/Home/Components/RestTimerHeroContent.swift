@@ -116,9 +116,9 @@ struct RestTimerHeroContent: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(DS.Semantic.fillSubtle)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
             }
@@ -132,9 +132,9 @@ struct RestTimerHeroContent: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(DS.Semantic.fillSubtle)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
             }
@@ -152,9 +152,9 @@ struct RestTimerHeroContent: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .stroke(DS.Semantic.border, lineWidth: 1)
                 )
             }
@@ -172,9 +172,9 @@ struct RestTimerHeroContent: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous)))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .stroke(DS.Semantic.border, lineWidth: 1)
                 )
             }

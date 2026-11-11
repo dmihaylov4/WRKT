@@ -97,6 +97,10 @@ struct LiveWorkoutHeroContent: View {
         .buttonStyle(.plain)
     }
 
+    var viewWorkoutShape: DS.RoleShape<RoundedRectangle> {
+        DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private var viewWorkoutButton: some View {
         Button(action: onViewWorkout) {
             HStack(spacing: 6) {
@@ -109,9 +113,9 @@ struct LiveWorkoutHeroContent: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(viewWorkoutShape)
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                viewWorkoutShape
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
