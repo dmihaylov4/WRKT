@@ -256,7 +256,7 @@ struct PostCreationView: View {
                 }
                 .padding()
                 .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
             }
             .buttonStyle(.plain)
             .disabled(viewModel.isLoadingFriends)
@@ -330,7 +330,7 @@ struct PostCreationView: View {
                 }
             }
             .background(DS.Semantic.card)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
 
             // Show session count hint if more than one workout
             if workouts.count > 1 {
@@ -455,7 +455,7 @@ struct PostCreationView: View {
                 .textFieldStyle(.plain)
                 .padding(12)
                 .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
         }
     }
 
@@ -498,7 +498,7 @@ struct PostCreationView: View {
                                     .resizable()
                                     .scaledToFill()
                                     .frame(width: 120, height: 120)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .clipShape(DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12)))
                                     .overlay(alignment: .bottomLeading) {
                                         privacyToggleButton(for: index, viewModel: viewModel)
                                     }
@@ -529,7 +529,7 @@ struct PostCreationView: View {
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 3)
-                                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                                    .background(.black.opacity(0.55), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 6)))
                                     .padding(6)
                             }
                         }
@@ -542,7 +542,7 @@ struct PostCreationView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding()
                     .background(DS.Semantic.fillSubtle)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
             }
         }
     }
@@ -561,7 +561,7 @@ struct PostCreationView: View {
                 visibilityOption(.privatePost, viewModel: viewModel)
             }
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
         }
     }
 
@@ -626,7 +626,7 @@ struct PostCreationView: View {
             }
             .padding(24)
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(DS.RoleShape(.popover, legacy: RoundedRectangle(cornerRadius: 16)))
         }
     }
 
@@ -645,7 +645,7 @@ struct PostCreationView: View {
             }
             .padding(24)
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(DS.RoleShape(.popover, legacy: RoundedRectangle(cornerRadius: 16)))
         }
     }
 
@@ -671,7 +671,7 @@ struct PostCreationView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 8))
                         .fill(isPublic ? Color.green.opacity(0.8) : Color.orange.opacity(0.8))
                 )
             }
@@ -947,7 +947,7 @@ struct WorkoutPickerRow: View {
         }
         .padding()
         .background(isSelected ? DS.Semantic.brand.opacity(0.1) : DS.Semantic.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12)))
     }
 }
 

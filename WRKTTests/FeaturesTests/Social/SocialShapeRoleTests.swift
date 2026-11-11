@@ -37,6 +37,20 @@ struct SocialShapeRoleTests {
             ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: 26)
         }
     }
+    @Test func composerAndDetailKeepOriginalPathsAndApprovedRoles() throws {
+        let composer = try ShapeRoleTestSupport.source("Social/Views/PostCreationView.swift")
+        #expect(composer.contains("DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12))"))
+        #expect(composer.contains("DS.RoleShape(.popover, legacy: RoundedRectangle(cornerRadius: 16))"))
+        let detail = try ShapeRoleTestSupport.source("Social/Views/PostDetailView.swift")
+        #expect(detail.contains("DS.RoleShape(.tile, legacy: ChamferedRectangleAlt(.small))"))
+        #expect(detail.contains("DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.tile, legacy: RoundedRectangle(cornerRadius: 12), expected: RoundedRectangle(cornerRadius: 12).path(in: rect), rect: rect, radius: 16)
+            ShapeRoleTestSupport.check(.popover, legacy: RoundedRectangle(cornerRadius: 16), expected: RoundedRectangle(cornerRadius: 16).path(in: rect), rect: rect, radius: 32)
+            ShapeRoleTestSupport.check(.tile, legacy: ChamferedRectangleAlt(.small), expected: MainChamferedRectangleAlt(.small).path(in: rect), rect: rect, radius: 16)
+            ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 20), expected: RoundedRectangle(cornerRadius: 20).path(in: rect), rect: rect, radius: 26)
+        }
+    }
     #endif
 }
 

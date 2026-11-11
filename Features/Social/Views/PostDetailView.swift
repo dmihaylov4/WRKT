@@ -274,7 +274,7 @@ struct PostDetailView: View {
                         .padding(.vertical, 9)
                         .background(
                             selectedWorkoutSection == section ? DS.Semantic.brand : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 7)
+                            in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 7))
                         )
                 }
                 .buttonStyle(.plain)
@@ -283,8 +283,8 @@ struct PostDetailView: View {
             }
         }
         .padding(4)
-        .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)))
+        .overlay(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func overviewSection(summary: WorkoutPostSummaryPresentation) -> some View {
@@ -313,12 +313,12 @@ struct PostDetailView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
-                .background(DS.Semantic.fillSubtle, in: RoundedRectangle(cornerRadius: 8))
+                .background(DS.Semantic.fillSubtle, in: DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
             }
         }
         .padding(14)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func exercisesSection(workouts: [CompletedWorkout]) -> some View {
@@ -342,8 +342,8 @@ struct PostDetailView: View {
             }
         }
         .padding(14)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
-        .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func watchSection(workouts: [CompletedWorkout]) -> some View {
@@ -404,8 +404,8 @@ struct PostDetailView: View {
                     }
                 }
                 .padding(16)
-                .background(DS.Semantic.card, in: ChamferedRectangle(.medium))
-                .overlay(ChamferedRectangle(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+                .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
+                .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
             }
         }
     }
@@ -440,7 +440,7 @@ struct PostDetailView: View {
             }
             .padding(8)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
 
             // Duration / Work / Rest (only when timing data available)
             if entry.totalDuration > 0 {
@@ -452,7 +452,7 @@ struct PostDetailView: View {
                 }
                 .padding(8)
                 .background(DS.Semantic.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
             }
 
             // Individual set rows
@@ -501,15 +501,15 @@ struct PostDetailView: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
                     .background(DS.Semantic.fillSubtle)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 10)))
                 }
             }
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangleAlt(.medium))
-        .overlay(ChamferedRectangleAlt(.medium).stroke(DS.Semantic.border, lineWidth: 1))
+        .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangleAlt(.medium)))
+        .overlay(DS.RoleShape(.nested, legacy: ChamferedRectangleAlt(.medium)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 
     private func strengthStatItem(label: String, value: String) -> some View {
@@ -542,7 +542,7 @@ struct PostDetailView: View {
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(.green.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+                .background(.green.opacity(0.15), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 6)))
 
                 // Avg badge
                 HStack(spacing: 4) {
@@ -552,7 +552,7 @@ struct PostDetailView: View {
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(.pink.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+                .background(.pink.opacity(0.15), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 6)))
 
                 // Max badge
                 HStack(spacing: 4) {
@@ -562,7 +562,7 @@ struct PostDetailView: View {
                         .foregroundStyle(DS.Semantic.textPrimary)
                 }
                 .padding(.horizontal, 8).padding(.vertical, 4)
-                .background(.red.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+                .background(.red.opacity(0.15), in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 6)))
 
                 Spacer()
             }
@@ -693,7 +693,7 @@ struct PostDetailView: View {
                         .scaledToFill()
                         .frame(maxWidth: .infinity, maxHeight: pageHeight)
                         .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
                         .frame(height: pageHeight)
                         .tag(1 + index)
                 }
@@ -785,7 +785,7 @@ struct PostDetailView: View {
             }
             .padding(16)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
     }
 
     private func cardioBigStat(value: String, label: String) -> some View {
@@ -1014,7 +1014,7 @@ struct PostDetailView: View {
             .padding(16)
         }
         .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
     }
 
     private func bpmColumn(value: Double, label: String, color: Color) -> some View {
@@ -1072,7 +1072,7 @@ struct PostDetailView: View {
             .padding(16)
         }
         .background(DS.Semantic.card)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
     }
 
     // MARK: - Carousel Page 5: Kilometer Splits
@@ -1081,7 +1081,7 @@ struct PostDetailView: View {
         SplitsChart(splits: workout.cardioSplits ?? [], showCard: false)
             .padding(16)
             .background(DS.Semantic.card)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
     }
 
     private func formatPace(_ secPerKm: Double) -> String {
@@ -1296,7 +1296,7 @@ struct PostDetailView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(
-                        RoundedRectangle(cornerRadius: 20)
+                        DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20))
                             .fill(DS.Semantic.fillSubtle)
                     )
 
@@ -1414,7 +1414,7 @@ struct CommentRow: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(
-                        ChamferedRectangleAlt(.small)
+                        DS.RoleShape(.tile, legacy: ChamferedRectangleAlt(.small))
                             .fill(isReply ? DS.Semantic.fillSubtle : DS.Semantic.card)
                     )
 
