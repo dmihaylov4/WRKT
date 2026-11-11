@@ -216,8 +216,8 @@ private struct OwnBarbellCard: View {
             .padding(.vertical, 10)
         }
         .background(DS.Semantic.card)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(DS.Semantic.border, lineWidth: 1))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)).stroke(DS.Semantic.border, lineWidth: 1))
+        .clipShape(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16)))
         .sheet(isPresented: $showingPlateWall) {
             PlateWallView()
         }

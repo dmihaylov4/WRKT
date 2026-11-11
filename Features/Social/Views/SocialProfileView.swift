@@ -338,11 +338,11 @@ struct SocialProfileView: View {
         .padding(20)
         .frame(maxWidth: .infinity)
         .background(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .fill(DS.Semantic.fillSubtle)
         )
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -394,9 +394,9 @@ struct SocialProfileView: View {
             .padding(.horizontal, 10)
             .frame(height: 34)
             .background(DS.Semantic.surface.opacity(0.58))
-            .clipShape(ChamferedRectangle(.small))
+            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.small)))
             .overlay(
-                ChamferedRectangle(.small)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                     .stroke(DS.Semantic.brand.opacity(0.32), lineWidth: 1)
             )
         }
@@ -474,12 +474,12 @@ struct SocialProfileView: View {
             .padding(.vertical, 10)
         }
         .background(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .fill(DS.Semantic.fillSubtle)
         )
-        .clipShape(ChamferedRectangle(.xl))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
         .sheet(isPresented: $showingFriendBarbellRoom) {
@@ -532,7 +532,7 @@ struct SocialProfileView: View {
                     }
                 ), matching: .images) {
                     ZStack {
-                        ChamferedRectangle(.small)
+                        DS.RoleShape(.control, legacy: ChamferedRectangle(.small))
                             .fill(DS.Semantic.brand)
                             .frame(width: 34, height: 34)
 
@@ -738,7 +738,7 @@ struct SocialProfileView: View {
             }
             .padding(16)
             .background(DS.Semantic.surface.opacity(0.4))
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
 
             Rectangle()
                 .fill(DS.Semantic.border.opacity(0.45))
@@ -759,11 +759,11 @@ struct SocialProfileView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .fill(DS.Semantic.fillSubtle)
         )
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -801,7 +801,7 @@ struct SocialProfileView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background(DS.Semantic.surface.opacity(0.4))
-        .clipShape(ChamferedRectangle(.medium))
+        .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
     }
 
     private func compactTrendStat(label: String, value: String) -> some View {
@@ -837,11 +837,11 @@ struct SocialProfileView: View {
         .frame(maxWidth: .infinity, minHeight: 92, alignment: .leading)
         .padding(14)
         .background(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                 .fill(DS.Semantic.fillSubtle)
         )
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                 .stroke(DS.Semantic.border, lineWidth: 1)
         )
     }
@@ -1073,9 +1073,9 @@ struct SocialProfileView: View {
             }
             .padding(16)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
 
@@ -1118,7 +1118,7 @@ struct SocialProfileView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(DS.Semantic.surface)
-                        .clipShape(ChamferedRectangle(.medium))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                     }
                 }
 
@@ -1128,9 +1128,9 @@ struct SocialProfileView: View {
             }
             .padding(16)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
 
@@ -1155,9 +1155,9 @@ struct SocialProfileView: View {
             }
             .padding(16)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
 
@@ -1193,9 +1193,9 @@ struct SocialProfileView: View {
             }
             .padding(16)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -1282,7 +1282,7 @@ struct SocialProfileView: View {
         }
         .padding()
         .background(DS.Semantic.fillSubtle)
-        .clipShape(ChamferedRectangle(.medium))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
     }
 
     @ViewBuilder
@@ -1371,7 +1371,7 @@ struct SocialProfileView: View {
             }
             .padding()
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium)))
 
             // Action Buttons
             HStack(spacing: 12) {
@@ -1386,7 +1386,7 @@ struct SocialProfileView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(DS.Semantic.fillSubtle)
-                        .clipShape(ChamferedRectangle(.medium))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                 }
 
                 Button {
@@ -1400,15 +1400,15 @@ struct SocialProfileView: View {
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(DS.Semantic.brand)
-                        .clipShape(ChamferedRectangle(.medium))
+                        .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
                 }
             }
         }
         .padding()
         .background(DS.Semantic.card)
-        .clipShape(ChamferedRectangle(.large))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(
-            ChamferedRectangle(.large)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                 .stroke(DS.Semantic.brand, lineWidth: 2)
         )
         .shadow(color: DS.Semantic.brand.opacity(0.2), radius: 8, y: 4)
@@ -1480,7 +1480,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding()
             .background(DS.Palette.marone)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             .opacity(configuration.isPressed ? 0.8 : 1.0)
     }
 }
@@ -1493,7 +1493,7 @@ struct SecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .padding()
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.medium))
+            .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             .opacity(configuration.isPressed ? 0.8 : 1.0)
     }
 }
@@ -1563,9 +1563,9 @@ struct EditProfileView: View {
                     .foregroundStyle(DS.Semantic.textPrimary)
                     .frame(width: 42, height: 42)
                     .background(DS.Semantic.fillSubtle)
-                    .clipShape(ChamferedRectangle(.medium))
+                    .clipShape(DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium)))
                     .overlay(
-                        ChamferedRectangle(.medium)
+                        DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium))
                             .stroke(DS.Semantic.border, lineWidth: 1)
                     )
             }
@@ -1603,7 +1603,7 @@ struct EditProfileView: View {
                 .padding(.horizontal, 13)
                 .frame(height: 42)
                 .background(DS.Semantic.brand)
-                .clipShape(ChamferedRectangle(.medium))
+                .clipShape(DS.RoleShape(.control, legacy: ChamferedRectangle(.medium)))
             }
             .buttonStyle(.plain)
             .disabled(isSaving)
@@ -1648,9 +1648,9 @@ struct EditProfileView: View {
                 )
             }
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -1677,9 +1677,9 @@ struct EditProfileView: View {
             }
             .padding(16)
             .background(DS.Semantic.fillSubtle)
-            .clipShape(ChamferedRectangle(.large))
+            .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                     .stroke(DS.Semantic.border, lineWidth: 1)
             )
         }
@@ -1729,9 +1729,9 @@ struct EditProfileView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DS.Palette.marone.opacity(0.12))
-        .clipShape(ChamferedRectangle(.medium))
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.medium)))
         .overlay(
-            ChamferedRectangle(.medium)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.medium))
                 .stroke(DS.Palette.marone.opacity(0.35), lineWidth: 1)
         )
     }

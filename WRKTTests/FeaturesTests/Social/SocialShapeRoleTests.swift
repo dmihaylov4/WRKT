@@ -51,6 +51,19 @@ struct SocialShapeRoleTests {
             ShapeRoleTestSupport.check(.card, legacy: RoundedRectangle(cornerRadius: 20), expected: RoundedRectangle(cornerRadius: 20).path(in: rect), rect: rect, radius: 26)
         }
     }
+    @Test func profileCardsNestedStatsAndIconsKeepLegacyContours() throws {
+        let profile = try ShapeRoleTestSupport.source("Social/Views/SocialProfileView.swift")
+        #expect(profile.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))"))
+        #expect(profile.contains("DS.RoleShape(.nested, legacy: ChamferedRectangle(.medium))"))
+        #expect(profile.contains("DS.RoleShape(.iconTile, legacy: ChamferedRectangle(.medium))"))
+        #expect(profile.contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.medium))"))
+        for rect in ShapeRoleTestSupport.rects {
+            ShapeRoleTestSupport.check(.card, legacy: ChamferedRectangle(.xl), expected: MainChamferedRectangle(.xl).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.nested, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: 10)
+            ShapeRoleTestSupport.check(.iconTile, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: min(rect.width, rect.height) * 0.225)
+            ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.medium), expected: MainChamferedRectangle(.medium).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }
 
