@@ -102,10 +102,8 @@
 		2E695B882F002429002EA9FC /* RecentActivityCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E695B872F002429002EA9FC /* RecentActivityCard.swift */; };
 		2E695B8A2F017589002EA9FC /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E695B892F017589002EA9FC /* SettingsView.swift */; };
 		2E695B972F03BCCB002EA9FC /* EmailVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E695B962F03BCCB002EA9FC /* EmailVerificationView.swift */; };
-		2E74619D2E93ECF900A71C35 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74619C2E93ECF200A71C35 /* SearchView.swift */; };
 		2E7461A12E93ED2C00A71C35 /* ExcerciseSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A02E93ED2000A71C35 /* ExcerciseSessionView.swift */; };
 		2E7461A32E93ED4E00A71C35 /* CalendarMonthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A22E93ED4A00A71C35 /* CalendarMonthView.swift */; };
-		2E7461AB2E93EECF00A71C35 /* MuscleGroupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E74619F2E93ED1200A71C35 /* MuscleGroupView.swift */; };
 		2E7461AD2E93EED900A71C35 /* ExerciseRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A92E93EDEC00A71C35 /* ExerciseRepository.swift */; };
 		2E7461AE2E93EEDE00A71C35 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A82E93EDDC00A71C35 /* Persistence.swift */; };
 		2E7461AF2E93EEE100A71C35 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A72E93EDC500A71C35 /* Utilities.swift */; };
@@ -274,11 +272,8 @@
 		2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */; };
 		2EC202A82EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */; };
 		2EC202AA2EF407AB00D6BAEF /* LastCardioCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */; };
-		2EC202AC2EF4111000D6BAEF /* RegionExerciseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AB2EF4111000D6BAEF /* RegionExerciseListView.swift */; };
 		2EC202AF2EF4112B00D6BAEF /* MuscleChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */; };
 		2EC202B02EF4112B00D6BAEF /* MuscleGroupFilterRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AE2EF4112B00D6BAEF /* MuscleGroupFilterRow.swift */; };
-		2EC202B32EF4113800D6BAEF /* CollapsibleFiltersSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B12EF4113800D6BAEF /* CollapsibleFiltersSection.swift */; };
-		2EC202B42EF4113800D6BAEF /* TwoTierFilterBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B22EF4113800D6BAEF /* TwoTierFilterBar.swift */; };
 		2EC202B62EF4316700D6BAEF /* MentionAutocomplete.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B52EF4316700D6BAEF /* MentionAutocomplete.swift */; };
 		2EC202B82EF4317600D6BAEF /* MentionText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B72EF4317600D6BAEF /* MentionText.swift */; };
 		2EC202BA2EF4324A00D6BAEF /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202B92EF4324A00D6BAEF /* AppSettings.swift */; };
@@ -371,7 +366,6 @@
 		2EEEACD72EA38B2500EDD16E /* DS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACCF2EA38AB700EDD16E /* DS.swift */; };
 		2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD02EA38AC400EDD16E /* ExerciseMapping.swift */; };
 		2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD32EA38AEC00EDD16E /* MuscleIconMapper.swift */; };
-		2EEEACDA2EA38B3400EDD16E /* MusclePictogram.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD42EA38AF700EDD16E /* MusclePictogram.swift */; };
 		2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */; };
 		2EEEACDC2EA38B4000EDD16E /* ExercisePR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */; };
 		2EEEACF32EA393ED00EDD16E /* WeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */; };
@@ -566,8 +560,6 @@
 		2E695B892F017589002EA9FC /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		2E695B962F03BCCB002EA9FC /* EmailVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationView.swift; sourceTree = "<group>"; };
 		2E7461862E93EA5A00A71C35 /* WRKT.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WRKT.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2E74619C2E93ECF200A71C35 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
-		2E74619F2E93ED1200A71C35 /* MuscleGroupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupView.swift; sourceTree = "<group>"; };
 		2E7461A02E93ED2000A71C35 /* ExcerciseSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExcerciseSessionView.swift; sourceTree = "<group>"; };
 		2E7461A22E93ED4A00A71C35 /* CalendarMonthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMonthView.swift; sourceTree = "<group>"; };
 		2E7461A72E93EDC500A71C35 /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
@@ -739,11 +731,8 @@
 		2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewNew.swift; sourceTree = "<group>"; };
 		2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWeeklyStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCardioCard.swift; sourceTree = "<group>"; };
-		2EC202AB2EF4111000D6BAEF /* RegionExerciseListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionExerciseListView.swift; sourceTree = "<group>"; };
 		2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleChip.swift; sourceTree = "<group>"; };
 		2EC202AE2EF4112B00D6BAEF /* MuscleGroupFilterRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupFilterRow.swift; sourceTree = "<group>"; };
-		2EC202B12EF4113800D6BAEF /* CollapsibleFiltersSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CollapsibleFiltersSection.swift; sourceTree = "<group>"; };
-		2EC202B22EF4113800D6BAEF /* TwoTierFilterBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TwoTierFilterBar.swift; sourceTree = "<group>"; };
 		2EC202B52EF4316700D6BAEF /* MentionAutocomplete.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionAutocomplete.swift; sourceTree = "<group>"; };
 		2EC202B72EF4317600D6BAEF /* MentionText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionText.swift; sourceTree = "<group>"; };
 		2EC202B92EF4324A00D6BAEF /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
@@ -831,7 +820,6 @@
 		2EEEACD12EA38ACE00EDD16E /* ExercisePR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisePR.swift; sourceTree = "<group>"; };
 		2EEEACD22EA38ADA00EDD16E /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		2EEEACD32EA38AEC00EDD16E /* MuscleIconMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleIconMapper.swift; sourceTree = "<group>"; };
-		2EEEACD42EA38AF700EDD16E /* MusclePictogram.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusclePictogram.swift; sourceTree = "<group>"; };
 		2EEEACD52EA38B0C00EDD16E /* SwipeToConfirm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeToConfirm.swift; sourceTree = "<group>"; };
 		2EEEACF22EA393ED00EDD16E /* WeeklyGoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyGoalSetupView.swift; sourceTree = "<group>"; };
 		2EFFC0002FB0000000000001 /* Components/PlateCollectionCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components/PlateCollectionCell.swift; sourceTree = "<group>"; };
@@ -1260,14 +1248,12 @@
 		2E196ED32EAE38E100EB4780 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				2EC202AB2EF4111000D6BAEF /* RegionExerciseListView.swift */,
 				2E3D8EEF2EB0ACFA00AC8A53 /* CreateExerciseView.swift */,
 				2E2F53AC2E9ED6DB00C81656 /* ExerciseBrowserView.swift */,
 				2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */,
 				2E2F53AE2E9EDE0F00C81656 /* EmptyExercisesView.swift */,
 				2EC245C32E9FB4F400100333 /* ExerciseMedia.swift */,
 				2EC245C52E9FB54600100333 /* YouTubeInlinePlayer.swift */,
-				2E74619C2E93ECF200A71C35 /* SearchView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -1275,8 +1261,6 @@
 		2E196ED42EAE391000EB4780 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				2EC202B12EF4113800D6BAEF /* CollapsibleFiltersSection.swift */,
-				2EC202B22EF4113800D6BAEF /* TwoTierFilterBar.swift */,
 				2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */,
 				2EC202AE2EF4112B00D6BAEF /* MuscleGroupFilterRow.swift */,
 				2EBE3FA02EB895D800A26355 /* SearchBarComponent.swift */,
@@ -1564,7 +1548,6 @@
 		2E196EF22EAE48CC00EB4780 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				2E74619F2E93ED1200A71C35 /* MuscleGroupView.swift */,
 				2E7461F52E95181100A71C35 /* SubregionDetailScreen.swift */,
 				2E510B6F2E99599F0089EE2C /* ExerciseMusclesSection.swift */,
 				2E510B6D2E99597D0089EE2C /* SVGHumanBodyView.swift */,
@@ -1578,7 +1561,6 @@
 				2E7461CC2E942FC000A71C35 /* MuscleTaxonomy.swift */,
 				2E510B6B2E9959470089EE2C /* MuscleRegion.swift */,
 				2E510B8B2E9AEEEC0089EE2C /* MuscleIndex.swift */,
-				2EEEACD42EA38AF700EDD16E /* MusclePictogram.swift */,
 				2EEEACD32EA38AEC00EDD16E /* MuscleIconMapper.swift */,
 				2E510B742E995BE30089EE2C /* SVGMuscleIDMapper.swift */,
 			);
@@ -2556,10 +2538,8 @@
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,
-				2EEEACDA2EA38B3400EDD16E /* MusclePictogram.swift in Sources */,
 				2EA7D9C12EEB43460017683B /* RealtimeService.swift in Sources */,
 				2EA7DA1E2EEC15540017683B /* CachedNotification.swift in Sources */,
-				2EC202AC2EF4111000D6BAEF /* RegionExerciseListView.swift in Sources */,
 				2EA7DA1F2EEC15540017683B /* CachedPost.swift in Sources */,
 				2EA7DA202EEC15540017683B /* CachedProfile.swift in Sources */,
 				2E2938772EC5F8220057F60C /* ExerciseStatisticsView.swift in Sources */,
@@ -2593,7 +2573,6 @@
 				2EE8A0952EE99ED900A74A3C /* SupabaseConfig.swift in Sources */,
 				2EA7D9952EE9D3230017683B /* FriendshipRepository.swift in Sources */,
 				2E2F53AF2E9EDE0F00C81656 /* EmptyExercisesView.swift in Sources */,
-				2E74619D2E93ECF900A71C35 /* SearchView.swift in Sources */,
 				2E2F538D2E9D670700C81656 /* StreakResult.swift in Sources */,
 				2E7461F82E954B7600A71C35 /* LiveWorkoutOverlayCard.swift in Sources */,
 				2E7461D42E94377F00A71C35 /* MapRouteView.swift in Sources */,
@@ -2710,7 +2689,6 @@
 				2EBE3F072EB65F2A00A26355 /* CustomSplitExercisePicker.swift in Sources */,
 				2E2F53992E9E578B00C81656 /* RewardSummary.swift in Sources */,
 				2E695B7C2EFD44D6002EA9FC /* FriendActivityCard.swift in Sources */,
-				2E7461AB2E93EECF00A71C35 /* MuscleGroupView.swift in Sources */,
 				2E7461EB2E94DC7800A71C35 /* WRKTApp.swift in Sources */,
 				2E695B862F001D60002EA9FC /* WorkoutPatternAnalyzer.swift in Sources */,
 				2EC245C82E9FD22C00100333 /* DexTile.swift in Sources */,
@@ -2844,8 +2822,6 @@
 				2EA7D9A42EE9EF810017683B /* PostDetailView.swift in Sources */,
 				2EBE3EF32EB6579900A26355 /* RestDayOptionCard.swift in Sources */,
 				2EE39C6F2EA77AA6000549C3 /* PlannerStore.swift in Sources */,
-				2EC202B32EF4113800D6BAEF /* CollapsibleFiltersSection.swift in Sources */,
-				2EC202B42EF4113800D6BAEF /* TwoTierFilterBar.swift in Sources */,
 				2EC245D32E9FEB4600100333 /* FavoritesStore.swift in Sources */,
 				2EA7DAA42EEDC7660017683B /* Challenge.swift in Sources */,
 				2EC89F5C2F93FD920011159D /* ProgramInviteViewModel.swift in Sources */,

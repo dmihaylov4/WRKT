@@ -55,47 +55,6 @@ enum MuscleFilter: Hashable, Identifiable {
     }
 }
 
-// MARK: - Root picker used by SearchView's browseState flow (kept for compatibility)
-struct BodyBrowseRootView: View {
-    @Binding var state: BrowseState
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack(spacing: 12) {
-                RegionCard(title: "Upper Body", systemImage: "figure.strengthtraining.traditional") {
-                    state = .region(.upper)
-                }
-                RegionCard(title: "Lower Body", systemImage: "figure.step.training") {
-                    state = .region(.lower)
-                }
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal)
-        }
-    }
-}
-
-struct RegionCard: View {
-    let title: String
-    let systemImage: String
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 8) {
-                Image(systemName: systemImage).font(.system(size: 28, weight: .semibold))
-                Text(title).dsFont(.headline)
-            }
-            .frame(maxWidth: .infinity, minHeight: 120)
-            //.background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .background(DS.Semantic.surface)
-            .shadow(radius: 2, y: 1)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
-        .accessibilityLabel(title)
-    }
-}
-
 enum BodyRegion: String, CaseIterable, Hashable { case upper, lower }
 
 // Legacy state enum (still used by SearchView and deep lists)

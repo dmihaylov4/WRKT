@@ -7,28 +7,6 @@
 
 import SwiftUI
 
-// MARK: - Meta Pill
-
-struct MetaPill: View {
-    let icon: String
-    let label: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .dsFont(.caption, weight: .semibold)
-            Text(label)
-                .dsFont(.caption2, weight: .semibold)
-        }
-        .foregroundStyle(.white.opacity(0.92))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(tint.opacity(0.18), in: ChamferedRectangle(.small))
-        .overlay(ChamferedRectangle(.small).stroke(tint.opacity(0.35), lineWidth: 1))
-    }
-}
-
 // MARK: - Favorite Heart Button
 
 struct FavoriteHeartButton: View {
