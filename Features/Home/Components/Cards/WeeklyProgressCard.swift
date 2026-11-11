@@ -52,8 +52,8 @@ struct WeeklyProgressCard: View {
         .foregroundStyle(chipColor)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(chipColor.opacity(0.12), in: Capsule())
-        .overlay(Capsule().stroke(chipColor.opacity(0.3), lineWidth: 1))
+        .background(chipColor.opacity(0.12), in: DS.RoleShape(.control, legacy: Capsule()))
+        .overlay(DS.RoleShape(.control, legacy: Capsule()).stroke(chipColor.opacity(0.3), lineWidth: 1))
     }
 
     var body: some View {

@@ -278,11 +278,15 @@ struct UnifiedWeeklyStatsCard: View {
             }
         }
         .padding(12)
-        .background(DS.card, in: ChamferedRectangle(.large))
-        .overlay(ChamferedRectangle(.large).stroke(.white.opacity(0.08), lineWidth: 1))
+        .background(DS.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
+        .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(.white.opacity(0.08), lineWidth: 1))
     }
 
     // MARK: - Components
+
+    var chipShape: DS.RoleShape<ChamferedRectangleAlt> {
+        DS.RoleShape(.control, legacy: ChamferedRectangleAlt(.micro))
+    }
 
     @ViewBuilder
     private func goalTrailingValue(_ presentation: WeeklyProgressGoalPresentation) -> some View {
@@ -310,9 +314,9 @@ struct UnifiedWeeklyStatsCard: View {
         .padding(.horizontal, 7)
         .frame(height: 18)
         .background(DS.tint)
-        .clipShape(ChamferedRectangleAlt(.micro))
+        .clipShape(chipShape)
         .overlay(
-            ChamferedRectangleAlt(.micro)
+            chipShape
                 .stroke(DS.tint.opacity(0.45), lineWidth: 1)
         )
         .fixedSize()
@@ -336,8 +340,8 @@ struct UnifiedWeeklyStatsCard: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(chipColor.opacity(0.12))
-        .clipShape(ChamferedRectangleAlt(.micro))
-        .overlay(ChamferedRectangleAlt(.micro).stroke(chipColor.opacity(0.3), lineWidth: 1))
+        .clipShape(chipShape)
+        .overlay(chipShape.stroke(chipColor.opacity(0.3), lineWidth: 1))
     }
 
     @ViewBuilder
@@ -359,7 +363,7 @@ struct UnifiedWeeklyStatsCard: View {
         }
         .padding(10)
         .background(level.color.opacity(0.15))
-        .cornerRadius(8)
+        .clipShape(DS.RoleShape(.nested, legacy: RoundedRectangle(cornerRadius: 8)))
     }
 
     private var streakSection: some View {
