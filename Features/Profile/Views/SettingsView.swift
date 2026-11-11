@@ -197,9 +197,9 @@ struct SettingsView: View {
             VStack(spacing: 0) {
                 content()
             }
-            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
             .overlay(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                     .stroke(.white.opacity(0.08), lineWidth: 1)
             )
         }

@@ -176,9 +176,9 @@ struct PreferencesView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
             .overlay(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                     .stroke(.white.opacity(0.08), lineWidth: 1)
             )
             .tint(DS.Semantic.brand)
@@ -720,8 +720,8 @@ private struct TimeStepper: View {
             }
             .buttonStyle(.plain)
         }
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(.quaternary, lineWidth: 1))
+        .background(.ultraThinMaterial, in: DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)))
+        .overlay(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 10, style: .continuous)).stroke(.quaternary, lineWidth: 1))
         .onChange(of: focused) { _, isFocused in
             if !isFocused {
                 editing = false
@@ -852,9 +852,9 @@ private struct HeartRateZonesSection: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
             .overlay(
-                ChamferedRectangle(.xl)
+                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                     .stroke(.white.opacity(0.08), lineWidth: 1)
             )
 
