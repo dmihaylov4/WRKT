@@ -34,13 +34,31 @@ final class HomeViewModel {
     var carouselCards: [HomeCardType] = []
     var hasActivePlan: Bool = false
     var todaysPlan: PlannedWorkout?
-    private var refreshGeneration = 0
+    @ObservationIgnored private var refreshGeneration = 0
+    @ObservationIgnored private var debounceTask: Task<Void, Never>?
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var hasPendingRefresh = false
+    @ObservationIgnored private var pendingRefreshReady = false
+    @ObservationIgnored private var pendingRefreshImmediate = false
+    @ObservationIgnored private var refreshWaiters: [(generation: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private let friendActivityLoader: (@MainActor () async -> FriendActivitySummary?)?
+    private let refreshDelay: @MainActor () async throws -> Void
 
     // MARK: - Init
-    init(workoutStore: WorkoutStoreV2, plannerStore: PlannerStore, weeklyGoal: WeeklyGoal? = nil) {
+    init(
+        workoutStore: WorkoutStoreV2,
+        plannerStore: PlannerStore,
+        weeklyGoal: WeeklyGoal? = nil,
+        friendActivityLoader: (@MainActor () async -> FriendActivitySummary?)? = nil,
+        refreshDelay: @escaping @MainActor () async throws -> Void = {
+            try await Task.sleep(for: .milliseconds(300))
+        }
+    ) {
         self.workoutStore = workoutStore
         self.plannerStore = plannerStore
         self.weeklyGoal = weeklyGoal
+        self.friendActivityLoader = friendActivityLoader
+        self.refreshDelay = refreshDelay
         self.recommendationEngine = RecommendationEngine(
             workoutStore: workoutStore,
             plannerStore: plannerStore,
@@ -50,16 +68,53 @@ final class HomeViewModel {
 
     // MARK: - Public Methods
 
-    /// Refresh all data and rebuild card priority
-    func refresh() async {
-        refreshGeneration += 1
+    /// Coalesce automatic changes; explicit actions bypass the pending delay.
+    func refresh(userInitiated: Bool = false) async {
+        await withCheckedContinuation { continuation in
+            refreshGeneration += 1
+            refreshWaiters.append((refreshGeneration, continuation))
+            hasPendingRefresh = true
+            pendingRefreshImmediate = pendingRefreshImmediate || userInitiated
+            debounceTask?.cancel()
+            debounceTask = nil
+
+            if pendingRefreshImmediate {
+                pendingRefreshReady = true
+                startRefreshIfReady()
+            } else {
+                pendingRefreshReady = false
+                let delay = refreshDelay
+                debounceTask = Task { [weak self] in
+                    do { try await delay() } catch { return }
+                    guard !Task.isCancelled, let self else { return }
+                    self.debounceTask = nil
+                    self.pendingRefreshReady = true
+                    self.startRefreshIfReady()
+                }
+            }
+        }
+    }
+
+    private func startRefreshIfReady() {
+        guard refreshTask == nil, hasPendingRefresh, pendingRefreshReady else { return }
         let generation = refreshGeneration
+        hasPendingRefresh = false
+        pendingRefreshReady = false
+        pendingRefreshImmediate = false
 
-        checkTodaysPlan()
-        let cards = await buildCarouselCards()
+        refreshTask = Task {
+            checkTodaysPlan()
+            let cards = await buildCarouselCards()
+            if generation == refreshGeneration {
+                carouselCards = cards
+            }
 
-        guard generation == refreshGeneration else { return }
-        carouselCards = cards
+            let completed = refreshWaiters.filter { $0.generation <= generation }
+            refreshWaiters.removeAll { $0.generation <= generation }
+            refreshTask = nil
+            for waiter in completed { waiter.continuation.resume() }
+            startRefreshIfReady()
+        }
     }
 
     /// Set weekly goal (called from dependency injection)
@@ -86,7 +141,7 @@ final class HomeViewModel {
         let maxCards = 3 // Prevent overcrowding
 
         // Priority 1: Friend Activity Card - HIGHEST IMPACT (social accountability)
-        if cards.count < maxCards, let friendActivity = await getFriendActivityToday() {
+        if cards.count < maxCards, let friendActivity = await loadFriendActivity() {
             cards.append(.friendActivity(friendActivity))
         }
 
@@ -137,6 +192,13 @@ final class HomeViewModel {
         // Weekly comparison data is already visible in UnifiedWeeklyStatsCard
 
         return cards
+    }
+
+    private func loadFriendActivity() async -> FriendActivitySummary? {
+        if let friendActivityLoader {
+            return await friendActivityLoader()
+        }
+        return await getFriendActivityToday()
     }
 
     // MARK: - Data Fetching Methods
