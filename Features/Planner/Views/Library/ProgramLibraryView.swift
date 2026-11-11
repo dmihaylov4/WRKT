@@ -383,9 +383,9 @@ private struct ProgramRowView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
@@ -429,9 +429,9 @@ private struct SharedWithMeSection: View {
                     }
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+                    .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
                     .overlay(
-                        ChamferedRectangle(.xl)
+                        DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     )
                 }
@@ -505,9 +505,9 @@ private struct ProgramLibraryIntroCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1)
         )
     }
@@ -540,9 +540,9 @@ private struct ProgramEmptyStateCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }
@@ -668,9 +668,9 @@ private struct ProgramShareSheet: View {
                                             }
                                             .padding(16)
                                             .frame(maxWidth: .infinity, alignment: .leading)
-                                            .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+                                            .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
                                             .overlay(
-                                                ChamferedRectangle(.xl)
+                                                DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                                                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
                                             )
                                         }
@@ -698,9 +698,9 @@ private struct ProgramShareSheet: View {
                                                     }
                                                     .padding(14)
                                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                                    .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+                                                    .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                                                     .overlay(
-                                                        ChamferedRectangle(.large)
+                                                        DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                                                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
                                                     )
                                                 }
@@ -724,9 +724,9 @@ private struct ProgramShareSheet: View {
                                         .dsFont(.subheadline)
                                         .foregroundStyle(DS.Semantic.textPrimary)
                                         .padding(14)
-                                        .background(DS.Semantic.card, in: ChamferedRectangle(.large))
+                                        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
                                         .overlay(
-                                            ChamferedRectangle(.large)
+                                            DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
                                                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
                                         )
                                     }
@@ -863,9 +863,9 @@ private struct ProgramSheetHeaderButtonStyle: ButtonStyle {
             .dsFont(.subheadline, weight: .semibold)
             .foregroundStyle(foreground)
             .frame(width: 92, height: 46)
-            .background(background(configuration: configuration), in: ChamferedRectangle(.large))
+            .background(background(configuration: configuration), in: DS.RoleShape(.control, legacy: ChamferedRectangle(.large)))
             .overlay(
-                ChamferedRectangle(.large)
+                DS.RoleShape(.control, legacy: ChamferedRectangle(.large))
                     .stroke(border, lineWidth: 1)
             )
             .opacity(isDisabled ? 0.42 : 1)
@@ -931,10 +931,10 @@ private struct ProgramShareHeroCard: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: ChamferedRectangle(.xl)
+            in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
         )
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(DS.Theme.accent.opacity(0.25), lineWidth: 1)
         )
     }
@@ -962,9 +962,9 @@ private struct ProgramShareSummaryCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DS.Semantic.card, in: ChamferedRectangle(.xl))
+        .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.xl)))
         .overlay(
-            ChamferedRectangle(.xl)
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
     }

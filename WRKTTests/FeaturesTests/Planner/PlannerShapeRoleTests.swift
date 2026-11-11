@@ -67,5 +67,16 @@ struct PlannerShapeRoleTests {
             ShapeRoleTestSupport.check(.control, legacy: RoundedRectangle(cornerRadius: 10), expected: RoundedRectangle(cornerRadius: 10).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
         }
     }
+    @Test func libraryShareCardsAndHeaderControlsPreserveLegacyPaths() throws {
+        let library = try ShapeRoleTestSupport.source("Planner/Views/Library/ProgramLibraryView.swift")
+        #expect(library.contains("DS.RoleShape(.card, legacy: ChamferedRectangle(.xl))"))
+        let header = try #require(library.range(of: "private struct ProgramSheetHeaderButtonStyle"))
+        let end = try #require(library.range(of: "private struct ProgramShareHeroCard"))
+        #expect(library[header.lowerBound..<end.lowerBound].contains("DS.RoleShape(.control, legacy: ChamferedRectangle(.large))"))
+        for rect in ShapeRoleTestSupport.rects + [CGRect(x: 3, y: 7, width: 92, height: 46)] {
+            ShapeRoleTestSupport.check(.card, legacy: ChamferedRectangle(.xl), expected: MainChamferedRectangle(.xl).path(in: rect), rect: rect, radius: 26)
+            ShapeRoleTestSupport.check(.control, legacy: ChamferedRectangle(.large), expected: MainChamferedRectangle(.large).path(in: rect), rect: rect, radius: min(rect.width, rect.height) / 2)
+        }
+    }
     #endif
 }
