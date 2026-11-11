@@ -270,15 +270,12 @@
 		2EC202992EF2A54400D6BAEF /* RecentPRCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028F2EF2A54400D6BAEF /* RecentPRCard.swift */; };
 		2EC2029A2EF2A54400D6BAEF /* HeroStartWorkoutButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202942EF2A54400D6BAEF /* HeroStartWorkoutButton.swift */; };
 		2EC2029B2EF2A54400D6BAEF /* HomeHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202952EF2A54400D6BAEF /* HomeHeaderView.swift */; };
-		2EC2029C2EF2A54400D6BAEF /* CompactExerciseBrowse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202932EF2A54400D6BAEF /* CompactExerciseBrowse.swift */; };
 		2EC2029D2EF2A54400D6BAEF /* LastWorkoutCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028E2EF2A54400D6BAEF /* LastWorkoutCard.swift */; };
 		2EC2029E2EF2A54400D6BAEF /* RecommendationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202902EF2A54400D6BAEF /* RecommendationCard.swift */; };
 		2EC2029F2EF2A54400D6BAEF /* WeeklyProgressCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202912EF2A54400D6BAEF /* WeeklyProgressCard.swift */; };
 		2EC202A02EF2A54400D6BAEF /* ActiveCompetitionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028D2EF2A54400D6BAEF /* ActiveCompetitionCard.swift */; };
-		2EC202A12EF2A54400D6BAEF /* MuscleGroupButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202962EF2A54400D6BAEF /* MuscleGroupButton.swift */; };
 		2EC202A22EF2A54400D6BAEF /* SmartCardCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */; };
 		2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */; };
-		2EC202A62EF2AF5500D6BAEF /* CardioStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A52EF2AF5500D6BAEF /* CardioStatsCard.swift */; };
 		2EC202A82EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */; };
 		2EC202AA2EF407AB00D6BAEF /* LastCardioCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */; };
 		2EC202AC2EF4111000D6BAEF /* RegionExerciseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AB2EF4111000D6BAEF /* RegionExerciseListView.swift */; };
@@ -747,13 +744,10 @@
 		2EC2028F2EF2A54400D6BAEF /* RecentPRCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentPRCard.swift; sourceTree = "<group>"; };
 		2EC202902EF2A54400D6BAEF /* RecommendationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecommendationCard.swift; sourceTree = "<group>"; };
 		2EC202912EF2A54400D6BAEF /* WeeklyProgressCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyProgressCard.swift; sourceTree = "<group>"; };
-		2EC202932EF2A54400D6BAEF /* CompactExerciseBrowse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompactExerciseBrowse.swift; sourceTree = "<group>"; };
 		2EC202942EF2A54400D6BAEF /* HeroStartWorkoutButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroStartWorkoutButton.swift; sourceTree = "<group>"; };
 		2EC202952EF2A54400D6BAEF /* HomeHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeaderView.swift; sourceTree = "<group>"; };
-		2EC202962EF2A54400D6BAEF /* MuscleGroupButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleGroupButton.swift; sourceTree = "<group>"; };
 		2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardCarousel.swift; sourceTree = "<group>"; };
 		2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewNew.swift; sourceTree = "<group>"; };
-		2EC202A52EF2AF5500D6BAEF /* CardioStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWeeklyStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCardioCard.swift; sourceTree = "<group>"; };
 		2EC202AB2EF4111000D6BAEF /* RegionExerciseListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegionExerciseListView.swift; sourceTree = "<group>"; };
@@ -2112,12 +2106,9 @@
 				2E695B822EFECAAD002EA9FC /* RestTimerHeroContent.swift */,
 				2E8A71012F5B000100000001 /* HomeCarouselCard.swift */,
 				2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */,
-				2EC202A52EF2AF5500D6BAEF /* CardioStatsCard.swift */,
 				2EC202922EF2A54400D6BAEF /* Cards */,
-				2EC202932EF2A54400D6BAEF /* CompactExerciseBrowse.swift */,
 				2EC202942EF2A54400D6BAEF /* HeroStartWorkoutButton.swift */,
 				2EC202952EF2A54400D6BAEF /* HomeHeaderView.swift */,
-				2EC202962EF2A54400D6BAEF /* MuscleGroupButton.swift */,
 				2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */,
 			);
 			path = Components;
@@ -2650,7 +2641,6 @@
 				2EA7DA412EEC4E5D0017683B /* PostDetailViewModel.swift in Sources */,
 				2EC99E782EAA2794006B875E /* ExerciseSessionModels.swift in Sources */,
 				2E2938732EC5F7690057F60C /* ExerciseStatModels.swift in Sources */,
-				2EC202A62EF2AF5500D6BAEF /* CardioStatsCard.swift in Sources */,
 				2EBE3EFE2EB6594700A26355 /* Step4CustomizeExercises.swift in Sources */,
 				2EA7D9C72EEB66B20017683B /* ErrorHandler.swift in Sources */,
 				2EA7D9A02EE9EF670017683B /* PostCreationView.swift in Sources */,
@@ -2702,12 +2692,10 @@
 				2EC2029A2EF2A54400D6BAEF /* HeroStartWorkoutButton.swift in Sources */,
 				2EC2029B2EF2A54400D6BAEF /* HomeHeaderView.swift in Sources */,
 				2E0412312F2B439A0090EF16 /* PushNotificationService.swift in Sources */,
-				2EC2029C2EF2A54400D6BAEF /* CompactExerciseBrowse.swift in Sources */,
 				2EC2029D2EF2A54400D6BAEF /* LastWorkoutCard.swift in Sources */,
 				2EC2029E2EF2A54400D6BAEF /* RecommendationCard.swift in Sources */,
 				2EC2029F2EF2A54400D6BAEF /* WeeklyProgressCard.swift in Sources */,
 				2EC202A02EF2A54400D6BAEF /* ActiveCompetitionCard.swift in Sources */,
-				2EC202A12EF2A54400D6BAEF /* MuscleGroupButton.swift in Sources */,
 				2EC202A22EF2A54400D6BAEF /* SmartCardCarousel.swift in Sources */,
 				2E8A71022F5B000100000001 /* HomeCarouselCard.swift in Sources */,
 				2EC245D52E9FF0B700100333 /* FavoritesFirst.swift in Sources */,
