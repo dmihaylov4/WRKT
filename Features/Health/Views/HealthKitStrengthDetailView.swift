@@ -228,9 +228,9 @@ private struct HeaderCard: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+            in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous))
         )
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 20, style: .continuous)).stroke(Theme.border, lineWidth: 1))
     }
 
     private func formatTime(_ sec: Int) -> String {
@@ -347,10 +347,10 @@ private struct MetricCard: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            in: DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .stroke(color.opacity(0.3), lineWidth: 1)
         )
     }
@@ -407,10 +407,10 @@ private struct AddExercisesCard: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .stroke(Theme.accent.opacity(0.4), lineWidth: 1.5)
             )
         }
@@ -450,8 +450,8 @@ private struct SourceInfoCard: View {
             .padding(.top, 4)
         }
         .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)).stroke(Theme.border, lineWidth: 1))
     }
 }
 
@@ -478,7 +478,7 @@ private struct NotesCard: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(14)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.border, lineWidth: 1))
+        .background(Theme.surface, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)))
+        .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 14, style: .continuous)).stroke(Theme.border, lineWidth: 1))
     }
 }

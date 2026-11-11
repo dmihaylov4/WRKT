@@ -66,11 +66,11 @@ struct HealthAuthSheet: View {
                 }
                 .padding(16)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .fill(Color.red.opacity(0.2))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         .stroke(Color.red.opacity(0.5), lineWidth: 1)
                 )
                 .padding(.horizontal, 24)
@@ -94,7 +94,7 @@ struct HealthAuthSheet: View {
                 .frame(height: 56)
                 .foregroundStyle(.black)
                 .background(Color.pink)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .clipShape(DS.RoleShape(.control, legacy: RoundedRectangle(cornerRadius: 16, style: .continuous)))
             }
             .disabled(isAuthorizing)
             .padding(.horizontal, 24)

@@ -75,8 +75,8 @@ struct HealthKitSyncProgressView: View {
                 }
             }
             .padding(14)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.border, lineWidth: 1))
+            .background(Theme.surface, in: DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16, style: .continuous)))
+            .overlay(DS.RoleShape(.card, legacy: RoundedRectangle(cornerRadius: 16, style: .continuous)).stroke(Theme.border, lineWidth: 1))
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }
