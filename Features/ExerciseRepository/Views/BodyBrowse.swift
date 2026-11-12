@@ -446,8 +446,7 @@ struct MuscleExerciseListView: View {
                     .tint(DS.Palette.marone)  // Apply tint to entire toolbar item group
                 }
             }
-            .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .shellNavigationBarBackground(DS.Semantic.surface)
             .background(DS.Semantic.surface.ignoresSafeArea())
             .onAppear {
                 // Initial filter

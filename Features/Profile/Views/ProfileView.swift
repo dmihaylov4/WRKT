@@ -139,8 +139,7 @@ struct ProfileView: View {
                 SettingsView()
                     .environmentObject(authService)
             }
-            .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .shellNavigationBarBackground(DS.Semantic.surface)
             .onChange(of: currentTutorialStep) { _, newStep in
                 // Auto-scroll to the highlighted section when tutorial step changes
                 scrollToStep(newStep, proxy: proxy)
@@ -1174,8 +1173,7 @@ private struct WeeklyGoalDetailView: View {
         }
         .navigationTitle("Weekly Goal")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(DS.Semantic.surface, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .shellNavigationBarBackground(DS.Semantic.surface)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 NavigationLink {

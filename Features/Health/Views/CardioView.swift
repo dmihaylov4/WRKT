@@ -1494,8 +1494,7 @@ private struct AllRunsList: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("All \(activityType.activityName)")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(Theme.bg, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .shellNavigationBarBackground(Theme.bg)
     }
 }
 

@@ -1294,3 +1294,19 @@ public extension View {
             .overlay(DS.RoleShape(role, legacy: RoundedRectangle(cornerRadius: DS.Radius.l)).stroke(DS.Semantic.border, lineWidth: 1))
     }
 }
+
+// MARK: - Shell chrome
+extension View {
+    /// Opaque navigation bar background on the legacy shell.
+    /// The system shell skips it so the navigation bar keeps its Liquid Glass background.
+    @ViewBuilder
+    func shellNavigationBarBackground(_ color: Color) -> some View {
+        if DS.Redesign.usesSystemShell {
+            self
+        } else {
+            self
+                .toolbarBackground(color, for: .navigationBar)
+                .toolbarBackground(.visible, for: .navigationBar)
+        }
+    }
+}
