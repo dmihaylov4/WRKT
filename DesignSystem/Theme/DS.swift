@@ -85,6 +85,40 @@ public enum DS {
         public static let roundedShapesDefault = false
         public static let roundedShapesEnabled = roundedShapesDefault
         #endif
+
+        // System shell: the system tab bar and Liquid Glass bars on iOS 26 and later.
+        // Decided once at launch, like the shape switch it depends on.
+        public static let usesSystemShell: Bool = {
+            if #available(iOS 26, *) {
+                return resolveSystemShell(rounded: roundedShapesEnabled, isIOS26: true)
+            }
+            return resolveSystemShell(rounded: roundedShapesEnabled, isIOS26: false)
+        }()
+
+        /// Bottom clearance that keeps content clear of the shell tab bar.
+        /// The legacy value is returned unchanged when the system shell is off.
+        public static func tabBarClearance(legacy: CGFloat, system: CGFloat) -> CGFloat {
+            resolveTabBarClearance(legacy: legacy, system: system, systemShell: usesSystemShell)
+        }
+
+        #if DEBUG
+        // Test seams only: production always uses the launch-time values.
+        static func usesSystemShell(rounded: Bool, isIOS26: Bool) -> Bool {
+            resolveSystemShell(rounded: rounded, isIOS26: isIOS26)
+        }
+
+        static func tabBarClearance(legacy: CGFloat, system: CGFloat, systemShell: Bool) -> CGFloat {
+            resolveTabBarClearance(legacy: legacy, system: system, systemShell: systemShell)
+        }
+        #endif
+
+        private static func resolveSystemShell(rounded: Bool, isIOS26: Bool) -> Bool {
+            rounded && isIOS26
+        }
+
+        private static func resolveTabBarClearance(legacy: CGFloat, system: CGFloat, systemShell: Bool) -> CGFloat {
+            systemShell ? system : legacy
+        }
     }
 
     // MARK: Palette — locked accents + neutrals
