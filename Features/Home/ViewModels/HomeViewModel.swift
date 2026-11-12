@@ -141,15 +141,17 @@ final class HomeViewModel {
         let plan = try? plannerStore.plannedWorkout(for: .now)
         todaysPlan = plan?.workoutStatus == .completed ? nil : plan
         hasActivePlan = todaysPlan != nil
-        if loadsPlanOutlook { updatePlanOutlook() }
+        if loadsPlanOutlook { updatePlanOutlook(todaysPlannedWorkout: plan) }
     }
 
-    /// Reads whether a plan is active and its next scheduled session in the coming two weeks.
+    /// Reads whether a plan is active, whether today's session is already completed (which
+    /// `todaysPlan` hides) and the next scheduled session in the coming two weeks.
     /// Two small local SwiftData fetches, run with `checkTodaysPlan`.
-    private func updatePlanOutlook(now: Date = .now) {
+    private func updatePlanOutlook(todaysPlannedWorkout: PlannedWorkout?, now: Date = .now) {
         let calendar = Calendar.current
         var outlook = PlanOutlook()
         outlook.hasActivePlan = ((try? plannerStore.activeSplit()) ?? nil) != nil
+        outlook.completedToday = outlook.hasActivePlan && todaysPlannedWorkout?.workoutStatus == .completed
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
         if outlook.hasActivePlan,
            let horizon = calendar.date(byAdding: .day, value: 14, to: tomorrow),
@@ -872,6 +874,8 @@ struct PlanOutlook: Equatable {
 
     /// A split is active. With no session scheduled today this makes today a rest day.
     var hasActivePlan = false
+    /// Today's planned session exists and is completed.
+    var completedToday = false
     var nextSession: Session?
 }
 

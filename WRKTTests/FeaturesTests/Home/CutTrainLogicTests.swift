@@ -54,6 +54,33 @@ struct CutTrainLogicTests {
         #expect(hero == .restDay(next: next))
     }
 
+    @Test func completedSessionTodayIsDoneTodayNotRestDay() {
+        let next = PlanOutlook.Session(name: "Lower Body", date: now.addingTimeInterval(86_400))
+        let hero = CutTrainLogic.hero(workout: nil, rest: nil, todaysPlan: nil,
+                                      outlook: PlanOutlook(hasActivePlan: true, completedToday: true, nextSession: next),
+                                      unit: .kg)
+        #expect(hero == .doneToday(next: next))
+        #expect(CutTrainLogic.heroTitle(hero) == "Done today")
+        #expect(CutTrainLogic.heroLine(hero, now: now, calendar: calendar) == "Next: Lower Body, tomorrow")
+        #expect(CutTrainLogic.heroLine(.doneToday(next: nil)) == nil)
+        #expect(!CutTrainLogic.fieldIsLime(hero))
+    }
+
+    @Test func workoutInProgressWinsOverDoneToday() {
+        let hero = CutTrainLogic.hero(workout: workout([entry("a", "Bench Press", done: 0, of: 1)]), rest: nil,
+                                      todaysPlan: nil, outlook: PlanOutlook(hasActivePlan: true, completedToday: true),
+                                      unit: .kg)
+        guard case .live = hero else { Issue.record("expected live"); return }
+    }
+
+    @Test func onlyRestAndDoneDaysUseTheDarkField() {
+        #expect(CutTrainLogic.fieldIsLime(.noPlan))
+        #expect(CutTrainLogic.fieldIsLime(.planned(name: "A", exerciseCount: 1)))
+        #expect(CutTrainLogic.fieldIsLime(.resting(nextLine: nil, countdown: .fixed(1))))
+        #expect(!CutTrainLogic.fieldIsLime(.restDay(next: nil)))
+        #expect(!CutTrainLogic.fieldIsLime(.doneToday(next: nil)))
+    }
+
     @Test func emptyWorkoutDoesNotCountAsLive() {
         let hero = CutTrainLogic.hero(workout: workout([]), rest: nil, todaysPlan: nil, outlook: PlanOutlook(), unit: .kg)
         #expect(hero == .noPlan)
@@ -235,5 +262,19 @@ final class CutTrainPlanOutlookTests: XCTestCase {
         XCTAssertTrue(on.planOutlook.hasActivePlan)
         XCTAssertNil(on.todaysPlan)
         XCTAssertEqual(on.planOutlook.nextSession, PlanOutlook.Session(name: "Lower Body", date: tomorrow))
+        XCTAssertFalse(on.planOutlook.completedToday)
+
+        // Today's session completed: the legacy view still sees no plan, the outlook records it.
+        let today = PlannedWorkout(scheduledDate: calendar.startOfDay(for: .now), splitDayName: "Upper Body", exercises: [])
+        today.workoutStatus = .completed
+        context.insert(today)
+        try context.save()
+        await on.refresh(userInitiated: true)
+        XCTAssertNil(on.todaysPlan)
+        XCTAssertFalse(on.hasActivePlan)
+        XCTAssertTrue(on.planOutlook.completedToday)
+        await off.refresh(userInitiated: true)
+        XCTAssertNil(off.todaysPlan)
+        XCTAssertEqual(off.planOutlook, PlanOutlook())
     }
 }

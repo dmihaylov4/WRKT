@@ -34,6 +34,8 @@ enum CutTrainHero: Equatable {
     case live(name: String, exercisesDone: Int, exerciseCount: Int, startDate: Date)
     /// Today's planned session is not completed.
     case planned(name: String, exerciseCount: Int)
+    /// A plan is active and today's planned session is completed.
+    case doneToday(next: PlanOutlook.Session?)
     /// A plan is active but nothing is scheduled today.
     case restDay(next: PlanOutlook.Session?)
     /// No active plan.
@@ -109,9 +111,17 @@ enum CutTrainLogic {
             return .planned(name: todaysPlan.name, exerciseCount: todaysPlan.exerciseCount)
         }
         if outlook.hasActivePlan {
-            return .restDay(next: outlook.nextSession)
+            return outlook.completedToday ? .doneToday(next: outlook.nextSession) : .restDay(next: outlook.nextSession)
         }
         return .noPlan
+    }
+
+    /// The field is lime except on days with nothing left to train, which use the dark tone.
+    static func fieldIsLime(_ hero: CutTrainHero) -> Bool {
+        switch hero {
+        case .restDay, .doneToday: false
+        default: true
+        }
     }
 
     /// An exercise is done when it has sets and every one is completed.
@@ -179,6 +189,7 @@ extension CutTrainLogic {
         switch hero {
         case .planned(let name, _), .live(let name, _, _, _): name
         case .restDay: "Rest day"
+        case .doneToday: "Done today"
         case .noPlan: "No plan yet"
         case .resting: ""
         }
@@ -204,7 +215,7 @@ extension CutTrainLogic {
         case .planned(_, let count):
             guard count > 0 else { return nil }
             return count == 1 ? "1 exercise" : "\(count) exercises"
-        case .restDay(let next):
+        case .restDay(let next), .doneToday(let next):
             guard let next else { return nil }
             return "Next: \(next.name), \(relativeDay(next.date, now: now, calendar: calendar, style: .long))"
         case .noPlan:

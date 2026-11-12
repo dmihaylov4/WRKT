@@ -61,8 +61,7 @@ private struct CutTrainField: View {
     let actions: CutTrainActions
 
     private var tone: CutField<EmptyView>.Tone {
-        if case .restDay = hero { return .dark }
-        return .lime
+        CutTrainLogic.fieldIsLime(hero) ? .lime : .dark
     }
 
     private var fieldColor: Color {
@@ -188,6 +187,15 @@ private struct CutTrainHeroActions: View {
                 actions.startWorkout()
             }
             .buttonStyle(CutPrimaryButtonStyle(fillsWidth: false))
+            Button("Browse exercises", systemImage: "magnifyingglass", action: actions.browseExercises)
+                .buttonStyle(CutIconButtonStyle(tone: .outline, diameter: 56))
+        case .doneToday:
+            // Another session is allowed, not pushed: outlined, not filled.
+            Button("Start workout", systemImage: "arrow.right") {
+                Haptics.medium()
+                actions.startWorkout()
+            }
+            .buttonStyle(CutSecondaryButtonStyle(fillsWidth: false))
             Button("Browse exercises", systemImage: "magnifyingglass", action: actions.browseExercises)
                 .buttonStyle(CutIconButtonStyle(tone: .outline, diameter: 56))
         case .noPlan:
@@ -419,6 +427,7 @@ enum CutTrainFixtures {
         ("planned", .planned(name: "Upper Body", exerciseCount: 6)),
         ("planned-long-name", .planned(name: "Posterior Chain and Conditioning Superset", exerciseCount: 9)),
         ("rest-day", .restDay(next: PlanOutlook.Session(name: "Lower Body", date: tomorrow))),
+        ("done-today", .doneToday(next: PlanOutlook.Session(name: "Lower Body", date: tomorrow))),
         ("no-plan", .noPlan),
         ("live", .live(name: "Upper Body", exercisesDone: 2, exerciseCount: 6,
                        startDate: Date.now.addingTimeInterval(-(24 * 60 + 16)))),
