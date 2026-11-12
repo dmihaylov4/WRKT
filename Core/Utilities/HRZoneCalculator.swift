@@ -76,6 +76,10 @@ final class HRZoneCalculator: ObservableObject {
         loadOrCreateConfig()
     }
 
+    init(config: HRZoneConfig) {
+        self.config = config
+    }
+
     // MARK: - Public API
 
     /// Age derived from stored birth year — auto-updates each calendar year, no manual refresh needed.
@@ -158,7 +162,7 @@ final class HRZoneCalculator: ObservableObject {
         logZoneBoundaries()
     }
 
-    /// Get zone for a heart rate value
+    /// Get zone for a heart rate value, or 0 below the Zone 1 lower bound.
     func zone(for hr: Double) -> Int {
         let boundaries = zoneBoundaries()
         for boundary in boundaries.reversed() {
@@ -166,7 +170,19 @@ final class HRZoneCalculator: ObservableObject {
                 return boundary.zone
             }
         }
-        return 1
+        return 0
+    }
+
+    /// Attribute each sampled interval to its starting heart rate, capped at 60 seconds.
+    func zoneDurations(for samples: [HeartRateSample]) -> [Int: TimeInterval] {
+        var durations: [Int: TimeInterval] = [:]
+        for (sample, next) in zip(samples, samples.dropFirst()) {
+            let zone = zone(for: sample.bpm)
+            guard zone > 0 else { continue }
+            let interval = next.timestamp.timeIntervalSince(sample.timestamp)
+            durations[zone, default: 0] += min(interval, 60)
+        }
+        return durations
     }
 
     /// Get all zone boundaries. Uses Karvonen (HRR-based) when resting HR is available,

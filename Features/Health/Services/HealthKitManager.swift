@@ -2182,18 +2182,16 @@ final class HealthKitManager: ObservableObject {
 
             // Calculate HR zones from route data
             var hrZones: [HRZoneSummary]? = nil
-            if let routePoints = routeWithHR, !routePoints.isEmpty {
-                let zones = calculateHRZonesFromRoute(routePoints, totalDuration: totalDuration)
-                let totalMinutes = zones.reduce(0) { $0 + $1.minutes }
-                if totalMinutes > 0 {
-                    hrZones = zones
-                }
+            if let routePoints = routeWithHR, routePoints.contains(where: { ($0.hr ?? 0) > 0 }) {
+                hrZones = calculateHRZonesFromRoute(routePoints, totalDuration: totalDuration)
             }
 
-            // Fallback: estimate from average HR if route-based zones are empty
+            // Fallback: use HR samples, then estimate only when samples are unavailable.
             if hrZones == nil || hrZones?.isEmpty == true {
                 let (hrSamples, avg, _, _) = try await fetchHeartRateSamples(for: workout)
-                if avg > 0 {
+                if hrSamples.count > 1 {
+                    hrZones = CardioDataExtractor.shared.calculateHRZones(from: hrSamples)
+                } else if avg > 0 {
                     hrZones = CardioDataExtractor.shared.calculateEstimatedHRZones(avgHR: avg, totalDuration: totalDuration)
                 }
             }

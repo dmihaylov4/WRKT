@@ -14,9 +14,11 @@ import CoreLocation
 final class CardioDataExtractor {
     static let shared = CardioDataExtractor()
 
-    private let hrCalculator = HRZoneCalculator.shared
+    private let hrCalculator: HRZoneCalculator
 
-    private init() {}
+    init(hrCalculator: HRZoneCalculator = .shared) {
+        self.hrCalculator = hrCalculator
+    }
 
     // MARK: - Public API
 
@@ -37,14 +39,12 @@ final class CardioDataExtractor {
     /// Calculate HR zone breakdown from route data
     func calculateHRZones(from run: Run) -> [HRZoneSummary]? {
         // Try to calculate from route with HR data
-        if let routeWithHR = run.routeWithHR, !routeWithHR.isEmpty {
-            let zones = calculateActualHRZones(from: routeWithHR, totalDuration: run.durationSec)
-            // Check if actual zones have meaningful data (not all zeros)
-            let totalMinutes = zones.reduce(0) { $0 + $1.minutes }
-            if totalMinutes > 0 {
-                return zones
-            }
-            // Fall through to estimated if route HR data was all nil/empty
+        if let routeWithHR = run.routeWithHR, routeWithHR.contains(where: { ($0.hr ?? 0) > 0 }) {
+            return calculateActualHRZones(from: routeWithHR, totalDuration: run.durationSec)
+        }
+
+        if let samples = run.hrSamples, samples.count > 1 {
+            return calculateHRZones(from: samples)
         }
 
         // Fallback: estimate from average HR
@@ -55,7 +55,19 @@ final class CardioDataExtractor {
         return nil
     }
 
-    
+    func calculateHRZones(from samples: [HeartRateSample]) -> [HRZoneSummary] {
+        let durations = hrCalculator.zoneDurations(for: samples)
+        return hrCalculator.zoneBoundaries().map { boundary in
+            HRZoneSummary(
+                zone: boundary.zone,
+                name: boundary.name,
+                minutes: (durations[boundary.zone] ?? 0) / 60,
+                rangeDisplay: boundary.rangeString,
+                colorHex: boundary.color.toHex()
+            )
+        }
+    }
+
     func generateMapSnapshot(from run: Run, size: CGSize = CGSize(width: 600, height: 400)) async throws -> UIImage? {
         guard let routeWithHR = run.routeWithHR, routeWithHR.count > 1 else {
           
@@ -123,6 +135,7 @@ final class CardioDataExtractor {
     func calculateEstimatedHRZones(avgHR: Double, totalDuration: Int) -> [HRZoneSummary] {
         let boundaries = hrCalculator.zoneBoundaries()
         let dominantZone = hrCalculator.zone(for: avgHR)
+        guard dominantZone > 0 else { return buildEmptyZones(boundaries: boundaries) }
 
         // Distribute time: dominant zone gets 60%, adjacent zones get 20% each
         let totalMinutes = Double(totalDuration) / 60.0

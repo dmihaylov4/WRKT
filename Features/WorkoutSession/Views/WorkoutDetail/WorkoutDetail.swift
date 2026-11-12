@@ -266,14 +266,7 @@ private struct HRZoneDistributionSection: View {
     private var zoneSummaries: [HRZoneSummary] {
         let calculator = HRZoneCalculator.shared
         let boundaries = calculator.zoneBoundaries()
-        var zoneDurations: [Int: TimeInterval] = [:]
-
-        for i in 0..<samples.count - 1 {
-            let zone = calculator.zone(for: samples[i].bpm)
-            let interval = samples[i + 1].timestamp.timeIntervalSince(samples[i].timestamp)
-            let clamped = min(interval, 60)
-            zoneDurations[zone, default: 0] += clamped
-        }
+        let zoneDurations = calculator.zoneDurations(for: samples)
 
         return boundaries.compactMap { boundary -> HRZoneSummary? in
             let duration = zoneDurations[boundary.zone] ?? 0
@@ -290,7 +283,7 @@ private struct HRZoneDistributionSection: View {
     }
 
     var body: some View {
-        if !zoneSummaries.isEmpty {
+        if !samples.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Heart Rate Zones")
                     .dsFont(.headline)
