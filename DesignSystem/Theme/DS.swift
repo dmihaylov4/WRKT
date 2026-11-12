@@ -86,6 +86,20 @@ public enum DS {
         public static let roundedShapesEnabled = roundedShapesDefault
         #endif
 
+        // Release switch for the Cut design language (DesignSystem/Cut).
+        #if DEBUG
+        public static let cutDefault = true
+        public static let cutPreferenceKey = "debug.useCut"
+        public static let cutEnabled: Bool = {
+            UserDefaults.standard.object(forKey: cutPreferenceKey) == nil
+                ? cutDefault
+                : UserDefaults.standard.bool(forKey: cutPreferenceKey)
+        }()
+        #else
+        public static let cutDefault = false
+        public static let cutEnabled = cutDefault
+        #endif
+
         // System shell: the system tab bar and Liquid Glass bars on iOS 26 and later.
         // Decided once at launch, like the shape switch it depends on.
         public static let usesSystemShell: Bool = {

@@ -393,6 +393,10 @@
 		AFC93D36544008FB28C718DC /* OAuthUsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */; };
 		AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
+		C17CA0000000000000000011 /* CutTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000021 /* CutTokens.swift */; };
+		C17CA0000000000000000012 /* CutShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000022 /* CutShapes.swift */; };
+		C17CA0000000000000000013 /* CutComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000023 /* CutComponents.swift */; };
+		C17CA0000000000000000014 /* CutGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000024 /* CutGalleryView.swift */; };
 		C17CA0000000000000000003 /* CutFonts in Resources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000002 /* CutFonts */; };
 /* End PBXBuildFile section */
 
@@ -845,6 +849,10 @@
 		ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCustomizationService.swift; sourceTree = "<group>"; };
 		ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEditorView.swift; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
+		C17CA0000000000000000021 /* CutTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTokens.swift; sourceTree = "<group>"; };
+		C17CA0000000000000000022 /* CutShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutShapes.swift; sourceTree = "<group>"; };
+		C17CA0000000000000000023 /* CutComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutComponents.swift; sourceTree = "<group>"; };
+		C17CA0000000000000000024 /* CutGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutGalleryView.swift; sourceTree = "<group>"; };
 		C17CA0000000000000000002 /* CutFonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = CutFonts; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -1214,6 +1222,7 @@
 			children = (
 				2E196EF82EAE4A1800EB4780 /* Theme */,
 				2E196EF72EAE4A1300EB4780 /* Components */,
+				C17CA0000000000000000001 /* Cut */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -2197,6 +2206,17 @@
 			path = AppModels;
 			sourceTree = "<group>";
 		};
+		C17CA0000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA0000000000000000021 /* CutTokens.swift */,
+				C17CA0000000000000000022 /* CutShapes.swift */,
+				C17CA0000000000000000023 /* CutComponents.swift */,
+				C17CA0000000000000000024 /* CutGalleryView.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2521,6 +2541,10 @@
 				2EA181242F8FEB4100E4486A /* ProfileScreenViewModel.swift in Sources */,
 				2EBE3EF52EB657AF00A26355 /* ExerciseEditSheet.swift in Sources */,
 				2EEEACD72EA38B2500EDD16E /* DS.swift in Sources */,
+				C17CA0000000000000000011 /* CutTokens.swift in Sources */,
+				C17CA0000000000000000012 /* CutShapes.swift in Sources */,
+				C17CA0000000000000000013 /* CutComponents.swift in Sources */,
+				C17CA0000000000000000014 /* CutGalleryView.swift in Sources */,
 				2EA7D99E2EE9EF540017683B /* PostCard.swift in Sources */,
 				2EA7DA002EE9EF540017683B /* WorkoutPostStatsViews.swift in Sources */,
 				2EA7DA012EE9EF540017683C /* MultiWorkoutCarousel.swift in Sources */,
