@@ -8,6 +8,9 @@ enum AppTab: Int { case train = 0, plan = 1, social = 2, cardio = 3, profile = 4
 private enum ShellAnim { static let spring = Animation.spring(response: 0.42, dampingFraction: 0.85) }
 private enum TabBarLayout {
     static let contentHeight: CGFloat = 49  // matches UITabBar content zone
+    // System shell: gap between the live workout card and the top of the system tab bar.
+    // Matches the legacy gap (card 62pt above the safe area, custom bar top 20pt above it).
+    static let systemCardGap: CGFloat = 42
 }
 
 extension AppTab {
@@ -80,6 +83,8 @@ struct AppShellView: View {
     @State private var showLiveOverlay = false
     @State private var showContent = false
     @State private var isShellTabBarHidden = false
+    /// System shell only: bottom safe area inside tab content (the system tab bar's height).
+    @State private var systemTabBarInset: CGFloat = 0
     @State private var whatsNewManager = WhatsNewManager.shared
     @AppStorage("is_browsing_exercises") private var isBrowsingExercises = false
 
@@ -294,6 +299,106 @@ struct AppShellView: View {
 
     @ViewBuilder
     private var mainTabView: some View {
+        if #available(iOS 26, *), DS.Redesign.usesSystemShell {
+            systemTabView
+        } else {
+            legacyTabView
+        }
+    }
+
+    // MARK: - System Tab View (iOS 26 system shell)
+
+    @available(iOS 26, *)
+    private var systemTabView: some View {
+        TabView(selection: systemTabSelection) {
+            // TRAIN
+            Tab(value: AppTab.train) {
+                HomeViewNew()
+                    .background(DS.Semantic.surface.ignoresSafeArea())
+                    .modifier(systemTabContent)
+            } label: {
+                SystemTabLabel(tab: .train, isSelected: selectedTab == .train)
+            }
+
+            // PLAN
+            Tab(value: AppTab.plan) {
+                PlanView(pendingNotification: $pendingNotificationNavigation)
+                    .background(DS.Semantic.surface.ignoresSafeArea())
+                    .modifier(systemTabContent)
+            } label: {
+                SystemTabLabel(tab: .plan, isSelected: selectedTab == .plan)
+            }
+
+            // SOCIAL: only shown when not in local mode
+            if !settings.isLocalMode {
+                Tab(value: AppTab.social) {
+                    SocialView(pendingNotification: $pendingNotificationNavigation)
+                        .background(DS.Semantic.surface.ignoresSafeArea())
+                        .modifier(systemTabContent)
+                } label: {
+                    SystemTabLabel(tab: .social, isSelected: selectedTab == .social)
+                }
+                .badge(SystemTabBadge.text(for: badgeManager.friendRequestCount + badgeManager.notificationCount))
+            }
+
+            // CARDIO
+            Tab(value: AppTab.cardio) {
+                NavigationStack {
+                    CardioView()
+                        .background(DS.Semantic.surface)
+                        .scrollContentBackground(.hidden)
+                }
+                .modifier(systemTabContent)
+            } label: {
+                SystemTabLabel(tab: .cardio, isSelected: selectedTab == .cardio)
+            }
+
+            // PROFILE
+            Tab(value: AppTab.profile) {
+                NavigationStack {
+                    ProfileView()
+                        .background(DS.Semantic.surface)
+                        .scrollContentBackground(.hidden)
+                        .toolbar(.hidden, for: .navigationBar)
+                }
+                .modifier(systemTabContent)
+            } label: {
+                SystemTabLabel(tab: .profile, isSelected: selectedTab == .profile)
+            }
+        }
+        .tint(DS.Palette.marone)
+        .tabBarMinimizeBehavior(.onScrollDown)
+    }
+
+    @available(iOS 26, *)
+    private var systemTabContent: SystemTabContentModifier {
+        SystemTabContentModifier(isTabBarHidden: isShellTabBarHidden, bottomInset: $systemTabBarInset)
+    }
+
+    /// Routes system tab bar taps through the reselect resolver.
+    /// Programmatic `selectedTab` writes bypass this setter, so they never count as a reselect.
+    private var systemTabSelection: Binding<AppTab> {
+        Binding(
+            get: { selectedTab },
+            set: { tapped in
+                switch ShellTabSelection.resolve(current: selectedTab, tapped: tapped) {
+                case .select(let tab):
+                    Haptics.light()
+                    selectedTab = tab
+                case .reselect(let name):
+                    Haptics.soft()
+                    if let name {
+                        NotificationCenter.default.post(name: name, object: nil)
+                    }
+                }
+            }
+        )
+    }
+
+    // MARK: - Legacy Tab View (custom tab bar)
+
+    @ViewBuilder
+    private var legacyTabView: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $selectedTab) {
                 // TRAIN (was Home)
@@ -675,7 +780,7 @@ struct AppShellView: View {
             )
             .id("overlay-\(workoutToken)")
             .padding(.horizontal, 12)
-            .padding(.bottom, TabBarLayout.contentHeight + 13) // tab bar + gap
+            .modifier(LiveOverlayBottomPlacement(systemTabBarInset: systemTabBarInset))
             .transition(.move(edge: .bottom).combined(with: .opacity))
             .zIndex(11)
         }
@@ -837,6 +942,74 @@ private struct LifecycleModifiers: ViewModifier {
             .onChange(of: repoIsEmpty) { _, isEmpty in
                 handleRepoReady(isEmpty)
             }
+    }
+}
+
+// MARK: - Live overlay placement
+
+/// Places the live workout card above whichever tab bar is in use.
+private struct LiveOverlayBottomPlacement: ViewModifier {
+    let systemTabBarInset: CGFloat
+
+    func body(content: Content) -> some View {
+        if DS.Redesign.usesSystemShell {
+            // Measured from the screen bottom so the card clears the system bar by the legacy gap
+            content
+                .padding(.bottom, systemTabBarInset + TabBarLayout.systemCardGap)
+                .ignoresSafeArea(.container, edges: .bottom)
+        } else {
+            content
+                .padding(.bottom, TabBarLayout.contentHeight + 13) // tab bar + gap
+        }
+    }
+}
+
+// MARK: - System tab bar pieces (iOS 26 system shell)
+
+/// Applied to each tab's root content on the system shell: maps the shell hide and show
+/// notifications to the system tab bar and reports the tab bar's height to the shell.
+@available(iOS 26, *)
+private struct SystemTabContentModifier: ViewModifier {
+    let isTabBarHidden: Bool
+    @Binding var bottomInset: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .toolbarVisibility(isTabBarHidden ? .hidden : .automatic, for: .tabBar)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.safeAreaInsets.bottom
+            } action: { inset in
+                bottomInset = inset
+            }
+    }
+}
+
+private struct SystemTabLabel: View {
+    let tab: AppTab
+    let isSelected: Bool
+
+    var body: some View {
+        Label {
+            Text(tab.label)
+        } icon: {
+            SystemTabIcon.image(for: tab, isSelected: isSelected)
+        }
+    }
+}
+
+enum SystemTabIcon {
+    /// Two-tone original art, swapped on selection like CustomTabBar.
+    /// For tint-only template icons, return `Image(tab.inactiveIcon).renderingMode(.template)`.
+    static func image(for tab: AppTab, isSelected: Bool) -> Image {
+        Image(isSelected ? tab.activeIcon : tab.inactiveIcon).renderingMode(.original)
+    }
+}
+
+enum SystemTabBadge {
+    /// Same text as the CustomTabBar badge: hidden at zero, capped at "99+".
+    static func text(for count: Int) -> Text? {
+        guard count > 0 else { return nil }
+        return Text(count > 99 ? "99+" : "\(count)")
     }
 }
 
