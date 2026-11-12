@@ -393,6 +393,7 @@
 		AFC93D36544008FB28C718DC /* OAuthUsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */; };
 		AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
+		C17CA0000000000000000003 /* CutFonts in Resources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000002 /* CutFonts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -844,6 +845,7 @@
 		ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCustomizationService.swift; sourceTree = "<group>"; };
 		ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEditorView.swift; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
+		C17CA0000000000000000002 /* CutFonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = CutFonts; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1220,6 +1222,7 @@
 			isa = PBXGroup;
 			children = (
 				A1F000022FA2000000F00001 /* Fonts */,
+				C17CA0000000000000000002 /* CutFonts */,
 				2ECC7D0A2F7C21C3009119BF /* PlateTextures */,
 				2E196EF92EAE4B2D00EB4780 /* Data */,
 				2E196EA32EAD398900EB4780 /* Assets.xcassets */,
@@ -2437,6 +2440,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1F000012FA2000000F00001 /* Fonts in Resources */,
+				C17CA0000000000000000003 /* CutFonts in Resources */,
 				2E2F53922E9E22E600C81656 /* rewards_rules_v1.json in Resources */,
 				84BC9435E0674897A910D943 /* plate_clink.caf in Resources */,
 				2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */,

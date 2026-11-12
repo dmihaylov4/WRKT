@@ -67,6 +67,8 @@
 		<string>Fonts/BarlowSemiCondensed-Bold.ttf</string>
 		<string>Fonts/BarlowSemiCondensed-ExtraBold.ttf</string>
 		<string>Fonts/BarlowSemiCondensed-Black.ttf</string>
+		<string>CutFonts/BarlowCondensed-Bold.ttf</string>
+		<string>CutFonts/BarlowCondensed-ExtraBold.ttf</string>
 	</array>
 </dict>
 </plist>
