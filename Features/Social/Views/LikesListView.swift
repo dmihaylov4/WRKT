@@ -70,10 +70,11 @@ struct LikesListView: View {
                 }
             }
         }
-        .background(Color.black)
+        // System shell: no custom backgrounds so the system sheet material shows
+        .background(DS.Redesign.usesSystemShell ? Color.clear : Color.black)
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
-        .presentationBackground(Color.black)
+        .shellPresentationBackground(Color.black)
         .task {
             await loadLikers()
         }

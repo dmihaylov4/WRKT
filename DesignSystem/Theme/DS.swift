@@ -1309,4 +1309,15 @@ extension View {
                 .toolbarBackground(.visible, for: .navigationBar)
         }
     }
+
+    /// Custom sheet background on the legacy shell.
+    /// The system shell skips it so the system sheet material applies.
+    @ViewBuilder
+    func shellPresentationBackground(_ color: Color) -> some View {
+        if DS.Redesign.usesSystemShell {
+            self
+        } else {
+            self.presentationBackground(color)
+        }
+    }
 }
