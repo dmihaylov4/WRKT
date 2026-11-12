@@ -15,6 +15,8 @@ struct SettingsView: View {
     #if DEBUG
     @AppStorage(DS.Redesign.roundedShapesPreferenceKey)
     private var useRoundedShapes = DS.Redesign.roundedShapesDefault
+    @AppStorage(DS.Redesign.cutPreferenceKey)
+    private var useCut = DS.Redesign.cutDefault
     #endif
 
     private var isLoggedIn: Bool {
@@ -120,11 +122,28 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    settingsRow(showsDivider: false) {
+                    settingsRow {
+                        Toggle(isOn: $useCut) {
+                            VStack(alignment: .leading) {
+                                Text("Cut design")
+                                Text("Applies after restarting the app")
+                                    .dsFont(.caption)
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                            }
+                        }
+                    }
+                    settingsRow {
                         NavigationLink {
                             BarbellPlaygroundView()
                         } label: {
                             Label("Barbell Playground", systemImage: "barbell")
+                        }
+                    }
+                    settingsRow(showsDivider: false) {
+                        NavigationLink {
+                            CutGalleryView()
+                        } label: {
+                            Label("Cut gallery", systemImage: "square.grid.2x2")
                         }
                     }
                 }
