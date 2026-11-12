@@ -204,6 +204,7 @@ struct WorkoutDetailView: View {
             .padding(.top, 16)
             .padding(.bottom, 32)
         }
+        .workoutDetailScrollEdge()
         .background(DS.Semantic.surface.ignoresSafeArea())
         .navigationTitle("Workout Details")
         .navigationBarTitleDisplayMode(.inline)

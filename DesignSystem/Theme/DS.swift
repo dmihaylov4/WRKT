@@ -1297,6 +1297,16 @@ public extension View {
 
 // MARK: - Shell chrome
 extension View {
+    /// Obscures scrolling detail content beneath the system navigation title.
+    @ViewBuilder
+    func workoutDetailScrollEdge() -> some View {
+        if #available(iOS 26, *), DS.Redesign.usesSystemShell {
+            self.scrollEdgeEffectStyle(.hard, for: .top)
+        } else {
+            self
+        }
+    }
+
     /// Opaque navigation bar background on the legacy shell.
     /// The system shell skips it so the navigation bar keeps its Liquid Glass background.
     @ViewBuilder

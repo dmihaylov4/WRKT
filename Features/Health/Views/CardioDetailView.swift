@@ -89,6 +89,7 @@ struct CardioDetailView: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
         }
+        .workoutDetailScrollEdge()
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Workout Details")
         .navigationBarTitleDisplayMode(.inline)

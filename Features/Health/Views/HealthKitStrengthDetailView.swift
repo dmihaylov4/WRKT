@@ -84,6 +84,7 @@ struct HealthKitStrengthDetailView: View {
             }
             .padding(.vertical, 16)
         }
+        .workoutDetailScrollEdge()
         .background(Theme.bg.ignoresSafeArea())
         .navigationTitle("Workout Details")
         .navigationBarTitleDisplayMode(.inline)
