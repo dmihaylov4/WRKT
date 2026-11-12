@@ -121,7 +121,7 @@ struct ProgramLibraryView: View {
         }
         .safeAreaInset(edge: .bottom) {
             Color.clear
-                .frame(height: 96)
+                .frame(height: DS.Redesign.tabBarClearance(legacy: 96, system: 76))
         }
         .navigationDestination(isPresented: $showEditCurrentPlan) {
             PlannerSetupCarouselView(launchMode: .editCurrent)

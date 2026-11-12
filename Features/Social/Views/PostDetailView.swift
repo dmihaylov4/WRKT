@@ -127,7 +127,7 @@ struct PostDetailView: View {
 
             commentInput(viewModel: viewModel)
         }
-        .padding(.bottom, 56) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
+        .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 56, system: 36)) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
         .sheet(isPresented: $showingImageViewer) {
             ImageViewer(
                 imageUrls: userPhotoURLs.map { $0.absoluteString },

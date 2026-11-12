@@ -476,7 +476,7 @@ struct CardioView: View {
                 }
             }
             .padding(.top, 12)
-            .padding(.bottom, 80)
+            .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
         }
         .background(Theme.bg.ignoresSafeArea())
         .refreshable {

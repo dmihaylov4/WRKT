@@ -126,7 +126,7 @@ struct ProfileView: View {
 
                 // Bottom spacer for custom tab bar (UITabBar.isHidden breaks safe area propagation)
                 Section {
-                    Color.clear.frame(height: 56)
+                    Color.clear.frame(height: DS.Redesign.tabBarClearance(legacy: 56, system: 36))
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(.init())

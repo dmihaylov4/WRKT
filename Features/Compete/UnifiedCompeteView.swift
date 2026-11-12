@@ -78,7 +78,7 @@ struct UnifiedCompeteView: View {
                 statsGrid
             }
             .padding()
-            .padding(.bottom, 60)
+            .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 60, system: 40))
         }
         .background(DS.Semantic.surface.ignoresSafeArea())
         .task {

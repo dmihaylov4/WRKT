@@ -55,7 +55,7 @@ struct UndoToast: View {
                     .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 8)
             )
             .padding(.horizontal, 16)
-            .padding(.bottom, 90) // tab bar (49) + gap (41)
+            .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 90, system: 119)) // tab bar (49) + gap (41)
             .transition(.move(edge: .bottom).combined(with: .opacity).combined(with: .scale(scale: 0.95)))
         }
     }

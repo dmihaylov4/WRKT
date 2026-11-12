@@ -81,7 +81,7 @@ struct FeedView: View {
                     showingBattleCreation = true
                 }
             )
-            .padding(.bottom, 56) // lift above custom tab bar (UITabBar.isHidden breaks safe area propagation)
+            .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 56, system: 36)) // lift above custom tab bar (UITabBar.isHidden breaks safe area propagation)
         }
         .sheet(isPresented: $showingCreatePost, onDismiss: {
             // Refresh feed when post creation sheet is dismissed
@@ -334,7 +334,7 @@ struct FeedView: View {
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)
-                    .padding(.bottom, 80)
+                    .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
                 }
             }
             .refreshable {

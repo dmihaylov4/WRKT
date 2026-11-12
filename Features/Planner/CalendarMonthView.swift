@@ -532,7 +532,7 @@ struct CalendarMonthView: View {
     private var dayDetailView: some View {
         DayDetail(date: selectedDay, selectedAction: $selectedAction)
             .padding(.horizontal, 16)
-            .padding(.bottom, 80) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
+            .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60)) // lift content above custom tab bar (UITabBar.isHidden breaks safe area propagation)
             .captureFrame(in: .global) { frame in
                 tutorialState.dayDetailFrame = frame
             }

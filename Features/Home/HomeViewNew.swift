@@ -165,7 +165,7 @@ struct HomeViewNew: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 90)
+            Color.clear.frame(height: DS.Redesign.tabBarClearance(legacy: 90, system: 70))
         }
         .toolbar(.hidden, for: .navigationBar)
         .navigationDestination(for: BrowseRoute.self) { route in
