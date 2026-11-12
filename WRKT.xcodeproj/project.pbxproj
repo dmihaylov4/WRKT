@@ -270,6 +270,9 @@
 		2EC202A02EF2A54400D6BAEF /* ActiveCompetitionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028D2EF2A54400D6BAEF /* ActiveCompetitionCard.swift */; };
 		2EC202A22EF2A54400D6BAEF /* SmartCardCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */; };
 		2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */; };
+		C17CA1000000000000000011 /* CutTrainModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000021 /* CutTrainModel.swift */; };
+		C17CA1000000000000000012 /* CutTrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000022 /* CutTrainView.swift */; };
+		C17CA1000000000000000013 /* CutTrainHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000023 /* CutTrainHost.swift */; };
 		2EC202A82EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */; };
 		2EC202AA2EF407AB00D6BAEF /* LastCardioCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */; };
 		2EC202AF2EF4112B00D6BAEF /* MuscleChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */; };
@@ -734,6 +737,9 @@
 		2EC202952EF2A54400D6BAEF /* HomeHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeaderView.swift; sourceTree = "<group>"; };
 		2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardCarousel.swift; sourceTree = "<group>"; };
 		2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewNew.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000021 /* CutTrainModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainModel.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000022 /* CutTrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainView.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000023 /* CutTrainHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainHost.swift; sourceTree = "<group>"; };
 		2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWeeklyStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCardioCard.swift; sourceTree = "<group>"; };
 		2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleChip.swift; sourceTree = "<group>"; };
@@ -1121,6 +1127,7 @@
 			isa = PBXGroup;
 			children = (
 				2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */,
+				C17CA1000000000000000001 /* Cut */,
 				2EC202982EF2A54400D6BAEF /* Components */,
 				2EC2028A2EF2A2D000D6BAEF /* ViewModels */,
 				2E7461CA2E942F9D00A71C35 /* BrowseRoute.swift */,
@@ -2217,6 +2224,16 @@
 			path = Cut;
 			sourceTree = "<group>";
 		};
+		C17CA1000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA1000000000000000021 /* CutTrainModel.swift */,
+				C17CA1000000000000000022 /* CutTrainView.swift */,
+				C17CA1000000000000000023 /* CutTrainHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2606,6 +2623,9 @@
 				2E7461D42E94377F00A71C35 /* MapRouteView.swift in Sources */,
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */,
+				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
+				C17CA1000000000000000012 /* CutTrainView.swift in Sources */,
+				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,
 				2EA7D9CB2EEB6E9B0017683B /* SkeletonProfileHeader.swift in Sources */,
 				2EBE3F142EB668B700A26355 /* ExerciseSearchVM.swift in Sources */,

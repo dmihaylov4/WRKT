@@ -117,6 +117,21 @@ struct HomeViewNew: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
+    @ViewBuilder
+    private var cutTrainContent: some View {
+        if let vm = viewModel {
+            CutTrainHost(
+                viewModel: vm,
+                startWorkout: handleHeroTap,
+                chooseWorkout: { showWorkoutSelector = true },
+                browseExercises: { path.append(BrowseRoute.allExercises) },
+                openWorkoutDetail: { selectedWorkoutForDetail = $0 }
+            )
+        } else {
+            DS.Cut.Colors.background
+        }
+    }
+
     private var expandedPanelView: some View {
         Group {
             if let region = expandedRegion {
@@ -156,8 +171,13 @@ struct HomeViewNew: View {
         ZStack(alignment: .top) {
             // MAIN CONTENT: Focused hub layout
             if expandedRegion == nil {
-                mainContentView
-                    .transition(.opacity.combined(with: .scale))
+                // The one Cut branch point: same view model, sheets, navigation and refresh triggers.
+                if DS.Redesign.cutEnabled {
+                    cutTrainContent
+                } else {
+                    mainContentView
+                        .transition(.opacity.combined(with: .scale))
+                }
             }
 
             // EXPANDED: ExpandedRegionPanel (preserved for compatibility)
