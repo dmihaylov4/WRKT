@@ -34,6 +34,10 @@ final class HomeViewModel {
     var carouselCards: [HomeCardType] = []
     var hasActivePlan: Bool = false
     var todaysPlan: PlannedWorkout?
+    /// Cut Train only: whether a plan is active and its next session after today.
+    /// Loaded only when `loadsPlanOutlook` is set, so the legacy Train tab does no extra work.
+    private(set) var planOutlook = PlanOutlook()
+    @ObservationIgnored private let loadsPlanOutlook: Bool
     @ObservationIgnored private var refreshGeneration = 0
     @ObservationIgnored private var debounceTask: Task<Void, Never>?
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
@@ -52,8 +56,11 @@ final class HomeViewModel {
         friendActivityLoader: (@MainActor () async -> FriendActivitySummary?)? = nil,
         refreshDelay: @escaping @MainActor () async throws -> Void = {
             try await Task.sleep(for: .milliseconds(300))
-        }
+        },
+        loadsPlanOutlook: Bool? = nil
     ) {
+        // Defaults to the Cut switch: only the Cut Train tab reads the outlook.
+        self.loadsPlanOutlook = loadsPlanOutlook ?? DS.Redesign.cutEnabled
         self.workoutStore = workoutStore
         self.plannerStore = plannerStore
         self.weeklyGoal = weeklyGoal
@@ -134,6 +141,23 @@ final class HomeViewModel {
         let plan = try? plannerStore.plannedWorkout(for: .now)
         todaysPlan = plan?.workoutStatus == .completed ? nil : plan
         hasActivePlan = todaysPlan != nil
+        if loadsPlanOutlook { updatePlanOutlook() }
+    }
+
+    /// Reads whether a plan is active and its next scheduled session in the coming two weeks.
+    /// Two small local SwiftData fetches, run with `checkTodaysPlan`.
+    private func updatePlanOutlook(now: Date = .now) {
+        let calendar = Calendar.current
+        var outlook = PlanOutlook()
+        outlook.hasActivePlan = ((try? plannerStore.activeSplit()) ?? nil) != nil
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now
+        if outlook.hasActivePlan,
+           let horizon = calendar.date(byAdding: .day, value: 14, to: tomorrow),
+           let next = (try? plannerStore.plannedWorkouts(from: tomorrow, to: horizon))?
+            .first(where: { $0.workoutStatus == .scheduled }) {
+            outlook.nextSession = PlanOutlook.Session(name: next.splitDayName, date: next.scheduledDate)
+        }
+        if outlook != planOutlook { planOutlook = outlook }
     }
 
     /// Rebuild carousel based on priority system (MAX 3 CARDS)
@@ -837,6 +861,18 @@ enum HomeCardType: Identifiable {
         case .comparativeStats: return "comparativeStats"
         }
     }
+}
+
+/// What the active plan says beyond today's session (Cut Train hero).
+struct PlanOutlook: Equatable {
+    struct Session: Equatable {
+        let name: String
+        let date: Date
+    }
+
+    /// A split is active. With no session scheduled today this makes today a rest day.
+    var hasActivePlan = false
+    var nextSession: Session?
 }
 
 struct WeeklyProgressData {
