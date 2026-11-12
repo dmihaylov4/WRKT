@@ -4,7 +4,7 @@ import HealthKit
 import OSLog
 
 // MARK: - Shell types & animation
-private enum AppTab: Int { case train = 0, plan = 1, social = 2, cardio = 3, profile = 4 }
+enum AppTab: Int { case train = 0, plan = 1, social = 2, cardio = 3, profile = 4 }
 private enum ShellAnim { static let spring = Animation.spring(response: 0.42, dampingFraction: 0.85) }
 private enum TabBarLayout {
     static let contentHeight: CGFloat = 49  // matches UITabBar content zone
@@ -28,6 +28,29 @@ extension AppTab {
         case .social:  "Social"
         case .cardio:  "Cardio"
         case .profile: "Me"
+        }
+    }
+}
+
+// MARK: - Tab selection resolver
+/// Decides whether a tab bar tap selects a new tab or reselects the current one.
+/// Used by the system tab bar path, where taps arrive through the selection binding.
+enum ShellTabSelection: Equatable {
+    case select(AppTab)
+    case reselect(Notification.Name?)
+
+    static func resolve(current: AppTab, tapped: AppTab) -> ShellTabSelection {
+        guard current == tapped else { return .select(tapped) }
+        return .reselect(reselectNotification(for: tapped))
+    }
+
+    static func reselectNotification(for tab: AppTab) -> Notification.Name? {
+        switch tab {
+        case .train:   .homeTabReselected
+        case .plan:    .calendarTabReselected
+        case .social:  .socialTabReselected
+        case .cardio:  .cardioTabReselected
+        case .profile: nil
         }
     }
 }
