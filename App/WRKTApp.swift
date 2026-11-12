@@ -75,11 +75,16 @@ struct WRKTApp: App {
     private func configureUIKitAppearances() {
         // MARK: - Navigation Bar Configuration
         let navBarAppearance = UINavigationBarAppearance()
-        navBarAppearance.configureWithOpaqueBackground()
+        if DS.Redesign.usesSystemShell {
+            // System shell: keep the default background so bars render as Liquid Glass
+            navBarAppearance.configureWithDefaultBackground()
+        } else {
+            navBarAppearance.configureWithOpaqueBackground()
 
-        // Set dark background that persists with Reduce Transparency
-        navBarAppearance.backgroundColor = UIColor(Color(hex: "#000000"))
-        navBarAppearance.shadowColor = UIColor(Color(hex: "#000000"))
+            // Set dark background that persists with Reduce Transparency
+            navBarAppearance.backgroundColor = UIColor(Color(hex: "#000000"))
+            navBarAppearance.shadowColor = UIColor(Color(hex: "#000000"))
+        }
 
         // Configure title and button colors for visibility
         navBarAppearance.titleTextAttributes = [
@@ -110,6 +115,13 @@ struct WRKTApp: App {
         UINavigationBar.appearance().scrollEdgeAppearance = navBarAppearance
         if #available(iOS 15.0, *) {
             UINavigationBar.appearance().compactScrollEdgeAppearance = navBarAppearance
+        }
+
+        // System shell: the system tab bar keeps its default Liquid Glass appearance
+        // and must stay visible, so skip the opaque tab bar setup and the hiding below.
+        guard !DS.Redesign.usesSystemShell else {
+            AppLogger.success("UIKit appearances configured for the system shell", category: AppLogger.app)
+            return
         }
 
         // MARK: - Tab Bar Configuration
