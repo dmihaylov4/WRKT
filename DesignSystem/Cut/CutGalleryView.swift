@@ -21,7 +21,7 @@ struct CutGalleryView: View {
             CutActionBar("Log set", subtitle: "Rest 2:00 starts after") {}
         }
         .toolbar(.hidden, for: .navigationBar)
-        .modifier(HideTopScrollEdgeEffect())
+        .cutHidesTopScrollEdge()
         .preferredColorScheme(.dark)
     }
 }
@@ -241,17 +241,6 @@ struct CutGalleryContent: View {
         }
         .padding(.horizontal, DS.Cut.Metrics.gutter)
         .padding(.top, 34)
-    }
-}
-
-/// The system scroll edge effect would tint the top of the lime field.
-private struct HideTopScrollEdgeEffect: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26, *) {
-            content.scrollEdgeEffectHidden(true, for: .top)
-        } else {
-            content
-        }
     }
 }
 

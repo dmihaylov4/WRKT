@@ -37,6 +37,19 @@ struct CutFoundationsTests {
         #expect(CutHeroText.lines(of: "No plan\n\nyet\n") == ["No plan", "yet"])
     }
 
+    @Test func balancedHeroLinesBreakAtWordsOnly() {
+        #expect(CutHeroText.balancedLines("Upper Body") == "Upper\nBody")
+        #expect(CutHeroText.balancedLines("No plan yet") == "No plan\nyet")
+        #expect(CutHeroText.balancedLines("Rest day") == "Rest\nday")
+        #expect(CutHeroText.balancedLines("Push") == "Push")
+        #expect(CutHeroText.balancedLines("  Leg   day ") == "Leg\nday")
+        #expect(CutHeroText.balancedLines("Already\nset") == "Already\nset")
+        #expect(CutHeroText.balancedLines("") == "")
+        let long = CutHeroText.balancedLines("Posterior Chain and Conditioning Superset")
+        #expect(CutHeroText.lines(of: long).count == 2)
+        #expect(long.replacingOccurrences(of: "\n", with: " ") == "Posterior Chain and Conditioning Superset")
+    }
+
     @Test func heroLinesAreSetTighterThanNatural() {
         for hero in DS.Cut.Typography.Hero.allCases {
             #expect(DS.Cut.Typography.heroLineGap(hero, scaledSize: hero.size) < 0)

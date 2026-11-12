@@ -272,13 +272,13 @@ public extension View {
 
     /// Uppercase condensed hero for one line of text. Shrinks to fit instead of truncating.
     /// For a hero on several lines use `CutHeroText`, which keeps the lines tight.
-    func cutHero(_ hero: DS.Cut.Typography.Hero, lines: Int = 1) -> some View {
+    func cutHero(_ hero: DS.Cut.Typography.Hero, lines: Int = 1, minimumScaleFactor: CGFloat = 0.4) -> some View {
         self
             .font(DS.Cut.Typography.hero(hero))
             .textCase(.uppercase)
             .tracking(hero.tracking)
             .lineLimit(lines)
-            .minimumScaleFactor(0.4)
+            .minimumScaleFactor(minimumScaleFactor)
     }
 
     /// Big condensed numeral with tabular digits, on one line, shrinking to fit.
@@ -297,12 +297,16 @@ public extension View {
 public struct CutHeroText: View {
     private let text: String
     private let hero: DS.Cut.Typography.Hero
+    private let minimumScaleFactor: CGFloat
 
     @ScaledMetric(relativeTo: .largeTitle) private var scaledHundred: CGFloat = 100
 
-    public init(_ text: String, hero: DS.Cut.Typography.Hero = .xl) {
+    /// - Parameter minimumScaleFactor: how far a line may shrink to fit the width. Lower it for
+    ///   text the app does not control (a user's workout name) so a long word never truncates.
+    public init(_ text: String, hero: DS.Cut.Typography.Hero = .xl, minimumScaleFactor: CGFloat = 0.4) {
         self.text = text
         self.hero = hero
+        self.minimumScaleFactor = minimumScaleFactor
     }
 
     /// The lines the hero is set on.
@@ -310,11 +314,29 @@ public struct CutHeroText: View {
         text.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
     }
 
+    /// Breaks free text into at most two lines at a word boundary, keeping the longer line as
+    /// short as possible ("Upper Body" -> "Upper\nBody", "No plan yet" -> "No plan\nyet").
+    /// Words are never split; one word stays on one line. Text that already has newlines is kept.
+    public static func balancedLines(_ text: String) -> String {
+        guard !text.contains("\n") else { return text }
+        let words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard words.count > 1 else { return words.first ?? "" }
+        var best = (index: 1, longest: Int.max)
+        for index in 1..<words.count {
+            let first = words[..<index].joined(separator: " ").count
+            let second = words[index...].joined(separator: " ").count
+            let longest = max(first, second)
+            // Ties go to the later break, so the first line carries more ("No plan / yet").
+            if longest <= best.longest { best = (index, longest) }
+        }
+        return words[..<best.index].joined(separator: " ") + "\n" + words[best.index...].joined(separator: " ")
+    }
+
     public var body: some View {
         let scaledSize = hero.size * scaledHundred / 100
         VStack(alignment: .leading, spacing: DS.Cut.Typography.heroLineGap(hero, scaledSize: scaledSize)) {
             ForEach(Array(Self.lines(of: text).enumerated()), id: \.offset) { _, line in
-                Text(line).cutHero(hero)
+                Text(line).cutHero(hero, minimumScaleFactor: minimumScaleFactor)
             }
         }
         .accessibilityElement(children: .ignore)

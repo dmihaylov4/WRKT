@@ -601,6 +601,21 @@ public extension CutTabHeader where Actions == EmptyView {
     }
 }
 
+// MARK: - Scroll edge
+
+public extension View {
+    /// Hides the system top scroll edge effect (iOS 26 and later), which would tint a lime field
+    /// running under the status bar. No effect on earlier systems.
+    @ViewBuilder
+    func cutHidesTopScrollEdge() -> some View {
+        if #available(iOS 26, *) {
+            scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            self
+        }
+    }
+}
+
 // MARK: - Section title
 
 /// 17 pt semibold sentence-case section title.
