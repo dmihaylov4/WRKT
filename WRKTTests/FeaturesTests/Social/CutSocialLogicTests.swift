@@ -275,12 +275,12 @@ struct CutSocialLogicTests {
 
     // MARK: Friends
 
-    @Test func activeNowIsTheLastDayNewestFirst() {
+    @Test func recentActivityIsTheLastDayNewestFirst() {
         let model = CutSocialLogic.friends(F.friendFacts, requests: 2, now: F.now, locale: F.locale)
-        #expect(model.activeNow.map(\.name) == ["Maria K.", "Alex J.", "Sam P."])
-        #expect(model.activeNow[0].line.hasPrefix("Trained"))
-        #expect(model.activeNow[0].line.hasSuffix(", 4 this week"))
-        #expect(!model.activeNow[1].line.contains("this week"))
+        #expect(model.recentActivity.map(\.name) == ["Maria K.", "Alex J.", "Sam P."])
+        #expect(model.recentActivity[0].line.hasPrefix("Trained"))
+        #expect(model.recentActivity[0].line.hasSuffix(", 4 this week"))
+        #expect(!model.recentActivity[1].line.contains("this week"))
         #expect(model.friendsCount == 5)
         #expect(model.requests == 2)
     }
@@ -288,7 +288,7 @@ struct CutSocialLogicTests {
     @Test func friendsCountIsUnknownUntilLoaded() {
         let model = CutSocialLogic.friends(nil, requests: -1, now: F.now)
         #expect(model.friendsCount == nil)
-        #expect(model.activeNow.isEmpty)
+        #expect(model.recentActivity.isEmpty)
         #expect(model.requests == 0)
     }
 

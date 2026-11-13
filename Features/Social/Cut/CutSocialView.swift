@@ -474,9 +474,18 @@ private struct CutSocialStatColumns: View {
                     Rectangle().fill(DS.Cut.Colors.hairline).frame(width: DS.Cut.Metrics.hairline)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(stat.value)
+                    // A full-size placeholder fixes the numeral's height, so a value that shrinks
+                    // to fit keeps its baseline and every label in the row stays on one line.
+                    Text(verbatim: "0")
                         .cutNumeral(.medium)
-                        .foregroundStyle(stat.isHighlighted ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                        .hidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .overlay(alignment: Alignment(horizontal: .leading, vertical: .lastTextBaseline)) {
+                            Text(stat.value)
+                                .cutNumeral(.medium)
+                                .foregroundStyle(stat.isHighlighted ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                        }
+                        .accessibilityElement(children: .combine)
                     Text(stat.label)
                         .cutFont(.secondary)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
@@ -582,12 +591,12 @@ struct CutSocialFriendsView: View {
                 }
                 .buttonStyle(.plain)
 
-                if !model.activeNow.isEmpty {
-                    CutSectionTitle("Active now")
+                if !model.recentActivity.isEmpty {
+                    CutSectionTitle("Recent activity")
                         .padding(.top, 28)
                         .padding(.bottom, 10)
                     CutHairlineList {
-                        ForEach(model.activeNow) { friend in
+                        ForEach(model.recentActivity) { friend in
                             Button { actions.openFriend(friend.id) } label: { friendRow(friend) }
                                 .buttonStyle(.plain)
                         }
@@ -601,7 +610,7 @@ struct CutSocialFriendsView: View {
                             .foregroundStyle(DS.Cut.Colors.textPrimary)
                     }
                 }, action: actions.openFriends)
-                .padding(.top, model.activeNow.isEmpty ? 12 : 20)
+                .padding(.top, model.recentActivity.isEmpty ? 12 : 20)
 
                 bigRow("Find friends", trailing: {
                     CutTile(systemImage: "plus", side: 56)

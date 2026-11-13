@@ -155,7 +155,7 @@ struct CutSocialFriendsModel: Equatable {
     }
 
     var requests: Int
-    var activeNow: [Row]
+    var recentActivity: [Row]
     /// Nil until the friends list has loaded.
     var friendsCount: Int?
 }
@@ -453,7 +453,7 @@ enum CutSocialLogic {
                     line: friendLine(friend, now: now, locale: locale)
                 )
             }
-        return CutSocialFriendsModel(requests: max(0, requests), activeNow: Array(active), friendsCount: friends?.count)
+        return CutSocialFriendsModel(requests: max(0, requests), recentActivity: Array(active), friendsCount: friends?.count)
     }
 
     static func friendLine(_ friend: CutSocialFriendFacts, now: Date, locale: Locale) -> String {
