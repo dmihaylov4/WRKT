@@ -616,6 +616,154 @@ public extension View {
     }
 }
 
+// MARK: - Stat columns
+
+/// One stat column: a big condensed value, an optional unit beside it, a plain label under it.
+public struct CutStatColumn: Hashable, Sendable {
+    public var value: String
+    public var label: String
+    /// A short unit set beside the value at the secondary size ("km", "kcal").
+    public var unit: String?
+    /// Lime value: a winning side or a record.
+    public var isHighlighted: Bool
+
+    public init(value: String, label: String, unit: String? = nil, isHighlighted: Bool = false) {
+        self.value = value
+        self.label = label
+        self.unit = unit
+        self.isHighlighted = isHighlighted
+    }
+}
+
+/// Stat columns: big condensed values over a plain label, 1 pt hairlines between columns.
+/// Every column takes an equal share of the width; labels stay on one line.
+public struct CutStatColumns: View {
+    private let columns: [CutStatColumn]
+
+    public init(_ columns: [CutStatColumn]) {
+        self.columns = columns
+    }
+
+    public var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(columns.enumerated()), id: \.offset) { index, column in
+                if index > 0 {
+                    Rectangle().fill(DS.Cut.Colors.hairline).frame(width: DS.Cut.Metrics.hairline)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    // A full-size placeholder fixes the numeral's height, so a value that shrinks
+                    // to fit keeps its baseline and every label in the row stays on one line.
+                    Text(verbatim: "0")
+                        .cutNumeral(.medium)
+                        .hidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .overlay(alignment: Alignment(horizontal: .leading, vertical: .lastTextBaseline)) {
+                            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                                Text(column.value)
+                                    .cutNumeral(.medium)
+                                    .foregroundStyle(column.isHighlighted ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                                if let unit = column.unit {
+                                    Text(unit)
+                                        .cutFont(.secondary)
+                                        .foregroundStyle(DS.Cut.Colors.textSecondary)
+                                        .lineLimit(1)
+                                        .fixedSize()
+                                }
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                    Text(column.label)
+                        .cutFont(.secondary)
+                        .foregroundStyle(DS.Cut.Colors.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, index > 0 ? 14 : 0)
+                .padding(.trailing, 8)
+                .accessibilityElement(children: .combine)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+// MARK: - Underline tabs
+
+/// Underline tabs: equal titles over a hairline, the selected one marked by a slanted lime bar.
+/// Sits on the background below a tab header, outside the scrolling content.
+public struct CutUnderlineTabs<Item: Hashable>: View {
+    private let items: [Item]
+    private let selection: Item
+    private let title: (Item) -> String
+    private let badge: (Item) -> String?
+    private let accessibilityLabel: (Item) -> String
+    private let select: (Item) -> Void
+
+    @Namespace private var indicator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(
+        _ items: [Item],
+        selection: Item,
+        title: @escaping (Item) -> String,
+        badge: @escaping (Item) -> String? = { _ in nil },
+        accessibilityLabel: ((Item) -> String)? = nil,
+        select: @escaping (Item) -> Void
+    ) {
+        self.items = items
+        self.selection = selection
+        self.title = title
+        self.badge = badge
+        self.accessibilityLabel = accessibilityLabel ?? title
+        self.select = select
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(items, id: \.self) { item in
+                    Button {
+                        guard item != selection else { return }
+                        Haptics.light()
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) { select(item) }
+                    } label: {
+                        VStack(spacing: 10) {
+                            HStack(spacing: 6) {
+                                Text(title(item))
+                                    .cutFont(.title)
+                                    .foregroundStyle(item == selection ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.textSecondary)
+                                if let badge = badge(item) {
+                                    Text(badge)
+                                        .font(DS.Cut.Typography.font(.secondary).weight(.bold))
+                                        .foregroundStyle(DS.Cut.Colors.lime)
+                                }
+                            }
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            ZStack {
+                                if item == selection {
+                                    SlantedSegmentShape()
+                                        .fill(DS.Cut.Colors.lime)
+                                        .matchedGeometryEffect(id: "indicator", in: indicator)
+                                }
+                            }
+                            .frame(height: 6)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: DS.Cut.Metrics.minTouchTarget)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(accessibilityLabel(item)))
+                    .accessibilityAddTraits(item == selection ? [.isSelected, .isHeader] : [])
+                }
+            }
+            .padding(.horizontal, DS.Cut.Metrics.gutter)
+            CutHairline()
+        }
+    }
+}
+
 // MARK: - Section title
 
 /// 17 pt semibold sentence-case section title.

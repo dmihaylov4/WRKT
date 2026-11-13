@@ -67,60 +67,21 @@ struct CutSocialShell<Pane: View>: View {
     }
 }
 
-/// Underline tabs: three equal titles over a hairline, the selected one marked by a slanted
-/// lime bar.
+/// Underline tabs for Feed, Compete and Friends, with the request count beside Friends.
 private struct CutSocialTabs: View {
     let section: SocialView.SocialSection
     let friendRequests: Int
     let select: (SocialView.SocialSection) -> Void
 
-    @Namespace private var indicator
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let sections: [SocialView.SocialSection] = [.feed, .compete, .friends]
-
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(sections, id: \.self) { item in
-                    Button {
-                        guard item != section else { return }
-                        Haptics.light()
-                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) { select(item) }
-                    } label: {
-                        VStack(spacing: 10) {
-                            HStack(spacing: 6) {
-                                Text(item.rawValue)
-                                    .cutFont(.title)
-                                    .foregroundStyle(item == section ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.textSecondary)
-                                if item == .friends, let badge = CutSocialLogic.badge(friendRequests) {
-                                    Text(badge)
-                                        .font(DS.Cut.Typography.font(.secondary).weight(.bold))
-                                        .foregroundStyle(DS.Cut.Colors.lime)
-                                }
-                            }
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            ZStack {
-                                if item == section {
-                                    SlantedSegmentShape()
-                                        .fill(DS.Cut.Colors.lime)
-                                        .matchedGeometryEffect(id: "indicator", in: indicator)
-                                }
-                            }
-                            .frame(height: 6)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: DS.Cut.Metrics.minTouchTarget)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text(item == .friends && friendRequests > 0 ? "Friends, \(friendRequests) requests" : item.rawValue))
-                    .accessibilityAddTraits(item == section ? [.isSelected, .isHeader] : [])
-                }
-            }
-            .padding(.horizontal, DS.Cut.Metrics.gutter)
-            CutHairline()
-        }
+        CutUnderlineTabs(
+            [SocialView.SocialSection.feed, .compete, .friends],
+            selection: section,
+            title: \.rawValue,
+            badge: { $0 == .friends ? CutSocialLogic.badge(friendRequests) : nil },
+            accessibilityLabel: { $0 == .friends && friendRequests > 0 ? "Friends, \(friendRequests) requests" : $0.rawValue },
+            select: select
+        )
     }
 }
 
@@ -463,42 +424,12 @@ private struct CutSocialPostView<Media: View>: View {
     }
 }
 
-/// Stat columns: big condensed values over a plain label, 1 pt hairlines between columns.
+/// The post's stats as the shared Cut stat columns.
 private struct CutSocialStatColumns: View {
     let stats: [CutSocialStat]
 
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(stats.enumerated()), id: \.offset) { index, stat in
-                if index > 0 {
-                    Rectangle().fill(DS.Cut.Colors.hairline).frame(width: DS.Cut.Metrics.hairline)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    // A full-size placeholder fixes the numeral's height, so a value that shrinks
-                    // to fit keeps its baseline and every label in the row stays on one line.
-                    Text(verbatim: "0")
-                        .cutNumeral(.medium)
-                        .hidden()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .overlay(alignment: Alignment(horizontal: .leading, vertical: .lastTextBaseline)) {
-                            Text(stat.value)
-                                .cutNumeral(.medium)
-                                .foregroundStyle(stat.isHighlighted ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
-                        }
-                        .accessibilityElement(children: .combine)
-                    Text(stat.label)
-                        .cutFont(.secondary)
-                        .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, index > 0 ? 14 : 0)
-                .padding(.trailing, 8)
-                .accessibilityElement(children: .combine)
-            }
-        }
-        .fixedSize(horizontal: false, vertical: true)
+        CutStatColumns(stats.map { CutStatColumn(value: $0.value, label: $0.label, isHighlighted: $0.isHighlighted) })
     }
 }
 

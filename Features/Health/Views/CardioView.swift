@@ -326,6 +326,15 @@ struct CardioView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same store, Health state, sheet, syncs and detail.
+        if DS.Redesign.cutEnabled {
+            CutCardioHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         VStack(spacing: 0) {
         cardioNavRow
 

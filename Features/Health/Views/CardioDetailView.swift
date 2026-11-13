@@ -39,6 +39,16 @@ struct CardioDetailView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same run, store, delete, share and detail fetches.
+        if DS.Redesign.cutEnabled {
+            CutCardioDetailHost(run: run)
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         let currentRun = latestRun
 
         ScrollView {

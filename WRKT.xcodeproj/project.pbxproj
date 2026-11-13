@@ -368,6 +368,10 @@
 		2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE8A0A22EE9AF1F00A74A3C /* ForgotPasswordView.swift */; };
 		2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */; };
 		2EEEACBE2EA380F300EDD16E /* CardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBD2EA380F300EDD16E /* CardioView.swift */; };
+		C17CA5000000000000000101 /* CutCardioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000201 /* CutCardioModel.swift */; };
+		C17CA5000000000000000102 /* CutCardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000202 /* CutCardioView.swift */; };
+		C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000203 /* CutCardioDetailView.swift */; };
+		C17CA5000000000000000104 /* CutCardioHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000204 /* CutCardioHost.swift */; };
 		2EEEACC02EA3814D00EDD16E /* CardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */; };
 		2EEEACC22EA3816600EDD16E /* HealthAuthSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */; };
 		2EEEACC42EA3824A00EDD16E /* RouteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC32EA3824A00EDD16E /* RouteModels.swift */; };
@@ -845,6 +849,10 @@
 		2EE8A0A22EE9AF1F00A74A3C /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncAnchor.swift; sourceTree = "<group>"; };
 		2EEEACBD2EA380F300EDD16E /* CardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioView.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000201 /* CutCardioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioModel.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000202 /* CutCardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioView.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000203 /* CutCardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioDetailView.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000204 /* CutCardioHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioHost.swift; sourceTree = "<group>"; };
 		2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDetailView.swift; sourceTree = "<group>"; };
 		2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAuthSheet.swift; sourceTree = "<group>"; };
 		2EEEACC32EA3824A00EDD16E /* RouteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteModels.swift; sourceTree = "<group>"; };
@@ -1209,6 +1217,7 @@
 		2E196EBB2EAD3D6700EB4780 /* Health */ = {
 			isa = PBXGroup;
 			children = (
+				C17CA5000000000000000001 /* Cut */,
 				2E196EE32EAE417E00EB4780 /* Services */,
 				2E196EE22EAE417400EB4780 /* Views */,
 				2E196EE12EAE417000EB4780 /* Models */,
@@ -2306,6 +2315,17 @@
 			path = Cut;
 			sourceTree = "<group>";
 		};
+		C17CA5000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA5000000000000000201 /* CutCardioModel.swift */,
+				C17CA5000000000000000202 /* CutCardioView.swift */,
+				C17CA5000000000000000203 /* CutCardioDetailView.swift */,
+				C17CA5000000000000000204 /* CutCardioHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2658,6 +2678,10 @@
 				C17CA4000000000000000101 /* CutSocialModel.swift in Sources */,
 				C17CA4000000000000000102 /* CutSocialView.swift in Sources */,
 				C17CA4000000000000000103 /* CutSocialHost.swift in Sources */,
+				C17CA5000000000000000101 /* CutCardioModel.swift in Sources */,
+				C17CA5000000000000000102 /* CutCardioView.swift in Sources */,
+				C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */,
+				C17CA5000000000000000104 /* CutCardioHost.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,
