@@ -32,41 +32,15 @@ struct LiveWorkoutOverlayCard: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .matchedGeometryEffect(id: "liveHeader", in: namespace)
-
-            Divider().overlay(DS.Semantic.border).opacity(0.7)
-
-            Group {
-                if let current = store.currentWorkout, !current.entries.isEmpty {
-                    content(for: current)
-                } else {
-                    ContentUnavailableView("No active workout", systemImage: "bolt.heart")
-                        .padding(.vertical, 40)
-                }
+        // The one Cut branch point: the card's face. Sheets, dialogs, timers and the drag to
+        // close below are shared.
+        Group {
+            if DS.Redesign.cutEnabled {
+                cutCard
+            } else {
+                legacyCard
             }
-            .opacity(showContent ? 1 : 0)
-            .scaleEffect(showContent ? 1 : 0.98, anchor: .top)
-            .animation(.spring(response: 0.42, dampingFraction: 0.85), value: showContent)
         }
-        .foregroundStyle(DS.Semantic.textPrimary)
-        .background(
-            DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
-                .fill(
-                    LinearGradient(
-                        colors: [DS.Theme.cardBottom, DS.Theme.cardBottom],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
-                        .stroke(DS.Semantic.border, lineWidth: 1)
-                )
-                .matchedGeometryEffect(id: "liveCardBG", in: namespace)
-        )
-        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.hero)))
-        .shadow(color: .black.opacity(0.6), radius: 18, x: 0, y: 10)
         .offset(y: dragOffset)
         .gesture(
             DragGesture(minimumDistance: 6)
@@ -89,6 +63,7 @@ struct LiveWorkoutOverlayCard: View {
                     )
                     .environmentObject(store)
                 }
+                .environment(\.cutOpenNextExercise, nextExerciseOpener)
             } else {
                 Text("Exercise not found")
             }
@@ -129,7 +104,106 @@ struct LiveWorkoutOverlayCard: View {
         .onAppear {
             checkForPendingSetGeneration()
         }
+    }
 
+    // MARK: - Cut card
+
+    private var cutCard: some View {
+        Group {
+            if let current = store.currentWorkout, !current.entries.isEmpty {
+                CutLiveOverviewView(
+                    model: CutLiveOverviewLogic.model(
+                        title: title, startDate: startDate, entries: current.entries,
+                        activeEntryID: current.activeEntryID, unit: unit
+                    ),
+                    actions: CutLiveOverviewActions(
+                        open: openEntry,
+                        swap: { id in
+                            if let entry = store.currentWorkout?.entries.first(where: { $0.id == id }) {
+                                swappingEntry = entry
+                            }
+                        },
+                        remove: { store.removeEntry(entryID: $0) },
+                        removeFromSuperset: { id in
+                            store.removeFromSuperset(entryID: id)
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        },
+                        minimise: onClose,
+                        finish: finishWorkout,
+                        discard: discardWorkout
+                    )
+                )
+            } else {
+                ContentUnavailableView("No active workout", systemImage: "bolt.heart")
+                    .padding(.vertical, 40)
+            }
+        }
+        .opacity(showContent ? 1 : 0)
+        .animation(.spring(response: 0.42, dampingFraction: 0.85), value: showContent)
+        .foregroundStyle(DS.Cut.Colors.textPrimary)
+        .background(
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
+                .fill(DS.Cut.Colors.darkField)
+                .overlay(
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
+                        .stroke(DS.Cut.Colors.hairline, lineWidth: 1)
+                )
+        )
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.hero)))
+        .shadow(color: .black.opacity(0.6), radius: 18, x: 0, y: 10)
+    }
+
+    /// The legacy rows' onOpen: make the entry current and open set logging for it.
+    /// Cut only: lets set logging lead on to the next exercise through openEntry.
+    private var nextExerciseOpener: ((UUID) -> Void)? {
+        guard DS.Redesign.cutEnabled else { return nil }
+        return { id in openEntry(id) }
+    }
+
+    private func openEntry(_ id: UUID) {
+        guard let entry = store.currentWorkout?.entries.first(where: { $0.id == id }) else { return }
+        store.setActiveEntry(entry.id)
+        editingEntry = entry
+    }
+
+    // MARK: - Legacy card
+
+    private var legacyCard: some View {
+        VStack(spacing: 0) {
+            header
+                .matchedGeometryEffect(id: "liveHeader", in: namespace)
+
+            Divider().overlay(DS.Semantic.border).opacity(0.7)
+
+            Group {
+                if let current = store.currentWorkout, !current.entries.isEmpty {
+                    content(for: current)
+                } else {
+                    ContentUnavailableView("No active workout", systemImage: "bolt.heart")
+                        .padding(.vertical, 40)
+                }
+            }
+            .opacity(showContent ? 1 : 0)
+            .scaleEffect(showContent ? 1 : 0.98, anchor: .top)
+            .animation(.spring(response: 0.42, dampingFraction: 0.85), value: showContent)
+        }
+        .foregroundStyle(DS.Semantic.textPrimary)
+        .background(
+            DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
+                .fill(
+                    LinearGradient(
+                        colors: [DS.Theme.cardBottom, DS.Theme.cardBottom],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    DS.RoleShape(.card, legacy: ChamferedRectangle(.hero))
+                        .stroke(DS.Semantic.border, lineWidth: 1)
+                )
+                .matchedGeometryEffect(id: "liveCardBG", in: namespace)
+        )
+        .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.hero)))
+        .shadow(color: .black.opacity(0.6), radius: 18, x: 0, y: 10)
     }
 
     // MARK: - Timer Completion Handler
@@ -213,6 +287,60 @@ struct LiveWorkoutOverlayCard: View {
         store.updateEntrySetsAndActiveIndex(entryID: entry.id, sets: updatedSets, activeSetIndex: updatedSets.count - 1)
 
         AppLogger.debug("Auto-generated new set for \(entry.exerciseName) after rest timer completed", category: AppLogger.workout)
+    }
+
+    // MARK: - Finish and discard (shared by both looks)
+
+    private func finishWorkout() {
+        // 1) Finish & get PR count to report
+        let result = store.finishCurrentWorkoutAndReturnPRs()   // (workoutId, prCount)
+
+        // 2) Calculate new exercises (first time completing them)
+        let seen = Set(store.completedWorkouts.dropFirst().flatMap { $0.entries.map(\.exerciseID) })
+        let thisIDs = Set((store.completedWorkouts.first?.entries ?? []).map(\.exerciseID))
+        let newIDs = thisIDs.subtracting(seen)
+
+        // 3) Send reward events (async to avoid blocking UI)
+        RewardsEngine.shared.processAsync(event: "workout_completed", payload: [
+            "workoutId": result.workoutId,
+            "completedWorkout": store.lastCompletedWorkout as Any,
+            "completedWorkouts": store.completedWorkouts,
+            "rewardPresentationSource": BarbellRewardPresentationSource.liveWorkoutCompletion.rawValue
+        ])
+
+        if newIDs.count > 0 {
+            RewardsEngine.shared.processAsync(event: "exercise_new", payload: [
+                "count": newIDs.count
+            ])
+        }
+
+        if result.prCount > 0 {
+            RewardsEngine.shared.processAsync(event: "pr_achieved", payload: [
+                "count": result.prCount
+            ])
+        }
+
+        // 4) Check weekly goal streak
+        checkWeeklyGoalStreak()
+
+        // 5) Close UI
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
+
+        // 6) Show share workout sheet (after animation completes)
+        if let completedWorkout = store.completedWorkouts.first {
+            // Delay to allow close animation to complete first
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                completedWorkoutToShare = completedWorkout
+                showShareWorkout = true
+            }
+        }
+    }
+
+    private func discardWorkout() {
+        store.discardCurrentWorkout()
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
     }
 
     // MARK: - Swap Helpers
@@ -584,11 +712,7 @@ struct LiveWorkoutOverlayCard: View {
                 if showDiscardConfirmation {
                     DiscardConfirmationDialog(
                         isPresented: $showDiscardConfirmation,
-                        onConfirm: {
-                            store.discardCurrentWorkout()
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-                        }
+                        onConfirm: discardWorkout
                     )
                 }
             }
@@ -596,51 +720,7 @@ struct LiveWorkoutOverlayCard: View {
             OverlayBottomActions(
                 hasIncompleteExercises: hasIncompleteExercises,
                 showDiscardConfirmation: $showDiscardConfirmation,
-                onFinish: {
-                    // 1) Finish & get PR count to report
-                    let result = store.finishCurrentWorkoutAndReturnPRs()   // (workoutId, prCount)
-
-                    // 2) Calculate new exercises (first time completing them)
-                    let seen = Set(store.completedWorkouts.dropFirst().flatMap { $0.entries.map(\.exerciseID) })
-                    let thisIDs = Set((store.completedWorkouts.first?.entries ?? []).map(\.exerciseID))
-                    let newIDs = thisIDs.subtracting(seen)
-
-                    // 3) Send reward events (async to avoid blocking UI)
-                    RewardsEngine.shared.processAsync(event: "workout_completed", payload: [
-                        "workoutId": result.workoutId,
-                        "completedWorkout": store.lastCompletedWorkout as Any,
-                        "completedWorkouts": store.completedWorkouts,
-                        "rewardPresentationSource": BarbellRewardPresentationSource.liveWorkoutCompletion.rawValue
-                    ])
-
-                    if newIDs.count > 0 {
-                        RewardsEngine.shared.processAsync(event: "exercise_new", payload: [
-                            "count": newIDs.count
-                        ])
-                    }
-
-                    if result.prCount > 0 {
-                        RewardsEngine.shared.processAsync(event: "pr_achieved", payload: [
-                            "count": result.prCount
-                        ])
-                    }
-
-                    // 4) Check weekly goal streak
-                    checkWeeklyGoalStreak()
-
-                    // 5) Close UI
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
-
-                    // 6) Show share workout sheet (after animation completes)
-                    if let completedWorkout = store.completedWorkouts.first {
-                        // Delay to allow close animation to complete first
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            completedWorkoutToShare = completedWorkout
-                            showShareWorkout = true
-                        }
-                    }
-                }
+                onFinish: finishWorkout
             )
         }
     }

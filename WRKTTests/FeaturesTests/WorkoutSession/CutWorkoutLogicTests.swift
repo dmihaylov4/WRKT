@@ -148,3 +148,61 @@ struct CutSetEditingTests {
                                        strengthDismissCount: 0, pumpDismissCount: 0) == nil)
     }
 }
+
+struct CutLiveOverviewLogicTests {
+    private func entry(_ name: String, done: Int, of count: Int, superset: UUID? = nil, order: Int? = nil) -> WorkoutEntry {
+        var entry = WorkoutEntry(exerciseID: name, exerciseName: name, muscleGroups: [],
+                                 sets: (0..<count).map { SetInput(reps: 6, weight: 85, isCompleted: $0 < done) })
+        entry.supersetGroupID = superset
+        entry.orderInSuperset = order
+        return entry
+    }
+
+    @Test func heroFollowsTheLegacyRules() {
+        let finished = entry("A", done: 2, of: 2)
+        let started = entry("B", done: 1, of: 3)
+        let fresh = entry("C", done: 0, of: 3)
+        #expect(CutLiveOverviewLogic.heroEntry(entries: [finished, fresh, started], activeEntryID: nil)?.id == started.id)
+        #expect(CutLiveOverviewLogic.heroEntry(entries: [finished, fresh, started], activeEntryID: fresh.id)?.id == fresh.id)
+        #expect(CutLiveOverviewLogic.heroEntry(entries: [finished, fresh], activeEntryID: finished.id)?.id == fresh.id)
+        #expect(CutLiveOverviewLogic.heroEntry(entries: [finished], activeEntryID: nil) == nil)
+    }
+
+    @Test func modelSegmentsSectionsAndFinish() {
+        let finished = entry("A", done: 2, of: 2)
+        let started = entry("B", done: 1, of: 3)
+        let fresh = entry("C", done: 0, of: 3)
+        let model = CutLiveOverviewLogic.model(title: "Live workout", startDate: .now, entries: [finished, started, fresh],
+                                               activeEntryID: nil, unit: .kg)
+        #expect(model.segments == [.done, .current, .toDo])
+        #expect(model.now?.id == started.id)
+        #expect(model.now?.line == "Set 2 of 3")
+        #expect(model.sections.map(\.title) == ["Up next", "Completed"])
+        #expect(!model.canFinish)
+        // Grouping follows the device locale.
+        #expect(model.summaryLine == "3 sets, \(CutLiveOverviewLogic.grouped(1530))\u{00A0}kg so far")
+
+        let done = CutLiveOverviewLogic.model(title: "Live workout", startDate: .now, entries: [finished],
+                                              activeEntryID: nil, unit: .kg)
+        #expect(done.canFinish && done.allDone && done.now == nil)
+    }
+
+    @Test func supersetPartnersStayWithTheHero() {
+        let group = UUID()
+        let first = entry("A", done: 1, of: 3, superset: group, order: 0)
+        let second = entry("B", done: 0, of: 3, superset: group, order: 1)
+        let other = entry("C", done: 0, of: 3)
+        let model = CutLiveOverviewLogic.model(title: "Live workout", startDate: .now, entries: [first, second, other],
+                                               activeEntryID: nil, unit: .kg)
+        #expect(model.now?.id == first.id)
+        #expect(model.nowPartners.map(\.id) == [second.id])
+        #expect(model.sections.flatMap(\.rows).map(\.id) == [other.id])
+        #expect(model.nowPartners.first?.line.hasPrefix("Superset") == true)
+    }
+
+    @Test func rowLines() {
+        #expect(CutLiveOverviewLogic.row(entry("A", done: 0, of: 3), unit: .kg).line == "3 sets, 85\u{00A0}kg\u{00A0}x\u{00A0}6")
+        #expect(CutLiveOverviewLogic.row(entry("A", done: 1, of: 3), unit: .kg).line == "1 of 3 sets done")
+        #expect(CutLiveOverviewLogic.summaryLine(entries: [entry("A", done: 0, of: 3)], unit: .kg) == "No sets logged yet")
+    }
+}

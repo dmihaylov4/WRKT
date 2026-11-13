@@ -406,6 +406,8 @@
 		C17CA2000000000000000102 /* CutStartSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000202 /* CutStartSheetView.swift */; };
 		C17CA2000000000000000103 /* CutSetLoggingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000203 /* CutSetLoggingModel.swift */; };
 		C17CA2000000000000000104 /* CutSetLoggingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000204 /* CutSetLoggingView.swift */; };
+		C17CA2000000000000000105 /* CutLiveOverviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000205 /* CutLiveOverviewModel.swift */; };
+		C17CA2000000000000000106 /* CutLiveOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000206 /* CutLiveOverviewView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -870,6 +872,8 @@
 		C17CA2000000000000000202 /* CutStartSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStartSheetView.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000203 /* CutSetLoggingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetLoggingModel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000204 /* CutSetLoggingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetLoggingView.swift; sourceTree = "<group>"; };
+		C17CA2000000000000000205 /* CutLiveOverviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLiveOverviewModel.swift; sourceTree = "<group>"; };
+		C17CA2000000000000000206 /* CutLiveOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLiveOverviewView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2253,6 +2257,8 @@
 				C17CA2000000000000000202 /* CutStartSheetView.swift */,
 				C17CA2000000000000000203 /* CutSetLoggingModel.swift */,
 				C17CA2000000000000000204 /* CutSetLoggingView.swift */,
+				C17CA2000000000000000205 /* CutLiveOverviewModel.swift */,
+				C17CA2000000000000000206 /* CutLiveOverviewView.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2647,6 +2653,8 @@
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */,
 				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
+				C17CA2000000000000000106 /* CutLiveOverviewView.swift in Sources */,
+				C17CA2000000000000000105 /* CutLiveOverviewModel.swift in Sources */,
 				C17CA2000000000000000104 /* CutSetLoggingView.swift in Sources */,
 				C17CA2000000000000000103 /* CutSetLoggingModel.swift in Sources */,
 				C17CA2000000000000000102 /* CutStartSheetView.swift in Sources */,

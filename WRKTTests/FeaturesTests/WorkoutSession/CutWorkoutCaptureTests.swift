@@ -40,6 +40,25 @@ struct CutWorkoutCaptureTests {
                           name: "set-logging-mid-ax")
     }
 
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_WORKOUT"] == "1"))
+    func captureOverview() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let main = CutLiveOverviewFixtures.model()
+        try await capture(OverviewHost(model: main), name: "overview", scrolledName: "overview-scrolled")
+        try await capture(OverviewHost(model: main, rest: .fixed(92)), name: "overview-resting")
+        try await capture(OverviewHost(model: CutLiveOverviewFixtures.model(CutLiveOverviewFixtures.allDoneEntries)),
+                          name: "overview-all-done")
+        try await capture(OverviewHost(model: main), name: "overview-ax", dynamicType: .accessibility3)
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_WORKOUT"] == "1"))
+    func captureDialogs() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let done = CutLiveOverviewFixtures.model(CutLiveOverviewFixtures.allDoneEntries)
+        try await capture(OverviewHost(model: done, dialog: .finish), name: "finish-dialog")
+        try await capture(OverviewHost(model: done, dialog: .discard), name: "discard-dialog")
+    }
+
     // MARK: - Helpers
 
     func capture<V: View>(_ content: V, name: String, dynamicType: DynamicTypeSize = .large,
@@ -83,6 +102,24 @@ struct CutWorkoutCaptureTests {
         }
         visit(view)
         return best
+    }
+}
+
+/// The overview as the shell shows it: a card over the Train tab, clear of the tab bar.
+struct OverviewHost: View {
+    let model: CutLiveOverviewModel
+    var rest: CutOverviewRest = .none
+    var dialog: CutLiveDialog?
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Color.black.ignoresSafeArea()
+            CutLiveOverviewView(model: model, rest: rest, fixedElapsed: 24 * 60 + 19, dialog: dialog)
+                .background(DS.RoleShape(.card, legacy: ChamferedRectangle(.hero)).fill(DS.Cut.Colors.darkField))
+                .clipShape(DS.RoleShape(.card, legacy: ChamferedRectangle(.hero)))
+                .padding(.horizontal, 12)
+                .padding(.bottom, 90)
+        }
     }
 }
 
