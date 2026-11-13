@@ -240,7 +240,10 @@ struct ExerciseSessionView: View {
                         viewModel.sets[i].autoWeight = false
                     }
                 },
-                cancelRest: { RestTimerManager.shared.stopTimer() }
+                cancelRest: { RestTimerManager.shared.stopTimer() },
+                // As the Train hero's rest controls.
+                addRestTime: { RestTimerManager.shared.adjustTime(by: 15) },
+                skipRest: { RestTimerManager.shared.skipTimer() }
             )
         )
         .onChange(of: viewModel.sets.count) { oldCount, newCount in

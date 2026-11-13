@@ -408,6 +408,7 @@
 		C17CA2000000000000000104 /* CutSetLoggingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000204 /* CutSetLoggingView.swift */; };
 		C17CA2000000000000000105 /* CutLiveOverviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000205 /* CutLiveOverviewModel.swift */; };
 		C17CA2000000000000000106 /* CutLiveOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000206 /* CutLiveOverviewView.swift */; };
+		C17CA2000000000000000107 /* CutRestPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000207 /* CutRestPanel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -874,6 +875,7 @@
 		C17CA2000000000000000204 /* CutSetLoggingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetLoggingView.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000205 /* CutLiveOverviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLiveOverviewModel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000206 /* CutLiveOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLiveOverviewView.swift; sourceTree = "<group>"; };
+		C17CA2000000000000000207 /* CutRestPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRestPanel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2259,6 +2261,7 @@
 				C17CA2000000000000000204 /* CutSetLoggingView.swift */,
 				C17CA2000000000000000205 /* CutLiveOverviewModel.swift */,
 				C17CA2000000000000000206 /* CutLiveOverviewView.swift */,
+				C17CA2000000000000000207 /* CutRestPanel.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2653,6 +2656,7 @@
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */,
 				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
+				C17CA2000000000000000107 /* CutRestPanel.swift in Sources */,
 				C17CA2000000000000000106 /* CutLiveOverviewView.swift in Sources */,
 				C17CA2000000000000000105 /* CutLiveOverviewModel.swift in Sources */,
 				C17CA2000000000000000104 /* CutSetLoggingView.swift in Sources */,

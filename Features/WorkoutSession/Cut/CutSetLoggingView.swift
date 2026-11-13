@@ -32,6 +32,8 @@ struct CutSetLoggingActions {
     /// The plateau row's "+2.5 kg".
     var increaseRemaining: () -> Void = {}
     var cancelRest: () -> Void = {}
+    var addRestTime: () -> Void = {}
+    var skipRest: () -> Void = {}
 }
 
 /// Where the resting row reads its state from.
@@ -72,8 +74,6 @@ struct CutSetLoggingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     heroBlock
-                    CutRestingRow(source: rest, hasCompletedSet: sets.contains(where: \.isCompleted),
-                                  onCancel: actions.cancelRest)
                     inputs
                         .padding(.top, 30)
                     CutSetSegments(sets: sets, activeSetIndex: activeSetIndex, mode: model.mode, unit: model.unit,
@@ -147,11 +147,16 @@ struct CutSetLoggingView: View {
             Text(model.metaLine)
                 .cutFont(.title)
                 .foregroundStyle(DS.Cut.Colors.lime)
-            let lines = CutHeroText.balancedLines(model.exerciseName)
-            CutHeroText(lines, hero: CutTrainLogic.heroSize(forLines: lines) == .xl ? .l : CutTrainLogic.heroSize(forLines: lines),
-                        minimumScaleFactor: 0.25)
-                .padding(.top, 8)
-                .accessibilityAddTraits(.isHeader)
+            // While a rest runs the countdown takes the hero's place; the inputs stay for the next set.
+            CutRestSlot(source: rest, hasCompletedSet: sets.contains(where: \.isCompleted),
+                        nextLine: CutRestLogic.nextLine(sets: sets, activeSetIndex: activeSetIndex, mode: model.mode, unit: model.unit),
+                        actions: CutRestActions(addTime: actions.addRestTime, skip: actions.skipRest, cancel: actions.cancelRest)) {
+                let lines = CutHeroText.balancedLines(model.exerciseName)
+                CutHeroText(lines, hero: CutTrainLogic.heroSize(forLines: lines) == .xl ? .l : CutTrainLogic.heroSize(forLines: lines),
+                            minimumScaleFactor: 0.25)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .padding(.top, 8)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) { supportLine; Spacer(minLength: 8); setTypeMenu }
                 VStack(alignment: .leading, spacing: 10) { supportLine; setTypeMenu }
@@ -825,71 +830,6 @@ extension EnvironmentValues {
     }
 }
 
-/// The legacy rest badge on the last logged set, as one row: "Resting 1:32" and Cancel.
-/// Observes the rest timer's state (transitions only) in a gate, and its countdown in a leaf.
-struct CutRestingRow: View {
-    let source: CutRestSource
-    let hasCompletedSet: Bool
-    let onCancel: () -> Void
-
-    var body: some View {
-        switch source {
-        case .none:
-            EmptyView()
-        case .fixed(let seconds):
-            CutRestingRowLayout(label: Text("Resting \(CutTrainLogic.countdown(seconds))"), onCancel: onCancel)
-        case .live(let exerciseID):
-            CutLiveRestingGate(exerciseID: exerciseID, hasCompletedSet: hasCompletedSet, onCancel: onCancel)
-        }
-    }
-}
-
-private struct CutRestingRowLayout<Label: View>: View {
-    let label: Label
-    let onCancel: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            label
-                .font(DS.Cut.Typography.font(.title, monospacedDigits: true))
-                .foregroundStyle(DS.Cut.Colors.lime)
-            Spacer(minLength: 8)
-            Button("Cancel") {
-                onCancel()
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            }
-            .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
-            .accessibilityLabel("Cancel rest")
-        }
-        .padding(.top, 20)
-    }
-}
-
-private struct CutLiveRestingGate: View {
-    let exerciseID: String
-    let hasCompletedSet: Bool
-    let onCancel: () -> Void
-    @ObservedObject private var manager = RestTimerManager.shared
-
-    var body: some View {
-        // The legacy badge: a running timer for this exercise that a logged set started.
-        if manager.isTimerFor(exerciseID: exerciseID), manager.isRunning, !manager.isManuallyStartedTimer, hasCompletedSet {
-            CutRestingRowLayout(label: CutRestingText(), onCancel: onCancel)
-        }
-    }
-}
-
-/// "Resting 1:32": the only view that observes the per-second ticker.
-private struct CutRestingText: View {
-    @ObservedObject private var ticker = RestTimerManager.shared.ticker
-
-    var body: some View {
-        Text("Resting \(CutTrainLogic.countdown(ticker.remainingSeconds))")
-            .accessibilityLabel("Resting")
-            .accessibilityValue(Duration.seconds(max(0, ticker.remainingSeconds)).formatted(.units(allowed: [.minutes, .seconds])))
-    }
-}
-
 // MARK: - Fixtures
 
 #if DEBUG
@@ -936,7 +876,7 @@ enum CutSetLoggingFixtures {
             State(name: "bodyweight", model: model("Pull-ups", mode: .bodyweight, sets: bodyweight, active: 2,
                                                   support: "Record 15 reps, last 12 reps"), sets: bodyweight, active: 2),
             State(name: "timed", model: model("Plank", mode: .timed, sets: timed, active: 1, support: nil), sets: timed, active: 1),
-            State(name: "resting-row", model: model(sets: mid, active: 2), sets: mid, active: 2, rest: .fixed(92))
+            State(name: "resting", model: model(sets: mid, active: 2), sets: mid, active: 2, rest: .fixed(92))
         ]
     }
 }

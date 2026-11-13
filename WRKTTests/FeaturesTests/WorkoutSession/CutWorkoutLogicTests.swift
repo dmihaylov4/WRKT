@@ -149,6 +149,18 @@ struct CutSetEditingTests {
     }
 }
 
+struct CutRestLogicTests {
+    @Test func nextLineNamesTheNextOpenSet() {
+        let sets = [SetInput(reps: 8, weight: 80, isCompleted: true), SetInput(reps: 6, weight: 85), SetInput(reps: 6, weight: 85)]
+        #expect(CutRestLogic.nextLine(sets: sets, activeSetIndex: 1, mode: .weighted, unit: .kg)
+                == "Next: set 2, 85\u{00A0}kg\u{00A0}x\u{00A0}6")
+        #expect(CutRestLogic.nextLine(sets: [SetInput(reps: 12, weight: 0)], activeSetIndex: 0, mode: .bodyweight, unit: .kg)
+                == "Next: set 1, 12 reps")
+        let done = [SetInput(reps: 8, weight: 80, isCompleted: true)]
+        #expect(CutRestLogic.nextLine(sets: done, activeSetIndex: 0, mode: .weighted, unit: .kg) == nil)
+    }
+}
+
 struct CutLiveOverviewLogicTests {
     private func entry(_ name: String, done: Int, of count: Int, superset: UUID? = nil, order: Int? = nil) -> WorkoutEntry {
         var entry = WorkoutEntry(exerciseID: name, exerciseName: name, muscleGroups: [],
