@@ -127,7 +127,7 @@ enum CutSetLoggingLogic {
             if let progression {
                 parts.append("Target \(nb(unit.format(progression.weightKg)))\u{00A0}x\u{00A0}\(progression.reps)")
             }
-            if let bestE1RMKg {
+            if let bestE1RMKg, bestE1RMKg > 0 {
                 let display = unit == .kg ? bestE1RMKg : bestE1RMKg * 2.20462
                 parts.append("PR \(String(format: "%.0f", display))\u{00A0}\(unit.rawValue)")
             }

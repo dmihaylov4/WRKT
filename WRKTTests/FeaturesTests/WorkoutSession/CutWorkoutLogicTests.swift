@@ -17,9 +17,9 @@ struct CutStartSheetLogicTests {
     }
 
     @Test func planLineCountsExercises() {
-        #expect(CutStartSheetLogic.planLine(.init(name: "Upper Body", exerciseCount: 6)) == "6 exercises")
-        #expect(CutStartSheetLogic.planLine(.init(name: "Upper Body", exerciseCount: 1)) == "1 exercise")
-        #expect(CutStartSheetLogic.planLine(.init(name: "Upper Body", exerciseCount: 0)) == nil)
+        #expect(CutStartSheetLogic.planLine(.init(name: "Upper Body", exerciseCount: 6)) == "Today's plan, 6 exercises")
+        #expect(CutStartSheetLogic.planLine(.init(name: "Upper Body", exerciseCount: 1)) == "Today's plan, 1 exercise")
+        #expect(CutStartSheetLogic.planLine(.init(name: "Upper Body", exerciseCount: 0)) == "Today's plan")
     }
 }
 
@@ -195,7 +195,7 @@ struct CutRestLogicTests {
         #expect(CutRestLogic.nextLine(sets: [SetInput(reps: 12, weight: 0)], activeSetIndex: 0, mode: .bodyweight, unit: .kg)
                 == "Next: set 1, 12 reps")
         let done = [SetInput(reps: 8, weight: 80, isCompleted: true)]
-        #expect(CutRestLogic.nextLine(sets: done, activeSetIndex: 0, mode: .weighted, unit: .kg) == nil)
+        #expect(CutRestLogic.nextLine(sets: done, activeSetIndex: 0, mode: .weighted, unit: .kg) == "Last set logged.")
     }
 }
 

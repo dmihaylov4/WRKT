@@ -51,8 +51,9 @@ enum CutStartSheetLogic {
     }
 
     /// The plan's one supporting line, or nil when it has no exercises to count.
-    static func planLine(_ plan: CutStartSheetPlan) -> String? {
-        guard plan.exerciseCount > 0 else { return nil }
-        return plan.exerciseCount == 1 ? "1 exercise" : "\(plan.exerciseCount) exercises"
+    /// Says the hero is today's plan, so it does not read as a copy of the type row below.
+    static func planLine(_ plan: CutStartSheetPlan) -> String {
+        guard plan.exerciseCount > 0 else { return "Today's plan" }
+        return plan.exerciseCount == 1 ? "Today's plan, 1 exercise" : "Today's plan, \(plan.exerciseCount) exercises"
     }
 }

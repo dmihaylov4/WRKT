@@ -71,6 +71,9 @@ struct CutSetLoggingView: View {
     var body: some View {
         VStack(spacing: 0) {
             topBar
+                // Opaque, with a hairline, so scrolled content passes cleanly under it.
+                .background(DS.Cut.Colors.background)
+            CutHairline()
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     heroBlock
@@ -92,7 +95,11 @@ struct CutSetLoggingView: View {
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // Black behind the whole bar rectangle, so nothing shows in the cut corner's triangle.
+            actionBar
+                .background(DS.Cut.Colors.background.ignoresSafeArea(edges: .bottom))
+        }
         .foregroundStyle(DS.Cut.Colors.textPrimary)
         .background(DS.Cut.Colors.background.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
@@ -880,7 +887,8 @@ enum CutSetLoggingFixtures {
             State(name: "bodyweight", model: model("Pull-ups", mode: .bodyweight, sets: bodyweight, active: 2,
                                                   support: "Record 15 reps, last 12 reps"), sets: bodyweight, active: 2),
             State(name: "timed", model: model("Plank", mode: .timed, sets: timed, active: 1, support: nil), sets: timed, active: 1),
-            State(name: "resting", model: model(sets: mid, active: 2), sets: mid, active: 2, rest: .fixed(92))
+            State(name: "resting", model: model(sets: mid, active: 2), sets: mid, active: 2, rest: .fixed(92)),
+            State(name: "resting-after-last", model: model(sets: allDone, active: 3), sets: allDone, active: 3, rest: .fixed(118))
         ]
     }
 }

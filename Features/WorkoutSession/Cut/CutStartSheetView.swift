@@ -65,11 +65,9 @@ struct CutStartSheetView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         CutHeroText(CutHeroText.balancedLines(plan.name), hero: .m, minimumScaleFactor: 0.25)
                             .foregroundStyle(DS.Cut.Colors.lime)
-                        if let line {
-                            Text(line)
-                                .cutFont(.secondary)
-                                .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        }
+                        Text(line)
+                            .cutFont(.secondary)
+                            .foregroundStyle(DS.Cut.Colors.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     CutTile(systemImage: "arrow.right", side: 60)
@@ -81,7 +79,7 @@ struct CutStartSheetView: View {
         }
         .buttonStyle(.plain)
         // On the button itself, so VoiceOver keeps its action.
-        .accessibilityLabel(Text(line.map { "Start \(plan.name). \($0)" } ?? "Start \(plan.name)"))
+        .accessibilityLabel(Text("Start \(plan.name). \(line)"))
     }
 
     private func choiceRow(_ type: QuickWorkoutTypeSelector.WorkoutType) -> some View {

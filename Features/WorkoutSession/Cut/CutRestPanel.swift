@@ -132,11 +132,16 @@ private struct CutRestNumeral: View {
 }
 
 enum CutRestLogic {
-    /// "Next: set 3, 85 kg x 6": the first open set from the active one on, or nil.
+    /// "Next: set 3, 85 kg x 6", or "Last set logged." while resting after the last set.
     static func nextLine(sets: [SetInput], activeSetIndex: Int, mode: CutSetMode, unit: WeightUnit) -> String? {
-        let start = max(0, activeSetIndex)
-        guard start < sets.count,
-              let index = sets[start...].firstIndex(where: { !$0.isCompleted }) else { return nil }
+        let start = min(max(0, activeSetIndex), sets.count)
+        // The first open set from the active one, then from the start.
+        guard let index = sets[start...].firstIndex(where: { !$0.isCompleted })
+                ?? sets[..<start].firstIndex(where: { !$0.isCompleted }) else {
+            // Every set is logged. Whether a set follows depends on the auto add setting, the
+            // four set cap and skip or cancel, so the line does not promise one.
+            return sets.isEmpty ? nil : "Last set logged."
+        }
         let set = sets[index]
         let value: String? = switch mode {
         case .weighted: set.weight > 0 && set.reps > 0 ? CutSetLoggingLogic.rowValue(set, mode: .weighted, unit: unit)
