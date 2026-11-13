@@ -492,6 +492,8 @@ struct CutSetLoggingView: View {
             }
         case .hidden:
             EmptyView()
+        case .addSet:
+            CutActionBar("Add set", subtitle: nil, systemImage: "plus", action: actions.addSet)
         }
     }
 }
@@ -758,6 +760,8 @@ private struct CutSetRow: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onTap() }
         .accessibilityAction(named: set.isCompleted ? "Mark incomplete" : "Mark complete", onToggleComplete)
         .accessibilityAction(named: "Delete set", onDelete)
     }

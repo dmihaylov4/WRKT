@@ -161,10 +161,9 @@ struct CutLiveOverviewView: View {
             }
             .buttonStyle(.plain)
             .contextMenu { rowMenu(now, canRemove: false) }
-            .accessibilityElement(children: .ignore)
+            // On the button itself, so VoiceOver keeps its action.
             .accessibilityLabel(Text("\(now.name). \(now.line)"))
             .accessibilityHint(Text("Opens set logging"))
-            .accessibilityAddTraits(.isButton)
             .accessibilityAction(named: "Swap exercise") { actions.swap(now.id) }
             CutHairline()
             ForEach(model.nowPartners) { row in
@@ -227,7 +226,7 @@ struct CutLiveOverviewView: View {
         }
         .buttonStyle(.plain)
         .contextMenu { rowMenu(row, canRemove: true) }
-        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(row.name). \(row.line)"))
         .accessibilityAction(named: "Swap exercise") { actions.swap(row.id) }
         .accessibilityAction(named: "Remove exercise") { actions.remove(row.id) }
     }

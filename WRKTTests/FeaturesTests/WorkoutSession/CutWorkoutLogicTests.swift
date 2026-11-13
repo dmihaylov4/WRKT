@@ -28,6 +28,8 @@ struct CutSetLoggingLogicTests {
         #expect(CutSetLoggingLogic.metaLine(setIndex: 2, setCount: 4, exercise: (0, 6)) == "Exercise 1 of 6, set 3 of 4")
         #expect(CutSetLoggingLogic.metaLine(setIndex: 0, setCount: 3, exercise: nil) == "Set 1 of 3")
         #expect(CutSetLoggingLogic.metaLine(setIndex: 0, setCount: 3, exercise: (0, 1)) == "Set 1 of 3")
+        #expect(CutSetLoggingLogic.metaLine(setIndex: 0, setCount: 0, exercise: (1, 3)) == "Exercise 2 of 3, no sets yet")
+        #expect(CutSetLoggingLogic.bar(sets: [], activeSetIndex: 0, restSeconds: 90, nextExerciseName: nil, holdRunning: false) == .addSet)
     }
 
     @Test func restLine() {

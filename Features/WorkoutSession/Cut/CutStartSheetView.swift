@@ -80,9 +80,8 @@ struct CutStartSheetView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
+        // On the button itself, so VoiceOver keeps its action.
         .accessibilityLabel(Text(line.map { "Start \(plan.name). \($0)" } ?? "Start \(plan.name)"))
-        .accessibilityAddTraits(.isButton)
     }
 
     private func choiceRow(_ type: QuickWorkoutTypeSelector.WorkoutType) -> some View {

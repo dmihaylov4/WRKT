@@ -56,6 +56,8 @@ enum CutSetLoggingBar: Equatable {
     case done
     /// A timed hold is running: the bar is hidden, as the legacy log button was.
     case hidden
+    /// The exercise has no sets yet (an entry added without any): the bar adds the first.
+    case addSet
 }
 
 /// Everything the Cut set logging screen shows, apart from the editable sets.
@@ -103,7 +105,7 @@ struct CutSetLoggingModel: Equatable {
 
 enum CutSetLoggingLogic {
     static func metaLine(setIndex: Int, setCount: Int, exercise position: (index: Int, count: Int)?) -> String {
-        let set = "set \(min(setIndex + 1, max(setCount, 1))) of \(max(setCount, 1))"
+        let set = setCount == 0 ? "no sets yet" : "set \(min(setIndex + 1, setCount)) of \(setCount)"
         guard let position, position.count > 1 else { return "S" + set.dropFirst() }
         return "Exercise \(position.index + 1) of \(position.count), \(set)"
     }
@@ -153,6 +155,7 @@ enum CutSetLoggingLogic {
         holdRunning: Bool
     ) -> CutSetLoggingBar {
         if holdRunning { return .hidden }
+        if sets.isEmpty { return .addSet }
         let allDone = !sets.isEmpty && sets.allSatisfy(\.isCompleted)
         if allDone {
             if let nextExerciseName { return .nextExercise(name: nextExerciseName) }
