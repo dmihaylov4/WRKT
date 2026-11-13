@@ -31,6 +31,7 @@ struct CutMeView: View {
     var actions = CutMeActions()
 
     @State private var confirmsFreeze = false
+    @State private var isScrolled = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,11 +42,18 @@ struct CutMeView: View {
             }
             .padding(.horizontal, DS.Cut.Metrics.gutter)
             .padding(.top, 8)
+            .padding(.bottom, 8)
+            // Opaque, with a hairline once content is scrolled under it (as on Cut set logging).
+            .background(DS.Cut.Colors.background)
+            .overlay(alignment: .bottom) {
+                CutHairline().opacity(isScrolled ? 1 : 0)
+            }
+            .zIndex(1)
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     heroSection
-                        .padding(.top, 16)
+                        .padding(.top, 8)
                     goalSection
                         .padding(.top, 24)
                     if !model.streakStats.isEmpty {
@@ -69,6 +77,14 @@ struct CutMeView: View {
                 .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
             }
             .scrollIndicators(.hidden)
+            // Flips only when content first passes under the header, not every frame.
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 0.5
+            } action: { _, scrolled in
+                isScrolled = scrolled
+            }
+            .cutHidesTopScrollEdge()
+            .clipped()
         }
         .background(DS.Cut.Colors.background.ignoresSafeArea())
         .alert("Freeze your streak?", isPresented: $confirmsFreeze) {
@@ -327,6 +343,7 @@ struct CutMeView: View {
         }
     }
 
+    /// The count when there is one; otherwise a plain chevron so the row still reads as tappable.
     @ViewBuilder
     private func count(_ value: String?) -> some View {
         if let value {
@@ -334,6 +351,11 @@ struct CutMeView: View {
                 .cutHero(.s)
                 .foregroundStyle(DS.Cut.Colors.textPrimary)
                 .fixedSize()
+        } else {
+            Image(systemName: "chevron.right")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(DS.Cut.Colors.textSecondary)
+                .accessibilityHidden(true)
         }
     }
 
