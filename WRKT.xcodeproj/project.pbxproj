@@ -273,6 +273,7 @@
 		C17CA1000000000000000011 /* CutTrainModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000021 /* CutTrainModel.swift */; };
 		C17CA1000000000000000012 /* CutTrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000022 /* CutTrainView.swift */; };
 		C17CA1000000000000000013 /* CutTrainHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000023 /* CutTrainHost.swift */; };
+		C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000024 /* CutTrainStatusBar.swift */; };
 		2EC202A82EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */; };
 		2EC202AA2EF407AB00D6BAEF /* LastCardioCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */; };
 		2EC202AF2EF4112B00D6BAEF /* MuscleChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */; };
@@ -740,6 +741,7 @@
 		C17CA1000000000000000021 /* CutTrainModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainModel.swift; sourceTree = "<group>"; };
 		C17CA1000000000000000022 /* CutTrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainView.swift; sourceTree = "<group>"; };
 		C17CA1000000000000000023 /* CutTrainHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainHost.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000024 /* CutTrainStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainStatusBar.swift; sourceTree = "<group>"; };
 		2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWeeklyStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCardioCard.swift; sourceTree = "<group>"; };
 		2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleChip.swift; sourceTree = "<group>"; };
@@ -2230,6 +2232,7 @@
 				C17CA1000000000000000021 /* CutTrainModel.swift */,
 				C17CA1000000000000000022 /* CutTrainView.swift */,
 				C17CA1000000000000000023 /* CutTrainHost.swift */,
+				C17CA1000000000000000024 /* CutTrainStatusBar.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2626,6 +2629,7 @@
 				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
 				C17CA1000000000000000012 /* CutTrainView.swift in Sources */,
 				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
+				C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,
 				2EA7D9CB2EEB6E9B0017683B /* SkeletonProfileHeader.swift in Sources */,
 				2EBE3F142EB668B700A26355 /* ExerciseSearchVM.swift in Sources */,

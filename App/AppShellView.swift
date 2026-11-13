@@ -293,6 +293,8 @@ struct AppShellView: View {
 
     private var baseContent: some View {
         mainTabView
+            // Cut only: dark status bar content over the Train tab's lime field.
+            .modifier(CutTrainStatusBarRoot(trainSelected: selectedTab == .train))
     }
 
     // MARK: - Main Tab View

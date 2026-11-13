@@ -81,6 +81,15 @@ struct CutTrainLogicTests {
         #expect(!CutTrainLogic.fieldIsLime(.doneToday(next: nil)))
     }
 
+    @Test func statusBarStaysDarkOnlyWhileTheFullWidthFieldIsBehindIt() {
+        // Field 480 tall, cut 112, status bar 62: the full-width part leaves at 306 pt of scroll.
+        #expect(CutTrainLogic.fieldCoversStatusBar(scrollOffset: 0, fieldHeight: 480, statusBarHeight: 62))
+        #expect(CutTrainLogic.fieldCoversStatusBar(scrollOffset: 305, fieldHeight: 480, statusBarHeight: 62))
+        #expect(!CutTrainLogic.fieldCoversStatusBar(scrollOffset: 306, fieldHeight: 480, statusBarHeight: 62))
+        #expect(CutTrainLogic.fieldCoversStatusBar(scrollOffset: -40, fieldHeight: 480, statusBarHeight: 62))
+        #expect(CutTrainLogic.fieldCoversStatusBar(scrollOffset: 900, fieldHeight: 0, statusBarHeight: 62))
+    }
+
     @Test func emptyWorkoutDoesNotCountAsLive() {
         let hero = CutTrainLogic.hero(workout: workout([]), rest: nil, todaysPlan: nil, outlook: PlanOutlook(), unit: .kg)
         #expect(hero == .noPlan)

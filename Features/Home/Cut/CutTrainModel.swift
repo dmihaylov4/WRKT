@@ -124,6 +124,13 @@ enum CutTrainLogic {
         }
     }
 
+    /// Whether the field's full-width part (above the cut) still sits behind the status bar.
+    /// Before the field is measured it is assumed to, so the first frame is not flipped.
+    static func fieldCoversStatusBar(scrollOffset: CGFloat, fieldHeight: CGFloat, statusBarHeight: CGFloat) -> Bool {
+        guard fieldHeight > 0 else { return true }
+        return scrollOffset < fieldHeight - DS.Cut.Metrics.fieldCut - statusBarHeight
+    }
+
     /// An exercise is done when it has sets and every one is completed.
     static func isDone(_ entry: WorkoutEntry) -> Bool {
         !entry.sets.isEmpty && entry.sets.allSatisfy(\.isCompleted)

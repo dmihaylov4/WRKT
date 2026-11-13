@@ -72,6 +72,65 @@ struct CutTrainCaptureTests {
         try await Task.sleep(for: .seconds(1))
     }
 
+    /// Status bar style per state (VOLIA_CAPTURE_STATUSBAR=1). The status bar is outside the
+    /// app's drawing, so for each state the test records the scene's effective style in
+    /// statusbar.txt, then writes `<name>.ready` and holds the state for a few seconds so a
+    /// shell loop can take `simctl io screenshot` while it is on screen.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATUSBAR"] == "1"))
+    func captureStatusBar() async throws {
+        let environment = ProcessInfo.processInfo.environment
+        let root = URL(fileURLWithPath: environment["VOLIA_CAPTURE_DIR"] ?? "/private/tmp/volia-cut-train/statusbar")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let mode = DS.Redesign.cutEnabled ? "cut" : "legacy"
+        var lines: [String] = []
+
+        func record(_ name: String) async throws {
+            try await Task.sleep(for: .seconds(1.5))
+            let style = scene.statusBarManager?.statusBarStyle ?? .default
+            let label = switch style {
+            case .darkContent: "darkContent"
+            case .lightContent: "lightContent"
+            default: "default"
+            }
+            lines.append("\(mode)-\(name): \(label)")
+            try Data().write(to: root.appendingPathComponent("\(mode)-\(name).ready"))
+            try await Task.sleep(for: .seconds(6))
+        }
+
+        // The running app's Train tab (local mode: no plan, so a lime field).
+        try await Task.sleep(for: .seconds(3))
+        try await record("app-train")
+
+        // The Plan tab, through the shell's own navigation (a program invite opens Plan),
+        // then back to Train through its user-intent reset.
+        let invite = AppNotification(id: UUID(), userId: UUID(), type: .programInvite, actorId: UUID(),
+                                     targetId: nil, read: true, createdAt: .now, metadata: nil)
+        NotificationCenter.default.post(name: .init("NavigateToNotification"), object: invite)
+        try await record("app-plan-tab")
+        NotificationCenter.default.post(name: .resetHomeToRoot, object: nil, userInfo: ["reason": "user_intent"])
+        try await record("app-train-back")
+
+        // A rest day: an active plan whose block today is a rest block (dedicated capture
+        // simulator only; the plan is left inactive afterwards).
+        if DS.Redesign.cutEnabled {
+            let planner = AppDependencies.shared.plannerStore
+            try planner.createSplit(name: "Status bar capture", planBlocks: [
+                PlanBlock(dayName: "Rest", exercises: [], isRestDay: true)
+            ])
+            NotificationCenter.default.post(name: .plannedWorkoutsChanged, object: nil)
+            try await record("app-rest-day")
+            if let split = try planner.activeSplit() {
+                split.isActive = false
+                try planner.saveContext()
+            }
+            NotificationCenter.default.post(name: .plannedWorkoutsChanged, object: nil)
+            try await record("app-train-after-rest")
+        }
+        try lines.joined(separator: "\n").appending("\n")
+            .write(to: root.appendingPathComponent("statusbar-\(mode).txt"), atomically: true, encoding: .utf8)
+    }
+
     private func saveKeyWindow(to url: URL) throws {
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = try #require(scene.windows.first(where: \.isKeyWindow) ?? scene.windows.first)

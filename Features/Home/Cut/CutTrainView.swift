@@ -28,13 +28,19 @@ struct CutTrainView: View {
     let model: CutTrainModel
     var actions = CutTrainActions()
 
+    @State private var fieldHeight: CGFloat = 0
+    /// The lime part of the field is still behind the status bar (scrolled to, or near, the top).
+    @State private var fieldUnderStatusBar = true
+
     var body: some View {
         // The reader keeps the safe area, so it reports the status bar height the field's
         // content has to clear once the scroll view runs under it.
         GeometryReader { proxy in
+            let topInset = proxy.safeAreaInsets.top
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    CutTrainField(hero: model.hero, topInset: proxy.safeAreaInsets.top, actions: actions)
+                    CutTrainField(hero: model.hero, topInset: topInset, actions: actions)
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldHeight = $0 }
                     if let goal = model.weeklyGoal {
                         CutTrainWeeklyGoalView(goal: goal)
                     }
@@ -46,10 +52,19 @@ struct CutTrainView: View {
                 .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
+            // Only flips when the field's full-width part passes the status bar, not every frame.
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                CutTrainLogic.fieldCoversStatusBar(
+                    scrollOffset: geometry.contentOffset.y + geometry.contentInsets.top,
+                    fieldHeight: fieldHeight, statusBarHeight: topInset)
+            } action: { _, covered in
+                fieldUnderStatusBar = covered
+            }
             .ignoresSafeArea(.container, edges: .top)
             .cutHidesTopScrollEdge()
         }
         .background(DS.Cut.Colors.background.ignoresSafeArea())
+        .modifier(CutTrainStatusBarReporter(darkContent: CutTrainLogic.fieldIsLime(model.hero) && fieldUnderStatusBar))
     }
 }
 
