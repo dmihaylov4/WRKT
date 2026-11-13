@@ -17,11 +17,7 @@ struct PlanView: View {
 
     var body: some View {
         NavigationStack {
-            CalendarMonthView(
-                onProgramLibraryTap: {
-                    showProgramLibrary = true
-                }
-            )
+            calendar
                 .background(DS.Semantic.surface)
                 .scrollContentBackground(.hidden)
                 .navigationDestination(isPresented: $showProgramLibrary) {
@@ -31,6 +27,20 @@ struct PlanView: View {
         .onChange(of: pendingNotification) { _, newValue in
             guard newValue?.type == .programInvite else { return }
             showProgramLibrary = true
+        }
+    }
+
+    /// The one Cut branch point: same stores, sheets, destinations and refresh triggers.
+    @ViewBuilder
+    private var calendar: some View {
+        if DS.Redesign.cutEnabled {
+            CutPlanHost(onProgramLibraryTap: { showProgramLibrary = true })
+        } else {
+            CalendarMonthView(
+                onProgramLibraryTap: {
+                    showProgramLibrary = true
+                }
+            )
         }
     }
 }
