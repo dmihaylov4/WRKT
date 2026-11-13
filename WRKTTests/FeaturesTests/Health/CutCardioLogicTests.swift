@@ -322,7 +322,10 @@ struct CutCardioLogicTests {
     @Test func detailWithoutDistanceShowsTime() {
         let rowing = F.run(nil, type: "Rowing", day: -1, km: 0, seconds: 3_900)
         let model = CutCardioLogic.detail(rowing, zones: [], hrSamples: nil, now: F.now, calendar: F.calendar, locale: F.locale)
-        #expect(model.hero == CutCardioHero(value: "1:05", unit: nil))
+        #expect(model.hero == CutCardioHero(value: "1:05", unit: "h"))
+        let hiit = F.run("HIIT", type: "High Intensity Interval Training", day: -1, km: 0, seconds: 1_500)
+        let short = CutCardioLogic.detail(hiit, zones: [], hrSamples: nil, now: F.now, calendar: F.calendar, locale: F.locale)
+        #expect(short.hero == CutCardioHero(value: "25:00", unit: "min"))
         #expect(model.stats.map(\.label) == ["kcal", "Avg bpm"])
         #expect(!model.canLoadSplits)
         #expect(model.deleteTitle == "Rowing")

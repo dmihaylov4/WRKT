@@ -70,6 +70,7 @@ struct CutCardioDetailView<RouteMap: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             CutHeroText(CutHeroText.balancedLines(model.title), hero: .xs, minimumScaleFactor: 0.5)
                 .foregroundStyle(DS.Cut.Colors.textPrimary)
+                .accessibilityAddTraits(.isHeader)
             Text(model.dateLine)
                 .cutFont(.secondary)
                 .foregroundStyle(DS.Cut.Colors.textSecondary)

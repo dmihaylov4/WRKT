@@ -144,7 +144,7 @@ private struct CutCardioCaptureShell: View {
                     .fill(DS.Cut.Colors.darkField)
                     .overlay(Image(systemName: "map").font(.system(size: 34)).foregroundStyle(DS.Cut.Colors.textSecondary))
             }
-            .navigationTitle(model.title)
+            .navigationTitle(Text(verbatim: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

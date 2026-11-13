@@ -199,12 +199,25 @@ private struct CutCardioWeekView: View {
                 .lineLimit(1)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
-            Button("Previous week", systemImage: "chevron.left", action: actions.olderWeek)
-                .disabled(!week.canGoOlder)
-            Button("Next week", systemImage: "chevron.right", action: actions.newerWeek)
-                .disabled(!week.canGoNewer)
+            HStack(spacing: 0) {
+                chevron("chevron.left", label: "Previous week", enabled: week.canGoOlder, action: actions.olderWeek)
+                chevron("chevron.right", label: "Next week", enabled: week.canGoNewer, action: actions.newerWeek)
+            }
         }
-        .buttonStyle(CutIconButtonStyle(tone: .fill, diameter: DS.Cut.Metrics.minTouchTarget))
+    }
+
+    /// Bare chevron as on Plan's month row: no platter, low opacity, 44 pt target; dimmer when disabled.
+    private func chevron(_ systemImage: String, label: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(DS.Cut.Colors.textPrimary.opacity(enabled ? 0.4 : 0.15))
+                .frame(width: DS.Cut.Metrics.minTouchTarget, height: DS.Cut.Metrics.minTouchTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel(Text(label))
     }
 
     private var hero: some View {

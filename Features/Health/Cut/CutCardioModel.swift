@@ -414,7 +414,7 @@ enum CutCardioLogic {
                                        : CutStatColumn(value: pace(paceValue), label: "Avg /km"))
             }
         } else {
-            hero = CutCardioHero(value: duration(run.durationSec), unit: nil)
+            hero = CutCardioHero(value: duration(run.durationSec), unit: run.durationSec >= 3600 ? "h" : "min")
             if let kcal = run.calories, kcal > 0 { stats.append(CutStatColumn(value: "\(Int(kcal.rounded()))", label: "kcal")) }
         }
         if let avgHR { stats.append(CutStatColumn(value: "\(Int(avgHR.rounded()))", label: "Avg bpm")) }

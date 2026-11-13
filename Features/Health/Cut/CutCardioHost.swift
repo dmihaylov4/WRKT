@@ -174,7 +174,8 @@ struct CutCardioDetailHost: View {
             routeMap
         }
         .workoutDetailScrollEdge()
-        .navigationTitle(model.title)
+        // The hero carries the name; the bar keeps only back and the menu.
+        .navigationTitle(Text(verbatim: ""))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
