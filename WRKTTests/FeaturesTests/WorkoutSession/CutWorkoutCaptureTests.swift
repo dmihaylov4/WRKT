@@ -59,6 +59,18 @@ struct CutWorkoutCaptureTests {
         try await capture(OverviewHost(model: done, dialog: .discard), name: "discard-dialog")
     }
 
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_WORKOUT"] == "1"))
+    func captureWin() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try await capture(CutWinView(model: CutWinFixtures.withRecordAndPlate, revealsImmediately: true),
+                          name: "win-record-plate")
+        try await capture(CutWinView(model: CutWinFixtures.plain, revealsImmediately: true), name: "win-plain")
+        let rewardOnly = CutWinLogic.model(summary: .voliaSkinUnlocked(), workout: nil, unit: .kg)
+        try await capture(CutWinView(model: rewardOnly, revealsImmediately: true), name: "win-reward-only")
+        try await capture(CutWinView(model: CutWinFixtures.withRecordAndPlate, revealsImmediately: true),
+                          name: "win-record-plate-ax", dynamicType: .accessibility3)
+    }
+
     // MARK: - Helpers
 
     func capture<V: View>(_ content: V, name: String, dynamicType: DynamicTypeSize = .large,

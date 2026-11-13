@@ -149,6 +149,42 @@ struct CutSetEditingTests {
     }
 }
 
+struct CutWinLogicTests {
+    @Test func workoutWinShowsDoneXPRecordAndStats() {
+        let model = CutWinFixtures.withRecordAndPlate
+        #expect(model.hero == "Done.")
+        #expect(model.xp == "+240\u{00A0}XP")
+        #expect(model.levelLine == "Level 14, 420 to go")
+        #expect(model.recordLine == "New record")
+        #expect(model.stats.map(\.label) == ["Duration", "kg volume", "Sets"])
+        #expect(model.stats.first?.value == "52:08")
+        #expect(model.stats.last?.value == "18")
+        #expect(model.rows.first?.kind == .plate)
+        #expect(model.rows.first?.value == "20\u{00A0}kg, Bumper")
+        #expect(model.showsShare)
+        #expect(model.xpItems.map(\.title) == ["Strength Day", "Pr"])
+    }
+
+    @Test func plainWinHasNoRecordOrPlate() {
+        let model = CutWinFixtures.plain
+        #expect(model.recordLine == nil)
+        #expect(!model.rows.contains { $0.kind == .plate })
+    }
+
+    @Test func rewardOnlyWinHasNoStatsOrShare() {
+        let model = CutWinLogic.model(summary: .voliaSkinUnlocked(), workout: nil, unit: .kg)
+        #expect(model.hero == "New reward.")
+        #expect(model.stats.isEmpty && !model.showsShare && model.xp == nil)
+        #expect(model.rows.map(\.kind) == [.skin])
+    }
+
+    @Test func recordLineAndDuration() {
+        #expect(CutWinLogic.recordLine(prCount: 0) == nil)
+        #expect(CutWinLogic.recordLine(prCount: 3) == "3 new records")
+        #expect(CutWinLogic.duration(3725) == "1:02")
+    }
+}
+
 struct CutRestLogicTests {
     @Test func nextLineNamesTheNextOpenSet() {
         let sets = [SetInput(reps: 8, weight: 80, isCompleted: true), SetInput(reps: 6, weight: 85), SetInput(reps: 6, weight: 85)]

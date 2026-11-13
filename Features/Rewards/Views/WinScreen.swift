@@ -16,11 +16,21 @@ struct WinScreenOverlay: View {
     var body: some View {
         Group {
             if let s = coord.summary {
-                WinScreenView(summary: s) {
-                    WinScreenCoordinator.shared.dismissCurrent()
+                // The one Cut branch point: same summary, workout, share sheet, barbell moment
+                // and dismissal.
+                if DS.Redesign.cutEnabled {
+                    CutWinScreen(summary: s, workout: coord.currentWorkout) {
+                        WinScreenCoordinator.shared.dismissCurrent()
+                    }
+                    .transition(.opacity)
+                    .zIndex(1000)
+                } else {
+                    WinScreenView(summary: s) {
+                        WinScreenCoordinator.shared.dismissCurrent()
+                    }
+                    .transition(.opacity.combined(with: .scale))
+                    .zIndex(1000)
                 }
-                .transition(.opacity.combined(with: .scale))
-                .zIndex(1000)
             }
         }
         .allowsHitTesting(coord.summary != nil)
