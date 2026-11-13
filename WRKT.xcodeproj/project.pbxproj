@@ -252,6 +252,9 @@
 		2EBE3FD52EB8BCA400A26355 /* WRKTWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2EBE3FBF2EB8BCA300A26355 /* WRKTWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2EBE3FE62EB8C23700A26355 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3FE52EB8C23700A26355 /* LiveActivityManager.swift */; };
 		2EC201D52EEF22FD00D6BAEF /* SocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC201D42EEF22FD00D6BAEF /* SocialView.swift */; };
+		C17CA4000000000000000101 /* CutSocialModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000201 /* CutSocialModel.swift */; };
+		C17CA4000000000000000102 /* CutSocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000202 /* CutSocialView.swift */; };
+		C17CA4000000000000000103 /* CutSocialHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000203 /* CutSocialHost.swift */; };
 		2EC201D72EEF230400D6BAEF /* FriendsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC201D62EEF230400D6BAEF /* FriendsHubView.swift */; };
 		C17CA3000000000000000101 /* CutPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000201 /* CutPlanModel.swift */; };
 		C17CA3000000000000000102 /* CutPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000202 /* CutPlanView.swift */; };
@@ -732,6 +735,9 @@
 		2EBE3FE52EB8C23700A26355 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		2EBE3FEB2EB8E00C00A26355 /* WRKTWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WRKTWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		2EC201D42EEF22FD00D6BAEF /* SocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialView.swift; sourceTree = "<group>"; };
+		C17CA4000000000000000201 /* CutSocialModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialModel.swift; sourceTree = "<group>"; };
+		C17CA4000000000000000202 /* CutSocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialView.swift; sourceTree = "<group>"; };
+		C17CA4000000000000000203 /* CutSocialHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialHost.swift; sourceTree = "<group>"; };
 		2EC201D62EEF230400D6BAEF /* FriendsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsHubView.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000201 /* CutPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanModel.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000202 /* CutPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanView.swift; sourceTree = "<group>"; };
@@ -2225,6 +2231,7 @@
 		2EE8A09A2EE9A10B00A74A3C /* Social */ = {
 			isa = PBXGroup;
 			children = (
+				C17CA4000000000000000001 /* Cut */,
 				2EA7DA382EEC471F0017683B /* ViewModels */,
 				2EE8A0972EE9A10B00A74A3C /* Models */,
 				2EE8A0982EE9A10B00A74A3C /* Services */,
@@ -2285,6 +2292,16 @@
 				C17CA3000000000000000201 /* CutPlanModel.swift */,
 				C17CA3000000000000000202 /* CutPlanView.swift */,
 				C17CA3000000000000000203 /* CutPlanHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
+		C17CA4000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA4000000000000000201 /* CutSocialModel.swift */,
+				C17CA4000000000000000202 /* CutSocialView.swift */,
+				C17CA4000000000000000203 /* CutSocialHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2638,6 +2655,9 @@
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,
 				C17CA3000000000000000102 /* CutPlanView.swift in Sources */,
 				C17CA3000000000000000103 /* CutPlanHost.swift in Sources */,
+				C17CA4000000000000000101 /* CutSocialModel.swift in Sources */,
+				C17CA4000000000000000102 /* CutSocialView.swift in Sources */,
+				C17CA4000000000000000103 /* CutSocialHost.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,

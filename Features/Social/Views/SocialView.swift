@@ -55,6 +55,11 @@ struct SocialView: View {
 
     var body: some View {
         NavigationStack(path: $navigationPath) {
+            // The one Cut branch point: same path, destinations, badges and notification routing.
+            Group {
+            if DS.Redesign.cutEnabled {
+                CutSocialHost(section: $selectedSection, path: $navigationPath)
+            } else {
             VStack(spacing: 0) {
                 // Profile header above tabs
                 profileHeader
@@ -94,6 +99,8 @@ struct SocialView: View {
                         }
                     }
 
+            }
+            }
             }
             .ignoresSafeArea(.keyboard)
             .background(DS.Semantic.surface.ignoresSafeArea())
