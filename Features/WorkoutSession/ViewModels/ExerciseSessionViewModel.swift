@@ -249,10 +249,7 @@ class ExerciseSessionViewModel: ObservableObject {
 
         // Save all sets (both completed and incomplete) when dismissing
         // This preserves planned sets so users can come back and complete them later
-        if let entryID = currentEntryID, let workoutStore = workoutStore {
-            AppLogger.debug("Saving all sets: \(sets.count) total, \(sets.filter { $0.isCompleted }.count) completed", category: AppLogger.workout)
-            workoutStore.updateEntrySets(entryID: entryID, sets: sets)
-        }
+        persistSets()
 
         // Mark tutorial as complete
         if showTutorial {
@@ -270,6 +267,14 @@ class ExerciseSessionViewModel: ObservableObject {
         } else {
             
             NotificationCenter.default.post(name: .dismissLiveOverlay, object: nil)
+        }
+    }
+
+    /// Saves all sets (completed and planned) to the workout entry, as leaving the screen does.
+    func persistSets() {
+        if let entryID = currentEntryID, let workoutStore = workoutStore {
+            AppLogger.debug("Saving all sets: \(sets.count) total, \(sets.filter { $0.isCompleted }.count) completed", category: AppLogger.workout)
+            workoutStore.updateEntrySets(entryID: entryID, sets: sets)
         }
     }
 

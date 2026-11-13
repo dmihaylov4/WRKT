@@ -31,6 +31,8 @@ struct ExerciseSessionView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
+    /// Cut only: set by the live overview so the bar can lead on to the next exercise.
+    @Environment(\.cutOpenNextExercise) private var cutOpenNextExercise
 
     // Tutorial state (only non-ViewModel state remains)
     @StateObject private var onboardingManager = OnboardingManager.shared
@@ -162,6 +164,23 @@ struct ExerciseSessionView: View {
     // MARK: - Base Content View
 
     private var baseContentView: some View {
+        Group {
+            // The one Cut branch point: same view model, store calls, timers and alerts.
+            if DS.Redesign.cutEnabled {
+                cutContent
+            } else {
+                legacyContentView
+            }
+        }
+        .sheet(isPresented: $viewModel.showInfo) {
+            exerciseInfoSheet
+                .onAppear {
+                    selectedInfoTab = .info // Reset to info tab when sheet opens
+                }
+        }
+    }
+
+    private var legacyContentView: some View {
         VStack(spacing: 0) {
             modernHeader
 
@@ -177,6 +196,160 @@ struct ExerciseSessionView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             saveButtonSection
         }
+    }
+
+    // MARK: - Cut
+
+    /// The Cut set logging screen. Every closure calls this view's existing code.
+    private var cutContent: some View {
+        let mode = cutMode
+        return CutSetLoggingView(
+            model: cutModel(mode: mode),
+            sets: $viewModel.sets,
+            activeSetIndex: $viewModel.activeSetIndex,
+            rest: .live(exerciseID: exercise.id),
+            actions: CutSetLoggingActions(
+                logSet: { logSet(at: $0) },
+                activate: { i in
+                    // SetsSection's onActivate
+                    viewModel.activeSetIndex = i
+                    if !viewModel.sets[i].isCompleted && viewModel.sets[i].startTime == nil {
+                        viewModel.sets[i].startTime = Date()
+                    }
+                },
+                toggleComplete: { toggleSetCompletion(at: $0) },
+                deleteSet: { viewModel.deleteSet(at: $0) },
+                addSet: {
+                    viewModel.addSet()
+                    viewModel.activeSetIndex = viewModel.sets.count - 1
+                },
+                toggleSuperset: {
+                    if let entryID = viewModel.currentEntryID {
+                        store.toggleSupersetWithPrevious(entryID: entryID)
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    }
+                },
+                done: { viewModel.handleSave(dismiss: dismiss) },
+                nextExercise: openNextExercise,
+                showInfo: { viewModel.showInfo.toggle() },
+                holdStarted: { ensureExerciseInWorkout() },
+                increaseRemaining: {
+                    // The plateau banner's button (the row plays the haptic).
+                    for i in viewModel.sets.indices where viewModel.sets[i].tag == .working && !viewModel.sets[i].isCompleted {
+                        viewModel.sets[i].weight += weightStepKg
+                        viewModel.sets[i].autoWeight = false
+                    }
+                },
+                cancelRest: { RestTimerManager.shared.stopTimer() }
+            )
+        )
+        .onChange(of: viewModel.sets.count) { oldCount, newCount in
+            // New rows get the legacy rows' on-appear seeding.
+            if newCount > oldCount { prepareCutSets(from: oldCount) }
+        }
+    }
+
+    private var cutMode: CutSetMode {
+        CutSetMode.resolve(
+            isTimed: exercise.isTimedExercise,
+            isBodyweight: exercise.isBodyweightExercise,
+            isWeighted: exercise.isWeightedExercise,
+            fallback: viewModel.sets[safe: viewModel.activeSetIndex]?.trackingMode ?? .weighted
+        )
+    }
+
+    private func cutModel(mode: CutSetMode) -> CutSetLoggingModel {
+        let entries = store.currentWorkout?.entries ?? []
+        let position = viewModel.currentEntryID
+            .flatMap { id in entries.firstIndex(where: { $0.id == id }) }
+            .map { (index: $0, count: entries.count) }
+        let prefs = RestTimerPreferences.shared
+        let restDuration = Int(prefs.restDuration(for: exercise))
+        let next = cutOpenNextExercise == nil ? nil
+            : CutSetLoggingLogic.nextExercise(in: entries, after: viewModel.currentEntryID)
+        return CutSetLoggingModel(
+            exerciseName: exercise.name,
+            mode: mode,
+            unit: unit,
+            metaLine: CutSetLoggingLogic.metaLine(setIndex: viewModel.activeSetIndex, setCount: viewModel.sets.count,
+                                                  exercise: position),
+            supportLine: CutSetLoggingLogic.supportLine(
+                mode: mode, unit: unit,
+                progression: viewModel.appliedProgression.map { ($0.suggestedWeight, $0.suggestedReps) },
+                bestE1RMKg: mode == .weighted ? store.bestE1RM(exercise: exercise) : nil,
+                prReps: mode == .bodyweight ? store.personalBestReps(for: exercise) : nil,
+                lastReps: mode == .bodyweight ? store.lastWorkingSet(exercise: exercise)?.reps : nil
+            ),
+            exercisePosition: position,
+            canSuperset: canShowSupersetToggle,
+            isInSuperset: isInSuperset,
+            restSeconds: cutRestFollows ? restDuration : nil,
+            plateauSessions: consecutiveSameWeight,
+            nextExercise: next.map { (id: $0.id, name: $0.exerciseName) },
+            weightStep: CutSetEditing.weightStep(unit: unit, weightStepKg: weightStepKg),
+            weightStepKg: weightStepKg,
+            adviceRestSeconds: restDuration,
+            defaultDurationSeconds: exercise.defaultDurationSeconds
+        )
+    }
+
+    /// Whether logging the active set starts a rest (startRestTimerIfEnabled's rules).
+    private var cutRestFollows: Bool {
+        guard RestTimerPreferences.shared.isEnabled else { return false }
+        if let entryID = viewModel.currentEntryID,
+           let workout = store.currentWorkout,
+           let entry = workout.entries.first(where: { $0.id == entryID }),
+           entry.supersetGroupID != nil {
+            let completed = viewModel.sets.filter(\.isCompleted).count + 1
+            return workout.isLastInSupersetRound(entryID: entryID, completedSetCount: completed)
+        }
+        return true
+    }
+
+    /// AdaptiveSetRow and the set rows seeded each set when its row appeared; the Cut screen has
+    /// no rows per set, so it applies the same seeding to sets from `start` on.
+    private func prepareCutSets(from start: Int) {
+        let mode = cutMode
+        let step = CutSetEditing.weightStep(unit: unit, weightStepKg: weightStepKg)
+        let last = store.lastWorkingSet(exercise: exercise)
+        for i in viewModel.sets.indices where i >= start {
+            var set = viewModel.sets[i]
+            CutSetEditing.prepare(&set, mode: mode, defaultDurationSeconds: exercise.defaultDurationSeconds,
+                                  lastWorkingSet: last,
+                                  suggestedWeightKg: { store.suggestedWorkingWeight(for: exercise, targetReps: $0) },
+                                  unit: unit, weightStep: step)
+            if set != viewModel.sets[i] { viewModel.sets[i] = set }
+        }
+    }
+
+    /// The legacy leading swipe on a set row.
+    private func toggleSetCompletion(at i: Int) {
+        guard viewModel.sets.indices.contains(i) else { return }
+        let wasCompleted = viewModel.sets[i].isCompleted
+        withAnimation(.easeInOut(duration: 0.18)) {
+            viewModel.sets[i].isCompleted.toggle()
+        }
+        if wasCompleted {
+            let manager = RestTimerManager.shared
+            if manager.isTimerFor(exerciseID: exercise.id) {
+                manager.stopTimer()
+            }
+        }
+        Haptics.light()
+    }
+
+    /// After the last set: saves the sets as leaving does, then the live overview opens the next
+    /// unfinished exercise (only offered when the overview presented this screen).
+    private func openNextExercise() {
+        let entries = store.currentWorkout?.entries ?? []
+        guard let open = cutOpenNextExercise,
+              let next = CutSetLoggingLogic.nextExercise(in: entries, after: viewModel.currentEntryID) else {
+            viewModel.handleSave(dismiss: dismiss)
+            return
+        }
+        Haptics.light()
+        viewModel.persistSets()
+        open(next.id)
     }
 
     // MARK: - Lifecycle Handlers
@@ -232,7 +405,10 @@ struct ExerciseSessionView: View {
 
         // Check if timer completed while view was dismissed and generate set if needed
         checkForCompletedTimerAndGenerateSet()
-        
+
+        if DS.Redesign.cutEnabled {
+            prepareCutSets(from: 0)
+        }
 
         DispatchQueue.main.async {
             yOffset = geometry.safeAreaInsets.top
@@ -415,12 +591,6 @@ struct ExerciseSessionView: View {
         }
         .background(Theme.bg)
         .overlay(Divider().background(Theme.border.opacity(0.5)), alignment: .bottom)
-        .sheet(isPresented: $viewModel.showInfo) {
-            exerciseInfoSheet
-                .onAppear {
-                    selectedInfoTab = .info // Reset to info tab when sheet opens
-                }
-        }
     }
 
     private var exerciseInfoSheet: some View {
