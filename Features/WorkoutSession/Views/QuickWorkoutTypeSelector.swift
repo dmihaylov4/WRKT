@@ -9,6 +9,10 @@ import SwiftUI
 struct QuickWorkoutTypeSelector: View {
     let date: Date
     var title: String = "Start Workout"
+    /// Cut only: today's planned session, shown first. The legacy sheet ignores it.
+    var plan: CutStartSheetPlan? = nil
+    /// Cut only: starts `plan` (the caller's existing start flow).
+    var onStartPlan: () -> Void = {}
     let onSelect: (WorkoutType) -> Void
     @Environment(\.dismiss) var dismiss
 
@@ -43,6 +47,20 @@ struct QuickWorkoutTypeSelector: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same choices, same selection callback.
+        if DS.Redesign.cutEnabled {
+            CutStartSheetView(
+                model: CutStartSheetLogic.model(legacyTitle: title, plan: plan),
+                onStartPlan: onStartPlan,
+                onSelect: handleSelection,
+                onCancel: { dismiss() }
+            )
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {

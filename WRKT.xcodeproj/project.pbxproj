@@ -402,6 +402,8 @@
 		C17CA0000000000000000013 /* CutComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000023 /* CutComponents.swift */; };
 		C17CA0000000000000000014 /* CutGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000024 /* CutGalleryView.swift */; };
 		C17CA0000000000000000003 /* CutFonts in Resources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000002 /* CutFonts */; };
+		C17CA2000000000000000101 /* CutStartSheetModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000201 /* CutStartSheetModel.swift */; };
+		C17CA2000000000000000102 /* CutStartSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000202 /* CutStartSheetView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -862,6 +864,8 @@
 		C17CA0000000000000000023 /* CutComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutComponents.swift; sourceTree = "<group>"; };
 		C17CA0000000000000000024 /* CutGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutGalleryView.swift; sourceTree = "<group>"; };
 		C17CA0000000000000000002 /* CutFonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = CutFonts; sourceTree = "<group>"; };
+		C17CA2000000000000000201 /* CutStartSheetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStartSheetModel.swift; sourceTree = "<group>"; };
+		C17CA2000000000000000202 /* CutStartSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStartSheetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1152,6 +1156,7 @@
 		2E196EB92EAD3D3500EB4780 /* WorkoutSession */ = {
 			isa = PBXGroup;
 			children = (
+				C17CA2000000000000000001 /* Cut */,
 				2E196F302EAE682900EB4780 /* ViewModels */,
 				2E196ED92EAE3BCC00EB4780 /* Services */,
 				2E196ED82EAE3BC000EB4780 /* Views */,
@@ -2237,6 +2242,15 @@
 			path = Cut;
 			sourceTree = "<group>";
 		};
+		C17CA2000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA2000000000000000201 /* CutStartSheetModel.swift */,
+				C17CA2000000000000000202 /* CutStartSheetView.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2627,6 +2641,8 @@
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */,
 				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
+				C17CA2000000000000000102 /* CutStartSheetView.swift in Sources */,
+				C17CA2000000000000000101 /* CutStartSheetModel.swift in Sources */,
 				C17CA1000000000000000012 /* CutTrainView.swift in Sources */,
 				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
 				C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */,

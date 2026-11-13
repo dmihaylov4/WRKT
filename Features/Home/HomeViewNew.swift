@@ -194,7 +194,14 @@ struct HomeViewNew: View {
         .sheet(isPresented: $showWorkoutSelector) {
             QuickWorkoutTypeSelector(
                 date: .now,
-                title: hasActiveWorkout ? "Add Exercise" : "Start Workout"
+                title: hasActiveWorkout ? "Add Exercise" : "Start Workout",
+                plan: startSheetPlan,
+                onStartPlan: {
+                    showWorkoutSelector = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        handleHeroTap()
+                    }
+                }
             ) { workoutType in
                 // Close sheet first
                 showWorkoutSelector = false
@@ -274,6 +281,13 @@ struct HomeViewNew: View {
         Task {
             await viewModel?.refresh()
         }
+    }
+
+    /// Cut start sheet only: today's planned session, offered first when no workout is running.
+    /// Tapping it runs handleHeroTap, the same start flow as the Train hero.
+    private var startSheetPlan: CutStartSheetPlan? {
+        guard DS.Redesign.cutEnabled, !hasActiveWorkout, let planned = viewModel?.todaysPlan else { return nil }
+        return CutStartSheetPlan(name: planned.splitDayName, exerciseCount: planned.exercises.count)
     }
 
     private func handleHeroTap() {
