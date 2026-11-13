@@ -54,6 +54,15 @@ struct ProfileView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same stores, goal, freeze, share, recovery and destinations.
+        if DS.Redesign.cutEnabled {
+            CutMeHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ScrollViewReader { proxy in
             List {
                 // UNIFIED PROGRESS OVERVIEW
@@ -997,7 +1006,7 @@ func makeWeeklyProgressCaption(
 
 // MARK: - Weekly Goal Detail View
 
-private struct WeeklyGoalDetailView: View {
+struct WeeklyGoalDetailView: View {
     let progress: WeeklyProgress
     let goal: WeeklyGoal
 

@@ -458,7 +458,7 @@ private struct CutSocialArenaStrip: View {
                                 Text(item.value)
                                     .cutNumeral(.medium)
                                     .foregroundStyle(DS.Cut.Colors.textPrimary)
-                                CutSocialSplitBar(fraction: item.fraction)
+                                CutSplitBar(fraction: item.fraction)
                                     .padding(.top, 4)
                             }
                             .frame(width: 168, alignment: .leading)
@@ -474,27 +474,6 @@ private struct CutSocialArenaStrip: View {
             .scrollIndicators(.hidden)
             CutHairline()
         }
-    }
-}
-
-/// A slanted bar: lime for `fraction`, the rest as the empty track.
-private struct CutSocialSplitBar: View {
-    let fraction: Double
-
-    var body: some View {
-        GeometryReader { proxy in
-            let clamped = DS.Cut.clampedFraction(fraction)
-            let gap: CGFloat = 4
-            let lead = max(0, (proxy.size.width - gap) * clamped)
-            HStack(spacing: gap) {
-                if lead > 0 {
-                    SlantedSegmentShape().fill(DS.Cut.Colors.lime).frame(width: lead)
-                }
-                SlantedSegmentShape().fill(DS.Cut.Colors.segmentTrack)
-            }
-        }
-        .frame(height: 8)
-        .accessibilityHidden(true)
     }
 }
 
@@ -534,18 +513,18 @@ struct CutSocialFriendsView: View {
                     }
                 }
 
-                bigRow("My friends", trailing: {
+                CutBigRow("My friends", action: actions.openFriends) {
                     if let count = model.friendsCount, count > 0 {
                         Text("\(count)")
                             .cutHero(.s)
                             .foregroundStyle(DS.Cut.Colors.textPrimary)
                     }
-                }, action: actions.openFriends)
+                }
                 .padding(.top, model.recentActivity.isEmpty ? 12 : 20)
 
-                bigRow("Find friends", trailing: {
+                CutBigRow("Find friends", action: actions.findFriends) {
                     CutTile(systemImage: "plus", side: 56)
-                }, action: actions.findFriends)
+                }
             }
             .padding(.horizontal, DS.Cut.Metrics.gutter)
             .padding(.top, 8)
@@ -580,26 +559,6 @@ struct CutSocialFriendsView: View {
             CutHairline()
         }
         .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-    }
-
-    private func bigRow<Trailing: View>(_ title: String, @ViewBuilder trailing: () -> Trailing, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 0) {
-                HStack(spacing: 12) {
-                    Text(title)
-                        .cutHero(.s)
-                        .foregroundStyle(DS.Cut.Colors.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    trailing()
-                }
-                .frame(minHeight: 76)
-                .padding(.vertical, 6)
-                CutHairline()
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
     }
 }

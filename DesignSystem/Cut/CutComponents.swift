@@ -764,6 +764,76 @@ public struct CutUnderlineTabs<Item: Hashable>: View {
     }
 }
 
+// MARK: - Big row
+
+/// A destination row: a 44 pt condensed title, an optional trailing numeral or tile, and a bottom
+/// hairline. The whole row is the button.
+public struct CutBigRow<Trailing: View>: View {
+    private let title: String
+    private let trailing: Trailing
+    private let action: () -> Void
+
+    public init(_ title: String, action: @escaping () -> Void, @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self.action = action
+        self.trailing = trailing()
+    }
+
+    public var body: some View {
+        Button(action: action) {
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    Text(title)
+                        .cutHero(.s)
+                        .foregroundStyle(DS.Cut.Colors.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    trailing
+                }
+                .frame(minHeight: 76)
+                .padding(.vertical, 6)
+                CutHairline()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+public extension CutBigRow where Trailing == EmptyView {
+    init(_ title: String, action: @escaping () -> Void) {
+        self.init(title, action: action) { EmptyView() }
+    }
+}
+
+// MARK: - Split bar
+
+/// One slanted bar split in two: the leading share in lime, the rest as the empty track.
+/// Decorative; the caller states both values in text.
+public struct CutSplitBar: View {
+    private let fraction: Double
+
+    public init(fraction: Double) {
+        self.fraction = fraction
+    }
+
+    public var body: some View {
+        GeometryReader { proxy in
+            let clamped = DS.Cut.clampedFraction(fraction)
+            let gap: CGFloat = 4
+            let lead = max(0, (proxy.size.width - gap) * clamped)
+            HStack(spacing: gap) {
+                if lead > 0 {
+                    SlantedSegmentShape().fill(DS.Cut.Colors.lime).frame(width: lead)
+                }
+                SlantedSegmentShape().fill(DS.Cut.Colors.segmentTrack)
+            }
+        }
+        .frame(height: 8)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Section title
 
 /// 17 pt semibold sentence-case section title.

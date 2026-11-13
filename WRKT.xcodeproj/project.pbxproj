@@ -372,6 +372,9 @@
 		C17CA5000000000000000102 /* CutCardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000202 /* CutCardioView.swift */; };
 		C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000203 /* CutCardioDetailView.swift */; };
 		C17CA5000000000000000104 /* CutCardioHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000204 /* CutCardioHost.swift */; };
+		C17CA6000000000000000101 /* CutMeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000201 /* CutMeModel.swift */; };
+		C17CA6000000000000000102 /* CutMeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000202 /* CutMeView.swift */; };
+		C17CA6000000000000000103 /* CutMeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000203 /* CutMeHost.swift */; };
 		2EEEACC02EA3814D00EDD16E /* CardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */; };
 		2EEEACC22EA3816600EDD16E /* HealthAuthSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */; };
 		2EEEACC42EA3824A00EDD16E /* RouteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC32EA3824A00EDD16E /* RouteModels.swift */; };
@@ -853,6 +856,9 @@
 		C17CA5000000000000000202 /* CutCardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioView.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000203 /* CutCardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioDetailView.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000204 /* CutCardioHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioHost.swift; sourceTree = "<group>"; };
+		C17CA6000000000000000201 /* CutMeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeModel.swift; sourceTree = "<group>"; };
+		C17CA6000000000000000202 /* CutMeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeView.swift; sourceTree = "<group>"; };
+		C17CA6000000000000000203 /* CutMeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeHost.swift; sourceTree = "<group>"; };
 		2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDetailView.swift; sourceTree = "<group>"; };
 		2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAuthSheet.swift; sourceTree = "<group>"; };
 		2EEEACC32EA3824A00EDD16E /* RouteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteModels.swift; sourceTree = "<group>"; };
@@ -1228,6 +1234,7 @@
 		2E196EBC2EAD3D7300EB4780 /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				C17CA6000000000000000001 /* Cut */,
 				2EA181212F8FEAD800E4486A /* ViewModels */,
 				2E196EE62EAE43A400EB4780 /* Components */,
 				2E196EE52EAE439B00EB4780 /* Models */,
@@ -2326,6 +2333,16 @@
 			path = Cut;
 			sourceTree = "<group>";
 		};
+		C17CA6000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA6000000000000000201 /* CutMeModel.swift */,
+				C17CA6000000000000000202 /* CutMeView.swift */,
+				C17CA6000000000000000203 /* CutMeHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2682,6 +2699,9 @@
 				C17CA5000000000000000102 /* CutCardioView.swift in Sources */,
 				C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */,
 				C17CA5000000000000000104 /* CutCardioHost.swift in Sources */,
+				C17CA6000000000000000101 /* CutMeModel.swift in Sources */,
+				C17CA6000000000000000102 /* CutMeView.swift in Sources */,
+				C17CA6000000000000000103 /* CutMeHost.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,
