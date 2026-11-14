@@ -1,13 +1,17 @@
 import Foundation
 
-final class DiagnosticsLogStore {
+nonisolated final class DiagnosticsLogStore: @unchecked Sendable {
     static let shared = DiagnosticsLogStore()
 
     private let directory: URL
     private let fileName: String
     private let maxBytes: Int
     private let fileManager: FileManager
-    private let lock = NSLock()
+    // All mutable file state is confined to this queue. Enqueue order is line order.
+    private let queue = DispatchQueue(label: "app.diagnostics.file", qos: .utility)
+    private let formatter = ISO8601DateFormatter()
+    private var handle: FileHandle?
+    private var byteCount = 0
 
     init(
         directory: URL? = nil,
@@ -33,39 +37,49 @@ final class DiagnosticsLogStore {
     }
 
     func append(_ message: String, category: String = "App") {
-        lock.lock()
-        defer { lock.unlock() }
-
-        do {
-            try ensureLogFileExists()
-            let line = "\(Self.timestamp()) [\(category)] \(message)\n"
-            guard let data = line.data(using: .utf8) else { return }
-
-            let handle = try FileHandle(forWritingTo: logFileURL)
-            try handle.seekToEnd()
-            try handle.write(contentsOf: data)
-            try handle.close()
-
-            try trimIfNeeded()
-        } catch {
-            AppLogger.warning("Diagnostics log append failed: \(error.localizedDescription)", category: AppLogger.app)
+        let timestamp = Date()
+        queue.async { [self] in
+            do {
+                let handle = try openHandle()
+                let data = Data("\(formatter.string(from: timestamp)) [\(category)] \(message)\n".utf8)
+                try handle.write(contentsOf: data)
+                byteCount += data.count
+                try trimIfNeeded()
+            } catch {
+                try? handle?.close()
+                handle = nil
+                AppLogger.warning("Diagnostics log append failed: \(error.localizedDescription)", category: AppLogger.app)
+            }
         }
     }
 
     func exportFileURL() throws -> URL {
-        lock.lock()
-        defer { lock.unlock() }
-
-        try ensureLogFileExists()
-        return logFileURL
+        try queue.sync {
+            let handle = try openHandle()
+            try handle.synchronize()
+            return logFileURL
+        }
     }
 
     func clear() throws {
-        lock.lock()
-        defer { lock.unlock() }
+        try queue.sync {
+            try handle?.close()
+            handle = nil
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+            try Data().write(to: logFileURL, options: .atomic)
+            byteCount = 0
+        }
+    }
 
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        try Data().write(to: logFileURL, options: .atomic)
+    deinit { try? handle?.close() }
+
+    private func openHandle() throws -> FileHandle {
+        if let handle { return handle }
+        try ensureLogFileExists()
+        let opened = try FileHandle(forWritingTo: logFileURL)
+        byteCount = Int(try opened.seekToEnd())
+        handle = opened
+        return opened
     }
 
     private func ensureLogFileExists() throws {
@@ -76,18 +90,14 @@ final class DiagnosticsLogStore {
     }
 
     private func trimIfNeeded() throws {
-        let attributes = try fileManager.attributesOfItem(atPath: logFileURL.path)
-        guard let size = attributes[.size] as? NSNumber,
-              size.intValue > maxBytes else {
-            return
-        }
-
+        guard byteCount > maxBytes else { return }
+        try handle?.close()
+        handle = nil
         let data = try Data(contentsOf: logFileURL)
+        // Keep complete UTF-8 lines instead of cutting through a character or timestamp.
         let suffix = data.suffix(maxBytes)
-        try Data(suffix).write(to: logFileURL, options: .atomic)
-    }
-
-    private static func timestamp() -> String {
-        ISO8601DateFormatter().string(from: Date())
+        let retained = suffix.firstIndex(of: 10).map { Data(suffix.suffix(from: suffix.index(after: $0))) } ?? Data()
+        try retained.write(to: logFileURL, options: .atomic)
+        _ = try openHandle()
     }
 }
