@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<rect width="1024" height="1024" fill="#000000"/>
+<g id="volia-mark" fill="#CCFF00">
+  <polygon points="132,290 290,290 582,582 582,742 438,742 132,438"/>
+  <polygon points="735,285 890,285 890,437 735,592 582,592 582,437"/>
+</g>
+<g id="santa-hat">
+  <polygon fill="#F2384E" points="728,272 728,224 824,128 856,128 920,192 920,240 888,240 872,224 872,272"/>
+  <polygon fill="#FFFFFF" points="720,264 736,248 888,248 904,264 904,288 888,304 736,304 720,288"/>
+  <polygon fill="#FFFFFF" points="896,216 928,216 944,232 944,264 928,280 896,280 880,264 880,232"/>
+</g>
+</svg>
