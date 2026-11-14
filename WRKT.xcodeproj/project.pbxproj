@@ -429,6 +429,8 @@
 		C17CA6000000000000000103 /* CutMeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000203 /* CutMeHost.swift */; };
 		C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000201 /* CutYearReviewModel.swift */; };
 		C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000202 /* CutYearReviewView.swift */; };
+		C17CAF000000000000000103 /* CutYearAwardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000203 /* CutYearAwardModel.swift */; };
+		C17CAF000000000000000104 /* CutYearAwardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000204 /* CutYearAwardView.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 		C1A900000000000000000002 /* LaunchClapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A900000000000000000001 /* LaunchClapView.swift */; };
 		C1A900000000000000000004 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C1A900000000000000000003 /* LaunchScreen.storyboard */; };
@@ -918,6 +920,8 @@
 		C17CA6000000000000000203 /* CutMeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeHost.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000201 /* CutYearReviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewModel.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000202 /* CutYearReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewView.swift; sourceTree = "<group>"; };
+		C17CAF000000000000000203 /* CutYearAwardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardModel.swift; sourceTree = "<group>"; };
+		C17CAF000000000000000204 /* CutYearAwardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardView.swift; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
 		C1A900000000000000000001 /* LaunchClapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchClapView.swift; sourceTree = "<group>"; };
 		C1A900000000000000000003 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -2304,6 +2308,8 @@
 				C17CA1000000000000000023 /* CutTrainHost.swift */,
 				C17CAF000000000000000202 /* CutYearReviewView.swift */,
 				C17CAF000000000000000201 /* CutYearReviewModel.swift */,
+				C17CAF000000000000000204 /* CutYearAwardView.swift */,
+				C17CAF000000000000000203 /* CutYearAwardModel.swift */,
 				C17CA1000000000000000024 /* CutTrainStatusBar.swift */,
 				D1D6E7000000000000000021 /* HomeWidgetPublisher.swift */,
 			);
@@ -2787,6 +2793,8 @@
 				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
 				C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */,
 				C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */,
+				C17CAF000000000000000104 /* CutYearAwardView.swift in Sources */,
+				C17CAF000000000000000103 /* CutYearAwardModel.swift in Sources */,
 				D1D6E7000000000000000011 /* HomeWidgetPublisher.swift in Sources */,
 				C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,
