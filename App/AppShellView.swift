@@ -82,7 +82,7 @@ struct AppShellView: View {
     @State private var selectedTab: AppTab = .train
     @State private var showLiveOverlay = false
     @State private var showContent = false
-    @State private var didDismissLaunchSplash = false
+    @ObservedObject private var launchSplash = LaunchSplashState.shared
     @State private var isShellTabBarHidden = false
     /// System shell only: bottom safe area inside tab content (the system tab bar's height).
     @State private var systemTabBarInset: CGFloat = 0
@@ -143,16 +143,20 @@ struct AppShellView: View {
                 // User is not logged in and not in local mode - show auth
                 LoginView()
             }
-            if !didDismissLaunchSplash {
-                splashScreen
-                    .zIndex(1)
-            }
+        }
+        .onChange(of: !authService.isCheckingSession || settings.isLocalMode, initial: true) { _, ready in
+            launchSplash.isContentReady = ready
+        }
+        .onChange(of: launchSplash.isDismissed) { _, dismissed in
+            // Push registration waits so the system's permission prompt cannot cover the clap.
+            guard dismissed else { return }
+            Task { await PushNotificationService.shared.registerForPushNotifications() }
         }
         .background(DS.Semantic.surface.ignoresSafeArea())
         .font(DS.FontType.body)
         .withDependencies(dependencies)
         .alert("Rest Timer Unavailable", isPresented: Binding(
-            get: { didDismissLaunchSplash && restTimer.persistenceError != nil },
+            get: { launchSplash.isDismissed && restTimer.persistenceError != nil },
             set: { if !$0 { restTimer.dismissPersistenceError() } }
         )) {
             Button("OK", role: .cancel) { restTimer.dismissPersistenceError() }
@@ -173,20 +177,11 @@ struct AppShellView: View {
             selectedTab = .social
         }
         .fullScreenCover(isPresented: Binding(
-            get: { didDismissLaunchSplash && authService.needsPasswordReset },
+            get: { launchSplash.isDismissed && authService.needsPasswordReset },
             set: { authService.needsPasswordReset = $0 }
         )) {
             SetNewPasswordView()
                 .environmentObject(authService)
-        }
-    }
-
-    // MARK: - Splash Screen
-
-    private var splashScreen: some View {
-        LaunchClapView(sessionReady: !authService.isCheckingSession || settings.isLocalMode) {
-            didDismissLaunchSplash = true
-            Task { await PushNotificationService.shared.registerForPushNotifications() }
         }
     }
 
@@ -197,7 +192,7 @@ struct AppShellView: View {
         mainContentWithOverlays
             .overlay(alignment: .bottom) { liveOverlayCard }
             .sheet(isPresented: Binding(
-                get: { didDismissLaunchSplash && whatsNewManager.needsWhatsNew },
+                get: { launchSplash.isDismissed && whatsNewManager.needsWhatsNew },
                 set: { if !$0 { whatsNewManager.dismiss() } }
             )) {
                 if let release = WhatsNewManager.releases.first(where: { $0.version == whatsNewManager.currentVersion }) {
@@ -211,7 +206,7 @@ struct AppShellView: View {
                 }
             }
             .sheet(isPresented: Binding(
-                get: { didDismissLaunchSplash && dependencies.barbellProgressService.needsWelcomeScreen && !whatsNewManager.needsWhatsNew },
+                get: { launchSplash.isDismissed && dependencies.barbellProgressService.needsWelcomeScreen && !whatsNewManager.needsWhatsNew },
                 set: { if !$0 {
                     dependencies.barbellProgressService.needsWelcomeScreen = false
                     BattleShareCoordinator.shared.clear()
@@ -234,7 +229,7 @@ struct AppShellView: View {
     private var mainContent: some View {
         baseContent
             .modifier(OnboardingModifiers(
-                isLaunchComplete: didDismissLaunchSplash,
+                isLaunchComplete: launchSplash.isDismissed,
                 scenePhase: scenePhase,
                 selectedTab: $selectedTab,
                 onboardingStep: $onboardingStep,

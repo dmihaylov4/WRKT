@@ -53,6 +53,7 @@ struct WorkoutDataGate: View {
             AppShellView()
         } else if store.storageLoadError != nil {
             StorageRecoveryView(recoveryCopy: recoveryCopy, retry: store.retryStorageLoad)
+                .onAppear { LaunchSplashState.shared.isContentReady = true }
         } else {
             ZStack {
                 Color.black

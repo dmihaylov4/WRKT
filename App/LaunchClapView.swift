@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// The single, deterministic clock model used by launch and the Debug replay.
@@ -95,6 +96,17 @@ final class LaunchClapClock {
         lastTick = date
         return elapsed
     }
+}
+
+/// Launch splash state shared by the app root, which draws the clap from the first
+/// SwiftUI frame, and the shell, which reports when the session check is done and
+/// holds its startup prompts until the splash is gone.
+@MainActor
+final class LaunchSplashState: ObservableObject {
+    static let shared = LaunchSplashState()
+
+    @Published var isDismissed = false
+    @Published var isContentReady = false
 }
 
 struct LaunchClapView: View {

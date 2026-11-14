@@ -12,6 +12,7 @@ struct WRKTApp: App {
     static let storage = AppDataStore()
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var dataStore = WRKTApp.storage
+    @ObservedObject private var launchSplash = LaunchSplashState.shared
 
     init() {
         _ = DS.Redesign.roundedShapesEnabled
@@ -169,13 +170,23 @@ struct WRKTApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if let container = dataStore.container {
-                    WorkoutDataGate(recoveryCopy: dataStore.recoveryCopy)
-                        .modelContainer(container)
-                        .task { await prepareServices() }
-                } else {
-                    StorageRecoveryView(recoveryCopy: dataStore.recoveryCopy, retry: dataStore.retry)
+            ZStack {
+                Group {
+                    if let container = dataStore.container {
+                        WorkoutDataGate(recoveryCopy: dataStore.recoveryCopy)
+                            .modelContainer(container)
+                            .task { await prepareServices() }
+                    } else {
+                        StorageRecoveryView(recoveryCopy: dataStore.recoveryCopy, retry: dataStore.retry)
+                    }
+                }
+                // The clap starts on the first frame and plays over history loading and
+                // the shell being built underneath, instead of waiting for both.
+                if dataStore.container != nil, !launchSplash.isDismissed {
+                    LaunchClapView(sessionReady: launchSplash.isContentReady) {
+                        launchSplash.isDismissed = true
+                    }
+                    .zIndex(1)
                 }
             }
             .preferredColorScheme(.dark)
