@@ -124,20 +124,34 @@ private struct CutTrainField: View {
         .frame(minHeight: 44)
     }
 
+    private var isResting: Bool {
+        if case .resting = hero { true } else { false }
+    }
+
     @ViewBuilder
     private var heroBlock: some View {
         let line = CutTrainLogic.heroLine(hero)
         VStack(alignment: .leading, spacing: 0) {
             switch hero {
-            case .resting(_, let countdown):
+            case .resting(_, let countdown, _):
                 CutTrainRestCountdown(countdown: countdown)
                     .padding(.top, 20)
+                // What the rest is for, then the next set: quiet lines that wrap, never truncate.
+                let restLines = CutTrainLogic.restingLines(hero)
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(restLines.indices, id: \.self) { index in
+                        Text(restLines[index])
+                            .cutFont(index == 0 ? .title : .body)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.top, 16)
             default:
                 let lines = CutHeroText.balancedLines(CutTrainLogic.heroTitle(hero))
                 CutHeroText(lines, hero: CutTrainLogic.heroSize(forLines: lines), minimumScaleFactor: 0.25)
                     .padding(.top, 8)
             }
-            if let line {
+            if let line, !isResting {
                 Text(line)
                     .cutFont(.title)
                     .fixedSize(horizontal: false, vertical: true)
@@ -446,7 +460,10 @@ enum CutTrainFixtures {
         ("no-plan", .noPlan),
         ("live", .live(name: "Upper Body", exercisesDone: 2, exerciseCount: 6,
                        startDate: Date.now.addingTimeInterval(-(24 * 60 + 16)))),
-        ("resting", .resting(nextLine: "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92)))
+        ("resting", .resting(nextLine: "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92),
+                             exerciseName: "Bench Press")),
+        ("resting-last-set", .resting(nextLine: nil, countdown: .fixed(92),
+                                      exerciseName: "Bar Eccentric Pull Up With a Very Long Name"))
     ]
 }
 
