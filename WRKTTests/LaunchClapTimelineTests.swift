@@ -69,4 +69,12 @@ struct LaunchClapTimelineTests {
         // The same date twice, as SwiftUI may re-evaluate a frame, adds nothing.
         #expect(clock.advance(to: start.addingTimeInterval(1)) == elapsed)
     }
+
+    @Test func clockStartsWhereTheArmsBeginToMove() {
+        let leadIn = LaunchClapTimeline.skippedLeadIn
+        #expect(LaunchClapTimeline.leftAngle(at: leadIn / LaunchClapTimeline.clapDuration) == 0)
+        #expect(LaunchClapTimeline.leftAngle(at: (leadIn + 0.02) / LaunchClapTimeline.clapDuration) < 0)
+        let clock = LaunchClapClock(startingAt: leadIn)
+        #expect(clock.advance(to: Date(timeIntervalSinceReferenceDate: 1_000)) == leadIn)
+    }
 }

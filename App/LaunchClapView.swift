@@ -8,6 +8,9 @@ enum LaunchClapTimeline {
     static let holdDuration = 1.9
     static let fadeDuration = 0.55
     static let impacts = [0.34, 0.60]
+    /// The design holds the still mark for the first 14 percent. The launch screen has
+    /// already shown it at rest, so the clock starts after that hold.
+    static let skippedLeadIn = 0.14 * clapDuration
 
     static func progress(elapsed: Double, start: Double, duration: Double) -> Double {
         min(1, max(0, (elapsed - start) / duration))
@@ -82,8 +85,12 @@ enum LaunchClapTimeline {
 final class LaunchClapClock {
     static let maxStep = 1.0 / 30
 
-    private(set) var elapsed = 0.0
+    private(set) var elapsed: Double
     private var lastTick: Date?
+
+    init(startingAt elapsed: Double = 0) {
+        self.elapsed = elapsed
+    }
 
     static func step(for interval: TimeInterval) -> Double {
         min(max(0, interval), maxStep)
@@ -114,7 +121,7 @@ struct LaunchClapView: View {
     var onComplete: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var clock = LaunchClapClock()
+    @State private var clock = LaunchClapClock(startingAt: LaunchClapTimeline.skippedLeadIn)
     @State private var fadeStartedAt: Double?
     @State private var didComplete = false
 
