@@ -135,7 +135,7 @@ private struct CutTrainField: View {
             default:
                 let lines = CutHeroText.balancedLines(CutTrainLogic.heroTitle(hero))
                 CutHeroText(lines, hero: CutTrainLogic.heroSize(forLines: lines), minimumScaleFactor: 0.25)
-                    .padding(.top, 36)
+                    .padding(.top, 8)
             }
             if let line {
                 Text(line)

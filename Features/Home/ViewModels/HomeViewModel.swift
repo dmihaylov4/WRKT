@@ -75,6 +75,12 @@ final class HomeViewModel {
 
     // MARK: - Public Methods
 
+    /// Reads today's plan and the outlook right away (two small local fetches), so the first
+    /// frame of the Train tab already shows the right state instead of "No plan yet".
+    func primePlanState() {
+        checkTodaysPlan()
+    }
+
     /// Coalesce automatic changes; explicit actions bypass the pending delay.
     func refresh(userInitiated: Bool = false) async {
         checkTodaysPlan()

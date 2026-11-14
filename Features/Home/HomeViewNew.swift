@@ -315,6 +315,7 @@ struct HomeViewNew: View {
         )
         vm.postRepository = deps.postRepository
         vm.authService = deps.authService
+        vm.primePlanState()
         viewModel = vm
     }
 
