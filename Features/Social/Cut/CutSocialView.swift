@@ -132,7 +132,12 @@ struct CutSocialFeedView<Media: View>: View {
             .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
         }
         .scrollIndicators(.hidden)
-        .refreshable { await actions.refresh() }
+        .refreshable {
+            // State changes can replace the refresh control's view. The request must
+            // outlive that control, while the spinner still waits for its result.
+            let refresh = Task { @MainActor in await actions.refresh() }
+            await refresh.value
+        }
         .alert(item: $pending) { pending in
             Alert(
                 title: Text(confirmationTitle(pending.action)),
@@ -531,7 +536,12 @@ struct CutSocialFriendsView: View {
             .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
         }
         .scrollIndicators(.hidden)
-        .refreshable { await actions.refresh() }
+        .refreshable {
+            // State changes can replace the refresh control's view. The request must
+            // outlive that control, while the spinner still waits for its result.
+            let refresh = Task { @MainActor in await actions.refresh() }
+            await refresh.value
+        }
     }
 
     private func friendRow(_ friend: CutSocialFriendsModel.Row) -> some View {
