@@ -306,4 +306,25 @@ final class WorkoutStorageTests: WRKTTestCase {
         // Verify stats dictionary has expected keys
         XCTAssertTrue(stats.keys.contains("hasCurrentWorkout"))
     }
+    // A6: after "Reset All Data" removes the Backups folder, saves must still land.
+    func testSavesStillWriteAfterTheBackupsFolderWasRemoved() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let original = WorkoutStorage(directory: directory)
+        try await original.saveWorkouts([TestFixtures.makeCompletedWorkout()], prIndex: [:])
+        try await original.saveRuns([Run(date: Date(), distanceKm: 5, durationSec: 1800)])
+
+        // A later session whose first save is due for a backup.
+        let session = WorkoutStorage(directory: directory)
+        try FileManager.default.removeItem(at: directory.appendingPathComponent("Backups"))
+
+        let workout = TestFixtures.makeCompletedWorkout()
+        try await session.saveWorkouts([workout], prIndex: [:])
+        try await session.saveRuns([])
+
+        let saved = try await session.loadWorkouts()
+        XCTAssertEqual(saved.workouts.map(\.id), [workout.id])
+        let runs = try await session.loadRuns()
+        XCTAssertTrue(runs.isEmpty)
+    }
 }
