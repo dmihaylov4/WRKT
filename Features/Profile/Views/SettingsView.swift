@@ -17,6 +17,7 @@ struct SettingsView: View {
     private var useRoundedShapes = DS.Redesign.roundedShapesDefault
     @AppStorage(DS.Redesign.cutPreferenceKey)
     private var useCut = DS.Redesign.cutDefault
+    @Environment(\.dependencies) private var dependencies
     #endif
 
     private var isLoggedIn: Bool {
@@ -137,6 +138,37 @@ struct SettingsView: View {
                             BarbellPlaygroundView()
                         } label: {
                             Label("Barbell Playground", systemImage: "barbell")
+                        }
+                    }
+                    settingsRow {
+                        Button {
+                            let store = dependencies.workoutStore
+                            let year = Calendar.current.component(.year, from: .now)
+                            CutYearReviewCenter.shared.present(
+                                CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runs))
+                        } label: {
+                            Label("Year in review: my data", systemImage: "sparkles.rectangle.stack")
+                        }
+                    }
+                    settingsRow {
+                        Button {
+                            let year = Calendar.current.component(.year, from: .now)
+                            CutYearReviewCenter.shared.present(.sample(year: year))
+                        } label: {
+                            Label("Year in review: sample data", systemImage: "sparkles.rectangle.stack")
+                        }
+                    }
+                    settingsRow {
+                        Button {
+                            UserDefaults.standard.removeObject(forKey: CutYearReviewLogic.seenYearKey)
+                            UserDefaults.standard.set(true, forKey: CutYearReviewLogic.forceNextLaunchKey)
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Label("Year in review: pop up on next launch", systemImage: "arrow.clockwise")
+                                Text("Needs the Cut design and five workouts this year")
+                                    .dsFont(.caption)
+                                    .foregroundStyle(DS.Semantic.textSecondary)
+                            }
                         }
                     }
                     settingsRow(showsDivider: false) {

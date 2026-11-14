@@ -238,6 +238,7 @@ struct AppShellView: View {
             .overlay(WinScreenOverlay())
             .overlay { NotificationOverlay() }
             .overlay { UndoToastOverlay() }
+            .overlay { CutYearReviewOverlay() }
     }
 
     @ViewBuilder

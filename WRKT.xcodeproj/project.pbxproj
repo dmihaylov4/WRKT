@@ -252,13 +252,7 @@
 		2EBE3FD52EB8BCA400A26355 /* WRKTWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 2EBE3FBF2EB8BCA300A26355 /* WRKTWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		2EBE3FE62EB8C23700A26355 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBE3FE52EB8C23700A26355 /* LiveActivityManager.swift */; };
 		2EC201D52EEF22FD00D6BAEF /* SocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC201D42EEF22FD00D6BAEF /* SocialView.swift */; };
-		C17CA4000000000000000101 /* CutSocialModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000201 /* CutSocialModel.swift */; };
-		C17CA4000000000000000102 /* CutSocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000202 /* CutSocialView.swift */; };
-		C17CA4000000000000000103 /* CutSocialHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000203 /* CutSocialHost.swift */; };
 		2EC201D72EEF230400D6BAEF /* FriendsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC201D62EEF230400D6BAEF /* FriendsHubView.swift */; };
-		C17CA3000000000000000101 /* CutPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000201 /* CutPlanModel.swift */; };
-		C17CA3000000000000000102 /* CutPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000202 /* CutPlanView.swift */; };
-		C17CA3000000000000000103 /* CutPlanHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000203 /* CutPlanHost.swift */; };
 		2EC201DD2EEF234C00D6BAEF /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC201DB2EEF234C00D6BAEF /* PlanView.swift */; };
 		2EC2022E2EF1622F00D6BAEF /* ActiveArena.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2022D2EF1622F00D6BAEF /* ActiveArena.swift */; };
 		2EC202302EF166A400D6BAEF /* CreateBattleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */; };
@@ -276,10 +270,6 @@
 		2EC202A02EF2A54400D6BAEF /* ActiveCompetitionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2028D2EF2A54400D6BAEF /* ActiveCompetitionCard.swift */; };
 		2EC202A22EF2A54400D6BAEF /* SmartCardCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */; };
 		2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */; };
-		C17CA1000000000000000011 /* CutTrainModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000021 /* CutTrainModel.swift */; };
-		C17CA1000000000000000012 /* CutTrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000022 /* CutTrainView.swift */; };
-		C17CA1000000000000000013 /* CutTrainHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000023 /* CutTrainHost.swift */; };
-		C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000024 /* CutTrainStatusBar.swift */; };
 		2EC202A82EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */; };
 		2EC202AA2EF407AB00D6BAEF /* LastCardioCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */; };
 		2EC202AF2EF4112B00D6BAEF /* MuscleChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */; };
@@ -368,13 +358,6 @@
 		2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EE8A0A22EE9AF1F00A74A3C /* ForgotPasswordView.swift */; };
 		2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */; };
 		2EEEACBE2EA380F300EDD16E /* CardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBD2EA380F300EDD16E /* CardioView.swift */; };
-		C17CA5000000000000000101 /* CutCardioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000201 /* CutCardioModel.swift */; };
-		C17CA5000000000000000102 /* CutCardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000202 /* CutCardioView.swift */; };
-		C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000203 /* CutCardioDetailView.swift */; };
-		C17CA5000000000000000104 /* CutCardioHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000204 /* CutCardioHost.swift */; };
-		C17CA6000000000000000101 /* CutMeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000201 /* CutMeModel.swift */; };
-		C17CA6000000000000000102 /* CutMeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000202 /* CutMeView.swift */; };
-		C17CA6000000000000000103 /* CutMeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000203 /* CutMeHost.swift */; };
 		2EEEACC02EA3814D00EDD16E /* CardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */; };
 		2EEEACC22EA3816600EDD16E /* HealthAuthSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */; };
 		2EEEACC42EA3824A00EDD16E /* RouteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC32EA3824A00EDD16E /* RouteModels.swift */; };
@@ -409,12 +392,15 @@
 		AD2E492EFA4D10038FC026F4 /* SignInWithGoogleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6233B91A6C16321E5A839EA8 /* SignInWithGoogleService.swift */; };
 		AFC93D36544008FB28C718DC /* OAuthUsernameSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C98347A1C4C3D0A0D130AC3 /* OAuthUsernameSetupView.swift */; };
 		AFDC19C6C8164177A9C7104B /* Components/PlanAdherenceCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24019213B71E4C38BBB1416C /* Components/PlanAdherenceCard.swift */; };
-		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
+		C17CA0000000000000000003 /* CutFonts in Resources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000002 /* CutFonts */; };
 		C17CA0000000000000000011 /* CutTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000021 /* CutTokens.swift */; };
 		C17CA0000000000000000012 /* CutShapes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000022 /* CutShapes.swift */; };
 		C17CA0000000000000000013 /* CutComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000023 /* CutComponents.swift */; };
 		C17CA0000000000000000014 /* CutGalleryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000024 /* CutGalleryView.swift */; };
-		C17CA0000000000000000003 /* CutFonts in Resources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000002 /* CutFonts */; };
+		C17CA1000000000000000011 /* CutTrainModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000021 /* CutTrainModel.swift */; };
+		C17CA1000000000000000012 /* CutTrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000022 /* CutTrainView.swift */; };
+		C17CA1000000000000000013 /* CutTrainHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000023 /* CutTrainHost.swift */; };
+		C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000024 /* CutTrainStatusBar.swift */; };
 		C17CA2000000000000000101 /* CutStartSheetModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000201 /* CutStartSheetModel.swift */; };
 		C17CA2000000000000000102 /* CutStartSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000202 /* CutStartSheetView.swift */; };
 		C17CA2000000000000000103 /* CutSetLoggingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000203 /* CutSetLoggingModel.swift */; };
@@ -424,6 +410,22 @@
 		C17CA2000000000000000107 /* CutRestPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000207 /* CutRestPanel.swift */; };
 		C17CA2000000000000000108 /* CutWinModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000208 /* CutWinModel.swift */; };
 		C17CA2000000000000000109 /* CutWinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000209 /* CutWinView.swift */; };
+		C17CA3000000000000000101 /* CutPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000201 /* CutPlanModel.swift */; };
+		C17CA3000000000000000102 /* CutPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000202 /* CutPlanView.swift */; };
+		C17CA3000000000000000103 /* CutPlanHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000203 /* CutPlanHost.swift */; };
+		C17CA4000000000000000101 /* CutSocialModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000201 /* CutSocialModel.swift */; };
+		C17CA4000000000000000102 /* CutSocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000202 /* CutSocialView.swift */; };
+		C17CA4000000000000000103 /* CutSocialHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000203 /* CutSocialHost.swift */; };
+		C17CA5000000000000000101 /* CutCardioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000201 /* CutCardioModel.swift */; };
+		C17CA5000000000000000102 /* CutCardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000202 /* CutCardioView.swift */; };
+		C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000203 /* CutCardioDetailView.swift */; };
+		C17CA5000000000000000104 /* CutCardioHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000204 /* CutCardioHost.swift */; };
+		C17CA6000000000000000101 /* CutMeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000201 /* CutMeModel.swift */; };
+		C17CA6000000000000000102 /* CutMeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000202 /* CutMeView.swift */; };
+		C17CA6000000000000000103 /* CutMeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000203 /* CutMeHost.swift */; };
+		C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000201 /* CutYearReviewModel.swift */; };
+		C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000202 /* CutYearReviewView.swift */; };
+		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -742,13 +744,7 @@
 		2EBE3FE52EB8C23700A26355 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		2EBE3FEB2EB8E00C00A26355 /* WRKTWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WRKTWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		2EC201D42EEF22FD00D6BAEF /* SocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialView.swift; sourceTree = "<group>"; };
-		C17CA4000000000000000201 /* CutSocialModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialModel.swift; sourceTree = "<group>"; };
-		C17CA4000000000000000202 /* CutSocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialView.swift; sourceTree = "<group>"; };
-		C17CA4000000000000000203 /* CutSocialHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialHost.swift; sourceTree = "<group>"; };
 		2EC201D62EEF230400D6BAEF /* FriendsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsHubView.swift; sourceTree = "<group>"; };
-		C17CA3000000000000000201 /* CutPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanModel.swift; sourceTree = "<group>"; };
-		C17CA3000000000000000202 /* CutPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanView.swift; sourceTree = "<group>"; };
-		C17CA3000000000000000203 /* CutPlanHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanHost.swift; sourceTree = "<group>"; };
 		2EC201DB2EEF234C00D6BAEF /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
 		2EC2022D2EF1622F00D6BAEF /* ActiveArena.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveArena.swift; sourceTree = "<group>"; };
 		2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBattleView.swift; sourceTree = "<group>"; };
@@ -766,10 +762,6 @@
 		2EC202952EF2A54400D6BAEF /* HomeHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHeaderView.swift; sourceTree = "<group>"; };
 		2EC202972EF2A54400D6BAEF /* SmartCardCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartCardCarousel.swift; sourceTree = "<group>"; };
 		2EC202A32EF2A60200D6BAEF /* HomeViewNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewNew.swift; sourceTree = "<group>"; };
-		C17CA1000000000000000021 /* CutTrainModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainModel.swift; sourceTree = "<group>"; };
-		C17CA1000000000000000022 /* CutTrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainView.swift; sourceTree = "<group>"; };
-		C17CA1000000000000000023 /* CutTrainHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainHost.swift; sourceTree = "<group>"; };
-		C17CA1000000000000000024 /* CutTrainStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainStatusBar.swift; sourceTree = "<group>"; };
 		2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWeeklyStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCardioCard.swift; sourceTree = "<group>"; };
 		2EC202AD2EF4112B00D6BAEF /* MuscleChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuscleChip.swift; sourceTree = "<group>"; };
@@ -852,13 +844,6 @@
 		2EE8A0A22EE9AF1F00A74A3C /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
 		2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncAnchor.swift; sourceTree = "<group>"; };
 		2EEEACBD2EA380F300EDD16E /* CardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioView.swift; sourceTree = "<group>"; };
-		C17CA5000000000000000201 /* CutCardioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioModel.swift; sourceTree = "<group>"; };
-		C17CA5000000000000000202 /* CutCardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioView.swift; sourceTree = "<group>"; };
-		C17CA5000000000000000203 /* CutCardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioDetailView.swift; sourceTree = "<group>"; };
-		C17CA5000000000000000204 /* CutCardioHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioHost.swift; sourceTree = "<group>"; };
-		C17CA6000000000000000201 /* CutMeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeModel.swift; sourceTree = "<group>"; };
-		C17CA6000000000000000202 /* CutMeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeView.swift; sourceTree = "<group>"; };
-		C17CA6000000000000000203 /* CutMeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeHost.swift; sourceTree = "<group>"; };
 		2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDetailView.swift; sourceTree = "<group>"; };
 		2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAuthSheet.swift; sourceTree = "<group>"; };
 		2EEEACC32EA3824A00EDD16E /* RouteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteModels.swift; sourceTree = "<group>"; };
@@ -891,12 +876,15 @@
 		ABCD1234ABCD1234ABCD1234 /* BarbellCatalogTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCatalogTypes.swift; sourceTree = "<group>"; };
 		ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellCustomizationService.swift; sourceTree = "<group>"; };
 		ABCD1238ABCD1238ABCD1238 /* BarbellEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEditorView.swift; sourceTree = "<group>"; };
-		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
+		C17CA0000000000000000002 /* CutFonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = CutFonts; sourceTree = "<group>"; };
 		C17CA0000000000000000021 /* CutTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTokens.swift; sourceTree = "<group>"; };
 		C17CA0000000000000000022 /* CutShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutShapes.swift; sourceTree = "<group>"; };
 		C17CA0000000000000000023 /* CutComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutComponents.swift; sourceTree = "<group>"; };
 		C17CA0000000000000000024 /* CutGalleryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutGalleryView.swift; sourceTree = "<group>"; };
-		C17CA0000000000000000002 /* CutFonts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = CutFonts; sourceTree = "<group>"; };
+		C17CA1000000000000000021 /* CutTrainModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainModel.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000022 /* CutTrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainView.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000023 /* CutTrainHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainHost.swift; sourceTree = "<group>"; };
+		C17CA1000000000000000024 /* CutTrainStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainStatusBar.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000201 /* CutStartSheetModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStartSheetModel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000202 /* CutStartSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStartSheetView.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000203 /* CutSetLoggingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetLoggingModel.swift; sourceTree = "<group>"; };
@@ -906,6 +894,22 @@
 		C17CA2000000000000000207 /* CutRestPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRestPanel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000208 /* CutWinModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWinModel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000209 /* CutWinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWinView.swift; sourceTree = "<group>"; };
+		C17CA3000000000000000201 /* CutPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanModel.swift; sourceTree = "<group>"; };
+		C17CA3000000000000000202 /* CutPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanView.swift; sourceTree = "<group>"; };
+		C17CA3000000000000000203 /* CutPlanHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanHost.swift; sourceTree = "<group>"; };
+		C17CA4000000000000000201 /* CutSocialModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialModel.swift; sourceTree = "<group>"; };
+		C17CA4000000000000000202 /* CutSocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialView.swift; sourceTree = "<group>"; };
+		C17CA4000000000000000203 /* CutSocialHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialHost.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000201 /* CutCardioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioModel.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000202 /* CutCardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioView.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000203 /* CutCardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioDetailView.swift; sourceTree = "<group>"; };
+		C17CA5000000000000000204 /* CutCardioHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioHost.swift; sourceTree = "<group>"; };
+		C17CA6000000000000000201 /* CutMeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeModel.swift; sourceTree = "<group>"; };
+		C17CA6000000000000000202 /* CutMeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeView.swift; sourceTree = "<group>"; };
+		C17CA6000000000000000203 /* CutMeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeHost.swift; sourceTree = "<group>"; };
+		C17CAF000000000000000201 /* CutYearReviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewModel.swift; sourceTree = "<group>"; };
+		C17CAF000000000000000202 /* CutYearReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewView.swift; sourceTree = "<group>"; };
+		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2281,6 +2285,8 @@
 				C17CA1000000000000000021 /* CutTrainModel.swift */,
 				C17CA1000000000000000022 /* CutTrainView.swift */,
 				C17CA1000000000000000023 /* CutTrainHost.swift */,
+				C17CAF000000000000000202 /* CutYearReviewView.swift */,
+				C17CAF000000000000000201 /* CutYearReviewModel.swift */,
 				C17CA1000000000000000024 /* CutTrainStatusBar.swift */,
 			);
 			path = Cut;
@@ -2757,6 +2763,8 @@
 				C17CA2000000000000000101 /* CutStartSheetModel.swift in Sources */,
 				C17CA1000000000000000012 /* CutTrainView.swift in Sources */,
 				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
+				C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */,
+				C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */,
 				C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,
 				2EA7D9CB2EEB6E9B0017683B /* SkeletonProfileHeader.swift in Sources */,
