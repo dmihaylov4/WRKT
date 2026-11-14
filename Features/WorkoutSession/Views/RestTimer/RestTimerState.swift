@@ -43,6 +43,9 @@ class RestTimerManager: ObservableObject {
     @Published private(set) var timerStartDate: Date? = nil  // Track when current timer was started
     @Published private(set) var isManuallyStartedTimer: Bool = false  // True if started from widget without logging a set
 
+    /// How long a just-finished rest shows as completed before it reads as idle.
+    static let completedDisplayWindow: TimeInterval = 3
+
     // MARK: - Private Properties
     private let defaults: UserDefaults
     private let storage: RestTimerStorage
@@ -214,13 +217,25 @@ class RestTimerManager: ObservableObject {
     func perform(_ action: RestTimerAction, timerID: UUID, operationID: UUID,
                  using store: WorkoutStoreV2) async throws {
         do {
-            try await store.waitForStorage()
+            // Only logging the next set touches workout history; the other actions
+            // need just the timer's own record, which is restored synchronously.
+            if case .nextSet = action {
+                try await store.waitForStorage()
+            }
             guard didRestore, record.id == timerID else {
                 throw RestTimerIntentError("This timer is no longer current. Open your workout in the app.")
             }
             if record.appliedOperationIDs?.contains(operationID) == true {
-                if observesSystemEvents { await LiveActivityManager.shared.waitForUpdates() }
+                await clearActivityError()
                 return
+            }
+            // A repeated skip or stop on a rest that already ended has nothing left to do.
+            switch (action, record.state) {
+            case (.skip, .completed), (.skip, .idle), (.stop, .idle):
+                await clearActivityError()
+                return
+            default:
+                break
             }
             if case .nextSet = action {
                 try await startNextSetTimer(using: store)
@@ -248,13 +263,20 @@ class RestTimerManager: ObservableObject {
             } else {
                 message = "The timer could not be updated. Open your workout in the app to try again."
             }
-            persistenceError = message
+            // Shown on the Live Activity only; persistenceError drives an in-app alert.
             if observesSystemEvents, record.id == timerID {
                 LiveActivityManager.shared.reconcile(record, errorMessage: message)
                 await LiveActivityManager.shared.waitForUpdates()
             }
             throw RestTimerIntentError(message)
         }
+    }
+
+    /// Republishes the current record without an error message after a successful no-op action.
+    private func clearActivityError() async {
+        guard observesSystemEvents else { return }
+        LiveActivityManager.shared.reconcile(record)
+        await LiveActivityManager.shared.waitForUpdates()
     }
 
     /// Get rest duration from user preferences
@@ -298,21 +320,36 @@ class RestTimerManager: ObservableObject {
         guard seconds.isFinite else { return }
         var next = record
         let remaining: TimeInterval
-        switch state {
+        var restartsCountdown = false
+        // The record, not the displayed state: a finished rest reads as idle after a moment.
+        switch record.state {
         case .running(let endDate, let id, let name, _, _):
-            let newEndDate = endDate.addingTimeInterval(seconds)
-            remaining = max(0, newEndDate.timeIntervalSince(now()))
+            // Once the end date has passed, the adjustment counts from now.
+            let newEndDate = max(endDate, now()).addingTimeInterval(seconds)
+            remaining = newEndDate.timeIntervalSince(now())
+            guard remaining > 0 else {
+                completeTimer(exerciseID: id, exerciseName: name, vibrate: false, operationID: operationID)
+                return
+            }
             next.state = .running(endDate: newEndDate, exerciseID: id, exerciseName: name,
                 originalDuration: remaining, wasAdjusted: true)
         case .paused(let previous, let id, let name, _, _):
             remaining = max(0, previous + seconds)
             next.state = .paused(remainingSeconds: remaining, exerciseID: id, exerciseName: name,
                 originalDuration: remaining, wasAdjusted: true)
-        case .idle, .completed:
+        case .completed(let id, let name):
+            // Adding time to a finished rest starts a short countdown again.
+            guard seconds > 0 else { return }
+            remaining = seconds
+            next.state = .running(endDate: now().addingTimeInterval(seconds), exerciseID: id, exerciseName: name,
+                originalDuration: seconds, wasAdjusted: true)
+            restartsCountdown = true
+        case .idle:
             return
         }
         guard remaining.isFinite, remaining <= 86_400 else { return }
         guard commit(next, operationID: operationID) else { return }
+        if restartsCountdown { startTimerLoop() }
         ticker.remainingSeconds = remaining
         if seconds > 0 && remaining > 10 { hasTriggeredTenSecondWarning = false }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -372,6 +409,7 @@ class RestTimerManager: ObservableObject {
     private func completeTimer(exerciseID: String, exerciseName: String, vibrate: Bool, operationID: UUID? = nil) {
         var next = record
         next.state = .completed(exerciseID: exerciseID, exerciseName: exerciseName)
+        next.completedAt = now()
         guard commit(next, operationID: operationID) else { return }
         timer?.cancel()
         timer = nil
@@ -484,7 +522,14 @@ class RestTimerManager: ObservableObject {
     }
 
     private func publishRecord() {
-        state = record.state
+        // The record stays completed so "Log Next Set" still works, but a rest that
+        // finished more than a moment ago was already shown: do not show it again.
+        if case .completed = record.state,
+           now().timeIntervalSince(record.completedAt ?? .distantPast) >= Self.completedDisplayWindow {
+            state = .idle
+        } else {
+            state = record.state
+        }
         timerStartDate = record.startedAt
         isManuallyStartedTimer = record.isManualStart
         if observesSystemEvents {

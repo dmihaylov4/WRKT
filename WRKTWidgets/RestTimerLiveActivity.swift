@@ -22,7 +22,8 @@ struct RestTimerLiveActivity: Widget {
 
         } dynamicIsland: { context in
             let now = Date.now
-            let countdown = context.state.countdownInterval(at: now)
+            // Stale means the end date passed while the app could not update: show Ready.
+            let countdown = context.isStale ? nil : context.state.countdownInterval(at: now)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
@@ -168,7 +169,8 @@ struct RestTimerLockScreenView: View {
 
     var body: some View {
         let now = Date.now
-        let countdown = context.state.countdownInterval(at: now)
+        // Stale means the end date passed while the app could not update: show Ready.
+        let countdown = context.isStale ? nil : context.state.countdownInterval(at: now)
         let isReady = countdown == nil && !context.state.isPaused
         VStack(alignment: .leading, spacing: 10) {
             // Header
