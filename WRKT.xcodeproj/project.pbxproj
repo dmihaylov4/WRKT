@@ -279,6 +279,10 @@
 		C17CA1000000000000000011 /* CutTrainModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000021 /* CutTrainModel.swift */; };
 		C17CA1000000000000000012 /* CutTrainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000022 /* CutTrainView.swift */; };
 		C17CA1000000000000000013 /* CutTrainHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000023 /* CutTrainHost.swift */; };
+		D1D6E7000000000000000011 /* HomeWidgetPublisher.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1D6E7000000000000000021 /* HomeWidgetPublisher.swift */; };
+		D1D6E7000000000000000012 /* CutFonts in Resources */ = {isa = PBXBuildFile; fileRef = C17CA0000000000000000002 /* CutFonts */; };
+		D1D6E7000000000000000013 /* BarlowSemiCondensed-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D1D6E7000000000000000023 /* BarlowSemiCondensed-Medium.ttf */; };
+		D1D6E7000000000000000014 /* BarlowSemiCondensed-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D1D6E7000000000000000024 /* BarlowSemiCondensed-SemiBold.ttf */; };
 		C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA1000000000000000024 /* CutTrainStatusBar.swift */; };
 		2EC202A82EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */; };
 		2EC202AA2EF407AB00D6BAEF /* LastCardioCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */; };
@@ -769,6 +773,9 @@
 		C17CA1000000000000000021 /* CutTrainModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainModel.swift; sourceTree = "<group>"; };
 		C17CA1000000000000000022 /* CutTrainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainView.swift; sourceTree = "<group>"; };
 		C17CA1000000000000000023 /* CutTrainHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainHost.swift; sourceTree = "<group>"; };
+		D1D6E7000000000000000021 /* HomeWidgetPublisher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWidgetPublisher.swift; sourceTree = "<group>"; };
+		D1D6E7000000000000000023 /* BarlowSemiCondensed-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "BarlowSemiCondensed-Medium.ttf"; path = "Fonts/BarlowSemiCondensed-Medium.ttf"; sourceTree = "<group>"; };
+		D1D6E7000000000000000024 /* BarlowSemiCondensed-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "BarlowSemiCondensed-SemiBold.ttf"; path = "Fonts/BarlowSemiCondensed-SemiBold.ttf"; sourceTree = "<group>"; };
 		C17CA1000000000000000024 /* CutTrainStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrainStatusBar.swift; sourceTree = "<group>"; };
 		2EC202A72EF3FA2500D6BAEF /* UnifiedWeeklyStatsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedWeeklyStatsCard.swift; sourceTree = "<group>"; };
 		2EC202A92EF407AB00D6BAEF /* LastCardioCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LastCardioCard.swift; sourceTree = "<group>"; };
@@ -926,6 +933,8 @@
 		2EBE3FE82EB8C25800A26355 /* Exceptions for "WRKTWidgets" folder in "WRKT" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				HomeWidgetSnapshot.swift,
+				HomeWidgetViews.swift,
 				RestTimerAppIntents.swift,
 				RestTimerAttributes.swift,
 			);
@@ -1288,6 +1297,8 @@
 			children = (
 				A1F000022FA2000000F00001 /* Fonts */,
 				C17CA0000000000000000002 /* CutFonts */,
+				D1D6E7000000000000000023 /* BarlowSemiCondensed-Medium.ttf */,
+				D1D6E7000000000000000024 /* BarlowSemiCondensed-SemiBold.ttf */,
 				2ECC7D0A2F7C21C3009119BF /* PlateTextures */,
 				2E196EF92EAE4B2D00EB4780 /* Data */,
 				2E196EA32EAD398900EB4780 /* Assets.xcassets */,
@@ -2282,6 +2293,7 @@
 				C17CA1000000000000000022 /* CutTrainView.swift */,
 				C17CA1000000000000000023 /* CutTrainHost.swift */,
 				C17CA1000000000000000024 /* CutTrainStatusBar.swift */,
+				D1D6E7000000000000000021 /* HomeWidgetPublisher.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2622,6 +2634,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D1D6E7000000000000000012 /* CutFonts in Resources */,
+				D1D6E7000000000000000013 /* BarlowSemiCondensed-Medium.ttf in Resources */,
+				D1D6E7000000000000000014 /* BarlowSemiCondensed-SemiBold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2757,6 +2772,7 @@
 				C17CA2000000000000000101 /* CutStartSheetModel.swift in Sources */,
 				C17CA1000000000000000012 /* CutTrainView.swift in Sources */,
 				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
+				D1D6E7000000000000000011 /* HomeWidgetPublisher.swift in Sources */,
 				C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,
 				2EA7D9CB2EEB6E9B0017683B /* SkeletonProfileHeader.swift in Sources */,

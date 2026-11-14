@@ -34,8 +34,8 @@ final class HomeViewModel {
     var carouselCards: [HomeCardType] = []
     var hasActivePlan: Bool = false
     var todaysPlan: PlannedWorkout?
-    /// Cut Train only: whether a plan is active and its next session after today.
-    /// Loaded only when `loadsPlanOutlook` is set, so the legacy Train tab does no extra work.
+    /// Whether a plan is active and its next session after today, for Cut Train and the home
+    /// screen widgets. Loaded only when `loadsPlanOutlook` is set (HomeViewNew always sets it).
     private(set) var planOutlook = PlanOutlook()
     @ObservationIgnored private let loadsPlanOutlook: Bool
     @ObservationIgnored private var refreshGeneration = 0

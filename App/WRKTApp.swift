@@ -203,6 +203,11 @@ struct WRKTApp: App {
                     await handlePasswordRecoveryDeepLink(url: url)
                 }
             }
+            // Home screen widgets: open the Train tab
+            else if HomeWidgetShared.isTrainURL(url) {
+                NotificationCenter.default.post(name: .resetHomeToRoot, object: nil,
+                                                userInfo: ["reason": "user_intent"])
+            }
             // Handle email confirmation deep link
             else if url.host == "auth" {
                 AppLogger.info("Handling email verification deep link", category: AppLogger.app)

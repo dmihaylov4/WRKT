@@ -311,7 +311,9 @@ struct HomeViewNew: View {
         let vm = HomeViewModel(
             workoutStore: store,
             plannerStore: deps.plannerStore,
-            weeklyGoal: goals.first
+            weeklyGoal: goals.first,
+            // The home screen widgets need the rest day and next session on both Train tabs.
+            loadsPlanOutlook: true
         )
         vm.postRepository = deps.postRepository
         vm.authService = deps.authService
@@ -399,6 +401,11 @@ struct HomeViewNew: View {
 
     var body: some View {
         contentWithDataUpdates
+        .background {
+            if let vm = viewModel {
+                HomeWidgetSnapshotSync(viewModel: vm, goal: goals.first)
+            }
+        }
         .onDisappear {
             collapsePanel(animated: false)
         }
