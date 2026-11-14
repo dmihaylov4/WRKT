@@ -32,6 +32,11 @@ enum CutStartSheetLogic {
         CutStartSheetModel(title: title(legacyTitle), plan: plan, choices: choices)
     }
 
+    /// The sheet's height before it is measured: header, rows, the plan row and bottom space.
+    static func estimatedHeight(_ model: CutStartSheetModel) -> CGFloat {
+        70 + CGFloat(model.choices.count) * 73 + (model.plan == nil ? 0 : 124) + 17
+    }
+
     /// The legacy title in sentence case: "Start Workout" reads "Start a workout",
     /// anything else keeps its first capital only ("Add Exercise" -> "Add exercise").
     static func title(_ legacyTitle: String) -> String {

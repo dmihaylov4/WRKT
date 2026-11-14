@@ -15,9 +15,20 @@ struct CutStartSheetView: View {
     var onSelect: (QuickWorkoutTypeSelector.WorkoutType) -> Void = { _ in }
     var onCancel: () -> Void = {}
 
+    @State private var headerHeight: CGFloat = 0
+    @State private var listHeight: CGFloat = 0
+
+    /// The sheet is as tall as its rows: measured once laid out, estimated for the first frame.
+    private var sheetHeight: CGFloat {
+        headerHeight > 0 && listHeight > 0
+            ? headerHeight + listHeight
+            : CutStartSheetLogic.estimatedHeight(model)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     CutHairline()
@@ -29,10 +40,15 @@ struct CutStartSheetView: View {
                     }
                 }
                 .padding(.horizontal, DS.Cut.Metrics.gutter)
-                .padding(.bottom, 32)
+                .padding(.bottom, 16)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listHeight = $0 }
             }
             .scrollIndicators(.hidden)
+            // Only scrolls when the rows outgrow the screen (large text sizes).
+            .scrollBounceBehavior(.basedOnSize)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
+        .presentationDetents([.height(sheetHeight)])
         .foregroundStyle(DS.Cut.Colors.textPrimary)
         .environment(\.colorScheme, .dark)
         .presentationDragIndicator(.visible)
