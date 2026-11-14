@@ -46,17 +46,17 @@ enum CutRestZone: Equatable {
     var dismissKey: String { self == .strength ? "rest_rec_strength_dismiss_count" : "rest_rec_pump_dismiss_count" }
 }
 
-/// What the action bar does.
+/// What the bottom action pill does.
 enum CutSetLoggingBar: Equatable {
     /// Logs the active set. `restLine` is "Rest 2:00 starts after", or nil when no rest follows.
     case logSet(restLine: String?)
     /// Every set is logged and another exercise is unfinished.
     case nextExercise(name: String)
-    /// Every set is logged and nothing else is open: closes the screen like Done.
-    case done
-    /// A timed hold is running: the bar is hidden, as the legacy log button was.
+    /// No pill: a timed hold is running, or the active set is a ghost (the legacy rows hid the
+    /// log button in both cases).
     case hidden
-    /// The exercise has no sets yet (an entry added without any): the bar adds the first.
+    /// Adds a set: the exercise has no sets yet, or every set is logged and nothing else is open
+    /// (the top bar's Done finishes the exercise, so the pill offers another set instead).
     case addSet
 }
 
@@ -65,12 +65,8 @@ struct CutSetLoggingModel: Equatable {
     var exerciseName: String
     var mode: CutSetMode
     var unit: WeightUnit
-    /// "Exercise 1 of 6, set 3 of 4", or "Set 3 of 4" outside a workout.
-    var metaLine: String
-    /// The hero's one supporting line: target, record, last.
+    /// The exercise name's one supporting line: target, record, last.
     var supportLine: String?
-    /// Exercise position in the workout, when it is part of one.
-    var exercisePosition: (index: Int, count: Int)?
     var canSuperset: Bool
     var isInSuperset: Bool
     /// Planned rest after a set, in seconds; nil when the rest timer is off.
@@ -90,9 +86,7 @@ struct CutSetLoggingModel: Equatable {
 
     static func == (lhs: CutSetLoggingModel, rhs: CutSetLoggingModel) -> Bool {
         lhs.exerciseName == rhs.exerciseName && lhs.mode == rhs.mode && lhs.unit == rhs.unit
-            && lhs.metaLine == rhs.metaLine && lhs.supportLine == rhs.supportLine
-            && lhs.exercisePosition?.index == rhs.exercisePosition?.index
-            && lhs.exercisePosition?.count == rhs.exercisePosition?.count
+            && lhs.supportLine == rhs.supportLine
             && lhs.canSuperset == rhs.canSuperset && lhs.isInSuperset == rhs.isInSuperset
             && lhs.restSeconds == rhs.restSeconds && lhs.plateauSessions == rhs.plateauSessions
             && lhs.nextExercise?.id == rhs.nextExercise?.id && lhs.weightStep == rhs.weightStep
@@ -104,10 +98,36 @@ struct CutSetLoggingModel: Equatable {
 // MARK: - Copy
 
 enum CutSetLoggingLogic {
-    static func metaLine(setIndex: Int, setCount: Int, exercise position: (index: Int, count: Int)?) -> String {
-        let set = setCount == 0 ? "no sets yet" : "set \(min(setIndex + 1, setCount)) of \(setCount)"
-        guard let position, position.count > 1 else { return "S" + set.dropFirst() }
-        return "Exercise \(position.index + 1) of \(position.count), \(set)"
+    /// The lime line over the exercise name while entering a set: "Set 3 of 4" while sets follow
+    /// the active one, "Set 4" on the last set (nothing planned beyond it), "No sets yet".
+    static func setLine(setIndex: Int, setCount: Int) -> String {
+        guard setCount > 0 else { return "No sets yet" }
+        let number = min(max(0, setIndex), setCount - 1) + 1
+        return number < setCount ? "Set \(number) of \(setCount)" : "Set \(number)"
+    }
+
+    /// The lime line while not resting: the active set ("Set 3 of 4", "Set 2"), or how many sets
+    /// are logged once every set is ("4 sets logged").
+    static func entryLine(sets: [SetInput], activeSetIndex: Int) -> String {
+        guard !sets.isEmpty, sets.allSatisfy(\.isCompleted) else {
+            return setLine(setIndex: activeSetIndex, setCount: sets.count)
+        }
+        return loggedCount(sets.count)
+    }
+
+    /// "1 set logged", "4 sets logged".
+    static func loggedCount(_ count: Int) -> String {
+        "\(count) \(count == 1 ? "set" : "sets") logged"
+    }
+
+    /// The one line at the top while resting: "Bench Press, set 3 of 4" for the set that
+    /// follows, or "Dumbbell Curl, 1 set logged" once every set is logged.
+    static func restingLine(exerciseName: String, sets: [SetInput], activeSetIndex: Int) -> String {
+        if let index = CutRestLogic.nextIndex(sets: sets, activeSetIndex: activeSetIndex) {
+            let line = setLine(setIndex: index, setCount: sets.count)
+            return "\(exerciseName), \(line.prefix(1).lowercased())\(line.dropFirst())"
+        }
+        return "\(exerciseName), \(loggedCount(sets.filter(\.isCompleted).count))"
     }
 
     /// One line under the exercise name, from what the legacy header and rows showed:
@@ -156,22 +176,47 @@ enum CutSetLoggingLogic {
     ) -> CutSetLoggingBar {
         if holdRunning { return .hidden }
         if sets.isEmpty { return .addSet }
-        let allDone = !sets.isEmpty && sets.allSatisfy(\.isCompleted)
-        if allDone {
+        if sets.allSatisfy(\.isCompleted) {
             if let nextExerciseName { return .nextExercise(name: nextExerciseName) }
-            return .done
+            return .addSet
         }
         if let active = sets[safe: activeSetIndex], active.isGhost && !active.isCompleted {
             // The legacy rows hid the log button on ghost sets.
-            return .done
+            return .hidden
         }
         return .logSet(restLine: restLine(seconds: restSeconds))
     }
 
-    /// The label under a set segment: a done set's values, "Now", or "Set 4".
-    static func segmentLabel(_ set: SetInput, index: Int, isActive: Bool, mode: CutSetMode, unit: WeightUnit) -> String {
+    /// The pill is filled lime unless a rest runs; then it is a lime outline.
+    static func pillTone(isResting: Bool) -> CutActionPillButtonStyle.Tone {
+        isResting ? .outline : .filled
+    }
+
+    /// The one line above the pill: the rest that logging starts (not while a rest already runs),
+    /// or the next exercise's name.
+    static func pillLine(_ bar: CutSetLoggingBar, isResting: Bool) -> String? {
+        switch bar {
+        case .logSet(let restLine): isResting ? nil : restLine
+        case .nextExercise(let name): name
+        case .addSet, .hidden: nil
+        }
+    }
+
+    /// The supporting line under the next set while resting: "Working set. Target 87.5 kg x 6".
+    static func nextSetSupport(tag: SetTag, supportLine: String?) -> String {
+        let kind = "\(tag.label) set."
+        guard let supportLine, !supportLine.isEmpty else { return kind }
+        return "\(kind) \(supportLine)"
+    }
+
+    /// Shown under the last logged set once every set is logged.
+    static let allLoggedSupport = "Add a set to go again, or tap Done to finish this exercise."
+
+    /// The label under a set segment: a done set's values, "Now" ("Next" while resting), or "Set 4".
+    static func segmentLabel(_ set: SetInput, index: Int, isActive: Bool, mode: CutSetMode, unit: WeightUnit,
+                             isResting: Bool = false) -> String {
         if set.isCompleted { return compactValue(set, mode: mode, unit: unit) }
-        if isActive { return "Now" }
+        if isActive { return isResting ? "Next" : "Now" }
         return "Set \(index + 1)"
     }
 

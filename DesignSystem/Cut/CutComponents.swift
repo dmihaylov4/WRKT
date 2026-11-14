@@ -506,63 +506,58 @@ public struct CutSegmentProgress: View {
     }
 }
 
-// MARK: - Action bar
+// MARK: - Action pill
 
-/// The lime bar at the bottom of the set logging screen ("Log set").
-/// Cut at the top leading corner; extends under the home indicator.
-public struct CutActionBar: View {
-    private let title: String
-    private let subtitle: String?
-    private let systemImage: String
-    private let action: () -> Void
-
-    public init(_ title: String, subtitle: String? = nil, systemImage: String = "checkmark", action: @escaping () -> Void) {
-        self.title = title
-        self.subtitle = subtitle
-        self.systemImage = systemImage
-        self.action = action
+/// The one bottom action of a sheet ("Log set"): a 56 pt capsule inside the gutters, its title
+/// in condensed capitals. Filled lime by default; a lime outline while something else (a rest)
+/// is running, so the pill stays reachable without shouting.
+public struct CutActionPillButtonStyle: ButtonStyle {
+    public enum Tone: Equatable, Sendable {
+        /// Lime fill, ink title.
+        case filled
+        /// 2 pt lime outline, lime title.
+        case outline
     }
 
-    public var body: some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .cutHero(.action)
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                            .foregroundStyle(DS.Cut.Colors.inkSecondary)
-                    }
-                }
-                Spacer(minLength: 0)
-                Image(systemName: systemImage)
-                    .font(.system(size: 36, weight: .bold))
-                    .padding(.top, 4)
-                    .accessibilityHidden(true)
-            }
-            .foregroundStyle(DS.Cut.Colors.ink)
-            .padding(.top, 34)
-            .padding(.leading, 96)
-            .padding(.trailing, DS.Cut.Metrics.gutter)
-            .frame(maxWidth: .infinity, minHeight: 134, alignment: .topLeading)
-            .contentShape(CutCornerShape.actionBar)
-        }
-        .buttonStyle(CutActionBarButtonStyle())
-        .accessibilityLabel(Text(title))
-        .accessibilityHint(Text(subtitle ?? ""))
+    private let tone: Tone
+
+    public init(tone: Tone = .filled) {
+        self.tone = tone
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        CutActionPill(configuration: configuration, tone: tone)
     }
 }
 
-private struct CutActionBarButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
+private struct CutActionPill: View {
+    let configuration: ButtonStyleConfiguration
+    let tone: CutActionPillButtonStyle.Tone
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
         configuration.label
-            .background(
-                CutCornerShape.actionBar
-                    .fill(DS.Cut.Colors.lime)
-                    .ignoresSafeArea(edges: .bottom)
-            )
-            .brightness(configuration.isPressed ? 0.08 : 0)
+            .font(DS.Cut.Typography.actionPill)
+            .textCase(.uppercase)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .foregroundStyle(tone == .filled ? DS.Cut.Colors.ink : DS.Cut.Colors.lime)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: DS.Cut.Metrics.actionPillHeight)
+            .background(Capsule().fill(tone == .filled ? DS.Cut.Colors.lime : .clear))
+            .overlay {
+                if tone == .outline {
+                    Capsule().strokeBorder(DS.Cut.Colors.lime, lineWidth: 2)
+                }
+            }
+            .contentShape(Capsule())
+            .opacity(isEnabled ? 1 : 0.4)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
+            .brightness(configuration.isPressed ? 0.06 : 0)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
     }
 }
 

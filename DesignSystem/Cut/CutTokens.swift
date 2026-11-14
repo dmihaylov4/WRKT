@@ -59,8 +59,8 @@ public extension DS.Cut {
         public static let gutter: CGFloat = 24
         /// Cut of the large lime field (the Train hero).
         public static let fieldCut: CGFloat = 112
-        /// Cut of the action bar ("Log set").
-        public static let actionBarCut: CGFloat = 72
+        /// Height of the bottom action pill ("Log set").
+        public static let actionPillHeight: CGFloat = 56
         /// Corner cut of a tile, as a fraction of its shorter side.
         public static let tileCutFraction: CGFloat = 0.38
         /// Hairline thickness.
@@ -87,7 +87,7 @@ public extension DS.Cut {
             case xxl
             /// 96 pt: Train field title
             case xl
-            /// 72 pt: exercise name while logging
+            /// 72 pt: large two-line heroes
             case l
             /// 60 pt: tab header title
             case m
@@ -95,6 +95,8 @@ public extension DS.Cut {
             case action
             /// 44 pt: big destination rows, empty states
             case s
+            /// 40 pt: exercise name while entering a set
+            case exercise
             /// 34 pt: compact headings, alert titles
             case xs
 
@@ -106,6 +108,7 @@ public extension DS.Cut {
                 case .m: 60
                 case .action: 52
                 case .s: 44
+                case .exercise: 40
                 case .xs: 34
                 }
             }
@@ -116,7 +119,7 @@ public extension DS.Cut {
                 case .xxl: -2
                 case .xl: -1
                 case .l, .m, .action: -0.5
-                case .s, .xs: 0
+                case .s, .exercise, .xs: 0
                 }
             }
 
@@ -127,7 +130,7 @@ public extension DS.Cut {
                 case .xl: 0.84
                 case .l: 0.86
                 case .m: 0.88
-                case .action, .s: 0.9
+                case .action, .s, .exercise: 0.9
                 case .xs: 0.95
                 }
             }
@@ -135,10 +138,16 @@ public extension DS.Cut {
 
         /// Big condensed numerals with tabular digits.
         public enum Numeral: CaseIterable {
-            /// 96 pt: set inputs, timers
+            /// 96 pt: big standalone numerals
             case hero
+            /// 64 pt: rest countdown and hold clock while logging
+            case rest
+            /// 56 pt: weight and reps inputs while logging
+            case input
             /// 44 pt: battle score, rest countdown in rows
             case large
+            /// 40 pt: one set's values on one line ("85 kg x 6")
+            case value
             /// 34 pt: stat columns, weekly goal
             case medium
             /// 22 pt: inline values
@@ -147,7 +156,10 @@ public extension DS.Cut {
             public var size: CGFloat {
                 switch self {
                 case .hero: 96
+                case .rest: 64
+                case .input: 56
                 case .large: 44
+                case .value: 40
                 case .medium: 34
                 case .small: 22
                 }
@@ -230,6 +242,10 @@ public extension DS.Cut {
             }
             return monospacedDigits ? font.monospacedDigit() : font
         }
+
+        /// 24 pt Barlow Condensed ExtraBold: the bottom action pill's title (set in capitals).
+        public static let actionPillSize: CGFloat = 24
+        public static var actionPill: Font { condensed(size: actionPillSize, relativeTo: .title2) }
 
         public static func hero(_ hero: Hero) -> Font {
             condensed(size: hero.size, relativeTo: .largeTitle)

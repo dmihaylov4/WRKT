@@ -263,9 +263,6 @@ struct ExerciseSessionView: View {
 
     private func cutModel(mode: CutSetMode) -> CutSetLoggingModel {
         let entries = store.currentWorkout?.entries ?? []
-        let position = viewModel.currentEntryID
-            .flatMap { id in entries.firstIndex(where: { $0.id == id }) }
-            .map { (index: $0, count: entries.count) }
         let prefs = RestTimerPreferences.shared
         let restDuration = Int(prefs.restDuration(for: exercise))
         let next = cutOpenNextExercise == nil ? nil
@@ -274,8 +271,6 @@ struct ExerciseSessionView: View {
             exerciseName: exercise.name,
             mode: mode,
             unit: unit,
-            metaLine: CutSetLoggingLogic.metaLine(setIndex: viewModel.activeSetIndex, setCount: viewModel.sets.count,
-                                                  exercise: position),
             supportLine: CutSetLoggingLogic.supportLine(
                 mode: mode, unit: unit,
                 progression: viewModel.appliedProgression.map { ($0.suggestedWeight, $0.suggestedReps) },
@@ -283,7 +278,6 @@ struct ExerciseSessionView: View {
                 prReps: mode == .bodyweight ? store.personalBestReps(for: exercise) : nil,
                 lastReps: mode == .bodyweight ? store.lastWorkingSet(exercise: exercise)?.reps : nil
             ),
-            exercisePosition: position,
             canSuperset: canShowSupersetToggle,
             isInSuperset: isInSuperset,
             restSeconds: cutRestFollows ? restDuration : nil,

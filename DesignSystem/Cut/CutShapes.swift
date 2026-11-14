@@ -47,11 +47,6 @@ public struct CutCornerShape: InsettableShape {
     /// The lime field: bottom trailing cut of 112 pt.
     public static var field: CutCornerShape { CutCornerShape() }
 
-    /// The action bar: top leading cut of 72 pt.
-    public static var actionBar: CutCornerShape {
-        CutCornerShape(corner: .topLeading, cut: .points(DS.Cut.Metrics.actionBarCut))
-    }
-
     /// A small tile: bottom trailing cut of 38 percent of its side.
     public static var tile: CutCornerShape {
         CutCornerShape(corner: .bottomTrailing, cut: .fraction(DS.Cut.Metrics.tileCutFraction))

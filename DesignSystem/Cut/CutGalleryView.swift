@@ -18,7 +18,11 @@ struct CutGalleryView: View {
         .background(DS.Cut.Colors.background.ignoresSafeArea())
         .ignoresSafeArea(edges: .top)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            CutActionBar("Log set", subtitle: "Rest 2:00 starts after") {}
+            Button("Log set") {}
+                .buttonStyle(CutActionPillButtonStyle())
+                .padding(.horizontal, DS.Cut.Metrics.gutter)
+                .padding(.vertical, 12)
+                .background(DS.Cut.Colors.background.ignoresSafeArea(edges: .bottom))
         }
         .toolbar(.hidden, for: .navigationBar)
         .cutHidesTopScrollEdge()

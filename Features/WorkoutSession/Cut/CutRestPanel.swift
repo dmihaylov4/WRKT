@@ -2,11 +2,12 @@
 //  CutRestPanel.swift
 //  WRKT
 //
-//  The rest timer in the Cut language: the countdown as a huge numeral, the next set as one
-//  line, and pills to add time, skip, or cancel. Shown in place of the exercise hero on the
-//  set logging screen while a rest that a logged set started runs for that exercise.
+//  The rest timer in the Cut language, for the set logging sheet: a 64 pt lime countdown with
+//  "rest left" beside it, a slanted progress bar, and outlined pills to add time, skip, or
+//  cancel. Shown while a rest that a logged set started runs for that exercise.
 //
-//  Only CutRestCountdown observes the per-second ticker; the gate observes state transitions.
+//  Only the countdown and the bar observe the per-second ticker; the gate observes state
+//  transitions.
 //
 
 import SwiftUI
@@ -20,45 +21,60 @@ struct CutRestActions {
     var cancel: () -> Void = {}
 }
 
+/// A rest the screen shows: where the remaining time comes from, and the rest's full length
+/// for the progress bar.
+struct CutRestState: Equatable {
+    var countdown: CutTrainCountdown
+    var total: TimeInterval
+}
+
 struct CutRestPanel: View {
-    let countdown: CutTrainCountdown
-    let nextLine: String?
+    let state: CutRestState
     var actions = CutRestActions()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Group {
-                switch countdown {
-                case .live: CutRestCountdown()
-                case .fixed(let seconds): CutRestNumeral(seconds: seconds)
+                switch state.countdown {
+                case .live: CutLiveRestReadout(total: state.total)
+                case .fixed(let seconds): CutRestReadout(seconds: seconds, total: state.total)
                 }
-            }
-            .foregroundStyle(DS.Cut.Colors.lime)
-            if let nextLine {
-                Text(nextLine)
-                    .cutFont(.title)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 10)
             }
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) { buttons }
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) { addButton; skipButton }
+                    cancelButton
+                }
                 VStack(alignment: .leading, spacing: 10) { buttons }
             }
-            .padding(.top, 20)
+            .padding(.top, 18)
         }
         .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
     private var buttons: some View {
+        addButton
+        skipButton
+        cancelButton
+    }
+
+    private var addButton: some View {
         Button("+15 s", action: actions.addTime)
             .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
             .accessibilityLabel("Add 15 seconds")
+    }
+
+    private var skipButton: some View {
         Button("Skip rest") {
             Haptics.medium()
             actions.skip()
         }
-        .buttonStyle(CutPrimaryButtonStyle(size: .compact, fillsWidth: false))
+        .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
+    }
+
+    private var cancelButton: some View {
         Button("Cancel rest", systemImage: "xmark") {
             actions.cancel()
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -67,24 +83,23 @@ struct CutRestPanel: View {
     }
 }
 
-/// Shows the rest panel while a rest that a logged set started runs for this exercise,
-/// otherwise the given content. Observes the rest timer's state transitions only.
-struct CutRestSlot<Content: View>: View {
+/// Gives the content the running rest, if a rest that a logged set started runs for this
+/// exercise. Observes the rest timer's state transitions only.
+struct CutRestGate<Content: View>: View {
     let source: CutRestSource
     let hasCompletedSet: Bool
-    let nextLine: String?
-    let actions: CutRestActions
-    @ViewBuilder let content: () -> Content
+    /// The rest's length when the source does not know it (fixed captures).
+    let fallbackTotal: TimeInterval
+    @ViewBuilder let content: (CutRestState?) -> Content
 
     var body: some View {
         switch source {
         case .none:
-            content()
+            content(nil)
         case .fixed(let seconds):
-            CutRestPanel(countdown: .fixed(seconds), nextLine: nextLine, actions: actions)
+            content(CutRestState(countdown: .fixed(seconds), total: max(fallbackTotal, seconds)))
         case .live(let exerciseID):
-            CutLiveRestGate(exerciseID: exerciseID, hasCompletedSet: hasCompletedSet, nextLine: nextLine,
-                            actions: actions, content: content)
+            CutLiveRestGate(exerciseID: exerciseID, hasCompletedSet: hasCompletedSet, content: content)
         }
     }
 }
@@ -92,63 +107,106 @@ struct CutRestSlot<Content: View>: View {
 private struct CutLiveRestGate<Content: View>: View {
     let exerciseID: String
     let hasCompletedSet: Bool
-    let nextLine: String?
-    let actions: CutRestActions
-    let content: () -> Content
+    let content: (CutRestState?) -> Content
     @ObservedObject private var manager = RestTimerManager.shared
 
-    var body: some View {
+    private var rest: CutRestState? {
         // The legacy rest badge's rule: a running timer for this exercise that a logged set started.
-        if manager.isTimerFor(exerciseID: exerciseID), manager.isRunning, !manager.isManuallyStartedTimer, hasCompletedSet {
-            CutRestPanel(countdown: .live, nextLine: nextLine, actions: actions)
-                .transition(.opacity)
-        } else {
-            content()
+        guard manager.isTimerFor(exerciseID: exerciseID), manager.isRunning, !manager.isManuallyStartedTimer,
+              hasCompletedSet else { return nil }
+        let total: TimeInterval = switch manager.state {
+        case .running(_, _, _, let original, _), .paused(_, _, _, let original, _): original
+        case .idle, .completed: 0
+        }
+        return CutRestState(countdown: .live, total: total)
+    }
+
+    var body: some View {
+        content(rest)
+            .animation(.easeInOut(duration: 0.2), value: rest == nil)
+    }
+}
+
+/// The live countdown and bar: the only views here that observe the per-second ticker.
+private struct CutLiveRestReadout: View {
+    let total: TimeInterval
+    @ObservedObject private var ticker = RestTimerManager.shared.ticker
+
+    var body: some View {
+        CutRestReadout(seconds: ticker.remainingSeconds, total: total)
+    }
+}
+
+private struct CutRestReadout: View {
+    let seconds: TimeInterval
+    let total: TimeInterval
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .lastTextBaseline, spacing: 14) {
+                Text(CutTrainLogic.countdown(seconds))
+                    .cutNumeral(.rest)
+                    .foregroundStyle(DS.Cut.Colors.lime)
+                    .fixedSize()
+                Text("rest left")
+                    .font(DS.Cut.Typography.font(.body).weight(.medium))
+                    .foregroundStyle(DS.Cut.Colors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Rest")
+            .accessibilityValue(Text(Duration.seconds(max(0, seconds)).formatted(.units(allowed: [.minutes, .seconds]))))
+            CutRestBar(fraction: CutRestLogic.remainingFraction(seconds: seconds, total: total))
         }
     }
 }
 
-/// The live countdown: the only view here that observes the per-second ticker.
-private struct CutRestCountdown: View {
-    @ObservedObject private var ticker = RestTimerManager.shared.ticker
+/// The slanted 8 pt bar: lime for the rest that remains.
+private struct CutRestBar: View {
+    let fraction: Double
 
     var body: some View {
-        CutRestNumeral(seconds: ticker.remainingSeconds)
-    }
-}
-
-private struct CutRestNumeral: View {
-    let seconds: TimeInterval
-
-    var body: some View {
-        Text(CutTrainLogic.countdown(seconds))
-            .font(DS.Cut.Typography.condensed(size: DS.Cut.Typography.Hero.xxl.size, monospacedDigits: true))
-            .tracking(DS.Cut.Typography.Hero.xxl.tracking)
-            .lineLimit(1)
-            .minimumScaleFactor(0.4)
-            .accessibilityLabel("Rest")
-            .accessibilityValue(Text(Duration.seconds(max(0, seconds)).formatted(.units(allowed: [.minutes, .seconds]))))
+        ZStack(alignment: .leading) {
+            Rectangle().fill(DS.Cut.Colors.segmentTrack)
+            Rectangle().fill(DS.Cut.Colors.lime)
+                .scaleEffect(x: fraction, y: 1, anchor: .leading)
+        }
+        .frame(height: 8)
+        .clipShape(SlantedSegmentShape(slant: 8))
+        .animation(.linear(duration: 0.3), value: fraction)
+        .accessibilityHidden(true)
     }
 }
 
 enum CutRestLogic {
-    /// "Next: set 3, 85 kg x 6", or "Last set logged." while resting after the last set.
-    static func nextLine(sets: [SetInput], activeSetIndex: Int, mode: CutSetMode, unit: WeightUnit) -> String? {
+    /// The set that follows the rest: the first open set from the active one, then from the start.
+    static func nextIndex(sets: [SetInput], activeSetIndex: Int) -> Int? {
         let start = min(max(0, activeSetIndex), sets.count)
-        // The first open set from the active one, then from the start.
-        guard let index = sets[start...].firstIndex(where: { !$0.isCompleted })
-                ?? sets[..<start].firstIndex(where: { !$0.isCompleted }) else {
-            // Every set is logged. Whether a set follows depends on the auto add setting, the
-            // four set cap and skip or cancel, so the line does not promise one.
-            return sets.isEmpty ? nil : "Last set logged."
+        return sets[start...].firstIndex(where: { !$0.isCompleted })
+            ?? sets[..<start].firstIndex(where: { !$0.isCompleted })
+    }
+
+    /// The last logged set, for "Sets so far".
+    static func lastLoggedIndex(sets: [SetInput]) -> Int? {
+        sets.lastIndex(where: \.isCompleted)
+    }
+
+    /// One set's values on one line: "85 kg x 6", "6 reps" without a weight, "12 reps", "0:45".
+    static func value(_ set: SetInput, mode: CutSetMode, unit: WeightUnit) -> String {
+        switch mode {
+        case .weighted:
+            set.weight > 0 ? CutSetLoggingLogic.rowValue(set, mode: .weighted, unit: unit) : "\(set.reps)\u{00A0}reps"
+        case .bodyweight:
+            "\(set.reps)\u{00A0}reps"
+        case .timed:
+            CutSetLoggingLogic.clock(set.durationSeconds)
         }
-        let set = sets[index]
-        let value: String? = switch mode {
-        case .weighted: set.weight > 0 && set.reps > 0 ? CutSetLoggingLogic.rowValue(set, mode: .weighted, unit: unit)
-            : set.reps > 0 ? "\(set.reps) reps" : nil
-        case .bodyweight: set.reps > 0 ? "\(set.reps) reps" : nil
-        case .timed: set.durationSeconds > 0 ? CutSetLoggingLogic.clock(set.durationSeconds) : nil
-        }
-        return value.map { "Next: set \(index + 1), \($0)" } ?? "Next: set \(index + 1)"
+    }
+
+    /// How much of the rest remains, 0...1.
+    static func remainingFraction(seconds: TimeInterval, total: TimeInterval) -> Double {
+        guard total > 0, seconds.isFinite else { return 0 }
+        return min(1, max(0, seconds / total))
     }
 }
