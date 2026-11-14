@@ -11,6 +11,17 @@ private extension Color {
     static let widgetSurface = Color(red: 0.10, green: 0.10, blue: 0.10)
 }
 
+/// Uses the same vector polygons as the home widgets, with no bitmap template tinting.
+private struct RestTimerActivityMark: View {
+    var body: some View {
+        ZStack {
+            HomeWidgetVMarkShape(arm: .left).fill(Color.brandAccent)
+            HomeWidgetVMarkShape(arm: .right).fill(Color.brandAccent)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Main Widget
 
 struct RestTimerLiveActivity: Widget {
@@ -27,9 +38,7 @@ struct RestTimerLiveActivity: Widget {
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 8) {
-                        Image("LaunchLogo")
-                            .resizable()
-                            .scaledToFit()
+                        RestTimerActivityMark()
                             .frame(width: 22, height: 22)
 
                         VStack(alignment: .leading, spacing: 1) {
@@ -130,9 +139,7 @@ struct RestTimerLiveActivity: Widget {
                 }
 
             } compactLeading: {
-                Image("LaunchLogo")
-                    .resizable()
-                    .scaledToFit()
+                RestTimerActivityMark()
                     .frame(width: 16, height: 16)
 
             } compactTrailing: {
@@ -152,9 +159,7 @@ struct RestTimerLiveActivity: Widget {
                 }
 
             } minimal: {
-                Image("LaunchLogo")
-                    .resizable()
-                    .scaledToFit()
+                RestTimerActivityMark()
                     .frame(width: 14, height: 14)
             }
             .keylineTint(Color.brandAccent)
@@ -165,23 +170,34 @@ struct RestTimerLiveActivity: Widget {
 // MARK: - Lock Screen View
 
 struct RestTimerLockScreenView: View {
-    let context: ActivityViewContext<RestTimerAttributes>
+    let attributes: RestTimerAttributes
+    let state: RestTimerAttributes.ContentState
+    let isStale: Bool
+
+    init(context: ActivityViewContext<RestTimerAttributes>) {
+        self.init(attributes: context.attributes, state: context.state, isStale: context.isStale)
+    }
+
+    /// Plain values let the same lock screen view render in a narrow simulator host.
+    init(attributes: RestTimerAttributes, state: RestTimerAttributes.ContentState, isStale: Bool = false) {
+        self.attributes = attributes
+        self.state = state
+        self.isStale = isStale
+    }
 
     var body: some View {
         let now = Date.now
         // Stale means the end date passed while the app could not update: show Ready.
-        let countdown = context.isStale ? nil : context.state.countdownInterval(at: now)
-        let isReady = countdown == nil && !context.state.isPaused
+        let countdown = isStale ? nil : state.countdownInterval(at: now)
+        let isReady = countdown == nil && !state.isPaused
         VStack(alignment: .leading, spacing: 10) {
             // Header
             HStack(spacing: 8) {
-                Image("LaunchLogo")
-                    .resizable()
-                    .scaledToFit()
+                RestTimerActivityMark()
                     .frame(width: 16, height: 16)
                     .layoutPriority(1)
 
-                Text(context.attributes.exerciseName)
+                Text(attributes.exerciseName)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
@@ -189,7 +205,7 @@ struct RestTimerLockScreenView: View {
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                if context.state.isPaused {
+                if state.isPaused {
                     Text("Paused")
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(.white.opacity(0.45))
@@ -199,7 +215,7 @@ struct RestTimerLockScreenView: View {
             .frame(maxWidth: .infinity)
 
             if isReady {
-                Button(intent: StartNextSetIntent(timerID: context.attributes.timerID)) {
+                Button(intent: StartNextSetIntent(timerID: attributes.timerID)) {
                     HStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Log Next Set")
@@ -214,8 +230,8 @@ struct RestTimerLockScreenView: View {
 
             } else {
                 // Timer
-                if context.state.isPaused {
-                    Text(timeString(context.state.remainingSeconds))
+                if state.isPaused {
+                    Text(timeString(state.remainingSeconds))
                         .font(.system(size: 32, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(Color.brandAccent.opacity(0.6))
                 } else if let countdown {
@@ -226,12 +242,12 @@ struct RestTimerLockScreenView: View {
                 }
 
                 // Progress bar
-                if context.state.isPaused {
-                    ProgressView(value: context.state.progress)
+                if state.isPaused {
+                    ProgressView(value: state.progress)
                         .tint(Color.brandAccent.opacity(0.4))
                 } else if let countdown {
                     ProgressView(
-                        timerInterval: min(context.attributes.startTime, countdown.lowerBound)...countdown.upperBound,
+                        timerInterval: min(attributes.startTime, countdown.lowerBound)...countdown.upperBound,
                         countsDown: false,
                         label: { EmptyView() },
                         currentValueLabel: { EmptyView() }
@@ -240,49 +256,55 @@ struct RestTimerLockScreenView: View {
                 }
 
                 // Controls
-                HStack(spacing: 8) {
-                    Button(intent: StartNextSetIntent(timerID: context.attributes.timerID)) {
+                HStack(spacing: 6) {
+                    Button(intent: StartNextSetIntent(timerID: attributes.timerID)) {
                         Label("Log Set", systemImage: "checkmark")
                             .font(.caption.weight(.semibold))
+                            .fixedSize(horizontal: true, vertical: false)
                     }
                     .buttonStyle(.bordered)
                     .tint(Color.brandAccent)
 
-                    Button(intent: AdjustRestTimerIntent(timerID: context.attributes.timerID, seconds: -15)) {
+                    Button(intent: AdjustRestTimerIntent(timerID: attributes.timerID, seconds: -15)) {
                         Image(systemName: "minus")
                             .font(.system(size: 13, weight: .bold))
-                            .frame(width: 30, height: 28)
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 44, height: 44)
+                            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.white.opacity(0.3))
+                    .buttonStyle(.plain)
 
-                    Button(intent: AdjustRestTimerIntent(timerID: context.attributes.timerID, seconds: 15)) {
+                    Button(intent: AdjustRestTimerIntent(timerID: attributes.timerID, seconds: 15)) {
                         Image(systemName: "plus")
                             .font(.system(size: 13, weight: .bold))
-                            .frame(width: 30, height: 28)
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 44, height: 44)
+                            .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.white.opacity(0.3))
+                    .buttonStyle(.plain)
 
-                    Spacer()
+                    Spacer(minLength: 0)
 
-                    Button(intent: SkipRestTimerIntent(timerID: context.attributes.timerID)) {
-                        HStack(spacing: 6) {
+                    Button(intent: SkipRestTimerIntent(timerID: attributes.timerID)) {
+                        HStack(spacing: 4) {
                             Text("Skip")
-                                .fontWeight(.semibold)
+                                .font(.caption.weight(.semibold))
                                 .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                             Image(systemName: "forward.fill")
                                 .font(.caption2)
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
+                        .frame(minHeight: 32)
                         .foregroundColor(.black)
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.brandAccent)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
                 }
+                .controlSize(.small)
             }
-            if let message = context.state.errorMessage {
+            if let message = state.errorMessage {
                 Text(message).font(.caption2).foregroundStyle(.white).fixedSize(horizontal: false, vertical: true)
             }
         }
