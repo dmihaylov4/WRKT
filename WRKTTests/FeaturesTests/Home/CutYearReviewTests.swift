@@ -128,6 +128,43 @@ struct CutYearReviewCaptureTests {
         try await helper.capture(host(light, step: 1), name: "year-light-1", wait: .seconds(4))
         try await helper.capture(host(light, step: 4), name: "year-light-share", wait: .seconds(4))
         try await helper.capture(host(sample, step: 1), name: "year-1-ax", dynamicType: .accessibility2, wait: .seconds(4))
+        try await helper.capture(host(sample, step: 5), name: "year-award-ax", dynamicType: .accessibility2, wait: .seconds(4))
+        try await captureAward(root: root, helper: helper)
+    }
+
+    /// The award plaque: the exported picture, poses across the tilt range, long values.
+    private func captureAward(root: URL, helper: CutWorkoutCaptureTests) async throws {
+        let sample = CutYearReviewStats.sample(year: 2026)
+        let content = CutYearAwardLogic.content(stats: sample, unit: .kg, cards: CutYearReviewLogic.cards(for: sample))
+        let export = try #require(CutYearAwardStep.renderShareImage(content))
+        try #require(export.pngData()).write(to: root.appendingPathComponent("award-export.png"))
+
+        let poses: [(String, CutYearAwardPose)] = [
+            ("award-pose-flat", CutYearAwardLight.exportPose),
+            ("award-pose-right", CutYearAwardLight.pose(tilt: CutYearAwardTilt(yaw: 14, lean: 0))),
+            ("award-pose-left", CutYearAwardLight.pose(tilt: CutYearAwardTilt(yaw: -14, lean: -10))),
+            ("award-pose-static", CutYearAwardLight.staticPose)
+        ]
+        for (name, pose) in poses {
+            try await helper.capture(posed(content, pose: pose), name: name, wait: .seconds(1))
+        }
+
+        var heavy = CutYearReviewStats(year: 2026, liftedKg: 22_400_000, distanceKm: 12_345, longestDistanceKm: 42,
+                                       trainedSeconds: 900 * 3600, workouts: 1_204, records: 312, longestStreakWeeks: 52)
+        heavy.activeWeeks = Array(repeating: true, count: 52)
+        heavy.streakStartWeek = 0
+        let heavyContent = CutYearAwardLogic.content(stats: heavy, unit: .lb, cards: CutYearReviewLogic.cards(for: heavy))
+        try await helper.capture(posed(heavyContent, pose: CutYearAwardLight.exportPose), name: "award-long-values", wait: .seconds(1))
+        let thin = CutYearReviewStats(year: 2026, trainedSeconds: 7_200, workouts: 3)
+        let thinContent = CutYearAwardLogic.content(stats: thin, unit: .kg, cards: CutYearReviewLogic.cards(for: thin))
+        try await helper.capture(posed(thinContent, pose: CutYearAwardLight.exportPose), name: "award-sparse", wait: .seconds(1))
+    }
+
+    private func posed(_ content: CutYearAwardContent, pose: CutYearAwardPose) -> some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            CutYearAwardPosedPlaque(content: content, pose: pose)
+        }
     }
 
     private func host(_ stats: CutYearReviewStats, step: Int) -> some View {
