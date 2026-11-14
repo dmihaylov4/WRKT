@@ -34,10 +34,15 @@ struct CutWorkoutCaptureTests {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         for state in CutSetLoggingFixtures.states {
             try await capture(SetLoggingHost(state: state), name: "set-logging-\(state.name)",
-                              scrolledName: ["mid", "bodyweight"].contains(state.name) ? "set-logging-\(state.name)-scrolled" : nil)
+                              scrolledName: ["mid", "bodyweight", "rpe-open"].contains(state.name) ? "set-logging-\(state.name)-scrolled" : nil)
         }
         try await capture(SetLoggingHost(state: CutSetLoggingFixtures.states[1], dynamicType: .accessibility3),
                           name: "set-logging-mid-ax", scrolledName: "set-logging-mid-ax-scrolled")
+        let rpeOpen = try #require(CutSetLoggingFixtures.states.first { $0.name == "rpe-open" })
+        try await capture(SetLoggingHost(state: rpeOpen, dynamicType: .accessibility3), name: "set-logging-rpe-open-ax",
+                          scrolledName: "set-logging-rpe-open-ax-scrolled")
+        let tip = try #require(CutSetLoggingFixtures.states.first { $0.name == "tip" })
+        try await capture(SetLoggingHost(state: tip, dynamicType: .accessibility3), name: "set-logging-tip-ax")
         let resting = try #require(CutSetLoggingFixtures.states.first { $0.name == "resting" })
         try await capture(SetLoggingHost(state: resting, dynamicType: .accessibility3), name: "set-logging-resting-ax",
                           scrolledName: "set-logging-resting-ax-scrolled")
@@ -160,7 +165,8 @@ private struct SetLoggingStateHost: View {
     }
 
     var body: some View {
-        CutSetLoggingView(model: state.model, sets: $sets, activeSetIndex: $active, rest: state.rest)
+        CutSetLoggingView(model: state.model, sets: $sets, activeSetIndex: $active, rest: state.rest,
+                          initialRestZone: state.restZone, initiallyOpensRPE: state.rpeOpen)
     }
 }
 

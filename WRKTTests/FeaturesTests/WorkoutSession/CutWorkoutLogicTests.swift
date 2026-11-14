@@ -107,6 +107,79 @@ struct CutSetLoggingLogicTests {
         #expect(CutSetLoggingLogic.bar(sets: sets, activeSetIndex: 1, restSeconds: 90, nextExerciseName: "Row", holdRunning: false) == .hidden)
     }
 
+    @Test func entryLineCarriesTheRecord() {
+        let one = [SetInput(reps: 20, weight: 30)]
+        #expect(CutSetLoggingLogic.entryLine(sets: one, activeSetIndex: 0, pr: "PR 93\u{00A0}kg") == "Set 1, PR 93\u{00A0}kg")
+        let four = (0..<4).map { SetInput(reps: 6, weight: 85, isCompleted: $0 < 2) }
+        #expect(CutSetLoggingLogic.entryLine(sets: four, activeSetIndex: 2, pr: "PR 93 kg") == "Set 3 of 4, PR 93 kg")
+        // No record: as before.
+        #expect(CutSetLoggingLogic.entryLine(sets: four, activeSetIndex: 2, pr: nil) == "Set 3 of 4")
+        #expect(CutSetLoggingLogic.entryLine(sets: four, activeSetIndex: 2, pr: "") == "Set 3 of 4")
+    }
+
+    @Test func supportSplitsTheRecordFromTheTarget() {
+        let weighted = CutSetLoggingLogic.support(mode: .weighted, unit: .kg, progression: (87.5, 6), bestE1RMKg: 100,
+                                                  prReps: nil, lastReps: nil)
+        #expect(weighted.detail == "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6")
+        #expect(weighted.pr == "PR 100\u{00A0}kg")
+        let recordOnly = CutSetLoggingLogic.support(mode: .weighted, unit: .kg, progression: nil, bestE1RMKg: 93,
+                                                    prReps: nil, lastReps: nil)
+        #expect(recordOnly == CutExerciseSupport(detail: nil, pr: "PR 93\u{00A0}kg"))
+        let pounds = CutSetLoggingLogic.support(mode: .weighted, unit: .lb, progression: nil, bestE1RMKg: 100,
+                                                prReps: nil, lastReps: nil)
+        #expect(pounds.pr == "PR 220\u{00A0}lb")
+        // Bodyweight keeps its record and last set on the grey line.
+        let bodyweight = CutSetLoggingLogic.support(mode: .bodyweight, unit: .kg, progression: nil, bestE1RMKg: nil,
+                                                    prReps: 15, lastReps: 12)
+        #expect(bodyweight == CutExerciseSupport(detail: "Record 15 reps, last 12 reps", pr: nil))
+        #expect(CutSetLoggingLogic.support(mode: .timed, unit: .kg, progression: nil, bestE1RMKg: 100,
+                                           prReps: nil, lastReps: nil) == .none)
+        // The resting state still reads both on one line.
+        #expect(weighted.line == "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6, PR 100\u{00A0}kg")
+        #expect(CutExerciseSupport.none.line == nil)
+    }
+
+    @Test func restTipJoinsTheLineOverThePill() {
+        let log = CutSetLoggingBar.logSet(restLine: "Rest 1:45 starts after")
+        #expect(CutSetLoggingLogic.pillLine(log, isResting: false, tip: .pump)
+                == "Rest 1:45 starts after. 1\u{00A0}min is enough for high\u{2011}rep sets.")
+        #expect(CutSetLoggingLogic.pillLine(log, isResting: false, tip: .strength)
+                == "Rest 1:45 starts after. Strength sets do better with 4\u{00A0}min.")
+        #expect(CutSetLoggingLogic.pillLine(log, isResting: false, tip: nil) == "Rest 1:45 starts after")
+        // Rest timer off: the tip alone.
+        #expect(CutSetLoggingLogic.pillLine(.logSet(restLine: nil), isResting: false, tip: .pump) == "1 min rest for high-rep sets")
+        // Elsewhere the tip stays an advice row.
+        #expect(CutSetLoggingLogic.pillLine(log, isResting: true, tip: .pump) == nil)
+        #expect(CutSetLoggingLogic.pillLine(.nextExercise(name: "Row"), isResting: false, tip: .pump) == "Row")
+        #expect(CutSetLoggingLogic.tipJoinsPillLine(log, isResting: false))
+        #expect(!CutSetLoggingLogic.tipJoinsPillLine(log, isResting: true))
+        #expect(!CutSetLoggingLogic.tipJoinsPillLine(.addSet, isResting: false))
+        #expect(!CutSetLoggingLogic.tipJoinsPillLine(.nextExercise(name: "Row"), isResting: false))
+    }
+
+    @Test func rpePill() {
+        #expect(CutSetLoggingLogic.rpePillTitle(nil) == "RPE")
+        #expect(CutSetLoggingLogic.rpePillTitle(8) == "RPE 8")
+        #expect(CutSetLoggingLogic.rpePillTitle(8.5) == "RPE 8.5")
+        #expect(CutSetLoggingLogic.rpeAccessibilityValue(nil) == "Not set")
+        #expect(CutSetLoggingLogic.rpeAccessibilityValue(9.5) == "9.5")
+        #expect(CutSetLoggingLogic.showsRPE(mode: .weighted, set: SetInput(reps: 6, weight: 85)))
+        #expect(!CutSetLoggingLogic.showsRPE(mode: .weighted, set: SetInput(reps: 6, weight: 85, isCompleted: true)))
+        #expect(!CutSetLoggingLogic.showsRPE(mode: .weighted, set: SetInput(reps: 6, weight: 85, tag: .warmup)))
+        #expect(!CutSetLoggingLogic.showsRPE(mode: .bodyweight, set: SetInput(reps: 6, weight: 0)))
+        #expect(!CutSetLoggingLogic.showsRPE(mode: .weighted, set: nil))
+    }
+
+    @Test func rpeValuesFitOneRowThenWrap() {
+        // 342 pt inside the gutters: seven 44 pt cells.
+        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 40, width: 342, spacing: 6) == 7)
+        // Too wide for seven: two rows of four.
+        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 60, width: 342, spacing: 6) == 4)
+        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 100, width: 342, spacing: 6) == 3)
+        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 1000, width: 342, spacing: 6) == 1)
+        #expect(CutSetLoggingLogic.rpeColumns(count: 0, widestValue: 40, width: 342, spacing: 6) == 1)
+    }
+
     @Test func supportLine() {
         #expect(CutSetLoggingLogic.supportLine(mode: .weighted, unit: .kg, progression: (87.5, 6), bestE1RMKg: 100,
                                                prReps: nil, lastReps: nil) == "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6, PR 100\u{00A0}kg")
