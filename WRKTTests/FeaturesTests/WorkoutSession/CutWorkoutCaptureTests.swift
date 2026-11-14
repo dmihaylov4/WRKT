@@ -37,7 +37,10 @@ struct CutWorkoutCaptureTests {
                               scrolledName: ["mid", "bodyweight"].contains(state.name) ? "set-logging-\(state.name)-scrolled" : nil)
         }
         try await capture(SetLoggingHost(state: CutSetLoggingFixtures.states[1], dynamicType: .accessibility3),
-                          name: "set-logging-mid-ax")
+                          name: "set-logging-mid-ax", scrolledName: "set-logging-mid-ax-scrolled")
+        let resting = try #require(CutSetLoggingFixtures.states.first { $0.name == "resting" })
+        try await capture(SetLoggingHost(state: resting, dynamicType: .accessibility3), name: "set-logging-resting-ax",
+                          scrolledName: "set-logging-resting-ax-scrolled")
     }
 
     @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_WORKOUT"] == "1"))

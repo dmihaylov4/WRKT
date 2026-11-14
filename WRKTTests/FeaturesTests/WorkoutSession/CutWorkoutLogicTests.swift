@@ -24,12 +24,63 @@ struct CutStartSheetLogicTests {
 }
 
 struct CutSetLoggingLogicTests {
-    @Test func metaLineNamesExerciseAndSet() {
-        #expect(CutSetLoggingLogic.metaLine(setIndex: 2, setCount: 4, exercise: (0, 6)) == "Exercise 1 of 6, set 3 of 4")
-        #expect(CutSetLoggingLogic.metaLine(setIndex: 0, setCount: 3, exercise: nil) == "Set 1 of 3")
-        #expect(CutSetLoggingLogic.metaLine(setIndex: 0, setCount: 3, exercise: (0, 1)) == "Set 1 of 3")
-        #expect(CutSetLoggingLogic.metaLine(setIndex: 0, setCount: 0, exercise: (1, 3)) == "Exercise 2 of 3, no sets yet")
+    @Test func setLineCountsOnlyWhileSetsFollow() {
+        #expect(CutSetLoggingLogic.setLine(setIndex: 2, setCount: 4) == "Set 3 of 4")
+        #expect(CutSetLoggingLogic.setLine(setIndex: 0, setCount: 3) == "Set 1 of 3")
+        // The last set: nothing planned beyond it.
+        #expect(CutSetLoggingLogic.setLine(setIndex: 1, setCount: 2) == "Set 2")
+        #expect(CutSetLoggingLogic.setLine(setIndex: 9, setCount: 4) == "Set 4")
+        #expect(CutSetLoggingLogic.setLine(setIndex: 0, setCount: 0) == "No sets yet")
+        let open = [SetInput(reps: 5, weight: 80, isCompleted: true), SetInput(reps: 5, weight: 80)]
+        #expect(CutSetLoggingLogic.entryLine(sets: open, activeSetIndex: 1) == "Set 2")
+        let done = open.map { set -> SetInput in var copy = set; copy.isCompleted = true; return copy }
+        #expect(CutSetLoggingLogic.entryLine(sets: done, activeSetIndex: 1) == "2 sets logged")
+        #expect(CutSetLoggingLogic.entryLine(sets: [], activeSetIndex: 0) == "No sets yet")
         #expect(CutSetLoggingLogic.bar(sets: [], activeSetIndex: 0, restSeconds: 90, nextExerciseName: nil, holdRunning: false) == .addSet)
+    }
+
+    @Test func restingLineNamesTheFollowingSetOrTheCount() {
+        let mid = [SetInput(reps: 8, weight: 80, isCompleted: true), SetInput(reps: 6, weight: 85, isCompleted: true),
+                   SetInput(reps: 6, weight: 85), SetInput(reps: 6, weight: 85)]
+        #expect(CutSetLoggingLogic.restingLine(exerciseName: "Bench Press", sets: mid, activeSetIndex: 2)
+                == "Bench Press, set 3 of 4")
+        let one = [SetInput(reps: 10, weight: 27.5, isCompleted: true)]
+        #expect(CutSetLoggingLogic.restingLine(exerciseName: "Dumbbell Curl", sets: one, activeSetIndex: 0)
+                == "Dumbbell Curl, 1 set logged")
+        let three = (0..<3).map { _ in SetInput(reps: 10, weight: 27.5, isCompleted: true) }
+        #expect(CutSetLoggingLogic.restingLine(exerciseName: "Dumbbell Curl", sets: three, activeSetIndex: 2)
+                == "Dumbbell Curl, 3 sets logged")
+        let lastOpen = [SetInput(reps: 10, weight: 27.5, isCompleted: true), SetInput(reps: 10, weight: 27.5)]
+        #expect(CutSetLoggingLogic.restingLine(exerciseName: "Dumbbell Curl", sets: lastOpen, activeSetIndex: 1)
+                == "Dumbbell Curl, set 2")
+    }
+
+    @Test func pillToneAndLine() {
+        #expect(CutSetLoggingLogic.pillTone(isResting: false) == .filled)
+        #expect(CutSetLoggingLogic.pillTone(isResting: true) == .outline)
+        let log = CutSetLoggingBar.logSet(restLine: "Rest 2:00 starts after")
+        #expect(CutSetLoggingLogic.pillLine(log, isResting: false) == "Rest 2:00 starts after")
+        #expect(CutSetLoggingLogic.pillLine(log, isResting: true) == nil)
+        #expect(CutSetLoggingLogic.pillLine(.logSet(restLine: nil), isResting: false) == nil)
+        #expect(CutSetLoggingLogic.pillLine(.nextExercise(name: "Row"), isResting: true) == "Row")
+        #expect(CutSetLoggingLogic.pillLine(.addSet, isResting: false) == nil)
+        #expect(CutSetLoggingLogic.pillLine(.hidden, isResting: false) == nil)
+    }
+
+    @Test func nextSetSupportLeadsWithTheSetType() {
+        #expect(CutSetLoggingLogic.nextSetSupport(tag: .working, supportLine: "Target 87.5 kg x 6, PR 100 kg")
+                == "Working set. Target 87.5 kg x 6, PR 100 kg")
+        #expect(CutSetLoggingLogic.nextSetSupport(tag: .warmup, supportLine: nil) == "Warm-up set.")
+        #expect(CutSetLoggingLogic.nextSetSupport(tag: .backoff, supportLine: "") == "Back-off set.")
+    }
+
+    @Test func segmentLabelSaysNextWhileResting() {
+        let open = SetInput(reps: 6, weight: 85)
+        #expect(CutSetLoggingLogic.segmentLabel(open, index: 2, isActive: true, mode: .weighted, unit: .kg) == "Now")
+        #expect(CutSetLoggingLogic.segmentLabel(open, index: 2, isActive: true, mode: .weighted, unit: .kg, isResting: true) == "Next")
+        #expect(CutSetLoggingLogic.segmentLabel(open, index: 3, isActive: false, mode: .weighted, unit: .kg, isResting: true) == "Set 4")
+        let done = SetInput(reps: 6, weight: 85, isCompleted: true)
+        #expect(CutSetLoggingLogic.segmentLabel(done, index: 1, isActive: false, mode: .weighted, unit: .kg) == "85 x 6")
     }
 
     @Test func restLine() {
@@ -44,8 +95,16 @@ struct CutSetLoggingLogicTests {
                 == .logSet(restLine: "Rest 1:30 starts after"))
         #expect(CutSetLoggingLogic.bar(sets: done, activeSetIndex: 1, restSeconds: 90, nextExerciseName: "Row", holdRunning: false)
                 == .nextExercise(name: "Row"))
-        #expect(CutSetLoggingLogic.bar(sets: done, activeSetIndex: 1, restSeconds: 90, nextExerciseName: nil, holdRunning: false) == .done)
+        // Done lives in the top bar, so with nothing else open the pill offers another set.
+        #expect(CutSetLoggingLogic.bar(sets: done, activeSetIndex: 1, restSeconds: 90, nextExerciseName: nil, holdRunning: false) == .addSet)
         #expect(CutSetLoggingLogic.bar(sets: open, activeSetIndex: 1, restSeconds: 90, nextExerciseName: nil, holdRunning: true) == .hidden)
+        #expect(CutSetLoggingLogic.bar(sets: open, activeSetIndex: 1, restSeconds: nil, nextExerciseName: nil, holdRunning: false)
+                == .logSet(restLine: nil))
+    }
+
+    @Test func barHasNoLogButtonOnAGhostSet() {
+        let sets = [SetInput(reps: 5, weight: 80, isCompleted: true), SetInput(reps: 5, weight: 80, isGhost: true)]
+        #expect(CutSetLoggingLogic.bar(sets: sets, activeSetIndex: 1, restSeconds: 90, nextExerciseName: "Row", holdRunning: false) == .hidden)
     }
 
     @Test func supportLine() {
@@ -188,14 +247,31 @@ struct CutWinLogicTests {
 }
 
 struct CutRestLogicTests {
-    @Test func nextLineNamesTheNextOpenSet() {
+    @Test func nextIndexFindsTheNextOpenSet() {
         let sets = [SetInput(reps: 8, weight: 80, isCompleted: true), SetInput(reps: 6, weight: 85), SetInput(reps: 6, weight: 85)]
-        #expect(CutRestLogic.nextLine(sets: sets, activeSetIndex: 1, mode: .weighted, unit: .kg)
-                == "Next: set 2, 85\u{00A0}kg\u{00A0}x\u{00A0}6")
-        #expect(CutRestLogic.nextLine(sets: [SetInput(reps: 12, weight: 0)], activeSetIndex: 0, mode: .bodyweight, unit: .kg)
-                == "Next: set 1, 12 reps")
+        #expect(CutRestLogic.nextIndex(sets: sets, activeSetIndex: 1) == 1)
+        #expect(CutRestLogic.nextIndex(sets: sets, activeSetIndex: 0) == 1)
+        // Wraps to an open set before the active one.
+        let wrap = [SetInput(reps: 6, weight: 85), SetInput(reps: 6, weight: 85, isCompleted: true)]
+        #expect(CutRestLogic.nextIndex(sets: wrap, activeSetIndex: 1) == 0)
         let done = [SetInput(reps: 8, weight: 80, isCompleted: true)]
-        #expect(CutRestLogic.nextLine(sets: done, activeSetIndex: 0, mode: .weighted, unit: .kg) == "Last set logged.")
+        #expect(CutRestLogic.nextIndex(sets: done, activeSetIndex: 0) == nil)
+        #expect(CutRestLogic.lastLoggedIndex(sets: sets) == 0)
+        #expect(CutRestLogic.lastLoggedIndex(sets: [SetInput(reps: 6, weight: 85)]) == nil)
+    }
+
+    @Test func valueIsOneLine() {
+        #expect(CutRestLogic.value(SetInput(reps: 6, weight: 85), mode: .weighted, unit: .kg) == "85\u{00A0}kg\u{00A0}x\u{00A0}6")
+        #expect(CutRestLogic.value(SetInput(reps: 6, weight: 0), mode: .weighted, unit: .kg) == "6\u{00A0}reps")
+        #expect(CutRestLogic.value(SetInput(reps: 12, weight: 0), mode: .bodyweight, unit: .kg) == "12\u{00A0}reps")
+        #expect(CutRestLogic.value(SetInput(reps: 0, weight: 0, durationSeconds: 45), mode: .timed, unit: .kg) == "0:45")
+    }
+
+    @Test func remainingFractionIsClamped() {
+        #expect(CutRestLogic.remainingFraction(seconds: 60, total: 120) == 0.5)
+        #expect(CutRestLogic.remainingFraction(seconds: 200, total: 120) == 1)
+        #expect(CutRestLogic.remainingFraction(seconds: -5, total: 120) == 0)
+        #expect(CutRestLogic.remainingFraction(seconds: 60, total: 0) == 0)
     }
 }
 

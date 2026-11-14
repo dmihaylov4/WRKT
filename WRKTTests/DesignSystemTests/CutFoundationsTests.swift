@@ -29,6 +29,18 @@ struct CutFoundationsTests {
         for hero in DS.Cut.Typography.Hero.allCases {
             #expect(hero.size >= 34)
         }
+        #expect(DS.Cut.Typography.actionPillSize >= 15)
+    }
+
+    @Test func setLoggingSizesStayCalm() {
+        // The set logging sheet's numerals and pill, as approved (option C).
+        #expect(DS.Cut.Typography.Numeral.rest.size == 64)
+        #expect(DS.Cut.Typography.Numeral.input.size == 56)
+        #expect(DS.Cut.Typography.Numeral.value.size == 40)
+        #expect(DS.Cut.Typography.Hero.exercise.size == 40)
+        #expect(DS.Cut.Typography.actionPillSize == 24)
+        #expect(DS.Cut.Metrics.actionPillHeight == 56)
+        #expect(DS.Cut.Metrics.actionPillHeight >= DS.Cut.Metrics.minTouchTarget)
     }
 
     @Test func heroLinesSplitOnNewlines() {
