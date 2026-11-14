@@ -12,11 +12,12 @@ import SwiftUI
 @main
 struct WRKTWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        // Register Live Activities here
+        // Live Activities
         RestTimerLiveActivity()
 
-        // Future: Add static widgets here
-        // WorkoutStatsWidget()
-        // WeeklyProgressWidget()
+        // Home screen widgets
+        WeeklyGoalWidget()
+        TodayWidget()
+        TodayAndWeekWidget()
     }
 }
