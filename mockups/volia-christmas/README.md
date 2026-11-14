@@ -2,7 +2,7 @@
 
 The original VOLIA polygons remain at their supplied coordinates in every SVG. Each hat sits on the right arm's y=285 top edge; its brim overlaps the arm by 19 logo units. All artwork uses solid fills, straight edges and 45 degree cuts, with no outlines, shadows or gradients. B also tests a circular pompom.
 
-- A: Classic fold uses a red cap, white cut-corner brim and square pompom for the clearest Santa association at small sizes.
+- A (chosen): a soft red hat tilted along the right arm, with a rounded fur brim pulled over the arm's top and a round pompom. Curved on purpose: the straight-edged version looked placed on the mark, not worn.
 - B: Polar pennant folds toward the open centre of the mark, using a white cap with lime brim and a round lime pompom.
 - C: Signal cap uses an upright lime crown, red brim and white cut-corner pompom for a compact, more abstract seasonal accent.
 
