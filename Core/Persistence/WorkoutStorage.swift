@@ -235,8 +235,13 @@ actor WorkoutStorage {
 
     /// Save workouts and PR index atomically
     func saveWorkouts(_ workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2]) async throws {
-        // Create backup before writing (debounced - only if enough time has passed)
-        try await createWorkoutsBackupIfNeeded()
+        // Create backup before writing (debounced - only if enough time has passed).
+        // A failed backup must not block the primary write.
+        do {
+            try await createWorkoutsBackupIfNeeded()
+        } catch {
+            AppLogger.warning("Workouts backup skipped: \(error)", category: AppLogger.storage)
+        }
 
         let container = WorkoutStorageContainer(workouts: workouts, prIndex: prIndex)
 
@@ -308,6 +313,10 @@ actor WorkoutStorage {
     func saveRuns(_ runs: [Run]) async throws {
         do {
             try await createRunsBackupIfNeeded()
+        } catch {
+            AppLogger.warning("Runs backup skipped: \(error)", category: AppLogger.storage)
+        }
+        do {
             let data = try encoder.encode(runs)
             try data.write(to: runsFileURL, options: [.atomic])
 
@@ -423,6 +432,8 @@ actor WorkoutStorage {
         let backupURL = backupsDirectory.appendingPathComponent("workouts_backup_\(timestamp)_\(UUID().uuidString).json")
 
         do {
+            // A data reset removes this folder after init created it.
+            try fileManager.createDirectory(at: backupsDirectory, withIntermediateDirectories: true)
             try fileManager.copyItem(at: workoutsFileURL, to: backupURL)
             AppLogger.info("Created backup: \(backupURL.lastPathComponent)", category: AppLogger.storage)
 
@@ -443,6 +454,7 @@ actor WorkoutStorage {
         let backupURL = backupsDirectory.appendingPathComponent("runs_backup_\(timestamp)_\(UUID().uuidString).json")
 
         do {
+            try fileManager.createDirectory(at: backupsDirectory, withIntermediateDirectories: true)
             try fileManager.copyItem(at: runsFileURL, to: backupURL)
             AppLogger.info("Created runs backup: \(backupURL.lastPathComponent)", category: AppLogger.storage)
             try await rotateBackups(prefix: "runs_backup_")
