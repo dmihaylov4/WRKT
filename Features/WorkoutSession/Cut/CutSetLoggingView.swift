@@ -53,6 +53,10 @@ struct CutSetLoggingView: View {
     @Binding var activeSetIndex: Int
     var rest: CutRestSource = .none
     var actions = CutSetLoggingActions()
+    /// Fixtures only: a rest tip already showing, as if the reps had just changed.
+    var initialRestZone: CutRestZone?
+    /// Fixtures only: the RPE values already open.
+    var initiallyOpensRPE = false
 
     @FocusState private var focus: CutSetField?
     @State private var holdStart: Date?
@@ -63,6 +67,9 @@ struct CutSetLoggingView: View {
     @State private var restZoneWork: DispatchWorkItem?
     /// While resting: the next set's steppers are open ("Change").
     @State private var editingNext = false
+    /// The RPE values under the pills are open. Collapsed again whenever the active set changes.
+    @State private var rpeOpen = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("rest_rec_strength_dismiss_count") private var strengthDismissCount = 0
     @AppStorage("rest_rec_pump_dismiss_count") private var pumpDismissCount = 0
 
@@ -92,7 +99,12 @@ struct CutSetLoggingView: View {
         .onChange(of: activeSetIndex) { _, _ in
             restZoneWork?.cancel()
             editingNext = false
+            rpeOpen = false
             withAnimation(.easeInOut(duration: 0.2)) { restZone = nil }
+        }
+        .onAppear {
+            if let initialRestZone { restZone = initialRestZone }
+            if initiallyOpensRPE { rpeOpen = true }
         }
         .onDisappear { stopHold() }
         .alert("Delete set", isPresented: Binding(
@@ -122,7 +134,8 @@ struct CutSetLoggingView: View {
                 } else {
                     entryBlock
                 }
-                lists(showsAddRow: isResting && bar != .addSet)
+                lists(showsAddRow: isResting && bar != .addSet,
+                      showsRestTip: !CutSetLoggingLogic.tipJoinsPillLine(bar, isResting: isResting))
                     .padding(.top, 40)
             }
             .padding(.horizontal, DS.Cut.Metrics.gutter)
@@ -159,23 +172,26 @@ struct CutSetLoggingView: View {
 
     // MARK: Entering a set
 
+    /// The lime set line (with the record), the name, the target when there is one, then the
+    /// inputs and their two pills.
     private var entryBlock: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(CutSetLoggingLogic.entryLine(sets: sets, activeSetIndex: activeSetIndex))
+            Text(CutSetLoggingLogic.entryLine(sets: sets, activeSetIndex: activeSetIndex, pr: model.support.pr))
                 .cutFont(.title)
                 .foregroundStyle(DS.Cut.Colors.lime)
+                .fixedSize(horizontal: false, vertical: true)
             exerciseName
                 .padding(.top, 4)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) { supportLine; Spacer(minLength: 8); setTypeMenu }
-                VStack(alignment: .leading, spacing: 10) { supportLine; setTypeMenu }
+            if let detail = model.support.detail {
+                Text(detail)
+                    .cutFont(.secondary)
+                    .foregroundStyle(DS.Cut.Colors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 8)
             }
-            .padding(.top, 14)
             if activeSet != nil {
-                CutHairline()
-                    .padding(.top, 24)
                 editors
-                    .padding(.top, 24)
+                    .padding(.top, model.support.detail == nil ? 28 : 24)
             }
             segmentsRow(isResting: false)
                 .padding(.top, 32)
@@ -192,22 +208,23 @@ struct CutSetLoggingView: View {
         .accessibilityAddTraits(.isHeader)
     }
 
-    @ViewBuilder
-    private var supportLine: some View {
-        if let line = model.supportLine {
-            Text(line)
-                .cutFont(.secondary)
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    /// The inputs for the active set, and the RPE row under weighted working sets.
+    /// The inputs for the active set, then one row of small pills: the set type and, on weighted
+    /// working sets, RPE. The RPE values open under the pills.
     private var editors: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 0) {
             inputs
-            if model.mode == .weighted, let set = activeSet, set.tag == .working, !set.isCompleted {
-                rpeRow(set)
+            if let set = activeSet {
+                let showsRPE = CutSetLoggingLogic.showsRPE(mode: model.mode, set: set)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { setTypeMenu; if showsRPE { rpePill(set) } }
+                    VStack(alignment: .leading, spacing: 8) { setTypeMenu; if showsRPE { rpePill(set) } }
+                }
+                .padding(.top, 24)
+                if showsRPE && rpeOpen {
+                    rpeValues(set)
+                        .padding(.top, 12)
+                        .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
+                }
             }
         }
     }
@@ -230,19 +247,7 @@ struct CutSetLoggingView: View {
                     }
                 }
             } label: {
-                HStack(spacing: 6) {
-                    Text(set.tag.label)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .bold))
-                        .accessibilityHidden(true)
-                }
-                .font(DS.Cut.Typography.font(.buttonCompact))
-                .foregroundStyle(DS.Cut.Colors.textPrimary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-                .frame(minHeight: 44)
-                .overlay(Capsule().strokeBorder(DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
-                .contentShape(Capsule())
+                CutPillLabel(title: set.tag.label, systemImage: "chevron.down")
             }
             .disabled(locked)
             .opacity(locked ? 0.4 : 1)
@@ -299,11 +304,8 @@ struct CutSetLoggingView: View {
                     .foregroundStyle(DS.Cut.Colors.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if editingNext && canChange {
-                    VStack(alignment: .leading, spacing: 24) {
-                        setTypeMenu
-                        editors
-                    }
-                    .padding(.top, 16)
+                    editors
+                        .padding(.top, 16)
                     .transition(.opacity)
                 }
             }
@@ -490,34 +492,47 @@ struct CutSetLoggingView: View {
 
     // MARK: RPE
 
-    private func rpeRow(_ set: SetInput) -> some View {
-        HStack(spacing: 12) {
-            Text("RPE")
-                .cutFont(.secondary)
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(CutSetEditing.rpeValues, id: \.self) { value in
-                        let selected = set.rpe == value
-                        Button {
-                            CutSetEditing.toggleRPE(&sets[activeSetIndex], value)
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        } label: {
-                            Text(CutSetLoggingLogic.formatRPE(value))
-                                .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                                .foregroundStyle(selected ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
-                                .frame(minWidth: 52, minHeight: 44)
-                                .background(Capsule().fill(selected ? DS.Cut.Colors.textPrimary : .clear))
-                                .overlay(Capsule().strokeBorder(selected ? .clear : DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
-                                .contentShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("RPE \(CutSetLoggingLogic.formatRPE(value))")
-                        .accessibilityAddTraits(selected ? .isSelected : [])
-                    }
+    /// "RPE" as an outline pill, or "RPE 8" filled white once a value is chosen. Opens and closes
+    /// the values under the pills.
+    private func rpePill(_ set: SetInput) -> some View {
+        Button {
+            focus = nil
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { rpeOpen.toggle() }
+        } label: {
+            CutPillLabel(title: CutSetLoggingLogic.rpePillTitle(set.rpe),
+                         systemImage: rpeOpen ? "chevron.up" : "chevron.down", isFilled: set.rpe != nil)
+        }
+        .buttonStyle(.plain)
+        .fixedSize()
+        .accessibilityLabel("RPE")
+        .accessibilityValue(CutSetLoggingLogic.rpeAccessibilityValue(set.rpe))
+        .accessibilityHint(rpeOpen ? "Hides the RPE values" : "Shows the RPE values")
+    }
+
+    /// Every RPE value as an equal capsule, in one row inside the gutters (two or more rows at
+    /// the largest text sizes, never a scroll).
+    private func rpeValues(_ set: SetInput) -> some View {
+        CutEqualCellsLayout(spacing: 6, rowSpacing: 8) {
+            ForEach(CutSetEditing.rpeValues, id: \.self) { value in
+                let selected = set.rpe == value
+                Button {
+                    CutSetEditing.toggleRPE(&sets[activeSetIndex], value)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    Text(CutSetLoggingLogic.formatRPE(value))
+                        .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(selected ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
+                        .padding(.horizontal, 6)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .background(Capsule().fill(selected ? DS.Cut.Colors.textPrimary : .clear))
+                        .overlay(Capsule().strokeBorder(selected ? .clear : DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
+                        .contentShape(Capsule())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("RPE \(CutSetLoggingLogic.formatRPE(value))")
+                .accessibilityAddTraits(selected ? .isSelected : [])
             }
-            .scrollIndicators(.hidden)
         }
     }
 
@@ -538,7 +553,7 @@ struct CutSetLoggingView: View {
             } else if free > 0 {
                 CutColumnsLayout(columns: columns, spacing: 8) {
                     segments
-                    addSetButton
+                    addSetSegment
                         .cutColumnSpan(free)
                 }
             } else {
@@ -548,6 +563,29 @@ struct CutSetLoggingView: View {
                 }
             }
         }
+    }
+
+    /// "Add set" drawn as one more segment: an outlined bar level with the others and its
+    /// label on their label line.
+    private var addSetSegment: some View {
+        Button(action: actions.addSet) {
+            VStack(alignment: .leading, spacing: 8) {
+                SlantedSegmentShape()
+                    .strokeBorder(DS.Cut.Colors.hairlineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .frame(maxWidth: 96)
+                    .frame(height: 8)
+                    .accessibilityHidden(true)
+                Label("Add set", systemImage: "plus")
+                    .labelStyle(.titleAndIcon)
+                    .font(DS.Cut.Typography.font(.secondary).weight(.bold))
+                    .foregroundStyle(DS.Cut.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var addSetButton: some View {
@@ -573,13 +611,11 @@ struct CutSetLoggingView: View {
 
     // MARK: Lists
 
-    private func lists(showsAddRow: Bool) -> some View {
+    /// `showsRestTip` is false while the rest tip sits in the line over the pill instead.
+    private func lists(showsAddRow: Bool, showsRestTip: Bool) -> some View {
         CutHairlineList {
-            if let zone = restZone {
-                CutAdviceRow(text: zone.tip, actionTitle: nil, action: nil) {
-                    withAnimation(.easeInOut(duration: 0.2)) { restZone = nil }
-                    if zone == .strength { strengthDismissCount += 1 } else { pumpDismissCount += 1 }
-                }
+            if showsRestTip, let zone = restZone {
+                CutAdviceRow(text: zone.tip, actionTitle: nil, action: nil) { dismissRestZone(zone) }
             }
             if model.plateauSessions >= 3 && !plateauDismissed {
                 CutAdviceRow(
@@ -641,6 +677,11 @@ struct CutSetLoggingView: View {
 
     // MARK: Rest advice
 
+    private func dismissRestZone(_ zone: CutRestZone) {
+        withAnimation(.easeInOut(duration: 0.2)) { restZone = nil }
+        if zone == .strength { strengthDismissCount += 1 } else { pumpDismissCount += 1 }
+    }
+
     private func scheduleRestZone(reps: Int) {
         restZoneWork?.cancel()
         let work = DispatchWorkItem {
@@ -656,13 +697,31 @@ struct CutSetLoggingView: View {
 
     // MARK: Bottom action
 
-    /// One supporting line, then the pill: filled lime, or a lime outline while resting.
+    /// One supporting line, then the pill: filled lime, or a lime outline while resting. A rest
+    /// tip joins the line as its second sentence, with its dismiss button at the trailing edge.
     @ViewBuilder
     private func bottomAction(_ bar: CutSetLoggingBar, isResting: Bool) -> some View {
         if bar != .hidden {
-            let line = CutSetLoggingLogic.pillLine(bar, isResting: isResting)
-            VStack(spacing: 12) {
-                if let line {
+            let tip = CutSetLoggingLogic.tipJoinsPillLine(bar, isResting: isResting) ? restZone : nil
+            let line = CutSetLoggingLogic.pillLine(bar, isResting: isResting, tip: tip)
+            VStack(spacing: tip == nil ? 12 : 4) {
+                if let line, let tip {
+                    HStack(spacing: 8) {
+                        Text(line)
+                            .cutFont(.secondary)
+                            .foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .accessibilityHidden(true)
+                        Button("Dismiss tip", systemImage: "xmark") { dismissRestZone(tip) }
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(DS.Cut.Colors.textPrimary)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .transition(.opacity)
+                } else if let line {
                     Text(line)
                         .cutFont(.secondary)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
@@ -857,6 +916,73 @@ private struct CutHoldClock: View {
             Text(CutSetLoggingLogic.clock(seconds))
                 .accessibilityLabel("Hold")
                 .accessibilityValue(Duration.seconds(seconds).formatted(.units(allowed: [.minutes, .seconds])))
+        }
+    }
+}
+
+// MARK: - Pills
+
+/// The small pill under the inputs: a title and a chevron in an outline capsule (44 pt high), or
+/// filled white with ink text.
+private struct CutPillLabel: View {
+    let title: String
+    let systemImage: String
+    var isFilled = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+            Image(systemName: systemImage)
+                .font(.system(size: 13, weight: .bold))
+                .accessibilityHidden(true)
+        }
+        .font(DS.Cut.Typography.font(.buttonCompact))
+        .foregroundStyle(isFilled ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .frame(minHeight: 44)
+        .background(Capsule().fill(isFilled ? DS.Cut.Colors.textPrimary : .clear))
+        .overlay(Capsule().strokeBorder(isFilled ? .clear : DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
+        .contentShape(Capsule())
+    }
+}
+
+/// Equal cells across the width: all in one row while the widest fits its share, otherwise the
+/// fewest rows that hold it (CutSetLoggingLogic.rpeColumns). Each row is as tall as its tallest cell.
+private struct CutEqualCellsLayout: Layout {
+    let spacing: CGFloat
+    let rowSpacing: CGFloat
+
+    private func grid(width: CGFloat, subviews: Subviews) -> (columns: Int, cell: CGFloat, rowHeights: [CGFloat]) {
+        let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
+        let columns = CutSetLoggingLogic.rpeColumns(count: subviews.count, widestValue: widest,
+                                                    width: width, spacing: spacing)
+        let cell = max(0, (width - spacing * CGFloat(columns - 1)) / CGFloat(columns))
+        var heights: [CGFloat] = []
+        for start in stride(from: 0, to: subviews.count, by: columns) {
+            let row = subviews[start..<min(start + columns, subviews.count)]
+            heights.append(row.map { $0.sizeThatFits(ProposedViewSize(width: cell, height: nil)).height }.max() ?? 0)
+        }
+        return (columns, cell, heights)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.replacingUnspecifiedDimensions().width
+        let heights = grid(width: width, subviews: subviews).rowHeights
+        return CGSize(width: width, height: heights.reduce(0, +) + rowSpacing * CGFloat(max(0, heights.count - 1)))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let (columns, cell, heights) = grid(width: bounds.width, subviews: subviews)
+        var y = bounds.minY
+        for (row, height) in heights.enumerated() {
+            for column in 0..<columns {
+                let index = row * columns + column
+                guard index < subviews.count else { break }
+                subviews[index].place(at: CGPoint(x: bounds.minX + CGFloat(column) * (cell + spacing), y: y),
+                                      anchor: .topLeading, proposal: ProposedViewSize(width: cell, height: height))
+            }
+            y += height + rowSpacing
         }
     }
 }
@@ -1101,17 +1227,24 @@ enum CutSetLoggingFixtures {
         let sets: [SetInput]
         let active: Int
         var rest: CutRestSource = .none
+        /// A rest tip already showing.
+        var restZone: CutRestZone?
+        /// The RPE values already open.
+        var rpeOpen = false
     }
 
+    static let target = "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6"
+    static let pr = "PR 100\u{00A0}kg"
+
     static func model(_ name: String = "Bench Press", mode: CutSetMode = .weighted, sets: [SetInput], active: Int,
-                      support: String? = "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6, PR 100\u{00A0}kg",
-                      next: String? = nil, plateau: Int = 0) -> CutSetLoggingModel {
+                      detail: String? = target, pr: String? = pr,
+                      next: String? = nil, plateau: Int = 0, restSeconds: Int = 120) -> CutSetLoggingModel {
         CutSetLoggingModel(
             exerciseName: name, mode: mode, unit: .kg,
-            supportLine: support, canSuperset: true, isInSuperset: false,
-            restSeconds: 120, plateauSessions: plateau,
+            support: CutExerciseSupport(detail: detail, pr: pr), canSuperset: true, isInSuperset: false,
+            restSeconds: restSeconds, plateauSessions: plateau,
             nextExercise: next.map { (UUID(), $0) }, weightStep: 2.5, weightStepKg: 2.5,
-            adviceRestSeconds: 120, defaultDurationSeconds: 45)
+            adviceRestSeconds: restSeconds, defaultDurationSeconds: 45)
     }
 
     static func weighted(done: Int, count: Int = 4) -> [SetInput] {
@@ -1134,6 +1267,10 @@ enum CutSetLoggingFixtures {
         var added = curl
         added.isCompleted = false
         let noPlanLog = [curl, added]
+        // High reps on a 1:45 rest: the pump tip joins the rest line.
+        let highRep = [SetInput(reps: 20, weight: 30, autoWeight: false, didSeedFromMemory: true)]
+        var rpePicked = weighted(done: 2)
+        rpePicked[2].rpe = 8
         var ghost = weighted(done: 2)
         ghost[2].isGhost = true
         ghost[3].isGhost = true
@@ -1142,16 +1279,24 @@ enum CutSetLoggingFixtures {
             State(name: "mid", model: model(sets: mid, active: 2, plateau: 3), sets: mid, active: 2),
             State(name: "last", model: model(sets: last, active: 3), sets: last, active: 3),
             State(name: "next-exercise", model: model(sets: allDone, active: 3, next: "Incline DB Press"), sets: allDone, active: 3),
+            State(name: "tip", model: model("Barbell Bench Press", sets: highRep, active: 0, detail: nil,
+                                            pr: "PR 93\u{00A0}kg", restSeconds: 105),
+                  sets: highRep, active: 0, restZone: .pump),
+            State(name: "rpe-open", model: model("Barbell Bench Press", sets: rpePicked, active: 2, detail: nil,
+                                                 pr: "PR 93\u{00A0}kg", restSeconds: 105),
+                  sets: rpePicked, active: 2, rpeOpen: true),
             State(name: "bodyweight", model: model("Pull-ups", mode: .bodyweight, sets: bodyweight, active: 2,
-                                                  support: "Record 15 reps, last 12 reps"), sets: bodyweight, active: 2),
-            State(name: "timed", model: model("Plank", mode: .timed, sets: timed, active: 1, support: nil), sets: timed, active: 1),
+                                                  detail: "Record 15 reps, last 12 reps", pr: nil), sets: bodyweight, active: 2),
+            State(name: "timed", model: model("Plank", mode: .timed, sets: timed, active: 1, detail: nil, pr: nil),
+                  sets: timed, active: 1),
             State(name: "resting", model: model(sets: mid, active: 2), sets: mid, active: 2, rest: .fixed(92)),
             State(name: "resting-after-last", model: model(sets: allDone, active: 3), sets: allDone, active: 3, rest: .fixed(118)),
             State(name: "all-done", model: model(sets: allDone, active: 3), sets: allDone, active: 3),
             State(name: "ghost", model: model(sets: ghost, active: 2), sets: ghost, active: 2),
-            State(name: "no-plan-resting", model: model("Dumbbell Curl", sets: noPlanRest, active: 0, support: nil),
+            State(name: "no-plan-resting", model: model("Dumbbell Curl", sets: noPlanRest, active: 0, detail: nil, pr: nil),
                   sets: noPlanRest, active: 0, rest: .fixed(91)),
-            State(name: "no-plan-log", model: model("Dumbbell Curl", sets: noPlanLog, active: 1, support: "PR 34\u{00A0}kg"),
+            State(name: "no-plan-log", model: model("Dumbbell Curl", sets: noPlanLog, active: 1, detail: nil,
+                                                    pr: "PR 34\u{00A0}kg"),
                   sets: noPlanLog, active: 1)
         ]
     }

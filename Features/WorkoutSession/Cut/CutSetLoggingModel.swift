@@ -43,6 +43,11 @@ enum CutRestZone: Equatable {
     case strength, pump
 
     var tip: String { self == .strength ? "4 min rest for strength sets" : "1 min rest for high-rep sets" }
+    /// The tip as the second sentence of the rest line over the pill.
+    /// No-break space and hyphen keep "1 min" and "high-rep" whole when the line wraps.
+    var followUp: String {
+        self == .strength ? "Strength sets do better with 4\u{00A0}min." : "1\u{00A0}min is enough for high\u{2011}rep sets."
+    }
     var dismissKey: String { self == .strength ? "rest_rec_strength_dismiss_count" : "rest_rec_pump_dismiss_count" }
 }
 
@@ -60,13 +65,29 @@ enum CutSetLoggingBar: Equatable {
     case addSet
 }
 
+/// What the legacy header said about the exercise, in two parts: the record ("PR 100 kg"), which
+/// joins the lime set line, and the rest ("Target 87.5 kg x 6", "Record 15 reps, last 12 reps"),
+/// which stays a grey line under the name.
+struct CutExerciseSupport: Equatable {
+    var detail: String?
+    var pr: String?
+
+    static let none = CutExerciseSupport(detail: nil, pr: nil)
+
+    /// Both parts on one line, as the resting state shows them.
+    var line: String? {
+        let parts = [detail, pr].compactMap { $0 }.filter { !$0.isEmpty }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+    }
+}
+
 /// Everything the Cut set logging screen shows, apart from the editable sets.
 struct CutSetLoggingModel: Equatable {
     var exerciseName: String
     var mode: CutSetMode
     var unit: WeightUnit
-    /// The exercise name's one supporting line: target, record, last.
-    var supportLine: String?
+    /// What the screen says about the exercise: target, record, last.
+    var support: CutExerciseSupport
     var canSuperset: Bool
     var isInSuperset: Bool
     /// Planned rest after a set, in seconds; nil when the rest timer is off.
@@ -84,9 +105,12 @@ struct CutSetLoggingModel: Equatable {
     /// The legacy timed row's default duration for new sets.
     var defaultDurationSeconds: Int?
 
+    /// The support on one line: "Target 87.5 kg x 6, PR 100 kg".
+    var supportLine: String? { support.line }
+
     static func == (lhs: CutSetLoggingModel, rhs: CutSetLoggingModel) -> Bool {
         lhs.exerciseName == rhs.exerciseName && lhs.mode == rhs.mode && lhs.unit == rhs.unit
-            && lhs.supportLine == rhs.supportLine
+            && lhs.support == rhs.support
             && lhs.canSuperset == rhs.canSuperset && lhs.isInSuperset == rhs.isInSuperset
             && lhs.restSeconds == rhs.restSeconds && lhs.plateauSessions == rhs.plateauSessions
             && lhs.nextExercise?.id == rhs.nextExercise?.id && lhs.weightStep == rhs.weightStep
@@ -107,12 +131,14 @@ enum CutSetLoggingLogic {
     }
 
     /// The lime line while not resting: the active set ("Set 3 of 4", "Set 2"), or how many sets
-    /// are logged once every set is ("4 sets logged").
-    static func entryLine(sets: [SetInput], activeSetIndex: Int) -> String {
-        guard !sets.isEmpty, sets.allSatisfy(\.isCompleted) else {
-            return setLine(setIndex: activeSetIndex, setCount: sets.count)
-        }
-        return loggedCount(sets.count)
+    /// are logged once every set is ("4 sets logged"), followed by the record when there is one
+    /// ("Set 3 of 4, PR 100 kg").
+    static func entryLine(sets: [SetInput], activeSetIndex: Int, pr: String? = nil) -> String {
+        let line = !sets.isEmpty && sets.allSatisfy(\.isCompleted)
+            ? loggedCount(sets.count)
+            : setLine(setIndex: activeSetIndex, setCount: sets.count)
+        guard let pr, !pr.isEmpty else { return line }
+        return "\(line), \(pr)"
     }
 
     /// "1 set logged", "4 sets logged".
@@ -130,9 +156,39 @@ enum CutSetLoggingLogic {
         return "\(exerciseName), \(loggedCount(sets.filter(\.isCompleted).count))"
     }
 
-    /// One line under the exercise name, from what the legacy header and rows showed:
-    /// weighted: the progression target and the estimated one-rep max ("PR"),
-    /// bodyweight: the rep record and the last working set.
+    /// What the legacy header and rows showed about the exercise:
+    /// weighted: the progression target (detail) and the estimated one-rep max (PR),
+    /// bodyweight: the rep record and the last working set (detail, no PR).
+    static func support(
+        mode: CutSetMode,
+        unit: WeightUnit,
+        progression: (weightKg: Double, reps: Int)?,
+        bestE1RMKg: Double?,
+        prReps: Int?,
+        lastReps: Int?
+    ) -> CutExerciseSupport {
+        switch mode {
+        case .weighted:
+            let target = progression.map {
+                "Target \(nb(unit.format($0.weightKg)))\u{00A0}x\u{00A0}\($0.reps)"
+            }
+            var pr: String?
+            if let bestE1RMKg, bestE1RMKg > 0 {
+                let display = unit == .kg ? bestE1RMKg : bestE1RMKg * 2.20462
+                pr = "PR \(String(format: "%.0f", display))\u{00A0}\(unit.rawValue)"
+            }
+            return CutExerciseSupport(detail: target, pr: pr)
+        case .bodyweight:
+            var parts: [String] = []
+            if let prReps, prReps > 0 { parts.append("Record \(prReps) reps") }
+            if prReps != nil, let lastReps, lastReps > 0 { parts.append("last \(lastReps) reps") }
+            return CutExerciseSupport(detail: parts.isEmpty ? nil : parts.joined(separator: ", "), pr: nil)
+        case .timed:
+            return .none
+        }
+    }
+
+    /// The support on one line: "Target 87.5 kg x 6, PR 100 kg".
     static func supportLine(
         mode: CutSetMode,
         unit: WeightUnit,
@@ -141,24 +197,8 @@ enum CutSetLoggingLogic {
         prReps: Int?,
         lastReps: Int?
     ) -> String? {
-        var parts: [String] = []
-        switch mode {
-        case .weighted:
-            if let progression {
-                parts.append("Target \(nb(unit.format(progression.weightKg)))\u{00A0}x\u{00A0}\(progression.reps)")
-            }
-            if let bestE1RMKg, bestE1RMKg > 0 {
-                let display = unit == .kg ? bestE1RMKg : bestE1RMKg * 2.20462
-                parts.append("PR \(String(format: "%.0f", display))\u{00A0}\(unit.rawValue)")
-            }
-        case .bodyweight:
-            if let prReps, prReps > 0 { parts.append("Record \(prReps) reps") }
-            if prReps != nil, let lastReps, lastReps > 0 { parts.append("last \(lastReps) reps") }
-        case .timed:
-            break
-        }
-        guard !parts.isEmpty else { return nil }
-        return parts.joined(separator: ", ")
+        support(mode: mode, unit: unit, progression: progression, bestE1RMKg: bestE1RMKg,
+                prReps: prReps, lastReps: lastReps).line
     }
 
     /// "Rest 2:00 starts after", or nil when the rest timer is off.
@@ -193,13 +233,56 @@ enum CutSetLoggingLogic {
     }
 
     /// The one line above the pill: the rest that logging starts (not while a rest already runs),
-    /// or the next exercise's name.
-    static func pillLine(_ bar: CutSetLoggingBar, isResting: Bool) -> String? {
+    /// or the next exercise's name. A rest tip that joins the line follows as a second sentence:
+    /// "Rest 1:45 starts after. 1 min is enough for high-rep sets."
+    static func pillLine(_ bar: CutSetLoggingBar, isResting: Bool, tip: CutRestZone? = nil) -> String? {
+        let joined = tipJoinsPillLine(bar, isResting: isResting) ? tip : nil
         switch bar {
-        case .logSet(let restLine): isResting ? nil : restLine
-        case .nextExercise(let name): name
-        case .addSet, .hidden: nil
+        case .logSet(let restLine):
+            if isResting { return nil }
+            guard let joined else { return restLine }
+            guard let restLine else { return joined.tip }
+            return "\(restLine). \(joined.followUp)"
+        case .nextExercise(let name): return name
+        case .addSet, .hidden: return nil
         }
+    }
+
+    /// The rest tip joins the line over the pill while a set is being entered with Log set;
+    /// otherwise (resting, next exercise, add set) it stays an advice row in the list.
+    static func tipJoinsPillLine(_ bar: CutSetLoggingBar, isResting: Bool) -> Bool {
+        guard !isResting, case .logSet = bar else { return false }
+        return true
+    }
+
+    /// The RPE pill under the inputs: "RPE" until a value is chosen, then "RPE 8".
+    static func rpePillTitle(_ rpe: Double?) -> String {
+        guard let rpe else { return "RPE" }
+        return "RPE \(formatRPE(rpe))"
+    }
+
+    /// The RPE pill's VoiceOver value: the chosen number, or "Not set".
+    static func rpeAccessibilityValue(_ rpe: Double?) -> String {
+        rpe.map(formatRPE) ?? "Not set"
+    }
+
+    /// The RPE pill and its values show where the legacy RPE chips did: weighted working sets
+    /// not yet logged.
+    static func showsRPE(mode: CutSetMode, set: SetInput?) -> Bool {
+        guard mode == .weighted, let set else { return false }
+        return set.tag == .working && !set.isCompleted
+    }
+
+    /// How many RPE values go in a row: all of them while the widest fits an equal share of the
+    /// width, otherwise the fewest rows (two, then three...) whose equal cells hold it.
+    static func rpeColumns(count: Int, widestValue: Double, width: Double, spacing: Double) -> Int {
+        guard count > 0 else { return 1 }
+        for rows in 1...count {
+            let columns = Int((Double(count) / Double(rows)).rounded(.up))
+            let cell = (width - spacing * Double(columns - 1)) / Double(columns)
+            if widestValue <= cell { return columns }
+        }
+        return 1
     }
 
     /// The supporting line under the next set while resting: "Working set. Target 87.5 kg x 6".

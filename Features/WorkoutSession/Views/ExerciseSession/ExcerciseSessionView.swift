@@ -271,7 +271,7 @@ struct ExerciseSessionView: View {
             exerciseName: exercise.name,
             mode: mode,
             unit: unit,
-            supportLine: CutSetLoggingLogic.supportLine(
+            support: CutSetLoggingLogic.support(
                 mode: mode, unit: unit,
                 progression: viewModel.appliedProgression.map { ($0.suggestedWeight, $0.suggestedReps) },
                 bestE1RMKg: mode == .weighted ? store.bestE1RM(exercise: exercise) : nil,
