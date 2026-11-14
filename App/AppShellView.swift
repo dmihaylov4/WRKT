@@ -267,7 +267,6 @@ struct AppShellView: View {
                 workoutToken: workoutToken,
                 updateWorkoutToken: updateWorkoutToken,
                 handleWorkoutsCountChange: handleWorkoutsCountChange,
-                handleNewWorkoutCompleted: handleNewWorkoutCompleted,
                 handleWorkoutTokenChange: handleWorkoutTokenChange
             ))
             .modifier(LifecycleModifiers(
@@ -578,17 +577,6 @@ struct AppShellView: View {
 
         // Stats reindex is now handled in bootstrap - no action needed here
         AppLogger.debug("Stats and workouts ready - reindex handled in bootstrap", category: AppLogger.statistics)
-    }
-
-    private func handleNewWorkoutCompleted(_ oldCount: Int, _ newCount: Int) {
-        guard workoutsLoaded, repoIsBootstrapped, let agg = stats else { return }
-        guard newCount > oldCount else { return }
-        guard let latest = store.completedWorkouts.last else { return }
-
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 500_000_000)
-            await agg.apply(latest, allWorkouts: store.completedWorkouts)
-        }
     }
 
     private func handleWorkoutTokenChange(_ oldValue: String, _ newValue: String) {
@@ -902,7 +890,6 @@ private struct WorkoutChangeModifiers: ViewModifier {
     let workoutToken: String
     let updateWorkoutToken: () -> Void
     let handleWorkoutsCountChange: (Int) -> Void
-    let handleNewWorkoutCompleted: (Int, Int) -> Void
     let handleWorkoutTokenChange: (String, String) -> Void
 
     func body(content: Content) -> some View {
@@ -915,9 +902,6 @@ private struct WorkoutChangeModifiers: ViewModifier {
             }
             .onChange(of: completedCount) { _, newCount in
                 handleWorkoutsCountChange(newCount)
-            }
-            .onChange(of: completedCount) { oldCount, newCount in
-                handleNewWorkoutCompleted(oldCount, newCount)
             }
             .onChange(of: workoutToken) { oldValue, newValue in
                 handleWorkoutTokenChange(oldValue, newValue)
