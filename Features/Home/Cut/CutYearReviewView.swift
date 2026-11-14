@@ -216,14 +216,14 @@ private struct CutYearReviewIntroCard: View {
                     Text("Your year is ready")
                         .cutFont(.title)
                         .padding(.leading, 24)
-                    CutYearReviewCountUp(value: Double(landed ? stats.year : stats.year - 1)) { String(Int($0.rounded())) }
+                    // The year is shown as is. It used to tick up from the year before, which
+                    // read as the wrong year loading first.
+                    Text(String(stats.year))
                         .font(DS.Cut.Typography.condensed(size: 168, monospacedDigits: true))
                         .tracking(-3)
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
                         .padding(.top, 36)
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.9).delay(0.35), value: landed)
-                        .accessibilityLabel(Text(String(stats.year)))
                     Text(CutYearReviewLogic.teaser(stats: stats, unit: unit))
                         .font(DS.Cut.Typography.condensed(size: 28, weight: .bold, relativeTo: .title2))
                         .fixedSize(horizontal: false, vertical: true)
@@ -706,8 +706,8 @@ struct CutYearReviewShareCard: View {
                     .accessibilityHidden(true)
             }
             .padding(.leading, 24)
-            CutHeroText(headline, hero: .m, minimumScaleFactor: 0.5)
-                .lineLimit(nil)
+            // Two balanced lines: on one line a long claim shrank and was still cut off.
+            CutHeroText(CutHeroText.balancedLines(headline), hero: .m, minimumScaleFactor: 0.5)
                 .padding(.top, 20)
             VStack(spacing: 0) {
                 Rectangle().fill(DS.Cut.Colors.inkHairline).frame(height: 1)
