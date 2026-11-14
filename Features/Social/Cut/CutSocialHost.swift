@@ -371,7 +371,7 @@ struct CutSocialFeedHost: View {
         guard let userId = deps.authService.currentUser?.id else { return [] }
         do {
             if deps.workoutStore.isStorageLoaded == false {
-                try? await deps.workoutStore.reloadWorkouts()
+                try? await deps.workoutStore.waitForStorage()
             }
             let userChallenges = try await deps.challengeRepository.fetchUserChallenges(userId: userId)
             let completedWorkouts = deps.workoutStore.completedWorkouts
