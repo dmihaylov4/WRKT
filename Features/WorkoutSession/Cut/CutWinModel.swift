@@ -24,11 +24,34 @@ struct CutWinRow: Equatable, Identifiable {
     let value: String
 }
 
+/// One XP line item as the count-up lands it.
 struct CutWinXPItem: Equatable, Identifiable {
     let id: String
+    /// The source in title case, as the legacy breakdown named it ("Workout Complete").
     let title: String
-    let detail: String?
-    let xp: String
+    /// The source in sentence case for the label next to the number ("Workout complete").
+    let label: String
+    let amount: Int
+}
+
+/// One beat of the XP count-up: at `time` seconds after the screen appears the total jumps to
+/// `total`, and `label` ("+50 Workout complete") joins the line under the number.
+struct CutWinXPStep: Equatable {
+    let time: TimeInterval
+    /// Nil for a step that only completes the total (no line items at all).
+    let label: String?
+    let total: Int
+    /// False when the step lands on top of a reward haptic, so taps do not double up.
+    let haptic: Bool
+}
+
+/// What the XP count-up shows at one moment.
+struct CutWinXPFrame: Equatable {
+    let total: Int
+    /// How many steps have landed.
+    let landed: Int
+    /// The landed labels on one quiet line, nil before the first lands.
+    let labelsLine: String?
 }
 
 struct CutWinModel: Equatable {
@@ -43,26 +66,111 @@ struct CutWinModel: Equatable {
     /// Duration, volume and sets, when a workout was completed.
     var stats: [CutWinStat]
     var rows: [CutWinRow]
-    /// The legacy XP breakdown, opened from a row.
+    /// The XP line items, in the order the count-up lands them.
     var xpItems: [CutWinXPItem]
+    /// The count-up: items one at a time, then a closing step for any difference (a multiplier
+    /// or bonus) so the last total always equals the summary's XP. Empty when no XP was earned.
+    var xpSteps: [CutWinXPStep]
     var showsShare: Bool
 }
 
 enum CutWinLogic {
     static func model(summary: RewardSummary, workout: CompletedWorkout?, unit: WeightUnit,
                       tierName: (Int) -> String? = { _ in nil }) -> CutWinModel {
-        CutWinModel(
+        let items = xpItems(summary.xpLineItems)
+        let haptics = rewardHaptics(gotLuckyBonus: summary.gotLuckyBonus, plateCount: summary.earnedPlates.count)
+        return CutWinModel(
             hero: workout != nil ? "Done." : "New reward.",
-            xp: summary.xp > 0 ? "+\(grouped(Double(summary.xp)))\u{00A0}XP" : nil,
+            xp: summary.xp > 0 ? xpText(summary.xp) : nil,
             levelLine: levelLine(summary),
             recordLine: recordLine(prCount: summary.prCount),
             stats: workout.map { stats($0, unit: unit) } ?? [],
             rows: rows(summary, tierName: tierName),
-            xpItems: summary.xpLineItems.map {
-                CutWinXPItem(id: $0.id, title: humanize($0.source), detail: $0.detail.map(humanize), xp: "+\($0.xp)")
-            },
+            xpItems: items,
+            xpSteps: xpSteps(items: items, totalXP: summary.xp,
+                             closingLabel: summary.gotLuckyBonus ? "Lucky bonus" : "Bonus",
+                             quietTimes: haptics.all),
             showsShare: workout != nil
         )
+    }
+
+    /// "+240 XP"; "0 XP" before the count-up has landed anything.
+    static func xpText(_ xp: Int) -> String {
+        xp > 0 ? "+\(grouped(Double(xp)))\u{00A0}XP" : "0\u{00A0}XP"
+    }
+
+    // MARK: XP count-up
+
+    /// When the first item lands: after the hero and the XP line have risen into place.
+    static let xpCountStart: TimeInterval = 0.6
+    /// Time between items.
+    static let xpCountInterval: TimeInterval = 0.55
+    /// A step this close to a reward haptic stays silent.
+    static let hapticGap: TimeInterval = 0.18
+
+    /// Line items that earned XP, in their order.
+    static func xpItems(_ lineItems: [XPLineItem]) -> [CutWinXPItem] {
+        lineItems.filter { $0.xp > 0 }.map {
+            CutWinXPItem(id: $0.id, title: humanize($0.source), label: sentenceCase($0.source), amount: $0.xp)
+        }
+    }
+
+    /// Items in, timed steps out. Each item adds its amount; if the items fall short of
+    /// `totalXP` a closing step adds the difference, and if they overshoot the running total is
+    /// held at `totalXP`, so the last step's total is always `totalXP`. With no items the whole
+    /// amount lands in one unlabelled step.
+    static func xpSteps(items: [CutWinXPItem], totalXP: Int, closingLabel: String,
+                        quietTimes: [TimeInterval] = []) -> [CutWinXPStep] {
+        guard totalXP > 0 else { return [] }
+        var beats: [(label: String?, total: Int)] = []
+        var sum = 0
+        for item in items {
+            sum += item.amount
+            beats.append(("+\(grouped(Double(item.amount))) \(item.label)", min(sum, totalXP)))
+        }
+        if sum < totalXP {
+            let difference = totalXP - sum
+            beats.append((items.isEmpty ? nil : "+\(grouped(Double(difference))) \(closingLabel)", totalXP))
+        }
+        return beats.enumerated().map { index, beat in
+            let time = xpCountStart + Double(index) * xpCountInterval
+            return CutWinXPStep(time: time, label: beat.label, total: beat.total,
+                                haptic: !quietTimes.contains { abs($0 - time) < hapticGap })
+        }
+    }
+
+    /// The count-up at `elapsed` seconds after the screen appeared. Reduce Motion (or a capture)
+    /// shows the final total and every label at once.
+    static func xpFrame(steps: [CutWinXPStep], elapsed: TimeInterval, reduceMotion: Bool) -> CutWinXPFrame {
+        // A small tolerance so a timeline entry that fires a hair early still lands its step.
+        let landed = reduceMotion ? steps.count : steps.prefix { $0.time <= elapsed + 0.01 }.count
+        let labels = steps.prefix(landed).compactMap(\.label)
+        return CutWinXPFrame(total: landed > 0 ? steps[landed - 1].total : 0, landed: landed,
+                             labelsLine: labels.isEmpty ? nil : labels.joined(separator: ", "))
+    }
+
+    /// The reward feedback CutWinScreen plays, in seconds after it appears: the barbell reward
+    /// and the lucky bonus at once, the lucky bonus's second tap, then a tap per plate.
+    struct RewardHaptics: Equatable {
+        let luckyFollowUp: TimeInterval?
+        let plates: [TimeInterval]
+
+        var all: [TimeInterval] { [0] + [luckyFollowUp].compactMap { $0 } + plates }
+    }
+
+    static func rewardHaptics(gotLuckyBonus: Bool, plateCount: Int) -> RewardHaptics {
+        let baseDelay = gotLuckyBonus ? 0.3 : 0.0
+        let plateStart = baseDelay + 1.1
+        return RewardHaptics(luckyFollowUp: gotLuckyBonus ? baseDelay + 0.4 : nil,
+                             plates: (0..<max(0, plateCount)).map { plateStart + Double($0) * 0.25 })
+    }
+
+    /// "Workout Complete" to "Workout complete"; the bare "PR" source reads as "Personal record".
+    static func sentenceCase(_ raw: String) -> String {
+        let words = humanize(raw)
+        if words.lowercased() == "pr" { return "Personal record" }
+        guard let first = words.first else { return words }
+        return first.uppercased() + words.dropFirst().lowercased()
     }
 
     static func levelLine(_ summary: RewardSummary) -> String? {
