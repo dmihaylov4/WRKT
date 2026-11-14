@@ -112,8 +112,8 @@ struct CompletedWorkout: Identifiable, Codable, Hashable {
         if matchedHealthKitUUID != nil && entries.isEmpty {
             return true
         }
-        // If there's matched HealthKit data with calories but few/no strength exercises, it's cardio
-        if matchedHealthKitCalories != nil && entries.count < 2 {
+        // Matched HealthKit calories with no strength exercises is cardio; one logged exercise is still strength
+        if matchedHealthKitCalories != nil && entries.isEmpty {
             return true
         }
         return false

@@ -123,6 +123,18 @@ final class CompletedWorkoutTests: WRKTTestCase {
         XCTAssertEqual(workout.matchedHealthKitDuration, 3600)
     }
 
+    // A4: a matched strength workout with one exercise is still strength.
+    func testOneExerciseWorkoutWithMatchedCaloriesIsNotCardio() {
+        var strength = CompletedWorkout(date: Date(), entries: [TestFixtures.benchPressEntry])
+        strength.matchedHealthKitUUID = UUID()
+        strength.matchedHealthKitCalories = 220
+        XCTAssertFalse(strength.isCardioWorkout)
+
+        var cardio = CompletedWorkout(date: Date(), entries: [])
+        cardio.matchedHealthKitCalories = 300
+        XCTAssertTrue(cardio.isCardioWorkout)
+    }
+
     func testCompletedWorkoutWithHeartRateSamples() throws {
         let json = """
         {

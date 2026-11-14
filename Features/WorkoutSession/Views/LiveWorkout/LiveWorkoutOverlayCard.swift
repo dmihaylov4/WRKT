@@ -296,9 +296,8 @@ struct LiveWorkoutOverlayCard: View {
         let result = store.finishCurrentWorkoutAndReturnPRs()   // (workoutId, prCount)
 
         // 2) Calculate new exercises (first time completing them)
-        let seen = Set(store.completedWorkouts.dropFirst().flatMap { $0.entries.map(\.exerciseID) })
-        let thisIDs = Set((store.completedWorkouts.first?.entries ?? []).map(\.exerciseID))
-        let newIDs = thisIDs.subtracting(seen)
+        let finished = store.lastCompletedWorkout.flatMap { $0.id.uuidString == result.workoutId ? $0 : nil }
+        let newIDs = Self.newExerciseIDs(in: finished, history: store.completedWorkouts)
 
         // 3) Send reward events (async to avoid blocking UI)
         RewardsEngine.shared.processAsync(event: "workout_completed", payload: [
@@ -328,13 +327,20 @@ struct LiveWorkoutOverlayCard: View {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.85)) { onClose() }
 
         // 6) Show share workout sheet (after animation completes)
-        if let completedWorkout = store.completedWorkouts.first {
+        if let completedWorkout = finished {
             // Delay to allow close animation to complete first
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 completedWorkoutToShare = completedWorkout
                 showShareWorkout = true
             }
         }
+    }
+
+    /// Exercises in the finished workout that no other saved workout contains.
+    static func newExerciseIDs(in finished: CompletedWorkout?, history: [CompletedWorkout]) -> Set<String> {
+        guard let finished else { return [] }
+        let seen = Set(history.filter { $0.id != finished.id }.flatMap { $0.entries.map(\.exerciseID) })
+        return Set(finished.entries.map(\.exerciseID)).subtracting(seen)
     }
 
     private func discardWorkout() {

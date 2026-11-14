@@ -71,6 +71,43 @@ final class LiveActivityOrderingTests: XCTestCase {
         XCTAssertTrue(backend.requestedTimerIDs.isEmpty)
     }
 
+    // B1: running content goes stale at its end date; paused and finished content never does.
+    func testRunningContentIsStaleAtItsEndDate() {
+        let end = Date(timeIntervalSince1970: 2_000)
+        func content(remaining: Int, paused: Bool) -> RestTimerAttributes.ContentState {
+            .init(remainingSeconds: remaining, endDate: end, isPaused: paused, progress: 0.5,
+                wasAdjusted: false, lastUpdate: end.addingTimeInterval(-60))
+        }
+        XCTAssertEqual(RestTimerActivityClient.staleDate(for: content(remaining: 60, paused: false)), end)
+        XCTAssertNil(RestTimerActivityClient.staleDate(for: content(remaining: 60, paused: true)))
+        XCTAssertNil(RestTimerActivityClient.staleDate(for: content(remaining: 0, paused: false)))
+    }
+
+    // B5: a finished rest's activity ends once its linger time has passed.
+    func testCompletedActivityEndsAfterItsLingerTime() async {
+        let backend = ActivityBackend()
+        let manager = LiveActivityManager(client: backend.client, completedLinger: 120)
+        let running = runningRecord(revision: 1)
+        manager.reconcile(running)
+        await manager.waitForUpdates()
+        XCTAssertEqual(backend.active.count, 1)
+
+        var completed = running
+        completed.revision = 2
+        completed.state = .completed(exerciseID: "plank", exerciseName: "Plank")
+        completed.completedAt = Date()
+        manager.reconcile(completed)
+        await manager.waitForUpdates()
+        XCTAssertEqual(backend.active.count, 1, "A just-finished rest stays visible as Ready")
+
+        // The app returns well after the linger time: the overdue activity ends now.
+        var overdue = completed
+        overdue.completedAt = Date().addingTimeInterval(-600)
+        manager.reconcile(overdue)
+        await manager.waitForUpdates()
+        XCTAssertTrue(backend.active.isEmpty)
+    }
+
     private func runningRecord(revision: UInt64) -> RestTimerRecord {
         var record = RestTimerRecord()
         record.revision = revision

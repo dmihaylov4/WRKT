@@ -45,8 +45,12 @@ actor StatsAggregator {
     }
 
     /// Incremental apply for a single just-finished workout.
+    /// Weekly totals are assigned, so the whole week is rebuilt from every workout in it.
     func apply(_ completed: CompletedWorkout, allWorkouts: [CompletedWorkout]) async {
-        await recompute(for: [completed], merge: true, allWorkouts: allWorkouts)
+        let week = startOfWeek(for: completed.date)
+        var slice = allWorkouts.filter { startOfWeek(for: $0.date) == week }
+        if !slice.contains(where: { $0.id == completed.id }) { slice.append(completed) }
+        await recompute(for: slice, replacingWeeks: [week], allWorkouts: allWorkouts)
     }
 
     /// Recompute specific weeks from the given source (e.g., after edits/deletes).
@@ -236,7 +240,8 @@ actor StatsAggregator {
                            replacingWeeks: Set<Date> = [],
                            allWorkouts: [CompletedWorkout]? = nil) async
     {
-        guard !workouts.isEmpty else { return }
+        // Replacing weeks with no workouts left still has to purge their old rows.
+        guard !workouts.isEmpty || (!merge && !replacingWeeks.isEmpty) else { return }
         let ctx = ModelContext(container)
         ctx.autosaveEnabled = false
         let preservedHealthForReplacingWeeks = (!merge && !replacingWeeks.isEmpty)

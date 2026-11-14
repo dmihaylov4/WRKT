@@ -117,6 +117,16 @@ final class WorkoutStoreV2: ObservableObject {
     weak var authService: SupabaseAuthService?
     private var plannedWorkoutCompletionHandler: ((UUID, CompletedWorkout) -> Void)?
 
+    /// Receives the PRs found when a workout finishes. Tests replace it to observe them.
+    var prAutoPostSink: ([PRAchievement], CompletedWorkout) -> Void = { prAchievements, workout in
+        Task.detached(priority: .utility) {
+            await PRAutoPostService.shared.handlePRsIfNeeded(
+                prAchievements: prAchievements,
+                workout: workout
+            )
+        }
+    }
+
     // MARK: - UserDefaults keys
     private let defaults: UserDefaults
     private let lastImportKey = "health.lastImport.endDate"
@@ -276,9 +286,8 @@ final class WorkoutStoreV2: ObservableObject {
             let startedAt = workout.startedAt
             let window = DiscardedWorkoutWindow(workoutStartedAt: startedAt, discardedAt: Date())
             discardedWorkoutWindows.append(window)
-            Task {
-                try? await storage.saveDiscardedWorkoutWindows(discardedWorkoutWindows)
-            }
+            let windows = discardedWorkoutWindows
+            enqueueSave { try await $0.saveDiscardedWorkoutWindows(windows) }
             AppLogger.info("Tracked discard window: \(startedAt) to now", category: AppLogger.workout)
         }
 
@@ -288,9 +297,8 @@ final class WorkoutStoreV2: ObservableObject {
         currentWorkout = nil
         RestTimerManager.shared.stopTimer()
 
-        Task {
-            try? await storage.deleteCurrentWorkout()
-        }
+        // Queued behind any pending current-workout save so that save cannot land after the delete.
+        enqueueSave { try await $0.deleteCurrentWorkout() }
 
         // Show undo notification
         AppNotificationManager.shared.showWorkoutDiscarded {
@@ -305,9 +313,7 @@ final class WorkoutStoreV2: ObservableObject {
         currentWorkout = workout
         lastDiscardedWorkout = nil
 
-        Task {
-            try? await storage.saveCurrentWorkout(workout)
-        }
+        enqueueSave { try await $0.saveCurrentWorkout(workout) }
 
         Haptics.soft()
     }
@@ -315,6 +321,9 @@ final class WorkoutStoreV2: ObservableObject {
     func finishCurrentWorkout() {
         guard let w = currentWorkout, !w.entries.isEmpty else { return }
         var completed = CompletedWorkout(date: .now, startedAt: w.startedAt, entries: w.entries, plannedWorkoutID: w.plannedWorkoutID, excusedPlannedExerciseIDs: w.excusedPlannedExerciseIDs)
+
+        // Find PRs for auto-posting before the index includes this workout
+        let prAchievements = extractPRDetails(in: completed)
 
         // Update PR index and get count of new PRs
         let prCount = updatePRIndex(with: completed)
@@ -332,7 +341,7 @@ final class WorkoutStoreV2: ObservableObject {
         refreshSmartNotificationLearningAfterWorkoutCompletion()
 
         // Handle PR auto-posting
-        handlePRAutoPost(for: completed)
+        handlePRAutoPost(prAchievements, for: completed)
 
         // Persist to storage
         persistWorkouts()
@@ -890,9 +899,15 @@ final class WorkoutStoreV2: ObservableObject {
     // MARK: - Completed Workouts CRUD
 
     func addWorkout(_ workout: CompletedWorkout) {
-        completedWorkouts.insert(workout, at: 0)
+        completedWorkouts.append(workout)
+        completedWorkouts.sort(by: { $0.date < $1.date })
         rebuildPRIndexFromCompletedWorkouts()
         persistWorkouts()
+
+        let week = startOfWeek(for: workout.date)
+        Task.detached(priority: .utility) { [_stats, completedWorkouts] in
+            await _stats?.invalidate(weeks: [week], from: completedWorkouts)
+        }
     }
 
     func deleteWorkouts(at offsets: IndexSet) {
@@ -1615,6 +1630,7 @@ extension WorkoutStoreV2 {
         // Count PRs before updating the index
         let newPRs = countPRs(in: completed)
         completed.detectedPRCount = newPRs
+        let prAchievements = extractPRDetails(in: completed)
 
         // Normal finish logic - add workout and keep array sorted by date
         completedWorkouts.append(completed)
@@ -1624,7 +1640,7 @@ extension WorkoutStoreV2 {
         refreshSmartNotificationLearningAfterWorkoutCompletion()
 
         // Handle PR auto-posting
-        handlePRAutoPost(for: completed)
+        handlePRAutoPost(prAchievements, for: completed)
 
         persistWorkouts()
 
@@ -1727,18 +1743,11 @@ extension WorkoutStoreV2 {
     }
 
     /// Handle PR auto-posting after workout completion
-    private func handlePRAutoPost(for workout: CompletedWorkout) {
-        let prAchievements = extractPRDetails(in: workout)
-
+    /// `prAchievements` must be extracted before `updatePRIndex` includes this workout.
+    private func handlePRAutoPost(_ prAchievements: [PRAchievement], for workout: CompletedWorkout) {
         guard !prAchievements.isEmpty else { return }
 
-        // Run in background task
-        Task.detached(priority: .utility) {
-            await PRAutoPostService.shared.handlePRsIfNeeded(
-                prAchievements: prAchievements,
-                workout: workout
-            )
-        }
+        prAutoPostSink(prAchievements, workout)
     }
 
     // MARK: - Competitive Features Integration

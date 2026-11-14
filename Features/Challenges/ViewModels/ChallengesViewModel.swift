@@ -110,7 +110,7 @@ final class ChallengesViewModel {
 
     private func repairFirstRepProgressFromWorkoutHistory() async {
         if workoutStore?.isStorageLoaded == false {
-            try? await workoutStore?.reloadWorkouts()
+            try? await workoutStore?.waitForStorage()
         }
 
         guard let firstRep = activeChallenges.first(where: {

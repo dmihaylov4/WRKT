@@ -435,7 +435,7 @@ struct FeedView: View {
 
         do {
             if deps.workoutStore.isStorageLoaded == false {
-                try? await deps.workoutStore.reloadWorkouts()
+                try? await deps.workoutStore.waitForStorage()
             }
 
             let userChallenges = try await deps.challengeRepository.fetchUserChallenges(userId: userId)

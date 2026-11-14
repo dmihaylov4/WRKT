@@ -14,6 +14,12 @@ struct RestTimerActivityClient {
     var update: (String, RestTimerAttributes.ContentState) async -> Void
     var end: (String) async -> Void
 
+    /// A running countdown goes stale at its end date, so the system redraws it as
+    /// "Ready" even while the app is suspended. Paused and finished content never does.
+    nonisolated static func staleDate(for state: RestTimerAttributes.ContentState) -> Date? {
+        state.isPaused || state.remainingSeconds <= 0 ? nil : state.endDate
+    }
+
     static let live = RestTimerActivityClient(
         activities: {
             Activity<RestTimerAttributes>.activities.map { Reference(id: $0.id, timerID: $0.attributes.timerID) }
@@ -21,11 +27,11 @@ struct RestTimerActivityClient {
         areEnabled: { ActivityAuthorizationInfo().areActivitiesEnabled },
         request: { attributes, state in
             _ = try Activity<RestTimerAttributes>.request(attributes: attributes,
-                content: .init(state: state, staleDate: nil), pushType: nil)
+                content: .init(state: state, staleDate: RestTimerActivityClient.staleDate(for: state)), pushType: nil)
         },
         update: { id, state in
             await Activity<RestTimerAttributes>.activities.first(where: { $0.id == id })?
-                .update(.init(state: state, staleDate: nil))
+                .update(.init(state: state, staleDate: RestTimerActivityClient.staleDate(for: state)))
         },
         end: { id in
             await Activity<RestTimerAttributes>.activities.first(where: { $0.id == id })?
@@ -44,13 +50,19 @@ final class LiveActivityManager {
     private var pendingUpdate: Task<Void, Never>?
     private var latestRevision: UInt64?
     private var latestRequest = UUID()
+    private var completionEnd: Task<Void, Never>?
+    /// How long a finished rest stays on screen before its activity ends.
+    private let completedLinger: TimeInterval
 
-    init(client: RestTimerActivityClient = .live) {
+    init(client: RestTimerActivityClient = .live, completedLinger: TimeInterval = 120) {
         self.client = client
+        self.completedLinger = completedLinger
     }
 
     func reconcile(_ record: RestTimerRecord, errorMessage: String? = nil) {
         if let latestRevision, record.revision < latestRevision { return }
+        completionEnd?.cancel()
+        completionEnd = nil
         latestRevision = record.revision
         let request = UUID()
         latestRequest = request
@@ -103,6 +115,9 @@ final class LiveActivityManager {
         )
         if let current {
             await client.update(current.id, state)
+            if case .completed = record.state {
+                await endAfterLinger(current.id, completedAt: record.completedAt ?? now, request: request)
+            }
         } else if client.areEnabled(), case .running = record.state {
             // Do not recreate a dismissed activity just to display a past completion.
             guard remaining > 0 else { return }
@@ -113,6 +128,22 @@ final class LiveActivityManager {
             } catch {
                 AppLogger.error("Could not present rest timer activity: \(error)", category: AppLogger.app)
             }
+        }
+    }
+
+    /// Ends a finished rest's activity a little after completion. A suspended app runs
+    /// this on its next reconcile instead, which ends an overdue activity at once.
+    private func endAfterLinger(_ id: String, completedAt: Date, request: UUID) async {
+        let delay = completedAt.addingTimeInterval(completedLinger).timeIntervalSinceNow
+        guard delay > 0 else {
+            await client.end(id)
+            return
+        }
+        let client = client
+        completionEnd = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self, self.latestRequest == request else { return }
+            await client.end(id)
         }
     }
 }

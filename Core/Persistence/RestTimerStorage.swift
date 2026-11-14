@@ -11,6 +11,8 @@ struct RestTimerRecord: Codable, Equatable {
     var workoutID: UUID?
     var entryID: UUID?
     var appliedOperationIDs: [UUID]?
+    /// When the rest last reached zero. Older records decode it as nil.
+    var completedAt: Date?
 
     func validate() throws {
         guard schemaVersion == 1 else { throw RestTimerStorageError.unsupportedVersion }
