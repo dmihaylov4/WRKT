@@ -47,4 +47,26 @@ struct LaunchClapTimelineTests {
         #expect(LaunchClapTimeline.progress(elapsed: 0.45, start: 0.34, duration: 0.22) > 0.49)
         #expect(LaunchClapTimeline.progress(elapsed: 0.56, start: 0.34, duration: 0.22) == 1)
     }
+
+    @Test func clockPausesThroughHitchesInsteadOfSkipping() {
+        let clock = LaunchClapClock()
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        #expect(clock.advance(to: start) == 0)
+        // A 1.5 second main-thread stall must not carry the animation past the claps.
+        let afterStall = clock.advance(to: start.addingTimeInterval(1.5))
+        #expect(abs(afterStall - LaunchClapClock.maxStep) < 0.0001)
+        #expect(afterStall < LaunchClapTimeline.impacts[0])
+    }
+
+    @Test func clockFollowsRealTimeAtNormalFrameRates() {
+        let clock = LaunchClapClock()
+        let start = Date(timeIntervalSinceReferenceDate: 1_000)
+        var elapsed = clock.advance(to: start)
+        for frame in 1...60 {
+            elapsed = clock.advance(to: start.addingTimeInterval(Double(frame) / 60))
+        }
+        #expect(abs(elapsed - 1.0) < 0.0001)
+        // The same date twice, as SwiftUI may re-evaluate a frame, adds nothing.
+        #expect(clock.advance(to: start.addingTimeInterval(1)) == elapsed)
+    }
 }

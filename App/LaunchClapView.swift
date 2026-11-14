@@ -75,13 +75,35 @@ enum LaunchClapTimeline {
     }
 }
 
+/// Animation clock that pauses through hitches instead of skipping ahead.
+/// Launch work blocks the main thread for long stretches; a wall clock would
+/// jump past the claps and show only the tail of the animation.
+final class LaunchClapClock {
+    static let maxStep = 1.0 / 30
+
+    private(set) var elapsed = 0.0
+    private var lastTick: Date?
+
+    static func step(for interval: TimeInterval) -> Double {
+        min(max(0, interval), maxStep)
+    }
+
+    func advance(to date: Date) -> Double {
+        if let lastTick {
+            elapsed += Self.step(for: date.timeIntervalSince(lastTick))
+        }
+        lastTick = date
+        return elapsed
+    }
+}
+
 struct LaunchClapView: View {
     let sessionReady: Bool
     var onComplete: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var startedAt = Date()
-    @State private var fadeStartedAt: Date?
+    @State private var clock = LaunchClapClock()
+    @State private var fadeStartedAt: Double?
     @State private var didComplete = false
 
     // Fixed positions allow exact impact screenshots of the real SwiftUI view.
@@ -98,13 +120,13 @@ struct LaunchClapView: View {
 
     var body: some View {
         TimelineView(.animation(paused: didComplete || snapshotTime != nil)) { context in
-            let elapsed = snapshotTime ?? max(0, context.date.timeIntervalSince(startedAt))
+            let elapsed = snapshotTime ?? clock.advance(to: context.date)
             let canReveal = LaunchClapTimeline.canRevealShell(
                 animationFinished: elapsed >= LaunchClapTimeline.holdDuration,
                 sessionReady: sessionReady
             ) && snapshotTime == nil
             let fade = fadeStartedAt.map {
-                LaunchClapTimeline.progress(elapsed: context.date.timeIntervalSince($0), start: 0,
+                LaunchClapTimeline.progress(elapsed: elapsed - $0, start: 0,
                                             duration: LaunchClapTimeline.fadeDuration)
             } ?? 0
             ZStack {
@@ -116,7 +138,7 @@ struct LaunchClapView: View {
             .opacity(1 - fade)
             .onChange(of: canReveal, initial: true) { _, ready in
                 if ready {
-                    if fadeStartedAt == nil { fadeStartedAt = context.date }
+                    if fadeStartedAt == nil { fadeStartedAt = elapsed }
                 } else {
                     fadeStartedAt = nil
                 }
