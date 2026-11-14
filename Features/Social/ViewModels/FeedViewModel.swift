@@ -117,42 +117,42 @@ final class FeedViewModel {
     }
 
     func refresh() async {
-        guard !isRefreshing else {
-            return
-        }
-        guard let currentUserId = authService.currentUser?.id else {
-            return
-        }
+        guard !isRefreshing, !Task.isCancelled else { return }
+        guard let currentUserId = authService.currentUser?.id else { return }
 
         isRefreshing = true
+        defer { isRefreshing = false }
         error = nil
-        cursor = nil
-        newPostsAvailable = 0
 
         // Invalidate cache so refresh always hits the network rather than returning
         // a stale (or empty) cached result from a prior failed load.
         postRepository.invalidateFeedCache()
 
-        // Use quick retry for manual refresh (user initiated)
-        let result = await retryManager.fetchWithRetry(config: .quick) {
-            try await self.postRepository.fetchFeed(userId: currentUserId, limit: self.pageSize, cursor: nil)
+        // Keep the existing page and pagination cursor until a fresh page succeeds.
+        // Cancellation is terminal, including URLSession's URLError.cancelled form.
+        let result = await retryManager.executeWithRetry(
+            config: .quick,
+            shouldRetry: { !socialRequestWasCancelled($0) && !Task.isCancelled && RetryManager.isRetryable($0) }
+        ) {
+            try Task.checkCancellation()
+            return try await self.postRepository.fetchFeed(userId: currentUserId, limit: self.pageSize, cursor: nil)
         }
 
+        // A transport may finish successfully after its caller has been cancelled.
+        guard !Task.isCancelled else { return }
         switch result {
         case .success(let feedResult):
             posts = feedResult.posts
             hasMorePages = feedResult.hasMore
             cursor = feedResult.nextCursor
-
-            error = nil
-            isRefreshing = false
+            newPostsAvailable = 0
             Haptics.success()
 
-        case .failure(let err, let attempts):
+        case .failure(let err, _):
+            guard !socialRequestWasCancelled(err) else { return }
             let userError = errorHandler.handleError(err, context: .feed)
             errorHandler.logError(userError, context: .feed)
             self.error = userError
-            isRefreshing = false
             Haptics.error()
         }
     }

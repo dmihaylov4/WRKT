@@ -1,6 +1,12 @@
 import Foundation
 import Supabase
 
+nonisolated func socialRequestWasCancelled(_ error: Error) -> Bool {
+    if error is CancellationError { return true }
+    let error = error as NSError
+    return error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled
+}
+
 struct WorkoutPostInsertPayload: Encodable {
     let user_id: String
     let caption: String?
@@ -219,6 +225,7 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
     ///   - cursor: Optional composite cursor (`created_at|id`) for stable pagination
     /// - Returns: Array of posts with author information, `hasMore`, and next cursor
     func fetchFeed(userId: UUID, limit: Int = 20, cursor: String? = nil) async throws -> (posts: [PostWithAuthor], hasMore: Bool, nextCursor: String?) {
+        try Task.checkCancellation()
         logInfo("Fetching feed for user: \(userId), limit: \(limit), cursor: \(cursor ?? "none")")
 
         // If offline and no cursor (initial page), return SwiftData cache
@@ -251,9 +258,12 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
                 .execute()
                 .value
         } catch {
+            if socialRequestWasCancelled(error) { throw error }
+            try Task.checkCancellation()
             logWarning("Friend feed RPC failed, falling back to RLS feed query: \(error)")
             fetchedPosts = try await fetchFeedPostsWithRLSFallback(userId: userId, limit: limit + 1, cursor: parsedCursor)
         }
+        try Task.checkCancellation()
         logInfo("Fetched \(fetchedPosts.count) posts from friend feed RPC")
 
         let resolvedPosts: [WorkoutPost]
@@ -281,10 +291,9 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
 
         logInfo("Total posts in page: \(posts.count), hasMore: \(hasMore)")
 
+        try Task.checkCancellation()
         guard !posts.isEmpty else {
-            // Don't cache empty results: they're often transient (auth not yet ready, RLS
-            // session lag, network error swallowed by try?). Caching them would poison the
-            // cache and make refresh() return empty forever until the TTL expires.
+            // Do not cache empty results: an auth or RLS session may not be ready yet.
             return ([], false, nil)
         }
 
@@ -303,7 +312,15 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             .value
 
         let likedPostIds = Set(likes.map { $0.postId })
-        let participantsByPost = (try? await fetchParticipantsForPosts(posts.map(\.id))) ?? [:]
+        let participantsByPost: [UUID: [PostParticipant]]
+        do {
+            participantsByPost = try await fetchParticipantsForPosts(posts.map(\.id))
+        } catch {
+            if socialRequestWasCancelled(error) { throw error }
+            try Task.checkCancellation()
+            participantsByPost = [:]
+        }
+        try Task.checkCancellation()
 
         // Combine posts with authors
         let postsWithAuthors = posts.compactMap { post -> PostWithAuthor? in
@@ -357,20 +374,21 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             )
         }
 
-        let ownPosts: [WorkoutPost] = (try? await ownQuery
+        let ownPosts: [WorkoutPost] = try await ownQuery
             .order("created_at", ascending: false)
             .order("id", ascending: false)
             .limit(limit * 2)
             .execute()
-            .value) ?? []
+            .value
 
-        let otherPosts: [WorkoutPost] = (try? await otherQuery
+        let otherPosts: [WorkoutPost] = try await otherQuery
             .order("created_at", ascending: false)
             .order("id", ascending: false)
             .limit(limit * 2)
             .execute()
-            .value) ?? []
+            .value
 
+        try Task.checkCancellation()
         var seenPostIds = Set<UUID>()
         return Array((ownPosts + otherPosts)
             .filter { post in
@@ -577,6 +595,21 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             let caption: String?
             let visibility: String
             let updated_at: String
+
+            enum CodingKeys: String, CodingKey { case caption, visibility, updated_at }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                // PATCH must distinguish clearing the caption from leaving it unchanged.
+                // Offline replay converts the queued empty string to nil before this call.
+                if let caption {
+                    try container.encode(caption, forKey: .caption)
+                } else {
+                    try container.encodeNil(forKey: .caption)
+                }
+                try container.encode(visibility, forKey: .visibility)
+                try container.encode(updated_at, forKey: .updated_at)
+            }
         }
 
         let updateData = UpdatePost(
