@@ -50,8 +50,8 @@ struct WRKTApp: App {
         // Reset daily nudge counters on app launch
         SmartNudgeManager.shared.resetDailyCounts()
 
-        // Register for push notifications
-        await PushNotificationService.shared.registerForPushNotifications()
+        // Push registration runs after the launch splash completes so the system's
+        // permission prompt cannot cover the clap animation.
     }
 
     private func registerBackgroundTasks() {

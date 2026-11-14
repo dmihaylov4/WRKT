@@ -82,6 +82,7 @@ struct AppShellView: View {
     @State private var selectedTab: AppTab = .train
     @State private var showLiveOverlay = false
     @State private var showContent = false
+    @State private var didDismissLaunchSplash = false
     @State private var isShellTabBarHidden = false
     /// System shell only: bottom safe area inside tab content (the system tab bar's height).
     @State private var systemTabBarInset: CGFloat = 0
@@ -132,10 +133,9 @@ struct AppShellView: View {
     private var stats: StatsAggregator? { dependencies.statsAggregator }
 
     var body: some View {
-        Group {
+        ZStack {
             if authService.isCheckingSession && !settings.isLocalMode {
-                // Show splash screen while checking session (unless in local mode)
-                splashScreen
+                Color.black.ignoresSafeArea()
             } else if authService.currentUser != nil || settings.isLocalMode {
                 // User is logged in OR in local mode - show main app
                 contentWithModifiers
@@ -143,12 +143,16 @@ struct AppShellView: View {
                 // User is not logged in and not in local mode - show auth
                 LoginView()
             }
+            if !didDismissLaunchSplash {
+                splashScreen
+                    .zIndex(1)
+            }
         }
         .background(DS.Semantic.surface.ignoresSafeArea())
         .font(DS.FontType.body)
         .withDependencies(dependencies)
         .alert("Rest Timer Unavailable", isPresented: Binding(
-            get: { restTimer.persistenceError != nil },
+            get: { didDismissLaunchSplash && restTimer.persistenceError != nil },
             set: { if !$0 { restTimer.dismissPersistenceError() } }
         )) {
             Button("OK", role: .cancel) { restTimer.dismissPersistenceError() }
@@ -168,7 +172,10 @@ struct AppShellView: View {
         .onReceive(NotificationCenter.default.publisher(for: .navigateToCompeteTab)) { _ in
             selectedTab = .social
         }
-        .fullScreenCover(isPresented: $authService.needsPasswordReset) {
+        .fullScreenCover(isPresented: Binding(
+            get: { didDismissLaunchSplash && authService.needsPasswordReset },
+            set: { authService.needsPasswordReset = $0 }
+        )) {
             SetNewPasswordView()
                 .environmentObject(authService)
         }
@@ -176,28 +183,10 @@ struct AppShellView: View {
 
     // MARK: - Splash Screen
 
-    @ViewBuilder
     private var splashScreen: some View {
-        ZStack {
-            DS.Semantic.surface.ignoresSafeArea()
-
-            VStack(spacing: 20) {
-                // App logo or icon
-                if let logo = UIImage(named: "LaunchLogo") {
-                    Image(uiImage: logo)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 120, height: 120)
-                } else {
-                    Image(systemName: "dumbbell.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(DS.Palette.marone)
-                }
-
-                // Optional: Loading indicator
-                ProgressView()
-                    .tint(DS.Palette.marone)
-            }
+        LaunchClapView(sessionReady: !authService.isCheckingSession || settings.isLocalMode) {
+            didDismissLaunchSplash = true
+            Task { await PushNotificationService.shared.registerForPushNotifications() }
         }
     }
 
@@ -208,7 +197,7 @@ struct AppShellView: View {
         mainContentWithOverlays
             .overlay(alignment: .bottom) { liveOverlayCard }
             .sheet(isPresented: Binding(
-                get: { whatsNewManager.needsWhatsNew },
+                get: { didDismissLaunchSplash && whatsNewManager.needsWhatsNew },
                 set: { if !$0 { whatsNewManager.dismiss() } }
             )) {
                 if let release = WhatsNewManager.releases.first(where: { $0.version == whatsNewManager.currentVersion }) {
@@ -222,7 +211,7 @@ struct AppShellView: View {
                 }
             }
             .sheet(isPresented: Binding(
-                get: { dependencies.barbellProgressService.needsWelcomeScreen && !whatsNewManager.needsWhatsNew },
+                get: { didDismissLaunchSplash && dependencies.barbellProgressService.needsWelcomeScreen && !whatsNewManager.needsWhatsNew },
                 set: { if !$0 {
                     dependencies.barbellProgressService.needsWelcomeScreen = false
                     BattleShareCoordinator.shared.clear()
@@ -245,6 +234,7 @@ struct AppShellView: View {
     private var mainContent: some View {
         baseContent
             .modifier(OnboardingModifiers(
+                isLaunchComplete: didDismissLaunchSplash,
                 scenePhase: scenePhase,
                 selectedTab: $selectedTab,
                 onboardingStep: $onboardingStep,
@@ -807,6 +797,7 @@ struct AppShellView: View {
 // MARK: - View Modifier Groups
 
 private struct OnboardingModifiers: ViewModifier {
+    let isLaunchComplete: Bool
     let scenePhase: ScenePhase
     @Binding var selectedTab: AppTab
     @Binding var onboardingStep: AppShellView.OnboardingStep
@@ -820,14 +811,14 @@ private struct OnboardingModifiers: ViewModifier {
 
     private var onboardingCarouselBinding: Binding<Bool> {
         Binding(
-            get: { onboardingStep == .carousel },
+            get: { isLaunchComplete && onboardingStep == .carousel },
             set: { _ in }
         )
     }
 
     private var onboardingHealthKitBinding: Binding<Bool> {
         Binding(
-            get: { onboardingStep == .healthKit },
+            get: { isLaunchComplete && onboardingStep == .healthKit },
             set: { _ in }
         )
     }
@@ -852,7 +843,10 @@ private struct OnboardingModifiers: ViewModifier {
                 })
                 .environmentObject(healthKit)
             }
-            .sheet(isPresented: $showGoalSetupSheet) {
+            .sheet(isPresented: Binding(
+                get: { isLaunchComplete && showGoalSetupSheet },
+                set: { showGoalSetupSheet = $0 }
+            )) {
                 NavigationStack {
                     WeeklyGoalSetupView(goal: goals.first)
                         .interactiveDismissDisabled()
