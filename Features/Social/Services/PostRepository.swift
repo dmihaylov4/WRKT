@@ -595,6 +595,21 @@ final class PostRepository: BaseRepository<WorkoutPost>, PostRepositoryProtocol 
             let caption: String?
             let visibility: String
             let updated_at: String
+
+            enum CodingKeys: String, CodingKey { case caption, visibility, updated_at }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                // PATCH must distinguish clearing the caption from leaving it unchanged.
+                // Offline replay converts the queued empty string to nil before this call.
+                if let caption {
+                    try container.encode(caption, forKey: .caption)
+                } else {
+                    try container.encodeNil(forKey: .caption)
+                }
+                try container.encode(visibility, forKey: .visibility)
+                try container.encode(updated_at, forKey: .updated_at)
+            }
         }
 
         let updateData = UpdatePost(
