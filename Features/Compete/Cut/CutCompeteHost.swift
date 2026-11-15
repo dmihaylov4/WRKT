@@ -26,7 +26,7 @@ struct CutCompeteHost: View {
     }
     var body: some View {
         CutCompeteView(model: frozenModel ?? model, processing: processing, actions: .init(open: open, accept: { id in act(id, accept: true) },
-            decline: { id in act(id, accept: false) }, startBattle: { battlesVM?.openCreateBattle() }, browse: { browsing = true },
+            decline: { id in act(id, accept: false) }, join: join, startBattle: { battlesVM?.openCreateBattle() }, browse: { browsing = true },
             allPending: { pending = true }, retry: { Task { await refresh() } }))
         .task {
             guard challengesVM == nil else { return }
@@ -60,6 +60,15 @@ struct CutCompeteHost: View {
             if let vm = battlesVM, let battle = (vm.pendingBattles + vm.activeBattles + vm.completedBattles).first(where: { $0.id == id }) { vm.openBattleDetail(battle) }
         case .challenge(let id):
             if let vm = challengesVM, let challenge = (vm.activeChallenges + vm.availableChallenges + vm.completedChallenges).first(where: { $0.id == id }) { vm.openChallengeDetail(challenge) }
+        }
+    }
+    /// Join from the row: the same `joinChallenge` the detail sheet calls, which reloads the lists.
+    private func join(_ id: UUID) {
+        guard let vm = challengesVM, let challenge = vm.availableChallenges.first(where: { $0.id == id }), !processing.contains(id) else { return }
+        processing.insert(id)
+        Task {
+            await vm.joinChallenge(challenge.challenge)
+            processing.remove(id)
         }
     }
     private func act(_ id: UUID, accept: Bool) {
@@ -105,7 +114,7 @@ enum CutCompeteRefresh {
 }
 
 extension CutCompeteItem {
-    static func challenge(_ value: ChallengeWithProgress, unit: WeightUnit, locale: Locale = .current, showsDescription: Bool = false) -> CutCompeteItem {
-        CutCompeteLogic.challenge(.init(value, userID: nil), unit: unit, locale: locale, showsDescription: showsDescription)
+    static func challenge(_ value: ChallengeWithProgress, unit: WeightUnit, locale: Locale = .current) -> CutCompeteItem {
+        CutCompeteLogic.challenge(.init(value, userID: nil), unit: unit, locale: locale)
     }
 }

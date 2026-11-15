@@ -1,100 +1,122 @@
 import SwiftUI
 
+/// Challenge detail: the same sheet as battle detail, with progress, one bold line, the
+/// leaderboard and the about panel visible, and the quiet leave action at the bottom.
 struct CutChallengeDetailView: View {
     let model: CutChallengeDetailModel
     var processing = false
     var join: () -> Void = {}
     var leave: () -> Void = {}
+    var close: () -> Void = {}
     @State private var confirmingLeave: Bool
-    @State private var aboutExpanded: Bool
-    @State private var rewardExpanded: Bool
-    init(model: CutChallengeDetailModel, processing: Bool = false, join: @escaping () -> Void = {}, leave: @escaping () -> Void = {}, expanded: Bool = false, confirmingLeave: Bool = false) {
-        self.model = model; self.processing = processing; self.join = join; self.leave = leave
-        _confirmingLeave = State(initialValue: confirmingLeave)
-        _aboutExpanded = State(initialValue: expanded); _rewardExpanded = State(initialValue: expanded)
-    }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    init(model: CutChallengeDetailModel, processing: Bool = false, join: @escaping () -> Void = {}, leave: @escaping () -> Void = {},
+         close: @escaping () -> Void = {}, confirmingLeave: Bool = false) {
+        self.model = model; self.processing = processing; self.join = join; self.leave = leave; self.close = close
+        _confirmingLeave = State(initialValue: confirmingLeave)
+    }
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(model.time).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(DS.Cut.Colors.textSecondary)
-                Text(model.progress ?? model.goal).font(DS.Cut.Typography.condensed(size: 34, relativeTo: .title)).fixedSize(horizontal: false, vertical: true)
-                if model.progress != nil {
-                    CutSplitBar(fraction: model.fraction).accessibilityLabel("Progress: " + model.percentage)
+        CutSheet(model.title, subtitle: model.subtitle, close: close) {
+            VStack(alignment: .leading, spacing: 0) {
+                if let amount = model.amount {
+                    let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                        : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 8))
+                    layout {
+                        CutCompeteScoreText(score: amount, rest: model.amountRest, size: 34)
+                        Text(model.unit).font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
+                            .foregroundStyle(DS.Cut.Colors.textSecondary)
+                    }
+                    .padding(.top, 14)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(model.progress ?? ""))
+                    CutSplitBar(fraction: model.fraction).padding(.top, 12)
                 }
-                if !model.leaves { joinButton }
-                if !model.leaders.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        CutCompeteSectionTitle("Leaderboard")
-                        ForEach(model.leaders) { leader in
-                            DisclosureGroup {
-                                CutCompeteValueRow(label: "Progress", value: leader.progress)
-                            } label: {
-                                Group {
-                                    if dynamicTypeSize.isAccessibilitySize {
-                                        VStack(alignment: .leading, spacing: 8) {
-                                            Text(leader.rank + ". " + leader.name)
-                                            Text(leader.percentage).monospacedDigit()
-                                        }.frame(maxWidth: .infinity, alignment: .leading)
-                                    } else {
-                                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                            Text(leader.rank).monospacedDigit().frame(width: 28, alignment: .trailing)
-                                            Text(leader.name).frame(maxWidth: .infinity, alignment: .leading)
-                                            Text(leader.percentage).monospacedDigit().frame(minWidth: 52, alignment: .trailing)
-                                        }
-                                    }
-                                }.font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(leader.isViewer ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
-                                    .padding(.vertical, 12).frame(minHeight: 50)
-                            }.tint(DS.Cut.Colors.textSecondary)
-                            CutHairline()
+                Text(model.headline)
+                    .font(DS.Typography.custom(size: 18, weight: .bold, relativeTo: .body))
+                    .foregroundStyle(model.headlineIsLime ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, model.amount == nil ? 10 : 12)
+                if !model.leaves {
+                    Button(action: join) {
+                        ZStack {
+                            Text(model.action).opacity(processing ? 0 : 1)
+                            if processing { ProgressView().tint(DS.Cut.Colors.lime) }
                         }
                     }
+                    .buttonStyle(CutPillButtonStyle(.outlineLime, size: .regular, fillsWidth: true))
+                    .allowsHitTesting(!processing)
+                    .accessibilityLabel(Text(model.action))
+                    .padding(.top, 18)
                 }
-                VStack(alignment: .leading, spacing: 0) {
-                    CutCompeteSectionTitle("Details")
-                    DisclosureGroup(isExpanded: $aboutExpanded) {
-                        if let description = model.description { Text(description).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.vertical, 12) }
-                        ForEach(model.about) { CutCompeteValueRow(label: $0.label, value: $0.value) }
-                    } label: { CutCompeteDisclosureLabel("About") }
-                    CutHairline()
-                    if let reward = model.reward {
-                        DisclosureGroup(isExpanded: $rewardExpanded) { CutChallengeRewardView(reward: reward) } label: { CutCompeteDisclosureLabel("Reward") }
+                if !model.leaders.isEmpty {
+                    Text("Leaderboard").font(DS.Typography.custom(size: 17, weight: .bold, relativeTo: .headline))
+                        .accessibilityAddTraits(.isHeader).padding(.top, 24)
+                    CutSheetInset {
+                        ForEach(Array(model.leaders.enumerated()), id: \.element.id) { index, leader in
+                            if index > 0 { CutHairline() }
+                            leaderRow(leader)
+                        }
+                    }
+                    .padding(.top, 10)
+                }
+                CutSheetInset {
+                    if let description = model.description, !description.isEmpty {
+                        Text(description).font(DS.Typography.custom(size: 17, weight: .medium, relativeTo: .body))
+                            .foregroundStyle(DS.Cut.Colors.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.vertical, 14)
                         CutHairline()
                     }
-                }.tint(DS.Cut.Colors.textSecondary)
-                if model.leaves { leaveButton.padding(.top, 18) }
-            }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12).padding(.bottom, 40)
-        }.foregroundStyle(DS.Cut.Colors.textPrimary).background(DS.Cut.Colors.background.ignoresSafeArea())
-    }
-    private var joinButton: some View {
-        Button(action: join) {
-            ZStack { Text(model.action).opacity(processing ? 0 : 1); if processing { ProgressView().tint(DS.Cut.Colors.ink) } }
-        }.buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)).disabled(processing).accessibilityLabel(model.action)
-    }
-    private var leaveButton: some View {
-        Button(role: .destructive) { confirmingLeave = true } label: {
-            ZStack { Text(model.action).opacity(processing ? 0 : 1); if processing { ProgressView().tint(DS.Status.error) } }
-        }.buttonStyle(CutCompeteDestructiveStyle()).disabled(processing).accessibilityLabel(model.action)
-            .confirmationDialog("Leave Challenge?", isPresented: $confirmingLeave, titleVisibility: .visible) {
-                Button("Leave Challenge", role: .destructive, action: leave)
-                Button("Keep Challenge", role: .cancel) {}
-            } message: { Text("Your challenge progress will stop updating.") }
-    }
-}
-struct CutChallengeRewardView: View {
-    let reward: CutChallengeDetailModel.Reward
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            switch reward {
-            case .skin(let id, let name):
-                if let skin = BarSkin.all.first(where: { $0.id == id }) { BarSkinPreviewTile(skin: skin).frame(width: 120, height: 40).accessibilityHidden(true) }
-                Text(name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
-                Text("Exclusive bar skin · +200 XP").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-            case .plate(let id, let name):
-                PlateFaceView(tierID: id, progressionTier: .iron, liftTypeID: nil, weightKg: 20).frame(width: 100, height: 100).clipped().accessibilityHidden(true)
-                Text(name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
-                Text("20 kg · +200 XP").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                    ForEach(Array(model.about.enumerated()), id: \.element.id) { index, row in
+                        if index > 0 { CutHairline() }
+                        CutSheetInsetRow(row.label, value: row.value)
+                    }
+                }
+                .padding(.top, 22)
+                if model.leaves {
+                    Button(role: .destructive) { confirmingLeave = true } label: {
+                        ZStack {
+                            Text(model.action).opacity(processing ? 0 : 1)
+                            if processing { ProgressView().tint(DS.Cut.Colors.destructive) }
+                        }
+                    }
+                    .buttonStyle(CutQuietButtonStyle())
+                    .disabled(processing)
+                    .accessibilityLabel(Text(model.action))
+                    .padding(.top, 14)
+                }
             }
-        }.padding(.vertical, 12)
+            .padding(.horizontal, DS.Cut.Metrics.gutter)
+            .padding(.bottom, model.leaves ? 8 : 24)
+        }
+        .confirmationDialog("Leave challenge?", isPresented: $confirmingLeave, titleVisibility: .visible) {
+            Button("Leave challenge", role: .destructive, action: leave)
+            Button("Keep challenge", role: .cancel) {}
+        } message: { Text("Your challenge progress will stop updating.") }
+    }
+    private func leaderRow(_ leader: CutChallengeDetailModel.Leader) -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(leader.rank + ". " + leader.name)
+                    Text(leader.progress).foregroundStyle(leader.isViewer ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 12)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(leader.rank).monospacedDigit().foregroundStyle(DS.Cut.Colors.textSecondary).frame(minWidth: 20, alignment: .leading)
+                    Text(leader.name).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(leader.progress).monospacedDigit().foregroundStyle(leader.isViewer ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
+                }
+                .padding(.vertical, 14)
+                .frame(minHeight: 50)
+            }
+        }
+        .font(DS.Typography.custom(size: 17, weight: leader.isViewer ? .bold : .medium, relativeTo: .body))
+        .foregroundStyle(leader.isViewer ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(leader.rank). \(leader.name)\(leader.isViewer ? ", you" : ""), \(leader.progress), \(leader.percentage)"))
     }
 }

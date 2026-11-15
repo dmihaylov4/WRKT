@@ -38,17 +38,37 @@ import Testing
     }
     @Test func selectedRuleAndRewardsChangeTogether() {
         let m = model(.init(opponentID: Self.friend.id, type: .runningDistance))
-        #expect(m.rule == BattleType.runningDistance.description); #expect(m.rewards.map(\.id) == [29,30])
-        #expect(m.handle == "@fixture_opponent")
+        #expect(m.rule == "Most running distance logged wins."); #expect(m.rewards.map(\.id) == [29,30])
+        #expect(model(.init(opponentID: Self.friend.id)).rule == "Most weight lifted in total wins.")
         #expect(CutCompeteFormat.battleTitle(.consistency) == "Workout days")
-        #expect(CutCompeteFormat.battleTitle(.workoutCount) == "Workout Count")
+        #expect(CutCompeteFormat.battleTitle(.workoutCount) == "Workouts")
+        #expect(CutCreateBattleLogic.types.map(CutCompeteFormat.battleTitle) == ["Volume lifted", "Workouts", "Workout days", "Records", "Running distance"])
     }
-    @Test func missingDisplayNameDoesNotRepeatTheHandle() {
-        let alias = CutBattleOpponent(id: UUID(), name: "fixture_alias", username: "fixture_alias", avatarURL: nil)
-        #expect(alias.title == "@fixture_alias"); #expect(alias.handle == nil)
+    @Test func buttonAndFootnoteNameTheOpponent() {
+        let m = model(.init(opponentID: Self.friend.id, type: .runningDistance))
+        #expect(m.sendTitle == "Challenge Fixture")
+        #expect(m.footnote == "Starts when Fixture accepts. The winner earns the \(m.rewards[1].name) plate.")
+        let none = CutCreateBattleLogic.model(.init(), opponent: nil, creating: false, unit: .kg)
+        #expect(none.sendTitle == "Choose who to challenge"); #expect(!none.canSend)
+        #expect(none.footnote.hasPrefix("Starts when they accept."))
+    }
+    @Test func friendsRowPutsAChosenFriendFromAllFirst() {
+        let friends = (0..<10).map { CutBattleOpponent(id: UUID(), name: "Fixture \($0)", username: "fixture_\($0)", avatarURL: nil) }
+        #expect(CutCreateBattleLogic.picks(friends, selected: nil).map(\.id) == friends.prefix(8).map(\.id))
+        #expect(CutCreateBattleLogic.picks(friends, selected: friends[2]).map(\.id) == friends.prefix(8).map(\.id))
+        let late = CutCreateBattleLogic.picks(friends, selected: friends[9])
+        #expect(late.count == 8); #expect(late.first?.id == friends[9].id); #expect(late.dropFirst().map(\.id) == friends.prefix(7).map(\.id))
+        let m = CutCreateBattleLogic.model(.init(opponentID: friends[9].id), opponent: friends[9], friends: friends, creating: false, unit: .kg)
+        #expect(m.selectedID == friends[9].id); #expect(m.friendsState == .loaded)
+        #expect(CutCreateBattleLogic.model(.init(), opponent: nil, friends: [], friendsLoading: true, creating: false, unit: .kg).friendsState == .loading)
+        #expect(CutCreateBattleLogic.model(.init(), opponent: nil, friends: [], friendsError: "Fixture error", creating: false, unit: .kg).friendsState == .failed("Fixture error"))
+    }
+    @Test func oneNamePerPerson() {
+        let alias = CutBattleOpponent(id: UUID(), name: CutCompeteFormat.personName(displayName: nil, username: "fixture_alias"), username: "fixture_alias", avatarURL: nil)
+        #expect(alias.name == "fixture_alias"); #expect(alias.initials == "FA"); #expect(alias.shortName == "fixture_alias")
         #expect(CutCompeteFormat.personName(displayName: " Fixture Display ", username: "fixture_alias") == " Fixture Display ")
         for name in [nil, "", "  "] as [String?] { #expect(CutCompeteFormat.personName(displayName: name, username: "fixture_alias") == "fixture_alias") }
-        #expect(CutCreateBattleLogic.model(.init(opponentID: alias.id), opponent: alias, creating: false, unit: .kg).handle == nil)
+        #expect(CutCreateBattleLogic.model(.init(opponentID: alias.id), opponent: alias, creating: false, unit: .kg).sendTitle == "Challenge fixture_alias")
     }
     private func model(_ draft: CutCreateBattleDraft) -> CutCreateBattleModel {
         CutCreateBattleLogic.model(draft, opponent: Self.friend, creating: false, unit: .kg)

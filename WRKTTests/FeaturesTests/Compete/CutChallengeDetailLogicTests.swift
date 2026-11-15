@@ -12,23 +12,27 @@ import Testing
     @Test func notJoinedHasJoinAndNoProgress() {
         var f = Self.facts; f.current = nil
         let m = model(f)
-        #expect(m.state == .notJoined); #expect(m.action == "Join Challenge"); #expect(!m.leaves); #expect(m.progress == nil); #expect(m.goal == "10 workouts")
+        #expect(m.state == .notJoined); #expect(m.action == "Join challenge"); #expect(!m.leaves); #expect(m.progress == nil); #expect(m.goal == "10 workouts")
+        #expect(m.amount == nil); #expect(m.headline == "Goal: 10 workouts")
     }
     @Test func joinedProgressAndLeave() {
         let m = model(Self.facts)
-        #expect(m.state == .joined); #expect(m.action == "Leave Challenge"); #expect(m.leaves)
+        #expect(m.state == .joined); #expect(m.action == "Leave challenge"); #expect(m.leaves)
         #expect(m.progress == "6 / 10 workouts"); #expect(m.fraction == 0.6)
+        #expect(m.amount == "6"); #expect(m.amountRest == "/ 10"); #expect(m.unit == "workouts"); #expect(m.headline == "60% complete")
+        #expect(m.subtitle == "Workouts, 14 days left")
     }
     @Test func completedRetainsLeaveContract() {
         var f = Self.facts; f.completed = true; f.current = 10; f.percentage = 100
         let m = model(f)
         #expect(m.state == .completed); #expect(m.leaves); #expect(m.time == "Completed"); #expect(m.fraction == 1)
+        #expect(m.headline == "Challenge complete"); #expect(m.headlineIsLime); #expect(m.subtitle == "Workouts, completed")
     }
     @Test func endedDoesNotInventNewActionRestrictions() {
         var f = Self.facts; f.end = Self.now.addingTimeInterval(-1)
-        #expect(model(f).state == .ended); #expect(model(f).action == "Leave Challenge")
+        #expect(model(f).state == .ended); #expect(model(f).action == "Leave challenge")
         f.current = nil
-        #expect(model(f).action == "Join Challenge"); #expect(model(f).time == "Ended")
+        #expect(model(f).action == "Join challenge"); #expect(model(f).time == "Ended")
     }
     @Test func evergreenIsOngoing() {
         var f = Self.facts; f.evergreen = true; f.end = Self.now.addingTimeInterval(-1)
@@ -62,5 +66,11 @@ import Testing
         #expect(m.description == "Fixture description"); #expect(m.reward == f.reward)
         #expect(m.about.first(where: { $0.label == "Difficulty" })?.value == "Beginner")
         #expect(m.about.first(where: { $0.label == "Participants" })?.value == "12")
+        #expect(m.about.first(where: { $0.label == "Reward" })?.value == "Fixture Plate plate, 20 kg, 200 XP")
+        #expect(m.about.contains(where: { $0.label == "Runs" }))
+        f.reward = .skin(id: 4, name: "Fixture Skin")
+        #expect(model(f).about.first(where: { $0.label == "Reward" })?.value == "Fixture Skin bar skin, 200 XP")
+        f.evergreen = true
+        #expect(!model(f).about.contains(where: { $0.label == "Runs" }))
     }
 }

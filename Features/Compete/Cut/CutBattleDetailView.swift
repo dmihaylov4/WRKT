@@ -3,120 +3,150 @@ import SwiftUI
 struct CutBattleDetailActions {
     var accept: () -> Void = {}
     var exit: () -> Void = {}
+    var close: () -> Void = {}
 }
 
+/// Battle detail: a sheet sized to its content with the two scores, one result line, an inner
+/// panel of dates and rewards, and the quiet exit action at the bottom.
 struct CutBattleDetailView: View {
     let model: CutBattleDetailModel
     var operation: CutBattleDetailModel.Operation?
-    private var processing: Bool { operation != nil }
     var actions = CutBattleDetailActions()
+    /// False when pushed on a navigation stack (a feed link): no sheet surface or close button.
+    var inSheet = true
     @State private var confirmingExit: Bool
-    @State private var detailsExpanded: Bool
-    @State private var rewardsExpanded: Bool
-    init(model: CutBattleDetailModel, operation: CutBattleDetailModel.Operation? = nil, actions: CutBattleDetailActions = .init(), expanded: Bool = false, confirmingExit: Bool = false) {
-        self.model = model; self.operation = operation; self.actions = actions
-        _confirmingExit = State(initialValue: confirmingExit)
-        _detailsExpanded = State(initialValue: expanded); _rewardsExpanded = State(initialValue: expanded)
-    }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var processing: Bool { operation != nil }
+
+    init(model: CutBattleDetailModel, operation: CutBattleDetailModel.Operation? = nil, actions: CutBattleDetailActions = .init(),
+         inSheet: Bool = true, confirmingExit: Bool = false) {
+        self.model = model; self.operation = operation; self.actions = actions; self.inSheet = inSheet
+        _confirmingExit = State(initialValue: confirmingExit)
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) { typeText.fixedSize(); Spacer(minLength: 12); statusText.fixedSize() }
-                    VStack(alignment: .leading, spacing: 8) { typeText; statusText }
-                }
-                scores
-                if model.state == .active || model.state == .expired {
-                    Text(model.lead).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(model.isLeading ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
-                    CutSplitBar(fraction: model.split).accessibilityLabel(model.lead)
-                }
-                if model.accepts {
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 12) { accept; exit }
-                        VStack(alignment: .leading, spacing: 12) { accept; exit }
-                    }
-                } else if model.exit != nil { exit }
-                VStack(alignment: .leading, spacing: 0) {
-                    CutCompeteSectionTitle("Details")
-                    DisclosureGroup(isExpanded: $detailsExpanded) {
-                        ForEach(model.details) { row in CutCompeteValueRow(label: row.label, value: row.value) }
-                    } label: { CutCompeteDisclosureLabel("Dates") }
-                    CutHairline()
-                    DisclosureGroup(isExpanded: $rewardsExpanded) {
-                        CutBattleRewardRows(rewards: model.rewards)
-                    } label: { CutCompeteDisclosureLabel("Rewards") }
-                    CutHairline()
-                }.tint(DS.Cut.Colors.textSecondary)
-            }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12).padding(.bottom, 40)
-        }
-        .foregroundStyle(DS.Cut.Colors.textPrimary).background(DS.Cut.Colors.background.ignoresSafeArea())
-    }
-    private var typeText: some View {
-        Text(model.type).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(DS.Cut.Colors.textSecondary)
-    }
-    private var statusText: some View {
-        Text(model.state == .active || model.state == .expired ? model.time : model.status)
-            .font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
-            .foregroundStyle(model.state == .won ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
-    }
-    private var scores: some View {
         Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 18) { score("You", value: model.ownScore); score(model.opponent, value: model.otherScore) }
+            if inSheet {
+                CutSheet(model.title, subtitle: model.subtitle, close: actions.close) { content }
             } else {
-                HStack(alignment: .top, spacing: 16) {
-                    score("You", value: model.ownScore)
-                    Rectangle().fill(DS.Cut.Colors.hairline).frame(width: 1)
-                    score(model.opponent, value: model.otherScore)
-                }.fixedSize(horizontal: false, vertical: true)
-            }
-        }.padding(.vertical, 8)
-    }
-    private func score(_ name: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).fixedSize(horizontal: false, vertical: true)
-            Text(value).font(DS.Cut.Typography.condensed(size: 44, relativeTo: .largeTitle)).monospacedDigit()
-                .fixedSize(horizontal: false, vertical: true)
-            Text(model.unit).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-    private var accept: some View {
-        Button(action: actions.accept) { ZStack { Text("Accept").opacity(operation == .accept ? 0 : 1); if operation == .accept { ProgressView().tint(DS.Cut.Colors.ink) } } }
-            .buttonStyle(CutPrimaryButtonStyle(size: .compact, fillsWidth: false)).disabled(processing).accessibilityLabel("Accept")
-    }
-    private var exit: some View {
-        Button(role: .destructive) { confirmingExit = true } label: {
-            ZStack {
-                Text(model.exitLabel ?? "Leave Battle").opacity(operation == .exit ? 0 : 1)
-                if operation == .exit { ProgressView().tint(DS.Status.error) }
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(model.title).font(DS.Cut.Typography.condensed(size: 32, relativeTo: .title)).textCase(.uppercase)
+                                .fixedSize(horizontal: false, vertical: true).accessibilityAddTraits(.isHeader)
+                            Text(model.subtitle).font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .subheadline))
+                                .foregroundStyle(DS.Cut.Colors.textSecondary)
+                        }
+                        .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12)
+                        content
+                    }
+                }
+                .foregroundStyle(DS.Cut.Colors.textPrimary)
+                .background(DS.Cut.Colors.background.ignoresSafeArea())
             }
         }
-            .accessibilityLabel(model.exitLabel ?? "Leave Battle")
-            .buttonStyle(CutCompeteDestructiveStyle()).disabled(processing)
-            .confirmationDialog((model.exit ?? "Leave Battle") + "?", isPresented: $confirmingExit, titleVisibility: .visible) {
-                Button(model.exit ?? "Leave Battle", role: .destructive, action: actions.exit)
-                Button("Keep Battle", role: .cancel) {}
-            } message: { Text(model.confirmation) }
+        .confirmationDialog((model.exit ?? "Leave battle") + "?", isPresented: $confirmingExit, titleVisibility: .visible) {
+            Button(model.exit ?? "Leave battle", role: .destructive, action: actions.exit)
+            Button("Keep battle", role: .cancel) {}
+        } message: { Text(model.confirmation) }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if model.showsScores {
+                scores.padding(.top, 14)
+                CutSplitBar(fraction: model.split).padding(.top, 14)
+            }
+            Text(model.headline)
+                .font(DS.Typography.custom(size: 18, weight: .bold, relativeTo: .body))
+                .foregroundStyle(model.headlineIsLime ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, model.showsScores ? 12 : 10)
+            if model.accepts {
+                CutCompeteInvitationButtons(processing: processing, declineOperation: operation == .exit,
+                                            accept: actions.accept, decline: { confirmingExit = true }, inset: 0)
+                    .padding(.top, 18)
+            }
+            CutSheetInset {
+                ForEach(Array(model.details.enumerated()), id: \.element.id) { index, row in
+                    if index > 0 { CutHairline() }
+                    CutSheetInsetRow(row.label, value: row.value)
+                }
+            }
+            .padding(.top, 22)
+            if let exit = model.exit, !model.accepts {
+                Button(role: .destructive) { confirmingExit = true } label: {
+                    ZStack {
+                        Text(exit).opacity(operation == .exit ? 0 : 1)
+                        if operation == .exit { ProgressView().tint(DS.Cut.Colors.destructive) }
+                    }
+                }
+                .buttonStyle(CutQuietButtonStyle())
+                .disabled(processing)
+                .accessibilityLabel(Text(exit))
+                .padding(.top, 14)
+            }
+        }
+        .padding(.horizontal, DS.Cut.Metrics.gutter)
+        .padding(.bottom, model.exit != nil && !model.accepts ? 8 : 24)
+    }
+
+    @ViewBuilder
+    private var scores: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 14) {
+                side(model.own, isViewer: true, alignment: .leading)
+                side(model.other, isViewer: false, alignment: .leading)
+            }
+        } else {
+            HStack(alignment: .bottom, spacing: 8) {
+                side(model.own, isViewer: true, alignment: .leading)
+                Text(model.unit).font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
+                    .foregroundStyle(DS.Cut.Colors.textSecondary).padding(.bottom, 10).fixedSize()
+                    .accessibilityHidden(true)
+                side(model.other, isViewer: false, alignment: .trailing)
+            }
+        }
+    }
+
+    private func side(_ side: CutBattleDetailModel.Side, isViewer: Bool, alignment: HorizontalAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 6) {
+            CutCompeteAvatar(initials: side.initials, url: side.avatarURL, size: 44, isViewer: isViewer)
+            Text(side.score)
+                .font(DS.Cut.Typography.condensed(size: 64, relativeTo: .largeTitle))
+                .monospacedDigit()
+                .foregroundStyle(isViewer ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+        }
+        .frame(maxWidth: .infinity, alignment: alignment == .leading ? .leading : .trailing)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(isViewer ? "You" : side.name): \(side.score) \(model.unit)"))
     }
 }
 
+/// A battle's two plate rewards with their thumbnails.
 struct CutBattleRewardRows: View {
     let rewards: [CutBattleDetailModel.Reward]
     var body: some View {
-        ForEach(rewards) { reward in
-            HStack(alignment: .top, spacing: 16) {
+        ForEach(Array(rewards.enumerated()), id: \.element.id) { index, reward in
+            if index > 0 { CutHairline() }
+            HStack(alignment: .center, spacing: 14) {
                 CachedPlateThumbnail(tierID: reward.id, progressionTier: .iron, liftTypeID: reward.liftID,
                                      weightKg: reward.weight, engravingText: reward.engraving)
-                    .frame(width: 64, height: 64).accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(reward.title + ": " + reward.name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
-                    Text(reward.weightText + " · " + reward.xp).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                    .frame(width: 56, height: 56).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text((reward.title == "Win" ? "Winner earns " : "Finishing earns ") + reward.name)
+                        .font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
+                    Text(reward.weightText + ", " + reward.xp.replacingOccurrences(of: "+", with: ""))
+                        .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .subheadline))
+                        .foregroundStyle(DS.Cut.Colors.textSecondary)
                 }
+                .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
-            }.padding(.vertical, 10)
-            CutHairline()
+            }
+            .padding(.vertical, 12)
+            .accessibilityElement(children: .combine)
         }
     }
 }
