@@ -114,6 +114,9 @@
 		C17CA9000000000000000104 /* CutExercisePickerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000204 /* CutExercisePickerModel.swift */; };
 		C17CA9000000000000000105 /* CutExercisePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000205 /* CutExercisePickerView.swift */; };
 		C17CA9000000000000000106 /* CutExercisePickerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000206 /* CutExercisePickerHost.swift */; };
+		C17CA9000000000000000107 /* CutFilteredExerciseBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000207 /* CutFilteredExerciseBrowserModel.swift */; };
+		C17CA9000000000000000108 /* CutFilteredExerciseBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000208 /* CutFilteredExerciseBrowserView.swift */; };
+		C17CA9000000000000000109 /* CutFilteredExerciseBrowserHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000209 /* CutFilteredExerciseBrowserHost.swift */; };
 		2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */; };
 		2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */; };
 		2E7461C82E941FBA00A71C35 /* InteractiveRouteMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */; };
@@ -619,6 +622,9 @@
 		C17CA9000000000000000204 /* CutExercisePickerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExercisePickerModel.swift; sourceTree = "<group>"; };
 		C17CA9000000000000000205 /* CutExercisePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExercisePickerView.swift; sourceTree = "<group>"; };
 		C17CA9000000000000000206 /* CutExercisePickerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExercisePickerHost.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000207 /* CutFilteredExerciseBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutFilteredExerciseBrowserModel.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000208 /* CutFilteredExerciseBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutFilteredExerciseBrowserView.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000209 /* CutFilteredExerciseBrowserHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutFilteredExerciseBrowserHost.swift; sourceTree = "<group>"; };
 		2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyBrowse.swift; sourceTree = "<group>"; };
 		2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentWorkoutBar.swift; sourceTree = "<group>"; };
 		2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveRouteMap.swift; sourceTree = "<group>"; };
@@ -1226,6 +1232,9 @@
 				C17CA9000000000000000204 /* CutExercisePickerModel.swift */,
 				C17CA9000000000000000205 /* CutExercisePickerView.swift */,
 				C17CA9000000000000000206 /* CutExercisePickerHost.swift */,
+				C17CA9000000000000000207 /* CutFilteredExerciseBrowserModel.swift */,
+				C17CA9000000000000000208 /* CutFilteredExerciseBrowserView.swift */,
+				C17CA9000000000000000209 /* CutFilteredExerciseBrowserHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3011,6 +3020,9 @@
 				C17CA9000000000000000104 /* CutExercisePickerModel.swift in Sources */,
 				C17CA9000000000000000105 /* CutExercisePickerView.swift in Sources */,
 				C17CA9000000000000000106 /* CutExercisePickerHost.swift in Sources */,
+				C17CA9000000000000000107 /* CutFilteredExerciseBrowserModel.swift in Sources */,
+				C17CA9000000000000000108 /* CutFilteredExerciseBrowserView.swift in Sources */,
+				C17CA9000000000000000109 /* CutFilteredExerciseBrowserHost.swift in Sources */,
 				2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */,
 				2E46E7AB2F4C687300F57EE7 /* KeychainAuthStorage.swift in Sources */,
 				2EC201D52EEF22FD00D6BAEF /* SocialView.swift in Sources */,

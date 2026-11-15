@@ -30,6 +30,14 @@ struct FilteredExerciseBrowser: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutFilteredExerciseBrowserHost(muscleFilter: muscleFilter, title: title)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             List {
                 ForEach(subregions, id: \.self) { subregion in
