@@ -3,7 +3,7 @@
 //  WRKT
 //
 //  The workout complete screen in the Cut language: a lime field with "DONE." as the hero,
-//  the XP gained with the level line and the record as one line; then on black the duration,
+//  the XP counting up item by item with the level line, and the record as one line; then on black the duration,
 //  volume and sets as three big numerals with 1 pt dividers, hairline rows for anything
 //  unlocked, and two pills. Plain values and closures only; CutWinScreen hosts it.
 //
@@ -24,7 +24,6 @@ struct CutWinView: View {
     var revealsImmediately = false
 
     @State private var revealed = false
-    @State private var showsBreakdown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -58,9 +57,6 @@ struct CutWinView: View {
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { revealed = true }
             }
         }
-        .sheet(isPresented: $showsBreakdown) {
-            CutXPBreakdownSheet(items: model.xpItems)
-        }
     }
 
     // MARK: Field
@@ -73,13 +69,10 @@ struct CutWinView: View {
                 .accessibilityAddTraits(.isHeader)
                 .rise(revealed, delay: 0, reduceMotion: reduceMotion)
             if let xp = model.xp {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) { xpText(xp); levelText }
-                    VStack(alignment: .leading, spacing: 4) { xpText(xp); levelText }
-                }
-                .padding(.top, 18)
-                .accessibilityElement(children: .combine)
-                .rise(revealed, delay: 0.1, reduceMotion: reduceMotion)
+                CutWinXPCounter(steps: model.xpSteps, finalText: xp, levelLine: model.levelLine,
+                                animates: !(revealsImmediately || reduceMotion))
+                    .padding(.top, 18)
+                    .rise(revealed, delay: 0.1, reduceMotion: reduceMotion)
             } else if let level = model.levelLine {
                 Text(level)
                     .cutFont(.title)
@@ -95,22 +88,6 @@ struct CutWinView: View {
         // Keeps the lime above the top when the scroll view bounces.
         .background(alignment: .top) {
             Rectangle().fill(DS.Cut.Colors.lime).frame(height: 600).offset(y: -600).accessibilityHidden(true)
-        }
-    }
-
-    private func xpText(_ xp: String) -> some View {
-        Text(xp)
-            .font(DS.Cut.Typography.numeral(.large))
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-    }
-
-    @ViewBuilder
-    private var levelText: some View {
-        if let level = model.levelLine {
-            Text(level)
-                .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                .foregroundStyle(DS.Cut.Colors.inkSecondary)
         }
     }
 
@@ -151,18 +128,10 @@ struct CutWinView: View {
 
     @ViewBuilder
     private var rows: some View {
-        if !model.rows.isEmpty || !model.xpItems.isEmpty {
+        if !model.rows.isEmpty {
             CutHairlineList {
                 ForEach(model.rows) { row in
                     CutHairlineRow(row.title, value: row.value, valueTone: .lime)
-                }
-                if !model.xpItems.isEmpty {
-                    Button {
-                        showsBreakdown = true
-                    } label: {
-                        CutHairlineRow("XP breakdown", showsChevron: true)
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, DS.Cut.Metrics.gutter)
@@ -206,37 +175,87 @@ struct CutWinView: View {
     }
 }
 
-/// The legacy XP breakdown as hairline rows in a sheet.
-private struct CutXPBreakdownSheet: View {
-    let items: [CutWinXPItem]
-    @Environment(\.dismiss) private var dismiss
+/// The XP gained, counting up from 0 one line item at a time: each lands with a short pop and
+/// a light tap, and its label ("+50 Workout complete") joins one quiet line under the number.
+/// One time source: a TimelineView with an entry per step. Without motion the final total and
+/// every label show at once.
+private struct CutWinXPCounter: View {
+    let steps: [CutWinXPStep]
+    /// "+240 XP": the final total, which also holds the number's width so nothing reflows.
+    let finalText: String
+    let levelLine: String?
+    let animates: Bool
+
+    @State private var start: Date?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("XP breakdown").cutFont(.title).accessibilityAddTraits(.isHeader)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .font(DS.Cut.Typography.font(.title))
-                    .foregroundStyle(DS.Cut.Colors.lime)
-                    .frame(minHeight: 44)
-            }
-            .padding(.horizontal, DS.Cut.Metrics.gutter)
-            .padding(.top, 14)
-            ScrollView {
-                CutHairlineList {
-                    ForEach(items) { item in
-                        CutHairlineRow(item.title, value: item.xp, valueTone: .lime, subtitle: item.detail)
-                    }
+        Group {
+            if animates, let start {
+                TimelineView(.explicit(steps.map { start.addingTimeInterval($0.time) })) { context in
+                    content(CutWinLogic.xpFrame(steps: steps, elapsed: context.date.timeIntervalSince(start),
+                                                reduceMotion: false))
                 }
-                .padding(.horizontal, DS.Cut.Metrics.gutter)
-                .padding(.top, 10)
+            } else {
+                content(CutWinLogic.xpFrame(steps: steps, elapsed: 0, reduceMotion: !animates))
             }
         }
-        .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .environment(\.colorScheme, .dark)
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
+        .onAppear { if animates && start == nil { start = .now } }
+        // Read once as the final result, not as it counts.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(accessibilityText))
+    }
+
+    private var accessibilityText: String {
+        let final = CutWinLogic.xpFrame(steps: steps, elapsed: 0, reduceMotion: true)
+        return [finalText, levelLine, final.labelsLine].compactMap { $0 }.joined(separator: ". ")
+    }
+
+    private func content(_ frame: CutWinXPFrame) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) { number(frame); levelText }
+                VStack(alignment: .leading, spacing: 4) { number(frame); levelText }
+            }
+            if let line = frame.labelsLine {
+                Text(line)
+                    .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
+                    .foregroundStyle(DS.Cut.Colors.inkSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: frame.landed)
+        .sensoryFeedback(trigger: frame.landed) { old, new in
+            guard new > old, steps.indices.contains(new - 1), steps[new - 1].haptic else { return nil }
+            return .impact(weight: .light)
+        }
+    }
+
+    private func number(_ frame: CutWinXPFrame) -> some View {
+        ZStack(alignment: .leading) {
+            Text(finalText).hidden()
+            Text(CutWinLogic.xpText(frame.total))
+                .contentTransition(.numericText(value: Double(frame.total)))
+                .animation(.spring(response: 0.28, dampingFraction: 0.6), value: frame.total)
+                .keyframeAnimator(initialValue: 1.0, trigger: frame.landed) { view, scale in
+                    view.scaleEffect(scale, anchor: .leading)
+                } keyframes: { _ in
+                    SpringKeyframe(1.12, duration: 0.1, spring: .snappy)
+                    SpringKeyframe(1.0, duration: 0.3, spring: .bouncy)
+                }
+        }
+        .font(DS.Cut.Typography.numeral(.large))
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
+    }
+
+    @ViewBuilder
+    private var levelText: some View {
+        if let levelLine {
+            Text(levelLine)
+                .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
+                .foregroundStyle(DS.Cut.Colors.inkSecondary)
+        }
     }
 }
 
@@ -318,14 +337,17 @@ struct CutWinScreen: View {
         case .newPlate: BarbellProgressService.shared.playClinkHaptic()
         case .setBonus, .personalRecord, .agingMilestone, nil: break
         }
-        let baseDelay = summary.gotLuckyBonus ? 0.3 : 0.0
+        // The same times the XP count-up keeps its taps clear of.
+        let schedule = CutWinLogic.rewardHaptics(gotLuckyBonus: summary.gotLuckyBonus,
+                                                 plateCount: summary.earnedPlates.count)
         if summary.gotLuckyBonus {
             Haptics.heavy()
-            DispatchQueue.main.asyncAfter(deadline: .now() + baseDelay + 0.4) { Haptics.medium() }
         }
-        let plateStart = baseDelay + 1.1
-        for index in summary.earnedPlates.indices {
-            DispatchQueue.main.asyncAfter(deadline: .now() + plateStart + Double(index) * 0.25) { Haptics.heavy() }
+        if let followUp = schedule.luckyFollowUp {
+            DispatchQueue.main.asyncAfter(deadline: .now() + followUp) { Haptics.medium() }
+        }
+        for time in schedule.plates {
+            DispatchQueue.main.asyncAfter(deadline: .now() + time) { Haptics.heavy() }
         }
         let skins = ([summary.rewardQueue.primary].compactMap { $0 } + summary.rewardQueue.compactEvents)
             .filter { $0.kind == .cosmeticUnlock }

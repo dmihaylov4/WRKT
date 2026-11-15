@@ -65,6 +65,16 @@ enum CutSetLoggingBar: Equatable {
     case addSet
 }
 
+/// Where "Add set" sits by the set segments. It is drawn the same way whether or not a rest runs.
+enum CutAddSetPlacement: Equatable {
+    /// No segments are drawn (no sets yet); the bottom pill adds the first set.
+    case none
+    /// A dashed segment in the columns the sets leave free, spanning `span` of `columns`.
+    case freeColumns(columns: Int, span: Int)
+    /// Every column holds a set: "Add set" goes under the full row.
+    case underRow(columns: Int)
+}
+
 /// What the legacy header said about the exercise, in two parts: the record ("PR 100 kg"), which
 /// joins the lime set line, and the rest ("Target 87.5 kg x 6", "Record 15 reps, last 12 reps"),
 /// which stays a grey line under the name.
@@ -207,24 +217,37 @@ enum CutSetLoggingLogic {
         return "Rest \(clock(seconds)) starts after"
     }
 
+    /// `isResting`: while a rest runs with every set logged and nothing else open, the pill is
+    /// hidden, since the segments' "Add set" already offers the same action one tap away.
     static func bar(
         sets: [SetInput],
         activeSetIndex: Int,
         restSeconds: Int?,
         nextExerciseName: String?,
-        holdRunning: Bool
+        holdRunning: Bool,
+        isResting: Bool = false
     ) -> CutSetLoggingBar {
         if holdRunning { return .hidden }
         if sets.isEmpty { return .addSet }
         if sets.allSatisfy(\.isCompleted) {
             if let nextExerciseName { return .nextExercise(name: nextExerciseName) }
-            return .addSet
+            return isResting ? .hidden : .addSet
         }
         if let active = sets[safe: activeSetIndex], active.isGhost && !active.isCompleted {
             // The legacy rows hid the log button on ghost sets.
             return .hidden
         }
         return .logSet(restLine: restLine(seconds: restSeconds))
+    }
+
+    /// The segments sit on a grid of at least four columns, so one or two sets do not stretch
+    /// across the screen. "Add set" takes the free columns, or goes under a full row. A running
+    /// rest does not change this: the same control in the same place in both states.
+    static func addSetPlacement(setCount: Int, isResting: Bool) -> CutAddSetPlacement {
+        guard setCount > 0 else { return .none }
+        let columns = max(4, setCount)
+        let free = columns - setCount
+        return free > 0 ? .freeColumns(columns: columns, span: free) : .underRow(columns: columns)
     }
 
     /// The pill is filled lime unless a rest runs; then it is a lime outline.

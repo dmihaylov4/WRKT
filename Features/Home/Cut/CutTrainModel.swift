@@ -28,8 +28,9 @@ enum CutTrainCountdown: Equatable {
 
 /// The lime field's state, in priority order.
 enum CutTrainHero: Equatable {
-    /// A workout with entries is running and the rest timer counts down.
-    case resting(nextLine: String?, countdown: CutTrainCountdown)
+    /// A workout with entries is running and the rest timer counts down. `exerciseName` is the
+    /// exercise the timer belongs to, nil when the timer's exercise is not in the workout.
+    case resting(nextLine: String?, countdown: CutTrainCountdown, exerciseName: String? = nil)
     /// A workout with entries is running.
     case live(name: String, exercisesDone: Int, exerciseCount: Int, startDate: Date)
     /// Today's planned session is not completed.
@@ -97,7 +98,8 @@ enum CutTrainLogic {
             if let rest {
                 let next = nextSet(in: workout.entries, restingOn: rest.exerciseID)
                 return .resting(nextLine: next.map { nextSetLine(name: $0.name, set: $0.set, unit: unit) },
-                                countdown: countdown)
+                                countdown: countdown,
+                                exerciseName: restingExerciseName(in: workout.entries, restingOn: rest.exerciseID))
             }
             let name = workout.plannedWorkoutID != nil && workout.plannedWorkoutID == todaysPlan?.id
                 ? (todaysPlan?.name ?? liveWorkoutName)
@@ -134,6 +136,14 @@ enum CutTrainLogic {
     /// An exercise is done when it has sets and every one is completed.
     static func isDone(_ entry: WorkoutEntry) -> Bool {
         !entry.sets.isEmpty && entry.sets.allSatisfy(\.isCompleted)
+    }
+
+    /// The name of the exercise the rest timer belongs to, nil when it is not in the workout
+    /// or has no name.
+    static func restingExerciseName(in entries: [WorkoutEntry], restingOn exerciseID: String) -> String? {
+        guard let name = entries.first(where: { $0.exerciseID == exerciseID })?.exerciseName
+            .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return nil }
+        return name
     }
 
     /// The first open set from the exercise being rested on onwards.
@@ -229,9 +239,18 @@ extension CutTrainLogic {
             return nil
         case .live(_, let done, let count, _):
             return "\(done) of \(count) \(count == 1 ? "exercise" : "exercises") done"
-        case .resting(let nextLine, _):
+        case .resting(let nextLine, _, _):
             return nextLine
         }
+    }
+
+    /// The resting hero's lines under the countdown: what the rest is for, then the next set
+    /// when one is open. Empty for every other state.
+    static func restingLines(_ hero: CutTrainHero) -> [String] {
+        guard case .resting(let nextLine, _, let exerciseName) = hero else { return [] }
+        var lines = [exerciseName.map { "Resting: \($0)" } ?? "Resting"]
+        if let nextLine { lines.append(nextLine) }
+        return lines
     }
 
     static func nextSetLine(name: String, set: SetInput, unit: WeightUnit) -> String {

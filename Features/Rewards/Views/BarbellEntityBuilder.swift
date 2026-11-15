@@ -1,4 +1,5 @@
 // Features/Rewards/Views/BarbellEntityBuilder.swift
+import os
 import RealityKit
 import UIKit
 import VOLIAMaterials
@@ -684,6 +685,50 @@ private func loadBundleTextures(prefix: String) -> PlateTextures {
         roughness: load("Roughness", semantic: .raw),
         metalness: load("Metalness", semantic: .raw)
     )
+    _bundleTexturesByPrefix[prefix] = textures
+    return textures
+}
+
+// Decoding preserves the existing RGBA conversion and texture semantics.
+nonisolated private func decodePlateTexture(at url: URL) -> CGImage? {
+    guard let uiImage = UIImage(contentsOfFile: url.path),
+          let sourceCG = uiImage.cgImage else { return nil }
+    let w = sourceCG.width, h = sourceCG.height
+    guard let ctx = CGContext(
+        data: nil, width: w, height: h,
+        bitsPerComponent: 8, bytesPerRow: w * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else { return nil }
+    ctx.draw(sourceCG, in: CGRect(x: 0, y: 0, width: w, height: h))
+    guard let rgba = ctx.makeImage() else { return nil }
+    return rgba
+}
+
+@MainActor
+func loadPlateTexturesAsync(forTierID tierID: Int) async -> PlateTextures {
+    let prefix: String
+    switch tierID {
+    case 1: prefix = "CastIron"
+    case 2, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23: prefix = "Rubber"
+    case 3: prefix = "Brass"
+    default: return PlateTextures()
+    }
+    if let cached = _bundleTexturesByPrefix[prefix] { return cached }
+    func load(_ suffix: String, semantic: TextureResource.Semantic) async -> TextureResource? {
+        guard let url = Bundle.main.url(forResource: "\(prefix)_\(suffix)", withExtension: "jpg") else { return nil }
+        let image = await Task.detached(priority: .userInitiated) { decodePlateTexture(at: url) }.value
+        guard !Task.isCancelled, let image else { return nil }
+        return try? await TextureResource(image: image, options: .init(semantic: semantic))
+    }
+    let albedo = await load("Color", semantic: .color)
+    let normal = await load("Normal", semantic: .normal)
+    let roughness = await load("Roughness", semantic: .raw)
+    let metalness = await load("Metalness", semantic: .raw)
+    let textures = PlateTextures(albedo: albedo, normal: normal, roughness: roughness, metalness: metalness)
+    guard !Task.isCancelled else { return textures }
+    // Another host may have loaded this prefix across an await.
+    if let cached = _bundleTexturesByPrefix[prefix] { return cached }
     _bundleTexturesByPrefix[prefix] = textures
     return textures
 }
@@ -1506,6 +1551,8 @@ func makePlateEntity(
     role: PlateRoleComponent.Role = .floor,
     options: PlateEntityBuildOptions? = nil
 ) -> ModelEntity {
+    let interval = barbellSignposter.beginInterval("makePlateEntity", id: barbellSignposter.makeSignpostID())
+    defer { barbellSignposter.endInterval("makePlateEntity", interval) }
     guard let tier = PlateTier.all.first(where: { $0.id == tierID }) else {
         return ModelEntity()
     }

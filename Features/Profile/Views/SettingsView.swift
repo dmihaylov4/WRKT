@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var badgeManager = NotificationBadgeManager.shared
     @State private var showLoginSheet = false
     #if DEBUG
+    @State private var showLaunchReplay = false
     @AppStorage(DS.Redesign.roundedShapesPreferenceKey)
     private var useRoundedShapes = DS.Redesign.roundedShapesDefault
     @AppStorage(DS.Redesign.cutPreferenceKey)
@@ -134,6 +135,15 @@ struct SettingsView: View {
                         }
                     }
                     settingsRow {
+                        Button {
+                            var transaction = Transaction()
+                            transaction.disablesAnimations = true
+                            withTransaction(transaction) { showLaunchReplay = true }
+                        } label: {
+                            Label("Replay launch animation", systemImage: "play.circle")
+                        }
+                    }
+                    settingsRow {
                         NavigationLink {
                             BarbellPlaygroundView()
                         } label: {
@@ -225,6 +235,16 @@ struct SettingsView: View {
                     .environmentObject(authService)
             }
         }
+        #if DEBUG
+        .fullScreenCover(isPresented: $showLaunchReplay) {
+            LaunchClapView(sessionReady: true) {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) { showLaunchReplay = false }
+            }
+                .presentationBackground(.clear)
+        }
+        #endif
         .onChange(of: isLoggedIn) { _, loggedIn in
             if loggedIn && settings.isLocalMode {
                 settings.disableLocalMode()

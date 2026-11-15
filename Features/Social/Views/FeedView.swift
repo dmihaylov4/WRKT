@@ -199,14 +199,16 @@ struct FeedView: View {
                     }
                 }
                 .refreshable {
-                    await viewModel.refresh()
+                    let refresh = Task { @MainActor in await viewModel.refresh() }
+                    await refresh.value
                 }
             } else if viewModel.posts.isEmpty && !viewModel.isLoading {
                 ScrollView {
                     emptyState
                 }
                 .refreshable {
-                    await viewModel.refresh()
+                    let refresh = Task { @MainActor in await viewModel.refresh() }
+                    await refresh.value
                 }
             } else {
                 ScrollView {
@@ -338,7 +340,8 @@ struct FeedView: View {
                 }
             }
             .refreshable {
-                await viewModel.refresh()
+                let refresh = Task { @MainActor in await viewModel.refresh() }
+                await refresh.value
             }
             .overlay(alignment: .top) {
                 // Show inline error banner for errors during refresh/pagination

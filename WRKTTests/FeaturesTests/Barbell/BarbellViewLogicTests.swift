@@ -5,6 +5,59 @@ import RealityKit
 
 struct BarbellViewLogicTests {
 
+    @Test func settleRequiresDelayAndBothSpeedsBelowThreshold() {
+        var settle = BarbellFloorSettleState(delay: 0.1)
+        let result1 = settle.advance(deltaTime: 0.05, linearSpeed: 0, angularSpeed: 0)
+        #expect(!result1)
+        let result2 = settle.advance(deltaTime: 0.05, linearSpeed: 0.02, angularSpeed: 0)
+        #expect(!result2)
+        let result3 = settle.advance(deltaTime: 0.01, linearSpeed: 0, angularSpeed: 0.05)
+        #expect(!result3)
+        let result4 = settle.advance(deltaTime: 0.01, linearSpeed: 0.019, angularSpeed: 0.049)
+        #expect(result4)
+    }
+
+    @Test func settleHardCapUsesElapsedTime() {
+        var settle = BarbellFloorSettleState(delay: 0.1)
+        let result5 = settle.advance(deltaTime: 3.09, linearSpeed: 1, angularSpeed: 1)
+        #expect(!result5)
+        let result6 = settle.advance(deltaTime: 0.02, linearSpeed: 1, angularSpeed: 1)
+        #expect(result6)
+    }
+
+    @Test func spinSpeedIsIndependentOfFrameRate() {
+        let at30 = (0..<30).reduce(Float.zero) { angle, _ in angle + barbellSpinIncrement(deltaTime: 1.0 / 30) }
+        let at120 = (0..<120).reduce(Float.zero) { angle, _ in angle + barbellSpinIncrement(deltaTime: 1.0 / 120) }
+        #expect(abs(at30 - at120) < 0.0001)
+        #expect(abs(at30 - 1.875) < 0.0001)
+    }
+
+    @Test @MainActor func cancelledDragReusesPreparedMirrorWithoutBuilding() {
+        let state = SceneState()
+        let source = Entity()
+        let mirror = ModelEntity()
+        mirror.isEnabled = false
+        state.preparedMirrors["plate"] = mirror
+        #expect(state.prepareMirror(for: source, plateID: "plate") === mirror)
+        #expect(state.prepareMirror(for: source, plateID: "plate") === mirror)
+        #expect(!mirror.isEnabled)
+        #expect(state.preparedMirrors.count == 1)
+    }
+
+    @Test @MainActor func queuedSavesPreserveOrderAndFlushOnPause() {
+        let state = SceneState()
+        var saved: [Int] = []
+        let start = ProcessInfo.processInfo.systemUptime
+        state.deferSave(untilAfter: 0.27) { saved.append(1) }
+        state.deferSave(untilAfter: 0.2) { saved.append(2) }
+        #expect(saved.isEmpty)
+        #expect(state.animationDeadline >= start + 0.27)
+        state.pauseNonessentialRealityWork()
+        #expect(saved == [1, 2])
+        state.deferSave(untilAfter: 0) { saved.append(3) }
+        #expect(saved == [1, 2, 3])
+    }
+
     @Test func plateWallTotalWeightIgnoresStarterPlates() {
         let rackedPlates = [
             EarnedPlate(id: "starter", tierID: 7, weightKg: 0, engravingText: "", earnedByEvent: "starter"),

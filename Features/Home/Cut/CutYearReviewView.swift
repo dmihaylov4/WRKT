@@ -3,8 +3,9 @@
 //  WRKT
 //
 //  Year in review in the Cut language: a lime card that pops up over the app, a deck of dark
-//  stat cards that each set one number against something from the real world, and a lime card
-//  to share. CutYearReviewOverlay sits at the app root; CutYearReviewCenter decides when it shows.
+//  stat cards that each set one number against something from the real world, and a steel
+//  award plaque to keep and share (CutYearAwardView.swift). CutYearReviewOverlay sits at the
+//  app root; CutYearReviewCenter decides when it shows.
 //
 
 import SwiftUI
@@ -108,7 +109,7 @@ struct CutYearReviewDeck: View {
                     CutYearReviewStatCard(card: card, stats: stats, unit: unit, index: step - 1, total: cards.count + 1,
                                           next: { go(to: step + 1) }, close: { onClose(true) })
                 } else {
-                    CutYearReviewShareStep(stats: stats, unit: unit, cards: cards, done: { onClose(true) })
+                    CutYearAwardStep(stats: stats, unit: unit, cards: cards, done: { onClose(true) })
                 }
             }
             .id(step)
@@ -125,11 +126,12 @@ struct CutYearReviewDeck: View {
         .accessibilityAddTraits(.isModal)
     }
 
-    /// The opening card floats over the dimmed app; the deck gets its own black screen.
+    /// The opening card floats over the dimmed app; the deck gets its own black screen. The
+    /// award at the end stands on plain black, without the dark lime field.
     private var backdrop: some View {
         ZStack(alignment: .top) {
             Color.black.opacity(step == 0 ? 0.78 : 1)
-            if step > 0 {
+            if step > 0, step < lastStep {
                 CutCornerShape.field
                     .fill(Color(hex: "#1C2000"))
                     .frame(height: 320)
@@ -138,6 +140,7 @@ struct CutYearReviewDeck: View {
         }
         .ignoresSafeArea()
         .animation(.easeOut(duration: 0.3), value: step == 0)
+        .animation(.easeOut(duration: 0.3), value: step == lastStep)
     }
 
     private var cardTransition: AnyTransition {
@@ -216,14 +219,14 @@ private struct CutYearReviewIntroCard: View {
                     Text("Your year is ready")
                         .cutFont(.title)
                         .padding(.leading, 24)
-                    CutYearReviewCountUp(value: Double(landed ? stats.year : stats.year - 1)) { String(Int($0.rounded())) }
+                    // The year is shown as is. It used to tick up from the year before, which
+                    // read as the wrong year loading first.
+                    Text(String(stats.year))
                         .font(DS.Cut.Typography.condensed(size: 168, monospacedDigits: true))
                         .tracking(-3)
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
                         .padding(.top, 36)
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.9).delay(0.35), value: landed)
-                        .accessibilityLabel(Text(String(stats.year)))
                     Text(CutYearReviewLogic.teaser(stats: stats, unit: unit))
                         .font(DS.Cut.Typography.condensed(size: 28, weight: .bold, relativeTo: .title2))
                         .fixedSize(horizontal: false, vertical: true)
@@ -677,104 +680,6 @@ private struct CutYearReviewWeeks: View {
     private func color(active: Bool, lit: Bool) -> Color {
         if lit { return DS.Cut.Colors.lime }
         return active ? Color(hex: "#8E8E93") : Color(hex: "#3A3A3C")
-    }
-}
-
-// MARK: - Share
-
-/// The lime card as it is shared: fixed size, so the rendered image matches what is on screen.
-struct CutYearReviewShareCard: View {
-    let stats: CutYearReviewStats
-    let unit: WeightUnit
-    let cards: [CutYearReviewCard]
-
-    private var headline: String {
-        guard let first = cards.first else { return "I trained all year." }
-        return CutYearReviewLogic.comparison(first, stats: stats, unit: unit).shareLine
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
-                Text("My \(String(stats.year)) in Volia")
-                    .cutFont(.title)
-                    .padding(.top, 10)
-                Spacer(minLength: 12)
-                VMarkShape()
-                    .fill(DS.Cut.Colors.ink)
-                    .frame(width: 80, height: 48)
-                    .accessibilityHidden(true)
-            }
-            .padding(.leading, 24)
-            CutHeroText(headline, hero: .m, minimumScaleFactor: 0.5)
-                .lineLimit(nil)
-                .padding(.top, 20)
-            VStack(spacing: 0) {
-                Rectangle().fill(DS.Cut.Colors.inkHairline).frame(height: 1)
-                ForEach(cards) { card in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text(CutYearReviewLogic.valueText(card, stats: stats, unit: unit))
-                            .font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2, monospacedDigits: true))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        Spacer(minLength: 8)
-                        Text(CutYearReviewLogic.comparison(card, stats: stats, unit: unit).short)
-                            .cutFont(.title)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                    .frame(minHeight: 58)
-                    Rectangle().fill(DS.Cut.Colors.inkHairline).frame(height: 1)
-                }
-            }
-            .padding(.top, 24)
-            Spacer(minLength: 20)
-            Text(CutYearReviewLogic.footer(stats: stats))
-                .cutFont(.secondary)
-        }
-        .foregroundStyle(DS.Cut.Colors.ink)
-        .padding(EdgeInsets(top: 28, leading: 24, bottom: 24, trailing: 24))
-        .frame(width: 342, height: 560, alignment: .topLeading)
-        .background(CutCornerShape(corner: .topLeading, cut: .points(40)).fill(DS.Cut.Colors.lime))
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct CutYearReviewShareStep: View {
-    let stats: CutYearReviewStats
-    let unit: WeightUnit
-    let cards: [CutYearReviewCard]
-    let done: () -> Void
-
-    @State private var image: UIImage?
-    @Environment(\.displayScale) private var displayScale
-
-    private var card: CutYearReviewShareCard { CutYearReviewShareCard(stats: stats, unit: unit, cards: cards) }
-
-    var body: some View {
-        VStack(spacing: 24) {
-            card
-            VStack(spacing: 4) {
-                if let image {
-                    let picture = Image(uiImage: image)
-                    ShareLink(item: picture, preview: SharePreview("My \(String(stats.year)) in Volia", image: picture)) {
-                        Text("Share this card")
-                    }
-                    .buttonStyle(CutActionPillButtonStyle())
-                }
-                Button("Done", action: done)
-                    .font(DS.Cut.Typography.font(.buttonCompact))
-                    .foregroundStyle(DS.Cut.Colors.textPrimary)
-                    .frame(minWidth: 88, minHeight: 48)
-            }
-            .frame(width: 342)
-        }
-        .task {
-            // On black, so the cut corner survives apps that flatten transparency.
-            let renderer = ImageRenderer(content: card.padding(24).background(Color.black))
-            renderer.scale = displayScale
-            image = renderer.uiImage
-        }
     }
 }
 

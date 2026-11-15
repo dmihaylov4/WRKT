@@ -18,6 +18,8 @@ struct PostCreationView: View {
     let initialCaption: String
     let navigationTitle: String
     let weeklyStats: WeeklyProgressStats?
+    /// A picture the caller hands in (the year award plaque), posted as the first photo.
+    let attachedImage: UIImage?
 
     @State private var viewModel: PostCreationViewModel?
     @State private var showingWorkoutPicker = false
@@ -34,6 +36,7 @@ struct PostCreationView: View {
         self.initialCaption = ""
         self.navigationTitle = "Share Workout"
         self.weeklyStats = nil
+        self.attachedImage = nil
     }
 
     init(workouts: [CompletedWorkout], stats: WeeklyProgressStats, title: String = "Share Progress") {
@@ -43,6 +46,19 @@ struct PostCreationView: View {
         self.initialCaption = ""
         self.navigationTitle = title
         self.weeklyStats = stats
+        self.attachedImage = nil
+    }
+
+    /// A post that carries a picture and a caption, prefilled for the user to confirm. A feed
+    /// post always belongs to a workout, so `workout` is preselected and can be changed.
+    init(attachedImage: UIImage, caption: String, workout: CompletedWorkout?, title: String) {
+        self.initialWorkout = workout
+        self.initialWorkouts = workout.map { [$0] } ?? []
+        self.initialMapImage = nil
+        self.initialCaption = caption
+        self.navigationTitle = title
+        self.weeklyStats = nil
+        self.attachedImage = attachedImage
     }
 
     var body: some View {
@@ -127,6 +143,13 @@ struct PostCreationView: View {
                     }
 
 
+                    if !initialCaption.isEmpty {
+                        vm.caption = initialCaption
+                    }
+                    if let attachedImage {
+                        vm.attachImage(attachedImage)
+                    }
+
                     // Add initial map image if provided (from CardioDetailView)
                     if let mapImage = initialMapImage {
                         vm.addInitialImage(mapImage)
@@ -138,14 +161,15 @@ struct PostCreationView: View {
 
                     // If cardio workout with no map provided, generate one now
                     // (cachedRuns is populated so route lookup will succeed)
-                    if initialMapImage == nil,
+                    if initialMapImage == nil, attachedImage == nil,
                        let workout = initialWorkout, workout.isCardioWorkout {
                         await vm.generateMapSnapshotForWorkout(workout)
                     }
                 }
             }
             .onChange(of: viewModel?.selectedWorkouts.map(\.id) ?? []) { _, newIDs in
-                guard initialWorkout == nil, !newIDs.isEmpty else { return }
+                // A post built around a handed in picture gets no route map.
+                guard initialWorkout == nil, attachedImage == nil, !newIDs.isEmpty else { return }
                 guard let vm = viewModel else { return }
                 Task {
                     await vm.generateMapSnapshotsForSelectedWorkouts()
@@ -487,10 +511,20 @@ struct PostCreationView: View {
                 }
             }
 
-            let hasAnyImage = !viewModel.photoImages.isEmpty || viewModel.mapImage != nil
+            let hasAnyImage = !viewModel.photoImages.isEmpty || viewModel.mapImage != nil || viewModel.attachedImage != nil
             if hasAnyImage {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
+                        // The handed in picture first, not removable
+                        if let attached = viewModel.attachedImage {
+                            Image(uiImage: attached)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 120, height: 120)
+                                .clipShape(DS.RoleShape(.tile, legacy: RoundedRectangle(cornerRadius: 12)))
+                                .accessibilityLabel("Attached picture")
+                        }
+
                         // User-picked photos first
                         ForEach(Array(viewModel.photoImages.enumerated()), id: \.offset) { index, image in
                             ZStack(alignment: .topTrailing) {

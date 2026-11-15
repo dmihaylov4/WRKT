@@ -1,4 +1,5 @@
 // Features/Profile/Views/PlateWallView.swift
+import os
 import RealityKit
 import SwiftUI
 import SwiftData
@@ -218,6 +219,15 @@ struct PlateWallView: View {
         rackedPlates.map { BarbellRackSceneSyncPlate(id: $0.id, rackPosition: $0.rackPosition) }
     }
 
+    private struct RackSceneSyncKey: Equatable {
+        let floorIDs: [String]
+        let racked: [BarbellRackSceneSyncPlate]
+    }
+
+    private var rackSceneSyncKey: RackSceneSyncKey {
+        RackSceneSyncKey(floorIDs: floorPlates.prefix(8).map(\.id), racked: rackSceneSyncPlates)
+    }
+
     private var sceneEntityRolesByPlateID: [String: BarbellRackSceneEntityRole] {
         sceneState.entityMap.reduce(into: [:]) { result, entry in
             switch entry.value.components[PlateRoleComponent.self]?.role {
@@ -279,9 +289,11 @@ struct PlateWallView: View {
             .allowsHitTesting(false)
 
             Color.clear.task { @MainActor in
+                let interval = barbellSignposter.beginInterval("AssetPreload", id: barbellSignposter.makeSignpostID())
+                defer { barbellSignposter.endInterval("AssetPreload", interval) }
                 // Populate caches, then set assetsReady = true before RealityView renders
-                for tierID in PlateTier.all.map(\.id) where tierID != 7 {
-                    sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+                for tierID in Set((rackedPlates + ownedPlates).map(\.tierID)).sorted() where tierID != 7 {
+                    sceneState.plateTextureCache[tierID] = await loadPlateTexturesAsync(forTierID: tierID)
                     sceneState.materialCache[tierID] = buildMaterial(
                         forTierID: tierID,
                         textures: sceneState.plateTextureCache[tierID]
@@ -293,6 +305,7 @@ struct PlateWallView: View {
                     _ = loadAudioResource(named: cat.clinkSoundName)
                     _ = loadAudioResource(named: cat.dropSoundName)
                 }
+                guard !Task.isCancelled else { return }
                 assetsReady = true  // Cache is populated -- safe for make{} to run
                 // IBL is applied inside BarbellRealityView.make{} after sceneRoot is initialized.
             }
@@ -300,33 +313,31 @@ struct PlateWallView: View {
                 guard newCount > oldCount else { return }
                 let existing = Set(sceneState.entityMap.keys)
                 if let newPlate = ownedPlates.first(where: { !existing.contains($0.id) }) {
-                    sceneState.addPlate(newPlate)
+                    Task { @MainActor in
+                        if sceneState.materialCache[newPlate.tierID] == nil {
+                            let textures = await loadPlateTexturesAsync(forTierID: newPlate.tierID)
+                            sceneState.plateTextureCache[newPlate.tierID] = textures
+                            sceneState.materialCache[newPlate.tierID] = buildMaterial(forTierID: newPlate.tierID, textures: textures)
+                        }
+                        guard !sceneState.isPaused else { return }
+                        sceneState.addPlate(newPlate)
+                    }
                 }
             }
-            .onChange(of: floorPlates.prefix(8).map(\.id)) { oldIDs, newIDs in
-                let oldSet = Set(oldIDs)
-                let newSet = Set(newIDs)
-                guard oldSet != newSet else { return }
+            .onChange(of: rackSceneSyncKey) { oldKey, newKey in
+                let oldSet = Set(oldKey.floorIDs)
+                let newSet = Set(newKey.floorIDs)
+                guard oldKey != newKey else { return }
+                // Entity roles are inspected only after the persisted scene key changes.
                 applyRackSceneSync(
                     barbellRackSceneSyncActions(
                         previousVisibleFloorIDs: oldSet,
                         currentVisibleFloorIDs: newSet,
-                        rackedPlates: rackSceneSyncPlates,
+                        rackedPlates: newKey.racked,
                         entityRolesByPlateID: sceneEntityRolesByPlateID
                     )
                 )
                 visibleFloorIDs = newSet
-            }
-            .onChange(of: rackedPlates.map { "\($0.id)|\($0.rackPosition ?? -1)" }) { _, _ in
-                let visibleFloorIDs = Set(floorPlates.prefix(8).map(\.id))
-                applyRackSceneSync(
-                    barbellRackSceneSyncActions(
-                        previousVisibleFloorIDs: visibleFloorIDs,
-                        currentVisibleFloorIDs: visibleFloorIDs,
-                        rackedPlates: rackSceneSyncPlates,
-                        entityRolesByPlateID: sceneEntityRolesByPlateID
-                    )
-                )
             }
 
             VStack {
@@ -375,7 +386,17 @@ struct PlateWallView: View {
 
             case .addStoragePlate(let plateID):
                 guard let plate = floorPlates.first(where: { $0.id == plateID }) else { continue }
-                sceneState.addPlate(plate)
+                if sceneState.materialCache[plate.tierID] == nil {
+                    Task { @MainActor in
+                        let textures = await loadPlateTexturesAsync(forTierID: plate.tierID)
+                        sceneState.plateTextureCache[plate.tierID] = textures
+                        sceneState.materialCache[plate.tierID] = buildMaterial(forTierID: plate.tierID, textures: textures)
+                        guard !sceneState.isPaused else { return }
+                        sceneState.addPlate(plate)
+                    }
+                } else {
+                    sceneState.addPlate(plate)
+                }
             }
         }
     }

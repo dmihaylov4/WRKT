@@ -126,7 +126,8 @@ struct CutSetLoggingView: View {
     private func screen(rest: CutRestState?) -> some View {
         let isResting = rest != nil
         let bar = CutSetLoggingLogic.bar(sets: sets, activeSetIndex: activeSetIndex, restSeconds: model.restSeconds,
-                                         nextExerciseName: model.nextExercise?.name, holdRunning: holdStart != nil)
+                                         nextExerciseName: model.nextExercise?.name, holdRunning: holdStart != nil,
+                                         isResting: isResting)
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if let rest {
@@ -134,8 +135,7 @@ struct CutSetLoggingView: View {
                 } else {
                     entryBlock
                 }
-                lists(showsAddRow: isResting && bar != .addSet,
-                      showsRestTip: !CutSetLoggingLogic.tipJoinsPillLine(bar, isResting: isResting))
+                lists(showsRestTip: !CutSetLoggingLogic.tipJoinsPillLine(bar, isResting: isResting))
                     .padding(.top, 40)
             }
             .padding(.horizontal, DS.Cut.Metrics.gutter)
@@ -538,29 +538,26 @@ struct CutSetLoggingView: View {
 
     // MARK: Segments
 
-    /// The segments on a grid of at least four columns, so one or two sets do not stretch across
-    /// the screen. While entering a set "Add set" sits in the free columns, or under a full row.
+    /// The segments with "Add set" beside them (see CutSetLoggingLogic.addSetPlacement), the same
+    /// whether or not a rest runs.
     @ViewBuilder
     private func segmentsRow(isResting: Bool) -> some View {
-        if !sets.isEmpty {
-            let columns = max(4, sets.count)
-            let free = columns - sets.count
-            let segments = CutSetSegments(sets: sets, activeSetIndex: activeSetIndex, mode: model.mode, unit: model.unit,
-                                          isResting: isResting, onActivate: activate)
-                .cutColumnSpan(sets.count)
-            if isResting {
+        let segments = CutSetSegments(sets: sets, activeSetIndex: activeSetIndex, mode: model.mode, unit: model.unit,
+                                      isResting: isResting, onActivate: activate)
+            .cutColumnSpan(sets.count)
+        switch CutSetLoggingLogic.addSetPlacement(setCount: sets.count, isResting: isResting) {
+        case .none:
+            EmptyView()
+        case .freeColumns(let columns, let span):
+            CutColumnsLayout(columns: columns, spacing: 8) {
+                segments
+                addSetSegment
+                    .cutColumnSpan(span)
+            }
+        case .underRow(let columns):
+            VStack(alignment: .leading, spacing: 4) {
                 CutColumnsLayout(columns: columns, spacing: 8) { segments }
-            } else if free > 0 {
-                CutColumnsLayout(columns: columns, spacing: 8) {
-                    segments
-                    addSetSegment
-                        .cutColumnSpan(free)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    CutColumnsLayout(columns: columns, spacing: 8) { segments }
-                    addSetButton
-                }
+                addSetButton
             }
         }
     }
@@ -612,7 +609,7 @@ struct CutSetLoggingView: View {
     // MARK: Lists
 
     /// `showsRestTip` is false while the rest tip sits in the line over the pill instead.
-    private func lists(showsAddRow: Bool, showsRestTip: Bool) -> some View {
+    private func lists(showsRestTip: Bool) -> some View {
         CutHairlineList {
             if showsRestTip, let zone = restZone {
                 CutAdviceRow(text: zone.tip, actionTitle: nil, action: nil) { dismissRestZone(zone) }
@@ -634,27 +631,6 @@ struct CutSetLoggingView: View {
             }
             if model.canSuperset {
                 CutSupersetRow(isOn: model.isInSuperset, onToggle: actions.toggleSuperset)
-            }
-            if showsAddRow {
-                // While resting the segments carry no "Add set"; the row keeps it reachable.
-                Button(action: actions.addSet) {
-                    VStack(spacing: 0) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 20, weight: .bold))
-                                .accessibilityHidden(true)
-                            Text("Add set")
-                                .cutFont(.title)
-                            Spacer(minLength: 0)
-                        }
-                        .foregroundStyle(DS.Cut.Colors.lime)
-                        .frame(minHeight: 50)
-                        .padding(.vertical, 10)
-                        CutHairline()
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
             }
         }
     }

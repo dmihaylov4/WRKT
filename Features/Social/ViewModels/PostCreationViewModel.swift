@@ -20,6 +20,7 @@ final class PostCreationViewModel {
     var selectedPhotos: [PhotosPickerItem] = []
     var photoImages: [UIImage] = []         // user-picked photos only
     var mapImage: UIImage?                  // map snapshot, tracked separately so loadPhotos() never wipes it
+    var attachedImage: UIImage?             // picture handed in by the caller (year award), posted first, never wiped by loadPhotos()
     var imagePrivacySettings: [Bool] = []   // mirrors photoImages (not mapImage)
     var isUploading = false
     var isLoadingWorkouts = false
@@ -86,16 +87,18 @@ final class PostCreationViewModel {
         error = nil
         retryAttempt = 0
 
-        // Step 1: Upload user-picked photos (if any)
+        // Step 1: Upload the attached picture and user-picked photos (if any)
         var uploadedUserPhotos: [PostImage] = []
-        if !photoImages.isEmpty {
-            let privacySettings = imagePrivacySettings.count == photoImages.count
+        let photosToUpload = (attachedImage.map { [$0] } ?? []) + photoImages
+        if !photosToUpload.isEmpty {
+            let pickedPrivacy = imagePrivacySettings.count == photoImages.count
                 ? imagePrivacySettings
                 : Array(repeating: true, count: photoImages.count)
+            let privacySettings = (attachedImage == nil ? [] : [true]) + pickedPrivacy
 
             let uploadResult = await retryManager.uploadWithRetry {
                 try await self.imageUploadService.uploadWorkoutImages(
-                    images: self.photoImages,
+                    images: photosToUpload,
                     userId: currentUserId,
                     isPublic: privacySettings
                 )
@@ -118,8 +121,10 @@ final class PostCreationViewModel {
 
         // Step 2: Check if an auto-post already exists for this workout.
         // If so, extend it with the user's photo instead of creating a duplicate.
-        // Only applies to single-workout posts.
+        // Only applies to single-workout posts, and not to a post built around an attached
+        // picture: that one keeps its own caption as a new post.
         if selectedPartner == nil,
+           attachedImage == nil,
            weeklyProgressStats == nil,
            workouts.count == 1,
            let workout = workouts.first,
@@ -324,6 +329,17 @@ final class PostCreationViewModel {
         if let selectedWorkout {
             mapImagesByWorkoutID[mapIdentity(for: selectedWorkout)] = finalImage
         }
+    }
+
+    /// Attach a picture the caller hands in (the year award plaque). Posted as the first,
+    /// public photo; kept apart from user-picked photos so loadPhotos() never wipes it.
+    func attachImage(_ image: UIImage) {
+        guard let jpegData = image.jpegData(compressionQuality: 0.92),
+              let finalImage = UIImage(data: jpegData) else {
+            attachedImage = image
+            return
+        }
+        attachedImage = finalImage
     }
 
     func loadRecentWorkouts() async {

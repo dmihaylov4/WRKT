@@ -53,11 +53,16 @@ struct WorkoutDataGate: View {
             AppShellView()
         } else if store.storageLoadError != nil {
             StorageRecoveryView(recoveryCopy: recoveryCopy, retry: store.retryStorageLoad)
+                .onAppear { LaunchSplashState.shared.isContentReady = true }
         } else {
-            ProgressView("Opening your history")
-                .tint(DS.Semantic.brand)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(DS.Semantic.surface)
+            ZStack {
+                Color.black
+                LaunchClapMark(elapsed: 0, reduceMotion: false)
+            }
+            .ignoresSafeArea()
+            .statusBarHidden()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Opening your history")
         }
     }
 }

@@ -115,7 +115,47 @@ struct CutTrainLogicTests {
         let entries = [entry("a", "Bench Press", done: 2, of: 3), entry("b", "Row", done: 0, of: 3)]
         let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
                                       todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(92))
-        #expect(hero == .resting(nextLine: "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92)))
+        #expect(hero == .resting(nextLine: "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92),
+                                 exerciseName: "Bench Press"))
+    }
+
+    // MARK: Resting lines
+
+    @Test func restingWithNoOpenSetsNamesTheExercise() {
+        let entries = [entry("a", "Bar Eccentric Pull Up", done: 3, of: 3)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        #expect(CutTrainLogic.restingLines(hero) == ["Resting: Bar Eccentric Pull Up"])
+    }
+
+    @Test func restingWithAnOpenSetShowsBothLines() {
+        let entries = [entry("a", "Bench Press", done: 3, of: 3), entry("b", "Row", done: 0, of: 3, weight: 60, reps: 10)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        #expect(CutTrainLogic.restingLines(hero) == ["Resting: Bench Press", "Next: Row, 60\u{00A0}kg\u{00A0}x\u{00A0}10"])
+    }
+
+    @Test func restingOnAnUnknownExerciseFallsBackToPlainResting() {
+        let entries = [entry("a", "Bench Press", done: 1, of: 3)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "gone"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        guard case .resting(_, _, let name) = hero else { Issue.record("expected resting"); return }
+        #expect(name == nil)
+        let lines = CutTrainLogic.restingLines(hero)
+        #expect(lines.first == "Resting")
+        #expect(!lines.contains { $0.hasSuffix(":") || $0.hasSuffix(": ") })
+    }
+
+    @Test func restingOnAnExerciseWithABlankNameFallsBack() {
+        let entries = [entry("a", "  ", done: 3, of: 3)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        #expect(CutTrainLogic.restingLines(hero) == ["Resting"])
+    }
+
+    @Test func restingLinesAreEmptyOutsideRest() {
+        #expect(CutTrainLogic.restingLines(.noPlan).isEmpty)
+        #expect(CutTrainLogic.restingLines(.planned(name: "Upper Body", exerciseCount: 6)).isEmpty)
     }
 
     @Test func nextSetMovesOnWhenTheRestedExerciseIsDone() {

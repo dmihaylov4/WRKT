@@ -11,15 +11,8 @@
 		<string>processing</string>
 		<string>fetch</string>
 	</array>
-	<key>UILaunchScreen</key>
-	<dict>
-		<key>UIColorName</key>
-		<string>LaunchBackgroundColor</string>
-		<key>UIImageName</key>
-		<string>LaunchLogo</string>
-		<key>UIImageRespectsSafeAreaInsets</key>
-		<true/>
-	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
 	<key>UIWhitePointAdaptivityStyle</key>
 	<string>UIWhitePointAdaptivityStyleStandard</string>
 	<key>CFBundleURLTypes</key>
