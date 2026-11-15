@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 @Suite struct CutChallengesBrowseLogicTests {
-    let row = CutCompeteItem(id: .challenge(UUID()), title: "Fixture Challenge", subtitle: "Beginner")
+    let row = CutCompeteItem(id: .challenge(UUID()), kind: .challenge, title: "Fixture Challenge", line: "Beginner")
     let preset = CutChallengesBrowseModel.Preset(title: "Fixture Preset", description: "Fixture rule", duration: "7 days", difficulty: "Beginner")
     @Test func eachFilterUsesItsOwnRows() {
         for tab in CutChallengesBrowseModel.Tab.allCases {

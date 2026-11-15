@@ -4,7 +4,7 @@ import Testing
 
 @MainActor
 @Suite struct CutBattlesListLogicTests {
-    let row = CutCompeteItem(id: .battle(UUID()), title: "Fixture Opponent", subtitle: "Volume")
+    let row = CutCompeteItem(id: .battle(UUID()), kind: .battle, title: "Fixture Opponent", line: "Volume")
     @Test func filtersSelectTheirOwnData() {
         for tab in CutBattlesListModel.Tab.allCases {
             let m = CutBattlesListLogic.model(tab: tab, active: tab == .active ? [row] : [], pending: tab == .pending ? [row] : [], completed: tab == .completed ? [row] : [], loading: false, error: nil)

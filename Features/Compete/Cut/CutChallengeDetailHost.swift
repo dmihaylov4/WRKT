@@ -15,11 +15,8 @@ struct CutChallengeDetailHost: View {
         CutChallengeDetailLogic.model(.init(displayed, userID: deps.authService.currentUser?.id), unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg)
     }
     var body: some View {
-        NavigationStack {
-            CutChallengeDetailView(model: model, processing: processing, join: { Task { await join() } }, leave: { Task { await leave() } })
-                .navigationTitle(model.title).navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
-                .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.tint(DS.Cut.Colors.lime) } }
-        }
+        CutChallengeDetailView(model: model, processing: processing, join: { Task { await join() } }, leave: { Task { await leave() } },
+                               close: { dismiss() })
         .alert(item: Binding(get: { viewModel.error }, set: { _ in viewModel.error = nil })) { error in
             Alert(title: Text(error.title), message: Text(error.message), dismissButton: .default(Text("OK")))
         }

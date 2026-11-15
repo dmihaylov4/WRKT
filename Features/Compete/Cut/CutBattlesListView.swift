@@ -12,20 +12,26 @@ struct CutBattlesListView: View {
                 select(CutBattlesListModel.Tab.allCases[$0])
             }
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    if model.loading { ProgressView().accessibilityLabel("Loading battles") }
+                VStack(alignment: .leading, spacing: 0) {
                     if let error = model.error {
-                        Text(error).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
-                        Button("Try Again", action: actions.retry).buttonStyle(CutSecondaryButtonStyle(fillsWidth: false))
+                        CutCompeteErrorPanel(message: error, retry: actions.retry)
+                    } else if model.loading && model.rows.isEmpty {
+                        CutPanel { CutCompeteLoadingRow(label: "Loading battles") }
+                    } else if let empty = model.empty {
+                        CutPanel {
+                            CutCompeteMessageRow(title: empty, line: model.canCreate ? "Challenge a friend to start one." : "Battles show here when there are some.")
+                        }
                     }
-                    if let empty = model.empty { Text(empty).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.vertical, 20) }
-                    if model.canCreate { Button("Create Battle", action: actions.startBattle).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)) }
-                    ForEach(model.rows) { item in
-                        CutCompeteItemRow(item: item, processing: item.battleID.map { processing.contains($0) } ?? false,
-                            open: { actions.open(item.id) }, accept: { if let id = item.battleID { actions.accept(id) } },
-                            decline: { if let id = item.battleID { actions.decline(id) } })
+                    if model.canCreate {
+                        Button("New battle", action: actions.startBattle).buttonStyle(CutPillButtonStyle(.lime))
+                            .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 16)
                     }
-                }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12).padding(.bottom, 80)
+                    if !model.rows.isEmpty {
+                        CutPanel { CutCompetePanelRows(model.rows, processing: processing, actions: actions) }
+                            .padding(.top, model.error == nil ? 0 : 16)
+                    }
+                }
+                .padding(.top, 12).padding(.bottom, 80)
             }.refreshable { let work = Task { @MainActor in await refresh() }; await work.value }
         }.foregroundStyle(DS.Cut.Colors.textPrimary).background(DS.Cut.Colors.background.ignoresSafeArea())
     }

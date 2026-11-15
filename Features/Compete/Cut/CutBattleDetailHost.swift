@@ -16,14 +16,17 @@ struct CutBattleDetailHost: View {
         CutBattleDetailLogic.model(.init(live, userID: deps.authService.currentUser?.id), unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg)
     }
     var body: some View {
-        if wrapInNavigationStack { NavigationStack { content } } else { content }
+        // Presented as a sheet it is the Cut sheet; pushed from the feed it keeps the back button.
+        if wrapInNavigationStack {
+            view(inSheet: true)
+        } else {
+            view(inSheet: false).navigationTitle(model.opponent).navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
+        }
     }
-    private var content: some View {
+    private func view(inSheet: Bool) -> some View {
         CutBattleDetailView(model: model, operation: operation, actions: .init(accept: {
             Task { await accept() }
-        }, exit: { Task { await exit() } }))
-        .navigationTitle(model.opponent).navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.tint(DS.Cut.Colors.lime) } }
+        }, exit: { Task { await exit() } }, close: { dismiss() }), inSheet: inSheet)
         .task { await viewModel.refreshSelectedBattle() }
     }
     private func accept() async {
@@ -46,11 +49,15 @@ struct CutBattleDetailHost: View {
 extension CutBattleFacts {
     init(_ value: BattleWithParticipants, userID: UUID?) {
         let b = value.battle
+        // Prefer the signed-in user's ID; fall back to the value's own idea of who the viewer is.
+        let own = userID.map { $0 == b.challengerId ? value.challenger : value.opponent } ?? value.userProfile
         self.init(id: b.id, type: b.battleType, status: b.status,
                   opponent: CutCompeteFormat.personName(displayName: value.opponentProfile.displayName, username: value.opponentProfile.username),
                   ownScore: userID.map { NSDecimalNumber(decimal: b.score(for: $0)).doubleValue } ?? 0,
                   otherScore: userID.map { NSDecimalNumber(decimal: b.opponentScore(for: $0)).doubleValue } ?? 0,
                   isChallenger: userID == b.challengerId, isOpponent: userID == b.opponentId,
-                  start: b.startDate, end: b.endDate, targetMetric: b.targetMetric)
+                  start: b.startDate, end: b.endDate, targetMetric: b.targetMetric,
+                  ownName: CutCompeteFormat.personName(displayName: own.displayName, username: own.username),
+                  ownAvatarURL: own.avatarUrl, opponentAvatarURL: value.opponentProfile.avatarUrl)
     }
 }
