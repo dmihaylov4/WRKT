@@ -62,6 +62,8 @@ enum CutConnectionsLogic {
             return "Connected, last sync \(formatter.localizedString(for: last, relativeTo: now))"
         case .syncing:
             return "Syncing"
+        case .syncFailed:
+            return "Connected, last sync failed"
         case .error(let message):
             return "Error: \(message)"
         }
@@ -70,14 +72,16 @@ enum CutConnectionsLogic {
     static func primary(_ status: ConnectionProvider.Status) -> CutConnectionsModel.Primary {
         switch status {
         case .notConnected: .connect
-        case .connected: .sync
+        case .connected, .syncFailed: .sync
         case .syncing: .syncing
         case .error: .retry
         }
     }
 
     static func showsDisconnect(_ status: ConnectionProvider.Status) -> Bool {
-        if case .connected = status { return true }
-        return false
+        switch status {
+        case .connected, .syncFailed: true
+        default: false
+        }
     }
 }

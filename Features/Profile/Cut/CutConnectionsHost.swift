@@ -2,10 +2,10 @@
 //  CutConnectionsHost.swift
 //  WRKT
 //
-//  ConnectionsView's state behind the Cut page: the same ConnectionsViewModel bound to the
-//  shared HealthKitManager on appear, and the same connect (authorization, then background
-//  observers), incremental sync and disconnect calls. What is requested from HealthKit, and
-//  when, is unchanged.
+//  ConnectionsView's state behind the Cut page: the same ConnectionsViewModel, which follows the
+//  shared HealthKitManager's published state from appear on, and the same connect
+//  (authorization, then background observers), incremental sync and disconnect calls. What is
+//  requested from HealthKit, and when, is unchanged.
 //
 
 import SwiftUI
