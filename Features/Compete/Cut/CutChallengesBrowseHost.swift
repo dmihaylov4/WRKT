@@ -41,14 +41,10 @@ struct CutChallengesBrowseHost: View {
             Alert(title: Text(error.title), message: Text(error.message), dismissButton: .default(Text("OK")))
         }
     }
-    /// Join from the row: the same `joinChallenge` the detail sheet calls, which reloads the lists.
+    /// Join on a row opens the challenge's detail, where the join is made.
     private func join(_ id: UUID) {
-        guard let vm = viewModel, let challenge = vm.availableChallenges.first(where: { $0.id == id }), !joining.contains(id) else { return }
-        joining.insert(id)
-        Task {
-            await vm.joinChallenge(challenge.challenge)
-            joining.remove(id)
-        }
+        guard let vm = viewModel, let item = vm.availableChallenges.first(where: { $0.id == id }) else { return }
+        vm.openChallengeDetail(item)
     }
     private func refresh() async { await reload(preset: nil) }
     private func reload(preset: PresetChallenge?) async {

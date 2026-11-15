@@ -62,14 +62,9 @@ struct CutCompeteHost: View {
             if let vm = challengesVM, let challenge = (vm.activeChallenges + vm.availableChallenges + vm.completedChallenges).first(where: { $0.id == id }) { vm.openChallengeDetail(challenge) }
         }
     }
-    /// Join from the row: the same `joinChallenge` the detail sheet calls, which reloads the lists.
+    /// Join on a row opens the challenge's detail, where the join is made.
     private func join(_ id: UUID) {
-        guard let vm = challengesVM, let challenge = vm.availableChallenges.first(where: { $0.id == id }), !processing.contains(id) else { return }
-        processing.insert(id)
-        Task {
-            await vm.joinChallenge(challenge.challenge)
-            processing.remove(id)
-        }
+        open(.challenge(id))
     }
     private func act(_ id: UUID, accept: Bool) {
         guard let vm = battlesVM, let battle = vm.pendingBattles.first(where: { $0.id == id }), !processing.contains(id) else { return }
