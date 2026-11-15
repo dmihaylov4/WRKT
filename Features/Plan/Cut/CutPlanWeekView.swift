@@ -94,7 +94,8 @@ struct CutPlanWeekView: View {
 }
 
 /// The V mark beside its two numbers, as the Train tab draws the weekly goal, then the status.
-private struct CutPlanWeekGoalView: View {
+/// Also drawn by the Me tab's weekly goal page (CutWeeklyGoalView).
+struct CutPlanWeekGoalView: View {
     let goal: CutPlanWeekModel.Goal
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize

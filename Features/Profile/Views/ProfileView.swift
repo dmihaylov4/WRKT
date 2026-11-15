@@ -1014,6 +1014,15 @@ struct WeeklyGoalDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        // The one Cut branch point: same progress, goal, actions and Edit destination.
+        if DS.Redesign.cutEnabled {
+            CutWeeklyGoalHost(progress: progress, goal: goal)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         List {
             // Progress Summary Section
             Section {
