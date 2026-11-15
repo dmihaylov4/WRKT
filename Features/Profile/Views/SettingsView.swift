@@ -26,6 +26,16 @@ struct SettingsView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same rows, sheets, Debug tools and pushed screens.
+        if DS.Redesign.cutEnabled {
+            CutSettingsHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         ScrollView {
             VStack(spacing: 16) {
                 if !settings.isLocalMode && isLoggedIn {
