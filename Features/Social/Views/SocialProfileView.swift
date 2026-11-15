@@ -1483,6 +1483,11 @@ struct EditProfileView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutEditProfileHost(profile: profile, onProfileUpdated: onProfileUpdated) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 editHeader

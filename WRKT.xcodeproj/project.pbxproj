@@ -465,6 +465,9 @@
 		C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000201 /* CutLikesListModel.swift */; };
 		C17CAB000000000000000102 /* CutLikesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000202 /* CutLikesListView.swift */; };
 		C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000203 /* CutLikesListHost.swift */; };
+		C17CAD000000000000000104 /* CutEditProfileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000204 /* CutEditProfileModel.swift */; };
+		C17CAD000000000000000105 /* CutEditProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000205 /* CutEditProfileView.swift */; };
+		C17CAD000000000000000106 /* CutEditProfileHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000206 /* CutEditProfileHost.swift */; };
 		C17CAD000000000000000101 /* CutProfileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000201 /* CutProfileModel.swift */; };
 		C17CAD000000000000000102 /* CutProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000202 /* CutProfileView.swift */; };
 		C17CAD000000000000000103 /* CutProfileHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000203 /* CutProfileHost.swift */; };
@@ -1022,6 +1025,9 @@
 		C17CAB000000000000000201 /* CutLikesListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListModel.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000202 /* CutLikesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListView.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000203 /* CutLikesListHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListHost.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000204 /* CutEditProfileModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditProfileModel.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000205 /* CutEditProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditProfileView.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000206 /* CutEditProfileHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditProfileHost.swift; sourceTree = "<group>"; };
 		C17CAD000000000000000201 /* CutProfileModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProfileModel.swift; sourceTree = "<group>"; };
 		C17CAD000000000000000202 /* CutProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProfileView.swift; sourceTree = "<group>"; };
 		C17CAD000000000000000203 /* CutProfileHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProfileHost.swift; sourceTree = "<group>"; };
@@ -2533,6 +2539,9 @@
 				C17CAB000000000000000201 /* CutLikesListModel.swift */,
 				C17CAB000000000000000202 /* CutLikesListView.swift */,
 				C17CAB000000000000000203 /* CutLikesListHost.swift */,
+				C17CAD000000000000000204 /* CutEditProfileModel.swift */,
+				C17CAD000000000000000205 /* CutEditProfileView.swift */,
+				C17CAD000000000000000206 /* CutEditProfileHost.swift */,
 				C17CAD000000000000000201 /* CutProfileModel.swift */,
 				C17CAD000000000000000202 /* CutProfileView.swift */,
 				C17CAD000000000000000203 /* CutProfileHost.swift */,
@@ -2953,6 +2962,9 @@
 				C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */,
 				C17CAB000000000000000102 /* CutLikesListView.swift in Sources */,
 				C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */,
+				C17CAD000000000000000104 /* CutEditProfileModel.swift in Sources */,
+				C17CAD000000000000000105 /* CutEditProfileView.swift in Sources */,
+				C17CAD000000000000000106 /* CutEditProfileHost.swift in Sources */,
 				C17CAD000000000000000101 /* CutProfileModel.swift in Sources */,
 				C17CAD000000000000000102 /* CutProfileView.swift in Sources */,
 				C17CAD000000000000000103 /* CutProfileHost.swift in Sources */,
