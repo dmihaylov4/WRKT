@@ -471,22 +471,3 @@ enum CutSettingsColors {
     /// The system red batch 3 uses for destructive text and outlines.
     static let destructive = Color.red
 }
-
-/// An outlined red pill, as batch 3's Delete workout: a destructive action that is not a row.
-struct CutSettingsDestructiveButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(DS.Cut.Typography.font(.buttonCompact).weight(.semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .foregroundStyle(CutSettingsColors.destructive)
-            .padding(.horizontal, 18)
-            .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
-            .overlay(Capsule().strokeBorder(CutSettingsColors.destructive.opacity(0.6), lineWidth: 1.5))
-            .contentShape(Capsule())
-            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
-            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
-    }
-}
