@@ -50,6 +50,11 @@ struct SocialProfileView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutProfileHost(userId: userId, battleId: battleId) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         Group {
             // Only show error if we're not loading and there's an error
             if let error = loadError, !isLoading {
