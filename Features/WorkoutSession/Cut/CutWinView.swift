@@ -41,8 +41,12 @@ struct CutWinView: View {
                         .rise(revealed, delay: 0.35, reduceMotion: reduceMotion)
                 }
                 .padding(.bottom, 24)
+                // A short summary fills the screen: the lime field takes the slack, so there is
+                // no empty black band between the last row and the buttons.
+                .frame(minHeight: proxy.size.height + proxy.safeAreaInsets.top, alignment: .top)
             }
             .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
             .ignoresSafeArea(.container, edges: .top)
             .cutHidesTopScrollEdge()
         }
@@ -64,6 +68,8 @@ struct CutWinView: View {
     private func field(topInset: CGFloat) -> some View {
         CutField(padding: EdgeInsets(top: topInset + 40, leading: DS.Cut.Metrics.gutter,
                                      bottom: 96, trailing: DS.Cut.Metrics.gutter)) {
+            // Takes whatever height the summary leaves over, and sets the hero low in the field.
+            Spacer(minLength: 0)
             Text(model.hero)
                 .cutHero(.xxl, minimumScaleFactor: 0.3)
                 .accessibilityAddTraits(.isHeader)
