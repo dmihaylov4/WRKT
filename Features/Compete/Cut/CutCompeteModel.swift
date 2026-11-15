@@ -106,10 +106,12 @@ enum CutCompeteLogic {
         case .won, .lost, .tied, .declined, .cancelled: kind = .battle; line = CutBattleDetailLogic.status(state)
         }
         let scored = [.active, .expired, .won, .lost, .tied].contains(state)
+        // Weights and distances carry their unit on the row; counts read as counts without one.
+        let measure = [.volume, .pr, .runningDistance].contains(facts.type) ? " " + scoreUnit : ""
         return .init(id: .battle(facts.id), kind: kind, title: facts.opponent, line: line,
                      lineIsLime: state == .won || ((state == .active || state == .expired) && facts.ownScore > facts.otherScore),
                      initials: CutCompeteFormat.initials(facts.opponent), avatarURL: facts.opponentAvatarURL,
-                     score: scored ? own : nil, scoreRest: scored ? ": " + other : nil,
+                     score: scored ? own : nil, scoreRest: scored ? ": " + other + measure : nil,
                      spokenValue: scored ? "You \(own), \(facts.opponent) \(other) \(scoreUnit)" : "")
     }
     private static func standingInSentence(_ facts: CutBattleFacts) -> String {

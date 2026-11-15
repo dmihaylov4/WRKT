@@ -56,7 +56,7 @@ import Testing
         var f = CutBattleDetailLogicTests.facts; f.ownScore = 12400; f.otherScore = 9800; f.end = CutBattleDetailLogicTests.now.addingTimeInterval(5 * 86400)
         let r = row(f)
         #expect(r.kind == .battle); #expect(r.line == "You lead, 5 days left"); #expect(r.lineIsLime)
-        #expect(r.score == "12.4k"); #expect(r.scoreRest == ": 9.8k"); #expect(r.initials == "FO")
+        #expect(r.score == "12.4k"); #expect(r.scoreRest == ": 9.8k kg"); #expect(r.initials == "FO")
         #expect(r.spokenValue == "You 12.4k, Fixture Opponent 9.8k kg")
         f.ownScore = 100; #expect(row(f).line == "Fixture Opponent leads, 5 days left"); #expect(!row(f).lineIsLime)
         f.ownScore = f.otherScore; #expect(row(f).line == "Tied, 5 days left")
@@ -106,7 +106,8 @@ import Testing
                 let locale = Locale(identifier: "de_DE")
                 let detail = CutBattleDetailLogic.model(facts, unit: unit, locale: locale, now: CutBattleDetailLogicTests.now)
                 let row = CutCompeteLogic.battle(facts, unit: unit, locale: locale, now: CutBattleDetailLogicTests.now)
-                #expect(row.score == detail.own.score); #expect(row.scoreRest == ": " + detail.other.score)
+                let measured = [BattleType.volume, .pr, .runningDistance].contains(type)
+                #expect(row.score == detail.own.score); #expect(row.scoreRest == ": " + detail.other.score + (measured ? " " + detail.unit : ""))
                 #expect(row.spokenValue.hasSuffix(detail.unit))
             }
         }
