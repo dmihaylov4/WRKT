@@ -22,6 +22,15 @@ struct ImportHistoryView: View {
     @State private var isLoading = false
 
     var body: some View {
+        // The one Cut branch point: same records, restore confirmation and store reload.
+        if DS.Redesign.cutEnabled {
+            CutImportHistoryHost(service: service)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         List {
             ForEach(records.reversed()) { record in
                 VStack(alignment: .leading, spacing: 6) {

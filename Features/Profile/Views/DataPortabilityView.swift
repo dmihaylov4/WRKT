@@ -47,6 +47,15 @@ struct DataPortabilityView: View {
     @State private var errorMessage: String?
 
     var body: some View {
+        // The one Cut branch point: same service, share sheet, importer, dialogs and alerts.
+        if DS.Redesign.cutEnabled {
+            CutDataPortabilityHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         List {
             // MARK: Export
             Section {
