@@ -49,8 +49,7 @@ struct CutPlannedEditorHost: View {
         for draft in drafts where plateaus[draft.exerciseID] == nil {
             plateaus[draft.exerciseID] = store.consecutiveSessionsAtSameWeight(for: draft.exerciseID)
         }
-        return CutPlannedEditorLogic.model(isNew: existingWorkout == nil, hasSplit: existingWorkout?.splitID != nil,
-                                           drafts: drafts, plateaus: plateaus, unit: unit)
+        return CutPlannedEditorLogic.model(isNew: existingWorkout == nil, drafts: drafts, plateaus: plateaus, unit: unit)
     }
 
     var body: some View {

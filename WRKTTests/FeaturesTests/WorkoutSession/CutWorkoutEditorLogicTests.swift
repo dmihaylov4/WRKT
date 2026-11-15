@@ -19,17 +19,19 @@ import Testing
 
     // MARK: Rows
 
-    @Test func previewShowsThreeSetsThenCount() {
-        #expect(CutWorkoutEditorLogic.preview(F.squat.sets, unit: .kg) == "8×60kg, 5×80kg, 5×90kg, +1")
-        #expect(CutWorkoutEditorLogic.preview(Array(F.squat.sets.prefix(2)), unit: .kg) == "8×60kg, 5×80kg")
+    @Test func summaryCountsSetsThenRepsAndWeight() {
+        #expect(CutWorkoutEditorLogic.preview(F.squat.sets, unit: .kg) == "4 sets, 5–8 reps, 60–100 kg")
+        #expect(CutWorkoutEditorLogic.preview([F.set(10, 60), F.set(10, 60), F.set(10, 60)], unit: .kg) == "3 sets, 10 reps, 60 kg")
+        #expect(CutWorkoutEditorLogic.preview([F.set(1, 140)], unit: .kg) == "1 set, 1 rep, 140 kg")
         #expect(CutWorkoutEditorLogic.preview([], unit: .kg) == "No sets")
     }
 
-    @Test func previewFollowsUnitAndTrackingMode() {
-        #expect(CutWorkoutEditorLogic.preview([F.set(5, 100)], unit: .lb) == "5×220.5lb")
-        #expect(CutWorkoutEditorLogic.preview(F.pullUps.sets, unit: .kg) == "12 reps, 10 reps")
-        #expect(CutWorkoutEditorLogic.preview([F.set(10, 0)], unit: .kg) == "10 reps")
-        #expect(CutWorkoutEditorLogic.preview(F.plank.sets, unit: .kg) == "1:30")
+    @Test func summaryFollowsUnitAndTrackingMode() {
+        #expect(CutWorkoutEditorLogic.preview([F.set(5, 100)], unit: .lb) == "1 set, 5 reps, 220.5 lb")
+        // Bodyweight shows reps only, never "0 kg".
+        #expect(CutWorkoutEditorLogic.preview(F.pullUps.sets, unit: .kg) == "2 sets, 10–12 reps")
+        #expect(CutWorkoutEditorLogic.preview([F.set(10, 0)], unit: .kg) == "1 set, 10 reps")
+        #expect(CutWorkoutEditorLogic.preview(F.plank.sets, unit: .kg) == "1 set, 1:30")
     }
 
     @Test func rowsKeepEntryOrderAndIDs() {
@@ -229,5 +231,16 @@ import Testing
         let squat = F.squat
         #expect(apply([.delete(9), .weightUp(9), .typedReps(-1, "3")], to: squat) == squat)
         #expect(CutSetEditorLogic.model(deleted, unit: .kg).countLine == "3 sets")
+    }
+
+    @Test func selectionFollowsTheEditedSetThroughDeletes() {
+        // Deleting a set above the selected one keeps the same set selected.
+        #expect(CutSetEditorLogic.selection(afterDeleting: 0, selected: 2, count: 4) == 1)
+        // Deleting the selected set selects the one that takes its place, or the new last set.
+        #expect(CutSetEditorLogic.selection(afterDeleting: 1, selected: 1, count: 4) == 1)
+        #expect(CutSetEditorLogic.selection(afterDeleting: 3, selected: 3, count: 4) == 2)
+        #expect(CutSetEditorLogic.selection(afterDeleting: 0, selected: 0, count: 1) == 0)
+        // Deleting a set below it changes nothing.
+        #expect(CutSetEditorLogic.selection(afterDeleting: 3, selected: 1, count: 4) == 1)
     }
 }

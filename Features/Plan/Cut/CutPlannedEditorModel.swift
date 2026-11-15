@@ -37,7 +37,7 @@ struct CutPlannedEditorModel: Equatable {
     struct Row: Equatable, Identifiable {
         let id: UUID
         let name: String
-        /// "10×60kg, 10×60kg, 10×60kg, +1"
+        /// "3 sets, 10 reps, 60 kg"
         let preview: String
         /// "3 sessions without progress"
         let plateau: String?
@@ -46,8 +46,6 @@ struct CutPlannedEditorModel: Equatable {
 
     /// "Plan workout" or "Edit workout".
     let title: String
-    /// The workout belongs to a plan: a new date offers to shift the rest of the plan.
-    let showsMoveHint: Bool
     let rows: [Row]
     let canSave: Bool
     let canDelete: Bool
@@ -66,23 +64,20 @@ struct CutPlannedSetsModel: Equatable {
 
 enum CutPlannedEditorLogic {
     static let defaultName = "Custom Workout"
-    static let namePlaceholder = "e.g. Upper Body, Leg Day"
-    static let nameHint = "If left blank, it is saved as Custom Workout."
-    static let moveHint = "Changing the date lets you move only this workout or shift the rest of the upcoming plan."
+    /// The field's only label; an empty name saves as Custom Workout without a word on screen.
+    static let namePlaceholder = "Workout name"
     static let plateauThreshold = 3
 
     // MARK: Model
 
     static func model(
         isNew: Bool,
-        hasSplit: Bool,
         drafts: [CutPlannedExerciseDraft],
         plateaus: [String: Int],
         unit: WeightUnit
     ) -> CutPlannedEditorModel {
         CutPlannedEditorModel(
             title: isNew ? "Plan workout" : "Edit workout",
-            showsMoveHint: !isNew && hasSplit,
             rows: drafts.map { row($0, sessionsAtSameWeight: plateaus[$0.exerciseID] ?? 0, unit: unit) },
             canSave: canSave(drafts),
             canDelete: !isNew
@@ -99,12 +94,9 @@ enum CutPlannedEditorLogic {
         )
     }
 
-    /// The legacy chips in a line: the first three sets, then how many more.
+    /// The exercise in one line, as the workout editors write it ("3 sets, 10 reps, 60 kg").
     static func preview(_ sets: [CutPlannedSetDraft], unit: WeightUnit) -> String {
-        guard !sets.isEmpty else { return "No sets" }
-        var parts = sets.prefix(3).map { unit.formatSetCompact(reps: $0.reps, weightKg: $0.weightKg) }
-        if sets.count > 3 { parts.append("+\(sets.count - 3)") }
-        return parts.joined(separator: ", ")
+        CutWorkoutEditorLogic.preview(sets.map { SetInput(reps: $0.reps, weight: $0.weightKg, isCompleted: true) }, unit: unit)
     }
 
     static func notePreview(_ notes: String?) -> String? {

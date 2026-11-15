@@ -16,7 +16,7 @@ struct CutPlannedEditorCaptureTests {
             SheetHost {
                 NavigationStack {
                     CutPlannedEditorView(
-                        model: CutPlannedEditorLogic.model(isNew: isNew, hasSplit: split, drafts: drafts, plateaus: plateaus, unit: .kg),
+                        model: CutPlannedEditorLogic.model(isNew: isNew, drafts: drafts, plateaus: plateaus, unit: .kg),
                         name: .constant(name), date: .constant(date))
                 }
             }
@@ -28,7 +28,7 @@ struct CutPlannedEditorCaptureTests {
         try await planPageCapture(SheetHost(dynamicType: .accessibility5) {
             NavigationStack {
                 CutPlannedEditorView(
-                    model: CutPlannedEditorLogic.model(isNew: false, hasSplit: true, drafts: F.drafts, plateaus: ["bench": 4], unit: .kg),
+                    model: CutPlannedEditorLogic.model(isNew: false, drafts: F.drafts, plateaus: ["bench": 4], unit: .kg),
                     name: .constant("Upper Body"), date: .constant(date))
             }
         }, name: "editor-edit-ax5")

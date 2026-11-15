@@ -9,11 +9,11 @@
 
 import Foundation
 
-/// One exercise in an editor: its name and the first sets in short.
+/// One exercise in an editor: its name and what it holds in one line.
 struct CutWorkoutEditorRow: Equatable, Identifiable {
     var id: UUID
     var name: String
-    /// "5×100kg, 5×100kg, 5×100kg, +1"
+    /// "4 sets, 5–8 reps, 60–100 kg"
     var preview: String
 }
 
@@ -35,8 +35,9 @@ struct CutWorkoutLogModel: Equatable {
 }
 
 enum CutWorkoutEditorLogic {
-    static let namePlaceholder = "e.g. Upper Body, Leg Day"
-    static let nameHint = "If left blank, the name comes from the exercises."
+    /// The field's only label: an empty name still saves (the editors name it), so nothing
+    /// on screen needs to explain that.
+    static let namePlaceholder = "Workout name"
 
     // MARK: Rows
 
@@ -44,25 +45,37 @@ enum CutWorkoutEditorLogic {
         entries.map { CutWorkoutEditorRow(id: $0.id, name: $0.exerciseName, preview: preview($0.sets, unit: unit)) }
     }
 
-    /// The first three sets in short, then how many more ("+2"). "No sets" when empty.
+    /// The exercise in one line, readable without opening it: the set count, then the reps and
+    /// the weight, each as one value or a range ("3 sets, 10 reps, 60 kg", "4 sets, 5–8 reps,
+    /// 60–100 kg"). Bodyweight shows reps only; timed and distance sets show their time or
+    /// distance. "No sets" when empty.
     static func preview(_ sets: [SetInput], unit: WeightUnit) -> String {
         guard !sets.isEmpty else { return "No sets" }
-        var parts = sets.prefix(3).map { compact($0, unit: unit) }
-        if sets.count > 3 { parts.append("+\(sets.count - 3)") }
+        var parts = [sets.count == 1 ? "1 set" : "\(sets.count) sets"]
+        switch sets[0].trackingMode {
+        case .timed:
+            let seconds = sets.map(\.durationSeconds)
+            parts.append(range(seconds.min()!, seconds.max()!) { CutWorkoutDetailLogic.duration($0) })
+        case .distance:
+            let values = sets.map { CutWorkoutDetailLogic.setValue($0, unit: unit) }
+            parts.append(values.first == values.last ? values[0] : "\(values.first!)–\(values.last!)")
+        case .weighted, .bodyweight:
+            let reps = sets.map(\.reps)
+            let repsText = range(reps.min()!, reps.max()!) { "\($0)" }
+            parts.append(repsText + (repsText == "1" ? " rep" : " reps"))
+            let weights = sets.filter { $0.trackingMode != .bodyweight && $0.weight > 0 }.map(\.weight)
+            if let low = weights.min(), let high = weights.max() {
+                let lowText = CutSetEditorLogic.weightText(low, unit: unit)
+                let highText = CutSetEditorLogic.weightText(high, unit: unit)
+                parts.append((lowText == highText ? lowText : "\(lowText)–\(highText)") + " \(unit.label)")
+            }
+        }
         return parts.joined(separator: ", ")
     }
 
-    /// "5×100kg" with a weight, "12 reps" without one, a time or a distance by tracking mode.
-    static func compact(_ set: SetInput, unit: WeightUnit) -> String {
-        switch set.trackingMode {
-        case .timed: return CutWorkoutDetailLogic.duration(set.durationSeconds)
-        case .distance: return CutWorkoutDetailLogic.setValue(set, unit: unit)
-        case .weighted, .bodyweight:
-            if set.trackingMode == .bodyweight || set.weight <= 0 {
-                return set.reps == 1 ? "1 rep" : "\(set.reps) reps"
-            }
-            return unit.formatSetCompact(reps: set.reps, weightKg: set.weight)
-        }
+    /// One value, or "low–high" when the sets differ.
+    private static func range(_ low: Int, _ high: Int, _ format: (Int) -> String) -> String {
+        low == high ? format(low) : "\(format(low))–\(format(high))"
     }
 
     // MARK: Edit a completed workout

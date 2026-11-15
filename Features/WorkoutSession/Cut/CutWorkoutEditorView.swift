@@ -2,10 +2,12 @@
 //  CutWorkoutEditorView.swift
 //  WRKT
 //
-//  The Cut workout editors. Edit workout: the name as an underline field, date and watch as
-//  hairline rows, exercises as hairline rows that open the set editor and swipe away, and one
-//  Add exercise pill. Log workout: the day as a modest hero, the name, Started and Finished rows
-//  with the system date capsules, then the same exercise rows. Cancel and Save sit in the bar.
+//  The Cut workout editors. Edit workout: the name as an underline field (its placeholder is
+//  its label), date and watch as hairline rows, exercises as hairline rows with a one line
+//  summary that open the set editor and swipe away, and one compact Add exercise pill. Log
+//  workout: the day as a modest hero, the name, Started and Finished rows with the system date
+//  capsules, then the same exercise rows. Cancel and Save sit in the bar; Save turns lime once
+//  it can save. The planned workout editor shares the name field, section label and pill.
 //  Takes plain values, bindings for what is typed or picked, and closures.
 //
 
@@ -30,11 +32,10 @@ struct CutWorkoutEditorView: View {
     var body: some View {
         CutEditorList {
             CutEditorRow {
-                CutEditorNameField(name: $name).padding(.top, 8)
+                CutEditorNameField(name: $name, placeholder: CutWorkoutEditorLogic.namePlaceholder).padding(.top, 8)
             }
             CutEditorRow {
                 VStack(spacing: 0) {
-                    CutHairline()
                     CutEditorValueRow(title: "Date", value: model.dateLine)
                     if model.isSyncedWithWatch {
                         HStack(spacing: 12) {
@@ -52,7 +53,7 @@ struct CutWorkoutEditorView: View {
                         CutHairline()
                     }
                 }
-                .padding(.top, 24)
+                .padding(.top, 8)
             }
             CutEditorExercises(rows: model.rows, actions: actions)
         }
@@ -82,11 +83,10 @@ struct CutWorkoutLogView: View {
                     .padding(.top, 8)
             }
             CutEditorRow {
-                CutEditorNameField(name: $name).padding(.top, 20)
+                CutEditorNameField(name: $name, placeholder: CutWorkoutEditorLogic.namePlaceholder).padding(.top, 16)
             }
             CutEditorRow {
                 VStack(alignment: .leading, spacing: 0) {
-                    CutHairline()
                     timeRow("Started", selection: $start)
                     timeRow("Finished", selection: $end)
                     if let issue = model.timeIssue {
@@ -97,7 +97,7 @@ struct CutWorkoutLogView: View {
                             .padding(.top, 8)
                     }
                 }
-                .padding(.top, 24)
+                .padding(.top, 8)
             }
             CutEditorExercises(rows: model.rows, actions: actions)
         }
@@ -209,54 +209,62 @@ private struct CutEditorValueRow: View {
     }
 }
 
-/// "Workout name" over an underline field, with the auto-name hint under it.
-private struct CutEditorNameField: View {
+/// The name as an underline field whose placeholder is its label. An empty name still saves,
+/// so nothing under it explains that.
+struct CutEditorNameField: View {
     @Binding var name: String
+    let placeholder: String
+    var capitalizesWords = false
     @FocusState private var focused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Workout name")
-                .cutFont(.secondary)
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
+        VStack(alignment: .leading, spacing: 0) {
             TextField("Workout name", text: $name,
-                      prompt: Text(CutWorkoutEditorLogic.namePlaceholder).foregroundStyle(DS.Cut.Colors.textSecondary))
+                      prompt: Text(placeholder).foregroundStyle(DS.Cut.Colors.textSecondary))
                 .cutFont(.body)
                 .foregroundStyle(DS.Cut.Colors.textPrimary)
                 .tint(DS.Cut.Colors.lime)
+                .textInputAutocapitalization(capitalizesWords ? .words : .sentences)
                 .focused($focused)
                 .submitLabel(.done)
-                .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
+                .frame(minHeight: 50)
             Rectangle()
                 .fill(focused ? DS.Cut.Colors.lime : DS.Cut.Colors.hairlineStrong)
                 .frame(height: focused ? 2 : 1)
                 .accessibilityHidden(true)
-            Text(CutWorkoutEditorLogic.nameHint)
-                .cutFont(.secondary)
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 
-/// The exercises section: a title with the count, one row per exercise, then the add pill.
+/// "Exercises" as a section label (secondary text, as Settings labels its sections), so it
+/// never reads as a row or a button.
+struct CutEditorExercisesHeader: View {
+    var body: some View {
+        CutSettingsSectionHeader("Exercises")
+    }
+}
+
+/// "Add exercise": the one compact outlined pill under the list, the same with or without
+/// exercises. Save, in the bar, is the screen's lime action.
+struct CutEditorAddExercise: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button("Add exercise", systemImage: "plus", action: action)
+            .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 16)
+    }
+}
+
+/// The exercises section: the label, one row per exercise, then Add exercise.
 private struct CutEditorExercises: View {
     let rows: [CutWorkoutEditorRow]
     let actions: CutWorkoutEditorActions
 
     var body: some View {
         CutEditorRow {
-            VStack(spacing: 10) {
-                HStack(alignment: .firstTextBaseline) {
-                    CutSectionTitle("Exercises")
-                    Text("\(rows.count)")
-                        .cutFont(.secondary, monospacedDigits: true)
-                        .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .accessibilityLabel(Text(rows.count == 1 ? "1 exercise" : "\(rows.count) exercises"))
-                }
-                CutHairline()
-            }
-            .padding(.top, 36)
+            CutEditorExercisesHeader()
         }
         ForEach(rows) { row in
             CutEditorRow {
@@ -269,22 +277,13 @@ private struct CutEditorExercises: View {
         }
         .onDelete(perform: actions.deleteExercises)
         CutEditorRow {
-            Group {
-                if rows.isEmpty {
-                    Button("Add first exercise", systemImage: "plus", action: actions.addExercise)
-                        .buttonStyle(CutPrimaryButtonStyle())
-                } else {
-                    Button("Add exercise", systemImage: "plus", action: actions.addExercise)
-                        .buttonStyle(CutSecondaryButtonStyle())
-                }
-            }
-            .padding(.top, 20)
-            .padding(.bottom, 40)
+            CutEditorAddExercise(action: actions.addExercise)
+                .padding(.bottom, 40)
         }
     }
 }
 
-/// Cancel and Save in the bar, Save off until the rules allow it.
+/// Cancel and Save in the bar, Save off until the rules allow it and lime once it is on.
 struct CutEditorToolbar: ToolbarContent {
     let canSave: Bool
     let cancel: () -> Void
@@ -295,8 +294,10 @@ struct CutEditorToolbar: ToolbarContent {
             Button("Cancel", action: cancel)
         }
         ToolbarItem(placement: .confirmationAction) {
+            // Lime marks the one action that finishes the screen, once it can.
             Button("Save", action: save)
                 .fontWeight(.semibold)
+                .tint(canSave ? DS.Cut.Colors.lime : nil)
                 .disabled(!canSave)
         }
     }

@@ -24,26 +24,22 @@ struct CutPlannedEditorLogicTests {
     // MARK: Model
 
     @Test func newAndExistingTitles() {
-        let new = CutPlannedEditorLogic.model(isNew: true, hasSplit: false, drafts: [], plateaus: [:], unit: .kg)
+        let new = CutPlannedEditorLogic.model(isNew: true, drafts: [], plateaus: [:], unit: .kg)
         #expect(new.title == "Plan workout")
         #expect(!new.canSave)
         #expect(!new.canDelete)
-        #expect(!new.showsMoveHint)
-        let edit = CutPlannedEditorLogic.model(isNew: false, hasSplit: true, drafts: F.drafts, plateaus: [:], unit: .kg)
+        let edit = CutPlannedEditorLogic.model(isNew: false, drafts: F.drafts, plateaus: [:], unit: .kg)
         #expect(edit.title == "Edit workout")
         #expect(edit.canSave)
         #expect(edit.canDelete)
-        #expect(edit.showsMoveHint)
-        // A new workout never shows the move hint, even from a plan.
-        #expect(!CutPlannedEditorLogic.model(isNew: true, hasSplit: true, drafts: [], plateaus: [:], unit: .kg).showsMoveHint)
     }
 
-    @Test func rowsPreviewPlateauAndNote() {
-        let model = CutPlannedEditorLogic.model(isNew: false, hasSplit: false, drafts: F.drafts,
+    @Test func rowsSummaryPlateauAndNote() {
+        let model = CutPlannedEditorLogic.model(isNew: false, drafts: F.drafts,
                                                 plateaus: ["bench": 3, "row": 2], unit: .kg)
         #expect(model.rows.map(\.name) == ["Bench Press", "Barbell Row", "Plank"])
-        #expect(model.rows[0].preview == "10×60kg, 8×70kg, 6×80kg")
-        #expect(model.rows[1].preview == "8×70kg, 8×70kg, 8×70kg, +1")
+        #expect(model.rows[0].preview == "3 sets, 6–10 reps, 60–80 kg")
+        #expect(model.rows[1].preview == "4 sets, 8 reps, 70 kg")
         #expect(model.rows[2].preview == "No sets")
         #expect(model.rows[0].plateau == "3 sessions without progress")
         #expect(model.rows[1].plateau == nil)
@@ -52,9 +48,11 @@ struct CutPlannedEditorLogicTests {
         #expect(CutPlannedEditorLogic.notePreview("   \n") == nil)
     }
 
-    @Test func previewInPounds() {
-        #expect(CutPlannedEditorLogic.preview([CutPlannedSetDraft(reps: 5, weightKg: 100)], unit: .lb)
-                == WeightUnit.lb.formatSetCompact(reps: 5, weightKg: 100))
+    @Test func summaryInPoundsAndWithoutWeight() {
+        #expect(CutPlannedEditorLogic.preview([CutPlannedSetDraft(reps: 5, weightKg: 100)], unit: .lb) == "1 set, 5 reps, 220.5 lb")
+        #expect(CutPlannedEditorLogic.preview([CutPlannedSetDraft(reps: 12, weightKg: 0), CutPlannedSetDraft(reps: 12, weightKg: 0)], unit: .kg)
+                == "2 sets, 12 reps")
+        #expect(CutPlannedEditorLogic.namePlaceholder == "Workout name")
     }
 
     // MARK: Exercises

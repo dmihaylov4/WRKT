@@ -148,6 +148,16 @@ enum CutSetEditorLogic {
         return value
     }
 
+    // MARK: Selection
+
+    /// The set whose steppers show after one is deleted (`count` is the number before the
+    /// delete): the same set when it stays, the next one in its place, or the new last set.
+    static func selection(afterDeleting deleted: Int, selected: Int, count: Int) -> Int {
+        if deleted < selected { return selected - 1 }
+        if deleted == selected { return max(0, min(selected, count - 2)) }
+        return selected
+    }
+
     // MARK: Sets
 
     /// Add set copies the last set's reps and weight, or starts at 10 reps with no weight.
