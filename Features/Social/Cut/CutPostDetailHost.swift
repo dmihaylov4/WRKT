@@ -19,6 +19,10 @@ struct CutPostDetailHost: View {
 
     @State private var viewModel: PostDetailViewModel?
     @State private var showingLikes = false
+    @State private var editingPost: PostWithAuthor?
+    @State private var confirmsDelete = false
+    @State private var isDeleting = false
+    @State private var deleteFailed = false
 
     private var weightUnit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
     private var currentUserId: UUID? { deps.authService.currentUser?.id }
@@ -38,11 +42,37 @@ struct CutPostDetailHost: View {
                 CutPostLoaderStateView(state: .loading)
             }
         }
-        // The hero carries the workout's name; the bar keeps only back.
+        // The bar is the top row (back, author, like); the lime block carries the title.
         .navigationTitle(Text(verbatim: ""))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showingLikes) {
             LikesListView(postId: post.post.id, postRepository: deps.postRepository)
+        }
+        // Your own post: the feed's editor and delete, from the menu in the top row.
+        .sheet(item: $editingPost) { editing in
+            EditPostView(
+                post: editing,
+                currentUserId: currentUserId,
+                onSave: { @MainActor @Sendable caption, visibility in
+                    await savePost(caption: caption, visibility: visibility)
+                },
+                onBackfillRoute: { @MainActor @Sendable [deps] in
+                    // The feed's route rebuild; it needs no feed state for one post.
+                    await FeedViewModel(postRepository: deps.postRepository, authService: deps.authService,
+                                        realtimeService: deps.realtimeService).backfillRouteMap(for: editing)
+                }
+            )
+        }
+        .confirmationDialog("Delete this post?", isPresented: $confirmsDelete, titleVisibility: .visible) {
+            Button("Delete post", role: .destructive) { Task { await deletePost() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the post, its likes and its comments.")
+        }
+        .alert("Could not delete the post", isPresented: $deleteFailed) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Check your connection and try again.")
         }
         .task {
             // PostDetailView's loads, in the same order.
@@ -80,8 +110,41 @@ struct CutPostDetailHost: View {
             send: { await vm.postComment() },
             dismissError: { vm.error = nil },
             feedback: { Haptics.light() },
-            back: { dismiss() }
+            editPost: { editingPost = vm.post },
+            deletePost: { if !isDeleting { confirmsDelete = true } }
         )
+    }
+
+    /// FeedViewModel.updatePost's save, applied to the post on screen.
+    private func savePost(caption: String?, visibility: PostVisibility) async {
+        guard let vm = viewModel else { return }
+        do {
+            try await deps.postRepository.updatePost(vm.post.post.id, caption: caption, visibility: visibility)
+            var updated = vm.post
+            updated.post.caption = caption
+            updated.post.visibility = visibility
+            updated.post.updatedAt = Date()
+            vm.post = updated
+            Haptics.success()
+        } catch {
+            vm.error = "Failed to update post"
+            Haptics.error()
+        }
+    }
+
+    /// Deletes the post and leaves the screen; the feed drops it on its next refresh.
+    private func deletePost() async {
+        guard let vm = viewModel, !isDeleting else { return }
+        isDeleting = true
+        defer { isDeleting = false }
+        do {
+            try await deps.postRepository.deletePost(vm.post.post.id)
+            Haptics.warning()
+            dismiss()
+        } catch {
+            deleteFailed = true
+            Haptics.error()
+        }
     }
 
     // MARK: Facts
@@ -121,7 +184,7 @@ struct CutPostDetailHost: View {
                 CutPostDetailFacts.ExerciseFacts(
                     name: entry.exerciseName,
                     sets: entry.sets.map { set in
-                        CutPostDetailFacts.SetFacts(value: set.displayValue, tag: set.tag,
+                        CutPostDetailFacts.SetFacts(value: set.displayValue, reps: set.reps, tag: set.tag,
                                                     workSeconds: set.workDuration, restSeconds: set.restAfterSeconds)
                     },
                     volumeKg: entry.sets.reduce(0.0) { $0 + Double($1.reps) * $1.weight },

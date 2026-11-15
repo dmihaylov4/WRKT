@@ -44,18 +44,22 @@ struct CutSocialScreensCaptureTests {
             }
         }
 
-        try await capture(detail(D.strength()), name: "post-strength-overview")
-        try await capture(detail(D.cardio(), map: true), name: "post-cardio-watch-full", height: 2_600)
+        try await capture(detail(D.strength()), name: "post-strength")
+        try await capture(detail(D.strength()), name: "post-strength-comments", scrollsToEnd: true)
+        try await capture(detail(D.strength()), name: "post-strength-full", height: 2_400)
+        try await capture(detail(D.strength(), open: [0]), name: "post-strength-open")
         try await capture(detail(D.bodyweight(), open: [1]), name: "post-bodyweight")
         try await capture(detail(D.bodyweight(), open: [1]), name: "post-bodyweight-full", height: 2_400)
-        try await capture(detail(D.cardio(), map: true), name: "post-media")
+        try await capture(detail(D.cardio(), map: true), name: "post-cardio-watch")
+        try await capture(detail(D.cardio(), map: true), name: "post-cardio-watch-full", height: 2_600)
+        var withPhoto = D.strength()
+        withPhoto.post.caption = "New belt, same legs."
+        try await capture(detail(withPhoto, map: true), name: "post-media")
         var own = D.strength()
         own.post.isOwn = true
         own.post.author = .init(id: D.me, name: "Dimitar M.")
         try await capture(detail(own), name: "post-own")
-        try await capture(detail(D.strength(), open: [0]), name: "post-strength")
-        try await capture(detail(D.strength(), open: [0]), name: "post-strength-full", height: 2_400)
-        try await capture(detail(D.cardio(), map: true), name: "post-cardio-full", height: 2_600)
+        try await capture(detail(D.multi(), open: [1]), name: "post-multi")
         try await capture(detail(D.multi(), open: [1]), name: "post-multi-full", height: 2_600)
         try await capture(detail(D.strength(comments: [], loading: true)), name: "post-comments-loading-full", height: 2_000)
         try await capture(detail(D.strength(comments: [])), name: "post-comments-empty-full", height: 2_000)
@@ -81,6 +85,8 @@ struct CutSocialScreensCaptureTests {
         try await capture(detail(D.long(), open: [0]), name: "post-long")
         try await capture(detail(D.long(), open: [0]), name: "post-long-full", height: 2_400)
         try await capture(detail(D.strength(), open: [0]), name: "post-strength-xxxl", dynamicType: .xxxLarge)
+        try await capture(detail(D.strength()), name: "post-strength-ax5", dynamicType: .accessibility5)
+        try await capture(detail(D.strength()), name: "post-strength-ax5-full", height: 2_800, dynamicType: .accessibility5)
         try await capture(detail(D.long(), open: [0]), name: "post-long-xxxl", dynamicType: .xxxLarge)
 
         try await capture(CutPostDetailMapView(close: {}) {
@@ -175,7 +181,8 @@ struct CutSocialScreensCaptureTests {
 
     // MARK: Helpers
 
-    func capture<V: View>(_ view: V, name: String, height: CGFloat? = nil, dynamicType: DynamicTypeSize = .large) async throws {
+    func capture<V: View>(_ view: V, name: String, height: CGFloat? = nil, dynamicType: DynamicTypeSize = .large,
+                          scrollsToEnd: Bool = false) async throws {
         if let selected = Self.selectedCapture, selected != name { return }
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let previous = scene.windows.first { $0.isKeyWindow }
@@ -210,6 +217,14 @@ struct CutSocialScreensCaptureTests {
             Issue.record("External capture timed out: \(name)")
             return
         }
+        if scrollsToEnd, let scroll = Self.tallestScroll(in: window) {
+            // Settle: lazy content grows as it renders, so the end moves.
+            for _ in 0..<4 {
+                let end = scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
+                scroll.setContentOffset(CGPoint(x: 0, y: max(-scroll.adjustedContentInset.top, end)), animated: false)
+                try await Task.sleep(for: .seconds(0.5))
+            }
+        }
         let format = UIGraphicsImageRendererFormat()
         // Windows taller than about 2,800 pt come back blank, so tall captures stay at or under that.
         format.scale = height.map { min(2, 5_400 / $0) } ?? 3
@@ -217,6 +232,21 @@ struct CutSocialScreensCaptureTests {
             _ = window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
         try #require(image.pngData()).write(to: root.appendingPathComponent("\(name).png"))
+    }
+}
+
+extension CutSocialScreensCaptureTests {
+    static func tallestScroll(in view: UIView) -> UIScrollView? {
+        var best: UIScrollView?
+        func visit(_ view: UIView) {
+            if let scroll = view as? UIScrollView, scroll.contentSize.height > scroll.bounds.height,
+               scroll.contentSize.height > (best?.contentSize.height ?? 0) {
+                best = scroll
+            }
+            view.subviews.forEach(visit)
+        }
+        visit(view)
+        return best
     }
 }
 

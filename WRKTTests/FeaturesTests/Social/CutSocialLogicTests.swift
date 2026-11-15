@@ -168,10 +168,21 @@ struct CutSocialLogicTests {
     }
 
     @Test func distanceAndPaceFormats() {
-        #expect(CutSocialLogic.distanceKm(6_240) == "6.24")
-        #expect(CutSocialLogic.distanceKm(12_440) == "12.4")
+        #expect(CutSocialLogic.distanceKm(6_240, locale: F.locale) == "6.24")
+        #expect(CutSocialLogic.distanceKm(12_440, locale: F.locale) == "12.4")
         #expect(CutSocialLogic.pace(secondsPerKm: 314.5) == "5:15")
         #expect(CutSocialLogic.pace(secondsPerKm: .infinity) == "--")
+    }
+
+    @Test func distanceFollowsTheLocaleLikeWeight() {
+        let german = Locale(identifier: "de_DE")
+        #expect(CutSocialLogic.distanceKm(8_400, locale: german) == "8,40")
+        #expect(CutSocialLogic.distanceKm(12_440, locale: german) == "12,4")
+        #expect(CutSocialLogic.distanceKm(8_400, locale: F.locale) == "8.40")
+        let run = CutSocialLogic.row(F.cardio(), now: F.now, weightUnit: .kg, locale: german)
+        #expect(run.stats.first?.value == "8,40")
+        let lift = CutSocialLogic.row(F.strength(), now: F.now, weightUnit: .kg, locale: german)
+        #expect(lift.stats.first?.value == "9.840")
     }
 
     @Test func weeklyPostShowsGoalStreakAndWeek() {

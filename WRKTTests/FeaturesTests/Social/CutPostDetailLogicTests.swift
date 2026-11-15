@@ -11,12 +11,18 @@ enum CutPostDetailFixtures {
     static func exercise(_ name: String, sets: [(String, SetTag)], volume: Double, timed: Bool = false) -> CutPostDetailFacts.ExerciseFacts {
         CutPostDetailFacts.ExerciseFacts(
             name: name,
-            sets: sets.map { .init(value: $0.0, tag: $0.1, workSeconds: timed ? 42 : nil, restSeconds: timed ? 120 : nil) },
+            sets: sets.map { .init(value: $0.0, reps: reps($0.0), tag: $0.1, workSeconds: timed ? 42 : nil, restSeconds: timed ? 120 : nil) },
             volumeKg: volume,
             workSeconds: timed ? 168 : 0,
             restSeconds: timed ? 480 : 0,
-            totalReps: sets.reduce(0) { $0 + (Int($1.0.split(separator: " ").last ?? "0") ?? 0) }
+            totalReps: sets.reduce(0) { $0 + reps($1.0) }
         )
+    }
+
+    /// The reps in a formatted set: "90 kg x 8" -> 8, "12 reps" -> 12, "1:30" -> 0.
+    static func reps(_ value: String) -> Int {
+        let words = value.split(separator: " ")
+        return Int(words.last ?? "") ?? (words.last == "reps" ? Int(words.first ?? "") ?? 0 : 0)
     }
 
     static var strengthWorkout: CutPostDetailFacts.WorkoutFacts {
@@ -328,6 +334,52 @@ struct CutPostDetailLogicTests {
         #expect(pullUps.line == "4 sets, 42 reps")
         #expect(!detail.exercises.contains { $0.line.hasSuffix(", 0 kg") })
         #expect(detail.workouts.isEmpty)
+    }
+
+    @Test func exerciseLineSaysSetsTimesRepsOnlyWhenEverySetMatches() {
+        let detail = model(D.strength())
+        // Back squat: four sets of six, so the short form is true.
+        #expect(detail.exercises[1].line == "4 x 6, 2,040 kg")
+        // Romanian deadlift: 10, 8, 8, 7 reps, so the totals, never an invented "4 x 8".
+        #expect(detail.exercises[0].line == "4 sets, 33 reps, 2,420 kg")
+        var timed = D.exercise("Plank", sets: [("1:30", .working), ("1:00", .working)], volume: 0)
+        timed.totalReps = 0
+        #expect(CutPostDetailLogic.exerciseLine(timed, weightUnit: .kg, locale: F.locale) == "2 sets")
+        let uniformBodyweight = D.exercise("Dip", sets: [("10 reps", .working), ("10 reps", .working)], volume: 0)
+        #expect(CutPostDetailLogic.exerciseLine(uniformBodyweight, weightUnit: .kg, locale: F.locale) == "2 x 10")
+    }
+
+    @Test func headlineCarriesEachPostTypesThreeNumbersWithUnits() {
+        let strength = model(D.strength()).headline
+        #expect(strength.map(\.value) == ["52:10", "24", "9,840 kg"])
+        #expect(strength.map(\.label) == ["duration", "sets", "volume"])
+        let run = model(D.cardio()).headline
+        #expect(run.map(\.value) == ["8.40 km", "44:02", "5:15 /km"])
+        #expect(run.map(\.label) == ["distance", "time", "pace"])
+        let multi = model(D.multi()).headline
+        #expect(multi.map(\.label) == ["duration", "workouts", "volume"])
+        var weekly = D.strength()
+        weekly.post = F.weekly()
+        #expect(model(weekly).headline == model(weekly).post.stats)
+        var battle = D.strength()
+        battle.post = F.battle()
+        #expect(model(battle).headline.count == 2)
+        var indoor = D.cardio()
+        indoor.post.kind = .cardio(name: "Spin", distanceMeters: 0, durationSeconds: 2_400, calories: 380, averageHeartRate: 140)
+        #expect(model(indoor).headline.map(\.value) == ["40:00", "380 kcal", "140 bpm"])
+        let german = CutPostDetailLogic.model(D.cardio(), now: F.now, weightUnit: .kg, locale: Locale(identifier: "de_DE"))
+        #expect(german.headline.first?.value == "8,40 km")
+        let germanLift = CutPostDetailLogic.model(D.strength(), now: F.now, weightUnit: .kg, locale: Locale(identifier: "de_DE"))
+        #expect(germanLift.headline.last?.value == "9.840 kg")
+    }
+
+    @Test func timeLineNamesTheVisibilityOnceAndOwnPostsCarryTheirMenu() {
+        #expect(model(D.strength()).timeLine.hasSuffix(", public"))
+        #expect(CutPostDetailLogic.timeLine("3 hr. ago, only you", visibility: "Only you") == "3 hr. ago, only you")
+        #expect(model(D.strength()).ownerActions.isEmpty)
+        var own = D.strength()
+        own.post.isOwn = true
+        #expect(model(own).ownerActions == [.edit, .delete])
     }
 
     @Test func performanceFollowsTheUsersNumberFormat() {

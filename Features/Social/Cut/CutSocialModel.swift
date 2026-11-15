@@ -305,7 +305,7 @@ enum CutSocialLogic {
         case let .cardio(name, distance, duration, calories, heartRate):
             var stats: [CutSocialStat] = []
             if distance > 0 {
-                stats.append(.init(value: distanceKm(distance), label: "km"))
+                stats.append(.init(value: distanceKm(distance, locale: locale), label: "km"))
                 if let duration { stats.append(.init(value: clock(Double(duration)), label: "time")) }
                 if let duration, duration > 0 {
                     stats.append(.init(value: pace(secondsPerKm: Double(duration) / (distance / 1000)), label: "/km"))
@@ -372,10 +372,11 @@ enum CutSocialLogic {
         return formatter.string(from: NSNumber(value: value.rounded())) ?? "\(Int(value.rounded()))"
     }
 
-    /// Kilometres: two decimals under 10 km, one above ("6.24", "12.4").
-    static func distanceKm(_ meters: Double) -> String {
+    /// Kilometres in the user's number format: two decimals under 10 km, one above ("6.24",
+    /// "12.4"; "6,24" on a German phone), like the grouped weights beside them.
+    static func distanceKm(_ meters: Double, locale: Locale = .current) -> String {
         let km = meters / 1000
-        return String(format: km >= 10 ? "%.1f" : "%.2f", km)
+        return km.formatted(.number.locale(locale).precision(.fractionLength(km >= 10 ? 1 : 2)))
     }
 
     /// "52:10" under an hour, "1:05" (h:mm) from an hour: seconds are dropped once hours show.
