@@ -32,6 +32,7 @@ struct CutPreferencesHost: View {
     @State private var showFileExporter = false
     @State private var showAgePicker = false
     @State private var showWeightPicker = false
+    @State private var showAutoPostSaveError = false
 
     @Query private var goals: [WeeklyGoal]
     @Query private var plannedWorkouts: [PlannedWorkout]
@@ -64,7 +65,7 @@ struct CutPreferencesHost: View {
                 CutPreferencesFacts.CustomExercise(id: $0.id, name: $0.name, primaryMuscle: $0.primaryMuscles.first,
                                                    mechanic: $0.mechanic, equipment: $0.equipment)
             },
-            isSignedIn: SupabaseAuthService.shared.currentUser != nil,
+            isSignedIn: authService.currentUser != nil,
             smartNudgesEnabled: smartNudgesEnabled,
             notificationsAuthorized: notificationStatus == .authorized,
             hasWeeklyGoal: goals.first?.isSet == true,
@@ -74,8 +75,7 @@ struct CutPreferencesHost: View {
     }
 
     private var controls: CutPreferencesControls {
-        let user = SupabaseAuthService.shared.currentUser
-        return CutPreferencesControls(
+        CutPreferencesControls(
             haptics: $hapticsEnabled,
             weightUnit: $weightUnitRaw,
             weightStep: $weightStepKg,
@@ -83,19 +83,23 @@ struct CutPreferencesHost: View {
             autoAddSet: $autoAddSetOnRestTimer,
             compoundSeconds: $timerPrefs.defaultCompoundSeconds,
             isolationSeconds: $timerPrefs.defaultIsolationSeconds,
-            autoPostPRs: Binding(
-                get: { user?.profile?.autoPostPRs ?? true },
-                set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue) } }
-            ),
-            autoPostRuns: Binding(
-                get: { user?.profile?.autoPostCardio ?? true },
-                set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostCardio: newValue) } }
-            ),
-            autoPostWatch: Binding(
-                get: { user?.profile?.autoPostWatchWorkouts ?? false },
-                set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostWatchWorkouts: newValue) } }
-            ),
+            autoPostPRs: autoPostBinding(.prs),
+            autoPostRuns: autoPostBinding(.runs),
+            autoPostWatch: autoPostBinding(.watchWorkouts),
             smartNudges: $smartNudgesEnabled
+        )
+    }
+
+    /// Live from the auth service; a toggle updates at once and rolls back with an alert if the
+    /// save fails (AutoPostSetting).
+    private func autoPostBinding(_ setting: AutoPostSetting) -> Binding<Bool> {
+        Binding(
+            get: { setting.value(in: authService.currentUser?.profile) },
+            set: { newValue in
+                Task {
+                    do { try await setting.set(newValue, auth: authService) } catch { showAutoPostSaveError = true }
+                }
+            }
         )
     }
 
@@ -157,6 +161,11 @@ struct CutPreferencesHost: View {
                 AppLogger.error("Failed to export CSV: \(error)", category: AppLogger.storage)
             }
             csvDocument = nil
+        }
+        .alert(AutoPostSetting.saveFailedTitle, isPresented: $showAutoPostSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(AutoPostSetting.saveFailedMessage)
         }
         .sheet(item: $editingExercise) { exercise in
             CreateExerciseView(

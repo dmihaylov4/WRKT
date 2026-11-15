@@ -34,6 +34,7 @@ struct PreferencesView: View {
     @State private var showFileExporter = false
     @State private var showAgePicker = false
     @State private var showWeightPicker = false
+    @State private var showAutoPostSaveError = false
 
     @Query private var goals: [WeeklyGoal]
     @Query private var plannedWorkouts: [PlannedWorkout]
@@ -135,6 +136,11 @@ struct PreferencesView: View {
                 AppLogger.error("Failed to export CSV: \(error)", category: AppLogger.storage)
             }
             csvDocument = nil
+        }
+        .alert(AutoPostSetting.saveFailedTitle, isPresented: $showAutoPostSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(AutoPostSetting.saveFailedMessage)
         }
         .sheet(item: $editingExercise) { exercise in
             CreateExerciseView(
@@ -333,15 +339,12 @@ struct PreferencesView: View {
 
     @ViewBuilder
     private var socialFeaturesSection: some View {
-        if let user = SupabaseAuthService.shared.currentUser {
+        if authService.currentUser != nil {
             preferencesCard(
                 title: "Social Features",
                 footer: "When enabled, workouts will be automatically posted to your social feed for friends to see."
             ) {
-                Toggle(isOn: Binding(
-                    get: { user.profile?.autoPostPRs ?? true },
-                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue) } }
-                )) {
+                Toggle(isOn: autoPostBinding(.prs)) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto-post PRs").dsFont(.body)
@@ -350,10 +353,7 @@ struct PreferencesView: View {
                         }
                     } icon: { Image(systemName: "trophy.fill") }
                 }
-                Toggle(isOn: Binding(
-                    get: { user.profile?.autoPostCardio ?? true },
-                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostCardio: newValue) } }
-                )) {
+                Toggle(isOn: autoPostBinding(.runs)) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto-post runs").dsFont(.body)
@@ -362,10 +362,7 @@ struct PreferencesView: View {
                         }
                     } icon: { Image(systemName: "figure.run") }
                 }
-                Toggle(isOn: Binding(
-                    get: { user.profile?.autoPostWatchWorkouts ?? false },
-                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostWatchWorkouts: newValue) } }
-                )) {
+                Toggle(isOn: autoPostBinding(.watchWorkouts)) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto-post Watch workouts").dsFont(.body)
@@ -376,6 +373,19 @@ struct PreferencesView: View {
                 }
             }
         }
+    }
+
+    /// Live from the auth service; a toggle updates at once and rolls back with an alert if the
+    /// save fails (AutoPostSetting).
+    private func autoPostBinding(_ setting: AutoPostSetting) -> Binding<Bool> {
+        Binding(
+            get: { setting.value(in: authService.currentUser?.profile) },
+            set: { newValue in
+                Task {
+                    do { try await setting.set(newValue, auth: authService) } catch { showAutoPostSaveError = true }
+                }
+            }
+        )
     }
 
     private var notificationsSection: some View {
