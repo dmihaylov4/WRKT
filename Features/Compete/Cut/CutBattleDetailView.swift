@@ -10,16 +10,22 @@ struct CutBattleDetailView: View {
     var processing = false
     var actions = CutBattleDetailActions()
     @State private var confirmingExit = false
+    @State private var detailsExpanded: Bool
+    @State private var rewardsExpanded: Bool
+    init(model: CutBattleDetailModel, processing: Bool = false, actions: CutBattleDetailActions = .init(), expanded: Bool = false) {
+        self.model = model; self.processing = processing; self.actions = actions
+        _detailsExpanded = State(initialValue: expanded); _rewardsExpanded = State(initialValue: expanded)
+    }
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Text(model.type).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary)
-                Text(model.state == .active || model.state == .expired ? model.time : model.status).cutFont(.body)
+                Text(model.type).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(DS.Cut.Colors.textSecondary)
+                Text(model.state == .active || model.state == .expired ? model.time : model.status).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                 scores
                 if model.state == .active || model.state == .expired {
-                    Text(model.lead).cutFont(.body).foregroundStyle(model.isLeading ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
+                    Text(model.lead).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(model.isLeading ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
                     CutSplitBar(fraction: model.split).accessibilityLabel(model.lead)
                 }
                 if model.accepts {
@@ -28,10 +34,10 @@ struct CutBattleDetailView: View {
                         VStack(alignment: .leading, spacing: 12) { accept; exit }
                     }
                 } else if model.exit != nil { exit }
-                DisclosureGroup {
+                DisclosureGroup(isExpanded: $detailsExpanded) {
                     ForEach(model.details) { row in CutCompeteValueRow(label: row.label, value: row.value) }
                 } label: { CutCompeteSectionTitle("Details") }.tint(DS.Cut.Colors.textSecondary).padding(.top, 14)
-                DisclosureGroup {
+                DisclosureGroup(isExpanded: $rewardsExpanded) {
                     CutBattleRewardRows(rewards: model.rewards)
                 } label: { CutCompeteSectionTitle("Rewards") }.tint(DS.Cut.Colors.textSecondary).padding(.top, 14)
             }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12).padding(.bottom, 40)
@@ -53,14 +59,15 @@ struct CutBattleDetailView: View {
     }
     private func score(_ name: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(name).cutFont(.body).fixedSize(horizontal: false, vertical: true)
+            Text(name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).fixedSize(horizontal: false, vertical: true)
             Text(value).font(DS.Cut.Typography.condensed(size: 44, relativeTo: .largeTitle)).monospacedDigit()
                 .fixedSize(horizontal: false, vertical: true)
             Text(model.unit).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
     private var accept: some View {
-        Button("Accept", action: actions.accept).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)).disabled(processing)
+        Button(action: actions.accept) { ZStack { Text("Accept").opacity(processing ? 0 : 1); if processing { ProgressView().tint(DS.Cut.Colors.ink) } } }
+            .buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)).disabled(processing).accessibilityLabel("Accept")
     }
     private var exit: some View {
         Button(model.exit ?? "Leave Battle", role: .destructive) { confirmingExit = true }
@@ -81,7 +88,7 @@ struct CutBattleRewardRows: View {
                                      weightKg: reward.weight, engravingText: reward.engraving)
                     .frame(width: 64, height: 64).accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(reward.title + ": " + reward.name).cutFont(.body)
+                    Text(reward.title + ": " + reward.name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                     Text(reward.weightText + " · " + reward.xp).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
                 }
                 Spacer(minLength: 0)

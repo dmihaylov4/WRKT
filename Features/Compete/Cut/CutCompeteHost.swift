@@ -7,6 +7,7 @@ struct CutCompeteHost: View {
     @State private var browsing = false
     @State private var pending = false
     @State private var processing: Set<UUID> = []
+    @State private var frozenModel: CutCompeteModel?
     @AppStorage("weight_unit") private var weightUnitRaw = WeightUnit.kg.rawValue
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
     private var model: CutCompeteModel {
@@ -24,7 +25,7 @@ struct CutCompeteHost: View {
             error: [challengesVM?.error?.message, battlesVM?.error?.message].compactMap { $0 }.first)
     }
     var body: some View {
-        CutCompeteView(model: model, processing: processing, actions: .init(open: open, accept: { id in act(id, accept: true) },
+        CutCompeteView(model: frozenModel ?? model, processing: processing, actions: .init(open: open, accept: { id in act(id, accept: true) },
             decline: { id in act(id, accept: false) }, startBattle: { battlesVM?.openCreateBattle() }, browse: { browsing = true },
             allPending: { pending = true }, retry: { Task { await refresh() } }))
         .task {
@@ -37,12 +38,12 @@ struct CutCompeteHost: View {
             await battles.onAppear()
         }
         .sheet(item: Binding(get: { challengesVM?.selectedChallenge }, set: { _ in challengesVM?.closeChallengeDetail() }), onDismiss: {
-            Task { if let vm = challengesVM { await CutCompeteRefresh.challenges(vm) } }
+            Task { await refresh(challenges: true, battles: false) }
         }) { challenge in
             if let vm = challengesVM { ChallengeDetailView(challenge: challenge, viewModel: vm) }
         }
         .sheet(item: Binding(get: { battlesVM?.selectedBattle }, set: { _ in battlesVM?.closeBattleDetail() }), onDismiss: {
-            Task { if let vm = battlesVM { await CutCompeteRefresh.battles(vm) } }
+            Task { await refresh(challenges: false, battles: true) }
         }) { battle in
             if let vm = battlesVM { BattleDetailView(battle: battle, viewModel: vm) }
         }
@@ -69,9 +70,12 @@ struct CutCompeteHost: View {
             processing.remove(id)
         }
     }
-    private func refresh() async {
-        if let vm = challengesVM { await CutCompeteRefresh.challenges(vm) }
-        if let vm = battlesVM { await CutCompeteRefresh.battles(vm) }
+    private func refresh(challenges: Bool = true, battles: Bool = true) async {
+        guard frozenModel == nil else { return }
+        frozenModel = model
+        defer { frozenModel = nil }
+        if challenges, let vm = challengesVM { await CutCompeteRefresh.challenges(vm) }
+        if battles, let vm = battlesVM { await CutCompeteRefresh.battles(vm) }
     }
 }
 
@@ -100,15 +104,15 @@ enum CutCompeteRefresh {
 }
 
 extension CutCompeteItem {
-    static func challenge(_ value: ChallengeWithProgress, unit: WeightUnit, locale: Locale = .current) -> CutCompeteItem {
+    static func challenge(_ value: ChallengeWithProgress, unit: WeightUnit, locale: Locale = .current, showsDescription: Bool = false) -> CutCompeteItem {
         let c = value.challenge
-        let goal = NSDecimalNumber(decimal: c.goalValue).doubleValue
-        let amount = c.challengeType == .totalVolume ? CutCompeteFormat.score(goal, type: .volume, unit: unit, locale: locale) + " " + unit.label
-            : CutCompeteFormat.number(goal, locale: locale) + " " + (c.challengeType == .workoutCount ? "workouts" : c.challengeType == .streak ? "days" : c.challengeType == .specificExercise ? "reps" : c.goalMetric)
+        let detail = CutChallengeDetailLogic.model(.init(value, userID: nil), unit: unit, locale: locale)
+        let amount = detail.about.first { $0.label == "Goal" }?.value ?? ""
         let kind = ChallengeRewardPreviewKind(challenge: c)
         return .init(id: .challenge(c.id), title: c.title, subtitle: [c.difficulty?.displayName, c.participantCount > 0 ? "\(c.participantCount) competing" : amount].compactMap { $0 }.joined(separator: " · "),
-            value: value.isParticipating ? "\(value.userProgressPercentage)%" : nil,
+            value: detail.progress,
             trailing: value.isCompleted ? "Completed" : c.daysRemainingDisplay,
+            note: showsDescription ? c.description : nil, progressLabel: detail.percentage,
             fraction: value.isParticipating ? Double(value.userProgressPercentage) / 100 : nil,
             plateTier: kind == .conditioningPlate ? 24 : nil, barSkinID: kind == .firstRepBarSkin ? 4 : nil,
             reward: kind == .firstRepBarSkin ? "VOLIA bar skin" : kind == .conditioningPlate ? "Heat Forge plate" : nil)

@@ -13,7 +13,7 @@ struct CutCreateBattleView: View {
                     VStack(spacing: 0) {
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(model.opponent).cutFont(.body)
+                                Text(model.opponent).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                                 if let handle = model.handle { Text(handle).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
                             }
                             Spacer(minLength: 12)
@@ -70,24 +70,24 @@ struct CutBattleOpponentView: View {
                 switch model.state {
                 case .loading: ProgressView().accessibilityLabel("Loading friends")
                 case .failed(let error):
-                    Text(error).cutFont(.body)
+                    Text(error).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                     Button("Try Again", action: retry).buttonStyle(CutSecondaryButtonStyle(fillsWidth: false))
                 case .empty:
-                    Text("No friends yet").cutFont(.body)
+                    Text("No friends yet").font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                     Button("Find Friends", action: findFriends).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false))
                 case .noResults, .loaded:
                     HStack {
-                        TextField("Search friends", text: $query).cutFont(.body).autocorrectionDisabled().textInputAutocapitalization(.never)
+                        TextField("Search friends", text: $query).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).autocorrectionDisabled().textInputAutocapitalization(.never)
                         if !query.isEmpty { Button("Clear search", systemImage: "xmark") { query = "" }.labelStyle(.iconOnly).frame(width: 44, height: 44) }
                     }.frame(minHeight: 50)
                     CutHairline()
-                    if model.state == .noResults { Text("No results").cutFont(.body).padding(.vertical, 16) }
+                    if model.state == .noResults { Text("No results").font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.vertical, 16) }
                     ForEach(model.rows) { friend in
                         Button { select(friend.id) } label: {
                             HStack(spacing: 12) {
                                 CutSocialAvatar(initials: String(friend.username.prefix(1)).uppercased(), url: friend.avatarURL, size: 44)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(friend.name).cutFont(.body)
+                                    Text(friend.name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                                     Text("@" + friend.username).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
                                 }
                                 Spacer(minLength: 8)

@@ -27,6 +27,10 @@ struct ChallengesBrowseView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutChallengesBrowseHost(initialTab: selectedTab) } else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel = viewModel {
                 content(viewModel: viewModel)

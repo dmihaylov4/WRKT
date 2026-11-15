@@ -18,6 +18,10 @@ struct ChallengeDetailView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutChallengeDetailHost(challenge: challenge, viewModel: viewModel) } else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {

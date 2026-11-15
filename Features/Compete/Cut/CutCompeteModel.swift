@@ -7,6 +7,8 @@ struct CutCompeteItem: Equatable, Identifiable {
     var subtitle: String
     var value: String? = nil
     var trailing: String? = nil
+    var note: String? = nil
+    var progressLabel: String? = nil
     var fraction: Double? = nil
     var incoming = false
     var plateTier: Int? = nil
@@ -39,8 +41,8 @@ enum CutCompeteLogic {
         let model = CutBattleDetailLogic.model(facts, unit: unit, locale: locale, now: now)
         let pending = facts.status == .pending
         return .init(id: .battle(facts.id), title: facts.opponent, subtitle: model.type,
-                     value: pending ? (facts.isOpponent ? "Invitation" : "Invite sent") : "\(model.ownScore) : \(model.otherScore) \(model.unit)",
-                     trailing: pending ? "\(model.details.first?.value ?? "")" : facts.status == .completed ? model.status : model.time,
+                     value: pending ? (facts.isOpponent ? "Invitation" : "Invite sent") : "You \(model.ownScore) : \(model.otherScore) \(model.unit)",
+                     trailing: pending ? "\(model.details.first?.value ?? "")" : facts.status == .completed ? model.status : model.time + " · " + model.lead,
                      fraction: facts.status == .active ? model.split : nil, incoming: pending && facts.isOpponent,
                      plateTier: facts.type.winnerPlateTierID)
     }

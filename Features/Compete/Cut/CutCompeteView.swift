@@ -18,7 +18,7 @@ struct CutCompeteView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 if model.loading { ProgressView().accessibilityLabel("Loading competitions").padding(.vertical, 20) }
                 if let error = model.error {
-                    Text(error).cutFont(.body).padding(.vertical, 12)
+                    Text(error).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.vertical, 12)
                     Button("Try Again", action: actions.retry).buttonStyle(CutSecondaryButtonStyle(fillsWidth: false))
                 }
                 if !model.pending.isEmpty {
@@ -26,7 +26,7 @@ struct CutCompeteView: View {
                     items(model.pending)
                     if model.pendingCount > 3 {
                         Button("All invitations (\(model.pendingCount))", action: actions.allPending)
-                            .cutFont(.body).frame(minHeight: 50).buttonStyle(.plain)
+                            .font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).frame(minHeight: 50).buttonStyle(.plain)
                     }
                 }
                 if !model.active.isEmpty { CutCompeteSectionTitle("Active"); items(model.active) }
@@ -34,7 +34,7 @@ struct CutCompeteView: View {
                 Button(action: actions.startBattle) { CutCompeteNavigationRow("Start Battle") }.buttonStyle(.plain).disabled(model.loading)
                 Button(action: actions.browse) { CutCompeteNavigationRow("Join Challenge") }.buttonStyle(.plain)
                 if !model.recommended.isEmpty { CutCompeteSectionTitle("Recommended"); items(model.recommended)
-                    Button("All challenges", action: actions.browse).cutFont(.body).frame(minHeight: 50).buttonStyle(.plain)
+                    Button("All challenges", action: actions.browse).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).frame(minHeight: 50).buttonStyle(.plain)
                 }
                 if !model.completed.isEmpty { CutCompeteSectionTitle("Recent completions"); items(model.completed) }
                 if !model.summary.isEmpty {
@@ -72,11 +72,16 @@ struct CutCompeteItemRow: View {
                             Text(item.title).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                             Text(item.subtitle).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
                         }.frame(maxWidth: .infinity, alignment: .leading)
+                        if !dynamicTypeSize.isAccessibilitySize { rewardPreview }
                         Image(systemName: "chevron.right").font(.system(size: 15)).foregroundStyle(DS.Cut.Colors.textSecondary).accessibilityHidden(true)
                     }
-                    if let value = item.value { Text(value).cutFont(.body).monospacedDigit() }
+                    if let value = item.value { Text(value).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).monospacedDigit() }
                     if let trailing = item.trailing { Text(trailing).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
-                    if let fraction = item.fraction { CutSplitBar(fraction: fraction) }
+                    if let note = item.note { Text(note).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary).lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2) }
+                    if let fraction = item.fraction {
+                        CutSplitBar(fraction: fraction).accessibilityLabel(item.battleID == nil ? "Challenge progress" : "Score comparison")
+                            .accessibilityValue(item.progressLabel ?? "")
+                    }
                     if let reward = item.reward { Text(reward).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
                 }.frame(maxWidth: .infinity, minHeight: 50, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain)
@@ -89,7 +94,18 @@ struct CutCompeteItemRow: View {
             CutHairline()
         }.padding(.vertical, 12)
     }
-    private var acceptButton: some View { Button("Accept", action: accept).buttonStyle(CutPrimaryButtonStyle(size: .compact, fillsWidth: false)).disabled(processing) }
+    @ViewBuilder private var rewardPreview: some View {
+        if let tier = item.plateTier {
+            PlateFaceView(tierID: tier, progressionTier: .iron, liftTypeID: nil, weightKg: item.battleID == nil ? 20 : 35)
+                .frame(width: 32, height: 32).clipped().accessibilityHidden(true)
+        } else if let id = item.barSkinID, let skin = BarSkin.all.first(where: { $0.id == id }) {
+            BarSkinPreviewTile(skin: skin).frame(width: 48, height: 20).accessibilityHidden(true)
+        }
+    }
+    private var acceptButton: some View {
+        Button(action: accept) { ZStack { Text("Accept").opacity(processing ? 0 : 1); if processing { ProgressView().tint(DS.Cut.Colors.ink) } } }
+            .buttonStyle(CutPrimaryButtonStyle(size: .compact, fillsWidth: false)).disabled(processing).accessibilityLabel("Accept")
+    }
     private var declineButton: some View { Button("Decline", role: .destructive, action: decline).buttonStyle(CutCompeteDestructiveStyle()).disabled(processing) }
 }
 
@@ -116,15 +132,15 @@ struct CutCompeteValueRow: View {
             CutHairline()
         }
     }
-    private var labelText: some View { Text(label).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary) }
-    private var valueText: some View { Text(value).cutFont(.body).monospacedDigit().fixedSize(horizontal: false, vertical: true) }
+    private var labelText: some View { Text(label).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(DS.Cut.Colors.textSecondary) }
+    private var valueText: some View { Text(value).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).monospacedDigit().fixedSize(horizontal: false, vertical: true) }
 }
 struct CutCompeteNavigationRow: View {
     let title: String
     init(_ title: String) { self.title = title }
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) { Text(title).cutFont(.body); Spacer(); Image(systemName: "chevron.right").font(.system(size: 15)) }
+            HStack(spacing: 12) { Text(title).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)); Spacer(); Image(systemName: "chevron.right").font(.system(size: 15)) }
                 .frame(minHeight: 50).contentShape(Rectangle())
             CutHairline()
         }
@@ -133,7 +149,7 @@ struct CutCompeteNavigationRow: View {
 struct CutCompeteDestructiveStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.cutFont(.body).padding(.horizontal, 20).padding(.vertical, 10).frame(minHeight: 44)
+        configuration.label.font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.horizontal, 20).padding(.vertical, 10).frame(minHeight: 44)
             .foregroundStyle(DS.Status.error).overlay(Capsule().stroke(DS.Status.error.opacity(0.6)))
             .opacity(!isEnabled ? 0.45 : configuration.isPressed ? 0.7 : 1)
     }

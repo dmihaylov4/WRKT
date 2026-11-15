@@ -15,10 +15,10 @@ struct CutBattlesListView: View {
                 LazyVStack(alignment: .leading, spacing: 12) {
                     if model.loading { ProgressView().accessibilityLabel("Loading battles") }
                     if let error = model.error {
-                        Text(error).cutFont(.body)
+                        Text(error).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                         Button("Try Again", action: actions.retry).buttonStyle(CutSecondaryButtonStyle(fillsWidth: false))
                     }
-                    if let empty = model.empty { Text(empty).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.vertical, 20) }
+                    if let empty = model.empty { Text(empty).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.vertical, 20) }
                     if model.canCreate { Button("Create Battle", action: actions.startBattle).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)) }
                     ForEach(model.rows) { item in
                         CutCompeteItemRow(item: item, processing: item.battleID.map { processing.contains($0) } ?? false,
@@ -49,7 +49,7 @@ struct CutCompeteFilterRow: View {
 private struct CutCompeteFilterStyle: ButtonStyle {
     let selected: Bool
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.cutFont(.body).fixedSize().padding(.horizontal, 16).frame(minHeight: 44)
+        configuration.label.font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).fixedSize().padding(.horizontal, 16).frame(minHeight: 44)
             .foregroundStyle(selected ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
             .background(selected ? DS.Cut.Colors.lime : .clear, in: Capsule())
             .overlay(Capsule().stroke(selected ? .clear : DS.Cut.Colors.hairline))
