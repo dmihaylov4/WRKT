@@ -3,8 +3,8 @@
 //  WRKT
 //
 //  One post opened, in the Cut language, as plain values: the same post row the feed shows,
-//  then the workout behind it (workouts, exercises with their sets, splits, heart rate,
-//  performance), the comments and the composer. Every format and decision is a pure function
+//  then the workout behind it (the sessions when there are several, exercises with their sets,
+//  splits, heart rate, performance), the comments and the composer. Every format and decision is a pure function
 //  of facts the host reads from PostDetailViewModel, so each state renders without the network.
 //
 
@@ -16,6 +16,8 @@ struct CutPostDetailFacts: Equatable {
     struct SetFacts: Equatable {
         /// The set as the app formats it ("90 kg x 8", "1:30", "12 reps").
         var value: String
+        /// Reps in the set; zero for a timed or distance set.
+        var reps: Int = 0
         var tag: SetTag = .working
         var workSeconds: Double?
         var restSeconds: Int?
@@ -94,12 +96,24 @@ struct CutPostDetailFacts: Equatable {
 // MARK: - Display values
 
 struct CutPostDetailModel: Equatable {
-    enum Section: String, CaseIterable { case overview = "Overview", exercises = "Exercises", watch = "Watch" }
-    var availableSections: [Section] = []
     var battleDetail: String? = nil
     var visibility: String = "Public"
+    /// The line under the author: "42 min. ago, public".
+    var timeLine: String = ""
+    /// The lime block's columns: up to three headline numbers, each value with its unit.
+    var headline: [CutSocialStat] = []
+    /// The own post's menu (edit, delete); empty on someone else's post.
+    var ownerActions: [CutSocialPostRow.Action] = []
+    /// The week's totals under a weekly post ("4 workouts · 18,420 kg · 96 sets · 4:12").
     var overviewLine: String? = nil
     var showsMedia = true
+
+    /// One measured value as a hairline row: "Energy", "610 kcal".
+    struct Metric: Equatable, Identifiable {
+        var label: String
+        var value: String
+        var id: String { label }
+    }
 
     struct SetLine: Equatable, Identifiable {
         var id: Int
@@ -112,7 +126,7 @@ struct CutPostDetailModel: Equatable {
     struct Exercise: Equatable, Identifiable {
         var id: Int
         var title: String
-        /// "4 sets, 1,240 kg"
+        /// "4 x 8, 2,420 kg" when every set has the same reps, else "4 sets, 33 reps, 2,420 kg".
         var line: String
         var sets: [SetLine]
         /// "Work 4:10, rest 8:20", shown when the exercise is open.
@@ -209,7 +223,8 @@ struct CutPostDetailModel: Equatable {
     var splitAverage: String? = nil
     var zoneMethod: String? = nil
     var heartRate: [HeartRate] = []
-    var performance: [[CutStatColumn]] = []
+    /// Energy, speed and running dynamics, one per row.
+    var performance: [Metric] = []
     /// "Load details" or "Refresh details": the author reloading splits and zones.
     var refreshTitle: String?
     var isRefreshing = false
@@ -240,35 +255,27 @@ enum CutPostDetailLogic {
             composer: composer(facts)
         )
         model.showsMedia = showsWorkout
-        model.workouts = workoutRows(workouts)
-        if !workouts.isEmpty, workouts.allSatisfy({ !$0.isCardio }) {
-            model.workouts = workouts.flatMap(\.exercises).prefix(6).enumerated().map { index, exercise in
-                .init(id: index, title: exercise.name, line: "\(exercise.sets.count) sets",
-                      value: "\(CutSocialLogic.volumeStat(exercise.volumeKg, weightUnit: weightUnit, locale: locale).value) \(weightUnit.label)")
-            }
-        }
-        model.availableSections = showsWorkout ? (singleCardio == nil ? [.overview, .exercises] : [.overview]) : []
-        if (facts.canRefreshCardio && singleCardio != nil) || workouts.contains(where: { $0.averageHeartRate != nil || $0.maxHeartRate != nil || $0.minHeartRate != nil || $0.calories != nil || !$0.heartRateSamples.isEmpty || !$0.splits.isEmpty || !$0.zones.isEmpty || $0.power != nil || $0.cadence != nil || $0.strideLength != nil || $0.groundContact != nil || $0.verticalOscillation != nil }) {
-            model.availableSections.append(.watch)
-        }
-        var overview: [String] = []
-        let exerciseCount = workouts.flatMap(\.exercises).count
-        if exerciseCount > 0 { overview.append("\(exerciseCount) exercises") }
-        if workouts.count > 1 { overview.append("\(workouts.count) workouts") }
-        let calories = workouts.compactMap(\.calories)
-        if !calories.isEmpty { overview.append("\(CutSocialLogic.grouped(calories.reduce(0, +), locale: locale)) kcal") }
-        let averages = workouts.compactMap(\.averageHeartRate)
-        if !averages.isEmpty { overview.append("\(Int((averages.reduce(0, +) / Double(averages.count)).rounded())) bpm average") }
-        if case .weekly = kind {
+        // One post, one session: its exercises are the list. Several sessions get their own
+        // list first, so each exercise's place is clear.
+        model.workouts = workouts.count > 1 ? workoutRows(workouts, locale: locale) : []
+        // The week's totals are the one summary the sections below do not already show.
+        if case .weekly = kind, !workouts.isEmpty {
+            var overview = [workouts.count == 1 ? "1 workout" : "\(workouts.count) workouts"]
             let volume = workouts.flatMap(\.exercises).reduce(0) { $0 + $1.volumeKg }
-            overview.append("\(CutSocialLogic.volumeStat(volume, weightUnit: weightUnit, locale: locale).value) \(weightUnit.label)")
-            overview.append("\(workouts.reduce(0) { $0 + $1.sets }) sets")
+            if volume > 0 {
+                overview.append("\(CutSocialLogic.volumeStat(volume, weightUnit: weightUnit, locale: locale).value) \(weightUnit.label)")
+            }
+            let sets = workouts.reduce(0) { $0 + $1.sets }
+            if sets > 0 { overview.append(sets == 1 ? "1 set" : "\(sets) sets") }
             let durations = workouts.compactMap(\.durationSeconds)
             if !durations.isEmpty { overview.append(CutSocialLogic.clock(durations.reduce(0, +))) }
+            model.overviewLine = overview.joined(separator: " · ")
         }
-        model.overviewLine = overview.isEmpty ? nil : overview.joined(separator: " · ")
         model.battleDetail = facts.battleDetail
         model.visibility = switch facts.post.visibility { case .everyone: "Public"; case .friends: "Friends"; case .onlyMe: "Only you" }
+        model.timeLine = timeLine(row.timeLine, visibility: model.visibility)
+        model.headline = headline(kind, fallback: row.stats, weightUnit: weightUnit, locale: locale)
+        model.ownerActions = row.menu.filter { $0 == .edit || $0 == .delete }
         model.exercises = exercises(workouts.flatMap(\.exercises), weightUnit: weightUnit, locale: locale)
         if let singleCardio {
             model.splits = zip(CutCardioLogic.splitRows(singleCardio.splits), singleCardio.splits.filter { $0.paceSecPerKm > 0 }).map { row, split in
@@ -280,7 +287,7 @@ enum CutPostDetailLogic {
             }
         }
         model.zoneMethod = facts.zoneMethod
-        model.heartRate = heartRate(workouts)
+        model.heartRate = heartRate(workouts, locale: locale)
         model.performance = performance(workouts, singleCardio: singleCardio, locale: locale)
         if facts.canRefreshCardio, let singleCardio {
             model.refreshTitle = singleCardio.zones.isEmpty ? "Load details" : "Refresh details"
@@ -291,6 +298,56 @@ enum CutPostDetailLogic {
 
     static func selectedSplit(_ splits: [CutPostDetailModel.Split], id: Int?) -> CutPostDetailModel.Split? {
         splits.first { $0.id == id } ?? splits.last
+    }
+
+    /// "42 min. ago, public": the visibility once, in lower case, unless the time already says it.
+    static func timeLine(_ time: String, visibility: String) -> String {
+        time.localizedCaseInsensitiveContains(visibility) ? time : "\(time), \(visibility.lowercased())"
+    }
+
+    // MARK: Headline
+
+    /// The lime block's numbers, read in order: how long, how much, then the total. Each value
+    /// carries its unit and each label names the measure ("9,840 kg" over "volume"). Weekly and
+    /// battle posts keep the feed's columns, which already read that way.
+    static func headline(_ kind: CutSocialPostFacts.Kind, fallback: [CutSocialStat], weightUnit: WeightUnit,
+                         locale: Locale) -> [CutSocialStat] {
+        func volume(_ kg: Double) -> CutSocialStat {
+            .init(value: "\(CutSocialLogic.volumeStat(kg, weightUnit: weightUnit, locale: locale).value) \(weightUnit.label)", label: "volume")
+        }
+        func count(_ value: Int, _ one: String, _ many: String) -> CutSocialStat {
+            .init(value: CutSocialLogic.grouped(Double(value), locale: locale), label: value == 1 ? one : many)
+        }
+        var stats: [CutSocialStat] = []
+        switch kind {
+        case let .strength(_, volumeKg, sets, duration):
+            if let duration, duration > 0 { stats.append(.init(value: CutSocialLogic.clock(duration), label: "duration")) }
+            if sets > 0 { stats.append(count(sets, "set", "sets")) }
+            if volumeKg > 0 { stats.append(volume(volumeKg)) }
+        case let .cardio(_, distance, duration, calories, heartRate):
+            if distance > 0 {
+                stats.append(.init(value: "\(CutSocialLogic.distanceKm(distance, locale: locale)) km", label: "distance"))
+                if let duration, duration > 0 {
+                    stats.append(.init(value: CutSocialLogic.clock(Double(duration)), label: "time"))
+                    stats.append(.init(value: "\(CutSocialLogic.pace(secondsPerKm: Double(duration) / (distance / 1000))) /km", label: "pace"))
+                }
+            } else {
+                if let duration, duration > 0 { stats.append(.init(value: CutSocialLogic.clock(Double(duration)), label: "time")) }
+                if let calories, calories > 0 { stats.append(.init(value: "\(CutSocialLogic.grouped(calories, locale: locale)) kcal", label: "energy")) }
+                if let heartRate, heartRate > 0 { stats.append(.init(value: "\(Int(heartRate.rounded())) bpm", label: "avg heart rate")) }
+            }
+        case let .multi(count: workouts, cardioCount, volumeKg, sets, duration):
+            if let duration, duration > 0 { stats.append(.init(value: CutSocialLogic.clock(duration), label: "duration")) }
+            if cardioCount == 0, sets > 0 {
+                stats.append(count(sets, "set", "sets"))
+            } else {
+                stats.append(count(workouts, "workout", "workouts"))
+            }
+            if volumeKg > 0 { stats.append(volume(volumeKg)) }
+        case .weekly, .battle:
+            return fallback
+        }
+        return Array(stats.prefix(3))
     }
 
     // MARK: Likes
@@ -309,11 +366,11 @@ enum CutPostDetailLogic {
 
     // MARK: Workouts
 
-    static func workoutRows(_ workouts: [CutPostDetailFacts.WorkoutFacts]) -> [CutPostDetailModel.WorkoutRow] {
+    static func workoutRows(_ workouts: [CutPostDetailFacts.WorkoutFacts], locale: Locale = .current) -> [CutPostDetailModel.WorkoutRow] {
         workouts.enumerated().map { index, workout in
             let value: String
             if let calories = workout.calories, calories > 0 {
-                value = "\(Int(calories.rounded())) kcal"
+                value = "\(CutSocialLogic.grouped(calories, locale: locale)) kcal"
             } else if workout.sets > 0 {
                 value = workout.sets == 1 ? "1 set" : "\(workout.sets) sets"
             } else {
@@ -321,7 +378,7 @@ enum CutPostDetailLogic {
             }
             let line: String
             if workout.isCardio, workout.distanceMeters > 0 {
-                line = "\(CutSocialLogic.distanceKm(workout.distanceMeters)) km" + (workout.durationSeconds.map { ", \(CutSocialLogic.clock($0))" } ?? "")
+                line = "\(CutSocialLogic.distanceKm(workout.distanceMeters, locale: locale)) km" + (workout.durationSeconds.map { ", \(CutSocialLogic.clock($0))" } ?? "")
             } else {
                 line = workout.durationSeconds.map { CutSocialLogic.clock($0) } ?? (workout.isCardio ? "Cardio" : "Strength")
             }
@@ -331,21 +388,38 @@ enum CutPostDetailLogic {
 
     static func exercises(_ exercises: [CutPostDetailFacts.ExerciseFacts], weightUnit: WeightUnit, locale: Locale) -> [CutPostDetailModel.Exercise] {
         exercises.enumerated().map { index, exercise in
-            let count = exercise.sets.count
-            var line = (count == 1 ? "1 set" : "\(count) sets") + ", \(exercise.totalReps) reps"
-            if exercise.volumeKg > 0 {
-                line += ", \(CutSocialLogic.volumeStat(exercise.volumeKg, weightUnit: weightUnit, locale: locale).value) \(weightUnit.label)"
-            }
-            return .init(
+            .init(
                 id: index,
                 title: exercise.name,
-                line: line,
+                line: exerciseLine(exercise, weightUnit: weightUnit, locale: locale),
                 sets: exercise.sets.enumerated().map { setIndex, set in
                     .init(id: setIndex, number: "\(setIndex + 1)", value: set.value, note: setNote(set))
                 },
                 timing: timing(work: exercise.workSeconds, rest: exercise.restSeconds)
             )
         }
+    }
+
+    /// One line per exercise that never claims more than the sets show: "4 x 8" only when every
+    /// set has the same reps, else the set count and the total reps ("4 sets, 33 reps"); the
+    /// volume follows when the exercise carries weight, never "0 kg"; timed sets show the count.
+    static func exerciseLine(_ exercise: CutPostDetailFacts.ExerciseFacts, weightUnit: WeightUnit, locale: Locale) -> String {
+        let count = exercise.sets.count
+        let sets = count == 1 ? "1 set" : "\(count) sets"
+        let reps = exercise.sets.map(\.reps)
+        var parts: [String] = []
+        if count > 0, let first = reps.first, first > 0, reps.allSatisfy({ $0 == first }) {
+            parts.append("\(count) x \(first)")
+        } else if exercise.totalReps > 0 {
+            parts.append(sets)
+            parts.append(exercise.totalReps == 1 ? "1 rep" : "\(CutSocialLogic.grouped(Double(exercise.totalReps), locale: locale)) reps")
+        } else {
+            parts.append(sets)
+        }
+        if exercise.volumeKg > 0 {
+            parts.append("\(CutSocialLogic.volumeStat(exercise.volumeKg, weightUnit: weightUnit, locale: locale).value) \(weightUnit.label)")
+        }
+        return parts.joined(separator: ", ")
     }
 
     /// Only what differs from a plain working set: the tag, then work and rest when timed.
@@ -375,7 +449,7 @@ enum CutPostDetailLogic {
 
     // MARK: Heart rate
 
-    static func heartRate(_ workouts: [CutPostDetailFacts.WorkoutFacts]) -> [CutPostDetailModel.HeartRate] {
+    static func heartRate(_ workouts: [CutPostDetailFacts.WorkoutFacts], locale: Locale = .current) -> [CutPostDetailModel.HeartRate] {
         workouts.enumerated().compactMap { index, workout in
             var stats: [CutStatColumn] = []
             if let avg = workout.averageHeartRate, avg > 0 { stats.append(.init(value: "\(Int(avg.rounded()))", label: "Average")) }
@@ -388,7 +462,8 @@ enum CutPostDetailLogic {
                 return .init(id: offset, seconds: sample.timestamp.timeIntervalSince(start), bpm: sample.bpm)
             }
             guard !stats.isEmpty || !points.isEmpty || !zones.isEmpty || workout.calories != nil else { return nil }
-            return .init(id: index, title: workouts.count > 1 ? workout.name : nil, stats: stats, points: points, zones: zones, energy: workout.calories.map { "\(Int($0.rounded())) kcal" },
+            return .init(id: index, title: workouts.count > 1 ? workout.name : nil, stats: stats, points: points, zones: zones,
+                         energy: workout.calories.map { "\(CutSocialLogic.grouped($0, locale: locale)) kcal" },
                          isEstimated: !zones.isEmpty && workout.zones.first?.isEstimated == true)
         }
     }
@@ -405,32 +480,35 @@ enum CutPostDetailLogic {
     // MARK: Performance
 
     /// Energy (when the top stats do not show it), then speed and the running dynamics of a
-    /// single cardio session, two per row.
+    /// single cardio session, one per row, in the user's number format.
     static func performance(_ workouts: [CutPostDetailFacts.WorkoutFacts], singleCardio: CutPostDetailFacts.WorkoutFacts?,
-                            locale: Locale) -> [[CutStatColumn]] {
-        var items: [CutStatColumn] = []
+                            locale: Locale) -> [CutPostDetailModel.Metric] {
+        func number(_ value: Double, digits: Int) -> String {
+            value.formatted(.number.locale(locale).precision(.fractionLength(digits)))
+        }
+        var items: [CutPostDetailModel.Metric] = []
         if let cardio = singleCardio {
             // Indoor cardio already shows energy in its stat columns.
             if cardio.distanceMeters > 0, let kcal = cardio.calories, kcal > 0 {
-                items.append(.init(value: CutSocialLogic.grouped(kcal, locale: locale), label: "Energy", unit: "kcal"))
+                items.append(.init(label: "Energy", value: "\(CutSocialLogic.grouped(kcal, locale: locale)) kcal"))
             }
             if cardio.distanceMeters > 0, let seconds = cardio.durationSeconds, seconds > 0 {
-                items.append(.init(value: String(format: "%.1f", cardio.distanceMeters / seconds * 3.6), label: "Avg speed", unit: "km/h"))
+                items.append(.init(label: "Avg speed", value: "\(number(cardio.distanceMeters / seconds * 3.6, digits: 1)) km/h"))
             }
-            if let power = cardio.power { items.append(.init(value: String(format: "%.0f", power), label: "Power", unit: "W")) }
-            if let cadence = cardio.cadence { items.append(.init(value: String(format: "%.0f", cadence), label: "Cadence", unit: "spm")) }
-            if let stride = cardio.strideLength { items.append(.init(value: String(format: "%.2f", stride), label: "Stride", unit: "m")) }
-            if let contact = cardio.groundContact { items.append(.init(value: String(format: "%.0f", contact), label: "Ground contact", unit: "ms")) }
+            if let power = cardio.power { items.append(.init(label: "Power", value: "\(number(power, digits: 0)) W")) }
+            if let cadence = cardio.cadence { items.append(.init(label: "Cadence", value: "\(number(cadence, digits: 0)) spm")) }
+            if let stride = cardio.strideLength { items.append(.init(label: "Stride", value: "\(number(stride, digits: 2)) m")) }
+            if let contact = cardio.groundContact { items.append(.init(label: "Ground contact", value: "\(number(contact, digits: 0)) ms")) }
             if let oscillation = cardio.verticalOscillation {
-                items.append(.init(value: String(format: "%.1f", oscillation), label: "Oscillation", unit: "cm"))
+                items.append(.init(label: "Oscillation", value: "\(number(oscillation, digits: 1)) cm"))
             }
         } else {
             let calories = workouts.compactMap(\.calories).filter { $0 > 0 }
             if !calories.isEmpty {
-                items.append(.init(value: CutSocialLogic.grouped(calories.reduce(0, +), locale: locale), label: "Energy", unit: "kcal"))
+                items.append(.init(label: "Energy", value: "\(CutSocialLogic.grouped(calories.reduce(0, +), locale: locale)) kcal"))
             }
         }
-        return stride(from: 0, to: items.count, by: 2).map { Array(items[$0..<min($0 + 2, items.count)]) }
+        return items
     }
 
     // MARK: Comments

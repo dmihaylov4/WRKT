@@ -77,8 +77,9 @@ struct CutImportHistoryView: View {
 
     var body: some View {
         CutSettingsPage(title: model.title) {
-            CutHairline()
-                .padding(.top, 24)
+            Color.clear
+                .frame(height: 12)
+                .accessibilityHidden(true)
             if model.isLoading {
                 CutSettingsBusyRow(title: "Restoring")
             }
@@ -132,7 +133,7 @@ private struct CutImportHistoryRow: View {
                 }
             }
             .padding(.vertical, 14)
-            CutHairline()
+            CutSettingsRowHairline()
         }
     }
 

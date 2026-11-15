@@ -11,12 +11,18 @@ enum CutPostDetailFixtures {
     static func exercise(_ name: String, sets: [(String, SetTag)], volume: Double, timed: Bool = false) -> CutPostDetailFacts.ExerciseFacts {
         CutPostDetailFacts.ExerciseFacts(
             name: name,
-            sets: sets.map { .init(value: $0.0, tag: $0.1, workSeconds: timed ? 42 : nil, restSeconds: timed ? 120 : nil) },
+            sets: sets.map { .init(value: $0.0, reps: reps($0.0), tag: $0.1, workSeconds: timed ? 42 : nil, restSeconds: timed ? 120 : nil) },
             volumeKg: volume,
             workSeconds: timed ? 168 : 0,
             restSeconds: timed ? 480 : 0,
-            totalReps: sets.reduce(0) { $0 + (Int($1.0.split(separator: " ").last ?? "0") ?? 0) }
+            totalReps: sets.reduce(0) { $0 + reps($1.0) }
         )
+    }
+
+    /// The reps in a formatted set: "90 kg x 8" -> 8, "12 reps" -> 12, "1:30" -> 0.
+    static func reps(_ value: String) -> Int {
+        let words = value.split(separator: " ")
+        return Int(words.last ?? "") ?? (words.last == "reps" ? Int(words.first ?? "") ?? 0 : 0)
     }
 
     static var strengthWorkout: CutPostDetailFacts.WorkoutFacts {
@@ -75,6 +81,16 @@ enum CutPostDetailFixtures {
                            comments: Array(comments.prefix(1)))
     }
 
+    /// Strength with a bodyweight exercise between two loaded ones.
+    static func bodyweight() -> CutPostDetailFacts {
+        var facts = strength()
+        facts.workouts[0].exercises.insert(
+            exercise("Pull-Up", sets: [("12 reps", .working), ("11 reps", .working), ("10 reps", .working), ("9 reps", .working)], volume: 0),
+            at: 1)
+        facts.workouts[0].exercises[1].totalReps = 42
+        return facts
+    }
+
     static func multi() -> CutPostDetailFacts {
         var post = F.strength("Strength and cardio")
         post.kind = .multi(count: 2, cardioCount: 1, volumeKg: 5_180, sets: 24, durationSeconds: 5_772)
@@ -122,7 +138,8 @@ struct CutPostDetailLogicTests {
 
     @Test func strengthListsExercisesWithSetsVolumeAndTiming() {
         let detail = model(D.strength())
-        #expect(detail.workouts.map(\.title) == ["Romanian Deadlift", "Back Squat", "Walking Lunge"])
+        // One session: its exercises are the list, without a second summary of them.
+        #expect(detail.workouts.isEmpty)
         #expect(detail.exercises.map(\.title) == ["Romanian Deadlift", "Back Squat", "Walking Lunge"])
         #expect(detail.exercises[0].line == "4 sets, 33 reps, 2,420 kg")
         #expect(detail.exercises[0].sets.map(\.number) == ["1", "2", "3", "4"])
@@ -142,7 +159,7 @@ struct CutPostDetailLogicTests {
         #expect(detail.heartRate[0].title == nil)
         #expect(detail.heartRate[0].stats.map(\.value) == ["128", "171", "84"])
         #expect(detail.heartRate[0].points.count == 40)
-        #expect(detail.performance == [[CutStatColumn(value: "410", label: "Energy", unit: "kcal")]])
+        #expect(detail.performance == [.init(label: "Energy", value: "410 kcal")])
     }
 
     @Test func volumeFollowsThePreferredUnit() {
@@ -158,9 +175,8 @@ struct CutPostDetailLogicTests {
         #expect(detail.splits.filter(\.isFastest).count == 1)
         #expect(detail.heartRate[0].zones.map(\.label) == ["Zone 1", "Zone 2", "Zone 3", "Zone 4", "Zone 5"])
         #expect(detail.heartRate[0].zones[2].time == "18:00")
-        let labels = detail.performance.flatMap { $0.map(\.label) }
-        #expect(labels == ["Energy", "Avg speed", "Power", "Cadence", "Stride", "Ground contact", "Oscillation"])
-        #expect(detail.performance.allSatisfy { $0.count <= 2 })
+        #expect(detail.performance.map(\.label) == ["Energy", "Avg speed", "Power", "Cadence", "Stride", "Ground contact", "Oscillation"])
+        #expect(detail.performance.map(\.value) == ["610 kcal", "11.4 km/h", "262 W", "172 spm", "1.08 m", "241 ms", "8.6 cm"])
         #expect(detail.refreshTitle == "Refresh details")
     }
 
@@ -182,7 +198,7 @@ struct CutPostDetailLogicTests {
         #expect(detail.workouts[1].line == "8.40 km, 44:02")
         #expect(detail.heartRate.map(\.title) == ["Lower Body", "Morning Run"])
         #expect(detail.splits.isEmpty)
-        #expect(detail.performance == [[CutStatColumn(value: "1,020", label: "Energy", unit: "kcal")]])
+        #expect(detail.performance == [.init(label: "Energy", value: "1,020 kcal")])
     }
 
     @Test func weeklyKeepsItsWorkoutsWhileBattleUsesItsSummary() {
@@ -243,9 +259,7 @@ struct CutPostDetailLogicTests {
         #expect(segments.map(\.isMention) == [false, true, false, true, false])
         #expect(CutPostDetailLogic.segments("plain").map(\.text) == ["plain"])
     }
-    @Test func tabsMatchWorkoutCapabilitiesAndKeepReps() {
-        #expect(model(D.strength()).availableSections == [.overview, .exercises, .watch])
-        #expect(model(D.cardio()).availableSections == [.overview, .watch])
+    @Test func exerciseLinesKeepRepsAndVisibility() {
         var facts = D.strength()
         facts.workouts[0].exercises[0].totalReps = 33
         #expect(model(facts).exercises[0].line.contains("33 reps"))
@@ -269,13 +283,19 @@ struct CutPostDetailLogicTests {
     }
 
     @Test func overviewAndWatchKeepSummaryAndPerWorkoutEnergy() {
-        let strength = model(D.strength())
-        #expect(strength.overviewLine == "3 exercises · 410 kcal · 128 bpm average")
+        // A single session repeats nothing above its sections.
+        #expect(model(D.strength()).overviewLine == nil)
         let multi = model(D.multi())
         #expect(multi.heartRate.map(\.energy) == ["410 kcal", "610 kcal"])
         var facts = D.multi()
         facts.workouts[1] = D.strengthWorkout
-        #expect(model(facts).workouts.count == 6)
+        // Two strength sessions list both sessions, then every exercise.
+        #expect(model(facts).workouts.map(\.title) == ["Lower Body", "Lower Body"])
+        #expect(model(facts).exercises.count == 6)
+        // A weekly post keeps the week's totals.
+        var weekly = D.strength()
+        weekly.post = F.weekly()
+        #expect(model(weekly).overviewLine == "1 workout · 5,180 kg · 24 sets · 52:10")
     }
     @Test func zonesKeepTheirNameAndBPMRange() {
         var facts = D.cardio()
@@ -307,4 +327,63 @@ struct CutPostDetailLogicTests {
         #expect(splits[0].duration == "5:13")
     }
 
+
+    @Test func bodyweightExerciseShowsSetsAndRepsNeverZeroKilograms() {
+        let detail = model(D.bodyweight())
+        let pullUps = detail.exercises[1]
+        #expect(pullUps.line == "4 sets, 42 reps")
+        #expect(!detail.exercises.contains { $0.line.hasSuffix(", 0 kg") })
+        #expect(detail.workouts.isEmpty)
+    }
+
+    @Test func exerciseLineSaysSetsTimesRepsOnlyWhenEverySetMatches() {
+        let detail = model(D.strength())
+        // Back squat: four sets of six, so the short form is true.
+        #expect(detail.exercises[1].line == "4 x 6, 2,040 kg")
+        // Romanian deadlift: 10, 8, 8, 7 reps, so the totals, never an invented "4 x 8".
+        #expect(detail.exercises[0].line == "4 sets, 33 reps, 2,420 kg")
+        var timed = D.exercise("Plank", sets: [("1:30", .working), ("1:00", .working)], volume: 0)
+        timed.totalReps = 0
+        #expect(CutPostDetailLogic.exerciseLine(timed, weightUnit: .kg, locale: F.locale) == "2 sets")
+        let uniformBodyweight = D.exercise("Dip", sets: [("10 reps", .working), ("10 reps", .working)], volume: 0)
+        #expect(CutPostDetailLogic.exerciseLine(uniformBodyweight, weightUnit: .kg, locale: F.locale) == "2 x 10")
+    }
+
+    @Test func headlineCarriesEachPostTypesThreeNumbersWithUnits() {
+        let strength = model(D.strength()).headline
+        #expect(strength.map(\.value) == ["52:10", "24", "9,840 kg"])
+        #expect(strength.map(\.label) == ["duration", "sets", "volume"])
+        let run = model(D.cardio()).headline
+        #expect(run.map(\.value) == ["8.40 km", "44:02", "5:15 /km"])
+        #expect(run.map(\.label) == ["distance", "time", "pace"])
+        let multi = model(D.multi()).headline
+        #expect(multi.map(\.label) == ["duration", "workouts", "volume"])
+        var weekly = D.strength()
+        weekly.post = F.weekly()
+        #expect(model(weekly).headline == model(weekly).post.stats)
+        var battle = D.strength()
+        battle.post = F.battle()
+        #expect(model(battle).headline.count == 2)
+        var indoor = D.cardio()
+        indoor.post.kind = .cardio(name: "Spin", distanceMeters: 0, durationSeconds: 2_400, calories: 380, averageHeartRate: 140)
+        #expect(model(indoor).headline.map(\.value) == ["40:00", "380 kcal", "140 bpm"])
+        let german = CutPostDetailLogic.model(D.cardio(), now: F.now, weightUnit: .kg, locale: Locale(identifier: "de_DE"))
+        #expect(german.headline.first?.value == "8,40 km")
+        let germanLift = CutPostDetailLogic.model(D.strength(), now: F.now, weightUnit: .kg, locale: Locale(identifier: "de_DE"))
+        #expect(germanLift.headline.last?.value == "9.840 kg")
+    }
+
+    @Test func timeLineNamesTheVisibilityOnceAndOwnPostsCarryTheirMenu() {
+        #expect(model(D.strength()).timeLine.hasSuffix(", public"))
+        #expect(CutPostDetailLogic.timeLine("3 hr. ago, only you", visibility: "Only you") == "3 hr. ago, only you")
+        #expect(model(D.strength()).ownerActions.isEmpty)
+        var own = D.strength()
+        own.post.isOwn = true
+        #expect(model(own).ownerActions == [.edit, .delete])
+    }
+
+    @Test func performanceFollowsTheUsersNumberFormat() {
+        let german = CutPostDetailLogic.model(D.cardio(), now: F.now, weightUnit: .kg, locale: Locale(identifier: "de_DE"))
+        #expect(german.performance.map(\.value) == ["610 kcal", "11,4 km/h", "262 W", "172 spm", "1,08 m", "241 ms", "8,6 cm"])
+    }
 }

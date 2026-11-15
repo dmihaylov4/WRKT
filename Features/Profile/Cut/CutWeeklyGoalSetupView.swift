@@ -58,7 +58,7 @@ struct CutWeeklyGoalSetupView: View {
                     .accessibilityValue(Text(model.activityValue))
                     .padding(.top, 4)
                     .padding(.bottom, 16)
-                CutHairline()
+                CutSettingsRowHairline()
             }
             CutSettingsFooter(model.activityFooter)
 
