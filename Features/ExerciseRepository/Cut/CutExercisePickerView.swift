@@ -77,7 +77,8 @@ struct CutExerciseSearchField: View {
             HStack(spacing: 10) {
                 Image(systemName: "magnifyingglass").font(.system(size: 17))
                     .foregroundStyle(DS.Cut.Colors.textSecondary)
-                TextField("Search exercises", text: Binding(get: { text }, set: change))
+                TextField("Search exercises", text: Binding(get: { text }, set: change),
+                          prompt: Text("Search exercises").foregroundStyle(DS.Cut.Colors.textSecondary))
                     .cutFont(.body)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)

@@ -84,6 +84,7 @@ struct CutExerciseBrowserView: View {
                     Button("Create custom exercise", systemImage: "plus", action: actions.create)
                         .labelStyle(.iconOnly)
                         .foregroundStyle(DS.Cut.Colors.lime)
+                        .tint(DS.Cut.Colors.lime)
                         .frame(width: 44, height: 44)
                         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { actions.frame(.create, $0) }
                 }

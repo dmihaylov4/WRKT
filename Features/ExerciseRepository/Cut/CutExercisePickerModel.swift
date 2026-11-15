@@ -28,13 +28,9 @@ enum CutExercisePickerLogic {
             return inRegion && (query.isEmpty || exercise.name.localizedCaseInsensitiveContains(query))
         }
         // The picker differs from browsing: custom exercises have no special sort priority.
-        let preferred = matches.filter { favorites.contains($0.id) }.sorted(by: alphabetical)
-        let others = matches.filter { !favorites.contains($0.id) }.sorted(by: alphabetical)
+        let preferred = matches.filter { favorites.contains($0.id) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let others = matches.filter { !favorites.contains($0.id) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         return preferred + others
-    }
-
-    private static func alphabetical(_ lhs: Exercise, _ rhs: Exercise) -> Bool {
-        lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
     }
 
     static func model(exercises: [Exercise], region: CutExercisePickerModel.Region, query: String,

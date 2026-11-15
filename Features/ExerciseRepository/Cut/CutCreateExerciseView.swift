@@ -12,7 +12,8 @@ struct CutCreateExerciseView: View {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Name").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                    TextField("Exercise Name", text: Binding(get: { model.name }, set: { update(\.name, $0) }))
+                    TextField("Exercise Name", text: Binding(get: { model.name }, set: { update(\.name, $0) }),
+                              prompt: Text("Exercise Name").foregroundStyle(DS.Cut.Colors.textSecondary))
                         .cutFont(.body).autocorrectionDisabled().focused($nameFocused)
                         .frame(minHeight: 44)
                     CutHairline()
