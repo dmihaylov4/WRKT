@@ -56,6 +56,16 @@ struct PreferencesView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same settings, saves, alerts, exporter and sheets.
+        if DS.Redesign.cutEnabled {
+            CutPreferencesHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         ScrollView {
             VStack(spacing: 16) {
                 profileSection
@@ -873,6 +883,14 @@ private struct AgePickerSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutAgePickerView(age: $age, done: { dismiss() })
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 Picker("Age", selection: $age) {
@@ -912,6 +930,14 @@ private struct WeightPickerSheet: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutWeightPickerView(weight: $weight, done: { dismiss() })
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {

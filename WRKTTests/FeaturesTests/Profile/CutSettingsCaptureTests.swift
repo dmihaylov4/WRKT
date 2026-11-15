@@ -72,10 +72,21 @@ func settingsCapture<V: View>(_ content: V, name: String, dynamicType: DynamicTy
     try settingsCaptureWrite(window, to: name)
 
     guard let scroll = settingsCaptureTallestScroll(in: window) else { return }
-    let maxOffset = scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
-    guard maxOffset > 40 else { return }
-    scroll.setContentOffset(CGPoint(x: 0, y: maxOffset), animated: false)
-    try await Task.sleep(for: .seconds(1))
+    func maxOffset() -> CGFloat {
+        scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
+    }
+    guard maxOffset() > 40 else { return }
+    // A long page also gets its middle.
+    if maxOffset() > scroll.bounds.height {
+        scroll.setContentOffset(CGPoint(x: 0, y: maxOffset() / 2), animated: false)
+        try await Task.sleep(for: .seconds(1))
+        try settingsCaptureWrite(window, to: "\(name)-mid")
+    }
+    // Lists estimate row heights, so the end moves as rows render: settle before capturing.
+    for _ in 0..<4 {
+        scroll.setContentOffset(CGPoint(x: 0, y: maxOffset()), animated: false)
+        try await Task.sleep(for: .seconds(0.5))
+    }
     try settingsCaptureWrite(window, to: "\(name)-end")
 }
 

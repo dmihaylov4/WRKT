@@ -466,6 +466,9 @@
 		C17CAC000000000000000101 /* CutSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000201 /* CutSettingsModel.swift */; };
 		C17CAC000000000000000102 /* CutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000202 /* CutSettingsView.swift */; };
 		C17CAC000000000000000103 /* CutSettingsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000203 /* CutSettingsHost.swift */; };
+		C17CAC000000000000000104 /* CutPreferencesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000204 /* CutPreferencesModel.swift */; };
+		C17CAC000000000000000105 /* CutPreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000205 /* CutPreferencesView.swift */; };
+		C17CAC000000000000000106 /* CutPreferencesHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000206 /* CutPreferencesHost.swift */; };
 		C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000201 /* CutYearReviewModel.swift */; };
 		C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000202 /* CutYearReviewView.swift */; };
 		C17CAF000000000000000103 /* CutYearAwardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000203 /* CutYearAwardModel.swift */; };
@@ -996,6 +999,9 @@
 		C17CAC000000000000000201 /* CutSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSettingsModel.swift; sourceTree = "<group>"; };
 		C17CAC000000000000000202 /* CutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSettingsView.swift; sourceTree = "<group>"; };
 		C17CAC000000000000000203 /* CutSettingsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSettingsHost.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000204 /* CutPreferencesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPreferencesModel.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000205 /* CutPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPreferencesView.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000206 /* CutPreferencesHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPreferencesHost.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000201 /* CutYearReviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewModel.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000202 /* CutYearReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewView.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000203 /* CutYearAwardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardModel.swift; sourceTree = "<group>"; };
@@ -2494,6 +2500,9 @@
 				C17CAC000000000000000201 /* CutSettingsModel.swift */,
 				C17CAC000000000000000202 /* CutSettingsView.swift */,
 				C17CAC000000000000000203 /* CutSettingsHost.swift */,
+				C17CAC000000000000000204 /* CutPreferencesModel.swift */,
+				C17CAC000000000000000205 /* CutPreferencesView.swift */,
+				C17CAC000000000000000206 /* CutPreferencesHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2873,6 +2882,9 @@
 				C17CAC000000000000000101 /* CutSettingsModel.swift in Sources */,
 				C17CAC000000000000000102 /* CutSettingsView.swift in Sources */,
 				C17CAC000000000000000103 /* CutSettingsHost.swift in Sources */,
+				C17CAC000000000000000104 /* CutPreferencesModel.swift in Sources */,
+				C17CAC000000000000000105 /* CutPreferencesView.swift in Sources */,
+				C17CAC000000000000000106 /* CutPreferencesHost.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,
