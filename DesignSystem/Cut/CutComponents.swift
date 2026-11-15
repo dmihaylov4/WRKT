@@ -807,9 +807,12 @@ public extension CutBigRow where Trailing == EmptyView {
 /// Decorative; the caller states both values in text.
 public struct CutSplitBar: View {
     private let fraction: Double
+    private let height: CGFloat
 
-    public init(fraction: Double) {
+    /// - Parameter height: 8 pt by default; rows use a thinner 6 pt bar.
+    public init(fraction: Double, height: CGFloat = 8) {
         self.fraction = fraction
+        self.height = height
     }
 
     public var body: some View {
@@ -824,7 +827,7 @@ public struct CutSplitBar: View {
                 SlantedSegmentShape().fill(DS.Cut.Colors.segmentTrack)
             }
         }
-        .frame(height: 8)
+        .frame(height: height)
         .accessibilityHidden(true)
     }
 }
@@ -845,5 +848,413 @@ public struct CutSectionTitle: View {
             .foregroundStyle(DS.Cut.Colors.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
+    }
+}
+
+// MARK: - Panel
+
+/// One raised panel on the background holding a section's rows, inset 16 pt from the screen
+/// edges. Rows inside are separated by `CutHairline`.
+public struct CutPanel<Content: View>: View {
+    private let content: Content
+
+    public init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Cut.Colors.panel)
+        .padding(.horizontal, DS.Cut.Metrics.panelInset)
+    }
+}
+
+/// A section title above a panel: a white condensed capital title with its one action on the
+/// same row. At large text sizes the action moves under the title.
+public struct CutPanelHeader<Action: View>: View {
+    private let title: String
+    private let action: Action
+
+    public init(_ title: String, @ViewBuilder action: () -> Action) {
+        self.title = title
+        self.action = action()
+    }
+
+    public var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 12) {
+                titleText.frame(maxWidth: .infinity, alignment: .leading)
+                action.fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                titleText
+                action
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, DS.Cut.Metrics.gutter)
+    }
+
+    private var titleText: some View {
+        Text(title)
+            .font(DS.Cut.Typography.condensed(size: 24, relativeTo: .title3))
+            .textCase(.uppercase)
+            .foregroundStyle(DS.Cut.Colors.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
+public extension CutPanelHeader where Action == EmptyView {
+    init(_ title: String) {
+        self.init(title) { EmptyView() }
+    }
+}
+
+public extension DS.Cut.Metrics {
+    /// Side inset of a raised panel; its rows pad themselves by `panelRowPadding`.
+    static let panelInset: CGFloat = 16
+    /// Horizontal padding of a row inside a panel.
+    static let panelRowPadding: CGFloat = 18
+}
+
+// MARK: - Pills
+
+/// A fully rounded pill in one of four tones. Disabled pills turn grey with dim text, so a
+/// disabled primary action is clearly different from an enabled one.
+public struct CutPillButtonStyle: ButtonStyle {
+    public enum Tone: Sendable {
+        /// Lime fill, ink text: the primary action.
+        case lime
+        /// White fill, black text: accept.
+        case white
+        /// White outline: a secondary action.
+        case outline
+        /// Lime outline, lime text: join.
+        case outlineLime
+    }
+
+    private let tone: Tone
+    private let size: CutPrimaryButtonStyle.Size
+    private let fillsWidth: Bool
+
+    public init(_ tone: Tone, size: CutPrimaryButtonStyle.Size = .compact, fillsWidth: Bool = false) {
+        self.tone = tone
+        self.size = size
+        self.fillsWidth = fillsWidth
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        CutTonedPill(configuration: configuration, tone: tone, size: size, fillsWidth: fillsWidth)
+    }
+}
+
+private struct CutTonedPill: View {
+    let configuration: ButtonStyleConfiguration
+    let tone: CutPillButtonStyle.Tone
+    let size: CutPrimaryButtonStyle.Size
+    let fillsWidth: Bool
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var foreground: Color {
+        guard isEnabled else { return DS.Cut.Colors.textTertiary }
+        switch tone {
+        case .lime: return DS.Cut.Colors.ink
+        case .white: return .black
+        case .outline: return DS.Cut.Colors.textPrimary
+        case .outlineLime: return DS.Cut.Colors.lime
+        }
+    }
+
+    private var fill: Color {
+        guard isEnabled else { return tone == .lime || tone == .white ? Color.white.opacity(0.1) : .clear }
+        switch tone {
+        case .lime: return DS.Cut.Colors.lime
+        case .white: return .white
+        case .outline, .outlineLime: return .clear
+        }
+    }
+
+    private var stroke: Color {
+        switch tone {
+        case .lime, .white: return .clear
+        case .outline: return isEnabled ? DS.Cut.Colors.hairlineStrong : DS.Cut.Colors.hairline
+        case .outlineLime: return isEnabled ? DS.Cut.Colors.lime : DS.Cut.Colors.hairline
+        }
+    }
+
+    var body: some View {
+        configuration.label
+            .font(DS.Typography.custom(size: size == .regular ? 19 : 17, weight: .bold, relativeTo: .body))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(foreground)
+            .tint(foreground)
+            .padding(.horizontal, size == .regular ? 24 : 18)
+            .padding(.vertical, 8)
+            .frame(maxWidth: fillsWidth ? .infinity : nil, minHeight: size == .regular ? 56 : 44)
+            .background(Capsule().fill(fill))
+            .overlay(Capsule().strokeBorder(stroke, lineWidth: 1.5))
+            .contentShape(Capsule())
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
+    }
+}
+
+/// A quiet full-width text button, red for destructive actions ("Leave battle").
+public struct CutQuietButtonStyle: ButtonStyle {
+    private let destructive: Bool
+
+    public init(destructive: Bool = true) {
+        self.destructive = destructive
+    }
+
+    public func makeBody(configuration: Configuration) -> some View {
+        CutQuietButton(configuration: configuration, destructive: destructive)
+    }
+}
+
+private struct CutQuietButton: View {
+    let configuration: ButtonStyleConfiguration
+    let destructive: Bool
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        configuration.label
+            .font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
+            .multilineTextAlignment(.center)
+            .foregroundStyle(destructive ? DS.Cut.Colors.destructive : DS.Cut.Colors.textPrimary)
+            .tint(destructive ? DS.Cut.Colors.destructive : DS.Cut.Colors.textPrimary)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .contentShape(Rectangle())
+            .opacity(!isEnabled ? 0.45 : configuration.isPressed ? 0.6 : 1)
+    }
+}
+
+// MARK: - Sheet
+
+private struct CutSheetLevelKey: EnvironmentKey {
+    static let defaultValue: DS.Cut.SheetLevel = .base
+}
+
+public extension EnvironmentValues {
+    /// The sheet surface a view sits on, so controls pick the matching fill.
+    var cutSheetLevel: DS.Cut.SheetLevel {
+        get { self[CutSheetLevelKey.self] }
+        set { self[CutSheetLevelKey.self] = newValue }
+    }
+}
+
+/// How tall a Cut sheet is: fitted to its content when that fits on screen, otherwise large.
+public enum CutSheetSizing: Equatable, Sendable {
+    case fitted(CGFloat)
+    case large
+
+    /// Room a large sheet leaves under the status bar.
+    public static let topClearance: CGFloat = 64
+
+    /// - Parameters:
+    ///   - parts: the measured heights stacked in the sheet (header, content, footer). The system adds
+    ///     the sheet's own bottom inset to a height detent.
+    ///   - screen: the screen height.
+    public static func resolve(parts: [CGFloat], screen: CGFloat) -> CutSheetSizing {
+        let total = parts.reduce(0) { $0 + max(0, $1) }.rounded(.up)
+        guard total > 0, screen > 0 else { return .large }
+        return total <= screen - topClearance ? .fitted(total) : .large
+    }
+
+    public var detent: PresentationDetent {
+        switch self {
+        case .fitted(let height): .height(height)
+        case .large: .large
+        }
+    }
+}
+
+/// The header of every Cut sheet: a large condensed capital title at the top left, an optional
+/// single line under it, and a round 44 pt close button at the top right.
+public struct CutSheetHeader: View {
+    private let title: String
+    private let subtitle: String?
+    private let close: () -> Void
+    @Environment(\.cutSheetLevel) private var level
+
+    public init(_ title: String, subtitle: String? = nil, close: @escaping () -> Void) {
+        self.title = title
+        self.subtitle = subtitle
+        self.close = close
+    }
+
+    public var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(DS.Cut.Typography.condensed(size: 32, relativeTo: .title))
+                    .textCase(.uppercase)
+                    .foregroundStyle(DS.Cut.Colors.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                if let subtitle {
+                    Text(subtitle)
+                        .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .subheadline))
+                        .foregroundStyle(DS.Cut.Colors.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button(action: close) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(DS.Cut.Colors.textPrimary)
+                    .frame(width: DS.Cut.Metrics.minTouchTarget, height: DS.Cut.Metrics.minTouchTarget)
+                    .background(Circle().fill(level.control))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Close"))
+        }
+        .padding(.leading, DS.Cut.Metrics.gutter)
+        .padding(.trailing, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 8)
+    }
+}
+
+/// The one container for Cut sheets: the raised surface (lighter than the black app, one step
+/// lighter again when stacked on another sheet), a visible drag indicator, `CutSheetHeader`,
+/// scrolling content and an optional pinned footer. The sheet fits its content when it can.
+public struct CutSheet<Content: View, Footer: View>: View {
+    private let title: String
+    private let subtitle: String?
+    private let level: DS.Cut.SheetLevel
+    private let fitsContent: Bool
+    private let close: () -> Void
+    private let content: Content
+    private let footer: Footer
+
+    @State private var header: CGFloat = 0
+    @State private var body_: CGFloat = 0
+    @State private var foot: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    public init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
+                close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
+        self.title = title
+        self.subtitle = subtitle
+        self.level = level
+        self.fitsContent = fitsContent
+        self.close = close
+        self.content = content()
+        self.footer = footer()
+    }
+
+    private var sizing: CutSheetSizing {
+        guard fitsContent else { return .large }
+        let screen = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }.first ?? 844
+        return CutSheetSizing.resolve(parts: [header, body_, dynamicTypeSize.isAccessibilitySize ? 0 : foot], screen: screen)
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            CutSheetHeader(title, subtitle: subtitle, close: close)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { header = $0 }
+            // At accessibility sizes the footer scrolls with the content instead of covering it.
+            ScrollView {
+                VStack(spacing: 0) {
+                    content
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if dynamicTypeSize.isAccessibilitySize { footer }
+                }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { body_ = $0 }
+            }
+            .scrollBounceBehavior(.basedOnSize)
+            if !dynamicTypeSize.isAccessibilitySize {
+                footer
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { foot = $0 }
+            }
+        }
+        .foregroundStyle(DS.Cut.Colors.textPrimary)
+        .background(level.surface.ignoresSafeArea())
+        .environment(\.cutSheetLevel, level)
+        .toolbar(.hidden, for: .navigationBar)
+        .presentationBackground(level.surface)
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+        .presentationDetents([sizing.detent])
+    }
+}
+
+public extension CutSheet where Footer == EmptyView {
+    init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
+         close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.init(title, subtitle: subtitle, level: level, fitsContent: fitsContent, close: close, content: content) { EmptyView() }
+    }
+}
+
+/// A rounded inner panel on a sheet: label and value rows separated by hairlines.
+public struct CutSheetInset<Content: View>: View {
+    private let content: Content
+    @Environment(\.cutSheetLevel) private var level
+
+    public init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+        }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(level.inset))
+    }
+}
+
+/// One label and value row in a `CutSheetInset`. The value moves under the label at large text sizes.
+public struct CutSheetInsetRow: View {
+    private let label: String
+    private let value: String
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    public init(_ label: String, value: String) {
+        self.label = label
+        self.value = value
+    }
+
+    public var body: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) { labelText; valueText }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 12)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 16) {
+                    labelText
+                    Spacer(minLength: 12)
+                    valueText.multilineTextAlignment(.trailing)
+                }
+                .padding(.vertical, 14)
+                .frame(minHeight: 50)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var labelText: some View {
+        Text(label).font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
+            .foregroundStyle(DS.Cut.Colors.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var valueText: some View {
+        Text(value).font(DS.Typography.custom(size: 17, weight: .medium, relativeTo: .body))
+            .foregroundStyle(DS.Cut.Colors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

@@ -48,6 +48,30 @@ public extension DS.Cut {
         public static let limeTrack = Color(hex: "#2A2E12")
         /// Dark field: the lime field's rest-day variant.
         public static let darkField = Color(hex: "#161616")
+
+        /// Raised panel on the background: groups a section's rows (#18181B).
+        public static let panel = Color(hex: "#18181B")
+        /// Dimmed numerals and tertiary text: the other side of a score (#8E8E93, 5.6:1 on a panel).
+        public static let textTertiary = Color(hex: "#8E8E93")
+        /// Quiet destructive text ("Leave battle"): #FF6961 (6:1 on a sheet).
+        public static let destructive = Color(hex: "#FF6961")
+    }
+}
+
+// MARK: - Sheet surfaces
+
+public extension DS.Cut {
+    /// A sheet's surface. Every Cut sheet is raised above the black app; a sheet presented
+    /// on top of another sheet is one step lighter again.
+    enum SheetLevel: Sendable {
+        case base, stacked
+
+        /// The sheet itself: #1C1C1F, or #26262A when stacked.
+        public var surface: Color { self == .base ? Color(hex: "#1C1C1F") : Color(hex: "#26262A") }
+        /// Controls on the sheet (close button, tiles, segmented track, search field): #2E2E33 or #3A3A40.
+        public var control: Color { self == .base ? Color(hex: "#2E2E33") : Color(hex: "#3A3A40") }
+        /// Rounded inner panel on the sheet (dates, reward): #2A2A2E or #303035.
+        public var inset: Color { self == .base ? Color(hex: "#2A2A2E") : Color(hex: "#303035") }
     }
 }
 
