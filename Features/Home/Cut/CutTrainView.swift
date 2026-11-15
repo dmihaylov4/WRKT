@@ -31,6 +31,8 @@ struct CutTrainView: View {
     @State private var fieldHeight: CGFloat = 0
     /// The lime part of the field is still behind the status bar (scrolled to, or near, the top).
     @State private var fieldUnderStatusBar = true
+    /// Everything is on screen, so there is nothing to scroll to.
+    @State private var contentFits = false
 
     var body: some View {
         // The reader keeps the safe area, so it reports the status bar height the field's
@@ -49,11 +51,18 @@ struct CutTrainView: View {
                             .padding(.top, model.weeklyGoal == nil ? 30 : 0)
                     }
                 }
-                .padding(.bottom, 8)
             }
             .scrollIndicators(.hidden)
-            // A screen that fits stays put: it scrolls and bounces only when rows run past the tab bar.
+            // A screen that fits stays put: it scrolls only when a row's text would sit under the
+            // tab bar. The slack is the empty lower part of the last row, which may run under it.
             .scrollBounceBehavior(.basedOnSize)
+            .scrollDisabled(contentFits)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentSize.height
+                    <= geometry.containerSize.height - geometry.contentInsets.top - geometry.contentInsets.bottom + 24
+            } action: { _, fits in
+                contentFits = fits
+            }
             // Only flips when the field's full-width part passes the status bar, not every frame.
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 CutTrainLogic.fieldCoversStatusBar(
