@@ -58,8 +58,9 @@ struct PlannerSetupCarouselView: View {
         }
         .alert("Active Plan Exists", isPresented: $showExistingSplitAlert) {
             Button("Replace with New Plan", role: .destructive) {
+                // Keeps the old plan in hand so generatePlan switches it off and removes its
+                // upcoming workouts. Clearing it here left two active plans.
                 isEditingExistingSplit = false
-                existingSplit = nil
             }
             Button("Edit Current Split") {
                 isEditingExistingSplit = true
