@@ -158,30 +158,4 @@ struct CutPreferencesLogicTests {
                 == "This will permanently delete all 4 planned workouts and 1 workout splits from the planner. This cannot be undone.")
         #expect(!CutPreferencesLogic.resetFooter.contains("\u{26A0}"))
     }
-
-    // MARK: CSV
-
-    @Test func csvMatchesTheLegacyFile() {
-        let utc = TimeZone(identifier: "UTC")!
-        let early = CompletedWorkout(date: Date(timeIntervalSince1970: 1_794_571_200), entries: [
-            WorkoutEntry(exerciseID: "bench", exerciseName: "Bench Press", muscleGroups: ["Chest"], sets: [
-                SetInput(reps: 5, weight: 100, tag: .working, autoWeight: false, isCompleted: true),
-                SetInput(reps: 8, weight: 80.5, tag: .backoff, autoWeight: false, isCompleted: false)
-            ])
-        ])
-        let late = CompletedWorkout(date: Date(timeIntervalSince1970: 1_794_657_600), entries: [
-            WorkoutEntry(exerciseID: "squat", exerciseName: "Squat", muscleGroups: ["Legs"], sets: [
-                SetInput(reps: 10, weight: 60, tag: .warmup, autoWeight: false, isCompleted: true)
-            ])
-        ])
-        let csv = CutPreferencesLogic.csv([late, early], timeZone: utc)
-        #expect(csv == """
-        Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes
-        "2026-11-13 12:00:00","Bench Press",1,"Working",5,100.0,"\u{2713}"
-        "2026-11-13 12:00:00","Bench Press",2,"Back-off",8,80.5,""
-        "2026-11-14 12:00:00","Squat",1,"Warm-up",10,60.0,"\u{2713}"
-
-        """)
-        #expect(CutPreferencesLogic.csv([]) == "Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes\n")
-    }
 }

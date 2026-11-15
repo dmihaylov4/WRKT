@@ -229,7 +229,7 @@ struct CutPreferencesHost: View {
     }
 
     private func exportWorkoutsToCSV() {
-        csvDocument = CSVDocument(csv: CutPreferencesLogic.csv(store.completedWorkouts))
+        csvDocument = CSVDocument(csv: WorkoutCSVExport.csv(store.completedWorkouts))
         showFileExporter = true
     }
 

@@ -227,26 +227,9 @@ enum CutPreferencesLogic {
     static let resetAllMessage = "This will permanently delete: all workouts, stats, XP, level, PR dex, favorites, and custom timers. Only runs/cardio from HealthKit will be preserved. This cannot be undone."
     static let resetTimersMessage = "All custom rest timers for individual exercises will be reset to defaults."
 
-    // MARK: CSV export (byte for byte the legacy file)
+    // MARK: CSV export (the file itself is WorkoutCSVExport)
 
     static func csvFileName(date: Date) -> String {
         "WRKT_Workouts_\(date.formatted(date: .numeric, time: .omitted).replacingOccurrences(of: "/", with: "-"))"
-    }
-
-    static func csv(_ workouts: [CompletedWorkout], timeZone: TimeZone = .current) -> String {
-        var csv = "Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes\n"
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = timeZone
-        for workout in workouts.sorted(by: { $0.date < $1.date }) {
-            let dateStr = formatter.string(from: workout.date)
-            for entry in workout.entries {
-                for (index, set) in entry.sets.enumerated() {
-                    let completed = set.isCompleted ? "\u{2713}" : ""
-                    csv += "\"\(dateStr)\",\"\(entry.exerciseName)\",\(index + 1),\"\(set.tag.label)\",\(set.reps),\(set.weight),\"\(completed)\"\n"
-                }
-            }
-        }
-        return csv
     }
 }

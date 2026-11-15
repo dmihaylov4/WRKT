@@ -508,30 +508,8 @@ struct PreferencesView: View {
     }
 
     private func exportWorkoutsToCSV() {
-        let csv = generateCSV()
-        csvDocument = CSVDocument(csv: csv)
+        csvDocument = CSVDocument(csv: WorkoutCSVExport.csv(store.completedWorkouts))
         showFileExporter = true
-    }
-
-    private func generateCSV() -> String {
-        var csv = "Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes\n"
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
-        for workout in store.completedWorkouts.sorted(by: { $0.date < $1.date }) {
-            let dateStr = dateFormatter.string(from: workout.date)
-
-            for entry in workout.entries {
-                for (index, set) in entry.sets.enumerated() {
-                    let tag = set.tag.label
-                    let completed = set.isCompleted ? "✓" : ""
-                    csv += "\"\(dateStr)\",\"\(entry.exerciseName)\",\(index + 1),\"\(tag)\",\(set.reps),\(set.weight),\"\(completed)\"\n"
-                }
-            }
-        }
-
-        return csv
     }
 
     private func resetAllData() {
