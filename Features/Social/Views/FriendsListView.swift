@@ -7,6 +7,15 @@ struct FriendsListView: View {
     @State private var selectedUserId: UUID?
 
     var body: some View {
+        // The one Cut branch point: same view model, search, removal with undo.
+        if DS.Redesign.cutEnabled {
+            CutFriendsListHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel = viewModel {
                 content(viewModel: viewModel)

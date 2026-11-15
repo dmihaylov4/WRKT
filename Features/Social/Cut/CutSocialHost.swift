@@ -398,6 +398,8 @@ struct CutSocialFeedHost: View {
 struct CutSocialPostMedia: View {
     let post: PostWithAuthor
     let currentUserId: UUID?
+    /// Off where no route can be built (the post detail): no button, no build on appear.
+    var allowsBackfill = true
     let backfill: () async -> Bool
 
     @State private var resolved: [(image: PostImage, url: URL)] = []
@@ -417,7 +419,7 @@ struct CutSocialPostMedia: View {
     }
 
     private var canBuildRoute: Bool {
-        post.post.userId == currentUserId && isCardio && !post.post.isMultiWorkout
+        allowsBackfill && post.post.userId == currentUserId && isCardio && !post.post.isMultiWorkout
             && post.post.workoutData.matchedHealthKitUUID != nil
     }
 

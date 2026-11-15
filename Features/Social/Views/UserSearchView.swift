@@ -7,6 +7,15 @@ struct UserSearchView: View {
     @State private var selectedUserId: UUID?
 
     var body: some View {
+        // The one Cut branch point: same debounced search and profile destination.
+        if DS.Redesign.cutEnabled {
+            CutUserSearchHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel = viewModel {
                 content(viewModel: viewModel)
