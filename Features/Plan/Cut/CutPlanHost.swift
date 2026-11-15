@@ -280,29 +280,20 @@ struct CutPlanHost: View {
         }
     }
 
-    /// The legacy banners (goal streak, week progress, push/pull balance) for the week of `date`.
+    /// The weekly goal page for the week of `date`: goal streak, the week's progress and freeze
+    /// state, and the push and pull balance, read as the legacy banners read them.
     private func weekPage(for date: Date) -> some View {
         let calendar = Calendar.current
         let goal = cachedWeeklyGoal
-        let current = goal.map { store.currentWeekProgress(goal: $0, context: context) }
         let selected = goal.map {
             store.currentWeekProgress(goal: $0, context: context,
                                       now: calendar.startOfWeek(for: date, anchorWeekday: $0.anchorWeekday))
         }
         return CutPlanWeekPage(
-            header: MonthHeader(
-                monthAnchor: .constant(monthAnchor),
-                canGoForward: true,
-                onBack: {}, onForward: {}, onToday: {},
-                hasExistingPlans: hasExistingPlans,
-                onPlanAction: { _ in },
-                weeklyStreak: weeklyGoalStreak,
-                currentWeekProgress: current,
-                selectedWeekProgress: selected,
-                currentWeekFrozen: current.map { isFrozenWeek($0.weekStart) } ?? false,
-                selectedWeekFrozen: selected.map { isFrozenWeek($0.weekStart) } ?? false
-            ),
-            hasContent: goal != nil || weeklyGoalStreak > 0
+            streak: weeklyGoalStreak,
+            progress: selected,
+            isFrozen: selected.map { isFrozenWeek($0.weekStart) } ?? false,
+            currentWeekStart: goal.map { calendar.startOfWeek(for: .now, anchorWeekday: $0.anchorWeekday) }
         )
     }
 
@@ -511,45 +502,26 @@ private struct CutPlanSyncProgress: View {
 
 // MARK: - Pushed pages
 
-/// "View day": the legacy day detail (summary, actions, planned session, workouts, cardio).
+/// "View day": the day's summary, actions, planned session, workouts and cardio in Cut
+/// (the legacy DayDetail stays for the legacy calendar).
 struct CutPlanDayPage: View {
     let date: Date
     @Binding var selectedAction: DayActionCard.DayAction?
 
     var body: some View {
-        ScrollView {
-            DayDetail(date: date, selectedAction: $selectedAction)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
-        }
-        .background(DS.Semantic.surface.ignoresSafeArea())
-        .navigationTitle(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-        .navigationBarTitleDisplayMode(.inline)
+        CutPlanDayHost(date: date, selectedAction: $selectedAction)
     }
 }
 
-/// "Weekly goal": the legacy streak, week progress and push/pull banners.
+/// "Weekly goal": the goal streak, the week's progress and the push and pull balance in Cut
+/// (the legacy MonthHeader banners stay for the legacy calendar).
 struct CutPlanWeekPage: View {
-    let header: MonthHeader
-    let hasContent: Bool
+    let streak: Int
+    let progress: WeeklyProgress?
+    let isFrozen: Bool
+    let currentWeekStart: Date?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                header
-                if !hasContent {
-                    Text("No weekly goal set yet.")
-                        .cutFont(.body)
-                        .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .padding(.horizontal, 16)
-                }
-            }
-            .padding(.top, 12)
-            .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
-        }
-        .background(DS.Semantic.surface.ignoresSafeArea())
-        .navigationTitle("Weekly goal")
-        .navigationBarTitleDisplayMode(.inline)
+        CutPlanWeekHost(streak: streak, progress: progress, isFrozen: isFrozen, currentWeekStart: currentWeekStart)
     }
 }

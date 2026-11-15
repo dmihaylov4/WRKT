@@ -52,6 +52,15 @@ struct PlannedWorkoutEditor: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same picker, exercise sheet, move dialog, saves and delete.
+        if DS.Redesign.cutEnabled {
+            CutPlannedEditorHost(date: date, existingWorkout: existingWorkout)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
