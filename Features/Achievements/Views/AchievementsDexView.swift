@@ -40,6 +40,15 @@ struct AchievementsDexView: View {
     @StateObject private var vm = AchievementsDexVM()
 
     var body: some View {
+        // The one Cut branch point: same view model, search, scope, rebuilds and detail.
+        if DS.Redesign.cutEnabled {
+            CutAchievementsDexHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 header
@@ -366,6 +375,15 @@ struct DexDetailView: View {
     @State private var ladder: [(r: Int, w: Double?)] = []
 
     var body: some View {
+        // The one Cut branch point: same store reads, Try a PR and Add to current workout.
+        if DS.Redesign.cutEnabled {
+            CutDexDetailHost(item: item)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header

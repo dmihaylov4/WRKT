@@ -46,4 +46,24 @@ struct CutMeGoalsCaptureTests {
             CutWeeklyGoalSetupView(model: CutWeeklyGoalSetupLogic.model(draft), controls: controls),
             name: "goal-setup-ax5", dynamicType: .accessibility5)
     }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_SETTINGS"] == "1"))
+    func captureDex() async throws {
+        let dex = CutAchievementsDexLogic.model(items: CutDexFixtures.items, unlocked: 3, total: 8, isSearching: false)
+        try await settingsCapture(CutAchievementsDexView(model: dex), name: "dex")
+        try await settingsCapture(CutAchievementsDexView(model: dex), name: "dex-ax5", dynamicType: .accessibility5)
+        let searching = CutAchievementsDexLogic.model(items: [], unlocked: 3, total: 8, isSearching: true)
+        try await settingsCapture(CutAchievementsDexView(model: searching), name: "dex-searching")
+        let detail = CutDexDetailLogic.model(CutDexFixtures.detail)
+        try await settingsCapture(CutDexDetailView(model: detail) { Color.clear.frame(height: 1) }, name: "dex-detail")
+        try await settingsCapture(CutDexDetailView(model: detail) { Color.clear.frame(height: 1) },
+                                  name: "dex-detail-ax5", dynamicType: .accessibility5)
+        var locked = CutDexFixtures.detail
+        locked.unlockedAt = nil
+        locked.bestE1RMKg = nil
+        locked.attempt = nil
+        locked.ladder = (1...12).map { ($0, nil) }
+        try await settingsCapture(CutDexDetailView(model: CutDexDetailLogic.model(locked)) { Color.clear.frame(height: 1) },
+                                  name: "dex-detail-locked")
+    }
 }
