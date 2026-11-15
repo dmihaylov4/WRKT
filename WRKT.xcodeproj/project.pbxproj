@@ -465,6 +465,21 @@
 		C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000201 /* CutLikesListModel.swift */; };
 		C17CAB000000000000000102 /* CutLikesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000202 /* CutLikesListView.swift */; };
 		C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000203 /* CutLikesListHost.swift */; };
+		C17CAD00000000000000010D /* CutImageViewerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020D /* CutImageViewerModel.swift */; };
+		C17CAD00000000000000010E /* CutImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020E /* CutImageViewerView.swift */; };
+		C17CAD00000000000000010F /* CutImageViewerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020F /* CutImageViewerHost.swift */; };
+		C17CAD00000000000000010A /* CutEditPostModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020A /* CutEditPostModel.swift */; };
+		C17CAD00000000000000010B /* CutEditPostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020B /* CutEditPostView.swift */; };
+		C17CAD00000000000000010C /* CutEditPostHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020C /* CutEditPostHost.swift */; };
+		C17CAD000000000000000107 /* CutPostComposeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000207 /* CutPostComposeModel.swift */; };
+		C17CAD000000000000000108 /* CutPostComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000208 /* CutPostComposeView.swift */; };
+		C17CAD000000000000000109 /* CutPostComposeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000209 /* CutPostComposeHost.swift */; };
+		C17CAD000000000000000104 /* CutEditProfileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000204 /* CutEditProfileModel.swift */; };
+		C17CAD000000000000000105 /* CutEditProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000205 /* CutEditProfileView.swift */; };
+		C17CAD000000000000000106 /* CutEditProfileHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000206 /* CutEditProfileHost.swift */; };
+		C17CAD000000000000000101 /* CutProfileModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000201 /* CutProfileModel.swift */; };
+		C17CAD000000000000000102 /* CutProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000202 /* CutProfileView.swift */; };
+		C17CAD000000000000000103 /* CutProfileHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000203 /* CutProfileHost.swift */; };
 		C17CA5000000000000000101 /* CutCardioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000201 /* CutCardioModel.swift */; };
 		C17CA5000000000000000102 /* CutCardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000202 /* CutCardioView.swift */; };
 		C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000203 /* CutCardioDetailView.swift */; };
@@ -1035,6 +1050,21 @@
 		C17CAB000000000000000201 /* CutLikesListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListModel.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000202 /* CutLikesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListView.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000203 /* CutLikesListHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListHost.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020D /* CutImageViewerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutImageViewerModel.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020E /* CutImageViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutImageViewerView.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020F /* CutImageViewerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutImageViewerHost.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020A /* CutEditPostModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostModel.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020B /* CutEditPostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostView.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020C /* CutEditPostHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostHost.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000207 /* CutPostComposeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPostComposeModel.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000208 /* CutPostComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPostComposeView.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000209 /* CutPostComposeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPostComposeHost.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000204 /* CutEditProfileModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditProfileModel.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000205 /* CutEditProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditProfileView.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000206 /* CutEditProfileHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditProfileHost.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000201 /* CutProfileModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProfileModel.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000202 /* CutProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProfileView.swift; sourceTree = "<group>"; };
+		C17CAD000000000000000203 /* CutProfileHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProfileHost.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000201 /* CutCardioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioModel.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000202 /* CutCardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioView.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000203 /* CutCardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioDetailView.swift; sourceTree = "<group>"; };
@@ -2563,6 +2593,21 @@
 				C17CAB000000000000000201 /* CutLikesListModel.swift */,
 				C17CAB000000000000000202 /* CutLikesListView.swift */,
 				C17CAB000000000000000203 /* CutLikesListHost.swift */,
+				C17CAD00000000000000020D /* CutImageViewerModel.swift */,
+				C17CAD00000000000000020E /* CutImageViewerView.swift */,
+				C17CAD00000000000000020F /* CutImageViewerHost.swift */,
+				C17CAD00000000000000020A /* CutEditPostModel.swift */,
+				C17CAD00000000000000020B /* CutEditPostView.swift */,
+				C17CAD00000000000000020C /* CutEditPostHost.swift */,
+				C17CAD000000000000000207 /* CutPostComposeModel.swift */,
+				C17CAD000000000000000208 /* CutPostComposeView.swift */,
+				C17CAD000000000000000209 /* CutPostComposeHost.swift */,
+				C17CAD000000000000000204 /* CutEditProfileModel.swift */,
+				C17CAD000000000000000205 /* CutEditProfileView.swift */,
+				C17CAD000000000000000206 /* CutEditProfileHost.swift */,
+				C17CAD000000000000000201 /* CutProfileModel.swift */,
+				C17CAD000000000000000202 /* CutProfileView.swift */,
+				C17CAD000000000000000203 /* CutProfileHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2992,6 +3037,21 @@
 				C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */,
 				C17CAB000000000000000102 /* CutLikesListView.swift in Sources */,
 				C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */,
+				C17CAD00000000000000010D /* CutImageViewerModel.swift in Sources */,
+				C17CAD00000000000000010E /* CutImageViewerView.swift in Sources */,
+				C17CAD00000000000000010F /* CutImageViewerHost.swift in Sources */,
+				C17CAD00000000000000010A /* CutEditPostModel.swift in Sources */,
+				C17CAD00000000000000010B /* CutEditPostView.swift in Sources */,
+				C17CAD00000000000000010C /* CutEditPostHost.swift in Sources */,
+				C17CAD000000000000000107 /* CutPostComposeModel.swift in Sources */,
+				C17CAD000000000000000108 /* CutPostComposeView.swift in Sources */,
+				C17CAD000000000000000109 /* CutPostComposeHost.swift in Sources */,
+				C17CAD000000000000000104 /* CutEditProfileModel.swift in Sources */,
+				C17CAD000000000000000105 /* CutEditProfileView.swift in Sources */,
+				C17CAD000000000000000106 /* CutEditProfileHost.swift in Sources */,
+				C17CAD000000000000000101 /* CutProfileModel.swift in Sources */,
+				C17CAD000000000000000102 /* CutProfileView.swift in Sources */,
+				C17CAD000000000000000103 /* CutProfileHost.swift in Sources */,
 				C17CA5000000000000000101 /* CutCardioModel.swift in Sources */,
 				C17CA5000000000000000102 /* CutCardioView.swift in Sources */,
 				C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */,

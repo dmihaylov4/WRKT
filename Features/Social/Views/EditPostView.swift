@@ -34,6 +34,11 @@ struct EditPostView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutEditPostHost(post: post, currentUserId: currentUserId, onSave: onSave, onBackfillRoute: onBackfillRoute) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             Form {
                 Section {

@@ -50,6 +50,11 @@ struct SocialProfileView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutProfileHost(userId: userId, battleId: battleId) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         Group {
             // Only show error if we're not loading and there's an error
             if let error = loadError, !isLoading {
@@ -1478,6 +1483,11 @@ struct EditProfileView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutEditProfileHost(profile: profile, onProfileUpdated: onProfileUpdated) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 editHeader

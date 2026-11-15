@@ -62,6 +62,11 @@ struct PostCreationView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutPostComposeHost(initialWorkout: initialWorkout, initialWorkouts: initialWorkouts, initialMapImage: initialMapImage, initialCaption: initialCaption, navigationTitle: navigationTitle, weeklyStats: weeklyStats, attachedImage: attachedImage) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             Group {
                 if let viewModel = viewModel {
@@ -740,6 +745,11 @@ struct WorkoutPickerSheet: View {
     @State private var pendingSelection: Set<UUID> = []
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutPostComposeWorkoutPickerHost(workouts: workouts, selectedWorkouts: $selectedWorkouts) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 12) {
@@ -793,6 +803,11 @@ private struct PartnerPickerSheet: View {
     let isLoading: Bool
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutPostComposePartnerPickerHost(friends: friends, selectedPartner: $selectedPartner, isLoading: isLoading) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             Group {
                 if isLoading {
