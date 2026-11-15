@@ -13,6 +13,10 @@ struct UnifiedCompeteView: View {
     @State private var battlesVM: BattleViewModel?
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutCompeteHost() } else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         contentView
             .sheet(item: Binding(
                 get: { challengesVM?.selectedChallenge },

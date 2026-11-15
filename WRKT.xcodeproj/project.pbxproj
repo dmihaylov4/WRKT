@@ -275,6 +275,12 @@
 		2EC2022E2EF1622F00D6BAEF /* ActiveArena.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2022D2EF1622F00D6BAEF /* ActiveArena.swift */; };
 		2EC202302EF166A400D6BAEF /* CreateBattleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */; };
 		2EC202322EF166CB00D6BAEF /* UnifiedCompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */; };
+		C17CB1000000000000000101 /* CutCompeteModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000201 /* CutCompeteModel.swift */; };
+		C17CB1000000000000000102 /* CutCompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000202 /* CutCompeteView.swift */; };
+		C17CB1000000000000000103 /* CutCompeteHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000203 /* CutCompeteHost.swift */; };
+		C17CB1000000000000000104 /* CutBattleDetailModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000204 /* CutBattleDetailModel.swift */; };
+		C17CB1000000000000000105 /* CutBattleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000205 /* CutBattleDetailView.swift */; };
+		C17CB1000000000000000106 /* CutBattleDetailHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000206 /* CutBattleDetailHost.swift */; };
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
@@ -869,6 +875,12 @@
 		2EC2022D2EF1622F00D6BAEF /* ActiveArena.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveArena.swift; sourceTree = "<group>"; };
 		2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBattleView.swift; sourceTree = "<group>"; };
 		2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedCompeteView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000201 /* CutCompeteModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCompeteModel.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000202 /* CutCompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCompeteView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000203 /* CutCompeteHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCompeteHost.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000204 /* CutBattleDetailModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattleDetailModel.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000205 /* CutBattleDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattleDetailView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000206 /* CutBattleDetailHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattleDetailHost.swift; sourceTree = "<group>"; };
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -2170,6 +2182,19 @@
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
+		C17CB1000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CB1000000000000000201 /* CutCompeteModel.swift */,
+				C17CB1000000000000000202 /* CutCompeteView.swift */,
+				C17CB1000000000000000203 /* CutCompeteHost.swift */,
+				C17CB1000000000000000204 /* CutBattleDetailModel.swift */,
+				C17CB1000000000000000205 /* CutBattleDetailView.swift */,
+				C17CB1000000000000000206 /* CutBattleDetailHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 		2EA7DAC12EEDCFAE0017683B /* Compete */ = {
 			isa = PBXGroup;
 			children = (
@@ -2177,6 +2202,7 @@
 				2EC202362EF19F4800D6BAEF /* Services */,
 				2EBC10062FA2000000000001 /* Views */,
 				2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */,
+				C17CB1000000000000000001 /* Cut */,
 			);
 			path = Compete;
 			sourceTree = "<group>";
@@ -3011,6 +3037,12 @@
 				2E2938BA2EC8D6A80057F60C /* ExercisePickerView.swift in Sources */,
 				2E2938792EC5FA710057F60C /* HealthKitStrengthDetailView.swift in Sources */,
 				2EC202322EF166CB00D6BAEF /* UnifiedCompeteView.swift in Sources */,
+				C17CB1000000000000000101 /* CutCompeteModel.swift in Sources */,
+				C17CB1000000000000000102 /* CutCompeteView.swift in Sources */,
+				C17CB1000000000000000103 /* CutCompeteHost.swift in Sources */,
+				C17CB1000000000000000104 /* CutBattleDetailModel.swift in Sources */,
+				C17CB1000000000000000105 /* CutBattleDetailView.swift in Sources */,
+				C17CB1000000000000000106 /* CutBattleDetailHost.swift in Sources */,
 				2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */,
 				2EC201DD2EEF234C00D6BAEF /* PlanView.swift in Sources */,
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,
