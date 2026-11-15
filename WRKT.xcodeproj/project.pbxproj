@@ -108,6 +108,12 @@
 		2E7461AE2E93EEDE00A71C35 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A82E93EDDC00A71C35 /* Persistence.swift */; };
 		2E7461AF2E93EEE100A71C35 /* Utilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461A72E93EDC500A71C35 /* Utilities.swift */; };
 		2E7461BE2E9409AD00A71C35 /* WorkoutStoreRecent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BD2E9409A000A71C35 /* WorkoutStoreRecent.swift */; };
+		C17CA9000000000000000101 /* CutExerciseBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000201 /* CutExerciseBrowserModel.swift */; };
+		C17CA9000000000000000102 /* CutExerciseBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000202 /* CutExerciseBrowserView.swift */; };
+		C17CA9000000000000000103 /* CutExerciseBrowserHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000203 /* CutExerciseBrowserHost.swift */; };
+		C17CA9000000000000000104 /* CutExercisePickerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000204 /* CutExercisePickerModel.swift */; };
+		C17CA9000000000000000105 /* CutExercisePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000205 /* CutExercisePickerView.swift */; };
+		C17CA9000000000000000106 /* CutExercisePickerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000206 /* CutExercisePickerHost.swift */; };
 		2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */; };
 		2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */; };
 		2E7461C82E941FBA00A71C35 /* InteractiveRouteMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */; };
@@ -607,6 +613,12 @@
 		2E7461A82E93EDDC00A71C35 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		2E7461A92E93EDEC00A71C35 /* ExerciseRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseRepository.swift; sourceTree = "<group>"; };
 		2E7461BD2E9409A000A71C35 /* WorkoutStoreRecent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStoreRecent.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000201 /* CutExerciseBrowserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseBrowserModel.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000202 /* CutExerciseBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseBrowserView.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000203 /* CutExerciseBrowserHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseBrowserHost.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000204 /* CutExercisePickerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExercisePickerModel.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000205 /* CutExercisePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExercisePickerView.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000206 /* CutExercisePickerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExercisePickerHost.swift; sourceTree = "<group>"; };
 		2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyBrowse.swift; sourceTree = "<group>"; };
 		2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentWorkoutBar.swift; sourceTree = "<group>"; };
 		2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveRouteMap.swift; sourceTree = "<group>"; };
@@ -1205,9 +1217,23 @@
 			path = Home;
 			sourceTree = "<group>";
 		};
+		C17CA9000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CA9000000000000000201 /* CutExerciseBrowserModel.swift */,
+				C17CA9000000000000000202 /* CutExerciseBrowserView.swift */,
+				C17CA9000000000000000203 /* CutExerciseBrowserHost.swift */,
+				C17CA9000000000000000204 /* CutExercisePickerModel.swift */,
+				C17CA9000000000000000205 /* CutExercisePickerView.swift */,
+				C17CA9000000000000000206 /* CutExercisePickerHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 		2E196EB82EAD3D1F00EB4780 /* ExerciseRepository */ = {
 			isa = PBXGroup;
 			children = (
+				C17CA9000000000000000001 /* Cut */,
 				2E196ED52EAE3AF700EB4780 /* Services */,
 				2E196ED42EAE391000EB4780 /* Components */,
 				2E196ED32EAE38E100EB4780 /* Views */,
@@ -2979,6 +3005,12 @@
 				2E04133A2F2FA4CE0090EF16 /* CardioDataExtractor.swift in Sources */,
 				2EA7DABA2EEDCF910017683B /* ChallengeDetailView.swift in Sources */,
 				2EA7DABB2EEDCF910017683B /* ChallengesBrowseView.swift in Sources */,
+				C17CA9000000000000000101 /* CutExerciseBrowserModel.swift in Sources */,
+				C17CA9000000000000000102 /* CutExerciseBrowserView.swift in Sources */,
+				C17CA9000000000000000103 /* CutExerciseBrowserHost.swift in Sources */,
+				C17CA9000000000000000104 /* CutExercisePickerModel.swift in Sources */,
+				C17CA9000000000000000105 /* CutExercisePickerView.swift in Sources */,
+				C17CA9000000000000000106 /* CutExercisePickerHost.swift in Sources */,
 				2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */,
 				2E46E7AB2F4C687300F57EE7 /* KeychainAuthStorage.swift in Sources */,
 				2EC201D52EEF22FD00D6BAEF /* SocialView.swift in Sources */,
