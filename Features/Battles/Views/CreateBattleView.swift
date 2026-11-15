@@ -20,6 +20,10 @@ struct CreateBattleView: View {
     let durationOptions = [3, 7, 14, 30]
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutCreateBattleHost(viewModel: viewModel) } else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 topBar
@@ -465,6 +469,10 @@ struct FriendPickerView: View {
     @State private var searchText = ""
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutCreateBattleOpponentHost(selectedFriend: $selectedFriend) } else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             content
             .background(DS.Semantic.surface)
