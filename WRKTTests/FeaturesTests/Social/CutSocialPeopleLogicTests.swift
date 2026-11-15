@@ -61,7 +61,9 @@ enum CutSocialPeopleFixtures {
     }
 
     static var searchResults: [CutSocialPersonFacts] {
-        [person("nina", "Nina R."), person("ninot", "Nino T."), person("anina")]
+        var nina = person("nina", "Nina R.")
+        nina.bio = "Strength training and trail running."
+        return [nina, person("ninot", "Nino T."), person("anina")]
     }
 }
 
@@ -111,7 +113,7 @@ struct CutSocialPeopleLogicTests {
         let actor = UUID(), target = UUID()
         #expect(CutSocialPeopleLogic.destination(type: .friendRequest, actorId: actor, targetId: target) == .profile(actor))
         #expect(CutSocialPeopleLogic.destination(type: .postComment, actorId: actor, targetId: target) == .post(target))
-        #expect(CutSocialPeopleLogic.destination(type: .postComment, actorId: actor, targetId: nil) == nil)
+        #expect(CutSocialPeopleLogic.destination(type: .postComment, actorId: actor, targetId: nil) == .missing("Post not found"))
         #expect(CutSocialPeopleLogic.destination(type: .battleVictory, actorId: actor, targetId: target) == .battle(target))
         #expect(CutSocialPeopleLogic.destination(type: .challengeMilestone, actorId: actor, targetId: target) == .challenge(target))
         #expect(CutSocialPeopleLogic.destination(type: .workoutCompleted, actorId: actor, targetId: nil) == .profile(actor))
@@ -120,11 +122,11 @@ struct CutSocialPeopleLogicTests {
         #expect(CutSocialPeopleLogic.destination(type: .virtualRunInvite, actorId: actor, targetId: target) == nil)
     }
 
-    @Test func rowsWithoutADestinationDoNotOpen() {
+    @Test func missingTargetsStillOpenTheLegacyNotFoundDestination() {
         let model = CutSocialPeopleLogic.activity([P.note(.postLike, "Alex J. liked your workout", minutesAgo: 1, target: false)],
                                                   isLoading: false, error: nil, now: F.now)
         guard case let .sections(sections) = model.content else { Issue.record("Expected sections"); return }
-        #expect(sections[0].rows[0].opens == false)
+        #expect(sections[0].rows[0].opens)
     }
 
     // MARK: Requests
@@ -135,7 +137,7 @@ struct CutSocialPeopleLogicTests {
         #expect(rows.map(\.person.name) == ["Nina R.", "Tom K.", "@quietlifter"])
         #expect(rows.map(\.acceptTitle) == ["Accept", "Confirm", "Accept"])
         #expect(rows[0].person.line == "@nina")
-        #expect(rows[1].person.line == "Confirm to share friends-only activity again")
+        #expect(rows[1].person.line == "@tomk\nConfirm this friendship to share friends-only activity again.")
         #expect(rows[2].person.line == nil)
         #expect(model.incomingCount == 3 && model.outgoingCount == 1)
     }
@@ -144,7 +146,7 @@ struct CutSocialPeopleLogicTests {
         let model = CutSocialPeopleLogic.requests(incoming: P.incoming, outgoing: P.outgoing, tab: .outgoing, isLoading: false, error: nil)
         guard case let .rows(rows) = model.content else { Issue.record("Expected rows"); return }
         #expect(rows.map(\.acceptTitle) == [nil])
-        #expect(rows[0].person.line == "Request pending")
+        #expect(rows[0].person.line == "@jol\nRequest pending")
     }
 
     @Test func requestStates() {
@@ -192,4 +194,27 @@ struct CutSocialPeopleLogicTests {
         #expect(rows.map(\.name) == ["Nina R.", "Nino T.", "@anina"])
         #expect(rows.map(\.line) == ["@nina", "@ninot", nil])
     }
+    @Test func requestsKeepHorizontalPagingWithoutInterceptingVerticalScroll() {
+        #expect(CutSocialPeopleLogic.requestTab(afterHorizontalDrag: -100, vertical: 10, current: .incoming) == .outgoing)
+        #expect(CutSocialPeopleLogic.requestTab(afterHorizontalDrag: 100, vertical: 10, current: .outgoing) == .incoming)
+        #expect(CutSocialPeopleLogic.requestTab(afterHorizontalDrag: -50, vertical: 80, current: .incoming) == .incoming)
+        #expect(CutSocialPeopleLogic.requestTab(afterHorizontalDrag: -20, vertical: 0, current: .incoming) == .incoming)
+    }
+    @Test func loadedFriendsKeepErrorsAndRawSearchSemantics() {
+        let model = CutSocialPeopleLogic.friends(P.friends, query: "", isLoading: false, error: "Could not remove")
+        #expect(model.inlineError == "Could not remove")
+        guard case .rows = model.content else { Issue.record("Loaded friends must remain visible"); return }
+        #expect(CutSocialPeopleLogic.friends(P.friends, query: " alex ", isLoading: false, error: nil).content == .noResults(" alex "))
+    }
+    @Test func searchKeepsBiosAndRequestsKeepServerStatus() {
+        var person = P.person("nina", "Nina")
+        person.bio = "Strength and trail running"
+        guard case let .rows(rows) = CutSocialPeopleLogic.search(query: "ni", results: [person], isSearching: false, error: nil).content else { Issue.record("Expected results"); return }
+        #expect(rows.first?.bio == person.bio)
+        let request = CutFriendRequestFacts(id: UUID(), person: person, statusText: "Waiting for friendship confirmation")
+        let model = CutSocialPeopleLogic.requests(incoming: [], outgoing: [request], tab: .outgoing, isLoading: false, error: nil)
+        guard case let .rows(requests) = model.content else { Issue.record("Expected requests"); return }
+        #expect(requests.first?.person.line == "@nina\nWaiting for friendship confirmation")
+    }
+
 }

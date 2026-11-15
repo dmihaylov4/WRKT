@@ -32,6 +32,8 @@ struct CutActivityHost: View {
                     BattleLoaderView(battleId: battleId).environment(\.dependencies, deps)
                 case .challenge(let challengeId):
                     ChallengeLoaderView(challengeId: challengeId).environment(\.dependencies, deps)
+                case .missing(let message):
+                    Text(message).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary)
                 case .programInvite(let inviteId):
                     ProgramPreviewView(inviteID: inviteId, bottomActionPadding: 72).environment(\.dependencies, deps)
                 }
@@ -44,13 +46,14 @@ struct CutActivityHost: View {
                         realtimeService: deps.realtimeService
                     )
                     viewModel = vm
-                    await vm.loadNotifications()
-                    await vm.subscribeToRealtimeUpdates()
-                    // Auto-mark all as read when the screen is opened.
-                    if vm.notifications.contains(where: { !$0.read }) {
-                        await vm.markAllAsRead()
-                        NotificationBadgeManager.shared.notificationCount = 0
-                    }
+                }
+                guard let vm = viewModel else { return }
+                // Returning from a destination resumes the subscription torn down on disappear.
+                await vm.loadNotifications()
+                await vm.subscribeToRealtimeUpdates()
+                if vm.notifications.contains(where: { !$0.read }) {
+                    await vm.markAllAsRead()
+                    NotificationBadgeManager.shared.notificationCount = 0
                 }
             }
             .onDisappear {
@@ -126,7 +129,7 @@ struct CutFriendRequestsHost: View {
         let loaded = vm.map { !$0.isLoading } ?? false
         func facts(_ requests: [FriendRequest]) -> [CutFriendRequestFacts] {
             requests.map {
-                CutFriendRequestFacts(id: $0.id, person: Self.person($0.profile), needsReconfirmation: $0.friendship.requiresReconfirmation)
+                CutFriendRequestFacts(id: $0.id, person: Self.person($0.profile), needsReconfirmation: $0.friendship.requiresReconfirmation, statusText: $0.statusText)
             }
         }
         return CutSocialPeopleLogic.requests(
@@ -163,7 +166,7 @@ struct CutFriendRequestsHost: View {
     }
 
     static func person(_ profile: UserProfile) -> CutSocialPersonFacts {
-        .init(id: profile.id, username: profile.username, displayName: profile.displayName, avatarURL: profile.avatarUrl)
+        .init(id: profile.id, username: profile.username, displayName: profile.displayName, avatarURL: profile.avatarUrl, bio: profile.bio)
     }
 }
 
@@ -189,6 +192,7 @@ struct CutFriendsListHost: View {
             actions: CutFriendsListActions(
                 refresh: { await viewModel?.loadFriends() },
                 retry: { Task { await viewModel?.loadFriends() } },
+                dismissError: { viewModel?.error = nil },
                 open: { id in selectedUserId = viewModel?.friends.first { $0.id == id }?.profile.id },
                 remove: { id in
                     guard let vm = viewModel, let friend = vm.friends.first(where: { $0.id == id }) else { return }

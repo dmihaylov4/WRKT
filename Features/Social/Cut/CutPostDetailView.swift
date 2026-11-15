@@ -10,6 +10,7 @@
 //
 
 import SwiftUI
+import Charts
 
 struct CutPostDetailActions {
     var like: () -> Void = {}
@@ -23,6 +24,8 @@ struct CutPostDetailActions {
     var selectSuggestion: (UUID) -> Void = { _ in }
     var send: () async -> Void = {}
     var dismissError: () -> Void = {}
+    var feedback: () -> Void = {}
+    var back: () -> Void = {}
 }
 
 struct CutPostDetailView<Media: View>: View {
@@ -34,16 +37,18 @@ struct CutPostDetailView<Media: View>: View {
 
     @FocusState private var isComposerFocused: Bool
     @State private var openExercises: Set<Int>
-    @State private var pendingDelete: UUID?
+    @State private var selectedSplitID: Int?
+    @State private var selectedSection: CutPostDetailModel.Section
 
-    /// - Parameter openExercises: exercises shown open at first (captures); all closed by default.
+    /// - Parameter openExercises: exercises shown open at first (captures); all open by default, matching the legacy exercise breakdown.
     init(model: CutPostDetailModel, commentText: Binding<String>, actions: CutPostDetailActions = CutPostDetailActions(),
-         openExercises: Set<Int> = [], @ViewBuilder media: @escaping () -> Media) {
+         openExercises: Set<Int>? = nil, initialSection: CutPostDetailModel.Section = .overview, @ViewBuilder media: @escaping () -> Media) {
         self.model = model
         self._commentText = commentText
         self.actions = actions
         self.media = media
-        self._openExercises = State(initialValue: openExercises)
+        self._openExercises = State(initialValue: openExercises ?? Set(model.exercises.map(\.id)))
+        self._selectedSection = State(initialValue: openExercises?.isEmpty == false ? .exercises : initialSection)
     }
 
     var body: some View {
@@ -51,6 +56,7 @@ struct CutPostDetailView<Media: View>: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     postSection
+                    if !model.availableSections.isEmpty { detailTabs }
                     workoutSections
                     commentsSection
                         .padding(.top, 36)
@@ -66,24 +72,21 @@ struct CutPostDetailView<Media: View>: View {
         .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 56, system: 36))
         .background(DS.Cut.Colors.background.ignoresSafeArea())
         .onDisappear { isComposerFocused = false }
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Back", systemImage: "chevron.left") {
+                    isComposerFocused = false
+                    // Let focus settle before popping to avoid the legacy keyboard layout jump.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { actions.back() }
+                }
+                .labelStyle(.iconOnly)
+            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { isComposerFocused = false }
                     .fontWeight(.semibold)
             }
-        }
-        .alert("Delete comment?", isPresented: Binding(
-            get: { pendingDelete != nil },
-            set: { if !$0 { pendingDelete = nil } }
-        )) {
-            Button("Delete", role: .destructive) {
-                if let id = pendingDelete { actions.deleteComment(id) }
-                pendingDelete = nil
-            }
-            Button("Cancel", role: .cancel) { pendingDelete = nil }
-        } message: {
-            Text("This cannot be undone.")
         }
     }
 
@@ -93,10 +96,15 @@ struct CutPostDetailView<Media: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 head
-                CutHeroText(CutHeroText.balancedLines(model.post.title), hero: .l, minimumScaleFactor: 0.45)
+                Text(model.post.title.uppercased())
+                    .font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2))
+                    .fixedSize(horizontal: false, vertical: true)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
                     .accessibilityAddTraits(.isHeader)
                     .padding(.top, 18)
+                if let detail = model.battleDetail {
+                    Text(detail).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.top, 12)
+                }
                 if let caption = model.post.caption {
                     Text(caption)
                         .cutFont(.body)
@@ -113,7 +121,7 @@ struct CutPostDetailView<Media: View>: View {
             }
             .padding(.horizontal, DS.Cut.Metrics.gutter)
 
-            if model.post.showsMedia {
+            if model.showsMedia {
                 media()
                     .padding(.top, 18)
             }
@@ -138,11 +146,11 @@ struct CutPostDetailView<Media: View>: View {
                 Text(model.post.names)
                     .cutFont(.title)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
-                    .lineLimit(2)
-                Text(model.post.timeLine)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(model.post.timeLine.localizedCaseInsensitiveContains(model.visibility) ? model.post.timeLine : model.post.timeLine + " · " + model.visibility)
                     .cutFont(.secondary)
                     .foregroundStyle(DS.Cut.Colors.textSecondary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -150,52 +158,48 @@ struct CutPostDetailView<Media: View>: View {
     }
 
     private var actionRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 16) {
             Button {
-                Haptics.light()
+                actions.feedback()
                 actions.like()
             } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: model.post.isLiked ? "heart.fill" : "heart")
-                        .foregroundStyle(model.post.isLiked ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
-                    if model.likes > 0 { Text("\(model.likes)").monospacedDigit() }
-                }
+                Image(systemName: model.post.isLiked ? "heart.fill" : "heart")
+                    .foregroundStyle(model.post.isLiked ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
             }
+            .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
             .disabled(model.isTogglingLike)
             .accessibilityLabel(Text(CutSocialLogic.likeAccessibility(likes: model.likes, isLiked: model.post.isLiked)))
-            Button {
-                isComposerFocused = true
-            } label: {
-                Image(systemName: "bubble.left")
-            }
-            .accessibilityLabel(Text("Add a comment"))
-            ShareLink(item: CutSocialLogic.shareText) {
-                Image(systemName: "square.and.arrow.up")
-            }
-            .accessibilityLabel(Text("Share"))
-            Spacer(minLength: 8)
             if let likesLabel = model.likesLabel {
                 Button(action: actions.showLikes) {
-                    Text(likesLabel)
-                        .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                        .foregroundStyle(DS.Cut.Colors.lime)
-                        .lineLimit(1)
-                        .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
-                        .contentShape(Rectangle())
+                    Text("\(model.likes)").cutFont(.title).monospacedDigit()
+                        .frame(minWidth: 44, minHeight: 44)
                 }
                 .buttonStyle(.plain)
+                .foregroundStyle(DS.Cut.Colors.textPrimary)
+                .accessibilityLabel(Text(likesLabel))
                 .accessibilityHint(Text("Shows who liked this post"))
+            } else {
+                Text("0").cutFont(.body)
             }
+            Label("\(model.post.comments)", systemImage: "bubble.left")
+                .cutFont(.body)
+                .accessibilityLabel(Text("\(model.post.comments) comments"))
+            Spacer(minLength: 0)
         }
-        .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
+        .foregroundStyle(DS.Cut.Colors.textPrimary)
     }
 
     // MARK: Workout
 
     @ViewBuilder
     private var workoutSections: some View {
-        if !model.workouts.isEmpty {
-            section("Workouts") {
+        if selectedSection == .overview, let line = model.overviewLine {
+            Text(line).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 20)
+        }
+        if selectedSection == .overview && !model.workouts.isEmpty {
+            section("Workout breakdown") {
                 ForEach(model.workouts) { workout in
                     VStack(spacing: 0) {
                         HStack(spacing: 14) {
@@ -219,40 +223,59 @@ struct CutPostDetailView<Media: View>: View {
                 }
             }
         }
-        if !model.exercises.isEmpty {
+        if selectedSection == .exercises && !model.exercises.isEmpty {
             section("Exercises") {
                 ForEach(model.exercises) { exercise in
                     exerciseRow(exercise)
                 }
             }
         }
-        if !model.splits.isEmpty {
+        if selectedSection == .exercises && model.exercises.isEmpty {
+            Text("No logged exercises").cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary)
+                .padding(DS.Cut.Metrics.gutter)
+        }
+        if selectedSection == .watch && !model.splits.isEmpty {
             section("Splits per km") {
-                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
+                VStack(alignment: .leading, spacing: 12) {
+                    if let split = CutPostDetailLogic.selectedSplit(model.splits, id: selectedSplitID) {
+                        Text("KM \(split.label) · \(split.pace) /km · \(split.duration)")
+                            .cutFont(.body).foregroundStyle(DS.Cut.Colors.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let average = model.splitAverage {
+                        Text("Average \(average) /km").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                    }
                     ForEach(model.splits) { split in
-                        GridRow {
-                            Text(split.label)
-                                .font(DS.Cut.Typography.condensed(size: 22, relativeTo: .title3, monospacedDigits: true))
-                                .foregroundStyle(split.isFastest ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
-                                .fixedSize()
-                                .accessibilityLabel(Text("Kilometre \(split.label), \(split.pace) per kilometre\(split.isFastest ? ", fastest" : "")"))
-                            CutCardioBar(fraction: split.fraction, fill: split.isFastest ? DS.Cut.Colors.lime : DS.Cut.Colors.segmentTrack)
-                            Text(split.pace)
-                                .font(DS.Cut.Typography.condensed(size: 22, relativeTo: .title3, monospacedDigits: true))
-                                .foregroundStyle(split.isFastest ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
-                                .fixedSize()
-                                .gridColumnAlignment(.trailing)
-                                .accessibilityHidden(true)
+                        Button {
+                            selectedSplitID = split.id
+                            actions.feedback()
+                        } label: {
+                            HStack(spacing: 14) {
+                                Text(split.label)
+                                    .font(DS.Cut.Typography.condensed(size: 22, relativeTo: .title3, monospacedDigits: true))
+                                    .frame(minWidth: 44, alignment: .leading)
+                                CutCardioBar(fraction: split.fraction, fill: split.isFastest ? DS.Cut.Colors.lime : DS.Cut.Colors.segmentTrack)
+                                Text(split.pace)
+                                    .font(DS.Cut.Typography.condensed(size: 22, relativeTo: .title3, monospacedDigits: true))
+                                    .fixedSize()
+                            }
+                            .foregroundStyle(split.isFastest ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(Text("Kilometre \(split.label), \(split.pace) per kilometre, duration \(split.duration)\(split.isFastest ? ", fastest" : "")"))
+                        .accessibilityAddTraits(selectedSplitID == split.id || (selectedSplitID == nil && split.id == model.splits.last?.id) ? .isSelected : [])
                     }
                 }
-                .padding(.top, 16)
+                .padding(.top, 14)
             }
         }
-        if !model.heartRate.isEmpty || model.refreshTitle != nil {
+
+        if selectedSection == .watch && (!model.heartRate.isEmpty || model.refreshTitle != nil) {
             heartRateSection
         }
-        if !model.performance.isEmpty {
+        if selectedSection == .watch && !model.performance.isEmpty {
             section("Performance") {
                 ForEach(Array(model.performance.enumerated()), id: \.offset) { _, row in
                     CutStatColumns(row.count == 1 ? row + [CutStatColumn(value: "", label: "")] : row)
@@ -263,11 +286,33 @@ struct CutPostDetailView<Media: View>: View {
         }
     }
 
+    private var detailTabs: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 24) {
+                ForEach(model.availableSections, id: \.self) { section in
+                    Button { selectedSection = section; actions.feedback() } label: {
+                        VStack(spacing: 10) {
+                            Text(section.rawValue).cutFont(.title).fixedSize()
+                                .foregroundStyle(selectedSection == section ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.textSecondary)
+                            SlantedSegmentShape().fill(selectedSection == section ? DS.Cut.Colors.lime : .clear).frame(height: 4)
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(selectedSection == section ? .isSelected : [])
+                }
+            }
+            .padding(.horizontal, DS.Cut.Metrics.gutter)
+        }
+        .scrollIndicators(.hidden)
+        .padding(.top, 24)
+    }
+
     private func exerciseRow(_ exercise: CutPostDetailModel.Exercise) -> some View {
         let isOpen = openExercises.contains(exercise.id)
         return VStack(alignment: .leading, spacing: 0) {
             Button {
-                Haptics.light()
+                actions.feedback()
                 if isOpen { openExercises.remove(exercise.id) } else { openExercises.insert(exercise.id) }
             } label: {
                 HStack(spacing: 14) {
@@ -341,6 +386,9 @@ struct CutPostDetailView<Media: View>: View {
                             .foregroundStyle(DS.Cut.Colors.textPrimary)
                             .padding(.top, 14)
                     }
+                    if let energy = heart.energy, model.heartRate.count > 1 {
+                        Text(energy).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.top, 10)
+                    }
                     if heart.isEstimated {
                         Text("Zones are estimated from the average heart rate.")
                             .cutFont(.secondary)
@@ -352,32 +400,52 @@ struct CutPostDetailView<Media: View>: View {
                         CutStatColumns(heart.stats)
                             .padding(.top, 14)
                     }
-                    if !heart.bars.isEmpty {
-                        HStack(alignment: .bottom, spacing: 6) {
-                            ForEach(Array(heart.bars.enumerated()), id: \.offset) { _, value in
-                                Rectangle()
-                                    .fill(DS.Cut.Colors.lime.opacity(0.25 + 0.75 * value))
-                                    .frame(height: 72 * value)
-                                    .frame(maxWidth: .infinity)
+                    if !heart.points.isEmpty {
+                        Chart(heart.points) { point in
+                            LineMark(x: .value("Seconds", point.seconds), y: .value("BPM", point.bpm))
+                                .foregroundStyle(DS.Cut.Colors.lime)
+                                .interpolationMethod(.catmullRom)
+                        }
+                        .chartYScale(domain: .automatic(includesZero: false))
+                        .chartXAxis {
+                            AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                                AxisGridLine().foregroundStyle(DS.Cut.Colors.hairline)
+                                AxisValueLabel {
+                                    if let seconds = value.as(Double.self) {
+                                        Text(CutCardioLogic.duration(Int(seconds))).cutFont(.secondary)
+                                    }
+                                }
                             }
                         }
-                        .frame(height: 72, alignment: .bottom)
+                        .chartYAxis {
+                            AxisMarks(position: .leading, values: .automatic(desiredCount: 3)) { value in
+                                AxisGridLine().foregroundStyle(DS.Cut.Colors.hairline)
+                                AxisValueLabel {
+                                    if let bpm = value.as(Double.self) { Text("\(Int(bpm))").cutFont(.secondary) }
+                                }
+                            }
+                        }
+                        .frame(height: 160)
                         .padding(.top, 18)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(Text("Heart rate over the workout"))
+                        .accessibilityLabel(Text("Heart rate in beats per minute over elapsed workout time"))
                     }
                     if !heart.zones.isEmpty {
+                        if let method = model.zoneMethod {
+                            Text(method).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.top, 14)
+                        }
                         Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
                             ForEach(heart.zones) { zone in
                                 GridRow {
-                                    Text(zone.label)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(zone.label).cutFont(.title)
+                                        if !zone.detail.isEmpty { Text(zone.detail).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary).fixedSize(horizontal: false, vertical: true) }
+                                    }
                                         .cutFont(.title)
                                         .foregroundStyle(DS.Cut.Colors.textPrimary)
-                                        .fixedSize()
-                                        .accessibilityLabel(Text("\(zone.label), \(zone.time)"))
+                                        .accessibilityLabel(Text("\(zone.label), \(zone.detail), \(zone.time), \(Int((zone.fraction * 100).rounded())) percent"))
                                     CutCardioBar(fraction: zone.fraction,
                                                  fill: DS.Cut.Colors.lime.opacity(0.35 + 0.13 * Double(zone.id)))
-                                    Text(zone.time)
+                                    Text("\(zone.time) · \(Int((zone.fraction * 100).rounded()))%")
                                         .font(DS.Cut.Typography.condensed(size: 22, relativeTo: .title3, monospacedDigits: true))
                                         .foregroundStyle(DS.Cut.Colors.textPrimary)
                                         .fixedSize()
@@ -425,7 +493,7 @@ struct CutPostDetailView<Media: View>: View {
 
     private var commentsSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CutSectionTitle("Comments")
+            CutSectionTitle("Comments (\(model.post.comments))")
                 .padding(.bottom, 10)
             CutHairline()
             switch model.comments {
@@ -466,7 +534,7 @@ struct CutPostDetailView<Media: View>: View {
                 Text(comment.name)
                     .cutFont(.title)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 mentionText(comment.text)
                     .cutFont(.body)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
@@ -491,7 +559,7 @@ struct CutPostDetailView<Media: View>: View {
             if comment.canDelete {
                 Menu {
                     Button("Reply", systemImage: "arrowshape.turn.up.left") { reply(to: comment.id) }
-                    Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = comment.id }
+                    Button("Delete", systemImage: "trash", role: .destructive) { actions.deleteComment(comment.id) }
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.system(size: 17, weight: .semibold))
@@ -510,7 +578,7 @@ struct CutPostDetailView<Media: View>: View {
                 Button("Reply", systemImage: "arrowshape.turn.up.left") { reply(to: comment.id) }
             }
             if comment.canDelete {
-                Button("Delete", systemImage: "trash", role: .destructive) { pendingDelete = comment.id }
+                Button("Delete", systemImage: "trash", role: .destructive) { actions.deleteComment(comment.id) }
             }
         }
     }
@@ -545,11 +613,11 @@ struct CutPostDetailView<Media: View>: View {
                                         Text(person.name)
                                             .cutFont(.title)
                                             .foregroundStyle(DS.Cut.Colors.textPrimary)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                         Text(person.handle)
                                             .cutFont(.secondary)
                                             .foregroundStyle(DS.Cut.Colors.textSecondary)
-                                            .lineLimit(1)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                     Spacer(minLength: 0)
                                 }
@@ -584,7 +652,7 @@ struct CutPostDetailView<Media: View>: View {
                     Text(replyingTo)
                         .cutFont(.secondary)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)
                     Button("Cancel reply", systemImage: "xmark", action: actions.cancelReply)
                         .labelStyle(.iconOnly)
@@ -605,7 +673,7 @@ struct CutPostDetailView<Media: View>: View {
                             commentText = newValue
                             actions.commentTextChanged(newValue)
                         }
-                    ), axis: .vertical)
+                    ), prompt: Text("Add a comment").foregroundStyle(DS.Cut.Colors.textSecondary), axis: .vertical)
                     .cutFont(.body)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
                     .tint(DS.Cut.Colors.lime)
@@ -645,7 +713,7 @@ struct CutPostDetailView<Media: View>: View {
 
 extension CutPostDetailView where Media == EmptyView {
     init(model: CutPostDetailModel, commentText: Binding<String>, actions: CutPostDetailActions = CutPostDetailActions(),
-         openExercises: Set<Int> = []) {
+         openExercises: Set<Int>? = nil) {
         self.init(model: model, commentText: commentText, actions: actions, openExercises: openExercises) { EmptyView() }
     }
 }
@@ -674,10 +742,29 @@ struct CutPostLoaderStateView: View {
                 .padding(.top, 80)
                 .accessibilityElement(children: .combine)
             case .failed(let message):
-                CutSocialMessage(title: "Post not found", line: message, button: "Try again", action: retry)
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("POST NOT FOUND").font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2))
+                    Text(message).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary)
+                    Button("Try again", action: retry).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false))
+                }.padding(DS.Cut.Metrics.gutter)
             }
         }
         .scrollIndicators(.hidden)
         .background(DS.Cut.Colors.background.ignoresSafeArea())
+    }
+}
+
+/// Full-screen route presentation. The host supplies the resolved image.
+struct CutPostDetailMapView<Map: View>: View {
+    let close: () -> Void
+    @ViewBuilder var map: () -> Map
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            map().frame(maxWidth: .infinity, maxHeight: .infinity)
+            Button("Close map", systemImage: "xmark", action: close)
+                .labelStyle(.iconOnly).font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(DS.Cut.Colors.textPrimary).frame(width: 44, height: 44).padding()
+        }
     }
 }

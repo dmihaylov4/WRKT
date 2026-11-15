@@ -635,7 +635,7 @@ private struct CutSocialBadge: View {
 }
 
 /// A big message in place of the feed: condensed title, one line, one button.
-struct CutSocialMessage: View {
+private struct CutSocialMessage: View {
     let title: String
     let line: String
     let button: String?

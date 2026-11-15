@@ -14,7 +14,8 @@ enum CutPostDetailFixtures {
             sets: sets.map { .init(value: $0.0, tag: $0.1, workSeconds: timed ? 42 : nil, restSeconds: timed ? 120 : nil) },
             volumeKg: volume,
             workSeconds: timed ? 168 : 0,
-            restSeconds: timed ? 480 : 0
+            restSeconds: timed ? 480 : 0,
+            totalReps: sets.reduce(0) { $0 + (Int($1.0.split(separator: " ").last ?? "0") ?? 0) }
         )
     }
 
@@ -121,13 +122,13 @@ struct CutPostDetailLogicTests {
 
     @Test func strengthListsExercisesWithSetsVolumeAndTiming() {
         let detail = model(D.strength())
-        #expect(detail.workouts.isEmpty)
+        #expect(detail.workouts.map(\.title) == ["Romanian Deadlift", "Back Squat", "Walking Lunge"])
         #expect(detail.exercises.map(\.title) == ["Romanian Deadlift", "Back Squat", "Walking Lunge"])
-        #expect(detail.exercises[0].line == "4 sets, 2,420 kg")
+        #expect(detail.exercises[0].line == "4 sets, 33 reps, 2,420 kg")
         #expect(detail.exercises[0].sets.map(\.number) == ["1", "2", "3", "4"])
         #expect(detail.exercises[0].sets[0].note == "Warm-up, work 0:42, rest 2:00")
         #expect(detail.exercises[0].sets[1].note == "Work 0:42, rest 2:00")
-        #expect(detail.exercises[0].timing == "Work 2:48, rest 8:00")
+        #expect(detail.exercises[0].timing == "Duration 10:48, work 2:48, rest 8:00")
         #expect(detail.exercises[1].sets[0].note == nil)
         #expect(detail.exercises[1].timing == nil)
         #expect(detail.exercises[2].sets[2].note == "Back-off")
@@ -140,7 +141,7 @@ struct CutPostDetailLogicTests {
         #expect(detail.heartRate.count == 1)
         #expect(detail.heartRate[0].title == nil)
         #expect(detail.heartRate[0].stats.map(\.value) == ["128", "171", "84"])
-        #expect(detail.heartRate[0].bars.count == 16)
+        #expect(detail.heartRate[0].points.count == 40)
         #expect(detail.performance == [[CutStatColumn(value: "410", label: "Energy", unit: "kcal")]])
     }
 
@@ -184,11 +185,11 @@ struct CutPostDetailLogicTests {
         #expect(detail.performance == [[CutStatColumn(value: "1,020", label: "Energy", unit: "kcal")]])
     }
 
-    @Test func weeklyAndBattlePostsShowNoWorkoutSections() {
+    @Test func weeklyKeepsItsWorkoutsWhileBattleUsesItsSummary() {
         var facts = D.strength()
         facts.post = F.weekly()
         let detail = model(facts)
-        #expect(detail.exercises.isEmpty && detail.heartRate.isEmpty && detail.performance.isEmpty)
+        #expect(!detail.exercises.isEmpty && !detail.heartRate.isEmpty)
         facts.post = F.battle()
         #expect(model(facts).exercises.isEmpty)
     }
@@ -202,7 +203,7 @@ struct CutPostDetailLogicTests {
 
     @Test func commentsFlattenRepliesAndOnlyOwnTopLevelCanBeDeleted() throws {
         guard case let .list(rows) = model(D.strength()).comments else { Issue.record("Expected comments"); return }
-        #expect(rows.map(\.name) == ["Alex J.", "Maria K.", "Sam P.", "You"])
+        #expect(rows.map(\.name) == ["alex", "maria", "samp", "dimitar"])
         #expect(rows.map(\.isReply) == [false, true, false, false])
         #expect(rows.map(\.canReply) == [true, false, true, true])
         #expect(rows.map(\.canDelete) == [false, false, false, true])
@@ -242,4 +243,68 @@ struct CutPostDetailLogicTests {
         #expect(segments.map(\.isMention) == [false, true, false, true, false])
         #expect(CutPostDetailLogic.segments("plain").map(\.text) == ["plain"])
     }
+    @Test func tabsMatchWorkoutCapabilitiesAndKeepReps() {
+        #expect(model(D.strength()).availableSections == [.overview, .exercises, .watch])
+        #expect(model(D.cardio()).availableSections == [.overview, .watch])
+        var facts = D.strength()
+        facts.workouts[0].exercises[0].totalReps = 33
+        #expect(model(facts).exercises[0].line.contains("33 reps"))
+        facts.post.visibility = .friends
+        #expect(model(facts).visibility == "Friends")
+    }
+    @Test func heartRateRetainsExactTimeAndBPM() {
+        let heart = model(D.cardio()).heartRate[0]
+        #expect(heart.points.count == 30)
+        #expect(heart.points[1].seconds == 80)
+        #expect(heart.points[1].bpm == 135)
+    }
+    @Test func mapPresentationAndPhotoIndexAreIndependentOfCarouselIndex() {
+        let map = URL(string: "https://example.com/map.png")!
+        let photo = URL(string: "https://example.com/photo.png")!
+        #expect(CutPostDetailMediaLogic.opensMap(map, maps: [map], fullscreenMaps: true))
+        #expect(!CutPostDetailMediaLogic.opensMap(map, maps: [map], fullscreenMaps: false))
+        #expect(!CutPostDetailMediaLogic.opensMap(photo, maps: [map], fullscreenMaps: true))
+        #expect(CutPostDetailMediaLogic.photoIndex(photo, photos: [photo]) == 0)
+        #expect(CutPostDetailMediaLogic.photoIndex(map, photos: [photo]) == nil)
+    }
+
+    @Test func overviewAndWatchKeepSummaryAndPerWorkoutEnergy() {
+        let strength = model(D.strength())
+        #expect(strength.overviewLine == "3 exercises · 410 kcal · 128 bpm average")
+        let multi = model(D.multi())
+        #expect(multi.heartRate.map(\.energy) == ["410 kcal", "610 kcal"])
+        var facts = D.multi()
+        facts.workouts[1] = D.strengthWorkout
+        #expect(model(facts).workouts.count == 6)
+    }
+    @Test func zonesKeepTheirNameAndBPMRange() {
+        var facts = D.cardio()
+        facts.workouts[0].zones[0] = HRZoneSummary(zone: 1, name: "Light", minutes: 3, rangeDisplay: "90-110 bpm", colorHex: "")
+        #expect(model(facts).heartRate[0].zones[0].detail == "Light · 90-110 bpm")
+    }
+
+    @Test func splitSelectionKeepsTheLastSplitDefaultAndIndividualDuration() {
+        let detail = model(D.cardio())
+        #expect(CutPostDetailLogic.selectedSplit(detail.splits, id: nil)?.label == "8.4")
+        #expect(CutPostDetailLogic.selectedSplit(detail.splits, id: detail.splits[0].id)?.duration == "5:13")
+        #expect(CutPostDetailLogic.selectedSplit([], id: nil) == nil)
+        #expect(detail.splitAverage != nil)
+    }
+
+    @Test func weeklyAttachmentsRemainVisibleOnlyInDetail() {
+        var facts = D.strength()
+        facts.post = F.weekly()
+        #expect(!model(facts).post.showsMedia)
+        #expect(model(facts).showsMedia)
+        facts.post = F.battle()
+        #expect(!model(facts).showsMedia)
+    }
+    @Test func invalidSplitCannotShiftTheDurationsOfValidSplits() {
+        var facts = D.cardio()
+        facts.workouts[0].splits.insert(KilometerSplit(number: 0, distanceKm: 1, durationSec: 0), at: 0)
+        let splits = model(facts).splits
+        #expect(splits[0].id == 1)
+        #expect(splits[0].duration == "5:13")
+    }
+
 }

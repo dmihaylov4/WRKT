@@ -18,6 +18,7 @@ struct CutSocialPersonFacts: Equatable {
     var username: String
     var displayName: String?
     var avatarURL: String?
+    var bio: String? = nil
 }
 
 struct CutSocialPersonRow: Equatable, Identifiable {
@@ -29,6 +30,7 @@ struct CutSocialPersonRow: Equatable, Identifiable {
     var line: String?
     var initials: String
     var avatarURL: String?
+    var bio: String? = nil
 }
 
 enum CutSocialPeopleLogic {
@@ -62,6 +64,7 @@ enum CutSocialPeopleLogic {
         case battle(UUID)
         case challenge(UUID)
         case programInvite(UUID)
+        case missing(String)
     }
 
     /// Where a notification leads, as the legacy row's NavigationLink. Nil when the target is
@@ -71,17 +74,17 @@ enum CutSocialPeopleLogic {
         case .friendRequest, .friendAccepted:
             return .profile(actorId)
         case .postLike, .postComment, .commentReply, .commentMention, .postParticipantTag:
-            return targetId.map(ActivityDestination.post)
+            return targetId.map(ActivityDestination.post) ?? .missing("Post not found")
         case .battleInvite, .battleAccepted, .battleDeclined, .battleLeadTaken, .battleLeadLost,
              .battleOpponentActivity, .battleEndingSoon, .battleCompleted, .battleVictory, .battleDefeat:
-            return targetId.map(ActivityDestination.battle)
+            return targetId.map(ActivityDestination.battle) ?? .missing("Battle not found")
         case .challengeInvite, .challengeJoined, .challengeMilestone, .challengeLeaderboardChange,
              .challengeEndingSoon, .challengeCompleted, .challengeNewParticipant:
-            return targetId.map(ActivityDestination.challenge)
+            return targetId.map(ActivityDestination.challenge) ?? .missing("Challenge not found")
         case .workoutCompleted:
             return targetId.map(ActivityDestination.post) ?? .profile(actorId)
         case .programInvite:
-            return targetId.map(ActivityDestination.programInvite)
+            return targetId.map(ActivityDestination.programInvite) ?? .missing("Program invite not found")
         case .virtualRunInvite, .unknown:
             return nil
         }
@@ -113,9 +116,8 @@ enum CutSocialPeopleLogic {
                 opens: destination(type: item.type, actorId: item.actorId, targetId: item.targetId) != nil
             )
         }
-        let isToday: (CutActivityModel.Row) -> Bool = { row in
-            visible.first { $0.id == row.id }.map { calendar.isDate($0.createdAt, inSameDayAs: now) } ?? false
-        }
+        let todayIDs = Set(visible.filter { calendar.isDate($0.createdAt, inSameDayAs: now) }.map(\.id))
+        let isToday: (CutActivityModel.Row) -> Bool = { todayIDs.contains($0.id) }
         var sections: [CutActivityModel.Section] = []
         let today = rows.filter(isToday)
         let earlier = rows.filter { !isToday($0) }
@@ -152,13 +154,13 @@ enum CutSocialPeopleLogic {
             case .incoming:
                 return (incoming ?? []).map { request in
                     .init(person: row(request.person, id: request.id,
-                                      line: request.needsReconfirmation ? "Confirm to share friends-only activity again" : handleLine(request.person)),
+                                      line: request.needsReconfirmation ? [handleLine(request.person), "Confirm this friendship to share friends-only activity again."].compactMap { $0 }.joined(separator: "\n") : handleLine(request.person)),
                           acceptTitle: request.needsReconfirmation ? "Confirm" : "Accept")
                 }
             case .outgoing:
                 return (outgoing ?? []).map { request in
                     .init(person: row(request.person, id: request.id,
-                                      line: request.needsReconfirmation ? "Waiting for confirmation" : "Request pending"),
+                                      line: [handleLine(request.person), request.statusText ?? (request.needsReconfirmation ? "Waiting for friendship confirmation" : "Request pending")].compactMap { $0 }.joined(separator: "\n")),
                           acceptTitle: nil)
                 }
             }
@@ -166,6 +168,11 @@ enum CutSocialPeopleLogic {
         let content: CutFriendRequestsModel.Content = !loaded ? .loading : (rows.isEmpty ? .empty : .rows(rows))
         return CutFriendRequestsModel(tab: tab, incomingCount: incoming?.count ?? 0, outgoingCount: outgoing?.count ?? 0,
                                       content: content, error: error)
+    }
+
+    static func requestTab(afterHorizontalDrag x: Double, vertical y: Double, current: CutFriendRequestsModel.Tab) -> CutFriendRequestsModel.Tab {
+        guard abs(x) > 40, abs(x) > abs(y) * 2 else { return current }
+        return x < 0 ? .outgoing : .incoming
     }
 
     static func requestsEmptyLine(_ tab: CutFriendRequestsModel.Tab) -> String {
@@ -179,16 +186,16 @@ enum CutSocialPeopleLogic {
         guard let friends, !(isLoading && friends.isEmpty) else { return CutFriendsListModel(content: .loading, showsSearch: false) }
         if let error, friends.isEmpty { return CutFriendsListModel(content: .failed(error), showsSearch: false) }
         guard !friends.isEmpty else { return CutFriendsListModel(content: .empty, showsSearch: false) }
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let matching = trimmed.isEmpty ? friends : friends.filter {
-            $0.person.username.localizedCaseInsensitiveContains(trimmed)
-                || ($0.person.displayName?.localizedCaseInsensitiveContains(trimmed) ?? false)
+        let search = query
+        let matching = search.isEmpty ? friends : friends.filter {
+            $0.person.username.localizedCaseInsensitiveContains(search)
+                || ($0.person.displayName?.localizedCaseInsensitiveContains(search) ?? false)
         }
-        guard !matching.isEmpty else { return CutFriendsListModel(content: .noResults(trimmed), showsSearch: true) }
+        guard !matching.isEmpty else { return CutFriendsListModel(content: .noResults(search), showsSearch: true, inlineError: error) }
         let rows = matching.map { friend in
             row(friend.person, id: friend.id, line: friendLine(friend, locale: locale))
         }
-        return CutFriendsListModel(content: .rows(rows), showsSearch: true, count: friends.count)
+        return CutFriendsListModel(content: .rows(rows), showsSearch: true, count: friends.count, inlineError: error)
     }
 
     /// "@maria, friends since Oct 2025", or the date alone when the name is the handle.
@@ -208,7 +215,11 @@ enum CutSocialPeopleLogic {
         if let error { return CutUserSearchModel(content: .failed(error)) }
         if query.isEmpty { return CutUserSearchModel(content: .idle) }
         if results.isEmpty { return CutUserSearchModel(content: .noResults) }
-        return CutUserSearchModel(content: .rows(results.map { row($0, line: handleLine($0)) }))
+        return CutUserSearchModel(content: .rows(results.map { person in
+            var value = row(person, line: handleLine(person))
+            value.bio = person.bio
+            return value
+        }))
     }
 }
 
@@ -264,6 +275,7 @@ struct CutFriendRequestFacts: Equatable {
     var id: UUID
     var person: CutSocialPersonFacts
     var needsReconfirmation = false
+    var statusText: String? = nil
 }
 
 struct CutFriendRequestsModel: Equatable {
@@ -313,6 +325,7 @@ struct CutFriendsListModel: Equatable {
     var content: Content
     var showsSearch: Bool
     var count: Int = 0
+    var inlineError: String? = nil
 }
 
 // MARK: - Search

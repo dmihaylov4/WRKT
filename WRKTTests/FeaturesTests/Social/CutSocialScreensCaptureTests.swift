@@ -18,6 +18,10 @@ struct CutSocialScreensCaptureTests {
 
     static let enabled = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_CUT_SOCIAL_SCREENS"] == "1"
 
+    // Filter one fixture for a fresh test-host capture when simulator compositing caches
+    // drop unchanged text across successive UIWindow captures.
+    static let selectedCapture = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"]
+
     private var root: URL {
         URL(fileURLWithPath: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_DIR"] ?? "/private/tmp/volia-cut-social-screens")
     }
@@ -28,9 +32,9 @@ struct CutSocialScreensCaptureTests {
     func capturePostDetail() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
-        func detail(_ facts: CutPostDetailFacts, open: Set<Int> = [], text: String = "", map: Bool = false) -> some View {
+        func detail(_ facts: CutPostDetailFacts, open: Set<Int> = [], text: String = "", map: Bool = false, section: CutPostDetailModel.Section = .overview) -> some View {
             CutPostDetailView(model: CutPostDetailLogic.model(facts, now: F.now, weightUnit: .kg, locale: F.locale),
-                              commentText: .constant(text), openExercises: open) {
+                              commentText: .constant(text), openExercises: open, initialSection: section) {
                 if map {
                     Rectangle()
                         .fill(DS.Cut.Colors.darkField)
@@ -40,10 +44,16 @@ struct CutSocialScreensCaptureTests {
             }
         }
 
+        try await capture(detail(D.strength()), name: "post-strength-overview")
+        try await capture(detail(D.cardio(), map: true, section: .watch), name: "post-cardio-watch-full", height: 2_600)
+        var own = D.strength()
+        own.post.isOwn = true
+        own.post.author = .init(id: D.me, name: "Dimitar M.")
+        try await capture(detail(own), name: "post-own")
         try await capture(detail(D.strength(), open: [0]), name: "post-strength")
         try await capture(detail(D.strength(), open: [0]), name: "post-strength-full", height: 2_400)
         try await capture(detail(D.cardio(), map: true), name: "post-cardio-full", height: 2_600)
-        try await capture(detail(D.multi(), open: [1]), name: "post-multi-full", height: 2_800)
+        try await capture(detail(D.multi(), open: [1]), name: "post-multi-full", height: 2_600)
         try await capture(detail(D.strength(comments: [], loading: true)), name: "post-comments-loading-full", height: 2_000)
         try await capture(detail(D.strength(comments: [])), name: "post-comments-empty-full", height: 2_000)
         try await capture(detail(D.strength(comments: [], error: "The Internet connection appears to be offline.")),
@@ -51,7 +61,7 @@ struct CutSocialScreensCaptureTests {
 
         var weekly = D.strength()
         weekly.post = F.weekly()
-        try await capture(detail(weekly), name: "post-weekly")
+        try await capture(detail(weekly, map: true), name: "post-weekly")
         var battle = D.strength(comments: [])
         battle.post = F.battle()
         try await capture(detail(battle), name: "post-battle")
@@ -70,6 +80,15 @@ struct CutSocialScreensCaptureTests {
         try await capture(detail(D.strength(), open: [0]), name: "post-strength-xxxl", dynamicType: .xxxLarge)
         try await capture(detail(D.long(), open: [0]), name: "post-long-xxxl", dynamicType: .xxxLarge)
 
+        try await capture(CutPostDetailMapView(close: {}) {
+            ZStack {
+                Color(white: 0.13)
+                Path { path in
+                    path.move(to: CGPoint(x: 50, y: 180))
+                    path.addLines([CGPoint(x: 50, y: 180), CGPoint(x: 110, y: 80), CGPoint(x: 270, y: 100), CGPoint(x: 310, y: 250), CGPoint(x: 150, y: 310), CGPoint(x: 50, y: 180)])
+                }.stroke(DS.Cut.Colors.lime, style: StrokeStyle(lineWidth: 5, lineJoin: .round))
+            }.frame(height: 380)
+        }.toolbar(.hidden, for: .navigationBar).toolbar(.hidden, for: .tabBar), name: "post-fullscreen-map")
         try await capture(CutPostLoaderStateView(state: .loading), name: "post-loader-loading")
         try await capture(CutPostLoaderStateView(state: .failed(CutPostDetailLogic.notFoundMessage)), name: "post-loader-failed")
     }
@@ -137,10 +156,28 @@ struct CutSocialScreensCaptureTests {
         try await capture(search("nin", results: longResults), name: "search-xxxl", dynamicType: .xxxLarge)
     }
 
+    @Test(.enabled(if: enabled))
+    func captureLikes() async throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        func sheet(_ people: [CutSocialPersonFacts]?, error: String? = nil) -> some View {
+            Color.black.sheet(isPresented: .constant(true)) {
+                CutLikesListView(model: CutLikesListLogic.model(people: people, error: error))
+            }
+        }
+        try await capture(sheet(CutSocialPeopleFixtures.searchResults), name: "likes-loaded")
+        try await capture(sheet(nil), name: "likes-loading")
+        try await capture(sheet([]), name: "likes-empty")
+        try await capture(sheet(nil, error: "The Internet connection appears to be offline."), name: "likes-error")
+    }
+
     // MARK: Helpers
 
     func capture<V: View>(_ view: V, name: String, height: CGFloat? = nil, dynamicType: DynamicTypeSize = .large) async throws {
+        if let selected = Self.selectedCapture, selected != name { return }
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first { $0.isKeyWindow }
+        // Isolate the fixture from the app window to avoid simulator layer omissions.
+        previous?.isHidden = true
         let window = UIWindow(windowScene: scene)
         if let height {
             window.frame = CGRect(origin: .zero, size: CGSize(width: window.bounds.width, height: height))
@@ -148,11 +185,28 @@ struct CutSocialScreensCaptureTests {
         window.windowLevel = .alert + 1
         window.overrideUserInterfaceStyle = .dark
         window.rootViewController = UIHostingController(
-            rootView: CutPushedCaptureShell { view }.environment(\.dynamicTypeSize, dynamicType)
+            rootView: CutPushedCaptureShell(hidesNavigation: name == "post-fullscreen-map") { view }.environment(\.dynamicTypeSize, dynamicType)
         )
         window.makeKeyAndVisible()
-        defer { window.isHidden = true }
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previous?.isHidden = false
+            previous?.makeKey()
+        }
         try await Task.sleep(for: .seconds(2))
+        if ProcessInfo.processInfo.environment["VOLIA_CAPTURE_EXTERNAL"] == "1", height == nil {
+            let request = root.appendingPathComponent(".capture-request")
+            let complete = root.appendingPathComponent(".capture-complete")
+            try? FileManager.default.removeItem(at: complete)
+            try Data(name.utf8).write(to: request, options: .atomic)
+            for _ in 0..<300 {
+                if FileManager.default.fileExists(atPath: complete.path) { return }
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            Issue.record("External capture timed out: \(name)")
+            return
+        }
         let format = UIGraphicsImageRendererFormat()
         // Windows taller than about 2,800 pt come back blank, so tall captures stay at or under that.
         format.scale = height.map { min(2, 5_400 / $0) } ?? 3
@@ -166,6 +220,7 @@ struct CutSocialScreensCaptureTests {
 /// A screen as the Social tab pushes it: one level deep in a NavigationStack in the third tab
 /// of a system tab bar, so the system back button shows.
 struct CutPushedCaptureShell<Content: View>: View {
+    var hidesNavigation = false
     @ViewBuilder var content: () -> Content
     @State private var tab = 2
     @State private var path: [Int] = [1]
@@ -178,12 +233,30 @@ struct CutPushedCaptureShell<Content: View>: View {
                 NavigationStack(path: $path) {
                     Color.black
                         .toolbar(.hidden, for: .navigationBar)
-                        .navigationDestination(for: Int.self) { _ in content() }
+                        .navigationDestination(for: Int.self) { _ in
+                            content()
+                                .navigationTitle(Text(verbatim: ""))
+                                .navigationBarTitleDisplayMode(.inline)
+                                .toolbar(hidesNavigation ? .hidden : .visible, for: .navigationBar)
+                        }
                 }
             }
             Tab("Cardio", image: "tab-cardio-inactive", value: 3) { Color.black }
             Tab("Me", image: "tab-profile-inactive", value: 4) { Color.black }
         }
         .tint(DS.Palette.marone)
+    }
+}
+
+/// Filter to this suite with VOLIA_CAPTURE_STATE for one state per fresh test-host launch.
+@MainActor
+@Suite(.serialized)
+struct CutSocialScreensIsolatedCaptureTests {
+    @Test(.enabled(if: CutSocialScreensCaptureTests.enabled && CutSocialScreensCaptureTests.selectedCapture != nil))
+    func captureSelectedState() async throws {
+        let captures = CutSocialScreensCaptureTests()
+        try await captures.capturePostDetail()
+        try await captures.capturePeople()
+        try await captures.captureLikes()
     }
 }

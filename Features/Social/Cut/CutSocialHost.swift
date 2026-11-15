@@ -400,11 +400,15 @@ struct CutSocialPostMedia: View {
     let currentUserId: UUID?
     /// Off where no route can be built (the post detail): no button, no build on appear.
     var allowsBackfill = true
+    var mapsOpenFullscreen = false
     let backfill: () async -> Bool
 
     @State private var resolved: [(image: PostImage, url: URL)] = []
     @State private var isBackfilling = false
     @State private var showingViewer = false
+    @State private var viewerIndex = 0
+    @State private var showingMap = false
+    @State private var selectedMap: URL?
     @State private var selectedIndex = 0
 
     private let imageUploadService = ImageUploadService()
@@ -448,7 +452,10 @@ struct CutSocialPostMedia: View {
             }
         }
         .sheet(isPresented: $showingViewer) {
-            ImageViewer(imageUrls: urls.map(\.absoluteString), selectedIndex: $selectedIndex)
+            ImageViewer(imageUrls: (mapsOpenFullscreen ? photos : urls).map(\.absoluteString), selectedIndex: mapsOpenFullscreen ? $viewerIndex : $selectedIndex)
+        }
+        .fullScreenCover(isPresented: $showingMap) {
+            if let selectedMap { CutPostDetailMapView(close: { showingMap = false }) { KFImage(selectedMap).resizable().scaledToFit() } }
         }
     }
 
@@ -465,11 +472,17 @@ struct CutSocialPostMedia: View {
                     .clipped()
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        selectedIndex = index
-                        showingViewer = true
+                        if CutPostDetailMediaLogic.opensMap(url, maps: maps, fullscreenMaps: mapsOpenFullscreen) {
+                            selectedMap = url
+                            showingMap = true
+                        } else {
+                            if mapsOpenFullscreen { viewerIndex = CutPostDetailMediaLogic.photoIndex(url, photos: photos) ?? 0 }
+                            else { selectedIndex = index }
+                            showingViewer = true
+                        }
                     }
                     .tag(index)
-                    .accessibilityLabel(Text(index < maps.count && isCardio ? "Route map" : "Photo \(index + 1)"))
+                    .accessibilityLabel(Text(maps.contains(url) ? "Route map" : "Photo \(index + 1)"))
                     .accessibilityAddTraits(.isButton)
             }
         }

@@ -27,8 +27,6 @@ struct CutActivityView: View {
     let model: CutActivityModel
     var actions = CutActivityActions()
 
-    @State private var confirmsClear = false
-
     var body: some View {
         List {
             CutPeopleTitle("Activity")
@@ -75,7 +73,10 @@ struct CutActivityView: View {
             }
         }
         .cutPeopleList()
-        .refreshable { await actions.refresh() }
+        .refreshable {
+            let refresh = Task { await actions.refresh() }
+            await refresh.value
+        }
         .toolbar {
             if model.hasUnread || model.canClear {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -84,19 +85,13 @@ struct CutActivityView: View {
                             Button("Mark all read", systemImage: "envelope.open", action: actions.markAllRead)
                         }
                         if model.canClear {
-                            Button("Clear all", systemImage: "trash", role: .destructive) { confirmsClear = true }
+                            Button("Clear all", systemImage: "trash", role: .destructive, action: actions.clearAll)
                         }
                     } label: {
                         Label("More", systemImage: "ellipsis")
                     }
                 }
             }
-        }
-        .alert("Clear all activity?", isPresented: $confirmsClear) {
-            Button("Clear all", role: .destructive, action: actions.clearAll)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Every notification is deleted. This cannot be undone.")
         }
     }
 
@@ -158,7 +153,7 @@ struct CutFriendRequestsView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 CutPeopleTitle("Requests")
                     .padding(.horizontal, DS.Cut.Metrics.gutter)
                 CutUnderlineTabs(
@@ -179,8 +174,14 @@ struct CutFriendRequestsView: View {
             }
             .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
         }
+        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { value in
+            actions.select(CutSocialPeopleLogic.requestTab(afterHorizontalDrag: value.translation.width, vertical: value.translation.height, current: model.tab))
+        })
         .scrollIndicators(.hidden)
-        .refreshable { await actions.refresh() }
+        .refreshable {
+            let refresh = Task { await actions.refresh() }
+            await refresh.value
+        }
         .background(DS.Cut.Colors.background.ignoresSafeArea())
     }
 
@@ -198,7 +199,7 @@ struct CutFriendRequestsView: View {
                              button: model.tab == .outgoing ? "Find friends" : nil, action: actions.findFriends)
         case .rows(let rows):
             ForEach(rows) { row in
-                CutPersonRowView(row: row.person, open: actions.openProfile) {
+                CutPersonRowView(row: row.person, open: actions.openProfile, hasActions: true) {
                     if let accept = row.acceptTitle {
                         HStack(spacing: 8) {
                             Button(accept) { actions.accept(row.id) }
@@ -224,6 +225,7 @@ struct CutFriendRequestsView: View {
 struct CutFriendsListActions {
     var refresh: () async -> Void = {}
     var retry: () -> Void = {}
+    var dismissError: () -> Void = {}
     var open: (UUID) -> Void = { _ in }
     var remove: (UUID) -> Void = { _ in }
     var findFriends: () -> Void = {}
@@ -238,6 +240,9 @@ struct CutFriendsListView: View {
         List {
             CutPeopleTitle("Friends")
                 .cutListRow()
+            if let error = model.inlineError {
+                CutPeopleErrorRow(message: error, retry: actions.retry, dismiss: actions.dismissError).cutListRow()
+            }
             if model.showsSearch {
                 CutSearchField(prompt: "Search friends", text: $query)
                     .padding(.vertical, 12)
@@ -279,7 +284,10 @@ struct CutFriendsListView: View {
         }
         .cutPeopleList()
         .scrollDismissesKeyboard(.interactively)
-        .refreshable { await actions.refresh() }
+        .refreshable {
+            let refresh = Task { await actions.refresh() }
+            await refresh.value
+        }
     }
 }
 
@@ -292,7 +300,7 @@ struct CutUserSearchView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0) {
                 CutPeopleTitle("Find friends")
                 CutSearchField(prompt: "Search by username", text: $query, submitLabel: .search)
                     .padding(.vertical, 12)
@@ -343,7 +351,7 @@ struct CutUserSearchView: View {
 
 /// The one line a list shows in place of rows (empty or failed), with an optional button.
 /// The screen's title already carries the heading, so no second hero.
-struct CutPeopleMessage: View {
+private struct CutPeopleMessage: View {
     let line: String
     var button: String?
     var action: () -> Void = {}
@@ -365,7 +373,7 @@ struct CutPeopleMessage: View {
 }
 
 /// The condensed title a pushed list shows instead of a nav bar title.
-struct CutPeopleTitle: View {
+private struct CutPeopleTitle: View {
     private let title: String
 
     init(_ title: String) {
@@ -373,7 +381,9 @@ struct CutPeopleTitle: View {
     }
 
     var body: some View {
-        CutHeroText(CutHeroText.balancedLines(title), hero: .m, minimumScaleFactor: 0.5)
+        Text(title.uppercased())
+            .font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2))
+            .fixedSize(horizontal: false, vertical: true)
             .foregroundStyle(DS.Cut.Colors.textPrimary)
             .accessibilityAddTraits(.isHeader)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -383,47 +393,62 @@ struct CutPeopleTitle: View {
 
 /// A person on the surface: avatar and name open the profile; the trailing slot holds the
 /// row's actions or a chevron. Draws its own bottom hairline.
-struct CutPersonRowView<Trailing: View>: View {
+private struct CutPersonRowView<Trailing: View>: View {
     let row: CutSocialPersonRow
     let open: (UUID) -> Void
+    var hasActions = false
     @ViewBuilder var trailing: () -> Trailing
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                Button { open(row.profileId) } label: {
-                    HStack(spacing: 14) {
-                        CutSocialAvatar(initials: row.initials, url: row.avatarURL, size: 44)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(row.name)
-                                .cutFont(.title)
-                                .foregroundStyle(DS.Cut.Colors.textPrimary)
-                                .lineLimit(2)
-                            if let line = row.line {
-                                Text(line)
-                                    .cutFont(.secondary)
-                                    .foregroundStyle(DS.Cut.Colors.textSecondary)
-                                    .lineLimit(2)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if hasActions && dynamicTypeSize >= .xxxLarge {
+                    VStack(alignment: .leading, spacing: 12) {
+                        personButton
+                        trailing()
                     }
-                    .contentShape(Rectangle())
+                } else {
+                    HStack(spacing: 14) {
+                        personButton
+                        trailing().fixedSize(horizontal: true, vertical: false)
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityElement(children: .combine)
-                .accessibilityHint(Text("Opens profile"))
-                trailing()
             }
             .padding(.vertical, 10)
             .frame(minHeight: 64)
             CutHairline()
         }
     }
+
+    private var personButton: some View {
+        Button { open(row.profileId) } label: {
+            HStack(spacing: 14) {
+                CutSocialAvatar(initials: row.initials, url: row.avatarURL, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.name).cutFont(.title).foregroundStyle(DS.Cut.Colors.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let line = row.line {
+                        Text(line).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let bio = row.bio, !bio.isEmpty {
+                        Text(bio).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text("Opens profile"))
+    }
 }
 
 /// The trailing chevron on a row that opens something.
-struct CutRowChevron: View {
+private struct CutRowChevron: View {
     var body: some View {
         Image(systemName: "chevron.right")
             .font(.system(size: 15, weight: .semibold))
@@ -433,7 +458,7 @@ struct CutRowChevron: View {
 }
 
 /// A search field on the surface: an outlined capsule with a clear button.
-struct CutSearchField: View {
+private struct CutSearchField: View {
     let prompt: String
     @Binding var text: String
     var submitLabel: SubmitLabel = .done
@@ -444,7 +469,7 @@ struct CutSearchField: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(DS.Cut.Colors.textSecondary)
                 .accessibilityHidden(true)
-            TextField(prompt, text: $text)
+            TextField(prompt, text: $text, prompt: Text(prompt).foregroundStyle(DS.Cut.Colors.textSecondary))
                 .cutFont(.body)
                 .foregroundStyle(DS.Cut.Colors.textPrimary)
                 .tint(DS.Cut.Colors.lime)
@@ -469,7 +494,7 @@ struct CutSearchField: View {
 }
 
 /// An error over content that is already showing: the message, Retry and Dismiss.
-struct CutPeopleErrorRow: View {
+private struct CutPeopleErrorRow: View {
     let message: String
     var retry: (() -> Void)?
     let dismiss: () -> Void
@@ -496,7 +521,7 @@ struct CutPeopleErrorRow: View {
 }
 
 /// Quiet placeholder for a person row while a list loads.
-struct CutPeopleSkeletonRow: View {
+private struct CutPeopleSkeletonRow: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
@@ -517,7 +542,7 @@ struct CutPeopleSkeletonRow: View {
 
 extension View {
     /// A List row on the surface: gutter insets, no system separator or background.
-    func cutListRow() -> some View {
+    fileprivate func cutListRow() -> some View {
         self
             .listRowInsets(EdgeInsets(top: 0, leading: DS.Cut.Metrics.gutter, bottom: 0, trailing: DS.Cut.Metrics.gutter))
             .listRowSeparator(.hidden)
@@ -525,7 +550,7 @@ extension View {
     }
 
     /// A plain List on the black surface, clear of the tab bar.
-    func cutPeopleList() -> some View {
+    fileprivate func cutPeopleList() -> some View {
         self
             .listStyle(.plain)
             .scrollContentBackground(.hidden)

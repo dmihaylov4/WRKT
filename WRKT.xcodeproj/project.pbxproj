@@ -453,6 +453,9 @@
 		C17CA7000000000000000104 /* CutSocialPeopleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA7000000000000000204 /* CutSocialPeopleModel.swift */; };
 		C17CA7000000000000000105 /* CutSocialPeopleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA7000000000000000205 /* CutSocialPeopleView.swift */; };
 		C17CA7000000000000000106 /* CutSocialPeopleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA7000000000000000206 /* CutSocialPeopleHost.swift */; };
+		C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000201 /* CutLikesListModel.swift */; };
+		C17CAB000000000000000102 /* CutLikesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000202 /* CutLikesListView.swift */; };
+		C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000203 /* CutLikesListHost.swift */; };
 		C17CA5000000000000000101 /* CutCardioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000201 /* CutCardioModel.swift */; };
 		C17CA5000000000000000102 /* CutCardioView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000202 /* CutCardioView.swift */; };
 		C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA5000000000000000203 /* CutCardioDetailView.swift */; };
@@ -977,6 +980,9 @@
 		C17CA7000000000000000204 /* CutSocialPeopleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialPeopleModel.swift; sourceTree = "<group>"; };
 		C17CA7000000000000000205 /* CutSocialPeopleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialPeopleView.swift; sourceTree = "<group>"; };
 		C17CA7000000000000000206 /* CutSocialPeopleHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialPeopleHost.swift; sourceTree = "<group>"; };
+		C17CAB000000000000000201 /* CutLikesListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListModel.swift; sourceTree = "<group>"; };
+		C17CAB000000000000000202 /* CutLikesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListView.swift; sourceTree = "<group>"; };
+		C17CAB000000000000000203 /* CutLikesListHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListHost.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000201 /* CutCardioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioModel.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000202 /* CutCardioView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioView.swift; sourceTree = "<group>"; };
 		C17CA5000000000000000203 /* CutCardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCardioDetailView.swift; sourceTree = "<group>"; };
@@ -2455,6 +2461,9 @@
 				C17CA7000000000000000204 /* CutSocialPeopleModel.swift */,
 				C17CA7000000000000000205 /* CutSocialPeopleView.swift */,
 				C17CA7000000000000000206 /* CutSocialPeopleHost.swift */,
+				C17CAB000000000000000201 /* CutLikesListModel.swift */,
+				C17CAB000000000000000202 /* CutLikesListView.swift */,
+				C17CAB000000000000000203 /* CutLikesListHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2842,6 +2851,9 @@
 				C17CA7000000000000000104 /* CutSocialPeopleModel.swift in Sources */,
 				C17CA7000000000000000105 /* CutSocialPeopleView.swift in Sources */,
 				C17CA7000000000000000106 /* CutSocialPeopleHost.swift in Sources */,
+				C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */,
+				C17CAB000000000000000102 /* CutLikesListView.swift in Sources */,
+				C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */,
 				C17CA5000000000000000101 /* CutCardioModel.swift in Sources */,
 				C17CA5000000000000000102 /* CutCardioView.swift in Sources */,
 				C17CA5000000000000000103 /* CutCardioDetailView.swift in Sources */,

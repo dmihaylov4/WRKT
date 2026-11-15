@@ -14,6 +14,7 @@ struct CutPostDetailHost: View {
     let post: PostWithAuthor
 
     @Environment(\.dependencies) private var deps
+    @Environment(\.dismiss) private var dismiss
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
 
     @State private var viewModel: PostDetailViewModel?
@@ -31,7 +32,7 @@ struct CutPostDetailHost: View {
                     actions: actions(viewModel)
                 ) {
                     // The poster's photos and generated maps, as on the feed; the detail never builds a route.
-                    CutSocialPostMedia(post: viewModel.post, currentUserId: currentUserId, allowsBackfill: false) { false }
+                    CutSocialPostMedia(post: viewModel.post, currentUserId: currentUserId, allowsBackfill: false, mapsOpenFullscreen: true) { false }
                 }
             } else {
                 CutPostLoaderStateView(state: .loading)
@@ -77,7 +78,9 @@ struct CutPostDetailHost: View {
                 if let user = vm.mentionSuggestions.first(where: { $0.id == id }) { vm.insertMention(user) }
             },
             send: { await vm.postComment() },
-            dismissError: { vm.error = nil }
+            dismissError: { vm.error = nil },
+            feedback: { Haptics.light() },
+            back: { dismiss() }
         )
     }
 
@@ -88,6 +91,8 @@ struct CutPostDetailHost: View {
         let item = vm.post
         return CutPostDetailFacts(
             post: CutSocialFeedHost.facts(for: item, currentUserId: currentUserId),
+            battleDetail: item.post.battleStats.map { "\($0.battleType.displayName), \($0.durationDays)-day battle, ended \($0.endDate.formatted(date: .abbreviated, time: .omitted))" },
+            zoneMethod: HRZoneCalculator.shared.methodDisplayName,
             workouts: item.post.allWorkouts.map(workoutFacts),
             currentUserId: currentUserId,
             canRefreshCardio: vm.canRefreshCardioData,
@@ -121,7 +126,8 @@ struct CutPostDetailHost: View {
                     },
                     volumeKg: entry.sets.reduce(0.0) { $0 + Double($1.reps) * $1.weight },
                     workSeconds: entry.totalDuration > 0 ? entry.totalWorkTime : 0,
-                    restSeconds: entry.totalDuration > 0 ? entry.totalRestTime : 0
+                    restSeconds: entry.totalDuration > 0 ? entry.totalRestTime : 0,
+                    totalReps: entry.sets.reduce(0) { $0 + $1.reps }
                 )
             },
             averageHeartRate: workout.matchedHealthKitHeartRate,
