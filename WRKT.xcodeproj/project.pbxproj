@@ -123,6 +123,9 @@
 		C17CA900000000000000010D /* CutExerciseTimerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA900000000000000020D /* CutExerciseTimerModel.swift */; };
 		C17CA900000000000000010E /* CutExerciseTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA900000000000000020E /* CutExerciseTimerView.swift */; };
 		C17CA900000000000000010F /* CutExerciseTimerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA900000000000000020F /* CutExerciseTimerHost.swift */; };
+		C17CA9000000000000000110 /* CutCreateExerciseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000210 /* CutCreateExerciseModel.swift */; };
+		C17CA9000000000000000111 /* CutCreateExerciseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000211 /* CutCreateExerciseView.swift */; };
+		C17CA9000000000000000112 /* CutCreateExerciseHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA9000000000000000212 /* CutCreateExerciseHost.swift */; };
 		2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */; };
 		2E7461C22E941BB000A71C35 /* CurrentWorkoutBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */; };
 		2E7461C82E941FBA00A71C35 /* InteractiveRouteMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */; };
@@ -637,6 +640,9 @@
 		C17CA900000000000000020D /* CutExerciseTimerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseTimerModel.swift; sourceTree = "<group>"; };
 		C17CA900000000000000020E /* CutExerciseTimerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseTimerView.swift; sourceTree = "<group>"; };
 		C17CA900000000000000020F /* CutExerciseTimerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseTimerHost.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000210 /* CutCreateExerciseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCreateExerciseModel.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000211 /* CutCreateExerciseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCreateExerciseView.swift; sourceTree = "<group>"; };
+		C17CA9000000000000000212 /* CutCreateExerciseHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCreateExerciseHost.swift; sourceTree = "<group>"; };
 		2E7461BF2E941B4A00A71C35 /* BodyBrowse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyBrowse.swift; sourceTree = "<group>"; };
 		2E7461C12E941BB000A71C35 /* CurrentWorkoutBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentWorkoutBar.swift; sourceTree = "<group>"; };
 		2E7461C72E941FB600A71C35 /* InteractiveRouteMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveRouteMap.swift; sourceTree = "<group>"; };
@@ -1253,6 +1259,9 @@
 				C17CA900000000000000020D /* CutExerciseTimerModel.swift */,
 				C17CA900000000000000020E /* CutExerciseTimerView.swift */,
 				C17CA900000000000000020F /* CutExerciseTimerHost.swift */,
+				C17CA9000000000000000210 /* CutCreateExerciseModel.swift */,
+				C17CA9000000000000000211 /* CutCreateExerciseView.swift */,
+				C17CA9000000000000000212 /* CutCreateExerciseHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3047,6 +3056,9 @@
 				C17CA900000000000000010D /* CutExerciseTimerModel.swift in Sources */,
 				C17CA900000000000000010E /* CutExerciseTimerView.swift in Sources */,
 				C17CA900000000000000010F /* CutExerciseTimerHost.swift in Sources */,
+				C17CA9000000000000000110 /* CutCreateExerciseModel.swift in Sources */,
+				C17CA9000000000000000111 /* CutCreateExerciseView.swift in Sources */,
+				C17CA9000000000000000112 /* CutCreateExerciseHost.swift in Sources */,
 				2E7461C02E941B4E00A71C35 /* BodyBrowse.swift in Sources */,
 				2E46E7AB2F4C687300F57EE7 /* KeychainAuthStorage.swift in Sources */,
 				2EC201D52EEF22FD00D6BAEF /* SocialView.swift in Sources */,

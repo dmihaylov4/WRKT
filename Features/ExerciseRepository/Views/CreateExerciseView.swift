@@ -56,6 +56,14 @@ struct CreateExerciseView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutCreateExerciseHost(preselectedMuscle: preselectedMuscle, editingExercise: editingExercise)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             Form {
                 Section {
