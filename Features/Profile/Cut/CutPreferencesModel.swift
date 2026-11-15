@@ -28,8 +28,8 @@ struct CutPreferencesFacts {
         var equipment: String?
     }
 
-    var currentYear: Int
-    var birthYear: Int?
+    /// The age the zones use (AgeSetting); nil when none is saved.
+    var age: Int?
     var bodyweightKg: Double = 70
     /// Nil when the stored unit is not one the app knows (the legacy fallback prints kg).
     var unit: WeightUnit? = .kg
@@ -62,9 +62,8 @@ struct CutPreferencesModel: Equatable {
     }
 
     var title = "Preferences"
+    /// Always editable: a saved age still ages by itself each year.
     var age: String
-    /// The legacy rule: once a birth year is saved, age is read-only and ages by itself.
-    var ageIsEditable: Bool
     var bodyweight: String
     var profileFooter = CutPreferencesLogic.profileFooter
     var incrementOptions: [CutSettingsOption<Double>]
@@ -100,8 +99,7 @@ enum CutPreferencesLogic {
 
     static func model(_ facts: CutPreferencesFacts) -> CutPreferencesModel {
         CutPreferencesModel(
-            age: ageLine(birthYear: facts.birthYear, currentYear: facts.currentYear),
-            ageIsEditable: facts.birthYear == nil,
+            age: AgeSetting.line(facts.age),
             bodyweight: bodyweightLine(kg: facts.bodyweightKg, unit: facts.unit),
             incrementOptions: incrementOptions(unit: facts.unit ?? .kg),
             unitOptions: unitOptions,
@@ -126,45 +124,8 @@ enum CutPreferencesLogic {
 
     // MARK: Profile
 
-    static let ageRange = 10...100
-    /// The wheel's starting value when no birth year is saved.
-    static let defaultAge = 30
-
-    static func ageLine(birthYear: Int?, currentYear: Int) -> String {
-        guard let birthYear else { return "Not set" }
-        return "\(currentYear - birthYear) years"
-    }
-
-    static func age(birthYear: Int?, currentYear: Int) -> Int {
-        guard let birthYear else { return defaultAge }
-        return currentYear - birthYear
-    }
-
-    static func birthYear(age: Int, currentYear: Int) -> Int {
-        currentYear - age
-    }
-
     static func bodyweightLine(kg: Double, unit: WeightUnit?) -> String {
-        unit.map { $0.format(kg) } ?? String(format: "%.1f kg", kg)
-    }
-
-    // MARK: Bodyweight wheel (kilograms, as the legacy sheet)
-
-    static let wholeKgRange = 30...200
-    static let tenthsRange = 0...9
-
-    /// The whole kilograms the wheel shows. Rounds to the tenth first, so 70.3 stored as
-    /// 70.29999 shows 70 and 3 (the legacy split truncated it to 70 and 2).
-    static func wholeKg(_ weight: Double) -> Int {
-        Int((weight * 10).rounded()) / 10
-    }
-
-    static func tenths(_ weight: Double) -> Int {
-        Int((weight * 10).rounded()) % 10
-    }
-
-    static func weight(wholeKg: Int, tenths: Int) -> Double {
-        Double(wholeKg) + Double(tenths) / 10.0
+        BodyweightScale.line(kg: kg, unit: unit)
     }
 
     // MARK: Workout
@@ -266,26 +227,9 @@ enum CutPreferencesLogic {
     static let resetAllMessage = "This will permanently delete: all workouts, stats, XP, level, PR dex, favorites, and custom timers. Only runs/cardio from HealthKit will be preserved. This cannot be undone."
     static let resetTimersMessage = "All custom rest timers for individual exercises will be reset to defaults."
 
-    // MARK: CSV export (byte for byte the legacy file)
+    // MARK: CSV export (the file itself is WorkoutCSVExport)
 
     static func csvFileName(date: Date) -> String {
         "WRKT_Workouts_\(date.formatted(date: .numeric, time: .omitted).replacingOccurrences(of: "/", with: "-"))"
-    }
-
-    static func csv(_ workouts: [CompletedWorkout], timeZone: TimeZone = .current) -> String {
-        var csv = "Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes\n"
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = timeZone
-        for workout in workouts.sorted(by: { $0.date < $1.date }) {
-            let dateStr = formatter.string(from: workout.date)
-            for entry in workout.entries {
-                for (index, set) in entry.sets.enumerated() {
-                    let completed = set.isCompleted ? "\u{2713}" : ""
-                    csv += "\"\(dateStr)\",\"\(entry.exerciseName)\",\(index + 1),\"\(set.tag.label)\",\(set.reps),\(set.weight),\"\(completed)\"\n"
-                }
-            }
-        }
-        return csv
     }
 }

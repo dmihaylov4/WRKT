@@ -52,30 +52,36 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var icloud = ConnectionProvider.icloud()
 
     private weak var healthKitManager: HealthKitManager?
+    private var healthSubscription: AnyCancellable?
+    /// The manager's state as last published; the Apple Health status is derived from it.
+    private var managerFacts: ConnectionProvider.HealthFacts?
+    /// Only the page knows these two: its own authorization attempt failed, or its own
+    /// "Sync now" is still running (the exercise time half does not publish isSyncing).
+    private var authorizationFailed = false
+    private var pageSyncRunning = false
 
     enum Kind { case health, strava, icloud }
 
+    /// Follows the manager: a sync started, finished or failed anywhere in the app updates
+    /// the status, not only this page's own actions.
     func setHealthKitManager(_ manager: HealthKitManager) {
-        self.healthKitManager = manager
-        // Sync initial state
-        updateHealthProviderState()
+        guard healthKitManager !== manager || healthSubscription == nil else { return }
+        healthKitManager = manager
+        healthSubscription = Publishers.CombineLatest4(
+            manager.$connectionState, manager.$isSyncing, manager.$lastSyncDate, manager.$syncError.map { $0 != nil }
+        )
+        .sink { [weak self] state, isSyncing, lastSync, syncFailed in
+            self?.managerFacts = .init(state: state, isSyncing: isSyncing, lastSync: lastSync, syncFailed: syncFailed)
+            self?.updateHealthProviderState()
+        }
     }
 
     private func updateHealthProviderState() {
-        guard let hkm = healthKitManager else { return }
-
-        let status: ConnectionProvider.Status
-        switch hkm.connectionState {
-        case .connected:
-            status = .connected(lastSync: hkm.lastSyncDate)
-        case .disconnected, .limited:
-            status = .notConnected
-        }
-
+        guard let managerFacts else { return }
         health = ConnectionProvider(
             name: "Apple Health",
             icon: "heart.fill",
-            status: status,
+            status: .health(managerFacts, pageSyncRunning: pageSyncRunning, authorizationFailed: authorizationFailed),
             storageKey: "conn_health"
         )
     }
@@ -87,10 +93,11 @@ final class ConnectionsViewModel: ObservableObject {
             do {
                 try await hkm.requestAuthorization()
                 await hkm.setupBackgroundObservers()
-                updateHealthProviderState()
+                authorizationFailed = false
             } catch {
-                health.status = .error("Authorization failed")
+                authorizationFailed = true
             }
+            updateHealthProviderState()
         default:
             await mutate(kind) { await $0.connect() }
         }
@@ -100,6 +107,7 @@ final class ConnectionsViewModel: ObservableObject {
         switch kind {
         case .health:
             guard let hkm = healthKitManager else { return }
+            authorizationFailed = false
             hkm.connectionState = .disconnected
             hkm.stopBackgroundObservers()
             updateHealthProviderState()
@@ -112,9 +120,11 @@ final class ConnectionsViewModel: ObservableObject {
         switch kind {
         case .health:
             guard let hkm = healthKitManager else { return }
-            health.status = .syncing
+            pageSyncRunning = true
+            updateHealthProviderState()
             await hkm.syncWorkoutsIncremental()
             await hkm.syncExerciseTimeIncremental()
+            pageSyncRunning = false
             updateHealthProviderState()
         default:
             await mutate(kind) { await $0.sync() }
@@ -139,17 +149,38 @@ struct ConnectionProvider: Identifiable {
         case notConnected
         case connected(lastSync: Date?)
         case syncing
+        /// Connected, but the last sync anywhere in the app failed.
+        case syncFailed
         case error(String)
 
         static func == (lhs: Status, rhs: Status) -> Bool {
             switch (lhs, rhs) {
             case (.notConnected, .notConnected): return true
             case (.connected(let a), .connected(let b)): return a == b
+            case (.syncFailed, .syncFailed): return true
             case (.syncing, .syncing): return true
             case (.error(let a), .error(let b)): return a == b
             default: return false
             }
         }
+
+        /// The Apple Health status from the manager's state. An authorization failure on the
+        /// page wins; otherwise not connected, syncing, a failed last sync, or connected.
+        static func health(_ facts: HealthFacts, pageSyncRunning: Bool = false, authorizationFailed: Bool = false) -> Status {
+            if authorizationFailed { return .error("Authorization failed") }
+            guard facts.state == .connected else { return .notConnected }
+            if facts.isSyncing || pageSyncRunning { return .syncing }
+            if facts.syncFailed { return .syncFailed }
+            return .connected(lastSync: facts.lastSync)
+        }
+    }
+
+    /// What HealthKitManager publishes that the Apple Health status depends on.
+    struct HealthFacts: Equatable {
+        var state: HealthConnectionState
+        var isSyncing: Bool
+        var lastSync: Date?
+        var syncFailed: Bool
     }
 
     let id = UUID()
@@ -230,6 +261,8 @@ private struct ConnectionRow: View {
             }
         case .syncing:
             return "Syncing…"
+        case .syncFailed:
+            return "Connected • Last sync failed"
         case .error(let msg):
             return "Error • \(msg)"
         }
@@ -254,7 +287,7 @@ private struct ConnectionRow: View {
                 Button("Connect", action: onConnect)
                     .buttonStyle(.borderedProminent)
 
-            case .connected:
+            case .connected, .syncFailed:
                 Menu {
                     Button("Sync now", action: onSync)
                     Button("Disconnect", role: .destructive, action: onDisconnect)

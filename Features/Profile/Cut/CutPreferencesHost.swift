@@ -4,7 +4,8 @@
 //
 //  PreferencesView's state and flows behind the Cut page, step for step: the same AppStorage
 //  keys, rest timer preferences, heart rate zones, custom exercise editor and delete, profile
-//  saves (age through the auth service and the zone calculator, bodyweight in AppStorage),
+//  saves (age through AgeSetting: the zone calculator, plus the profile when signed in;
+//  bodyweight in AppStorage),
 //  social auto-post saves, the smart nudge permission flow, the CSV file exporter, and the four
 //  confirmation alerts with their resets. The pure rules come from CutPreferencesLogic.
 //
@@ -31,6 +32,7 @@ struct CutPreferencesHost: View {
     @State private var showFileExporter = false
     @State private var showAgePicker = false
     @State private var showWeightPicker = false
+    @State private var showAutoPostSaveError = false
 
     @Query private var goals: [WeeklyGoal]
     @Query private var plannedWorkouts: [PlannedWorkout]
@@ -45,13 +47,10 @@ struct CutPreferencesHost: View {
     @EnvironmentObject private var repo: ExerciseRepository
     @State private var editingExercise: Exercise?
 
-    private var currentYear: Int { Calendar.current.component(.year, from: Date()) }
-
     private var model: CutPreferencesModel {
         let info = Bundle.main.infoDictionary
         return CutPreferencesLogic.model(CutPreferencesFacts(
-            currentYear: currentYear,
-            birthYear: authService.currentUser?.profile?.birthYear,
+            age: calculator.userAge,
             bodyweightKg: userBodyweightKg,
             unit: WeightUnit(rawValue: weightUnitRaw),
             restTimerEnabled: timerPrefs.isEnabled,
@@ -66,7 +65,7 @@ struct CutPreferencesHost: View {
                 CutPreferencesFacts.CustomExercise(id: $0.id, name: $0.name, primaryMuscle: $0.primaryMuscles.first,
                                                    mechanic: $0.mechanic, equipment: $0.equipment)
             },
-            isSignedIn: SupabaseAuthService.shared.currentUser != nil,
+            isSignedIn: authService.currentUser != nil,
             smartNudgesEnabled: smartNudgesEnabled,
             notificationsAuthorized: notificationStatus == .authorized,
             hasWeeklyGoal: goals.first?.isSet == true,
@@ -76,8 +75,7 @@ struct CutPreferencesHost: View {
     }
 
     private var controls: CutPreferencesControls {
-        let user = SupabaseAuthService.shared.currentUser
-        return CutPreferencesControls(
+        CutPreferencesControls(
             haptics: $hapticsEnabled,
             weightUnit: $weightUnitRaw,
             weightStep: $weightStepKg,
@@ -85,19 +83,23 @@ struct CutPreferencesHost: View {
             autoAddSet: $autoAddSetOnRestTimer,
             compoundSeconds: $timerPrefs.defaultCompoundSeconds,
             isolationSeconds: $timerPrefs.defaultIsolationSeconds,
-            autoPostPRs: Binding(
-                get: { user?.profile?.autoPostPRs ?? true },
-                set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue) } }
-            ),
-            autoPostRuns: Binding(
-                get: { user?.profile?.autoPostCardio ?? true },
-                set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostCardio: newValue) } }
-            ),
-            autoPostWatch: Binding(
-                get: { user?.profile?.autoPostWatchWorkouts ?? false },
-                set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostWatchWorkouts: newValue) } }
-            ),
+            autoPostPRs: autoPostBinding(.prs),
+            autoPostRuns: autoPostBinding(.runs),
+            autoPostWatch: autoPostBinding(.watchWorkouts),
             smartNudges: $smartNudgesEnabled
+        )
+    }
+
+    /// Live from the auth service; a toggle updates at once and rolls back with an alert if the
+    /// save fails (AutoPostSetting).
+    private func autoPostBinding(_ setting: AutoPostSetting) -> Binding<Bool> {
+        Binding(
+            get: { setting.value(in: authService.currentUser?.profile) },
+            set: { newValue in
+                Task {
+                    do { try await setting.set(newValue, auth: authService) } catch { showAutoPostSaveError = true }
+                }
+            }
         )
     }
 
@@ -160,6 +162,11 @@ struct CutPreferencesHost: View {
             }
             csvDocument = nil
         }
+        .alert(AutoPostSetting.saveFailedTitle, isPresented: $showAutoPostSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(AutoPostSetting.saveFailedMessage)
+        }
         .sheet(item: $editingExercise) { exercise in
             CreateExerciseView(
                 preselectedMuscle: exercise.primaryMuscles.first ?? "Unknown",
@@ -169,19 +176,12 @@ struct CutPreferencesHost: View {
             .environmentObject(repo)
         }
         .sheet(isPresented: $showAgePicker) {
-            CutAgePickerView(age: Binding(
-                get: { CutPreferencesLogic.age(birthYear: authService.currentUser?.profile?.birthYear, currentYear: currentYear) },
-                set: { newAge in
-                    HRZoneCalculator.shared.userAge = newAge
-                    let birthYear = CutPreferencesLogic.birthYear(age: newAge, currentYear: currentYear)
-                    Task {
-                        try? await authService.updateProfile(birthYear: birthYear)
-                    }
-                }
-            ), done: { showAgePicker = false })
+            CutAgePickerView(saved: calculator.userAge) { AgeSetting.commit($0, auth: authService) }
         }
         .sheet(isPresented: $showWeightPicker) {
-            CutWeightPickerView(weight: $userBodyweightKg, done: { showWeightPicker = false })
+            CutWeightPickerView(kg: userBodyweightKg, unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg) {
+                userBodyweightKg = $0
+            }
         }
         .task {
             await NotificationManager.shared.checkAuthorizationStatus()
@@ -238,7 +238,7 @@ struct CutPreferencesHost: View {
     }
 
     private func exportWorkoutsToCSV() {
-        csvDocument = CSVDocument(csv: CutPreferencesLogic.csv(store.completedWorkouts))
+        csvDocument = CSVDocument(csv: WorkoutCSVExport.csv(store.completedWorkouts))
         showFileExporter = true
     }
 

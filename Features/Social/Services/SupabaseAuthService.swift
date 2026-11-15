@@ -99,8 +99,8 @@ final class SupabaseAuthService: ObservableObject {
 
             // One-time sync: if local age is set but profile has no birth_year, push it to Supabase
             if networkMonitor.isConnected, profile.birthYear == nil {
-                let localAge = UserDefaults.standard.integer(forKey: "user_age")
-                if localAge > 0 {
+                // The age set on this device while signed out or in local mode (AgeSetting).
+                if let localAge = HRZoneCalculator.shared.userAge {
                     let birthYear = Calendar.current.component(.year, from: Date()) - localAge
                     Task {
                         try? await self.updateProfile(birthYear: birthYear)

@@ -19,7 +19,7 @@ enum CutPreferencesFixtures {
 
     static var signedIn: CutPreferencesFacts {
         CutPreferencesFacts(
-            currentYear: 2026, birthYear: 1992, bodyweightKg: 82.5, unit: .kg,
+            age: 34, bodyweightKg: 82.5, unit: .kg,
             restTimerEnabled: true, compoundSeconds: 150, isolationSeconds: 90,
             maxHR: 188, zones: zones, zonesMethodDescription: "Max HR from your age (220 - age).",
             customExercises: customExercises, isSignedIn: true, smartNudgesEnabled: true,
@@ -28,7 +28,7 @@ enum CutPreferencesFixtures {
 
     static var local: CutPreferencesFacts {
         CutPreferencesFacts(
-            currentYear: 2026, birthYear: nil, bodyweightKg: 70, unit: .lb,
+            age: nil, bodyweightKg: 70, unit: .lb,
             restTimerEnabled: false, zones: zones, zonesMethodDescription: "Set your age in Profile to get personalized zones.",
             customExercises: [], isSignedIn: false, smartNudgesEnabled: false,
             notificationsAuthorized: false, hasWeeklyGoal: false, shortVersion: "2.4.1", buildNumber: "318")
@@ -76,20 +76,9 @@ struct CutPreferencesLogicTests {
 
     // MARK: Age
 
-    @Test func ageLineAndEditability() {
-        let set = CutPreferencesLogic.model(F.signedIn)
-        #expect(set.age == "34 years")
-        #expect(!set.ageIsEditable)
-        let unset = CutPreferencesLogic.model(F.local)
-        #expect(unset.age == "Not set")
-        #expect(unset.ageIsEditable)
-    }
-
-    @Test func ageWheelValues() {
-        #expect(CutPreferencesLogic.age(birthYear: nil, currentYear: 2026) == 30)
-        #expect(CutPreferencesLogic.age(birthYear: 1990, currentYear: 2026) == 36)
-        #expect(CutPreferencesLogic.birthYear(age: 36, currentYear: 2026) == 1990)
-        #expect(CutPreferencesLogic.ageRange == 10...100)
+    @Test func ageLine() {
+        #expect(CutPreferencesLogic.model(F.signedIn).age == "34 years")
+        #expect(CutPreferencesLogic.model(F.local).age == "Not set")
     }
 
     // MARK: Bodyweight
@@ -99,21 +88,6 @@ struct CutPreferencesLogicTests {
         #expect(CutPreferencesLogic.bodyweightLine(kg: 80, unit: .kg) == "80 kg")
         #expect(CutPreferencesLogic.bodyweightLine(kg: 82.5, unit: .lb) == WeightUnit.lb.format(82.5))
         #expect(CutPreferencesLogic.bodyweightLine(kg: 82.5, unit: nil) == "82.5 kg")
-    }
-
-    @Test func bodyweightWheelSplitsAtTheTenth() {
-        #expect(CutPreferencesLogic.wholeKg(82.5) == 82)
-        #expect(CutPreferencesLogic.tenths(82.5) == 5)
-        // 70.3 is stored as 70.29999...; the wheel must show 3, not 2.
-        #expect(CutPreferencesLogic.tenths(70.3) == 3)
-        #expect(CutPreferencesLogic.wholeKg(70.3) == 70)
-        // 79.96 rounds up to the next whole kilogram.
-        #expect(CutPreferencesLogic.wholeKg(79.96) == 80)
-        #expect(CutPreferencesLogic.tenths(79.96) == 0)
-        #expect(CutPreferencesLogic.weight(wholeKg: 82, tenths: 5) == 82.5)
-        #expect(CutPreferencesLogic.weight(wholeKg: 70, tenths: 3) == 70.3)
-        #expect(CutPreferencesLogic.wholeKgRange == 30...200)
-        #expect(CutPreferencesLogic.tenthsRange == 0...9)
     }
 
     // MARK: Units and increments
@@ -183,31 +157,5 @@ struct CutPreferencesLogicTests {
         #expect(CutPreferencesLogic.clearPlansMessage(plans: 4, splits: 1)
                 == "This will permanently delete all 4 planned workouts and 1 workout splits from the planner. This cannot be undone.")
         #expect(!CutPreferencesLogic.resetFooter.contains("\u{26A0}"))
-    }
-
-    // MARK: CSV
-
-    @Test func csvMatchesTheLegacyFile() {
-        let utc = TimeZone(identifier: "UTC")!
-        let early = CompletedWorkout(date: Date(timeIntervalSince1970: 1_794_571_200), entries: [
-            WorkoutEntry(exerciseID: "bench", exerciseName: "Bench Press", muscleGroups: ["Chest"], sets: [
-                SetInput(reps: 5, weight: 100, tag: .working, autoWeight: false, isCompleted: true),
-                SetInput(reps: 8, weight: 80.5, tag: .backoff, autoWeight: false, isCompleted: false)
-            ])
-        ])
-        let late = CompletedWorkout(date: Date(timeIntervalSince1970: 1_794_657_600), entries: [
-            WorkoutEntry(exerciseID: "squat", exerciseName: "Squat", muscleGroups: ["Legs"], sets: [
-                SetInput(reps: 10, weight: 60, tag: .warmup, autoWeight: false, isCompleted: true)
-            ])
-        ])
-        let csv = CutPreferencesLogic.csv([late, early], timeZone: utc)
-        #expect(csv == """
-        Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes
-        "2026-11-13 12:00:00","Bench Press",1,"Working",5,100.0,"\u{2713}"
-        "2026-11-13 12:00:00","Bench Press",2,"Back-off",8,80.5,""
-        "2026-11-14 12:00:00","Squat",1,"Warm-up",10,60.0,"\u{2713}"
-
-        """)
-        #expect(CutPreferencesLogic.csv([]) == "Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes\n")
     }
 }

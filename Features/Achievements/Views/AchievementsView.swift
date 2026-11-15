@@ -45,6 +45,15 @@ struct AchievementsView: View {
     private var unlocked:   [Achievement] { filtered.filter { $0.unlockedAt != nil } }
 
     var body: some View {
+        // The one Cut branch point: same query, search and filter.
+        if DS.Redesign.cutEnabled {
+            CutAchievementsHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 if filtered.isEmpty {

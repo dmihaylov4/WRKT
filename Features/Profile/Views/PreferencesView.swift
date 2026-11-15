@@ -34,6 +34,7 @@ struct PreferencesView: View {
     @State private var showFileExporter = false
     @State private var showAgePicker = false
     @State private var showWeightPicker = false
+    @State private var showAutoPostSaveError = false
 
     @Query private var goals: [WeeklyGoal]
     @Query private var plannedWorkouts: [PlannedWorkout]
@@ -43,6 +44,8 @@ struct PreferencesView: View {
 
     // Rest timer preferences
     @ObservedObject private var timerPrefs = RestTimerPreferences.shared
+    /// Holds the age the zones use, for every user (AgeSetting).
+    @ObservedObject private var zoneCalculator = HRZoneCalculator.shared
 
     // Custom exercises
     @EnvironmentObject private var customStore: CustomExerciseStore
@@ -134,6 +137,11 @@ struct PreferencesView: View {
             }
             csvDocument = nil
         }
+        .alert(AutoPostSetting.saveFailedTitle, isPresented: $showAutoPostSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(AutoPostSetting.saveFailedMessage)
+        }
         .sheet(item: $editingExercise) { exercise in
             CreateExerciseView(
                 preselectedMuscle: exercise.primaryMuscles.first ?? "Unknown",
@@ -143,26 +151,14 @@ struct PreferencesView: View {
             .environmentObject(repo)
         }
         .sheet(isPresented: $showAgePicker) {
-            AgePickerSheet(age: Binding(
-                get: {
-                    if let birthYear = authService.currentUser?.profile?.birthYear {
-                        return Calendar.current.component(.year, from: Date()) - birthYear
-                    }
-                    return 30
-                },
-                set: { newAge in
-                    HRZoneCalculator.shared.userAge = newAge
-                    let birthYear = Calendar.current.component(.year, from: Date()) - newAge
-                    Task {
-                        try? await authService.updateProfile(birthYear: birthYear)
-                    }
-                }
-            ))
-            .presentationDetents([.height(280)])
+            AgePickerSheet(saved: zoneCalculator.userAge) { AgeSetting.commit($0, auth: authService) }
+                .presentationDetents([.height(280)])
         }
         .sheet(isPresented: $showWeightPicker) {
-            WeightPickerSheet(weight: $userBodyweightKg)
-                .presentationDetents([.height(280)])
+            WeightPickerSheet(kg: userBodyweightKg, unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg) {
+                userBodyweightKg = $0
+            }
+            .presentationDetents([.height(280)])
         }
         .task {
             await NotificationManager.shared.checkAuthorizationStatus()
@@ -209,31 +205,22 @@ struct PreferencesView: View {
             title: "Profile",
             footer: "Age is used for heart rate zones (Max HR = 220 - age) and updates automatically each year. Bodyweight is used for bodyweight exercise volume."
         ) {
-            if let birthYear = authService.currentUser?.profile?.birthYear {
-                // Age is set — show read-only; recalculates automatically each year
+            // Stays editable once set; a saved age still ages by itself each year.
+            Button { showAgePicker = true } label: {
                 HStack {
                     Text("Age").foregroundStyle(.primary)
                     Spacer()
-                    Text("\(Calendar.current.component(.year, from: Date()) - birthYear) years")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button { showAgePicker = true } label: {
-                    HStack {
-                        Text("Age").foregroundStyle(.primary)
-                        Spacer()
-                        Text("Not set").foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .dsFont(.caption, weight: .semibold)
-                            .foregroundStyle(.tertiary)
-                    }
+                    Text(AgeSetting.line(zoneCalculator.userAge)).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .dsFont(.caption, weight: .semibold)
+                        .foregroundStyle(.tertiary)
                 }
             }
             Button { showWeightPicker = true } label: {
                 HStack {
                     Text("Bodyweight").foregroundStyle(.primary)
                     Spacer()
-                    Text(WeightUnit(rawValue: weightUnitRaw).map { $0.format(userBodyweightKg) } ?? String(format: "%.1f kg", userBodyweightKg)).foregroundStyle(.secondary)
+                    Text(BodyweightScale.line(kg: userBodyweightKg, unit: WeightUnit(rawValue: weightUnitRaw))).foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.tertiary)
@@ -352,15 +339,12 @@ struct PreferencesView: View {
 
     @ViewBuilder
     private var socialFeaturesSection: some View {
-        if let user = SupabaseAuthService.shared.currentUser {
+        if authService.currentUser != nil {
             preferencesCard(
                 title: "Social Features",
                 footer: "When enabled, workouts will be automatically posted to your social feed for friends to see."
             ) {
-                Toggle(isOn: Binding(
-                    get: { user.profile?.autoPostPRs ?? true },
-                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostPRs: newValue) } }
-                )) {
+                Toggle(isOn: autoPostBinding(.prs)) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto-post PRs").dsFont(.body)
@@ -369,10 +353,7 @@ struct PreferencesView: View {
                         }
                     } icon: { Image(systemName: "trophy.fill") }
                 }
-                Toggle(isOn: Binding(
-                    get: { user.profile?.autoPostCardio ?? true },
-                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostCardio: newValue) } }
-                )) {
+                Toggle(isOn: autoPostBinding(.runs)) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto-post runs").dsFont(.body)
@@ -381,10 +362,7 @@ struct PreferencesView: View {
                         }
                     } icon: { Image(systemName: "figure.run") }
                 }
-                Toggle(isOn: Binding(
-                    get: { user.profile?.autoPostWatchWorkouts ?? false },
-                    set: { newValue in Task { try? await SupabaseAuthService.shared.updateProfile(autoPostWatchWorkouts: newValue) } }
-                )) {
+                Toggle(isOn: autoPostBinding(.watchWorkouts)) {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Auto-post Watch workouts").dsFont(.body)
@@ -395,6 +373,19 @@ struct PreferencesView: View {
                 }
             }
         }
+    }
+
+    /// Live from the auth service; a toggle updates at once and rolls back with an alert if the
+    /// save fails (AutoPostSetting).
+    private func autoPostBinding(_ setting: AutoPostSetting) -> Binding<Bool> {
+        Binding(
+            get: { setting.value(in: authService.currentUser?.profile) },
+            set: { newValue in
+                Task {
+                    do { try await setting.set(newValue, auth: authService) } catch { showAutoPostSaveError = true }
+                }
+            }
+        )
     }
 
     private var notificationsSection: some View {
@@ -527,30 +518,8 @@ struct PreferencesView: View {
     }
 
     private func exportWorkoutsToCSV() {
-        let csv = generateCSV()
-        csvDocument = CSVDocument(csv: csv)
+        csvDocument = CSVDocument(csv: WorkoutCSVExport.csv(store.completedWorkouts))
         showFileExporter = true
-    }
-
-    private func generateCSV() -> String {
-        var csv = "Date,Exercise,Set Number,Tag,Reps,Weight (kg),Notes\n"
-
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-
-        for workout in store.completedWorkouts.sorted(by: { $0.date < $1.date }) {
-            let dateStr = dateFormatter.string(from: workout.date)
-
-            for entry in workout.entries {
-                for (index, set) in entry.sets.enumerated() {
-                    let tag = set.tag.label
-                    let completed = set.isCompleted ? "✓" : ""
-                    csv += "\"\(dateStr)\",\"\(entry.exerciseName)\",\(index + 1),\"\(tag)\",\(set.reps),\(set.weight),\"\(completed)\"\n"
-                }
-            }
-        }
-
-        return csv
     }
 
     private func resetAllData() {
@@ -878,23 +847,36 @@ private struct HeartRateZonesSection: View {
 
 // MARK: - Age Picker Sheet
 
+/// The wheel edits a draft; `onCommit` runs once when the sheet closes with a change (AgeDraft).
 private struct AgePickerSheet: View {
-    @Binding var age: Int
-    @Environment(\.dismiss) private var dismiss
+    let saved: Int?
+    let onCommit: (Int) -> Void
 
     var body: some View {
         if DS.Redesign.cutEnabled {
-            CutAgePickerView(age: $age, done: { dismiss() })
+            CutAgePickerView(saved: saved, onCommit: onCommit)
         } else {
-            legacyBody
+            LegacyAgeWheel(saved: saved, onCommit: onCommit)
         }
     }
+}
 
-    private var legacyBody: some View {
+private struct LegacyAgeWheel: View {
+    let onCommit: (Int) -> Void
+    @State private var draft: AgeDraft
+    @State private var confirmed = false
+    @Environment(\.dismiss) private var dismiss
+
+    init(saved: Int?, onCommit: @escaping (Int) -> Void) {
+        self.onCommit = onCommit
+        _draft = State(initialValue: AgeDraft(saved: saved))
+    }
+
+    var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Age", selection: $age) {
-                    ForEach(10...100, id: \.self) { year in
+                Picker("Age", selection: $draft.age) {
+                    ForEach(AgeDraft.range, id: \.self) { year in
                         Text("\(year) years").tag(year)
                     }
                 }
@@ -906,48 +888,54 @@ private struct AgePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
+                        confirmed = true
                         dismiss()
                     }
                 }
             }
+        }
+        .onDisappear {
+            if let age = draft.ageToCommit(confirmed: confirmed) { onCommit(age) }
         }
     }
 }
 
 // MARK: - Weight Picker Sheet
 
+/// The bodyweight wheels in the user's unit (BodyweightScale). The wheels edit a draft;
+/// `onCommit` gets the kilograms to store once, when the sheet closes with a change.
 private struct WeightPickerSheet: View {
-    @Binding var weight: Double
-    @Environment(\.dismiss) private var dismiss
-
-    // Split weight into whole and decimal parts for picker
-    private var wholeKg: Int {
-        Int(weight)
-    }
-
-    private var decimalKg: Int {
-        Int((weight - Double(wholeKg)) * 10)
-    }
+    let kg: Double
+    let unit: WeightUnit
+    let onCommit: (Double) -> Void
 
     var body: some View {
         if DS.Redesign.cutEnabled {
-            CutWeightPickerView(weight: $weight, done: { dismiss() })
+            CutWeightPickerView(kg: kg, unit: unit, onCommit: onCommit)
         } else {
-            legacyBody
+            LegacyWeightWheels(kg: kg, unit: unit, onCommit: onCommit)
         }
     }
+}
 
-    private var legacyBody: some View {
+private struct LegacyWeightWheels: View {
+    let onCommit: (Double) -> Void
+    @State private var draft: BodyweightDraft
+    @Environment(\.dismiss) private var dismiss
+
+    init(kg: Double, unit: WeightUnit, onCommit: @escaping (Double) -> Void) {
+        self.onCommit = onCommit
+        _draft = State(initialValue: BodyweightDraft(kg: kg, unit: unit))
+    }
+
+    var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    // Whole kg picker
-                    Picker("Kilograms", selection: Binding(
-                        get: { wholeKg },
-                        set: { weight = Double($0) + Double(decimalKg) / 10.0 }
-                    )) {
-                        ForEach(30...200, id: \.self) { kg in
-                            Text("\(kg)").tag(kg)
+                    // Whole units
+                    Picker(draft.unit == .kg ? "Kilograms" : "Pounds", selection: $draft.whole) {
+                        ForEach(BodyweightScale.wholeRange(draft.unit), id: \.self) { whole in
+                            Text("\(whole)").tag(whole)
                         }
                     }
                     .pickerStyle(.wheel)
@@ -957,19 +945,16 @@ private struct WeightPickerSheet: View {
                         .dsFont(.title2)
                         .foregroundStyle(.secondary)
 
-                    // Decimal picker
-                    Picker("Decimals", selection: Binding(
-                        get: { decimalKg },
-                        set: { weight = Double(wholeKg) + Double($0) / 10.0 }
-                    )) {
-                        ForEach(0...9, id: \.self) { decimal in
+                    // Tenths
+                    Picker("Decimals", selection: $draft.tenth) {
+                        ForEach(BodyweightScale.tenthsRange, id: \.self) { decimal in
                             Text("\(decimal)").tag(decimal)
                         }
                     }
                     .pickerStyle(.wheel)
                     .frame(width: 60)
 
-                    Text("kg")
+                    Text(draft.unit.rawValue)
                         .dsFont(.body)
                         .foregroundStyle(.secondary)
                         .padding(.trailing, 16)
@@ -985,6 +970,9 @@ private struct WeightPickerSheet: View {
                     }
                 }
             }
+        }
+        .onDisappear {
+            if let kg = draft.kgToCommit { onCommit(kg) }
         }
     }
 }
