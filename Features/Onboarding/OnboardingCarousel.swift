@@ -42,6 +42,14 @@ struct OnboardingCarouselView: View {
     ]
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutOnboardingHost(onComplete: onComplete)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ZStack {
             DS.Semantic.surface
                 .ignoresSafeArea()
