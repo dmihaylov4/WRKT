@@ -28,9 +28,16 @@ struct CutExerciseCaptureTests {
         }
         let all = browser(.init())
         try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: all) }, name: "browser-all")
-        let selected = browser(.init(muscle: "Chest"), region: .upperBody)
-        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: selected) }, name: "browser-muscle")
-        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: selected, filtersExpanded: true) }, name: "browser-filters")
+        let upper = browser(.init(), region: .upperBody)
+        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: upper) }, name: "browser-upper")
+        let selected = browser(.init(muscle: "Chest", movement: .push), region: .upperBody)
+        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: selected) }, name: "browser-upper-filtered")
+        let long = browser(.init(muscle: "Hamstrings", equipment: .pullupbar, movement: .hinge), region: .lowerBody)
+        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: long) }, name: "browser-long-choice")
+        let scoped = browser(.init(equipment: .dumbbell), scope: "Chest", region: .upperBody)
+        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: scoped) }, name: "browser-subregion")
+        let noMatch = browser(.init(muscle: "Chest", equipment: .kettlebell), region: .upperBody)
+        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: noMatch) }, name: "browser-filtered-no-results")
         let search = browser(.init(isSearching: true, query: "bench"))
         try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: search, searchText: "bench") }, name: "browser-search")
         let none = browser(.init(isSearching: true, query: "curl"), scope: "Chest")
@@ -39,7 +46,7 @@ struct CutExerciseCaptureTests {
         }, name: "browser-no-results")
         let empty = CutExerciseBrowserLogic.model(exercises: [], subregion: nil, muscleFilter: nil, filters: .init(), favorites: [])
         try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: empty) }, name: "browser-empty")
-        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: selected) }, name: "browser-muscle-ax", dynamicType: .accessibility3)
+        try await renderer.capture(NavigationStack { CutExerciseBrowserView(model: selected) }, name: "browser-ax", dynamicType: .accessibility5)
         try await renderer.capture(CutExerciseTutorialCapture(model: selected), name: "browser-tutorial")
         let picker = CutExercisePickerLogic.model(exercises: exercises, region: .all, query: "", favorites: ["bench"], displayedCount: 50)
         try await renderer.capture(NavigationStack { CutExercisePickerView(model: picker) }, name: "picker")
@@ -95,7 +102,7 @@ private struct CutExerciseTutorialCapture: View {
     @State private var frames = CutExerciseTutorialFrames()
     var body: some View {
         NavigationStack {
-            CutExerciseBrowserView(model: model, filtersExpanded: true,
+            CutExerciseBrowserView(model: model,
                 tutorial: frames.isReady ? CutExerciseTutorialLogic.step(0, frames: frames) : nil,
                 actions: .init(frame: { frames.set($1, for: $0) }))
         }
