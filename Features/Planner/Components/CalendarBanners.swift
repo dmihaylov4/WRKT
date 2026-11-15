@@ -197,20 +197,24 @@ struct PushPullBanner: View {
         )
     }
 
-    private var rollingRatio: Double? {
+    /// Pull over push across the last four weeks, as on the training balance screen.
+    private var rollingVolumes: (push: Double, pull: Double) {
         let recent = pushPull.suffix(4)
-        let totalPush = recent.reduce(0.0) { $0 + $1.pushVolume }
-        let totalPull = recent.reduce(0.0) { $0 + $1.pullVolume }
-        guard totalPush > 0 || totalPull > 0 else { return nil }
-        return totalPush > 0 ? totalPull / totalPush : 999.0
+        return (recent.reduce(0.0) { $0 + $1.pushVolume }, recent.reduce(0.0) { $0 + $1.pullVolume })
     }
 
+    /// Above 2 is pull-heavy, below 0.5 is push-heavy. With no push work there is no ratio to print.
     private var bannerMessage: String? {
-        guard let ratio = rollingRatio else { return nil }
+        let (push, pull) = rollingVolumes
+        guard push > 0 || pull > 0 else { return nil }
+        guard push > 0 else {
+            return "This week's plan is pull-heavy (no push work). Consider balancing with push work."
+        }
+        let ratio = pull / push
         if ratio > 2.0 {
-            return "This week's plan is push-heavy (ratio \(String(format: "%.1f", ratio))). Consider adding a row or pull variation."
-        } else if ratio < 0.5 {
             return "This week's plan is pull-heavy (ratio \(String(format: "%.1f", ratio))). Consider balancing with push work."
+        } else if ratio < 0.5 {
+            return "This week's plan is push-heavy (ratio \(String(format: "%.1f", ratio))). Consider adding a row or pull variation."
         }
         return nil
     }

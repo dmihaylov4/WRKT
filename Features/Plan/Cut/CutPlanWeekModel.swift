@@ -159,17 +159,21 @@ enum CutPlanWeekLogic {
 
     // MARK: Push and pull
 
-    /// The legacy warning: pull over push above 2 or below 0.5 over the last four weeks.
-    /// No push at all counts as a very high ratio.
+    /// Warns when pulling and pushing volume over the last four weeks are far apart. The ratio
+    /// is pull over push, as on the training balance screen: above 2 is pull-heavy, below 0.5
+    /// is push-heavy. With no push work at all there is no ratio to print.
     static func balanceMessage(push: Double, pull: Double) -> String? {
         guard push > 0 || pull > 0 else { return nil }
-        let ratio = push > 0 ? pull / push : 999.0
+        guard push > 0 else {
+            return "This week's plan is pull-heavy (no push work). Consider balancing with push work."
+        }
+        let ratio = pull / push
         let text = String(format: "%.1f", ratio)
         if ratio > 2.0 {
-            return "This week's plan is push-heavy (ratio \(text)). Consider adding a row or pull variation."
+            return "This week's plan is pull-heavy (ratio \(text)). Consider balancing with push work."
         }
         if ratio < 0.5 {
-            return "This week's plan is pull-heavy (ratio \(text)). Consider balancing with push work."
+            return "This week's plan is push-heavy (ratio \(text)). Consider adding a row or pull variation."
         }
         return nil
     }

@@ -131,11 +131,15 @@ struct CutPlanWeekLogicTests {
         #expect(CutPlanWeekLogic.balanceMessage(push: 0, pull: 0) == nil)
         #expect(CutPlanWeekLogic.balanceMessage(push: 1000, pull: 1000) == nil)
         #expect(CutPlanWeekLogic.balanceMessage(push: 1000, pull: 2000) == nil)
+        // The ratio is pull over push: more pulling than pushing is pull-heavy.
         #expect(CutPlanWeekLogic.balanceMessage(push: 1000, pull: 2500)
-                == "This week's plan is push-heavy (ratio 2.5). Consider adding a row or pull variation.")
+                == "This week's plan is pull-heavy (ratio 2.5). Consider balancing with push work.")
         #expect(CutPlanWeekLogic.balanceMessage(push: 1000, pull: 400)
-                == "This week's plan is pull-heavy (ratio 0.4). Consider balancing with push work.")
-        #expect(CutPlanWeekLogic.balanceMessage(push: 0, pull: 500)?.contains("ratio 999.0") == true)
+                == "This week's plan is push-heavy (ratio 0.4). Consider adding a row or pull variation.")
+        #expect(CutPlanWeekLogic.balanceMessage(push: 0, pull: 500)
+                == "This week's plan is pull-heavy (no push work). Consider balancing with push work.")
+        #expect(CutPlanWeekLogic.balanceMessage(push: 500, pull: 0)
+                == "This week's plan is push-heavy (ratio 0.0). Consider adding a row or pull variation.")
         #expect(F.model(F.input(push: 1000, pull: 300)).balanceMessage != nil)
     }
 }
