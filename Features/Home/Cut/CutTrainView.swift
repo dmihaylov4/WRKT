@@ -49,9 +49,11 @@ struct CutTrainView: View {
                             .padding(.top, model.weeklyGoal == nil ? 30 : 0)
                     }
                 }
-                .padding(.bottom, 24)
+                .padding(.bottom, 8)
             }
             .scrollIndicators(.hidden)
+            // A screen that fits stays put: it scrolls and bounces only when rows run past the tab bar.
+            .scrollBounceBehavior(.basedOnSize)
             // Only flips when the field's full-width part passes the status bar, not every frame.
             .onScrollGeometryChange(for: Bool.self) { geometry in
                 CutTrainLogic.fieldCoversStatusBar(
