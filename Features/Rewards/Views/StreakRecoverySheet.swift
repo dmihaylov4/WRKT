@@ -17,6 +17,16 @@ struct StreakRecoverySheet: View {
     var onChallengeFriend: () -> Void
 
     var body: some View {
+        // The one Cut branch point: same closures, each button closes the sheet first.
+        if DS.Redesign.cutEnabled {
+            CutStreakRecoveryHost(brokenStreak: brokenStreak, isPresented: $isPresented,
+                                  onJoinChallenge: onJoinChallenge, onChallengeFriend: onChallengeFriend)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         VStack(spacing: 0) {
             Capsule()
                 .fill(DS.Semantic.border)

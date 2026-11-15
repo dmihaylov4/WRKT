@@ -13,6 +13,15 @@ struct ConnectionsView: View {
     @EnvironmentObject var healthKit: HealthKitManager
 
     var body: some View {
+        // The one Cut branch point: same view model, authorization, sync and disconnect.
+        if DS.Redesign.cutEnabled {
+            CutConnectionsHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         List {
             Section {
                 ConnectionRow(

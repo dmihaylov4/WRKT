@@ -472,6 +472,24 @@
 		C17CA6000000000000000101 /* CutMeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000201 /* CutMeModel.swift */; };
 		C17CA6000000000000000102 /* CutMeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000202 /* CutMeView.swift */; };
 		C17CA6000000000000000103 /* CutMeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA6000000000000000203 /* CutMeHost.swift */; };
+		C17CAC000000000000000101 /* CutSettingsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000201 /* CutSettingsModel.swift */; };
+		C17CAC000000000000000102 /* CutSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000202 /* CutSettingsView.swift */; };
+		C17CAC000000000000000103 /* CutSettingsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000203 /* CutSettingsHost.swift */; };
+		C17CAC000000000000000104 /* CutPreferencesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000204 /* CutPreferencesModel.swift */; };
+		C17CAC000000000000000105 /* CutPreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000205 /* CutPreferencesView.swift */; };
+		C17CAC000000000000000106 /* CutPreferencesHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000206 /* CutPreferencesHost.swift */; };
+		C17CAC000000000000000107 /* CutConnectionsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000207 /* CutConnectionsModel.swift */; };
+		C17CAC000000000000000108 /* CutConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000208 /* CutConnectionsView.swift */; };
+		C17CAC000000000000000109 /* CutConnectionsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000209 /* CutConnectionsHost.swift */; };
+		C17CAC00000000000000010A /* CutDataPortabilityModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC00000000000000020A /* CutDataPortabilityModel.swift */; };
+		C17CAC00000000000000010B /* CutDataPortabilityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC00000000000000020B /* CutDataPortabilityView.swift */; };
+		C17CAC00000000000000010C /* CutDataPortabilityHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC00000000000000020C /* CutDataPortabilityHost.swift */; };
+		C17CAC00000000000000010D /* CutDiagnosticsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC00000000000000020D /* CutDiagnosticsModel.swift */; };
+		C17CAC00000000000000010E /* CutDiagnosticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC00000000000000020E /* CutDiagnosticsView.swift */; };
+		C17CAC00000000000000010F /* CutDiagnosticsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC00000000000000020F /* CutDiagnosticsHost.swift */; };
+		C17CAC000000000000000110 /* CutStreakRecoveryModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000210 /* CutStreakRecoveryModel.swift */; };
+		C17CAC000000000000000111 /* CutStreakRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000211 /* CutStreakRecoveryView.swift */; };
+		C17CAC000000000000000112 /* CutStreakRecoveryHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAC000000000000000212 /* CutStreakRecoveryHost.swift */; };
 		C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000201 /* CutYearReviewModel.swift */; };
 		C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000202 /* CutYearReviewView.swift */; };
 		C17CAF000000000000000103 /* CutYearAwardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000203 /* CutYearAwardModel.swift */; };
@@ -1008,6 +1026,24 @@
 		C17CA6000000000000000201 /* CutMeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeModel.swift; sourceTree = "<group>"; };
 		C17CA6000000000000000202 /* CutMeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeView.swift; sourceTree = "<group>"; };
 		C17CA6000000000000000203 /* CutMeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutMeHost.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000201 /* CutSettingsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSettingsModel.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000202 /* CutSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSettingsView.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000203 /* CutSettingsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSettingsHost.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000204 /* CutPreferencesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPreferencesModel.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000205 /* CutPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPreferencesView.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000206 /* CutPreferencesHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPreferencesHost.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000207 /* CutConnectionsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutConnectionsModel.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000208 /* CutConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutConnectionsView.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000209 /* CutConnectionsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutConnectionsHost.swift; sourceTree = "<group>"; };
+		C17CAC00000000000000020A /* CutDataPortabilityModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutDataPortabilityModel.swift; sourceTree = "<group>"; };
+		C17CAC00000000000000020B /* CutDataPortabilityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutDataPortabilityView.swift; sourceTree = "<group>"; };
+		C17CAC00000000000000020C /* CutDataPortabilityHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutDataPortabilityHost.swift; sourceTree = "<group>"; };
+		C17CAC00000000000000020D /* CutDiagnosticsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutDiagnosticsModel.swift; sourceTree = "<group>"; };
+		C17CAC00000000000000020E /* CutDiagnosticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutDiagnosticsView.swift; sourceTree = "<group>"; };
+		C17CAC00000000000000020F /* CutDiagnosticsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutDiagnosticsHost.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000210 /* CutStreakRecoveryModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStreakRecoveryModel.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000211 /* CutStreakRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStreakRecoveryView.swift; sourceTree = "<group>"; };
+		C17CAC000000000000000212 /* CutStreakRecoveryHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStreakRecoveryHost.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000201 /* CutYearReviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewModel.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000202 /* CutYearReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewView.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000203 /* CutYearAwardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardModel.swift; sourceTree = "<group>"; };
@@ -2512,6 +2548,24 @@
 				C17CA6000000000000000201 /* CutMeModel.swift */,
 				C17CA6000000000000000202 /* CutMeView.swift */,
 				C17CA6000000000000000203 /* CutMeHost.swift */,
+				C17CAC000000000000000201 /* CutSettingsModel.swift */,
+				C17CAC000000000000000202 /* CutSettingsView.swift */,
+				C17CAC000000000000000203 /* CutSettingsHost.swift */,
+				C17CAC000000000000000204 /* CutPreferencesModel.swift */,
+				C17CAC000000000000000205 /* CutPreferencesView.swift */,
+				C17CAC000000000000000206 /* CutPreferencesHost.swift */,
+				C17CAC000000000000000207 /* CutConnectionsModel.swift */,
+				C17CAC000000000000000208 /* CutConnectionsView.swift */,
+				C17CAC000000000000000209 /* CutConnectionsHost.swift */,
+				C17CAC00000000000000020A /* CutDataPortabilityModel.swift */,
+				C17CAC00000000000000020B /* CutDataPortabilityView.swift */,
+				C17CAC00000000000000020C /* CutDataPortabilityHost.swift */,
+				C17CAC00000000000000020D /* CutDiagnosticsModel.swift */,
+				C17CAC00000000000000020E /* CutDiagnosticsView.swift */,
+				C17CAC00000000000000020F /* CutDiagnosticsHost.swift */,
+				C17CAC000000000000000210 /* CutStreakRecoveryModel.swift */,
+				C17CAC000000000000000211 /* CutStreakRecoveryView.swift */,
+				C17CAC000000000000000212 /* CutStreakRecoveryHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2897,6 +2951,24 @@
 				C17CA6000000000000000101 /* CutMeModel.swift in Sources */,
 				C17CA6000000000000000102 /* CutMeView.swift in Sources */,
 				C17CA6000000000000000103 /* CutMeHost.swift in Sources */,
+				C17CAC000000000000000101 /* CutSettingsModel.swift in Sources */,
+				C17CAC000000000000000102 /* CutSettingsView.swift in Sources */,
+				C17CAC000000000000000103 /* CutSettingsHost.swift in Sources */,
+				C17CAC000000000000000104 /* CutPreferencesModel.swift in Sources */,
+				C17CAC000000000000000105 /* CutPreferencesView.swift in Sources */,
+				C17CAC000000000000000106 /* CutPreferencesHost.swift in Sources */,
+				C17CAC000000000000000107 /* CutConnectionsModel.swift in Sources */,
+				C17CAC000000000000000108 /* CutConnectionsView.swift in Sources */,
+				C17CAC000000000000000109 /* CutConnectionsHost.swift in Sources */,
+				C17CAC00000000000000010A /* CutDataPortabilityModel.swift in Sources */,
+				C17CAC00000000000000010B /* CutDataPortabilityView.swift in Sources */,
+				C17CAC00000000000000010C /* CutDataPortabilityHost.swift in Sources */,
+				C17CAC00000000000000010D /* CutDiagnosticsModel.swift in Sources */,
+				C17CAC00000000000000010E /* CutDiagnosticsView.swift in Sources */,
+				C17CAC00000000000000010F /* CutDiagnosticsHost.swift in Sources */,
+				C17CAC000000000000000110 /* CutStreakRecoveryModel.swift in Sources */,
+				C17CAC000000000000000111 /* CutStreakRecoveryView.swift in Sources */,
+				C17CAC000000000000000112 /* CutStreakRecoveryHost.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,
