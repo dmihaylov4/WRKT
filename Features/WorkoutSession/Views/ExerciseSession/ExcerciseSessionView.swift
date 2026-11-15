@@ -590,7 +590,19 @@ struct ExerciseSessionView: View {
         .overlay(Divider().background(Theme.border.opacity(0.5)), alignment: .bottom)
     }
 
+    @ViewBuilder
     private var exerciseInfoSheet: some View {
+        if DS.Redesign.cutEnabled {
+            CutExerciseInfoHost(exercise: exercise, meta: guideMeta, progression: viewModel.appliedProgression,
+                                unit: unit, done: { viewModel.showInfo = false }) {
+                statsTabContent
+            }
+        } else {
+            legacyExerciseInfoSheet
+        }
+    }
+
+    private var legacyExerciseInfoSheet: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Header: Exercise Name
