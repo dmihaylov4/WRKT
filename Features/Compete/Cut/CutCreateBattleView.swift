@@ -27,7 +27,7 @@ struct CutCreateBattleView: View {
                     Button { draft.type = type } label: {
                         VStack(alignment: .leading, spacing: 0) {
                             HStack {
-                                Text(type.displayName).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
+                                Text(CutCompeteFormat.battleTitle(type)).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
                                 Spacer(minLength: 12)
                                 if draft.type == type { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) }
                             }.frame(minHeight: 50).contentShape(Rectangle())
@@ -43,13 +43,14 @@ struct CutCreateBattleView: View {
                     draft.duration = CutCreateBattleLogic.durations[$0]
                 }.padding(.horizontal, -DS.Cut.Metrics.gutter)
                 Text("Starts when accepted").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.top, 8)
-                DisclosureGroup { CutBattleRewardRows(rewards: model.rewards) } label: { CutCompeteSectionTitle("Rewards") }.tint(DS.Cut.Colors.textSecondary)
+                DisclosureGroup { CutBattleRewardRows(rewards: model.rewards) } label: { CutCompeteDisclosureLabel("Rewards") }.tint(DS.Cut.Colors.textSecondary).padding(.top, 20)
+                CutHairline()
             }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 8).padding(.bottom, 20)
         }
         .safeAreaInset(edge: .bottom) {
             Button(action: send) {
                 ZStack { Text("Send Battle Invite").opacity(model.creating ? 0 : 1); if model.creating { ProgressView().tint(DS.Cut.Colors.ink) } }
-            }.buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)).disabled(!model.canSend)
+            }.buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)).disabled(!model.canSend).accessibilityLabel("Send Battle Invite")
                 .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
                 .background(DS.Cut.Colors.background)
         }
@@ -77,24 +78,26 @@ struct CutBattleOpponentView: View {
                     Button("Find Friends", action: findFriends).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false))
                 case .noResults, .loaded:
                     HStack {
-                        TextField("Search friends", text: $query).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).autocorrectionDisabled().textInputAutocapitalization(.never)
+                        TextField("Search friends", text: $query, prompt: Text("Search friends").foregroundStyle(DS.Cut.Colors.textSecondary)).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).autocorrectionDisabled().textInputAutocapitalization(.never)
                         if !query.isEmpty { Button("Clear search", systemImage: "xmark") { query = "" }.labelStyle(.iconOnly).frame(width: 44, height: 44) }
                     }.frame(minHeight: 50)
                     CutHairline()
                     if model.state == .noResults { Text("No results").font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.vertical, 16) }
-                    ForEach(model.rows) { friend in
-                        Button { select(friend.id) } label: {
-                            HStack(spacing: 12) {
-                                CutSocialAvatar(initials: String(friend.username.prefix(1)).uppercased(), url: friend.avatarURL, size: 44)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(friend.name).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
-                                    Text("@" + friend.username).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                                }
-                                Spacer(minLength: 8)
-                                if friend.id == model.selectedID { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) }
-                            }.frame(minHeight: 50).padding(.vertical, 8).contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityAddTraits(friend.id == model.selectedID ? .isSelected : [])
-                        CutHairline()
+                    LazyVStack(spacing: 0) {
+                        ForEach(model.rows) { friend in
+                            Button { select(friend.id) } label: {
+                                HStack(spacing: 12) {
+                                    CutSocialAvatar(initials: String(friend.username.prefix(1)).uppercased(), url: friend.avatarURL, size: 44)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(friend.title).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
+                                        if let handle = friend.handle { Text(handle).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
+                                    }
+                                    Spacer(minLength: 8)
+                                    if friend.id == model.selectedID { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) }
+                                }.frame(minHeight: 50).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityAddTraits(friend.id == model.selectedID ? .isSelected : [])
+                            CutHairline()
+                        }
                     }
                 }
             }.padding(DS.Cut.Metrics.gutter)

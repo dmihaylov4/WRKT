@@ -39,7 +39,7 @@ struct CutCompeteView: View {
                 if !model.completed.isEmpty { CutCompeteSectionTitle("Recent completions"); items(model.completed) }
                 if !model.summary.isEmpty {
                     DisclosureGroup { ForEach(model.summary) { CutCompeteValueRow(label: $0.label, value: $0.value) } }
-                    label: { CutCompeteSectionTitle("Summary") }.tint(DS.Cut.Colors.textSecondary)
+                    label: { CutCompeteDisclosureLabel("Summary") }.tint(DS.Cut.Colors.textSecondary).padding(.top, 20)
                 }
             }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.bottom, DS.Redesign.tabBarClearance(legacy: 60, system: 40))
         }.foregroundStyle(DS.Cut.Colors.textPrimary).background(DS.Cut.Colors.background.ignoresSafeArea())
@@ -115,7 +115,7 @@ struct CutCompeteSectionTitle: View {
     var body: some View {
         Text(title.uppercased()).font(DS.Cut.Typography.condensed(size: 23, relativeTo: .title3))
             .foregroundStyle(DS.Cut.Colors.textPrimary).fixedSize(horizontal: false, vertical: true)
-            .accessibilityAddTraits(.isHeader).padding(.top, 28).padding(.bottom, 10)
+            .accessibilityAddTraits(.isHeader).padding(.top, 20).padding(.bottom, 10)
     }
 }
 struct CutCompeteValueRow: View {
@@ -152,5 +152,14 @@ struct CutCompeteDestructiveStyle: ButtonStyle {
         configuration.label.font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.horizontal, 20).padding(.vertical, 10).frame(minHeight: 44)
             .foregroundStyle(DS.Status.error).overlay(Capsule().stroke(DS.Status.error.opacity(0.6)))
             .opacity(!isEnabled ? 0.45 : configuration.isPressed ? 0.7 : 1)
+    }
+}
+
+struct CutCompeteDisclosureLabel: View {
+    let title: String
+    init(_ title: String) { self.title = title }
+    var body: some View {
+        Text(title).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body))
+            .foregroundStyle(DS.Cut.Colors.textPrimary).frame(minHeight: 50, alignment: .leading)
     }
 }

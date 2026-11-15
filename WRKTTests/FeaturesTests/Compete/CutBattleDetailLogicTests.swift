@@ -16,7 +16,7 @@ import Testing
         var f = Self.facts; f.status = .pending
         #expect(Self.model(f).state == .pending); #expect(Self.model(f).exit == "Cancel Battle")
         f.isChallenger = false; f.isOpponent = true
-        #expect(Self.model(f).state == .incoming); #expect(Self.model(f).accepts); #expect(Self.model(f).exit == "Decline Battle")
+        #expect(Self.model(f).state == .incoming); #expect(Self.model(f).accepts); #expect(Self.model(f).exit == "Decline Battle"); #expect(Self.model(f).exitLabel == "Decline")
     }
     @Test func completedResults() {
         var f = Self.facts; f.status = .completed
@@ -54,4 +54,20 @@ import Testing
         #expect(rewards.map(\.id) == [27,28]); #expect(rewards[0].liftID == "bench_press"); #expect(rewards[1].liftID == nil)
         #expect(rewards.map(\.xp) == ["+200 XP", "+400 XP"])
     }
+    @Test func scoreUnitsPreserveEveryLegacyMetric() {
+        let expected: [BattleType: String] = [.volume: "lb", .pr: "lb", .workoutCount: "workouts", .consistency: "days", .exercise: "reps", .runningDistance: "km"]
+        for (type, label) in expected { #expect(CutCompeteFormat.unit(type, weight: .lb) == label) }
+        // The legacy PR label uses the weight unit, although its score is a count.
+        // Preserve that existing contract in this restyle and report the inconsistency.
+        for type in [BattleType.pr, .consistency, .exercise, .workoutCount] {
+            #expect(CutCompeteFormat.score(5, type: type, unit: .lb, locale: Locale(identifier: "en_US")) == "5")
+        }
+    }
+
+    @Test func zeroScoreTieHasANeutralSplitLikeTheArena() {
+        var facts = Self.facts; facts.ownScore = 0; facts.otherScore = 0
+        let m = Self.model(facts)
+        #expect(m.lead == "Tied"); #expect(m.split == 0.5); #expect(!m.isLeading)
+    }
+
 }

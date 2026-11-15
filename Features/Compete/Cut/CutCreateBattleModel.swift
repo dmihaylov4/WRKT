@@ -18,6 +18,8 @@ struct CutBattleOpponent: Equatable, Identifiable {
     var name: String
     var username: String
     var avatarURL: String?
+    var title: String { name == username ? "@" + username : name }
+    var handle: String? { name == username ? nil : "@" + username }
 }
 struct CutBattleOpponentModel: Equatable {
     enum State: Equatable { case loading, failed(String), empty, noResults, loaded }
@@ -30,7 +32,7 @@ enum CutCreateBattleLogic {
     nonisolated static let types: [BattleType] = [.volume, .workoutCount, .consistency, .pr, .runningDistance]
     nonisolated static let durations = [3, 7, 14, 30]
     static func model(_ draft: CutCreateBattleDraft, opponent: CutBattleOpponent?, creating: Bool, unit: WeightUnit, locale: Locale = .current) -> CutCreateBattleModel {
-        .init(opponent: opponent?.name ?? "Choose Opponent", handle: opponent.map { "@" + $0.username },
+        .init(opponent: opponent?.name ?? "Choose Opponent", handle: opponent?.handle,
               canSend: draft.opponentID != nil && opponent?.id == draft.opponentID && types.contains(draft.type) && durations.contains(draft.duration) && !creating,
               creating: creating, rule: draft.type.description,
               rewards: CutBattleDetailLogic.rewards(type: draft.type, target: nil, unit: unit, locale: locale))

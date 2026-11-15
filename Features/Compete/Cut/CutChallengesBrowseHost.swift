@@ -24,9 +24,9 @@ struct CutChallengesBrowseHost: View {
             vm.openChallengeDetail(item)
         }, openPreset: { title in
             guard let vm = viewModel, let preset = vm.getFeaturedChallenges().first(where: { $0.title == title }) else { return }
-            Task { await vm.openOrCreateChallengeFromPreset(preset) }
+            Task { await reload(preset: preset) }
         }, retry: { Task { await refresh() } }, refresh: refresh)
-        .navigationTitle("Challenges").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle("Challenges").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
         .task {
             guard viewModel == nil else { return }
             let vm = ChallengesViewModel(challengeRepository: deps.challengeRepository, authService: deps.authService, workoutStore: deps.workoutStore)
@@ -40,13 +40,21 @@ struct CutChallengesBrowseHost: View {
             Alert(title: Text(error.title), message: Text(error.message), dismissButton: .default(Text("OK")))
         }
     }
-    private func refresh() async {
+    private func refresh() async { await reload(preset: nil) }
+    private func reload(preset: PresetChallenge?) async {
         guard let vm = viewModel, !refreshing else { return }
         refreshing = true
         let unit = WeightUnit(rawValue: weightUnitRaw) ?? .kg
         func rows(_ values: [ChallengeWithProgress], descriptions: Bool = false) -> [CutCompeteItem] { values.map { .challenge($0, unit: unit, showsDescription: descriptions) } }
         frozenRows = (rows(vm.activeChallenges), rows(vm.availableChallenges, descriptions: true), rows(vm.completedChallenges, descriptions: true))
-        await CutCompeteRefresh.challenges(vm)
+        if let preset {
+            await CutCompeteRefresh.perform(snapshot: (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges), operation: {
+                await vm.openOrCreateChallengeFromPreset(preset)
+                return ((vm.activeChallenges, vm.availableChallenges, vm.completedChallenges), failed: vm.error != nil)
+            }, apply: { (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges) = $0 })
+        } else {
+            await CutCompeteRefresh.challenges(vm)
+        }
         frozenRows = nil
         refreshing = false
     }

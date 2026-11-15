@@ -40,6 +40,15 @@ import Testing
         let m = model(.init(opponentID: Self.friend.id, type: .runningDistance))
         #expect(m.rule == BattleType.runningDistance.description); #expect(m.rewards.map(\.id) == [29,30])
         #expect(m.handle == "@fixture_opponent")
+        #expect(CutCompeteFormat.battleTitle(.consistency) == "Workout days")
+        #expect(CutCompeteFormat.battleTitle(.workoutCount) == "Workout Count")
+    }
+    @Test func missingDisplayNameDoesNotRepeatTheHandle() {
+        let alias = CutBattleOpponent(id: UUID(), name: "fixture_alias", username: "fixture_alias", avatarURL: nil)
+        #expect(alias.title == "@fixture_alias"); #expect(alias.handle == nil)
+        #expect(CutCompeteFormat.personName(displayName: " Fixture Display ", username: "fixture_alias") == " Fixture Display ")
+        for name in [nil, "", "  "] as [String?] { #expect(CutCompeteFormat.personName(displayName: name, username: "fixture_alias") == "fixture_alias") }
+        #expect(CutCreateBattleLogic.model(.init(opponentID: alias.id), opponent: alias, creating: false, unit: .kg).handle == nil)
     }
     private func model(_ draft: CutCreateBattleDraft) -> CutCreateBattleModel {
         CutCreateBattleLogic.model(draft, opponent: Self.friend, creating: false, unit: .kg)

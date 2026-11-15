@@ -17,7 +17,7 @@ struct CutChallengeDetailHost: View {
     var body: some View {
         NavigationStack {
             CutChallengeDetailView(model: model, processing: processing, join: { Task { await join() } }, leave: { Task { await leave() } })
-                .navigationTitle(model.title).navigationBarTitleDisplayMode(.inline)
+                .navigationTitle(model.title).navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
                 .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() }.tint(DS.Cut.Colors.lime) } }
         }
         .alert(item: Binding(get: { viewModel.error }, set: { _ in viewModel.error = nil })) { error in

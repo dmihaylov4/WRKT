@@ -16,6 +16,7 @@ struct CutBattleFacts: Equatable {
 
 struct CutBattleDetailModel: Equatable {
     enum State: Equatable { case pending, incoming, active, expired, won, lost, tied, declined, cancelled }
+    enum Operation: Equatable { case accept, exit }
     struct Row: Equatable, Identifiable {
         var label: String
         var value: String
@@ -45,12 +46,20 @@ struct CutBattleDetailModel: Equatable {
     var split: Double
     var accepts: Bool
     var exit: String?
+    var exitLabel: String? { accepts ? "Decline" : exit }
     var confirmation: String
     var details: [Row]
     var rewards: [Reward]
 }
 
 enum CutCompeteFormat {
+    static func personName(displayName: String?, username: String) -> String {
+        guard let displayName, !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return username }
+        return displayName
+    }
+    static func battleTitle(_ type: BattleType) -> String {
+        type == .consistency ? "Workout days" : type.displayName
+    }
     static func number(_ value: Double, decimals: Int = 0, locale: Locale) -> String {
         let formatter = NumberFormatter()
         formatter.locale = locale
@@ -85,6 +94,27 @@ enum CutCompeteFormat {
 enum CutBattleDetailLogic {
     static func model(_ facts: CutBattleFacts, unit: WeightUnit, locale: Locale = .current,
                       now: Date = Date(), calendar: Calendar = .current) -> CutBattleDetailModel {
+        let state = presentationState(facts, now: now)
+        let status = Self.status(state)
+        let scoreUnit = CutCompeteFormat.unit(facts.type, weight: unit)
+        let participant = facts.isChallenger || facts.isOpponent
+        let exit = participant && [.pending, .active].contains(facts.status)
+            ? (facts.status == .active ? "Leave Battle" : facts.isOpponent ? "Decline Battle" : "Cancel Battle") : nil
+        let confirmation = facts.status == .active
+            ? "Leaving cancels this battle for both you and \(facts.opponent). Scores will stop updating."
+            : facts.isOpponent ? "Decline this battle invitation from \(facts.opponent)?" : "Cancel this battle invitation to \(facts.opponent)?"
+        let dateStyle = Date.FormatStyle(date: .abbreviated, time: .omitted).locale(locale)
+        let duration = calendar.dateComponents([.day], from: facts.start, to: facts.end).day ?? 0
+        return .init(id: facts.id, type: CutCompeteFormat.battleTitle(facts.type), opponent: facts.opponent, state: state, status: status,
+                     time: facts.status == .active ? CutCompeteFormat.remaining(end: facts.end, now: now, calendar: calendar) : status,
+                     ownScore: CutCompeteFormat.score(facts.ownScore, type: facts.type, unit: unit, locale: locale),
+                     otherScore: CutCompeteFormat.score(facts.otherScore, type: facts.type, unit: unit, locale: locale), unit: scoreUnit,
+                     lead: lead(facts, unit: unit, locale: locale), isLeading: facts.ownScore > facts.otherScore, split: split(facts),
+                     accepts: facts.status == .pending && facts.isOpponent, exit: exit, confirmation: confirmation,
+                     details: [.init(label: "Duration", value: "\(duration) days"), .init(label: "Start", value: facts.start.formatted(dateStyle)),
+                               .init(label: "End", value: facts.end.formatted(dateStyle))], rewards: rewards(type: facts.type, target: facts.targetMetric, unit: unit, locale: locale))
+    }
+    static func presentationState(_ facts: CutBattleFacts, now: Date) -> CutBattleDetailModel.State {
         let state: CutBattleDetailModel.State
         switch facts.status {
         case .pending: state = facts.isOpponent ? .incoming : .pending
@@ -93,6 +123,9 @@ enum CutBattleDetailLogic {
         case .declined: state = .declined
         case .cancelled: state = .cancelled
         }
+        return state
+    }
+    static func status(_ state: CutBattleDetailModel.State) -> String {
         let status: String
         switch state {
         case .pending: status = "Invite sent"
@@ -105,26 +138,16 @@ enum CutBattleDetailLogic {
         case .declined: status = "Invitation declined"
         case .cancelled: status = "Cancelled"
         }
-        let scoreUnit = CutCompeteFormat.unit(facts.type, weight: unit)
+        return status
+    }
+    static func lead(_ facts: CutBattleFacts, unit: WeightUnit, locale: Locale) -> String {
         let difference = abs(facts.ownScore - facts.otherScore)
-        let lead = difference == 0 ? "Tied" : "\(facts.ownScore > facts.otherScore ? "You lead" : "Opponent leads") by \(CutCompeteFormat.score(difference, type: facts.type, unit: unit, locale: locale)) \(scoreUnit)"
-        let participant = facts.isChallenger || facts.isOpponent
-        let exit = participant && [.pending, .active].contains(facts.status)
-            ? (facts.status == .active ? "Leave Battle" : facts.isOpponent ? "Decline Battle" : "Cancel Battle") : nil
-        let confirmation = facts.status == .active
-            ? "Leaving cancels this battle for both you and \(facts.opponent). Scores will stop updating."
-            : facts.isOpponent ? "Decline this battle invitation from \(facts.opponent)?" : "Cancel this battle invitation to \(facts.opponent)?"
-        let total = max(facts.ownScore + facts.otherScore, 1)
-        let dateStyle = Date.FormatStyle(date: .abbreviated, time: .omitted).locale(locale)
-        let duration = calendar.dateComponents([.day], from: facts.start, to: facts.end).day ?? 0
-        return .init(id: facts.id, type: facts.type.displayName, opponent: facts.opponent, state: state, status: status,
-                     time: facts.status == .active ? CutCompeteFormat.remaining(end: facts.end, now: now, calendar: calendar) : status,
-                     ownScore: CutCompeteFormat.score(facts.ownScore, type: facts.type, unit: unit, locale: locale),
-                     otherScore: CutCompeteFormat.score(facts.otherScore, type: facts.type, unit: unit, locale: locale), unit: scoreUnit,
-                     lead: lead, isLeading: facts.ownScore > facts.otherScore, split: max(0, min(1, facts.ownScore / total)),
-                     accepts: facts.status == .pending && facts.isOpponent, exit: exit, confirmation: confirmation,
-                     details: [.init(label: "Duration", value: "\(duration) days"), .init(label: "Start", value: facts.start.formatted(dateStyle)),
-                               .init(label: "End", value: facts.end.formatted(dateStyle))], rewards: rewards(type: facts.type, target: facts.targetMetric, unit: unit, locale: locale))
+        let scoreUnit = CutCompeteFormat.unit(facts.type, weight: unit)
+        return difference == 0 ? "Tied" : "\(facts.ownScore > facts.otherScore ? "You lead" : "Opponent leads") by \(CutCompeteFormat.score(difference, type: facts.type, unit: unit, locale: locale)) \(scoreUnit)"
+    }
+    static func split(_ facts: CutBattleFacts) -> Double {
+        let total = max(facts.ownScore, 0) + max(facts.otherScore, 0)
+        return total > 0 ? max(0, min(1, facts.ownScore / total)) : 0.5
     }
     static func rewards(type: BattleType, target: String?, unit: WeightUnit, locale: Locale) -> [CutBattleDetailModel.Reward] {
         [(type.participationPlateTierID, "Complete", 20.0, "+200 XP"), (type.winnerPlateTierID, "Win", 35.0, "+400 XP")].map { id, title, weight, xp in

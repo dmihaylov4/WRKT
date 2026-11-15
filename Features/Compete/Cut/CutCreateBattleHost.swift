@@ -12,7 +12,7 @@ struct CutCreateBattleHost: View {
         NavigationStack {
             CutCreateBattleView(model: CutCreateBattleLogic.model(draft, opponent: selectedFriend.map(CutBattleOpponent.init), creating: creating,
                 unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg), draft: $draft, chooseOpponent: { picking = true }, send: { Task { await create() } })
-            .navigationTitle("Create Battle").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Create Battle").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.tint(DS.Cut.Colors.textPrimary) } }
             .sheet(isPresented: $picking) { CutCreateBattleOpponentHost(selectedFriend: $selectedFriend) }
             .onChange(of: selectedFriend?.id) { _, id in draft.opponentID = id }
@@ -44,7 +44,7 @@ struct CutCreateBattleOpponentHost: View {
                     guard let friend = friends.first(where: { $0.profile.id == id }) else { return }
                     Haptics.light(); selectedFriend = friend.profile; dismiss()
                 }, retry: { Task { await load() } }, findFriends: { searching = true })
-            .navigationTitle("Choose Opponent").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Choose Opponent").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
             .navigationDestination(isPresented: $searching) { UserSearchView() }
             .task { await load() }
@@ -60,7 +60,7 @@ struct CutCreateBattleOpponentHost: View {
 }
 extension CutBattleOpponent {
     init(_ profile: UserProfile) {
-        self.init(id: profile.id, name: profile.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? profile.username,
+        self.init(id: profile.id, name: CutCompeteFormat.personName(displayName: profile.displayName, username: profile.username),
                   username: profile.username, avatarURL: profile.avatarUrl)
     }
 }

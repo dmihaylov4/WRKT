@@ -35,7 +35,7 @@ struct CutChallengesBrowseView: View {
                                     }.frame(maxWidth: .infinity, minHeight: 50, alignment: .leading).padding(.vertical, 12).contentShape(Rectangle())
                                 }.buttonStyle(.plain)
                                 DisclosureGroup { Text(preset.description).font(DS.Typography.custom(size: 18, weight: .regular, relativeTo: .body)).padding(.vertical, 12) } label: {
-                                    Text("Details").cutFont(.secondary)
+                                    CutCompeteDisclosureLabel("Details")
                                 }.tint(DS.Cut.Colors.textSecondary).padding(.bottom, 12)
                                 CutHairline()
                             }

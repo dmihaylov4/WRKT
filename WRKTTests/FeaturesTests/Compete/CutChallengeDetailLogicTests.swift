@@ -12,7 +12,7 @@ import Testing
     @Test func notJoinedHasJoinAndNoProgress() {
         var f = Self.facts; f.current = nil
         let m = model(f)
-        #expect(m.state == .notJoined); #expect(m.action == "Join Challenge"); #expect(!m.leaves); #expect(m.progress == nil)
+        #expect(m.state == .notJoined); #expect(m.action == "Join Challenge"); #expect(!m.leaves); #expect(m.progress == nil); #expect(m.goal == "10 workouts")
     }
     @Test func joinedProgressAndLeave() {
         let m = model(Self.facts)

@@ -17,11 +17,12 @@ struct CutBattlesListHost: View {
             loading: viewModel == nil || viewModel?.isLoading == true, error: viewModel?.error?.message)
     }
     var body: some View {
-        NavigationStack {
+        // Both existing entry points push this screen on Compete's navigation stack.
+        Group {
             CutBattlesListView(model: model, processing: processing, select: { tab = $0; Haptics.light() }, actions: .init(open: open,
                 accept: { act($0, accept: true) }, decline: { act($0, accept: false) }, startBattle: { viewModel?.openCreateBattle() },
                 retry: { Task { await refresh() } }), refresh: refresh)
-            .navigationTitle("Battles").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("Battles").navigationBarTitleDisplayMode(.inline).toolbar(.visible, for: .navigationBar)
             .toolbar { ToolbarItem(placement: .topBarTrailing) {
                 Button("Create battle", systemImage: "plus") { viewModel?.openCreateBattle() }.tint(DS.Cut.Colors.lime).disabled(viewModel == nil)
             } }

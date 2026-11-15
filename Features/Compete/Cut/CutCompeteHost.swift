@@ -83,38 +83,29 @@ struct CutCompeteHost: View {
 /// The unstructured task also survives cancellation of a SwiftUI refreshable owner.
 @MainActor
 enum CutCompeteRefresh {
-    static func battles(_ vm: BattleViewModel) async {
+    static func perform<Value>(snapshot: Value, operation: @escaping @MainActor () async -> (Value, failed: Bool), apply: @escaping @MainActor (Value) -> Void) async {
         let work = Task { @MainActor in
-            let previous = (vm.activeBattles, vm.pendingBattles, vm.completedBattles)
-            await vm.refresh()
-            (vm.activeBattles, vm.pendingBattles, vm.completedBattles) = CutCompeteLogic.refreshed(previous,
-                candidate: (vm.activeBattles, vm.pendingBattles, vm.completedBattles), failed: vm.error != nil || Task.isCancelled)
+            let result = await operation()
+            apply(CutCompeteLogic.refreshed(snapshot, candidate: result.0, failed: result.failed || Task.isCancelled))
         }
         await work.value
     }
-    static func challenges(_ vm: ChallengesViewModel) async {
-        let work = Task { @MainActor in
-            let previous = (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges)
+    static func battles(_ vm: BattleViewModel) async {
+        await perform(snapshot: (vm.activeBattles, vm.pendingBattles, vm.completedBattles), operation: {
             await vm.refresh()
-            (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges) = CutCompeteLogic.refreshed(previous,
-                candidate: (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges), failed: vm.error != nil || Task.isCancelled)
-        }
-        await work.value
+            return ((vm.activeBattles, vm.pendingBattles, vm.completedBattles), failed: vm.error != nil)
+        }, apply: { (vm.activeBattles, vm.pendingBattles, vm.completedBattles) = $0 })
+    }
+    static func challenges(_ vm: ChallengesViewModel) async {
+        await perform(snapshot: (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges), operation: {
+            await vm.refresh()
+            return ((vm.activeChallenges, vm.availableChallenges, vm.completedChallenges), failed: vm.error != nil)
+        }, apply: { (vm.activeChallenges, vm.availableChallenges, vm.completedChallenges) = $0 })
     }
 }
 
 extension CutCompeteItem {
     static func challenge(_ value: ChallengeWithProgress, unit: WeightUnit, locale: Locale = .current, showsDescription: Bool = false) -> CutCompeteItem {
-        let c = value.challenge
-        let detail = CutChallengeDetailLogic.model(.init(value, userID: nil), unit: unit, locale: locale)
-        let amount = detail.about.first { $0.label == "Goal" }?.value ?? ""
-        let kind = ChallengeRewardPreviewKind(challenge: c)
-        return .init(id: .challenge(c.id), title: c.title, subtitle: [c.difficulty?.displayName, c.participantCount > 0 ? "\(c.participantCount) competing" : amount].compactMap { $0 }.joined(separator: " · "),
-            value: detail.progress,
-            trailing: value.isCompleted ? "Completed" : c.daysRemainingDisplay,
-            note: showsDescription ? c.description : nil, progressLabel: detail.percentage,
-            fraction: value.isParticipating ? Double(value.userProgressPercentage) / 100 : nil,
-            plateTier: kind == .conditioningPlate ? 24 : nil, barSkinID: kind == .firstRepBarSkin ? 4 : nil,
-            reward: kind == .firstRepBarSkin ? "VOLIA bar skin" : kind == .conditioningPlate ? "Heat Forge plate" : nil)
+        CutCompeteLogic.challenge(.init(value, userID: nil), unit: unit, locale: locale, showsDescription: showsDescription)
     }
 }

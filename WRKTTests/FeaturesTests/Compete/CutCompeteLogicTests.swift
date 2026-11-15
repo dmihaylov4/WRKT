@@ -32,4 +32,32 @@ import Testing
         let row = CutCompeteLogic.battle(f, unit: .kg)
         #expect(row.id == .battle(f.id)); #expect(row.incoming); #expect(row.value == "Invitation"); #expect(row.fraction == nil)
     }
+    @Test func challengeRowsPreserveCategoryGoalDescriptionAndReward() {
+        var facts = CutChallengeDetailLogicTests.facts
+        facts.current = nil; facts.type = .custom; facts.metric = "conditioning_minutes"; facts.goal = 120; facts.participantCount = 0
+        facts.reward = .plate(id: 24, name: "Fixture Plate")
+        let row = CutCompeteLogic.challenge(facts, unit: .kg, locale: Locale(identifier: "en_US"), now: CutChallengeDetailLogicTests.now, showsDescription: true)
+        #expect(row.subtitle == "Custom · Beginner"); #expect(row.trailing == "14 days left · 120 min")
+        #expect(row.note == "Fixture description"); #expect(row.value == nil); #expect(row.plateTier == 24); #expect(row.fraction == nil)
+    }
+    @Test func challengeRowsFormatProgressInTheRequestedUnitAndLocale() {
+        var facts = CutChallengeDetailLogicTests.facts
+        facts.type = .totalVolume; facts.goal = 10000; facts.current = 1500
+        let row = CutCompeteLogic.challenge(facts, unit: .lb, locale: Locale(identifier: "de_DE"), now: CutChallengeDetailLogicTests.now)
+        #expect(row.value == "3,3k / 22,0k lb"); #expect(row.progressLabel == "60%"); #expect(row.note == nil)
+    }
+
+    @Test func listAndDetailScoreFormattingStayConsistent() {
+        for type in [BattleType.volume, .workoutCount, .consistency, .pr, .exercise, .runningDistance] {
+            var facts = CutBattleDetailLogicTests.facts; facts.type = type
+            for unit in [WeightUnit.kg, .lb] {
+                let locale = Locale(identifier: "de_DE")
+                let detail = CutBattleDetailLogic.model(facts, unit: unit, locale: locale, now: CutBattleDetailLogicTests.now)
+                let row = CutCompeteLogic.battle(facts, unit: unit, locale: locale, now: CutBattleDetailLogicTests.now)
+                #expect(row.value == "You \(detail.ownScore) : \(detail.otherScore) \(detail.unit)")
+                #expect(row.trailing == detail.time + " · " + detail.lead); #expect(row.fraction == detail.split)
+            }
+        }
+    }
+
 }
