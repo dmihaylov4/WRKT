@@ -324,6 +324,9 @@
 		C17CB400000000000000010B /* CutPasswordModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020B /* CutPasswordModel.swift */; };
 		C17CB400000000000000010C /* CutPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020C /* CutPasswordView.swift */; };
 		C17CB400000000000000010D /* CutPasswordHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020D /* CutPasswordHost.swift */; };
+		C17CB400000000000000010E /* CutWhatsNewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020E /* CutWhatsNewModel.swift */; };
+		C17CB400000000000000010F /* CutWhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020F /* CutWhatsNewView.swift */; };
+		C17CB4000000000000000110 /* CutWhatsNewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000210 /* CutWhatsNewHost.swift */; };
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
@@ -967,6 +970,9 @@
 		C17CB400000000000000020B /* CutPasswordModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPasswordModel.swift; sourceTree = "<group>"; };
 		C17CB400000000000000020C /* CutPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPasswordView.swift; sourceTree = "<group>"; };
 		C17CB400000000000000020D /* CutPasswordHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPasswordHost.swift; sourceTree = "<group>"; };
+		C17CB400000000000000020E /* CutWhatsNewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWhatsNewModel.swift; sourceTree = "<group>"; };
+		C17CB400000000000000020F /* CutWhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWhatsNewView.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000210 /* CutWhatsNewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWhatsNewHost.swift; sourceTree = "<group>"; };
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -2330,6 +2336,16 @@
 			path = Cut;
 			sourceTree = "<group>";
 		};
+		C17CB4000000000000000002 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CB400000000000000020E /* CutWhatsNewModel.swift */,
+				C17CB400000000000000020F /* CutWhatsNewView.swift */,
+				C17CB4000000000000000210 /* CutWhatsNewHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 		2EA7DAC12EEDCFAE0017683B /* Compete */ = {
 			isa = PBXGroup;
 			children = (
@@ -2347,6 +2363,7 @@
 			children = (
 				2EAA00012FA1000000000001 /* WhatsNewManager.swift */,
 				2EAA00022FA1000000000001 /* WhatsNewView.swift */,
+				C17CB4000000000000000002 /* Cut */,
 			);
 			path = WhatsNew;
 			sourceTree = "<group>";
@@ -3231,6 +3248,9 @@
 				C17CB400000000000000010B /* CutPasswordModel.swift in Sources */,
 				C17CB400000000000000010C /* CutPasswordView.swift in Sources */,
 				C17CB400000000000000010D /* CutPasswordHost.swift in Sources */,
+				C17CB400000000000000010E /* CutWhatsNewModel.swift in Sources */,
+				C17CB400000000000000010F /* CutWhatsNewView.swift in Sources */,
+				C17CB4000000000000000110 /* CutWhatsNewHost.swift in Sources */,
 				2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */,
 				2EC201DD2EEF234C00D6BAEF /* PlanView.swift in Sources */,
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,

@@ -6,6 +6,14 @@ struct WhatsNewView: View {
     let onDismiss: () -> Void
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutWhatsNewHost(release: release, currentVersion: currentVersion, onDismiss: onDismiss)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("VERSION \(currentVersion)")

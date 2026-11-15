@@ -1078,24 +1078,33 @@ public enum CutSheetSizing: Equatable, Sendable {
 }
 
 /// The header of every Cut sheet: a large condensed capital title at the top left, an optional
-/// single line under it, and a round 44 pt close button at the top right.
+/// single line under it, and a round 44 pt close button at the top right. An announcement sheet
+/// ("What's new") adds a short lime line above a larger title.
 public struct CutSheetHeader: View {
     private let title: String
     private let subtitle: String?
+    private let eyebrow: String?
     private let close: () -> Void
     @Environment(\.cutSheetLevel) private var level
 
-    public init(_ title: String, subtitle: String? = nil, close: @escaping () -> Void) {
+    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, close: @escaping () -> Void) {
         self.title = title
         self.subtitle = subtitle
+        self.eyebrow = eyebrow
         self.close = close
     }
 
     public var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
+                if let eyebrow {
+                    Text(eyebrow)
+                        .font(DS.Typography.custom(size: 16, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(DS.Cut.Colors.lime)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(title)
-                    .font(DS.Cut.Typography.condensed(size: 32, relativeTo: .title))
+                    .font(DS.Cut.Typography.condensed(size: eyebrow == nil ? 32 : 40, relativeTo: .title))
                     .textCase(.uppercase)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1132,6 +1141,7 @@ public struct CutSheetHeader: View {
 public struct CutSheet<Content: View, Footer: View>: View {
     private let title: String
     private let subtitle: String?
+    private let eyebrow: String?
     private let level: DS.Cut.SheetLevel
     private let fitsContent: Bool
     private let close: () -> Void
@@ -1143,10 +1153,11 @@ public struct CutSheet<Content: View, Footer: View>: View {
     @State private var foot: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
+    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
                 close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
         self.title = title
         self.subtitle = subtitle
+        self.eyebrow = eyebrow
         self.level = level
         self.fitsContent = fitsContent
         self.close = close
@@ -1162,7 +1173,7 @@ public struct CutSheet<Content: View, Footer: View>: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            CutSheetHeader(title, subtitle: subtitle, close: close)
+            CutSheetHeader(title, subtitle: subtitle, eyebrow: eyebrow, close: close)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { header = $0 }
             // At accessibility sizes the footer scrolls with the content instead of covering it.
             ScrollView {
@@ -1191,9 +1202,9 @@ public struct CutSheet<Content: View, Footer: View>: View {
 }
 
 public extension CutSheet where Footer == EmptyView {
-    init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
+    init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
          close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
-        self.init(title, subtitle: subtitle, level: level, fitsContent: fitsContent, close: close, content: content) { EmptyView() }
+        self.init(title, subtitle: subtitle, eyebrow: eyebrow, level: level, fitsContent: fitsContent, close: close, content: content) { EmptyView() }
     }
 }
 

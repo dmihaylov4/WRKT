@@ -204,13 +204,22 @@ struct AppShellView: View {
                 set: { if !$0 { whatsNewManager.dismiss() } }
             )) {
                 if let release = WhatsNewManager.releases.first(where: { $0.version == whatsNewManager.currentVersion }) {
-                    WhatsNewView(
-                        release: release,
-                        currentVersion: whatsNewManager.currentVersion,
-                        onDismiss: { whatsNewManager.dismiss() }
-                    )
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
+                    if DS.Redesign.cutEnabled {
+                        // The Cut sheet sizes itself to its content; these detents would override it.
+                        WhatsNewView(
+                            release: release,
+                            currentVersion: whatsNewManager.currentVersion,
+                            onDismiss: { whatsNewManager.dismiss() }
+                        )
+                    } else {
+                        WhatsNewView(
+                            release: release,
+                            currentVersion: whatsNewManager.currentVersion,
+                            onDismiss: { whatsNewManager.dismiss() }
+                        )
+                        .presentationDetents([.medium, .large])
+                        .presentationDragIndicator(.visible)
+                    }
                 }
             }
             .sheet(isPresented: Binding(
