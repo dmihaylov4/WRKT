@@ -444,6 +444,9 @@
 		C17CA3000000000000000101 /* CutPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000201 /* CutPlanModel.swift */; };
 		C17CA3000000000000000102 /* CutPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000202 /* CutPlanView.swift */; };
 		C17CA3000000000000000103 /* CutPlanHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000203 /* CutPlanHost.swift */; };
+		C17CAA000000000000000101 /* CutPlanDayModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAA000000000000000201 /* CutPlanDayModel.swift */; };
+		C17CAA000000000000000102 /* CutPlanDayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAA000000000000000202 /* CutPlanDayView.swift */; };
+		C17CAA000000000000000103 /* CutPlanDayHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAA000000000000000203 /* CutPlanDayHost.swift */; };
 		C17CA4000000000000000101 /* CutSocialModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000201 /* CutSocialModel.swift */; };
 		C17CA4000000000000000102 /* CutSocialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000202 /* CutSocialView.swift */; };
 		C17CA4000000000000000103 /* CutSocialHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA4000000000000000203 /* CutSocialHost.swift */; };
@@ -962,6 +965,9 @@
 		C17CA3000000000000000201 /* CutPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanModel.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000202 /* CutPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanView.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000203 /* CutPlanHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanHost.swift; sourceTree = "<group>"; };
+		C17CAA000000000000000201 /* CutPlanDayModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanDayModel.swift; sourceTree = "<group>"; };
+		C17CAA000000000000000202 /* CutPlanDayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanDayView.swift; sourceTree = "<group>"; };
+		C17CAA000000000000000203 /* CutPlanDayHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanDayHost.swift; sourceTree = "<group>"; };
 		C17CA4000000000000000201 /* CutSocialModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialModel.swift; sourceTree = "<group>"; };
 		C17CA4000000000000000202 /* CutSocialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialView.swift; sourceTree = "<group>"; };
 		C17CA4000000000000000203 /* CutSocialHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSocialHost.swift; sourceTree = "<group>"; };
@@ -2427,6 +2433,9 @@
 				C17CA3000000000000000201 /* CutPlanModel.swift */,
 				C17CA3000000000000000202 /* CutPlanView.swift */,
 				C17CA3000000000000000203 /* CutPlanHost.swift */,
+				C17CAA000000000000000201 /* CutPlanDayModel.swift */,
+				C17CAA000000000000000202 /* CutPlanDayView.swift */,
+				C17CAA000000000000000203 /* CutPlanDayHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2815,6 +2824,9 @@
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,
 				C17CA3000000000000000102 /* CutPlanView.swift in Sources */,
 				C17CA3000000000000000103 /* CutPlanHost.swift in Sources */,
+				C17CAA000000000000000101 /* CutPlanDayModel.swift in Sources */,
+				C17CAA000000000000000102 /* CutPlanDayView.swift in Sources */,
+				C17CAA000000000000000103 /* CutPlanDayHost.swift in Sources */,
 				C17CA4000000000000000101 /* CutSocialModel.swift in Sources */,
 				C17CA4000000000000000102 /* CutSocialView.swift in Sources */,
 				C17CA4000000000000000103 /* CutSocialHost.swift in Sources */,

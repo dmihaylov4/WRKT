@@ -511,21 +511,14 @@ private struct CutPlanSyncProgress: View {
 
 // MARK: - Pushed pages
 
-/// "View day": the legacy day detail (summary, actions, planned session, workouts, cardio).
+/// "View day": the day's summary, actions, planned session, workouts and cardio in Cut
+/// (the legacy DayDetail stays for the legacy calendar).
 struct CutPlanDayPage: View {
     let date: Date
     @Binding var selectedAction: DayActionCard.DayAction?
 
     var body: some View {
-        ScrollView {
-            DayDetail(date: date, selectedAction: $selectedAction)
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 80, system: 60))
-        }
-        .background(DS.Semantic.surface.ignoresSafeArea())
-        .navigationTitle(date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-        .navigationBarTitleDisplayMode(.inline)
+        CutPlanDayHost(date: date, selectedAction: $selectedAction)
     }
 }
 
