@@ -83,7 +83,7 @@ private struct CutMilestoneRow: View {
             }
         }
         .padding(.vertical, 14)
-        .overlay(alignment: .bottom) { CutHairline() }
+        .overlay(alignment: .bottom) { CutSettingsRowHairline() }
         .accessibilityElement(children: .combine)
         .accessibilityValue(Text(row.isUnlocked ? "Unlocked \(row.value)" : "\(row.value) done"))
     }

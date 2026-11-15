@@ -2,9 +2,9 @@
 //  CutSettingsView.swift
 //  WRKT
 //
-//  The Settings hub in the Cut language: a modest condensed title, then Social, Preferences,
-//  Support, Debug (DEBUG builds only) and the account row as sentence-case sections of hairline
-//  rows. Badge counts are lime numerals on the right; Log out is red text. Takes plain values,
+//  The Settings hub in the Cut language ("Settings A"): the title beside the back button, then
+//  Social, Preferences, Support, Debug (DEBUG builds only) and the account row, each headed by a
+//  lime condensed title over hairline rows. Counts are small lime badges; Log out is red text. Takes plain values,
 //  bindings for the two Debug switches, and closures, so every state renders without services.
 //
 //  The CutSettings page, section, row and switch pieces at the end of this file are shared by
@@ -39,7 +39,7 @@ struct CutSettingsView: View {
     var body: some View {
         CutSettingsPage(title: model.title) {
             if model.showsSocial {
-                CutSettingsSectionHeader("Social")
+                CutSettingsSectionHeader("Social", isFirst: true)
                 CutSettingsLinkRow("My profile", action: actions.openMyProfile)
                 CutSettingsLinkRow("Activity", value: model.activityBadge, valueTone: .lime,
                                    accessibilityValue: model.activityBadge.map { "\($0) new" },
@@ -51,7 +51,7 @@ struct CutSettingsView: View {
                 CutSettingsLinkRow("Find friends", action: actions.openFindFriends)
             }
 
-            CutSettingsSectionHeader("Preferences")
+            CutSettingsSectionHeader("Preferences", isFirst: !model.showsSocial)
             CutSettingsLinkRow("App preferences", action: actions.openPreferences)
             CutSettingsLinkRow("Apple Health", action: actions.openHealth)
             CutSettingsLinkRow("Data portability", action: actions.openDataPortability)
@@ -98,9 +98,11 @@ struct CutSettingsView: View {
 
 // MARK: - Shared Settings pieces
 
-/// A Settings page: a plain list on the black ground with the title as its first row, set in
-/// Hero.xs as on the record screens. The bar keeps only the back button (and the trailing
-/// `accessory` beside the title, when given), so content never sits under a bar title.
+/// A Settings page: a plain list on the black ground. The title shares the bar with the back
+/// button (condensed capitals, 34 pt) and the round `accessory`, when given, sits at the bar's
+/// trailing end; the status line, when given, leads the list. At accessibility text sizes the
+/// title and accessory return to the list, where they can wrap. Rows draw a hairline under
+/// themselves except the last row of a section (before a header, a footer or the end).
 /// A list rather than a scroll view so rows can carry swipe actions.
 struct CutSettingsPage<Accessory: View, Content: View>: View {
     let title: String
@@ -109,12 +111,27 @@ struct CutSettingsPage<Accessory: View, Content: View>: View {
     @ViewBuilder var accessory: () -> Accessory
     @ViewBuilder var content: () -> Content
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var width: CGFloat = 0
+
+    private var titleInBar: Bool { !dynamicTypeSize.isAccessibilitySize }
+
     var body: some View {
         List {
             Group {
-                CutSettingsTitle(title: title, subtitle: subtitle, subtitleIsLime: subtitleIsLime, accessory: accessory)
-                    .padding(.top, 8)
-                content()
+                if !titleInBar {
+                    CutSettingsTitle(title: title, subtitle: subtitle, subtitleIsLime: subtitleIsLime, accessory: accessory)
+                        .padding(.top, 8)
+                } else if let subtitle {
+                    CutSettingsSubtitle(text: subtitle, isLime: subtitleIsLime)
+                        .padding(.top, 4)
+                }
+                Group(subviews: content()) { subviews in
+                    let roles = subviews.map { $0.containerValues.cutSettingsRole }
+                    ForEach(Array(subviews.enumerated()), id: \.element.id) { index, subview in
+                        subview.environment(\.cutSettingsRowHairline, CutSettingsLayout.showsHairline(at: index, roles: roles))
+                    }
+                }
                 // Clears the floating tab bar, as on Cut Me.
                 Color.clear
                     .frame(height: DS.Redesign.tabBarClearance(legacy: 80, system: 60) + 24)
@@ -130,6 +147,30 @@ struct CutSettingsPage<Accessory: View, Content: View>: View {
         .workoutDetailScrollEdge()
         .navigationTitle(Text(verbatim: ""))
         .navigationBarTitleDisplayMode(.inline)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .modifier(CutSettingsTitleBar(isShown: titleInBar, hasAccessory: Accessory.self != EmptyView.self) {
+            Text(title)
+                .font(DS.Cut.Typography.condensed(size: DS.Cut.Typography.Hero.xs.size, relativeTo: .largeTitle))
+                .textCase(.uppercase)
+                .foregroundStyle(DS.Cut.Colors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(width: titleWidth, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+        } accessory: {
+            accessory()
+                .labelStyle(.iconOnly)
+                .tint(DS.Cut.Colors.textPrimary)
+        })
+    }
+
+    /// A leading bar item is sized to its content, so the title gets a set width beside the back
+    /// button: long titles shrink instead of clipping.
+    private var titleWidth: CGFloat? {
+        guard width > 0 else { return nil }
+        // The bar moves a leading item wider than about half the bar into its overflow menu,
+        // so the trailing button's room is kept even when the page has none.
+        return max(120, width - 32 - 44 - 14 - 56)
     }
 }
 
@@ -141,8 +182,82 @@ extension CutSettingsPage where Accessory == EmptyView {
     }
 }
 
+/// The page title and its round button as bar items. On iOS 26 the title draws without the
+/// bar's glass; the button keeps it, so it matches the back button beside the title.
+private struct CutSettingsTitleBar<Title: View, Accessory: View>: ViewModifier {
+    let isShown: Bool
+    let hasAccessory: Bool
+    @ViewBuilder var title: () -> Title
+    @ViewBuilder var accessory: () -> Accessory
+
+    func body(content: Content) -> some View {
+        if !isShown {
+            content
+        } else if #available(iOS 26, *) {
+            content.toolbar {
+                ToolbarItem(placement: .topBarLeading) { title() }
+                    .sharedBackgroundVisibility(.hidden)
+                if hasAccessory {
+                    ToolbarItem(placement: .topBarTrailing) { accessory() }
+                }
+            }
+        } else {
+            content.toolbar {
+                ToolbarItem(placement: .topBarLeading) { title() }
+                if hasAccessory {
+                    ToolbarItem(placement: .topBarTrailing) { accessory() }
+                }
+            }
+        }
+    }
+}
+
+/// What a list item is to the hairline rule.
+enum CutSettingsItemRole: Sendable { case row, header, footer }
+
+extension ContainerValues {
+    @Entry var cutSettingsRole: CutSettingsItemRole = .row
+}
+
+extension EnvironmentValues {
+    /// False on the last row of a section, which sits on the ground without a hairline.
+    @Entry var cutSettingsRowHairline: Bool = true
+}
+
+enum CutSettingsLayout {
+    /// A row draws its hairline only when another row follows it in the same section.
+    static func showsHairline(at index: Int, roles: [CutSettingsItemRole]) -> Bool {
+        guard roles.indices.contains(index), roles[index] == .row else { return false }
+        let next = index + 1
+        return roles.indices.contains(next) && roles[next] == .row
+    }
+}
+
+/// The hairline under a Settings row, unless it is the last row of its section.
+struct CutSettingsRowHairline: View {
+    @Environment(\.cutSettingsRowHairline) private var isShown
+
+    var body: some View {
+        if isShown { CutHairline() }
+    }
+}
+
+/// The status line under the title: secondary text, or lime when it reports progress.
+struct CutSettingsSubtitle: View {
+    let text: String
+    var isLime = false
+
+    var body: some View {
+        Text(text)
+            .font(DS.Cut.Typography.font(.secondary).weight(isLime ? .semibold : .medium))
+            .foregroundStyle(isLime ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 /// The page title in condensed capitals (Hero.xs, 34 pt), an optional round menu button beside
-/// it, and an optional status line under it.
+/// it, and an optional status line under it: the in-list title at accessibility text sizes.
 struct CutSettingsTitle<Accessory: View>: View {
     let title: String
     var subtitle: String?
@@ -162,10 +277,7 @@ struct CutSettingsTitle<Accessory: View>: View {
                     .fixedSize()
             }
             if let subtitle {
-                Text(subtitle)
-                    .font(DS.Cut.Typography.font(.secondary).weight(subtitleIsLime ? .semibold : .medium))
-                    .foregroundStyle(subtitleIsLime ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                CutSettingsSubtitle(text: subtitle, isLime: subtitleIsLime)
             }
         }
     }
@@ -180,7 +292,8 @@ extension View {
     }
 }
 
-/// A sentence-case section title at body size with the hairline that tops its first row.
+/// A section title: lime condensed capitals at 22 pt, more space above than below, no hairline,
+/// so it never reads as a row.
 struct CutSettingsSectionHeader: View {
     let title: String
     var isFirst = false
@@ -191,11 +304,16 @@ struct CutSettingsSectionHeader: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            CutSectionTitle(title)
-            CutHairline()
-        }
-        .padding(.top, isFirst ? 24 : 36)
+        Text(title)
+            .font(DS.Cut.Typography.condensed(size: 22, relativeTo: .title3))
+            .textCase(.uppercase)
+            .foregroundStyle(DS.Cut.Colors.lime)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, isFirst ? 20 : 30)
+            .padding(.bottom, 4)
+            .accessibilityAddTraits(.isHeader)
+            .containerValue(\.cutSettingsRole, .header)
     }
 }
 
@@ -214,6 +332,7 @@ struct CutSettingsFooter: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 10)
+            .containerValue(\.cutSettingsRole, .footer)
     }
 }
 
@@ -240,12 +359,17 @@ struct CutSettingsLinkRow: View {
         Button(action: action) {
             CutSettingsRowLayout(title: title, subtitle: subtitle) {
                 if let value {
-                    Text(value)
-                        .font(DS.Cut.Typography.font(.secondary, monospacedDigits: true).weight(.semibold))
-                        .foregroundStyle(valueTone == .lime ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .accessibilityLabel(Text(accessibilityValue ?? value))
+                    if valueTone == .lime {
+                        CutSettingsBadge(text: value)
+                            .accessibilityLabel(Text(accessibilityValue ?? value))
+                    } else {
+                        Text(value)
+                            .font(CutSettingsType.value)
+                            .foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .lineLimit(1)
+                            .fixedSize()
+                            .accessibilityLabel(Text(accessibilityValue ?? value))
+                    }
                 }
             } accessory: {
                 CutSettingsChevron()
@@ -276,7 +400,8 @@ struct CutSettingsActionRow: View {
     var body: some View {
         Button(role: role, action: action) {
             CutSettingsRowLayout(title: title, subtitle: subtitle,
-                                 titleColor: role == .destructive ? CutSettingsColors.destructive : DS.Cut.Colors.textPrimary) {
+                                 titleColor: role == .destructive ? CutSettingsColors.destructive : DS.Cut.Colors.textPrimary,
+                                 titleWeight: role == .destructive ? .semibold : .medium) {
                 EmptyView()
             } accessory: {
                 if let systemImage {
@@ -310,9 +435,9 @@ struct CutSettingsToggleRow: View {
                 CutSettingsRowText(title: title, subtitle: subtitle)
             }
             .tint(DS.Cut.Colors.lime)
+            .padding(.vertical, 8)
             .frame(minHeight: 50)
-            .padding(.vertical, 10)
-            CutHairline()
+            CutSettingsRowHairline()
         }
     }
 }
@@ -343,14 +468,14 @@ struct CutSettingsChoiceRow<Value: Hashable>: View {
         } label: {
             CutSettingsRowLayout(title: title) {
                 Text(selectedLabel)
-                    .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
+                    .font(CutSettingsType.value)
                     .foregroundStyle(DS.Cut.Colors.textSecondary)
                     .lineLimit(1)
                     .fixedSize()
             } accessory: {
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
+                    .foregroundStyle(CutSettingsColors.chevron)
                     .accessibilityHidden(true)
             }
         }
@@ -382,7 +507,7 @@ struct CutSettingsValueRow: View {
     var body: some View {
         CutSettingsRowLayout(title: title) {
             Text(value)
-                .font(DS.Cut.Typography.font(.secondary, monospacedDigits: true).weight(.semibold))
+                .font(CutSettingsType.value)
                 .foregroundStyle(DS.Cut.Colors.textSecondary)
                 .multilineTextAlignment(.trailing)
                 .fixedSize(horizontal: false, vertical: true)
@@ -392,13 +517,15 @@ struct CutSettingsValueRow: View {
 }
 
 /// The row frame every Settings row shares: title (and subtitle) on the left, the value and an
-/// accessory (chevron, switch glyph) on the right, 50 pt minimum, bottom hairline. At
+/// accessory (chevron, switch glyph) on the right, 50 pt minimum, a hairline under it unless it
+/// ends its section. At
 /// accessibility sizes the value drops under the title instead of squeezing it; the accessory
 /// stays on the right.
 struct CutSettingsRowLayout<Value: View, Accessory: View>: View {
     let title: String
     var subtitle: String?
     var titleColor: Color = DS.Cut.Colors.textPrimary
+    var titleWeight: DS.Typography.Weight = .medium
     @ViewBuilder var value: () -> Value
     @ViewBuilder var accessory: () -> Accessory
 
@@ -409,20 +536,20 @@ struct CutSettingsRowLayout<Value: View, Accessory: View>: View {
             HStack(spacing: 12) {
                 if dynamicTypeSize.isAccessibilitySize {
                     VStack(alignment: .leading, spacing: 6) {
-                        CutSettingsRowText(title: title, subtitle: subtitle, titleColor: titleColor)
+                        CutSettingsRowText(title: title, subtitle: subtitle, titleColor: titleColor, titleWeight: titleWeight)
                         value()
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    CutSettingsRowText(title: title, subtitle: subtitle, titleColor: titleColor)
+                    CutSettingsRowText(title: title, subtitle: subtitle, titleColor: titleColor, titleWeight: titleWeight)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     value()
                 }
                 accessory()
             }
+            .padding(.vertical, 8)
             .frame(minHeight: 50)
-            .padding(.vertical, 10)
-            CutHairline()
+            CutSettingsRowHairline()
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -431,21 +558,23 @@ struct CutSettingsRowLayout<Value: View, Accessory: View>: View {
 
 extension CutSettingsRowLayout where Accessory == EmptyView {
     init(title: String, subtitle: String? = nil, titleColor: Color = DS.Cut.Colors.textPrimary,
-         @ViewBuilder value: @escaping () -> Value) {
-        self.init(title: title, subtitle: subtitle, titleColor: titleColor, value: value, accessory: { EmptyView() })
+         titleWeight: DS.Typography.Weight = .medium, @ViewBuilder value: @escaping () -> Value) {
+        self.init(title: title, subtitle: subtitle, titleColor: titleColor, titleWeight: titleWeight, value: value,
+                  accessory: { EmptyView() })
     }
 }
 
-/// Title over an optional secondary line; both wrap rather than truncate.
+/// Title (18 pt medium) over an optional secondary line; both wrap rather than truncate.
 struct CutSettingsRowText: View {
     let title: String
     var subtitle: String?
     var titleColor: Color = DS.Cut.Colors.textPrimary
+    var titleWeight: DS.Typography.Weight = .medium
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .cutFont(.title)
+                .font(DS.Typography.custom(size: 18, weight: titleWeight, relativeTo: .body))
                 .foregroundStyle(titleColor)
                 .fixedSize(horizontal: false, vertical: true)
             if let subtitle {
@@ -462,12 +591,35 @@ struct CutSettingsChevron: View {
     var body: some View {
         Image(systemName: "chevron.right")
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(DS.Cut.Colors.textSecondary)
+            .foregroundStyle(CutSettingsColors.chevron)
             .accessibilityHidden(true)
     }
+}
+
+/// A count on a row ("3" on Activity): a small lime pill with ink digits.
+struct CutSettingsBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(DS.Typography.custom(size: 15, weight: .bold, relativeTo: .subheadline, monospacedDigits: true))
+            .foregroundStyle(DS.Cut.Colors.ink)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 7)
+            .frame(minWidth: 24, minHeight: 24)
+            .background(Capsule().fill(DS.Cut.Colors.lime))
+    }
+}
+
+enum CutSettingsType {
+    /// Trailing values ("Connected", "kg"): 16 pt secondary text.
+    static var value: Font { DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout, monospacedDigits: true) }
 }
 
 enum CutSettingsColors {
     /// The system red batch 3 uses for destructive text and outlines.
     static let destructive = Color.red
+    /// The row chevron: quieter than the values beside it.
+    static let chevron = DS.Palette.gray400
 }

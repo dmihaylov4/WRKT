@@ -19,8 +19,10 @@ struct CutDiagnosticsView: View {
 
     var body: some View {
         CutSettingsPage(title: model.title) {
-            CutHairline()
-                .padding(.top, 24)
+            // The rows start a little below the bar; with no section title above them.
+            Color.clear
+                .frame(height: 12)
+                .accessibilityHidden(true)
             CutSettingsActionRow("Export diagnostics", systemImage: "square.and.arrow.up", action: actions.export)
             CutSettingsActionRow("Clear diagnostics", role: .destructive, action: actions.clear)
             CutSettingsFooter(model.footer)

@@ -75,4 +75,11 @@ struct CutSettingsLogicTests {
         #expect(CutSettingsModel.DebugRow.yearReviewNextLaunch.subtitle == "Needs the Cut design and five workouts this year")
         #expect(CutSettingsModel.DebugRow.cutGallery.subtitle == nil)
     }
+
+    @Test func hairlinesRunBetweenRowsButNotUnderASectionsLastRow() {
+        let roles: [CutSettingsItemRole] = [.header, .row, .row, .row, .header, .row, .row, .footer, .header, .row]
+        let shown = roles.indices.map { CutSettingsLayout.showsHairline(at: $0, roles: roles) }
+        #expect(shown == [false, true, true, false, false, true, false, false, false, false])
+        #expect(!CutSettingsLayout.showsHairline(at: 5, roles: []))
+    }
 }
