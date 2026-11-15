@@ -465,6 +465,9 @@
 		C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000201 /* CutLikesListModel.swift */; };
 		C17CAB000000000000000102 /* CutLikesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000202 /* CutLikesListView.swift */; };
 		C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000203 /* CutLikesListHost.swift */; };
+		C17CAD00000000000000010D /* CutImageViewerModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020D /* CutImageViewerModel.swift */; };
+		C17CAD00000000000000010E /* CutImageViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020E /* CutImageViewerView.swift */; };
+		C17CAD00000000000000010F /* CutImageViewerHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020F /* CutImageViewerHost.swift */; };
 		C17CAD00000000000000010A /* CutEditPostModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020A /* CutEditPostModel.swift */; };
 		C17CAD00000000000000010B /* CutEditPostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020B /* CutEditPostView.swift */; };
 		C17CAD00000000000000010C /* CutEditPostHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020C /* CutEditPostHost.swift */; };
@@ -1031,6 +1034,9 @@
 		C17CAB000000000000000201 /* CutLikesListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListModel.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000202 /* CutLikesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListView.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000203 /* CutLikesListHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListHost.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020D /* CutImageViewerModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutImageViewerModel.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020E /* CutImageViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutImageViewerView.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020F /* CutImageViewerHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutImageViewerHost.swift; sourceTree = "<group>"; };
 		C17CAD00000000000000020A /* CutEditPostModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostModel.swift; sourceTree = "<group>"; };
 		C17CAD00000000000000020B /* CutEditPostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostView.swift; sourceTree = "<group>"; };
 		C17CAD00000000000000020C /* CutEditPostHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostHost.swift; sourceTree = "<group>"; };
@@ -2551,6 +2557,9 @@
 				C17CAB000000000000000201 /* CutLikesListModel.swift */,
 				C17CAB000000000000000202 /* CutLikesListView.swift */,
 				C17CAB000000000000000203 /* CutLikesListHost.swift */,
+				C17CAD00000000000000020D /* CutImageViewerModel.swift */,
+				C17CAD00000000000000020E /* CutImageViewerView.swift */,
+				C17CAD00000000000000020F /* CutImageViewerHost.swift */,
 				C17CAD00000000000000020A /* CutEditPostModel.swift */,
 				C17CAD00000000000000020B /* CutEditPostView.swift */,
 				C17CAD00000000000000020C /* CutEditPostHost.swift */,
@@ -2980,6 +2989,9 @@
 				C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */,
 				C17CAB000000000000000102 /* CutLikesListView.swift in Sources */,
 				C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */,
+				C17CAD00000000000000010D /* CutImageViewerModel.swift in Sources */,
+				C17CAD00000000000000010E /* CutImageViewerView.swift in Sources */,
+				C17CAD00000000000000010F /* CutImageViewerHost.swift in Sources */,
 				C17CAD00000000000000010A /* CutEditPostModel.swift in Sources */,
 				C17CAD00000000000000010B /* CutEditPostView.swift in Sources */,
 				C17CAD00000000000000010C /* CutEditPostHost.swift in Sources */,

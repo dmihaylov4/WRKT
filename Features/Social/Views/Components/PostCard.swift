@@ -882,6 +882,11 @@ struct ImageViewer: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutImageViewerHost(imageUrls: imageUrls, selectedIndex: $selectedIndex) }
+        else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
 
