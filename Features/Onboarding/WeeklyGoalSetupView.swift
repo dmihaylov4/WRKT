@@ -28,6 +28,15 @@ struct WeeklyGoalSetupView: View {
     @State private var ageDraft = AgeDraft(saved: nil)
 
     var body: some View {
+        // The one Cut branch point: same seeding, targets, age commit and save.
+        if DS.Redesign.cutEnabled {
+            CutWeeklyGoalSetupHost(goal: goal)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ZStack {
             DS.Semantic.surface
                 .ignoresSafeArea()

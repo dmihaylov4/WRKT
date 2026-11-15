@@ -18,4 +18,32 @@ struct CutMeGoalsCaptureTests {
         try await settingsCapture(CutWeeklyGoalView(model: CutWeeklyGoalLogic.model(G.midWeek)),
                                   name: "weekly-goal-ax5", dynamicType: .accessibility5)
     }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_SETTINGS"] == "1"))
+    func captureGoalSetup() async throws {
+        let controls = CutWeeklyGoalSetupControls(activity: .constant(150), activityRange: 30...600,
+                                                  activityStep: 15, weekStart: .constant(2))
+        var draft = CutWeeklyGoalSetupDraft()
+        draft.age = AgeDraft(saved: 34)
+        draft.targetStrengthDays = 3
+        try await settingsCapture(
+            CutWeeklyGoalSetupView(model: CutWeeklyGoalSetupLogic.model(draft), controls: controls),
+            name: "goal-setup-minutes")
+        var steps = draft
+        steps.trackingMode = .steps
+        try await settingsCapture(
+            CutWeeklyGoalSetupView(model: CutWeeklyGoalSetupLogic.model(steps),
+                                   controls: CutWeeklyGoalSetupControls(activity: .constant(10000), activityRange: 1000...30000,
+                                                                        activityStep: 500, weekStart: .constant(2))),
+            name: "goal-setup-steps")
+        // The onboarding sheet: the page as the root of its own stack.
+        try await settingsCapture(
+            NavigationStack {
+                CutWeeklyGoalSetupView(model: CutWeeklyGoalSetupLogic.model(CutWeeklyGoalSetupDraft()), controls: controls)
+            },
+            name: "goal-setup-onboarding-sheet", pushed: false)
+        try await settingsCapture(
+            CutWeeklyGoalSetupView(model: CutWeeklyGoalSetupLogic.model(draft), controls: controls),
+            name: "goal-setup-ax5", dynamicType: .accessibility5)
+    }
 }
