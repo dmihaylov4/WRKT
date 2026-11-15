@@ -126,6 +126,14 @@ struct CustomTimerEditorView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutExerciseTimerHost(exercise: exercise)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         VStack(spacing: 24) {
             // Timer preview
             VStack(spacing: 8) {
