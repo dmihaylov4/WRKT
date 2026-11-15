@@ -104,7 +104,7 @@ private struct CutOnboardingIntroPage: View {
                             .buttonStyle(.plain)
                         }
                         Spacer(minLength: 48)
-                        CutOnboardingHero(text: page.title, size: 76)
+                        CutWelcomeHero(text: page.title, size: 76)
                         Text(page.line)
                             .font(DS.Typography.custom(size: 19, weight: .semibold, relativeTo: .body))
                             .lineSpacing(3)
@@ -149,7 +149,7 @@ private struct CutOnboardingBodyweightPage: View {
                             .padding(.trailing, 8)
                     }
                     .padding(.top, insets.top)
-                    CutOnboardingHero(text: CutOnboardingLogic.bodyweightTitle, size: 48)
+                    CutWelcomeHero(text: CutOnboardingLogic.bodyweightTitle, size: 48)
                         .padding(.horizontal, DS.Cut.Metrics.gutter)
                         .padding(.top, 30)
                     Text(CutOnboardingLogic.bodyweightLine)
@@ -270,7 +270,8 @@ private struct CutOnboardingStepper: View {
 // MARK: - Pieces
 
 /// A big condensed capital line, balanced over two lines; each line shrinks to fit, never truncates.
-private struct CutOnboardingHero: View {
+/// Shared with the Cut log in screen.
+struct CutWelcomeHero: View {
     let text: String
     let size: CGFloat
     @ScaledMetric(relativeTo: .largeTitle) private var scaledHundred: CGFloat = 100

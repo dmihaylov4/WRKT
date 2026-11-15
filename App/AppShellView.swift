@@ -177,7 +177,15 @@ struct AppShellView: View {
             selectedTab = .social
         }
         .fullScreenCover(isPresented: Binding(
-            get: { launchSplash.isDismissed && authService.needsPasswordReset },
+            get: { !DS.Redesign.cutEnabled && launchSplash.isDismissed && authService.needsPasswordReset },
+            set: { authService.needsPasswordReset = $0 }
+        )) {
+            SetNewPasswordView()
+                .environmentObject(authService)
+        }
+        // Cut only: the same screen on the same condition, as a form sheet that cannot be swiped away.
+        .sheet(isPresented: Binding(
+            get: { DS.Redesign.cutEnabled && launchSplash.isDismissed && authService.needsPasswordReset },
             set: { authService.needsPasswordReset = $0 }
         )) {
             SetNewPasswordView()

@@ -314,6 +314,16 @@
 		C17CB4000000000000000101 /* CutOnboardingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000201 /* CutOnboardingModel.swift */; };
 		C17CB4000000000000000102 /* CutOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000202 /* CutOnboardingView.swift */; };
 		C17CB4000000000000000103 /* CutOnboardingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000203 /* CutOnboardingHost.swift */; };
+		C17CB4000000000000000104 /* CutAuthComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000204 /* CutAuthComponents.swift */; };
+		C17CB4000000000000000105 /* CutLoginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000205 /* CutLoginModel.swift */; };
+		C17CB4000000000000000106 /* CutLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000206 /* CutLoginView.swift */; };
+		C17CB4000000000000000107 /* CutLoginHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000207 /* CutLoginHost.swift */; };
+		C17CB4000000000000000108 /* CutSignupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000208 /* CutSignupModel.swift */; };
+		C17CB4000000000000000109 /* CutSignupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB4000000000000000209 /* CutSignupView.swift */; };
+		C17CB400000000000000010A /* CutSignupHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020A /* CutSignupHost.swift */; };
+		C17CB400000000000000010B /* CutPasswordModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020B /* CutPasswordModel.swift */; };
+		C17CB400000000000000010C /* CutPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020C /* CutPasswordView.swift */; };
+		C17CB400000000000000010D /* CutPasswordHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB400000000000000020D /* CutPasswordHost.swift */; };
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
@@ -947,6 +957,16 @@
 		C17CB4000000000000000201 /* CutOnboardingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutOnboardingModel.swift; sourceTree = "<group>"; };
 		C17CB4000000000000000202 /* CutOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutOnboardingView.swift; sourceTree = "<group>"; };
 		C17CB4000000000000000203 /* CutOnboardingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutOnboardingHost.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000204 /* CutAuthComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAuthComponents.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000205 /* CutLoginModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLoginModel.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000206 /* CutLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLoginView.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000207 /* CutLoginHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLoginHost.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000208 /* CutSignupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSignupModel.swift; sourceTree = "<group>"; };
+		C17CB4000000000000000209 /* CutSignupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSignupView.swift; sourceTree = "<group>"; };
+		C17CB400000000000000020A /* CutSignupHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSignupHost.swift; sourceTree = "<group>"; };
+		C17CB400000000000000020B /* CutPasswordModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPasswordModel.swift; sourceTree = "<group>"; };
+		C17CB400000000000000020C /* CutPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPasswordView.swift; sourceTree = "<group>"; };
+		C17CB400000000000000020D /* CutPasswordHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPasswordHost.swift; sourceTree = "<group>"; };
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -2749,6 +2769,16 @@
 				C17CAD000000000000000201 /* CutProfileModel.swift */,
 				C17CAD000000000000000202 /* CutProfileView.swift */,
 				C17CAD000000000000000203 /* CutProfileHost.swift */,
+				C17CB4000000000000000204 /* CutAuthComponents.swift */,
+				C17CB4000000000000000205 /* CutLoginModel.swift */,
+				C17CB4000000000000000206 /* CutLoginView.swift */,
+				C17CB4000000000000000207 /* CutLoginHost.swift */,
+				C17CB4000000000000000208 /* CutSignupModel.swift */,
+				C17CB4000000000000000209 /* CutSignupView.swift */,
+				C17CB400000000000000020A /* CutSignupHost.swift */,
+				C17CB400000000000000020B /* CutPasswordModel.swift */,
+				C17CB400000000000000020C /* CutPasswordView.swift */,
+				C17CB400000000000000020D /* CutPasswordHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3191,6 +3221,16 @@
 				C17CB4000000000000000101 /* CutOnboardingModel.swift in Sources */,
 				C17CB4000000000000000102 /* CutOnboardingView.swift in Sources */,
 				C17CB4000000000000000103 /* CutOnboardingHost.swift in Sources */,
+				C17CB4000000000000000104 /* CutAuthComponents.swift in Sources */,
+				C17CB4000000000000000105 /* CutLoginModel.swift in Sources */,
+				C17CB4000000000000000106 /* CutLoginView.swift in Sources */,
+				C17CB4000000000000000107 /* CutLoginHost.swift in Sources */,
+				C17CB4000000000000000108 /* CutSignupModel.swift in Sources */,
+				C17CB4000000000000000109 /* CutSignupView.swift in Sources */,
+				C17CB400000000000000010A /* CutSignupHost.swift in Sources */,
+				C17CB400000000000000010B /* CutPasswordModel.swift in Sources */,
+				C17CB400000000000000010C /* CutPasswordView.swift in Sources */,
+				C17CB400000000000000010D /* CutPasswordHost.swift in Sources */,
 				2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */,
 				2EC201DD2EEF234C00D6BAEF /* PlanView.swift in Sources */,
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,

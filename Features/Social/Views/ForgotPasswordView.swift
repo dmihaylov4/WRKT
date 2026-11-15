@@ -9,6 +9,14 @@ struct ForgotPasswordView: View {
     @State private var errorMessage: String?
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutResetPasswordHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 24) {
                 if emailSent {
