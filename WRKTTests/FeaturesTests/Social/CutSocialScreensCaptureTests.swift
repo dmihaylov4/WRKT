@@ -32,9 +32,9 @@ struct CutSocialScreensCaptureTests {
     func capturePostDetail() async throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
 
-        func detail(_ facts: CutPostDetailFacts, open: Set<Int> = [], text: String = "", map: Bool = false, section: CutPostDetailModel.Section = .overview) -> some View {
+        func detail(_ facts: CutPostDetailFacts, open: Set<Int> = [], text: String = "", map: Bool = false) -> some View {
             CutPostDetailView(model: CutPostDetailLogic.model(facts, now: F.now, weightUnit: .kg, locale: F.locale),
-                              commentText: .constant(text), openExercises: open, initialSection: section) {
+                              commentText: .constant(text), openExercises: open) {
                 if map {
                     Rectangle()
                         .fill(DS.Cut.Colors.darkField)
@@ -45,7 +45,10 @@ struct CutSocialScreensCaptureTests {
         }
 
         try await capture(detail(D.strength()), name: "post-strength-overview")
-        try await capture(detail(D.cardio(), map: true, section: .watch), name: "post-cardio-watch-full", height: 2_600)
+        try await capture(detail(D.cardio(), map: true), name: "post-cardio-watch-full", height: 2_600)
+        try await capture(detail(D.bodyweight(), open: [1]), name: "post-bodyweight")
+        try await capture(detail(D.bodyweight(), open: [1]), name: "post-bodyweight-full", height: 2_400)
+        try await capture(detail(D.cardio(), map: true), name: "post-media")
         var own = D.strength()
         own.post.isOwn = true
         own.post.author = .init(id: D.me, name: "Dimitar M.")
