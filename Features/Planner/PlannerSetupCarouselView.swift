@@ -42,6 +42,49 @@ struct PlannerSetupCarouselView: View {
     }
 
     var body: some View {
+        Group {
+            if DS.Redesign.cutEnabled {
+                CutPlanSetupHost(config: config, purpose: isEditingExistingSplit ? .edit : .create, generate: generatePlan)
+            } else {
+                legacyBody
+            }
+        }
+        .onAppear {
+            NotificationCenter.default.post(name: .hideShellTabBar, object: nil)
+            configureLaunchMode()
+        }
+        .onDisappear {
+            NotificationCenter.default.post(name: .showShellTabBar, object: nil)
+        }
+        .alert("Active Plan Exists", isPresented: $showExistingSplitAlert) {
+            Button("Replace with New Plan", role: .destructive) {
+                isEditingExistingSplit = false
+                existingSplit = nil
+            }
+            Button("Edit Current Split") {
+                isEditingExistingSplit = true
+                loadExistingSplitIntoConfig()
+            }
+            Button("Cancel", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            if let split = existingSplit {
+                Text("You already have an active plan: \"\(split.name)\". You can replace it, edit it, or cancel.")
+            } else {
+                Text("You already have an active plan. You can replace it, edit it, or cancel.")
+            }
+        }
+        .alert(item: $errorAlert) { alert in
+            Alert(
+                title: Text(alert.title),
+                message: Text(alert.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+
+    private var legacyBody: some View {
         VStack(spacing: 0) {
             // Progress bar
             ProgressView(value: Double(currentStep + 1), total: Double(totalSteps))
@@ -126,39 +169,6 @@ struct PlannerSetupCarouselView: View {
                     }
                 }
             }
-        }
-        .onAppear {
-            NotificationCenter.default.post(name: .hideShellTabBar, object: nil)
-            configureLaunchMode()
-        }
-        .onDisappear {
-            NotificationCenter.default.post(name: .showShellTabBar, object: nil)
-        }
-        .alert("Active Plan Exists", isPresented: $showExistingSplitAlert) {
-            Button("Replace with New Plan", role: .destructive) {
-                isEditingExistingSplit = false
-                existingSplit = nil
-            }
-            Button("Edit Current Split") {
-                isEditingExistingSplit = true
-                loadExistingSplitIntoConfig()
-            }
-            Button("Cancel", role: .cancel) {
-                dismiss()
-            }
-        } message: {
-            if let split = existingSplit {
-                Text("You already have an active plan: \"\(split.name)\". You can replace it, edit it, or cancel.")
-            } else {
-                Text("You already have an active plan. You can replace it, edit it, or cancel.")
-            }
-        }
-        .alert(item: $errorAlert) { alert in
-            Alert(
-                title: Text(alert.title),
-                message: Text(alert.message),
-                dismissButton: .default(Text("OK"))
-            )
         }
     }
 

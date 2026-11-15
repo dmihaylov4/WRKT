@@ -55,6 +55,8 @@ public extension DS.Cut {
         public static let textTertiary = Color(hex: "#8E8E93")
         /// Quiet destructive text ("Leave battle"): #FF6961 (6:1 on a sheet).
         public static let destructive = Color(hex: "#FF6961")
+        /// Controls on a raised panel (round more buttons, text fields on the background): #2E2E33.
+        public static let panelControl = Color(hex: "#2E2E33")
     }
 }
 
@@ -93,6 +95,8 @@ public extension DS.Cut {
         public static let minTouchTarget: CGFloat = 44
         /// Round icon button in tab headers.
         public static let headerIconButton: CGFloat = 48
+        /// Cut of a large card field (the active program card).
+        public static let cardCut: CGFloat = 30
     }
 }
 

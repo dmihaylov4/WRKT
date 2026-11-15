@@ -25,6 +25,14 @@ struct ProgramLibraryView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutProgramsHost(pendingNotification: $pendingNotification)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel {
                 content(for: viewModel)
@@ -1104,6 +1112,14 @@ struct ProgramPreviewView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutProgramPreviewHost(inviteID: inviteID, bottomActionPadding: bottomActionPadding, onChanged: onChanged)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel {
                 ScrollView {

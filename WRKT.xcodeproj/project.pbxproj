@@ -293,6 +293,24 @@
 		C17CB1000000000000000110 /* CutChallengesBrowseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000210 /* CutChallengesBrowseModel.swift */; };
 		C17CB1000000000000000111 /* CutChallengesBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000211 /* CutChallengesBrowseView.swift */; };
 		C17CB1000000000000000112 /* CutChallengesBrowseHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000212 /* CutChallengesBrowseHost.swift */; };
+		C17CB3000000000000000101 /* CutPlannerComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000201 /* CutPlannerComponents.swift */; };
+		C17CB3000000000000000102 /* CutExerciseEditModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000202 /* CutExerciseEditModel.swift */; };
+		C17CB3000000000000000103 /* CutExerciseEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000203 /* CutExerciseEditView.swift */; };
+		C17CB3000000000000000104 /* CutProgramsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000204 /* CutProgramsModel.swift */; };
+		C17CB3000000000000000105 /* CutProgramsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000205 /* CutProgramsView.swift */; };
+		C17CB3000000000000000106 /* CutProgramsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000206 /* CutProgramsHost.swift */; };
+		C17CB3000000000000000107 /* CutProgramShareModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000207 /* CutProgramShareModel.swift */; };
+		C17CB3000000000000000108 /* CutProgramShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000208 /* CutProgramShareView.swift */; };
+		C17CB3000000000000000109 /* CutProgramShareHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000209 /* CutProgramShareHost.swift */; };
+		C17CB300000000000000010A /* CutSentInvitesModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB300000000000000020A /* CutSentInvitesModel.swift */; };
+		C17CB300000000000000010B /* CutSentInvitesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB300000000000000020B /* CutSentInvitesView.swift */; };
+		C17CB300000000000000010C /* CutSentInvitesHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB300000000000000020C /* CutSentInvitesHost.swift */; };
+		C17CB300000000000000010D /* CutProgramPreviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB300000000000000020D /* CutProgramPreviewModel.swift */; };
+		C17CB300000000000000010E /* CutProgramPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB300000000000000020E /* CutProgramPreviewView.swift */; };
+		C17CB300000000000000010F /* CutProgramPreviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB300000000000000020F /* CutProgramPreviewHost.swift */; };
+		C17CB3000000000000000110 /* CutPlanSetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000210 /* CutPlanSetupModel.swift */; };
+		C17CB3000000000000000111 /* CutPlanSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000211 /* CutPlanSetupView.swift */; };
+		C17CB3000000000000000112 /* CutPlanSetupHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB3000000000000000212 /* CutPlanSetupHost.swift */; };
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
@@ -905,6 +923,24 @@
 		C17CB1000000000000000210 /* CutChallengesBrowseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengesBrowseModel.swift; sourceTree = "<group>"; };
 		C17CB1000000000000000211 /* CutChallengesBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengesBrowseView.swift; sourceTree = "<group>"; };
 		C17CB1000000000000000212 /* CutChallengesBrowseHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengesBrowseHost.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000201 /* CutPlannerComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlannerComponents.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000202 /* CutExerciseEditModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseEditModel.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000203 /* CutExerciseEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseEditView.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000204 /* CutProgramsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramsModel.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000205 /* CutProgramsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramsView.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000206 /* CutProgramsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramsHost.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000207 /* CutProgramShareModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramShareModel.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000208 /* CutProgramShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramShareView.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000209 /* CutProgramShareHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramShareHost.swift; sourceTree = "<group>"; };
+		C17CB300000000000000020A /* CutSentInvitesModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSentInvitesModel.swift; sourceTree = "<group>"; };
+		C17CB300000000000000020B /* CutSentInvitesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSentInvitesView.swift; sourceTree = "<group>"; };
+		C17CB300000000000000020C /* CutSentInvitesHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSentInvitesHost.swift; sourceTree = "<group>"; };
+		C17CB300000000000000020D /* CutProgramPreviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramPreviewModel.swift; sourceTree = "<group>"; };
+		C17CB300000000000000020E /* CutProgramPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramPreviewView.swift; sourceTree = "<group>"; };
+		C17CB300000000000000020F /* CutProgramPreviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutProgramPreviewHost.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000210 /* CutPlanSetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanSetupModel.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000211 /* CutPlanSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanSetupView.swift; sourceTree = "<group>"; };
+		C17CB3000000000000000212 /* CutPlanSetupHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanSetupHost.swift; sourceTree = "<group>"; };
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -1489,6 +1525,7 @@
 				2EBE3EE62EB6569B00A26355 /* Views */,
 				2EE39C742EA784B2000549C3 /* PlannerSetupCarouselView.swift */,
 				2E7461A22E93ED4A00A71C35 /* CalendarMonthView.swift */,
+				C17CB3000000000000000001 /* Cut */,
 			);
 			path = Planner;
 			sourceTree = "<group>";
@@ -2227,6 +2264,31 @@
 				C17CB1000000000000000210 /* CutChallengesBrowseModel.swift */,
 				C17CB1000000000000000211 /* CutChallengesBrowseView.swift */,
 				C17CB1000000000000000212 /* CutChallengesBrowseHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
+		C17CB3000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CB3000000000000000201 /* CutPlannerComponents.swift */,
+				C17CB3000000000000000202 /* CutExerciseEditModel.swift */,
+				C17CB3000000000000000203 /* CutExerciseEditView.swift */,
+				C17CB3000000000000000204 /* CutProgramsModel.swift */,
+				C17CB3000000000000000205 /* CutProgramsView.swift */,
+				C17CB3000000000000000206 /* CutProgramsHost.swift */,
+				C17CB3000000000000000207 /* CutProgramShareModel.swift */,
+				C17CB3000000000000000208 /* CutProgramShareView.swift */,
+				C17CB3000000000000000209 /* CutProgramShareHost.swift */,
+				C17CB300000000000000020A /* CutSentInvitesModel.swift */,
+				C17CB300000000000000020B /* CutSentInvitesView.swift */,
+				C17CB300000000000000020C /* CutSentInvitesHost.swift */,
+				C17CB300000000000000020D /* CutProgramPreviewModel.swift */,
+				C17CB300000000000000020E /* CutProgramPreviewView.swift */,
+				C17CB300000000000000020F /* CutProgramPreviewHost.swift */,
+				C17CB3000000000000000210 /* CutPlanSetupModel.swift */,
+				C17CB3000000000000000211 /* CutPlanSetupView.swift */,
+				C17CB3000000000000000212 /* CutPlanSetupHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3091,6 +3153,24 @@
 				C17CB1000000000000000110 /* CutChallengesBrowseModel.swift in Sources */,
 				C17CB1000000000000000111 /* CutChallengesBrowseView.swift in Sources */,
 				C17CB1000000000000000112 /* CutChallengesBrowseHost.swift in Sources */,
+				C17CB3000000000000000101 /* CutPlannerComponents.swift in Sources */,
+				C17CB3000000000000000102 /* CutExerciseEditModel.swift in Sources */,
+				C17CB3000000000000000103 /* CutExerciseEditView.swift in Sources */,
+				C17CB3000000000000000104 /* CutProgramsModel.swift in Sources */,
+				C17CB3000000000000000105 /* CutProgramsView.swift in Sources */,
+				C17CB3000000000000000106 /* CutProgramsHost.swift in Sources */,
+				C17CB3000000000000000107 /* CutProgramShareModel.swift in Sources */,
+				C17CB3000000000000000108 /* CutProgramShareView.swift in Sources */,
+				C17CB3000000000000000109 /* CutProgramShareHost.swift in Sources */,
+				C17CB300000000000000010A /* CutSentInvitesModel.swift in Sources */,
+				C17CB300000000000000010B /* CutSentInvitesView.swift in Sources */,
+				C17CB300000000000000010C /* CutSentInvitesHost.swift in Sources */,
+				C17CB300000000000000010D /* CutProgramPreviewModel.swift in Sources */,
+				C17CB300000000000000010E /* CutProgramPreviewView.swift in Sources */,
+				C17CB300000000000000010F /* CutProgramPreviewHost.swift in Sources */,
+				C17CB3000000000000000110 /* CutPlanSetupModel.swift in Sources */,
+				C17CB3000000000000000111 /* CutPlanSetupView.swift in Sources */,
+				C17CB3000000000000000112 /* CutPlanSetupHost.swift in Sources */,
 				2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */,
 				2EC201DD2EEF234C00D6BAEF /* PlanView.swift in Sources */,
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,
