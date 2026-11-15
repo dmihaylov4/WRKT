@@ -13,6 +13,14 @@ struct LikesListView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutLikesListHost(postId: postId, postRepository: postRepository)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         VStack(spacing: 0) {
             // Header
             HStack {

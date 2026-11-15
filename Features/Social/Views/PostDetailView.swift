@@ -33,6 +33,15 @@ struct PostDetailView: View {
     private let imageUploadService = ImageUploadService()
 
     var body: some View {
+        // The one Cut branch point: same view model, comments, likes sheet and images.
+        if DS.Redesign.cutEnabled {
+            CutPostDetailHost(post: post)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel = viewModel {
                 content(viewModel: viewModel)

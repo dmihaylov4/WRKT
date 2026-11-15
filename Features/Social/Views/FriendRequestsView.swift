@@ -13,6 +13,15 @@ struct FriendRequestsView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same view model, actions and profile destination.
+        if DS.Redesign.cutEnabled {
+            CutFriendRequestsHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel = viewModel {
                 content(viewModel: viewModel)

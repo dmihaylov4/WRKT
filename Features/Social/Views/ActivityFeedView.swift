@@ -7,6 +7,15 @@ struct ActivityFeedView: View {
     @State private var viewModel: ActivityFeedViewModel?
 
     var body: some View {
+        // The one Cut branch point: same view model, mark-all-read on open, destinations.
+        if DS.Redesign.cutEnabled {
+            CutActivityHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if let viewModel {
                 NotificationListView(viewModel: viewModel)
@@ -317,6 +326,15 @@ struct PostLoaderView: View {
     @State private var errorMessage: String?
 
     var body: some View {
+        // The one Cut branch point: same fetch, then PostDetailView (which branches itself).
+        if DS.Redesign.cutEnabled {
+            CutPostLoaderHost(postId: postId)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         Group {
             if isLoading {
                 ProgressView("Loading post...")
