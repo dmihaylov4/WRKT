@@ -24,6 +24,7 @@ final class FeedViewModel {
     private let realtimeService: RealtimeService
     private let notificationCenter: NotificationCenter
     @ObservationIgnored private var commentObserver: NSObjectProtocol?
+    @ObservationIgnored private var postChangeObservers: [NSObjectProtocol] = []
     private let networkMonitor = NetworkMonitor.shared
     private let offlineQueue = OfflineQueueManager.shared
     private let retryManager = RetryManager.shared
@@ -70,10 +71,43 @@ final class FeedViewModel {
             updated.post = updatedWorkoutPost
             self.posts[index] = updated
         }
+
+        // The post detail screen edits and deletes on its own: mirror the result here so the
+        // feed does not keep showing a deleted post or an old caption until the next refresh.
+        postChangeObservers = [
+            notificationCenter.addObserver(forName: .postDidDelete, object: nil, queue: .main) { [weak self] notification in
+                guard let postId = notification.userInfo?["postId"] as? UUID else { return }
+                self?.applyExternalDelete(postId: postId)
+            },
+            notificationCenter.addObserver(forName: .postDidUpdate, object: nil, queue: .main) { [weak self] notification in
+                guard let postId = notification.userInfo?["postId"] as? UUID,
+                      let rawVisibility = notification.userInfo?["visibility"] as? String,
+                      let visibility = PostVisibility(rawValue: rawVisibility) else { return }
+                self?.applyExternalEdit(postId: postId,
+                                        caption: notification.userInfo?["caption"] as? String,
+                                        visibility: visibility)
+            }
+        ]
+    }
+
+    /// Drops a post another screen already deleted on the server. Nothing is sent again.
+    func applyExternalDelete(postId: UUID) {
+        posts.removeAll { $0.post.id == postId }
+    }
+
+    /// Applies a caption and visibility another screen already saved. Nothing is sent again.
+    func applyExternalEdit(postId: UUID, caption: String?, visibility: PostVisibility) {
+        guard let index = posts.firstIndex(where: { $0.post.id == postId }) else { return }
+        var updated = posts[index]
+        updated.post.caption = caption
+        updated.post.visibility = visibility
+        updated.post.updatedAt = Date()
+        posts[index] = updated
     }
 
     deinit {
         if let commentObserver { notificationCenter.removeObserver(commentObserver) }
+        postChangeObservers.forEach { notificationCenter.removeObserver($0) }
         // Don't create async tasks in deinit as they create retain cycles
         // cleanup() will be called from the view's onDisappear
         for (_, pendingDeletion) in pendingDeletions {

@@ -84,10 +84,64 @@ struct FeedRefreshTests {
         #expect(await request.value)
     }
 
-    private func makeModel(repository: PostRepository) -> FeedViewModel {
+    // MARK: Changes made on the post detail screen
+
+    @Test func postDeletedElsewhereLeavesTheFeed() {
+        let fixture = FeedRequestFixture(mode: .failed)
+        let center = NotificationCenter()
+        let model = makeModel(repository: fixture.repository, center: center)
+        let kept = makePost(userID: fixture.user.id)
+        let deleted = makePost(userID: fixture.user.id)
+        model.posts = [kept, deleted]
+
+        center.post(name: .postDidDelete, object: nil, userInfo: ["postId": deleted.post.id])
+
+        #expect(model.posts.map(\.id) == [kept.id])
+        // No request is sent: the other screen already deleted it on the server.
+        #expect(fixture.paths.isEmpty)
+    }
+
+    @Test func postEditedElsewhereUpdatesTheFeedRow() {
+        let fixture = FeedRequestFixture(mode: .failed)
+        let center = NotificationCenter()
+        let model = makeModel(repository: fixture.repository, center: center)
+        var original = makePost(userID: fixture.user.id)
+        original.post.caption = "Old caption"
+        let other = makePost(userID: fixture.user.id)
+        model.posts = [original, other]
+
+        center.post(name: .postDidUpdate, object: nil,
+                    userInfo: ["postId": original.post.id, "visibility": PostVisibility.publicPost.rawValue,
+                               "caption": "New caption"])
+        #expect(model.posts[0].post.caption == "New caption")
+        #expect(model.posts[0].post.visibility == .publicPost)
+        #expect(model.posts[1].post.caption == other.post.caption)
+
+        // A cleared caption arrives with no caption key and clears the row.
+        center.post(name: .postDidUpdate, object: nil,
+                    userInfo: ["postId": original.post.id, "visibility": PostVisibility.friends.rawValue])
+        #expect(model.posts[0].post.caption == nil)
+        #expect(model.posts[0].post.visibility == .friends)
+        #expect(fixture.paths.isEmpty)
+    }
+
+    @Test func changesToUnknownPostsAreIgnored() {
+        let fixture = FeedRequestFixture(mode: .failed)
+        let model = makeModel(repository: fixture.repository)
+        let existing = makePost(userID: fixture.user.id)
+        model.posts = [existing]
+
+        model.applyExternalDelete(postId: UUID())
+        model.applyExternalEdit(postId: UUID(), caption: "x", visibility: .friends)
+
+        #expect(model.posts.map(\.id) == [existing.id])
+        #expect(model.posts[0].post.caption == existing.post.caption)
+    }
+
+    private func makeModel(repository: PostRepository, center: NotificationCenter = NotificationCenter()) -> FeedViewModel {
         FeedViewModel(postRepository: repository, authService: .shared,
                       realtimeService: RealtimeService(client: repository.client),
-                      notificationCenter: NotificationCenter())
+                      notificationCenter: center)
     }
 
     private func makePost(userID: UUID) -> PostWithAuthor {

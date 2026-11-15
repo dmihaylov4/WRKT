@@ -44,6 +44,9 @@ private final class CountingNotificationCenter: NotificationCenter, @unchecked S
 
 @MainActor
 final class FeedObserverLifetimeTests: XCTestCase {
+    /// Observers a live feed model holds: comment count, post deleted, post updated.
+    private let liveObserverCount = 3
+
     private func makeModel(center: NotificationCenter) -> FeedViewModel {
         FeedViewModel(postRepository: PostRepository(), authService: .shared,
                       realtimeService: RealtimeService(client: SupabaseClientWrapper.shared.client),
@@ -55,12 +58,12 @@ final class FeedObserverLifetimeTests: XCTestCase {
         for index in 1...20 {
             var model: FeedViewModel? = makeModel(center: center)
             weak var released = model
-            XCTAssertEqual(center.activeCount, 1)
+            XCTAssertEqual(center.activeCount, liveObserverCount)
             center.post(name: .postCommentCountDidChange, object: nil)
             XCTAssertEqual(center.callbackCount, index)
             await model?.cleanup()
             await model?.cleanup()
-            XCTAssertEqual(center.activeCount, 1)
+            XCTAssertEqual(center.activeCount, liveObserverCount)
             model = nil
             XCTAssertNil(released)
             XCTAssertEqual(center.activeCount, 0)
@@ -85,7 +88,7 @@ final class FeedObserverLifetimeTests: XCTestCase {
         center.post(name: .postCommentCountDidChange, object: nil,
                     userInfo: ["postId": matching.id, "count": 7])
 
-        XCTAssertEqual(center.activeCount, 1)
+        XCTAssertEqual(center.activeCount, liveObserverCount)
         XCTAssertEqual(center.callbackCount, 1)
         XCTAssertEqual(model.posts[0].post.commentsCount, 7)
         XCTAssertEqual(model.posts[1].post.commentsCount, other.commentsCount)
@@ -96,7 +99,7 @@ final class FeedObserverLifetimeTests: XCTestCase {
         for _ in 0..<20 {
             var model: FeedViewModel? = makeModel(center: center)
             weak var released = model
-            XCTAssertEqual(center.activeCount, 1)
+            XCTAssertEqual(center.activeCount, liveObserverCount)
             model = nil
             XCTAssertNil(released)
             XCTAssertEqual(center.activeCount, 0)

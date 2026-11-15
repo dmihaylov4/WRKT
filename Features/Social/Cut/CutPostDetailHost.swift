@@ -125,6 +125,9 @@ struct CutPostDetailHost: View {
             updated.post.visibility = visibility
             updated.post.updatedAt = Date()
             vm.post = updated
+            var info: [String: Any] = ["postId": updated.post.id, "visibility": visibility.rawValue]
+            if let caption { info["caption"] = caption }
+            NotificationCenter.default.post(name: .postDidUpdate, object: nil, userInfo: info)
             Haptics.success()
         } catch {
             vm.error = "Failed to update post"
@@ -132,13 +135,15 @@ struct CutPostDetailHost: View {
         }
     }
 
-    /// Deletes the post and leaves the screen; the feed drops it on its next refresh.
+    /// Deletes the post, tells the feed and profile lists to drop it, and leaves the screen.
     private func deletePost() async {
         guard let vm = viewModel, !isDeleting else { return }
         isDeleting = true
         defer { isDeleting = false }
         do {
-            try await deps.postRepository.deletePost(vm.post.post.id)
+            let postId = vm.post.post.id
+            try await deps.postRepository.deletePost(postId)
+            NotificationCenter.default.post(name: .postDidDelete, object: nil, userInfo: ["postId": postId])
             Haptics.warning()
             dismiss()
         } catch {

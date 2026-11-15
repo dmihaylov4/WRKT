@@ -58,6 +58,13 @@ struct CutProfileHost: View {
                 selectedBarSkinIndex: friendBarSkinIndex, selectedRoomThemeID: friendRoomThemeID,
                 selectedRackStyleID: friendRackStyleID, showPlateEngravings: friendShowPlateEngravings, totalWeight: friendTotalWeight)
         }
+        // A post edited or deleted from its detail screen: reload this profile's posts.
+        .onReceive(NotificationCenter.default.publisher(for: .postDidDelete)) { _ in
+            Task { await viewModel?.loadUserPosts() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .postDidUpdate)) { _ in
+            Task { await viewModel?.loadUserPosts() }
+        }
         .task {
             if viewModel == nil && !isLoading { await loadProfile() }
             if let battleId, battle == nil && !isBattleLoading { await loadBattle(battleId: battleId) }
