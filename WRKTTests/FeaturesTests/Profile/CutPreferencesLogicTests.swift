@@ -19,7 +19,7 @@ enum CutPreferencesFixtures {
 
     static var signedIn: CutPreferencesFacts {
         CutPreferencesFacts(
-            currentYear: 2026, birthYear: 1992, bodyweightKg: 82.5, unit: .kg,
+            age: 34, bodyweightKg: 82.5, unit: .kg,
             restTimerEnabled: true, compoundSeconds: 150, isolationSeconds: 90,
             maxHR: 188, zones: zones, zonesMethodDescription: "Max HR from your age (220 - age).",
             customExercises: customExercises, isSignedIn: true, smartNudgesEnabled: true,
@@ -28,7 +28,7 @@ enum CutPreferencesFixtures {
 
     static var local: CutPreferencesFacts {
         CutPreferencesFacts(
-            currentYear: 2026, birthYear: nil, bodyweightKg: 70, unit: .lb,
+            age: nil, bodyweightKg: 70, unit: .lb,
             restTimerEnabled: false, zones: zones, zonesMethodDescription: "Set your age in Profile to get personalized zones.",
             customExercises: [], isSignedIn: false, smartNudgesEnabled: false,
             notificationsAuthorized: false, hasWeeklyGoal: false, shortVersion: "2.4.1", buildNumber: "318")
@@ -76,20 +76,9 @@ struct CutPreferencesLogicTests {
 
     // MARK: Age
 
-    @Test func ageLineAndEditability() {
-        let set = CutPreferencesLogic.model(F.signedIn)
-        #expect(set.age == "34 years")
-        #expect(!set.ageIsEditable)
-        let unset = CutPreferencesLogic.model(F.local)
-        #expect(unset.age == "Not set")
-        #expect(unset.ageIsEditable)
-    }
-
-    @Test func ageWheelValues() {
-        #expect(CutPreferencesLogic.age(birthYear: nil, currentYear: 2026) == 30)
-        #expect(CutPreferencesLogic.age(birthYear: 1990, currentYear: 2026) == 36)
-        #expect(CutPreferencesLogic.birthYear(age: 36, currentYear: 2026) == 1990)
-        #expect(CutPreferencesLogic.ageRange == 10...100)
+    @Test func ageLine() {
+        #expect(CutPreferencesLogic.model(F.signedIn).age == "34 years")
+        #expect(CutPreferencesLogic.model(F.local).age == "Not set")
     }
 
     // MARK: Bodyweight

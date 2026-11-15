@@ -28,8 +28,8 @@ struct CutPreferencesFacts {
         var equipment: String?
     }
 
-    var currentYear: Int
-    var birthYear: Int?
+    /// The age the zones use (AgeSetting); nil when none is saved.
+    var age: Int?
     var bodyweightKg: Double = 70
     /// Nil when the stored unit is not one the app knows (the legacy fallback prints kg).
     var unit: WeightUnit? = .kg
@@ -62,9 +62,8 @@ struct CutPreferencesModel: Equatable {
     }
 
     var title = "Preferences"
+    /// Always editable: a saved age still ages by itself each year.
     var age: String
-    /// The legacy rule: once a birth year is saved, age is read-only and ages by itself.
-    var ageIsEditable: Bool
     var bodyweight: String
     var profileFooter = CutPreferencesLogic.profileFooter
     var incrementOptions: [CutSettingsOption<Double>]
@@ -100,8 +99,7 @@ enum CutPreferencesLogic {
 
     static func model(_ facts: CutPreferencesFacts) -> CutPreferencesModel {
         CutPreferencesModel(
-            age: ageLine(birthYear: facts.birthYear, currentYear: facts.currentYear),
-            ageIsEditable: facts.birthYear == nil,
+            age: AgeSetting.line(facts.age),
             bodyweight: bodyweightLine(kg: facts.bodyweightKg, unit: facts.unit),
             incrementOptions: incrementOptions(unit: facts.unit ?? .kg),
             unitOptions: unitOptions,
@@ -125,24 +123,6 @@ enum CutPreferencesLogic {
     }
 
     // MARK: Profile
-
-    static let ageRange = 10...100
-    /// The wheel's starting value when no birth year is saved.
-    static let defaultAge = 30
-
-    static func ageLine(birthYear: Int?, currentYear: Int) -> String {
-        guard let birthYear else { return "Not set" }
-        return "\(currentYear - birthYear) years"
-    }
-
-    static func age(birthYear: Int?, currentYear: Int) -> Int {
-        guard let birthYear else { return defaultAge }
-        return currentYear - birthYear
-    }
-
-    static func birthYear(age: Int, currentYear: Int) -> Int {
-        currentYear - age
-    }
 
     static func bodyweightLine(kg: Double, unit: WeightUnit?) -> String {
         unit.map { $0.format(kg) } ?? String(format: "%.1f kg", kg)

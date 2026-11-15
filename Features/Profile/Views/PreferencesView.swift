@@ -43,6 +43,8 @@ struct PreferencesView: View {
 
     // Rest timer preferences
     @ObservedObject private var timerPrefs = RestTimerPreferences.shared
+    /// Holds the age the zones use, for every user (AgeSetting).
+    @ObservedObject private var zoneCalculator = HRZoneCalculator.shared
 
     // Custom exercises
     @EnvironmentObject private var customStore: CustomExerciseStore
@@ -143,22 +145,8 @@ struct PreferencesView: View {
             .environmentObject(repo)
         }
         .sheet(isPresented: $showAgePicker) {
-            AgePickerSheet(age: Binding(
-                get: {
-                    if let birthYear = authService.currentUser?.profile?.birthYear {
-                        return Calendar.current.component(.year, from: Date()) - birthYear
-                    }
-                    return 30
-                },
-                set: { newAge in
-                    HRZoneCalculator.shared.userAge = newAge
-                    let birthYear = Calendar.current.component(.year, from: Date()) - newAge
-                    Task {
-                        try? await authService.updateProfile(birthYear: birthYear)
-                    }
-                }
-            ))
-            .presentationDetents([.height(280)])
+            AgePickerSheet(saved: zoneCalculator.userAge) { AgeSetting.commit($0, auth: authService) }
+                .presentationDetents([.height(280)])
         }
         .sheet(isPresented: $showWeightPicker) {
             WeightPickerSheet(weight: $userBodyweightKg)
@@ -209,24 +197,15 @@ struct PreferencesView: View {
             title: "Profile",
             footer: "Age is used for heart rate zones (Max HR = 220 - age) and updates automatically each year. Bodyweight is used for bodyweight exercise volume."
         ) {
-            if let birthYear = authService.currentUser?.profile?.birthYear {
-                // Age is set — show read-only; recalculates automatically each year
+            // Stays editable once set; a saved age still ages by itself each year.
+            Button { showAgePicker = true } label: {
                 HStack {
                     Text("Age").foregroundStyle(.primary)
                     Spacer()
-                    Text("\(Calendar.current.component(.year, from: Date()) - birthYear) years")
-                        .foregroundStyle(.secondary)
-                }
-            } else {
-                Button { showAgePicker = true } label: {
-                    HStack {
-                        Text("Age").foregroundStyle(.primary)
-                        Spacer()
-                        Text("Not set").foregroundStyle(.secondary)
-                        Image(systemName: "chevron.right")
-                            .dsFont(.caption, weight: .semibold)
-                            .foregroundStyle(.tertiary)
-                    }
+                    Text(AgeSetting.line(zoneCalculator.userAge)).foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .dsFont(.caption, weight: .semibold)
+                        .foregroundStyle(.tertiary)
                 }
             }
             Button { showWeightPicker = true } label: {
@@ -878,23 +857,36 @@ private struct HeartRateZonesSection: View {
 
 // MARK: - Age Picker Sheet
 
+/// The wheel edits a draft; `onCommit` runs once when the sheet closes with a change (AgeDraft).
 private struct AgePickerSheet: View {
-    @Binding var age: Int
-    @Environment(\.dismiss) private var dismiss
+    let saved: Int?
+    let onCommit: (Int) -> Void
 
     var body: some View {
         if DS.Redesign.cutEnabled {
-            CutAgePickerView(age: $age, done: { dismiss() })
+            CutAgePickerView(saved: saved, onCommit: onCommit)
         } else {
-            legacyBody
+            LegacyAgeWheel(saved: saved, onCommit: onCommit)
         }
     }
+}
 
-    private var legacyBody: some View {
+private struct LegacyAgeWheel: View {
+    let onCommit: (Int) -> Void
+    @State private var draft: AgeDraft
+    @State private var confirmed = false
+    @Environment(\.dismiss) private var dismiss
+
+    init(saved: Int?, onCommit: @escaping (Int) -> Void) {
+        self.onCommit = onCommit
+        _draft = State(initialValue: AgeDraft(saved: saved))
+    }
+
+    var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("Age", selection: $age) {
-                    ForEach(10...100, id: \.self) { year in
+                Picker("Age", selection: $draft.age) {
+                    ForEach(AgeDraft.range, id: \.self) { year in
                         Text("\(year) years").tag(year)
                     }
                 }
@@ -906,10 +898,14 @@ private struct AgePickerSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
+                        confirmed = true
                         dismiss()
                     }
                 }
             }
+        }
+        .onDisappear {
+            if let age = draft.ageToCommit(confirmed: confirmed) { onCommit(age) }
         }
     }
 }

@@ -4,7 +4,8 @@
 //
 //  PreferencesView's state and flows behind the Cut page, step for step: the same AppStorage
 //  keys, rest timer preferences, heart rate zones, custom exercise editor and delete, profile
-//  saves (age through the auth service and the zone calculator, bodyweight in AppStorage),
+//  saves (age through AgeSetting: the zone calculator, plus the profile when signed in;
+//  bodyweight in AppStorage),
 //  social auto-post saves, the smart nudge permission flow, the CSV file exporter, and the four
 //  confirmation alerts with their resets. The pure rules come from CutPreferencesLogic.
 //
@@ -45,13 +46,10 @@ struct CutPreferencesHost: View {
     @EnvironmentObject private var repo: ExerciseRepository
     @State private var editingExercise: Exercise?
 
-    private var currentYear: Int { Calendar.current.component(.year, from: Date()) }
-
     private var model: CutPreferencesModel {
         let info = Bundle.main.infoDictionary
         return CutPreferencesLogic.model(CutPreferencesFacts(
-            currentYear: currentYear,
-            birthYear: authService.currentUser?.profile?.birthYear,
+            age: calculator.userAge,
             bodyweightKg: userBodyweightKg,
             unit: WeightUnit(rawValue: weightUnitRaw),
             restTimerEnabled: timerPrefs.isEnabled,
@@ -169,16 +167,7 @@ struct CutPreferencesHost: View {
             .environmentObject(repo)
         }
         .sheet(isPresented: $showAgePicker) {
-            CutAgePickerView(age: Binding(
-                get: { CutPreferencesLogic.age(birthYear: authService.currentUser?.profile?.birthYear, currentYear: currentYear) },
-                set: { newAge in
-                    HRZoneCalculator.shared.userAge = newAge
-                    let birthYear = CutPreferencesLogic.birthYear(age: newAge, currentYear: currentYear)
-                    Task {
-                        try? await authService.updateProfile(birthYear: birthYear)
-                    }
-                }
-            ), done: { showAgePicker = false })
+            CutAgePickerView(saved: calculator.userAge) { AgeSetting.commit($0, auth: authService) }
         }
         .sheet(isPresented: $showWeightPicker) {
             CutWeightPickerView(weight: $userBodyweightKg, done: { showWeightPicker = false })

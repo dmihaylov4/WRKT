@@ -65,11 +65,7 @@ struct CutPreferencesView: View {
         CutSettingsPage(title: model.title) {
             // Profile
             CutSettingsSectionHeader("Profile", isFirst: true)
-            if model.ageIsEditable {
-                CutSettingsLinkRow("Age", value: model.age, action: actions.openAge)
-            } else {
-                CutSettingsValueRow("Age", value: model.age)
-            }
+            CutSettingsLinkRow("Age", value: model.age, action: actions.openAge)
             CutSettingsLinkRow("Bodyweight", value: model.bodyweight, action: actions.openBodyweight)
             CutSettingsFooter(model.profileFooter)
 
@@ -299,17 +295,25 @@ private struct CutPreferencesRestRow: View {
 
 // MARK: - Picker sheets
 
-/// The age wheel: Done in the bar, sized to the wheel. Every turn writes through `age`, as the
-/// legacy sheet did.
+/// The age wheel: Done in the bar, sized to the wheel. The wheel edits a draft; `onCommit` runs
+/// once when the sheet closes with a change (see AgeDraft).
 struct CutAgePickerView: View {
-    @Binding var age: Int
-    var done: () -> Void = {}
+    var onCommit: (Int) -> Void = { _ in }
+
+    @State private var draft: AgeDraft
+    @State private var confirmed = false
+    @Environment(\.dismiss) private var dismiss
+
+    init(saved: Int?, onCommit: @escaping (Int) -> Void = { _ in }) {
+        self.onCommit = onCommit
+        _draft = State(initialValue: AgeDraft(saved: saved))
+    }
 
     var body: some View {
         NavigationStack {
             CutPreferencesWheel {
-                Picker("Age", selection: $age) {
-                    ForEach(CutPreferencesLogic.ageRange, id: \.self) { years in
+                Picker("Age", selection: $draft.age) {
+                    ForEach(AgeDraft.range, id: \.self) { years in
                         Text("\(years) years").tag(years)
                     }
                 }
@@ -317,7 +321,15 @@ struct CutAgePickerView: View {
             }
             .navigationTitle("Your age")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { CutPreferencesDoneItem(done: done) }
+            .toolbar {
+                CutPreferencesDoneItem {
+                    confirmed = true
+                    dismiss()
+                }
+            }
+        }
+        .onDisappear {
+            if let age = draft.ageToCommit(confirmed: confirmed) { onCommit(age) }
         }
         .presentationDetents([.height(cutPreferencesWheelSheetHeight)])
         .presentationBackground(DS.Cut.Colors.background)
