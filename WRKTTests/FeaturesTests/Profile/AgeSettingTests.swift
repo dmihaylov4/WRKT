@@ -83,3 +83,24 @@ struct AgeSettingTests {
         #expect(local == [41])
     }
 }
+
+@Suite("Weekly goal setup age")
+struct WeeklyGoalSetupAgeTests {
+    /// Saving the goal used to write the stepper's age every time, and the stepper started at 30
+    /// for anyone without a profile birth year, so a local age of 45 became 30 on save.
+    @Test func savingTheGoalLeavesAnUntouchedLocalAgeAlone() {
+        let draft = AgeDraft(saved: 45)
+        #expect(draft.age == 45)
+        #expect(draft.ageToCommit(confirmed: true) == nil)
+    }
+
+    @Test func aChangedAgeIsSavedWithTheGoal() {
+        var draft = AgeDraft(saved: 45)
+        draft.age += 1
+        #expect(draft.ageToCommit(confirmed: true) == 46)
+    }
+
+    @Test func withNoAgeYetTheSuggestedAgeIsSavedAsBefore() {
+        #expect(AgeDraft(saved: nil).ageToCommit(confirmed: true) == 30)
+    }
+}

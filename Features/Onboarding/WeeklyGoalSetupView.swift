@@ -24,7 +24,8 @@ struct WeeklyGoalSetupView: View {
     @State private var weekStartDay: Int = 2 // Monday
     @State private var trackingMode: ActivityTrackingMode = .exerciseMinutes
     @State private var isDetectingDevice: Bool = false
-    @State private var inputAge: Int = 30
+    /// The age the zones use, seeded on appear (AgeSetting); saved only when changed.
+    @State private var ageDraft = AgeDraft(saved: nil)
 
     var body: some View {
         ZStack {
@@ -60,9 +61,7 @@ struct WeeklyGoalSetupView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
-            if let birthYear = authService.currentUser?.profile?.birthYear {
-                inputAge = Calendar.current.component(.year, from: Date()) - birthYear
-            }
+            ageDraft = AgeDraft(saved: HRZoneCalculator.shared.userAge)
 
             if let g = goal {
                 targetMinutes = g.targetActiveMinutes
@@ -121,8 +120,8 @@ struct WeeklyGoalSetupView: View {
 
             HStack(spacing: 20) {
                 Button {
-                    if inputAge > 10 {
-                        inputAge -= 1
+                    if ageDraft.age > AgeDraft.range.lowerBound {
+                        ageDraft.age -= 1
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
                 } label: {
@@ -130,15 +129,15 @@ struct WeeklyGoalSetupView: View {
                 }
                 .buttonStyle(.plain)
 
-                Text("\(inputAge)")
+                Text("\(ageDraft.age)")
                     .font(DS.Typography.custom(size: 42, weight: .bold))
                     .foregroundStyle(DS.Theme.accent)
                     .monospacedDigit()
                     .frame(minWidth: 60)
 
                 Button {
-                    if inputAge < 100 {
-                        inputAge += 1
+                    if ageDraft.age < AgeDraft.range.upperBound {
+                        ageDraft.age += 1
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
                 } label: {
@@ -334,11 +333,10 @@ struct WeeklyGoalSetupView: View {
         g.mode = trackingMode
         g.updatedAt = .now
 
-        HRZoneCalculator.shared.userAge = inputAge
-
-        let birthYear = Calendar.current.component(.year, from: Date()) - inputAge
-        Task {
-            try? await SupabaseAuthService.shared.updateProfile(birthYear: birthYear)
+        // One age commit, only when it changed (or was never set): local, plus the profile
+        // when signed in. An untouched age is left alone.
+        if let age = ageDraft.ageToCommit(confirmed: true) {
+            AgeSetting.commit(age, auth: authService)
         }
 
         if goal == nil { context.insert(g) }
