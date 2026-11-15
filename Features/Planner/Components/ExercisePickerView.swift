@@ -82,6 +82,14 @@ struct ExercisePickerView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutExercisePickerHost(onSelect: onSelect)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 // Custom search bar (fixes Auto Layout constraint conflicts)

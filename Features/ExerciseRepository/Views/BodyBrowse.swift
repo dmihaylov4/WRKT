@@ -189,6 +189,15 @@ struct MuscleExerciseListView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutExerciseBrowserHost(state: $state, subregion: subregion, muscleFilter: muscleFilter,
+                                   navigationPath: navigationPath)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ZStack {
             // Keep List in hierarchy even when empty to prevent keyboard dismissal
             List {
