@@ -16,20 +16,13 @@ struct CutSetEditorView: View {
     var apply: (CutSetEditorEdit) -> Void = { _ in }
     var done: () -> Void = {}
 
-    @State private var contentHeight: CGFloat = 0
     @State private var selected = 0
     @State private var typing: CutSetTyping?
     @State private var typedText = ""
     @FocusState private var focused: Bool
 
-    /// Estimated before the list has laid out, then measured.
-    private var sheetHeight: CGFloat {
-        let content = contentHeight > 0 ? contentHeight : CGFloat(150 + model.rows.count * 70 + 60 + 90)
-        return content + 64
-    }
-
     var body: some View {
-        List {
+        CutSheet("Edit sets", kind: .form, usesList: true, close: { commitThen(done) }) {
             row { CutSetEditorHeader(name: model.exerciseName, countLine: model.countLine) }
             row { CutHairline() }
             ForEach(model.rows) { set in
@@ -63,23 +56,12 @@ struct CutSetEditorView: View {
                 }
                 .padding(.bottom, 24)
             }
+        } footer: {
+            Button("Save sets") { commitThen(done) }
+                .buttonStyle(CutPillButtonStyle(.lime, size: .regular, fillsWidth: true))
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
-        .environment(\.defaultMinListRowHeight, 0)
-        .scrollBounceBehavior(.basedOnSize)
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, height in
-            contentHeight = height
-        }
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .navigationTitle("Edit sets")
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { commitThen(done) }
-                    .fontWeight(.semibold)
-            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { focused = false }
@@ -88,8 +70,6 @@ struct CutSetEditorView: View {
         .onChange(of: focused) { _, isFocused in
             if !isFocused { commitTyping() }
         }
-        .presentationDetents([.height(sheetHeight), .large])
-        .presentationDragIndicator(.visible)
     }
 
     private func row<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
@@ -129,9 +109,16 @@ struct CutSetTyping: Equatable {
 extension View {
     /// Gutter insets, no system separator, black row background.
     func cutSetEditorRow() -> some View {
-        listRowInsets(EdgeInsets(top: 0, leading: DS.Cut.Metrics.gutter, bottom: 0, trailing: DS.Cut.Metrics.gutter))
-            .listRowSeparator(.hidden)
-            .listRowBackground(DS.Cut.Colors.background)
+        modifier(CutSetEditorRowSurface())
+    }
+}
+
+private struct CutSetEditorRowSurface: ViewModifier {
+    @Environment(\.cutSheetDepth) private var depth
+    @Environment(\.cutSheetLevel) private var level
+    func body(content: Content) -> some View {
+        content.listRowInsets(EdgeInsets(top: 0, leading: DS.Cut.Metrics.gutter, bottom: 0, trailing: DS.Cut.Metrics.gutter))
+            .listRowSeparator(.hidden).listRowBackground(depth > 0 ? level.surface : DS.Cut.Colors.background)
     }
 }
 
@@ -184,6 +171,8 @@ struct CutSetEditorSetRow: View {
     let beginTyping: (CutSetTyping.Field, String) -> Void
     let apply: (CutSetEditorEdit) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @ScaledMetric(relativeTo: .title3) private var numberWidth: CGFloat = 28
 
     var body: some View {
@@ -233,7 +222,10 @@ struct CutSetEditorSetRow: View {
                         down: CutSetEditorEdit, up: CutSetEditorEdit) -> some View {
         let name = field == .weight ? "weight" : "reps"
         return VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
+            let layout = sheetDepth > 0 && dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+                : AnyLayout(HStackLayout(alignment: .lastTextBaseline, spacing: 4))
+            layout {
                 if isSelected && typingField == field {
                     TextField(name, text: $typedText)
                         .keyboardType(field == .weight ? .decimalPad : .numberPad)
@@ -249,6 +241,7 @@ struct CutSetEditorSetRow: View {
                             .font(Self.valueFont)
                             .foregroundStyle(DS.Cut.Colors.textPrimary)
                             .lineLimit(1)
+                            .minimumScaleFactor(sheetDepth > 0 ? 0.5 : 1)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(Text("Set \(set.number), \(value) \(unit)"))
@@ -258,6 +251,7 @@ struct CutSetEditorSetRow: View {
                         .font(Self.valueFont)
                         .foregroundStyle(DS.Cut.Colors.textPrimary)
                         .lineLimit(1)
+                        .minimumScaleFactor(sheetDepth > 0 ? 0.5 : 1)
                 }
                 Text(unit)
                     .cutFont(.secondary)

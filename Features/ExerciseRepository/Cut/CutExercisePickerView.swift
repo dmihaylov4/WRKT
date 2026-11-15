@@ -15,16 +15,25 @@ struct CutExercisePickerView: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        VStack(spacing: 0) {
-            CutExerciseSearchField(text: searchText, change: actions.search, cancel: {
-                actions.search("")
-                searchFocused = false
-            }, isFocused: $searchFocused)
-            .padding(.horizontal, DS.Cut.Metrics.gutter)
-            CutExerciseTabs(items: CutExercisePickerModel.Region.allCases, selection: model.region,
-                             title: \.rawValue, select: actions.region)
-                .padding(.horizontal, DS.Cut.Metrics.gutter)
-            ScrollView {
+        CutSheet("Add exercise", kind: .browser, close: actions.cancel) {
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").accessibilityHidden(true)
+                    TextField("Search exercises", text: Binding(get: { searchText }, set: actions.search))
+                        .autocorrectionDisabled().textInputAutocapitalization(.never).submitLabel(.search).focused($searchFocused)
+                    if !searchText.isEmpty {
+                        Button("Clear search", systemImage: "xmark.circle.fill") { actions.search(""); searchFocused = false }
+                            .labelStyle(.iconOnly).frame(width: 44, height: 44)
+                    }
+                }
+                .font(DS.Typography.custom(size: 17, weight: .medium, relativeTo: .body))
+                .padding(.horizontal, 16).frame(minHeight: 48)
+                .background(Capsule().fill(level.control)).padding(.vertical, 12)
+                ViewThatFits(in: .horizontal) {
+                    regions(vertical: false)
+                    regions(vertical: true)
+                }
+                .padding(.bottom, 12)
                 LazyVStack(spacing: 0) {
                     if model.rows.isEmpty {
                         CutExerciseEmptyView(title: "No exercises found",
@@ -35,35 +44,39 @@ struct CutExercisePickerView: View {
                             .onAppear { if row.id == model.rows.last?.id && model.hasMore { actions.loadMore() } }
                     }
                     if model.hasMore {
-                        ProgressView("Loading more exercises")
-                            .cutFont(.secondary)
-                            .foregroundStyle(DS.Cut.Colors.textSecondary)
-                            .frame(maxWidth: .infinity, minHeight: 56)
-                            .onAppear(perform: actions.loadMore)
+                        ProgressView("Loading more exercises").cutFont(.secondary)
+                            .frame(maxWidth: .infinity, minHeight: 56).onAppear(perform: actions.loadMore)
                     }
                 }
-                .padding(.horizontal, DS.Cut.Metrics.gutter)
-                .padding(.bottom, 24)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.bottom, 24)
         }
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .navigationTitle("Add Exercise")
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("ADD EXERCISE").font(DS.Cut.Typography.condensed(size: 22, relativeTo: .headline))
-            }
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", action: actions.cancel).cutFont(.title).tint(DS.Cut.Colors.textPrimary)
-            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { searchFocused = false }.cutFont(.title)
             }
         }
-        .shellNavigationBarBackground(DS.Cut.Colors.background)
+        .scrollDismissesKeyboard(.interactively)
     }
+
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    private var level: DS.Cut.SheetLevel { .resolve(parentDepth: sheetDepth) }
+    private func regions(vertical: Bool) -> some View {
+        let layout = vertical ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            ForEach(CutExercisePickerModel.Region.allCases, id: \.self) { region in
+                Button { actions.region(region); Haptics.light() } label: {
+                    Text(region.rawValue).font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
+                        .fixedSize(horizontal: false, vertical: true).padding(.horizontal, 16).padding(.vertical, 10)
+                        .frame(minHeight: 44)
+                        .foregroundStyle(region == model.region ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
+                        .background(Capsule().fill(region == model.region ? DS.Cut.Colors.textPrimary : level.control))
+                }.buttonStyle(.plain).accessibilityAddTraits(region == model.region ? .isSelected : [])
+            }
+        }
+    }
+
 }
 
 struct CutExerciseSearchField: View {

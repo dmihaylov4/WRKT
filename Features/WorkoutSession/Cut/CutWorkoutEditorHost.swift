@@ -15,6 +15,7 @@ struct CutWorkoutEditorHost: View {
     let workout: CompletedWorkout
     let isNewWorkout: Bool
 
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: WorkoutStoreV2
     @EnvironmentObject private var repo: ExerciseRepository
@@ -52,11 +53,13 @@ struct CutWorkoutEditorHost: View {
             ExercisePickerView(onSelect: addExercise)
                 .environmentObject(repo)
                 .environmentObject(FavoritesStore())
+                .environment(\.cutSheetDepth, sheetDepth + 1)
         }
         .sheet(item: $editingEntryID) { editing in
             if let binding = entryBinding(editing.id, in: $entries) {
                 RetrospectiveSetEditor(entry: binding)
                     .environmentObject(store)
+                    .environment(\.cutSheetDepth, sheetDepth + 1)
             }
         }
     }
@@ -83,6 +86,7 @@ struct CutWorkoutEditorHost: View {
 struct CutWorkoutLogHost: View {
     let date: Date
 
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: WorkoutStoreV2
     @EnvironmentObject private var repo: ExerciseRepository
@@ -129,11 +133,13 @@ struct CutWorkoutLogHost: View {
             ExercisePickerView(onSelect: addExercise)
                 .environmentObject(repo)
                 .environmentObject(FavoritesStore())
+                .environment(\.cutSheetDepth, sheetDepth + 1)
         }
         .sheet(item: $editingEntryID) { editing in
             if let binding = entryBinding(editing.id, in: $entries) {
                 RetrospectiveSetEditor(entry: binding)
                     .environmentObject(store)
+                    .environment(\.cutSheetDepth, sheetDepth + 1)
             }
         }
     }

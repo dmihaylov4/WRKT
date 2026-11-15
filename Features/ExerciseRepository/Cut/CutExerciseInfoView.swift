@@ -17,61 +17,65 @@ struct CutExerciseInfoView<Stats: View, Video: View, Muscles: View>: View {
     @ViewBuilder var video: () -> Video
     @ViewBuilder var anatomy: () -> Muscles
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(model.title.uppercased())
-                    .font(DS.Cut.Typography.condensed(size: 26, relativeTo: .title2))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                if !model.metadata.isEmpty {
-                    Text(model.metadata).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+        CutSheet("Exercise details", kind: .browser, scrollsContent: tab != .stats || dynamicTypeSize.isAccessibilitySize, close: actions.done) {
+            VStack(spacing: 0) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(model.title.uppercased())
+                        .font(DS.Cut.Typography.condensed(size: 26, relativeTo: .title2))
                         .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, DS.Cut.Metrics.gutter)
-            .padding(.vertical, 16)
-            CutExerciseTabs(items: CutExerciseInfoModel.Tab.allCases, selection: tab, title: \.rawValue, select: actions.tab)
-                .padding(.horizontal, DS.Cut.Metrics.gutter)
-            switch tab {
-            case .info: information
-            case .timer:
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        CutHairline()
-                        Button(action: actions.timer) {
-                            CutHairlineRow("Rest Timer", value: model.restTime, subtitle: model.restSource, showsChevron: true)
-                        }
-                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(.isHeader)
+                    if !model.metadata.isEmpty {
+                        Text(model.metadata).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(DS.Cut.Metrics.gutter)
                 }
-            case .stats: stats()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DS.Cut.Metrics.gutter)
+                .padding(.vertical, 16)
+                ViewThatFits(in: .horizontal) {
+                    tabButtons(vertical: false)
+                    tabButtons(vertical: true)
+                }.padding(.horizontal, DS.Cut.Metrics.gutter).padding(.bottom, 16)
+                if model.canEdit {
+                    Button("Edit exercise", action: actions.edit).buttonStyle(CutPillButtonStyle(.outline))
+                        .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.bottom, 12)
+                }
+                switch tab {
+                case .info: information
+                case .timer:
+                    Group {
+                        VStack(alignment: .leading, spacing: 0) {
+                            CutHairline()
+                            Button(action: actions.timer) {
+                                CutHairlineRow("Rest Timer", value: model.restTime, subtitle: model.restSource, showsChevron: true)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(DS.Cut.Metrics.gutter)
+                    }
+                case .stats:
+                    stats().frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 400 : nil)
+                }
             }
         }
-        .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .navigationTitle("Exercise Details")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("EXERCISE DETAILS").font(DS.Cut.Typography.condensed(size: 22, relativeTo: .headline))
-            }
-            if model.canEdit {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Edit", action: actions.edit).cutFont(.title).tint(DS.Cut.Colors.textPrimary)
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done", action: actions.done).cutFont(.title).tint(DS.Cut.Colors.textPrimary)
+    }
+
+    private func tabButtons(vertical: Bool) -> some View {
+        let layout = vertical ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            ForEach(CutExerciseInfoModel.Tab.allCases, id: \.self) { item in
+                Button(item.rawValue) { actions.tab(item) }
+                    .buttonStyle(CutPillButtonStyle(item == tab ? .white : .outline))
+                    .accessibilityAddTraits(item == tab ? .isSelected : [])
             }
         }
-        .shellNavigationBarBackground(DS.Cut.Colors.background)
     }
 
     private var information: some View {
-        ScrollView {
+        Group {
             VStack(alignment: .leading, spacing: 24) {
                 if model.videoURL != nil {
                     VStack(alignment: .leading, spacing: 12) {

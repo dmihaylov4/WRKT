@@ -20,6 +20,8 @@ public extension DS {
 
 public extension DS.Cut {
     enum Colors {
+        public static let destructiveInk = Color(hex: "#1A0000")
+
         /// Screen background: pure black, the existing surface token.
         public static let background = DS.Semantic.surface
         /// The one accent: lime #CCFF00 (17.9:1 on black).
@@ -63,15 +65,35 @@ public extension DS.Cut {
 public extension DS.Cut {
     /// A sheet's surface. Every Cut sheet is raised above the black app; a sheet presented
     /// on top of another sheet is one step lighter again.
-    enum SheetLevel: Sendable {
-        case base, stacked
+    enum SheetLevel: Sendable, Equatable {
+        case base, stacked, nested
 
-        /// The sheet itself: #1C1C1F, or #26262A when stacked.
-        public var surface: Color { self == .base ? Color(hex: "#1C1C1F") : Color(hex: "#26262A") }
-        /// Controls on the sheet (close button, tiles, segmented track, search field): #2E2E33 or #3A3A40.
-        public var control: Color { self == .base ? Color(hex: "#2E2E33") : Color(hex: "#3A3A40") }
-        /// Rounded inner panel on the sheet (dates, reward): #2A2A2E or #303035.
-        public var inset: Color { self == .base ? Color(hex: "#2A2A2E") : Color(hex: "#303035") }
+        /// Three sheet levels cover a record, its editor and the editor's picker.
+        public static func resolve(parentDepth: Int) -> Self {
+            parentDepth <= 0 ? .base : parentDepth == 1 ? .stacked : .nested
+        }
+
+        public var surface: Color {
+            switch self {
+            case .base: Color(hex: "#1C1C1F")
+            case .stacked: Color(hex: "#26262A")
+            case .nested: Color(hex: "#303035")
+            }
+        }
+        public var control: Color {
+            switch self {
+            case .base: Color(hex: "#2E2E33")
+            case .stacked: Color(hex: "#3A3A40")
+            case .nested: Color(hex: "#46464C")
+            }
+        }
+        public var inset: Color {
+            switch self {
+            case .base: Color(hex: "#2A2A2E")
+            case .stacked: Color(hex: "#303035")
+            case .nested: Color(hex: "#3A3A40")
+            }
+        }
     }
 }
 

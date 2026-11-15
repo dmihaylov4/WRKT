@@ -5,23 +5,24 @@ struct CutCreateExerciseView: View {
     let change: (CutCreateExerciseModel) -> Void
     let save: () -> Void
     let cancel: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var nameFocused: Bool
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    private var level: DS.Cut.SheetLevel { .resolve(parentDepth: sheetDepth) }
 
     var body: some View {
-        ScrollView {
+        CutSheet(model.title, kind: .form, close: cancel) {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Name").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
                     TextField("Exercise Name", text: Binding(get: { model.name }, set: { update(\.name, $0) }),
                               prompt: Text("Exercise Name").foregroundStyle(DS.Cut.Colors.textSecondary))
                         .cutFont(.body).autocorrectionDisabled().focused($nameFocused)
-                        .frame(minHeight: 44)
-                    CutHairline()
-                    Text("Give your exercise a descriptive name").cutFont(.secondary)
-                        .foregroundStyle(DS.Cut.Colors.textSecondary)
+                        .padding(.horizontal, 16).frame(minHeight: 52)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(level.control))
                 }
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Classification").cutFont(.title).padding(.bottom, 12)
+                    Text("DETAILS").font(DS.Cut.Typography.condensed(size: 23, relativeTo: .headline)).padding(.bottom, 12)
                     CutHairline()
                     menu("Primary Muscle", choices: CutCreateExerciseLogic.muscles, value: model.muscle) { update(\.muscle, $0) }
                     menu("Equipment", choices: EquipBucket.allCases.map(\.rawValue), value: model.equipment.rawValue) {
@@ -32,15 +33,16 @@ struct CutCreateExerciseView: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Exercise Type").cutFont(.title)
-                    HStack(spacing: 10) {
+                    Text("TYPE").font(DS.Cut.Typography.condensed(size: 23, relativeTo: .headline))
+                    let layout = dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(spacing: 10)) : AnyLayout(HStackLayout(spacing: 10))
+                    layout {
                         ForEach(["compound", "isolation"], id: \.self) { type in
-                            CutExerciseFilterChip(title: type.capitalized, selected: model.mechanic == type) { update(\.mechanic, type) }
+                            Button(type.capitalized) { update(\.mechanic, type) }
+                                .buttonStyle(CutPillButtonStyle(model.mechanic == type ? .white : .control, fillsWidth: true))
+                                .accessibilityAddTraits(model.mechanic == type ? .isSelected : [])
                         }
                     }
-                    Text("Compound exercises work multiple muscle groups. Isolation exercises target a single muscle.")
-                        .cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
                 VStack(spacing: 0) {
                     CutHairline()
@@ -51,28 +53,18 @@ struct CutCreateExerciseView: View {
                 }
             }
             .padding(DS.Cut.Metrics.gutter)
+        } footer: {
+            Button(model.actionTitle, action: save)
+                .buttonStyle(CutPillButtonStyle(.lime, size: .regular, fillsWidth: true)).disabled(!model.canSave)
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
         }
-        .scrollDismissesKeyboard(.interactively)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .navigationTitle(model.title)
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(model.title.uppercased()).font(DS.Cut.Typography.condensed(size: 22, relativeTo: .headline))
-            }
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", action: cancel).cutFont(.title).tint(DS.Cut.Colors.textPrimary)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(model.actionTitle, action: save).cutFont(.title).tint(DS.Cut.Colors.lime).disabled(!model.canSave)
-            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") { nameFocused = false }.cutFont(.title)
             }
         }
-        .shellNavigationBarBackground(DS.Cut.Colors.background)
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private func update<Value>(_ key: WritableKeyPath<CutCreateExerciseModel, Value>, _ value: Value) {
