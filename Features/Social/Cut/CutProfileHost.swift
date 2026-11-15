@@ -40,18 +40,10 @@ struct CutProfileHost: View {
                     BarbellShowcaseCard(isOwnProfile: true, ownerId: userId,
                                         sessionCount: barbellConfigs.first?.totalStrengthWorkouts ?? 0, friendRackedPlates: [])
                 } else {
-                    VStack(alignment: .leading, spacing: 12) {
-                        BarbellShowcasePreviewSurface(context: .socialProfileCard, plates: friendRackedPlates,
-                            selectedBarID: friendBarSkinIndex, selectedRoomThemeID: friendRoomThemeID,
-                            selectedRackStyleID: friendRackStyleID, showPlateEngravings: friendShowPlateEngravings)
-                            .frame(height: 240).clipped()
-                        HStack {
-                            Text("\(Int(friendTotalWeight))kg loaded").cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                            Spacer()
-                            Button("Open barbell room") { showingFriendBarbellRoom = true }
-                                .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
-                        }
-                    }
+                    BarbellShowcasePreviewSurface(context: .socialProfileCard, plates: friendRackedPlates,
+                        selectedBarID: friendBarSkinIndex, selectedRoomThemeID: friendRoomThemeID,
+                        selectedRackStyleID: friendRackStyleID, showPlateEngravings: friendShowPlateEngravings)
+                        .frame(height: 240).clipped()
                 }
             }
         })
@@ -95,7 +87,7 @@ struct CutProfileHost: View {
                                       distanceMeters: w.matchedHealthKitDistance, durationSeconds: w.matchedHealthKitDuration,
                                       estimatedDuration: w.estimatedDuration, firstSplitPace: w.cardioSplits?.first?.paceSecPerKm)
                      }, isLoadingPosts: vm.isLoadingPosts, viewerWorkoutDates: store.completedWorkouts.map(\.date),
-                     battle: battle.flatMap { $0.battle.status == .pending ? .init(type: $0.battle.battleType.displayName, days: $0.battle.duration, start: $0.battle.startDate) : nil })
+                     battle: battle.flatMap { $0.battle.status == .pending ? .init(type: $0.battle.battleType.displayName, days: $0.battle.duration, start: $0.battle.startDate) : nil }, barbellWeightKg: friendTotalWeight)
     }
     private var actions: CutProfileActions {
         .init(refresh: {
@@ -118,7 +110,8 @@ struct CutProfileHost: View {
             }
         }, openPost: { id in selectedPost = viewModel?.posts.first { $0.post.id == id } },
               acceptBattle: { if let battle { Task { await acceptBattle(battle: battle.battle) } } },
-              declineBattle: { if let battle { Task { await declineBattle(battle: battle.battle) } } })
+              declineBattle: { if let battle { Task { await declineBattle(battle: battle.battle) } } },
+              openRoom: { showingFriendBarbellRoom = true })
     }
     private func loadFriendBarbellShowcase() async {
         guard userId != deps.authService.currentUser?.id else { return }

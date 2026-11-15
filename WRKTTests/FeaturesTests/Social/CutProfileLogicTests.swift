@@ -85,7 +85,7 @@ struct CutProfileLogicTests {
     }
     @Test func comparisonAndAccountabilityKeepAllValues() {
         let model = F.model(F.profile)
-        #expect(model.comparison?.yourWeek == 2 && model.comparison?.friendWeek == 1)
+        #expect(model.comparison?.bars.map(\.value) == [2, 1])
         #expect(model.comparison?.rows.count == 5)
         #expect(model.accountability.count == 4)
         #expect(model.comparison?.callout == "One more session extends the lead.")
@@ -108,4 +108,20 @@ struct CutProfileLogicTests {
         #expect(CutProfileLogic.postStats(post) == "10.00 km · 10:00 · 5:05/km")
         post.distanceMeters = nil; #expect(CutProfileLogic.postStats(post) == "10:00")
     }
+    @Test func comparisonRolesDoNotDependOnDisplayText() {
+        var facts = F.profile; facts.name = "You"
+        let bars = F.model(facts).comparison!.bars
+        #expect(bars.map(\.id) == [.viewer, .friend])
+        #expect(bars.map(\.label) == ["You", "You"])
+        #expect(bars.map(\.fraction) == [1, 0.5])
+        facts.name = nil
+        #expect(F.model(facts).comparison?.bars[1].label == "alex_sample")
+    }
+    @Test func showcaseWeightAndAvatarLoadingRemainValueOnly() {
+        var facts = F.profile; facts.barbellWeightKg = 80.5; facts.isUploadingAvatar = true
+        #expect(F.model(facts).loadedWeight == "80kg loaded")
+        #expect(F.model(facts).isUploadingAvatar)
+        facts.isOwn = true; #expect(F.model(facts).loadedWeight == nil)
+    }
+
 }

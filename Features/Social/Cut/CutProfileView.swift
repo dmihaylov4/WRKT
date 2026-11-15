@@ -7,6 +7,7 @@ struct CutProfileActions {
     var openPost: (UUID) -> Void = { _ in }
     var acceptBattle: () -> Void = {}
     var declineBattle: () -> Void = {}
+    var openRoom: () -> Void = {}
 }
 
 struct CutProfileView<AvatarPicker: View, Showcase: View>: View {
@@ -31,15 +32,23 @@ struct CutProfileView<AvatarPicker: View, Showcase: View>: View {
                     if let battle = model.battle { battleSection(battle) }
                     identity
                     rows(model.metadata)
-                    if !model.ownStats.isEmpty { CutStatColumns(model.ownStats) }
-                    showcase()
+                    if !model.ownStats.isEmpty {
+                        if dynamicTypeSize.isAccessibilitySize { rows(model.ownStats.map { .init(label: $0.label, value: $0.value) }) }
+                        else { CutStatColumns(model.ownStats) }
+                    }
+                    showcase().overlay(alignment: .topTrailing) {
+                        if !model.isOwn {
+                            Button("Open barbell room", systemImage: "arrow.up.left.and.arrow.down.right", action: actions.openRoom)
+                                .labelStyle(.iconOnly).buttonStyle(CutIconButtonStyle(tone: .outline, diameter: 44)).padding(12)
+                        }
+                    }
+                    if let weight = model.loadedWeight { Text(weight).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
                     if let comparison = model.comparison {
                         section(comparison.title) {
                             Text(comparison.message).cutFont(.body)
                             Text(comparison.callout).cutFont(.body).foregroundStyle(DS.Cut.Colors.lime)
                             rows(Array(comparison.rows.prefix(2)))
-                            comparisonBar("You", value: comparison.yourWeek, maximum: max(comparison.yourWeek, comparison.friendWeek, 1))
-                            comparisonBar(model.name, value: comparison.friendWeek, maximum: max(comparison.yourWeek, comparison.friendWeek, 1))
+                            ForEach(comparison.bars) { comparisonBar($0) }
                             CutSectionTitle("Consistency")
                             rows(Array(comparison.rows.dropFirst(2)))
                         }
@@ -78,7 +87,7 @@ struct CutProfileView<AvatarPicker: View, Showcase: View>: View {
         }
     }
     private var avatar: some View {
-        CutSocialAvatar(initials: model.initials, url: model.avatarURL, size: 80)
+        CutSocialAvatar(initials: model.initials, url: model.avatarURL, size: 80).id(model.avatarURL ?? "")
             .overlay(alignment: .bottomTrailing) { avatarPicker() }
     }
     private var name: some View {
@@ -126,17 +135,19 @@ struct CutProfileView<AvatarPicker: View, Showcase: View>: View {
             } else if model.posts.isEmpty {
                 Text("No workouts shared yet").cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary).padding(.vertical, 16)
             } else {
-                ForEach(model.posts) { post in
-                    Button { actions.openPost(post.id) } label: {
-                        VStack(alignment: .leading, spacing: 8) {
-                            if let caption = post.caption { Text(caption).cutFont(.body).multilineTextAlignment(.leading) }
-                            Label(post.title, systemImage: post.icon).cutFont(.title)
-                            Text(post.date).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                            if !post.stats.isEmpty { Text(post.stats).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
-                            CutHairline().padding(.top, 8)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                    }.buttonStyle(.plain).padding(.vertical, 6)
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(model.posts) { post in
+                        Button { actions.openPost(post.id) } label: {
+                            VStack(alignment: .leading, spacing: 8) {
+                                if let caption = post.caption { Text(caption).cutFont(.body).multilineTextAlignment(.leading) }
+                                Label(post.title, systemImage: post.icon).cutFont(.title)
+                                Text(post.date).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                                if !post.stats.isEmpty { Text(post.stats).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
+                                CutHairline().padding(.top, 8)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }.buttonStyle(.plain).padding(.vertical, 6)
+                    }
                 }
             }
         }
@@ -153,14 +164,14 @@ struct CutProfileView<AvatarPicker: View, Showcase: View>: View {
     }
     private var battleAccept: some View { Button("Accept Challenge", action: actions.acceptBattle).buttonStyle(CutPrimaryButtonStyle(fillsWidth: false)) }
     private var battleDecline: some View { Button("Decline", action: actions.declineBattle).buttonStyle(CutSecondaryButtonStyle(fillsWidth: false)) }
-    private func comparisonBar(_ label: String, value: Int, maximum: Int) -> some View {
+    private func comparisonBar(_ bar: CutProfileModel.Comparison.Bar) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("\(label): \(value)").cutFont(.secondary)
+            Text("\(bar.label): \(bar.value)").cutFont(.secondary)
             GeometryReader { geometry in
                 Rectangle().fill(DS.Cut.Colors.segmentTrack)
                     .overlay(alignment: .leading) {
-                        SlantedSegmentShape().fill(label == "You" ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
-                            .frame(width: max(8, geometry.size.width * Double(value) / Double(maximum)))
+                        SlantedSegmentShape().fill(bar.id == .viewer ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
+                            .frame(width: max(8, geometry.size.width * bar.fraction))
                     }
             }.frame(height: 8)
         }.accessibilityElement(children: .combine)

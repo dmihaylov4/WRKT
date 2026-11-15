@@ -40,6 +40,7 @@ struct CutProfileFacts: Equatable {
     var isLoadingPosts = false
     var viewerWorkoutDates: [Date] = []
     var battle: Battle?
+    var barbellWeightKg: Double = 20
 }
 
 struct CutProfileModel: Equatable {
@@ -55,12 +56,18 @@ struct CutProfileModel: Equatable {
         var stats: String
     }
     struct Comparison: Equatable {
+        struct Bar: Equatable, Identifiable {
+            enum Role: Equatable, Hashable { case viewer, friend }
+            var id: Role
+            var label: String
+            var value: Int
+            var fraction: Double
+        }
         var title: String
         var message: String
         var callout: String
         var rows: [Row]
-        var yourWeek: Int
-        var friendWeek: Int
+        var bars: [Bar]
     }
     struct Battle: Equatable { var challenger: String; var rows: [Row] }
     var state: State = .loading
@@ -82,6 +89,7 @@ struct CutProfileModel: Equatable {
     var battle: Battle?
     var posts: [Post] = []
     var isLoadingPosts = false
+    var loadedWeight: String?
 }
 
 enum CutProfileLogic {
@@ -110,6 +118,7 @@ enum CutProfileLogic {
                               .init(value: "\(facts.friendCount)", label: "Friends"),
                               .init(value: "\(facts.localStreak)", label: "Streak")]
         } else {
+            model.loadedWeight = "\(Int(facts.barbellWeightKg))kg loaded"
             model.metadata.append(.init(label: "This week", value: week == 0 ? "No workouts yet" : "\(week) workout\(week == 1 ? "" : "s")"))
             model.comparison = .init(title: "You vs \(name)", message: comparisonMessage(name: name, yours: yours, theirs: week),
                                      callout: callout(name: name, yours: yours, theirs: week),
@@ -117,7 +126,9 @@ enum CutProfileLogic {
                                             .init(label: "\(name) this week", value: "\(week) session\(week == 1 ? "" : "s")"),
                                             .init(label: "You 14d", value: "\(activeDays(facts.viewerWorkoutDates, now: now, calendar: calendar)) active days"),
                                             .init(label: "\(name) 14d", value: "\(active) active days"),
-                                            .init(label: "Streak", value: streak(facts.profileStreak))], yourWeek: yours, friendWeek: week)
+                                            .init(label: "Streak", value: streak(facts.profileStreak))], bars: [
+                                                .init(id: .viewer, label: "You", value: yours, fraction: Double(yours) / Double(max(yours, week, 1))),
+                                                .init(id: .friend, label: name, value: week, fraction: Double(week) / Double(max(yours, week, 1)))])
             model.accountability = [.init(label: "This Week", value: "\(week) shared session\(week == 1 ? "" : "s")"),
                                     .init(label: "Last Active", value: lastActive ?? "No activity"),
                                     .init(label: "Last 14 Days", value: "\(active) active day\(active == 1 ? "" : "s")"),

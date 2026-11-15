@@ -49,16 +49,12 @@ struct CutPostComposeLogicTests {
         #expect(photos.count == 2 && photos[0].privacy == nil)
         #expect(photos[0].canRemove)
     }
-    @Test func captionPrefillKeepsWhitespaceAndNewlines() {
-        #expect(CutPostComposeLogic.initialCaption(" A year of training.\n\nFixture caption ") == " A year of training.\n\nFixture caption ")
-        #expect(CutPostComposeLogic.initialCaption("") == "")
-    }
     @Test func publicAwardInitializerKeepsImageCaptionWorkoutAndTitle() {
         let image = UIImage()
         let workout = F.completed
-        let view = PostCreationView(attachedImage: image, caption: "Fixture year", workout: workout, title: "Share year")
+        let view = PostCreationView(attachedImage: image, caption: " Fixture year\nSecond line ", workout: workout, title: "Share year")
         #expect(view.attachedImage === image)
-        #expect(view.initialCaption == "Fixture year" && view.navigationTitle == "Share year")
+        #expect(view.initialCaption == " Fixture year\nSecond line " && view.navigationTitle == "Share year")
         #expect(view.initialWorkouts.map(\.id) == [workout.id])
         #expect(view.initialMapImage == nil && view.weeklyStats == nil)
     }

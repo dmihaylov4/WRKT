@@ -91,7 +91,6 @@ enum CutPostComposeLogic {
         return model
     }
     static func canShare(selectedCount: Int, uploading: Bool) -> Bool { selectedCount > 0 && !uploading }
-    static func initialCaption(_ caption: String) -> String { caption }
     static func photos(attached: Bool, pickedPrivacy: [Bool?], map: Bool) -> [CutPostComposeModel.Photo] {
         var photos: [CutPostComposeModel.Photo] = []
         if attached { photos.append(.init(id: "attached", kind: .attached, privacy: true, canRemove: false)) }

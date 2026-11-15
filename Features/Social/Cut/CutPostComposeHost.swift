@@ -112,7 +112,7 @@ struct CutPostComposeHost: View {
         if !initialWorkouts.isEmpty { vm.selectedWorkouts = initialWorkouts }
         else if let initialWorkout { vm.selectedWorkouts = [initialWorkout] }
         if let weeklyStats { vm.weeklyProgressStats = weeklyStats.asPostStats(); vm.selectedVisibility = .friends }
-        if !initialCaption.isEmpty { vm.caption = CutPostComposeLogic.initialCaption(initialCaption) }
+        if !initialCaption.isEmpty { vm.caption = initialCaption }
         if let attachedImage { vm.attachImage(attachedImage) }
         if let initialMapImage { vm.addInitialImage(initialMapImage) }
         // Load cached runs before generating a route, as in the legacy screen.

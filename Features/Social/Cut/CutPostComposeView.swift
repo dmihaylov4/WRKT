@@ -50,7 +50,7 @@ struct CutPostComposeView<PhotoPicker: View>: View {
                             ForEach([PostVisibility.publicPost, .friends, .privatePost], id: \.self) { value in
                                 Button { visibility = value; actions.feedback() } label: {
                                     HStack(alignment: .top, spacing: 12) {
-                                        Image(systemName: value.icon).frame(width: 24)
+                                        Image(systemName: value.icon).frame(width: dynamicTypeSize.isAccessibilitySize ? 64 : 24)
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(value.displayName).cutFont(.title)
                                             Text(CutPostComposeLogic.visibilityDescription(value)).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
@@ -91,7 +91,7 @@ struct CutPostComposeView<PhotoPicker: View>: View {
         section(model.weeklyStats.isEmpty ? (model.workouts.count > 1 ? "Session" : "Workout") : "Weekly Progress") {
             if !model.weeklyStats.isEmpty {
                 Button("Change", action: actions.chooseWorkouts).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
-                ForEach(Array(model.weeklyStats.enumerated()), id: \.offset) { _, stats in CutStatColumns(stats) }
+                ForEach(Array(model.weeklyStats.enumerated()), id: \.offset) { _, stats in weeklyStats(stats) }
                 if let streak = model.superStreak { Text(streak).cutFont(.body).foregroundStyle(DS.Cut.Colors.lime) }
                 if let hint = model.sessionHint { Text(hint).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary) }
             } else {
@@ -167,6 +167,18 @@ struct CutPostComposeView<PhotoPicker: View>: View {
             }
         }
     }
+    @ViewBuilder private func weeklyStats(_ stats: [CutStatColumn]) -> some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(stats.enumerated()), id: \.offset) { _, stat in
+                    Text(stat.label).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                    Text(stat.value + (stat.unit.map { " " + $0 } ?? "")).cutFont(.body)
+                        .foregroundStyle(stat.isHighlighted ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                    CutHairline()
+                }
+            }
+        } else { CutStatColumns(stats) }
+    }
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) { CutSectionTitle(title); CutHairline(); content() }
     }
@@ -197,30 +209,40 @@ struct CutPostComposeWorkoutPickerView: View {
     var feedback: () -> Void = {}
     @State private var pending: Set<UUID> = []
     @State private var contentHeight: CGFloat = 300
+    @State private var headerHeight: CGFloat = 68
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Button("Cancel", action: cancel).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
-                    Spacer(minLength: 12)
-                    Button("Done (\(pending.count))") { done(CutPostComposeLogic.committedSelection(availableIDs: workouts.map(\.id), pending: pending)) }
-                        .buttonStyle(CutPrimaryButtonStyle(size: .compact, fillsWidth: false))
-                        .disabled(!CutPostComposeLogic.canFinishSelection(pending))
-                }
-                Text("SELECT WORKOUTS").font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2)).accessibilityAddTraits(.isHeader)
-                ForEach(workouts) { workout in
-                    Button { pending = CutPostComposeLogic.toggledSelection(pending, id: workout.id); feedback() } label: {
-                        CutPostComposeWorkoutRow(workout: workout, selected: pending.contains(workout.id))
-                    }.buttonStyle(.plain).accessibilityAddTraits(pending.contains(workout.id) ? .isSelected : [])
-                }
-            }.padding(DS.Cut.Metrics.gutter)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    Text("SELECT WORKOUTS").font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2)).accessibilityAddTraits(.isHeader)
+                    ForEach(workouts) { workout in
+                        Button { pending = CutPostComposeLogic.toggledSelection(pending, id: workout.id); feedback() } label: {
+                            CutPostComposeWorkoutRow(workout: workout, selected: pending.contains(workout.id))
+                        }.buttonStyle(.plain).accessibilityAddTraits(pending.contains(workout.id) ? .isSelected : [])
+                    }
+                }.padding(DS.Cut.Metrics.gutter)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+            }
         }
         .onAppear { pending = Set(selectedIDs) }
         .foregroundStyle(DS.Cut.Colors.textPrimary).background(DS.Cut.Colors.background.ignoresSafeArea())
-        .presentationDetents([.height(min(640, max(240, contentHeight + 24))), .large])
+        .presentationDetents([.height(min(640, max(240, contentHeight + headerHeight + 24))), .large])
         .presentationDragIndicator(.visible).shellPresentationBackground(DS.Cut.Colors.background)
     }
+    private var header: some View {
+        HStack {
+            Button("Cancel", action: cancel).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
+            Spacer(minLength: 12)
+            Button("Done (\(pending.count))") { done(CutPostComposeLogic.committedSelection(availableIDs: workouts.map(\.id), pending: pending)) }
+                .buttonStyle(CutPrimaryButtonStyle(size: .compact, fillsWidth: false))
+                .disabled(!CutPostComposeLogic.canFinishSelection(pending))
+        }
+        .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
+        .background(DS.Cut.Colors.background)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+    }
+
 }
 
 struct CutPostComposePartnerPickerView: View {
@@ -230,38 +252,49 @@ struct CutPostComposePartnerPickerView: View {
     var select: (UUID?) -> Void = { _ in }
     var cancel: () -> Void = {}
     @State private var contentHeight: CGFloat = 260
+    @State private var headerHeight: CGFloat = 68
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                Button("Cancel", action: cancel).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
-                Text("TAG PARTNER").font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2)).accessibilityAddTraits(.isHeader)
-                if isLoading { ProgressView().accessibilityLabel("Loading friends") }
-                else if friends.isEmpty { Text("No friends yet").cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary) }
-                else {
-                    Button { select(nil) } label: {
-                        HStack { Text("No partner").cutFont(.body); Spacer(); if selectedID == nil { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) } }
-                            .frame(minHeight: 44).contentShape(Rectangle())
-                    }.buttonStyle(.plain)
-                    CutHairline()
-                    ForEach(friends) { friend in
-                        Button { select(friend.id) } label: {
-                            HStack(spacing: 12) {
-                                CutSocialAvatar(initials: friend.initials, url: friend.avatarURL, size: 40)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(friend.name).cutFont(.title)
-                                    Text(friend.handle).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                                }.frame(maxWidth: .infinity, alignment: .leading)
-                                if selectedID == friend.id { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) }
-                            }.padding(.vertical, 10).contentShape(Rectangle())
-                        }.buttonStyle(.plain).accessibilityAddTraits(selectedID == friend.id ? .isSelected : [])
+        VStack(spacing: 0) {
+            header
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 16) {
+                    Text("TAG PARTNER").font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2)).accessibilityAddTraits(.isHeader)
+                    if isLoading { ProgressView().accessibilityLabel("Loading friends") }
+                    else if friends.isEmpty { Text("No friends yet").cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary) }
+                    else {
+                        Button { select(nil) } label: {
+                            HStack { Text("No partner").cutFont(.body); Spacer(); if selectedID == nil { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) } }
+                                .frame(minHeight: 44).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
                         CutHairline()
+                        ForEach(friends) { friend in
+                            Button { select(friend.id) } label: {
+                                HStack(spacing: 12) {
+                                    CutSocialAvatar(initials: friend.initials, url: friend.avatarURL, size: 40)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(friend.name).cutFont(.title)
+                                        Text(friend.handle).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                                    }.frame(maxWidth: .infinity, alignment: .leading)
+                                    if selectedID == friend.id { Image(systemName: "checkmark").foregroundStyle(DS.Cut.Colors.lime) }
+                                }.padding(.vertical, 10).contentShape(Rectangle())
+                            }.buttonStyle(.plain).accessibilityAddTraits(selectedID == friend.id ? .isSelected : [])
+                            CutHairline()
+                        }
                     }
-                }
-            }.padding(DS.Cut.Metrics.gutter)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+                }.padding(DS.Cut.Metrics.gutter)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+            }
         }
         .foregroundStyle(DS.Cut.Colors.textPrimary).background(DS.Cut.Colors.background.ignoresSafeArea())
-        .presentationDetents([.height(min(640, max(240, contentHeight + 24))), .large])
+        .presentationDetents([.height(min(640, max(240, contentHeight + headerHeight + 24))), .large])
         .presentationDragIndicator(.visible).shellPresentationBackground(DS.Cut.Colors.background)
     }
+    private var header: some View {
+        Button("Cancel", action: cancel).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
+        .background(DS.Cut.Colors.background)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+    }
+
 }
