@@ -13,7 +13,6 @@ struct CutExerciseBrowserHost: View {
     @State private var filters = CutExerciseBrowserFilters()
     @State private var searchText = ""
     @State private var debounce: Task<Void, Never>?
-    @State private var filtersExpanded = false
     @State private var expandedSuggestions: Set<String> = []
     @State private var cachedModel: CutExerciseBrowserModel?
     @State private var session: SessionSheetContext?
@@ -26,16 +25,11 @@ struct CutExerciseBrowserHost: View {
         CutExerciseBrowserView(
             model: cachedModel ?? CutExerciseBrowserLogic.model(exercises: [], subregion: subregion,
                 muscleFilter: muscleFilter, filters: filters, favorites: favorites.ids),
-            searchText: searchText, filtersExpanded: filtersExpanded, expandedSuggestions: expandedSuggestions,
+            searchText: searchText, expandedSuggestions: expandedSuggestions,
             tutorial: showingTutorial ? CutExerciseTutorialLogic.step(tutorialIndex, frames: frames) : nil,
             actions: actions
         )
-        .onAppear {
-            refresh()
-            // First-use tips must measure the actual filters, not spotlight zero frames
-            // after a timeout while the controls are still collapsed.
-            if !onboarding.hasSeenBodyBrowse { filtersExpanded = true }
-        }
+        .onAppear(perform: refresh)
         .onDisappear { debounce?.cancel() }
         .onChange(of: filters) { _, _ in refresh() }
         .onChange(of: favorites.ids) { _, _ in refresh() }
@@ -83,19 +77,15 @@ struct CutExerciseBrowserHost: View {
             filters.query = ""
             searchText = ""
             Haptics.light()
-        }, toggleFilters: {
-            filtersExpanded.toggle()
-            Haptics.light()
-        }, muscle: { filters.muscle = $0; Haptics.light() },
-        equipment: { filters.equipment = $0; Haptics.light() },
-        movement: { filters.movement = $0; Haptics.light() }, clear: {
-            filters.equipment = .all
-            filters.movement = .all
+        }, select: { kind, option in
+            filters = CutExerciseBrowserLogic.selecting(option, for: kind, in: filters)
+        }, clear: {
             if filters.isSearching {
                 debounce?.cancel()
-                filters.query = ""
                 searchText = ""
             }
+            filters = CutExerciseBrowserLogic.cleared(filters)
+            Haptics.light()
         }, open: { id in
             guard let exercise = repo.byID[id] else { return }
             UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -109,7 +99,7 @@ struct CutExerciseBrowserHost: View {
             guard !onboarding.hasSeenBodyBrowse else { return }
             frames.set(frame, for: target)
         }, nextTip: {
-            if tutorialIndex < 3 { tutorialIndex += 1 } else { completeTutorial() }
+            if tutorialIndex < CutExerciseTutorialLogic.stepCount - 1 { tutorialIndex += 1 } else { completeTutorial() }
         }, skipTips: completeTutorial)
     }
 
@@ -136,6 +126,5 @@ struct CutExerciseBrowserHost: View {
     private func completeTutorial() {
         onboarding.complete(.bodyBrowse)
         showingTutorial = false
-        filtersExpanded = false
     }
 }

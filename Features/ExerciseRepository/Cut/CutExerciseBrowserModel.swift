@@ -24,16 +24,34 @@ struct CutExerciseSuggestionModel: Equatable, Identifiable {
     var id: String { muscle }
 }
 
+/// One pill in the filter row. The pill reads the group name until a choice is made,
+/// then reads the choice and fills lime. Its menu lists "Any ..." first, then `options`.
+struct CutExerciseFilterMenu: Equatable, Identifiable {
+    enum Kind: CaseIterable { case muscle, equipment, movement }
+    let kind: Kind
+    let groupName: String
+    let anyTitle: String
+    let options: [String]
+    let selection: String?
+    var id: Kind { kind }
+    var label: String { selection ?? groupName }
+    var isActive: Bool { selection != nil }
+}
+
 struct CutExerciseBrowserModel: Equatable {
     enum EmptyState: Equatable { case library, filtered, search }
     let title: String
-    let muscles: [String]
+    let menus: [CutExerciseFilterMenu]
     let filters: CutExerciseBrowserFilters
     let rows: [CutExerciseRowModel]
     let suggestions: [CutExerciseSuggestionModel]
     let emptyState: EmptyState?
     let emptyMessage: String
-    var activeFilterCount: Int { (filters.equipment == .all ? 0 : 1) + (filters.movement == .all ? 0 : 1) }
+    var countText: String { rows.count == 1 ? "1 exercise" : "\(rows.count) exercises" }
+    var showsClearFilters: Bool { menus.contains(where: \.isActive) }
+    /// The pills and count line hide while searching, and while the library has not loaded.
+    var showsFilters: Bool { !filters.isSearching }
+    var showsCount: Bool { emptyState != .library }
 }
 
 enum CutExerciseBrowserLogic {
@@ -71,12 +89,47 @@ enum CutExerciseBrowserLogic {
         }
     }
 
+    /// Muscle menu options: the region's muscles, or every muscle (upper body first) on All Exercises.
     static func muscles(for filter: MuscleFilter?) -> [String] {
         switch filter {
         case .upperBody: return MuscleTaxonomy.subregions(for: .upper)
         case .lowerBody: return MuscleTaxonomy.subregions(for: .lower)
-        case .fullBody, .none: return []
+        case .fullBody, .none: return MuscleTaxonomy.subregions(for: .upper) + MuscleTaxonomy.subregions(for: .lower)
         }
+    }
+
+    /// The pills in display order. A subregion list is already one muscle, so it has no muscle pill.
+    static func menus(subregion: String?, muscleFilter: MuscleFilter?,
+                      filters: CutExerciseBrowserFilters) -> [CutExerciseFilterMenu] {
+        var menus: [CutExerciseFilterMenu] = []
+        if subregion == nil {
+            menus.append(.init(kind: .muscle, groupName: "Muscle", anyTitle: "Any muscle",
+                               options: muscles(for: muscleFilter), selection: filters.muscle))
+        }
+        menus.append(.init(kind: .equipment, groupName: "Equipment", anyTitle: "Any equipment",
+                           options: EquipBucket.allCases.filter { $0 != .all }.map(\.rawValue),
+                           selection: filters.equipment == .all ? nil : filters.equipment.rawValue))
+        menus.append(.init(kind: .movement, groupName: "Movement", anyTitle: "Any movement",
+                           options: MoveBucket.allCases.filter { $0 != .all }.map(\.rawValue),
+                           selection: filters.movement == .all ? nil : filters.movement.rawValue))
+        return menus
+    }
+
+    /// Sets one group's choice (nil is "Any ...") and leaves the other groups as they are.
+    static func selecting(_ option: String?, for kind: CutExerciseFilterMenu.Kind,
+                          in filters: CutExerciseBrowserFilters) -> CutExerciseBrowserFilters {
+        var next = filters
+        switch kind {
+        case .muscle: next.muscle = option
+        case .equipment: next.equipment = option.flatMap(EquipBucket.init(rawValue:)) ?? .all
+        case .movement: next.movement = option.flatMap(MoveBucket.init(rawValue:)) ?? .all
+        }
+        return next
+    }
+
+    /// "Clear filters": every group back to "Any ...", and the query when searching. Search mode stays.
+    static func cleared(_ filters: CutExerciseBrowserFilters) -> CutExerciseBrowserFilters {
+        .init(isSearching: filters.isSearching)
     }
 
     static func model(exercises: [Exercise], subregion: String?, muscleFilter: MuscleFilter?,
@@ -91,13 +144,13 @@ enum CutExerciseBrowserLogic {
             message = subregion.map { "No exercises match '\(filters.query)' in \($0)." }
                 ?? "No exercises match '\(filters.query)'."
         } else {
-            message = "Try loosening the equipment/movement filters."
+            message = "Try loosening the filters."
         }
         let suggestions = result.isEmpty && filters.isSearching && !filters.query.isEmpty
             ? Self.suggestions(exercises: exercises, query: filters.query, excluding: subregion ?? filters.muscle, favorites: favorites)
             : []
         return .init(title: title(subregion: subregion, muscleFilter: muscleFilter),
-                     muscles: subregion == nil ? muscles(for: muscleFilter) : [], filters: filters,
+                     menus: menus(subregion: subregion, muscleFilter: muscleFilter, filters: filters), filters: filters,
                      rows: result.map { row($0, favorites: favorites) }, suggestions: suggestions,
                      emptyState: empty, emptyMessage: message)
     }
@@ -129,17 +182,24 @@ enum CutExerciseBrowserLogic {
 }
 
 struct CutExerciseTutorialFrames: Equatable {
-    enum Target: Hashable { case equipment, movement, list, create }
-    var equipment = CGRect.zero
-    var movement = CGRect.zero
+    /// Every captured target exists in the current layout: the pill row, the list and the toolbar plus.
+    enum Target: Hashable, CaseIterable { case filters, list, create }
+    var filters = CGRect.zero
     var list = CGRect.zero
     var create = CGRect.zero
-    var isReady: Bool { [equipment, movement, list, create].allSatisfy { $0.width > 0 && $0.height > 0 } }
+    var isReady: Bool { Target.allCases.allSatisfy { frame(for: $0).width > 0 && frame(for: $0).height > 0 } }
+
+    func frame(for target: Target) -> CGRect {
+        switch target {
+        case .filters: filters
+        case .list: list
+        case .create: create
+        }
+    }
 
     mutating func set(_ frame: CGRect, for target: Target) {
         switch target {
-        case .equipment: equipment = frame
-        case .movement: movement = frame
+        case .filters: filters = frame
         case .list: list = frame
         case .create: create = frame
         }
@@ -148,18 +208,27 @@ struct CutExerciseTutorialFrames: Equatable {
 
 struct CutExerciseTutorialModel: Equatable {
     let index: Int
+    let count: Int
     let title: String
     let message: String
+    /// The spotlit target. The toolbar step has none: toolbar frames are only used for readiness.
+    let target: CutExerciseTutorialFrames.Target?
     let frame: CGRect?
+    var isLast: Bool { index == count - 1 }
 }
 
 enum CutExerciseTutorialLogic {
+    static let stepCount = 3
+
     static func step(_ index: Int, frames: CutExerciseTutorialFrames) -> CutExerciseTutorialModel {
+        func make(_ index: Int, _ title: String, _ message: String, _ target: CutExerciseTutorialFrames.Target?) -> CutExerciseTutorialModel {
+            .init(index: index, count: stepCount, title: title, message: message, target: target,
+                  frame: target.map(frames.frame(for:)))
+        }
         switch index {
-        case 0: return .init(index: 0, title: "Equipment filters", message: "Tap an equipment type to filter exercises. Double-tap a chip to reset the filter.", frame: frames.equipment)
-        case 1: return .init(index: 1, title: "Movement filters", message: "Filter by movement pattern. Combine with equipment filters for precise results.", frame: frames.movement)
-        case 2: return .init(index: 2, title: "Exercise list", message: "The type appears below each name. Tap a heart to favorite an exercise and move it to the top.", frame: frames.list)
-        default: return .init(index: 3, title: "Create custom exercise", message: "Tap the lime plus in the top-right corner to create an exercise. Custom exercises appear before the catalog.", frame: nil)
+        case 0: return make(0, "Filters", "Tap Muscle, Equipment or Movement and pick one. A lime pill is a filter in use. Clear filters shows everything again.", .filters)
+        case 1: return make(1, "Exercise list", "The type appears below each name. Tap a heart to favorite an exercise and move it to the top.", .list)
+        default: return make(2, "Search and create", "Tap the magnifying glass to search by name. Tap the lime plus to create a custom exercise: custom exercises appear before the catalog.", nil)
         }
     }
 }

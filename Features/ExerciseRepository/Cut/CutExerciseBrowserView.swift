@@ -4,10 +4,7 @@ struct CutExerciseBrowserActions {
     var search: (String) -> Void = { _ in }
     var toggleSearch: () -> Void = {}
     var cancelSearch: () -> Void = {}
-    var toggleFilters: () -> Void = {}
-    var muscle: (String?) -> Void = { _ in }
-    var equipment: (EquipBucket) -> Void = { _ in }
-    var movement: (MoveBucket) -> Void = { _ in }
+    var select: (CutExerciseFilterMenu.Kind, String?) -> Void = { _, _ in }
     var clear: () -> Void = {}
     var open: (String) -> Void = { _ in }
     var favorite: (String) -> Void = { _ in }
@@ -22,12 +19,12 @@ struct CutExerciseBrowserActions {
 struct CutExerciseBrowserView: View {
     let model: CutExerciseBrowserModel
     var searchText = ""
-    var filtersExpanded = false
     var expandedSuggestions: Set<String> = []
     var tutorial: CutExerciseTutorialModel?
     var actions = CutExerciseBrowserActions()
     @FocusState private var searchFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         ZStack {
@@ -37,13 +34,22 @@ struct CutExerciseBrowserView: View {
                                            cancel: actions.cancelSearch, isFocused: $searchFocused, cancelTitle: "Cancel")
                         .padding(.horizontal, DS.Cut.Metrics.gutter)
                 } else {
-                    filters
+                    // The tutorial spotlights the pills themselves, so measure before padding.
+                    CutExerciseFilterBar(menus: model.menus, select: actions.select)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { actions.frame(.filters, $0) }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 12)
+                    if model.showsCount {
+                        countLine
+                    }
                 }
                 CutHairline()
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         if model.rows.isEmpty {
-                            CutExerciseEmptyView(title: "No exercises found", message: model.emptyMessage, clear: actions.clear)
+                            // A filtered empty list already has Clear filters in the count line above.
+                            CutExerciseEmptyView(title: "No exercises found", message: model.emptyMessage,
+                                                 clear: model.emptyState == .search ? actions.clear : nil, clearTitle: "Clear search")
                             ForEach(model.suggestions) { suggestion in
                                 suggestionRows(suggestion)
                             }
@@ -94,64 +100,26 @@ struct CutExerciseBrowserView: View {
         .onChange(of: model.filters.isSearching) { _, searching in searchFocused = searching }
     }
 
-    private var filters: some View {
-        VStack(spacing: 0) {
-            if !model.muscles.isEmpty {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 8) {
-                        CutExerciseFilterChip(title: "All", selected: model.filters.muscle == nil) { actions.muscle(nil) }
-                        ForEach(model.muscles, id: \.self) { muscle in
-                            CutExerciseFilterChip(title: muscle, selected: model.filters.muscle == muscle) {
-                                actions.muscle(model.filters.muscle == muscle ? nil : muscle)
-                            }
-                        }
-                    }
-                    .padding(.horizontal, DS.Cut.Metrics.gutter)
-                }
-                .scrollIndicators(.hidden)
-                .padding(.top, 8)
-            }
-            Button(action: actions.toggleFilters) {
-                HStack(spacing: 6) {
-                    Text(model.activeFilterCount == 0 ? "More Filters" : "More Filters (\(model.activeFilterCount))")
-                    Image(systemName: filtersExpanded ? "chevron.up" : "chevron.down")
-                }
-                .cutFont(.secondary)
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            if filtersExpanded {
-                VStack(alignment: .leading, spacing: 12) {
-                    filterRow(title: "Equipment", values: EquipBucket.allCases, selected: model.filters.equipment,
-                              target: .equipment, select: actions.equipment)
-                    filterRow(title: "Movement", values: MoveBucket.allCases, selected: model.filters.movement,
-                              target: .movement, select: actions.movement)
-                }
-                .padding(.bottom, 14)
+    private var countLine: some View {
+        // At accessibility sizes the count and the button stack instead of wrapping word by word.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0)) : AnyLayout(HStackLayout(spacing: 12))
+        return layout {
+            Text(model.countText).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                .contentTransition(.numericText())
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            if model.showsClearFilters {
+                Button("Clear filters", action: actions.clear)
+                    .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
+                    .foregroundStyle(DS.Cut.Colors.lime)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
             }
         }
-    }
-
-    private func filterRow<T: Hashable & RawRepresentable>(title: String, values: [T], selected: T,
-                        target: CutExerciseTutorialFrames.Target, select: @escaping (T) -> Void) -> some View where T.RawValue == String {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
-                .padding(.horizontal, DS.Cut.Metrics.gutter)
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(values, id: \.self) { value in
-                        CutExerciseFilterChip(title: value.rawValue, selected: value == selected,
-                                              action: { select(value == selected ? values[0] : value) },
-                                              clear: { select(values[0]) })
-                    }
-                }
-                .padding(.horizontal, DS.Cut.Metrics.gutter)
-            }
-            .scrollIndicators(.hidden)
-        }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { actions.frame(target, $0) }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .padding(.horizontal, DS.Cut.Metrics.gutter)
+        .padding(.top, 2)
     }
 
     @ViewBuilder private func suggestionRows(_ suggestion: CutExerciseSuggestionModel) -> some View {
@@ -227,11 +195,73 @@ struct CutExerciseRowView: View {
     }
 }
 
+/// One row of equal width pills, each opening a system menu. At accessibility text sizes the
+/// pills stack full width instead of truncating their labels to nothing.
+struct CutExerciseFilterBar: View {
+    let menus: [CutExerciseFilterMenu]
+    let select: (CutExerciseFilterMenu.Kind, String?) -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let layout = dynamicTypeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
+        layout {
+            ForEach(menus) { menu in
+                CutExerciseFilterPill(menu: menu) { select(menu.kind, $0) }
+            }
+        }
+    }
+}
+
+struct CutExerciseFilterPill: View {
+    let menu: CutExerciseFilterMenu
+    let select: (String?) -> Void
+
+    var body: some View {
+        Menu {
+            Picker(menu.groupName, selection: Binding(get: { menu.selection }, set: { option in
+                guard option != menu.selection else { return }
+                Haptics.light()
+                select(option)
+            })) {
+                Text(menu.anyTitle).tag(String?.none)
+                ForEach(menu.options, id: \.self) { option in
+                    Text(option).tag(Optional(option))
+                }
+            }
+            .pickerStyle(.inline)
+        } label: {
+            HStack(spacing: 6) {
+                Text(menu.label)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.down")
+                    .font(.system(.footnote, weight: .bold))
+                    .accessibilityHidden(true)
+            }
+            .font(DS.Cut.Typography.font(.buttonCompact).weight(menu.isActive ? .bold : .semibold))
+            .foregroundStyle(menu.isActive ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Capsule().fill(menu.isActive ? DS.Cut.Colors.lime : .clear))
+            .overlay(Capsule().strokeBorder(menu.isActive ? .clear : DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
+            .contentShape(Capsule())
+        }
+        .menuOrder(.fixed)
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .accessibilityLabel(menu.groupName)
+        .accessibilityValue(menu.selection ?? menu.anyTitle)
+        .accessibilityHint("Opens a menu to filter by \(menu.groupName.lowercased())")
+    }
+}
+
+/// Used by the create exercise form. The browser's filters are menu pills instead.
 struct CutExerciseFilterChip: View {
     let title: String
     let selected: Bool
     let action: () -> Void
-    var clear: (() -> Void)?
     var body: some View {
         Button(action: action) {
             Text(title).cutFont(.secondary)
@@ -243,7 +273,6 @@ struct CutExerciseFilterChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(selected ? .isSelected : [])
-        .simultaneousGesture(TapGesture(count: 2).onEnded { clear?() })
     }
 }
 
@@ -251,6 +280,7 @@ struct CutExerciseEmptyView: View {
     let title: String
     let message: String
     var clear: (() -> Void)?
+    var clearTitle = "Clear Filters"
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased()).font(DS.Cut.Typography.condensed(size: 26, relativeTo: .title2))
@@ -258,7 +288,7 @@ struct CutExerciseEmptyView: View {
             Text(message).cutFont(.body).foregroundStyle(DS.Cut.Colors.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let clear {
-                Button("Clear Filters", action: clear)
+                Button(clearTitle, action: clear)
                     .buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
             }
         }
@@ -295,11 +325,11 @@ struct CutExerciseTutorialView: View {
                         Text(model.title.uppercased())
                             .font(DS.Cut.Typography.condensed(size: 26, relativeTo: .title2))
                         Text(model.message).cutFont(.body).fixedSize(horizontal: false, vertical: true)
-                        Text("\(model.index + 1) of 4").cutFont(.secondary)
+                        Text("\(model.index + 1) of \(model.count)").cutFont(.secondary)
                             .foregroundStyle(DS.Cut.Colors.textSecondary)
                         HStack(spacing: 12) {
                             Button("Skip", action: skip).buttonStyle(CutSecondaryButtonStyle(size: .compact))
-                            Button(model.index == 3 ? "Got it" : "Next", action: next)
+                            Button(model.isLast ? "Got it" : "Next", action: next)
                                 .buttonStyle(CutPrimaryButtonStyle(size: .compact))
                         }
                     }
