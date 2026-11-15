@@ -125,26 +125,7 @@ enum CutPreferencesLogic {
     // MARK: Profile
 
     static func bodyweightLine(kg: Double, unit: WeightUnit?) -> String {
-        unit.map { $0.format(kg) } ?? String(format: "%.1f kg", kg)
-    }
-
-    // MARK: Bodyweight wheel (kilograms, as the legacy sheet)
-
-    static let wholeKgRange = 30...200
-    static let tenthsRange = 0...9
-
-    /// The whole kilograms the wheel shows. Rounds to the tenth first, so 70.3 stored as
-    /// 70.29999 shows 70 and 3 (the legacy split truncated it to 70 and 2).
-    static func wholeKg(_ weight: Double) -> Int {
-        Int((weight * 10).rounded()) / 10
-    }
-
-    static func tenths(_ weight: Double) -> Int {
-        Int((weight * 10).rounded()) % 10
-    }
-
-    static func weight(wholeKg: Int, tenths: Int) -> Double {
-        Double(wholeKg) + Double(tenths) / 10.0
+        BodyweightScale.line(kg: kg, unit: unit)
     }
 
     // MARK: Workout

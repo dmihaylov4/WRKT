@@ -170,7 +170,9 @@ struct CutPreferencesHost: View {
             CutAgePickerView(saved: calculator.userAge) { AgeSetting.commit($0, auth: authService) }
         }
         .sheet(isPresented: $showWeightPicker) {
-            CutWeightPickerView(weight: $userBodyweightKg, done: { showWeightPicker = false })
+            CutWeightPickerView(kg: userBodyweightKg, unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg) {
+                userBodyweightKg = $0
+            }
         }
         .task {
             await NotificationManager.shared.checkAuthorizationStatus()

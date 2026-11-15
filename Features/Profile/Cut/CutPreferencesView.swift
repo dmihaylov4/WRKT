@@ -337,20 +337,25 @@ struct CutAgePickerView: View {
     }
 }
 
-/// The bodyweight wheels in kilograms (whole and tenths), as the legacy sheet.
+/// The bodyweight wheels, whole and tenths, in the user's unit (BodyweightScale). The wheels edit
+/// a draft; `onCommit` gets the kilograms to store once, when the sheet closes with a change.
 struct CutWeightPickerView: View {
-    @Binding var weight: Double
-    var done: () -> Void = {}
+    var onCommit: (Double) -> Void = { _ in }
+
+    @State private var draft: BodyweightDraft
+    @Environment(\.dismiss) private var dismiss
+
+    init(kg: Double, unit: WeightUnit, onCommit: @escaping (Double) -> Void = { _ in }) {
+        self.onCommit = onCommit
+        _draft = State(initialValue: BodyweightDraft(kg: kg, unit: unit))
+    }
 
     var body: some View {
         NavigationStack {
             CutPreferencesWheel {
                 HStack(spacing: 0) {
-                    Picker("Kilograms", selection: Binding(
-                        get: { CutPreferencesLogic.wholeKg(weight) },
-                        set: { weight = CutPreferencesLogic.weight(wholeKg: $0, tenths: CutPreferencesLogic.tenths(weight)) }
-                    )) {
-                        ForEach(CutPreferencesLogic.wholeKgRange, id: \.self) { Text("\($0)").tag($0) }
+                    Picker(draft.unit == .kg ? "Kilograms" : "Pounds", selection: $draft.whole) {
+                        ForEach(BodyweightScale.wholeRange(draft.unit), id: \.self) { Text("\($0)").tag($0) }
                     }
                     .pickerStyle(.wheel)
                     .frame(maxWidth: .infinity)
@@ -358,15 +363,12 @@ struct CutWeightPickerView: View {
                         .cutFont(.title)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
                         .accessibilityHidden(true)
-                    Picker("Tenths", selection: Binding(
-                        get: { CutPreferencesLogic.tenths(weight) },
-                        set: { weight = CutPreferencesLogic.weight(wholeKg: CutPreferencesLogic.wholeKg(weight), tenths: $0) }
-                    )) {
-                        ForEach(CutPreferencesLogic.tenthsRange, id: \.self) { Text("\($0)").tag($0) }
+                    Picker("Tenths", selection: $draft.tenth) {
+                        ForEach(BodyweightScale.tenthsRange, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .pickerStyle(.wheel)
                     .frame(width: 72)
-                    Text("kg")
+                    Text(draft.unit.rawValue)
                         .cutFont(.title)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
                         .padding(.trailing, DS.Cut.Metrics.gutter)
@@ -374,7 +376,10 @@ struct CutWeightPickerView: View {
             }
             .navigationTitle("Your bodyweight")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { CutPreferencesDoneItem(done: done) }
+            .toolbar { CutPreferencesDoneItem { dismiss() } }
+        }
+        .onDisappear {
+            if let kg = draft.kgToCommit { onCommit(kg) }
         }
         .presentationDetents([.height(cutPreferencesWheelSheetHeight)])
         .presentationBackground(DS.Cut.Colors.background)

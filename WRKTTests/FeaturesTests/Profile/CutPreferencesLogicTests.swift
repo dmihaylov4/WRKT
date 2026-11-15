@@ -90,21 +90,6 @@ struct CutPreferencesLogicTests {
         #expect(CutPreferencesLogic.bodyweightLine(kg: 82.5, unit: nil) == "82.5 kg")
     }
 
-    @Test func bodyweightWheelSplitsAtTheTenth() {
-        #expect(CutPreferencesLogic.wholeKg(82.5) == 82)
-        #expect(CutPreferencesLogic.tenths(82.5) == 5)
-        // 70.3 is stored as 70.29999...; the wheel must show 3, not 2.
-        #expect(CutPreferencesLogic.tenths(70.3) == 3)
-        #expect(CutPreferencesLogic.wholeKg(70.3) == 70)
-        // 79.96 rounds up to the next whole kilogram.
-        #expect(CutPreferencesLogic.wholeKg(79.96) == 80)
-        #expect(CutPreferencesLogic.tenths(79.96) == 0)
-        #expect(CutPreferencesLogic.weight(wholeKg: 82, tenths: 5) == 82.5)
-        #expect(CutPreferencesLogic.weight(wholeKg: 70, tenths: 3) == 70.3)
-        #expect(CutPreferencesLogic.wholeKgRange == 30...200)
-        #expect(CutPreferencesLogic.tenthsRange == 0...9)
-    }
-
     // MARK: Units and increments
 
     @Test func incrementOptionsPerUnitKeepTheStoredSteps() {

@@ -29,7 +29,10 @@ struct CutPreferencesCaptureTests {
             CutSettingsSheetShell { CutAgePickerView(saved: 34) },
             name: "preferences-age-sheet", pushed: false)
         try await settingsCapture(
-            CutSettingsSheetShell { CutWeightPickerView(weight: .constant(82.5)) },
+            CutSettingsSheetShell { CutWeightPickerView(kg: 82.5, unit: .kg) },
             name: "preferences-weight-sheet", pushed: false)
+        try await settingsCapture(
+            CutSettingsSheetShell { CutWeightPickerView(kg: 82.5, unit: .lb) },
+            name: "preferences-weight-sheet-lb", pushed: false)
     }
 }

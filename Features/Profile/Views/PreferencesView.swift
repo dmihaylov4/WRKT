@@ -149,8 +149,10 @@ struct PreferencesView: View {
                 .presentationDetents([.height(280)])
         }
         .sheet(isPresented: $showWeightPicker) {
-            WeightPickerSheet(weight: $userBodyweightKg)
-                .presentationDetents([.height(280)])
+            WeightPickerSheet(kg: userBodyweightKg, unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg) {
+                userBodyweightKg = $0
+            }
+            .presentationDetents([.height(280)])
         }
         .task {
             await NotificationManager.shared.checkAuthorizationStatus()
@@ -212,7 +214,7 @@ struct PreferencesView: View {
                 HStack {
                     Text("Bodyweight").foregroundStyle(.primary)
                     Spacer()
-                    Text(WeightUnit(rawValue: weightUnitRaw).map { $0.format(userBodyweightKg) } ?? String(format: "%.1f kg", userBodyweightKg)).foregroundStyle(.secondary)
+                    Text(BodyweightScale.line(kg: userBodyweightKg, unit: WeightUnit(rawValue: weightUnitRaw))).foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
                         .dsFont(.caption, weight: .semibold)
                         .foregroundStyle(.tertiary)
@@ -912,38 +914,40 @@ private struct LegacyAgeWheel: View {
 
 // MARK: - Weight Picker Sheet
 
+/// The bodyweight wheels in the user's unit (BodyweightScale). The wheels edit a draft;
+/// `onCommit` gets the kilograms to store once, when the sheet closes with a change.
 private struct WeightPickerSheet: View {
-    @Binding var weight: Double
-    @Environment(\.dismiss) private var dismiss
-
-    // Split weight into whole and decimal parts for picker
-    private var wholeKg: Int {
-        Int(weight)
-    }
-
-    private var decimalKg: Int {
-        Int((weight - Double(wholeKg)) * 10)
-    }
+    let kg: Double
+    let unit: WeightUnit
+    let onCommit: (Double) -> Void
 
     var body: some View {
         if DS.Redesign.cutEnabled {
-            CutWeightPickerView(weight: $weight, done: { dismiss() })
+            CutWeightPickerView(kg: kg, unit: unit, onCommit: onCommit)
         } else {
-            legacyBody
+            LegacyWeightWheels(kg: kg, unit: unit, onCommit: onCommit)
         }
     }
+}
 
-    private var legacyBody: some View {
+private struct LegacyWeightWheels: View {
+    let onCommit: (Double) -> Void
+    @State private var draft: BodyweightDraft
+    @Environment(\.dismiss) private var dismiss
+
+    init(kg: Double, unit: WeightUnit, onCommit: @escaping (Double) -> Void) {
+        self.onCommit = onCommit
+        _draft = State(initialValue: BodyweightDraft(kg: kg, unit: unit))
+    }
+
+    var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    // Whole kg picker
-                    Picker("Kilograms", selection: Binding(
-                        get: { wholeKg },
-                        set: { weight = Double($0) + Double(decimalKg) / 10.0 }
-                    )) {
-                        ForEach(30...200, id: \.self) { kg in
-                            Text("\(kg)").tag(kg)
+                    // Whole units
+                    Picker(draft.unit == .kg ? "Kilograms" : "Pounds", selection: $draft.whole) {
+                        ForEach(BodyweightScale.wholeRange(draft.unit), id: \.self) { whole in
+                            Text("\(whole)").tag(whole)
                         }
                     }
                     .pickerStyle(.wheel)
@@ -953,19 +957,16 @@ private struct WeightPickerSheet: View {
                         .dsFont(.title2)
                         .foregroundStyle(.secondary)
 
-                    // Decimal picker
-                    Picker("Decimals", selection: Binding(
-                        get: { decimalKg },
-                        set: { weight = Double(wholeKg) + Double($0) / 10.0 }
-                    )) {
-                        ForEach(0...9, id: \.self) { decimal in
+                    // Tenths
+                    Picker("Decimals", selection: $draft.tenth) {
+                        ForEach(BodyweightScale.tenthsRange, id: \.self) { decimal in
                             Text("\(decimal)").tag(decimal)
                         }
                     }
                     .pickerStyle(.wheel)
                     .frame(width: 60)
 
-                    Text("kg")
+                    Text(draft.unit.rawValue)
                         .dsFont(.body)
                         .foregroundStyle(.secondary)
                         .padding(.trailing, 16)
@@ -981,6 +982,9 @@ private struct WeightPickerSheet: View {
                     }
                 }
             }
+        }
+        .onDisappear {
+            if let kg = draft.kgToCommit { onCommit(kg) }
         }
     }
 }
