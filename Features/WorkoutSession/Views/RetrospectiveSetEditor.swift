@@ -17,6 +17,16 @@ struct RetrospectiveSetEditor: View {
     private var step: Double { unit == .kg ? 2.5 : 5 }
 
     var body: some View {
+        // The one Cut branch point: same entry binding, unit and steps.
+        if DS.Redesign.cutEnabled {
+            CutSetEditorHost(entry: $entry)
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
