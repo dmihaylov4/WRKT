@@ -6,6 +6,15 @@ struct DiagnosticsLogView: View {
     @State private var statusMessage: String?
 
     var body: some View {
+        // The one Cut branch point: same export, share sheet, clear and status messages.
+        if DS.Redesign.cutEnabled {
+            CutDiagnosticsHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         List {
             Section {
                 Button {

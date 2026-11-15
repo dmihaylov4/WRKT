@@ -58,7 +58,7 @@ struct CutSettingsCaptureShell<Content: View>: View {
 /// end when the content scrolls. With `pushed: false` the content is the window's root (sheets).
 @MainActor
 func settingsCapture<V: View>(_ content: V, name: String, dynamicType: DynamicTypeSize = .large,
-                              pushed: Bool = true) async throws {
+                              pushed: Bool = true, offsets: [CGFloat] = []) async throws {
     try FileManager.default.createDirectory(at: settingsCaptureRoot, withIntermediateDirectories: true)
     let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
     let window = UIWindow(windowScene: scene)
@@ -71,11 +71,19 @@ func settingsCapture<V: View>(_ content: V, name: String, dynamicType: DynamicTy
     try await Task.sleep(for: .seconds(2))
     try settingsCaptureWrite(window, to: name)
 
-    guard let scroll = settingsCaptureTallestScroll(in: window) else { return }
+    guard pushed, let scroll = settingsCaptureTallestScroll(in: window) else { return }
     func maxOffset() -> CGFloat {
         scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
     }
     guard maxOffset() > 40 else { return }
+    // Extra captures at fixed offsets from the top, named <name>-at<offset>.
+    for offset in offsets {
+        for _ in 0..<3 {
+            scroll.setContentOffset(CGPoint(x: 0, y: min(offset, maxOffset()) - scroll.adjustedContentInset.top), animated: false)
+            try await Task.sleep(for: .seconds(0.5))
+        }
+        try settingsCaptureWrite(window, to: "\(name)-at\(Int(offset))")
+    }
     // A long page also gets its middle.
     if maxOffset() > scroll.bounds.height {
         scroll.setContentOffset(CGPoint(x: 0, y: maxOffset() / 2), animated: false)

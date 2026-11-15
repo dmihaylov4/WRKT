@@ -17,6 +17,9 @@ struct CutPreferencesCaptureTests {
             CutPreferencesView(model: signedIn, controls: .constant(smartNudges: true), startsWithZonesOpen: true),
             name: "preferences-signed-in")
         try await settingsCapture(
+            CutPreferencesView(model: signedIn, controls: .constant(smartNudges: true)),
+            name: "preferences-workout", offsets: [700])
+        try await settingsCapture(
             CutPreferencesView(model: local, controls: .constant(weightUnit: .lb, restTimer: false)),
             name: "preferences-local")
         try await settingsCapture(
