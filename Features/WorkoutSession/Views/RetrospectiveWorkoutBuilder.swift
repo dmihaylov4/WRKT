@@ -32,6 +32,16 @@ struct RetrospectiveWorkoutBuilder: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same day, default times, picker, set editor and store save.
+        if DS.Redesign.cutEnabled {
+            CutWorkoutLogHost(date: date)
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {

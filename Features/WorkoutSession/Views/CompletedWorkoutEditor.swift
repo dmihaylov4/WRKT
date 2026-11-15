@@ -31,6 +31,16 @@ struct CompletedWorkoutEditor: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same workout, picker, set editor and store save.
+        if DS.Redesign.cutEnabled {
+            CutWorkoutEditorHost(workout: workout, isNewWorkout: isNewWorkout)
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         NavigationStack {
             List {
                 Section {

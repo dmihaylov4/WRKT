@@ -96,6 +96,16 @@ struct WorkoutDetailView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same workout, store, editor, delete, stats and session sheets.
+        if DS.Redesign.cutEnabled {
+            CutWorkoutDetailHost(workout: workout)
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // MARK: - Clean Header Section

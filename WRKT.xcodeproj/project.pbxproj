@@ -414,6 +414,15 @@
 		C17CA2000000000000000107 /* CutRestPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000207 /* CutRestPanel.swift */; };
 		C17CA2000000000000000108 /* CutWinModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000208 /* CutWinModel.swift */; };
 		C17CA2000000000000000109 /* CutWinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA2000000000000000209 /* CutWinView.swift */; };
+		C17CA8000000000000000101 /* CutWorkoutDetailModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000201 /* CutWorkoutDetailModel.swift */; };
+		C17CA8000000000000000102 /* CutWorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000202 /* CutWorkoutDetailView.swift */; };
+		C17CA8000000000000000103 /* CutWorkoutDetailHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000203 /* CutWorkoutDetailHost.swift */; };
+		C17CA8000000000000000104 /* CutWorkoutEditorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000204 /* CutWorkoutEditorModel.swift */; };
+		C17CA8000000000000000105 /* CutWorkoutEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000205 /* CutWorkoutEditorView.swift */; };
+		C17CA8000000000000000106 /* CutWorkoutEditorHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000206 /* CutWorkoutEditorHost.swift */; };
+		C17CA8000000000000000107 /* CutSetEditorModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000207 /* CutSetEditorModel.swift */; };
+		C17CA8000000000000000108 /* CutSetEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000208 /* CutSetEditorView.swift */; };
+		C17CA8000000000000000109 /* CutSetEditorHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA8000000000000000209 /* CutSetEditorHost.swift */; };
 		C17CA3000000000000000101 /* CutPlanModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000201 /* CutPlanModel.swift */; };
 		C17CA3000000000000000102 /* CutPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000202 /* CutPlanView.swift */; };
 		C17CA3000000000000000103 /* CutPlanHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CA3000000000000000203 /* CutPlanHost.swift */; };
@@ -905,6 +914,15 @@
 		C17CA2000000000000000207 /* CutRestPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRestPanel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000208 /* CutWinModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWinModel.swift; sourceTree = "<group>"; };
 		C17CA2000000000000000209 /* CutWinView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWinView.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000201 /* CutWorkoutDetailModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWorkoutDetailModel.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000202 /* CutWorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWorkoutDetailView.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000203 /* CutWorkoutDetailHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWorkoutDetailHost.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000204 /* CutWorkoutEditorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWorkoutEditorModel.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000205 /* CutWorkoutEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWorkoutEditorView.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000206 /* CutWorkoutEditorHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWorkoutEditorHost.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000207 /* CutSetEditorModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetEditorModel.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000208 /* CutSetEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetEditorView.swift; sourceTree = "<group>"; };
+		C17CA8000000000000000209 /* CutSetEditorHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutSetEditorHost.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000201 /* CutPlanModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanModel.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000202 /* CutPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanView.swift; sourceTree = "<group>"; };
 		C17CA3000000000000000203 /* CutPlanHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPlanHost.swift; sourceTree = "<group>"; };
@@ -2328,6 +2346,15 @@
 				C17CA2000000000000000207 /* CutRestPanel.swift */,
 				C17CA2000000000000000208 /* CutWinModel.swift */,
 				C17CA2000000000000000209 /* CutWinView.swift */,
+				C17CA8000000000000000201 /* CutWorkoutDetailModel.swift */,
+				C17CA8000000000000000202 /* CutWorkoutDetailView.swift */,
+				C17CA8000000000000000203 /* CutWorkoutDetailHost.swift */,
+				C17CA8000000000000000204 /* CutWorkoutEditorModel.swift */,
+				C17CA8000000000000000205 /* CutWorkoutEditorView.swift */,
+				C17CA8000000000000000206 /* CutWorkoutEditorHost.swift */,
+				C17CA8000000000000000207 /* CutSetEditorModel.swift */,
+				C17CA8000000000000000208 /* CutSetEditorView.swift */,
+				C17CA8000000000000000209 /* CutSetEditorHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -2789,6 +2816,15 @@
 				C17CA2000000000000000103 /* CutSetLoggingModel.swift in Sources */,
 				C17CA2000000000000000102 /* CutStartSheetView.swift in Sources */,
 				C17CA2000000000000000101 /* CutStartSheetModel.swift in Sources */,
+				C17CA8000000000000000101 /* CutWorkoutDetailModel.swift in Sources */,
+				C17CA8000000000000000102 /* CutWorkoutDetailView.swift in Sources */,
+				C17CA8000000000000000103 /* CutWorkoutDetailHost.swift in Sources */,
+				C17CA8000000000000000104 /* CutWorkoutEditorModel.swift in Sources */,
+				C17CA8000000000000000105 /* CutWorkoutEditorView.swift in Sources */,
+				C17CA8000000000000000106 /* CutWorkoutEditorHost.swift in Sources */,
+				C17CA8000000000000000107 /* CutSetEditorModel.swift in Sources */,
+				C17CA8000000000000000108 /* CutSetEditorView.swift in Sources */,
+				C17CA8000000000000000109 /* CutSetEditorHost.swift in Sources */,
 				C17CA1000000000000000012 /* CutTrainView.swift in Sources */,
 				C17CA1000000000000000013 /* CutTrainHost.swift in Sources */,
 				C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */,

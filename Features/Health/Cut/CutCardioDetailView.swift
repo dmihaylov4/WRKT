@@ -263,7 +263,7 @@ extension CutCardioDetailView where RouteMap == EmptyView {
 }
 
 /// A slanted bar on the empty track: `fraction` of the width in `fill`.
-private struct CutCardioBar: View {
+struct CutCardioBar: View {
     let fraction: Double
     let fill: Color
 

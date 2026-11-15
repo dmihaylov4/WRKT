@@ -52,6 +52,16 @@ struct HealthKitStrengthDetailView: View {
     }
 
     var body: some View {
+        // The one Cut branch point: same run, store, editor sheet and delete.
+        if DS.Redesign.cutEnabled {
+            CutHealthStrengthHost(run: run)
+        } else {
+            legacyBody
+        }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 // Header Card
