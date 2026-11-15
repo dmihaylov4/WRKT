@@ -52,6 +52,9 @@ struct CutSetLoggingView: View {
     @Binding var sets: [SetInput]
     @Binding var activeSetIndex: Int
     var rest: CutRestSource = .none
+    var inSheet = false
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    private var sheetSurface: Color { inSheet ? DS.Cut.SheetLevel.resolve(parentDepth: sheetDepth).surface : DS.Cut.Colors.background }
     var actions = CutSetLoggingActions()
     /// Fixtures only: a rest tip already showing, as if the reps had just changed.
     var initialRestZone: CutRestZone?
@@ -80,18 +83,27 @@ struct CutSetLoggingView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-                // Opaque, with a hairline, so scrolled content passes cleanly under it.
-                .background(DS.Cut.Colors.background)
-            CutHairline()
-            CutRestGate(source: rest, hasCompletedSet: sets.contains(where: \.isCompleted),
-                        fallbackTotal: TimeInterval(model.restSeconds ?? model.adviceRestSeconds)) { restState in
-                screen(rest: restState)
+        Group {
+            if inSheet {
+                CutRestGate(source: rest, hasCompletedSet: sets.contains(where: \.isCompleted),
+                            fallbackTotal: TimeInterval(model.restSeconds ?? model.adviceRestSeconds)) { restState in
+                    sheetScreen(rest: restState)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    topBar
+                        // Opaque, with a hairline, so scrolled content passes cleanly under it.
+                        .background(sheetSurface)
+                    CutHairline()
+                    CutRestGate(source: rest, hasCompletedSet: sets.contains(where: \.isCompleted),
+                                fallbackTotal: TimeInterval(model.restSeconds ?? model.adviceRestSeconds)) { restState in
+                        screen(rest: restState)
+                    }
+                }
             }
         }
         .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
+        .background(sheetSurface.ignoresSafeArea())
         .environment(\.colorScheme, .dark)
         .onChange(of: activeSet?.reps) { _, reps in
             if let reps { scheduleRestZone(reps: reps) }
@@ -150,6 +162,25 @@ struct CutSetLoggingView: View {
         .onChange(of: isResting) { _, _ in editingNext = false }
     }
 
+    private func sheetScreen(rest: CutRestState?) -> some View {
+        let isResting = rest != nil
+        let bar = CutSetLoggingLogic.bar(sets: sets, activeSetIndex: activeSetIndex, restSeconds: model.restSeconds,
+                                         nextExerciseName: model.nextExercise?.name, holdRunning: holdStart != nil,
+                                         isResting: isResting)
+        return CutSheet(model.exerciseName, kind: .browser, close: { Haptics.light(); actions.done() }) {
+            VStack(alignment: .leading, spacing: 0) {
+                Button("Exercise info", systemImage: "info.circle", action: actions.showInfo)
+                    .buttonStyle(CutPillButtonStyle(.outline)).padding(.bottom, 20)
+                if let rest { restingBlock(rest) } else { entryBlock }
+                lists(showsRestTip: !CutSetLoggingLogic.tipJoinsPillLine(bar, isResting: isResting)).padding(.top, 40)
+            }
+            .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12).padding(.bottom, 24)
+        } footer: {
+            bottomAction(bar, isResting: isResting)
+        }
+        .onChange(of: isResting) { _, _ in editingNext = false }
+    }
+
     // MARK: Top bar
 
     private var topBar: some View {
@@ -180,8 +211,7 @@ struct CutSetLoggingView: View {
                 .cutFont(.title)
                 .foregroundStyle(DS.Cut.Colors.lime)
                 .fixedSize(horizontal: false, vertical: true)
-            exerciseName
-                .padding(.top, 4)
+            if !inSheet { exerciseName.padding(.top, 4) }
             if let detail = model.support.detail {
                 Text(detail)
                     .cutFont(.secondary)
@@ -729,10 +759,10 @@ struct CutSetLoggingView: View {
             .padding(.top, 12)
             .padding(.bottom, 8)
             .frame(maxWidth: .infinity)
-            .background(DS.Cut.Colors.background.ignoresSafeArea(edges: .bottom))
+            .background(sheetSurface.ignoresSafeArea(edges: .bottom))
             // Rows scrolling under the pill fade out instead of being cut off.
             .background(alignment: .top) {
-                LinearGradient(colors: [DS.Cut.Colors.background.opacity(0), DS.Cut.Colors.background],
+                LinearGradient(colors: [sheetSurface.opacity(0), sheetSurface],
                                startPoint: .top, endPoint: .bottom)
                     .frame(height: 24)
                     .offset(y: -24)
@@ -1055,6 +1085,9 @@ private struct CutColumnsLayout: Layout {
 // MARK: - Rows
 
 private struct CutSetRow: View {
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private var wraps: Bool { sheetDepth > 0 && dynamicTypeSize.isAccessibilitySize }
     let index: Int
     let set: SetInput
     let isActive: Bool
@@ -1084,20 +1117,24 @@ private struct CutSetRow: View {
                 }
                 .frame(width: 18)
                 .accessibilityHidden(true)
-                Text(title)
-                    .cutFont(.title)
-                    .foregroundStyle(isActive ? DS.Cut.Colors.textPrimary : set.isCompleted ? DS.Cut.Colors.textSecondary : DS.Cut.Colors.textPrimary)
-                Spacer(minLength: 8)
-                Text(CutSetLoggingLogic.rowValue(set, mode: mode, unit: unit))
-                    .font(DS.Cut.Typography.font(.secondary, monospacedDigits: true).weight(.semibold))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
-                    .lineLimit(1)
-                if let rpe = set.rpe, set.isCompleted {
-                    Text("RPE \(CutSetLoggingLogic.formatRPE(rpe))")
-                        .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                        .foregroundStyle(DS.Cut.Colors.lime)
-                        .lineLimit(1)
-                }
+                let layout = wraps ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+                    : AnyLayout(HStackLayout(spacing: 12))
+                layout {
+                    Text(title)
+                        .cutFont(.title)
+                        .foregroundStyle(isActive ? DS.Cut.Colors.textPrimary : set.isCompleted ? DS.Cut.Colors.textSecondary : DS.Cut.Colors.textPrimary)
+                    Spacer(minLength: 8)
+                    Text(CutSetLoggingLogic.rowValue(set, mode: mode, unit: unit))
+                        .font(DS.Cut.Typography.font(.secondary, monospacedDigits: true).weight(.semibold))
+                        .foregroundStyle(DS.Cut.Colors.textSecondary)
+                        .lineLimit(wraps ? nil : 1)
+                    if let rpe = set.rpe, set.isCompleted {
+                        Text("RPE \(CutSetLoggingLogic.formatRPE(rpe))")
+                            .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
+                            .foregroundStyle(DS.Cut.Colors.lime)
+                            .lineLimit(wraps ? nil : 1)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading)
                 Menu {
                     Button(set.isCompleted ? "Mark incomplete" : "Mark complete",
                            systemImage: set.isCompleted ? "xmark.circle" : "checkmark.circle",

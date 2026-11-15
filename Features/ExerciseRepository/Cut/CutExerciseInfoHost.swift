@@ -7,6 +7,7 @@ struct CutExerciseInfoHost<Stats: View>: View {
     let unit: WeightUnit
     let done: () -> Void
     @ViewBuilder var stats: () -> Stats
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @EnvironmentObject private var repo: ExerciseRepository
     @ObservedObject private var preferences = RestTimerPreferences.shared
     @State private var tab = CutExerciseInfoModel.Tab.info
@@ -32,15 +33,16 @@ struct CutExerciseInfoHost<Stats: View>: View {
                     }
                     .saturation(0)
                 })
-                .navigationDestination(isPresented: $showingTimer) { CustomTimerEditorView(exercise: exercise) }
+                .navigationDestination(isPresented: $showingTimer) {
+                    CustomTimerEditorView(exercise: exercise).toolbar(.visible, for: .navigationBar)
+                }
                 .sheet(isPresented: $editing) {
                     CreateExerciseView(preselectedMuscle: exercise.primaryMuscles.first ?? "", editingExercise: exercise)
                         .environmentObject(CustomExerciseStore.shared)
                         .environmentObject(repo)
+                        .environment(\.cutSheetDepth, sheetDepth + 1)
                 }
         }
-        .presentationDetents([.medium, .large])
-        .presentationDragIndicator(.visible)
     }
 
     private func bodySide(_ side: SVGHumanBodyView.Side) -> some View {

@@ -15,11 +15,13 @@ import SwiftUI
 struct CutWorkoutDetailHost: View {
     let workout: CompletedWorkout
 
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: WorkoutStoreV2
     @EnvironmentObject private var repo: ExerciseRepository
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
 
+    @State private var inSheet = false
     @State private var showDeleteConfirmation = false
     @State private var showingEditor = false
     @State private var statsTarget: CutExerciseStatsTarget?
@@ -73,7 +75,8 @@ struct CutWorkoutDetailHost: View {
                     sessionExercise = found
                 }
             }
-        ))
+        ), inSheet: inSheet, close: { dismiss() })
+        .background(CutPresentationReader { inSheet = $0 })
         .workoutDetailScrollEdge()
         // The hero carries the name; a pushed detail keeps only the back button in the bar.
         .navigationTitle(Text(verbatim: ""))
@@ -82,6 +85,7 @@ struct CutWorkoutDetailHost: View {
             CompletedWorkoutEditor(workout: current, isNewWorkout: false)
                 .environmentObject(store)
                 .environmentObject(repo)
+                .environment(\.cutSheetDepth, sheetDepth + (inSheet ? 1 : 0))
         }
         .sheet(item: $statsTarget) { target in
             NavigationStack {
@@ -98,15 +102,16 @@ struct CutWorkoutDetailHost: View {
                     initialEntryID: store.existingEntry(for: exercise.id)?.id
                 )
             }
+            .environment(\.cutSheetDepth, sheetDepth + (inSheet ? 1 : 0))
         }
-        .confirmationDialog(model.deleteTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete workout", role: .destructive) {
-                store.deleteWorkout(current)
-                dismiss()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Are you sure you want to delete this workout? You can undo this action.")
+        .sheet(isPresented: $showDeleteConfirmation) {
+            CutSheetConfirm("Delete workout?", message: "Your logged workout will be deleted. You can undo this.",
+                primaryTitle: "Delete workout", cancelTitle: "Keep workout", confirm: {
+                    showDeleteConfirmation = false
+                    store.deleteWorkout(current)
+                    dismiss()
+                }, cancel: { showDeleteConfirmation = false })
+                .environment(\.cutSheetDepth, sheetDepth + (inSheet ? 1 : 0))
         }
         .onReceive(NotificationCenter.default.publisher(for: .tabDidChange)) { _ in dismiss() }
         .onReceive(NotificationCenter.default.publisher(for: .calendarTabReselected)) { _ in dismiss() }
@@ -119,6 +124,7 @@ struct CutWorkoutDetailHost: View {
 struct CutHealthStrengthHost: View {
     let run: Run
 
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var store: WorkoutStoreV2
     @EnvironmentObject private var repo: ExerciseRepository
@@ -156,18 +162,14 @@ struct CutHealthStrengthHost: View {
                     .environmentObject(repo)
             }
         }
-        .confirmationDialog(model.deleteTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete workout", role: .destructive) {
-                if let workout = existingWorkout {
-                    store.deleteWorkout(workout)
-                } else {
-                    store.removeRun(withId: run.id)
-                }
-                dismiss()
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Are you sure you want to delete this workout? You can undo this action.")
+        .sheet(isPresented: $showDeleteConfirmation) {
+            CutSheetConfirm("Delete workout?", message: "Your logged workout will be deleted. You can undo this.",
+                primaryTitle: "Delete workout", cancelTitle: "Keep workout", confirm: {
+                    showDeleteConfirmation = false
+                    if let workout = existingWorkout { store.deleteWorkout(workout) } else { store.removeRun(withId: run.id) }
+                    dismiss()
+                }, cancel: { showDeleteConfirmation = false })
+                .environment(\.cutSheetDepth, sheetDepth)
         }
         .onReceive(NotificationCenter.default.publisher(for: .tabDidChange)) { _ in dismiss() }
         .onReceive(NotificationCenter.default.publisher(for: .calendarTabReselected)) { _ in dismiss() }

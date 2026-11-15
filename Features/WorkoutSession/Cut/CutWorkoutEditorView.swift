@@ -2,12 +2,10 @@
 //  CutWorkoutEditorView.swift
 //  WRKT
 //
-//  The Cut workout editors. Edit workout: the name as an underline field (its placeholder is
-//  its label), date and watch as hairline rows, exercises as hairline rows with a one line
-//  summary that open the set editor and swipe away, and one compact Add exercise pill. Log
-//  workout: the day as a modest hero, the name, Started and Finished rows with the system date
-//  capsules, then the same exercise rows. Cancel and Save sit in the bar; Save turns lime once
-//  it can save. The planned workout editor shares the name field, section label and pill.
+//  The Cut workout editors use the shared Form sheet: name, date or times, then hairline
+//  exercise rows that open the set editor and swipe away. Close cancels; the footer saves.
+//  The planned workout editor also shares the name field, section label and pill, retaining
+//  its existing appearance outside a sheet.
 //  Takes plain values, bindings for what is typed or picked, and closures.
 //
 
@@ -30,7 +28,7 @@ struct CutWorkoutEditorView: View {
     var actions = CutWorkoutEditorActions()
 
     var body: some View {
-        CutEditorList {
+        CutEditorList(title: "Edit workout", canSave: model.canSave, actions: actions) {
             CutEditorRow {
                 CutEditorNameField(name: $name, placeholder: CutWorkoutEditorLogic.namePlaceholder).padding(.top, 8)
             }
@@ -57,9 +55,6 @@ struct CutWorkoutEditorView: View {
             }
             CutEditorExercises(rows: model.rows, actions: actions)
         }
-        .navigationTitle("Edit workout")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { CutEditorToolbar(canSave: model.canSave, cancel: actions.cancel, save: actions.save) }
     }
 }
 
@@ -73,7 +68,7 @@ struct CutWorkoutLogView: View {
     var actions = CutWorkoutEditorActions()
 
     var body: some View {
-        CutEditorList {
+        CutEditorList(title: "Log workout", canSave: model.canSave, actions: actions) {
             CutEditorRow {
                 Text(model.dayTitle)
                     .cutHero(.xs, minimumScaleFactor: 0.6)
@@ -101,9 +96,6 @@ struct CutWorkoutLogView: View {
             }
             CutEditorExercises(rows: model.rows, actions: actions)
         }
-        .navigationTitle("Log workout")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { CutEditorToolbar(canSave: model.canSave, cancel: actions.cancel, save: actions.save) }
     }
 
     private func timeRow(_ title: String, selection: Binding<Date>) -> some View {
@@ -143,31 +135,33 @@ struct CutWorkoutLogView: View {
 
 // MARK: - Shared editor pieces
 
-/// A plain list on the black ground: rows carry their own hairlines, swipe actions still work.
+/// The shared sheet keeps native List deletion gestures and puts Save in the footer.
 private struct CutEditorList<Content: View>: View {
+    let title: String
+    let canSave: Bool
+    let actions: CutWorkoutEditorActions
     @ViewBuilder var content: () -> Content
 
     var body: some View {
-        List {
+        CutSheet(title, kind: .form, usesList: true, close: actions.cancel) {
             content()
+        } footer: {
+            Button("Save", action: actions.save)
+                .buttonStyle(CutPillButtonStyle(.lime, size: .regular, fillsWidth: true)).disabled(!canSave)
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
-        .environment(\.defaultMinListRowHeight, 0)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
     }
 }
 
-/// One full-width list row with the Cut gutter and no system separator.
+/// The editor's native rows follow the surrounding sheet's surface.
 private struct CutEditorRow<Content: View>: View {
+    @Environment(\.cutSheetLevel) private var level
     @ViewBuilder var content: () -> Content
-
     var body: some View {
         content()
             .listRowInsets(EdgeInsets(top: 0, leading: DS.Cut.Metrics.gutter, bottom: 0, trailing: DS.Cut.Metrics.gutter))
             .listRowSeparator(.hidden)
-            .listRowBackground(DS.Cut.Colors.background)
+            .listRowBackground(level.surface)
     }
 }
 
@@ -216,6 +210,8 @@ struct CutEditorNameField: View {
     let placeholder: String
     var capitalizesWords = false
     @FocusState private var focused: Bool
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    @Environment(\.cutSheetLevel) private var level
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -227,11 +223,15 @@ struct CutEditorNameField: View {
                 .textInputAutocapitalization(capitalizesWords ? .words : .sentences)
                 .focused($focused)
                 .submitLabel(.done)
-                .frame(minHeight: 50)
-            Rectangle()
-                .fill(focused ? DS.Cut.Colors.lime : DS.Cut.Colors.hairlineStrong)
-                .frame(height: focused ? 2 : 1)
-                .accessibilityHidden(true)
+                .padding(.horizontal, sheetDepth > 0 ? 16 : 0)
+                .frame(minHeight: sheetDepth > 0 ? 52 : 50)
+                .background(RoundedRectangle(cornerRadius: 14).fill(sheetDepth > 0 ? level.control : .clear))
+            if sheetDepth == 0 {
+                Rectangle()
+                    .fill(focused ? DS.Cut.Colors.lime : DS.Cut.Colors.hairlineStrong)
+                    .frame(height: focused ? 2 : 1)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }
@@ -261,15 +261,30 @@ struct CutEditorAddExercise: View {
 private struct CutEditorExercises: View {
     let rows: [CutWorkoutEditorRow]
     let actions: CutWorkoutEditorActions
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         CutEditorRow {
-            CutEditorExercisesHeader()
+            Text("EXERCISES").font(DS.Cut.Typography.condensed(size: 23, relativeTo: .headline))
+                .foregroundStyle(DS.Cut.Colors.textPrimary).padding(.top, 24).padding(.bottom, 12)
         }
         ForEach(rows) { row in
             CutEditorRow {
                 Button { actions.editExercise(row.id) } label: {
-                    CutHairlineRow(row.name, subtitle: row.preview, showsChevron: true)
+                    VStack(spacing: 0) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(row.name).font(DS.Typography.custom(size: 18, weight: .semibold, relativeTo: .body))
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text(row.preview).font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .subheadline))
+                                    .foregroundStyle(DS.Cut.Colors.textSecondary)
+                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                            Image(systemName: "chevron.right").font(.system(size: 16, weight: .semibold)).accessibilityHidden(true)
+                        }.frame(minHeight: 64).padding(.vertical, 12).contentShape(Rectangle())
+                        CutHairline()
+                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint(Text("Edits the sets"))

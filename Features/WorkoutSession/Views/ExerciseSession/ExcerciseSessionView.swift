@@ -37,6 +37,8 @@ struct ExerciseSessionView: View {
     // Tutorial state (only non-ViewModel state remains)
     @StateObject private var onboardingManager = OnboardingManager.shared
     @State private var yOffset: CGFloat = 0
+    @State private var isCutSheet = false
+    @Environment(\.cutSheetDepth) private var cutSheetDepth
     @State private var showEditExercise = false
     @State private var showWorkoutCreatedBanner = false
     @State private var workoutBannerMessage = ""
@@ -167,7 +169,7 @@ struct ExerciseSessionView: View {
         Group {
             // The one Cut branch point: same view model, store calls, timers and alerts.
             if DS.Redesign.cutEnabled {
-                cutContent
+                cutContent.background(CutPresentationReader { isCutSheet = $0 })
             } else {
                 legacyContentView
             }
@@ -208,6 +210,7 @@ struct ExerciseSessionView: View {
             sets: $viewModel.sets,
             activeSetIndex: $viewModel.activeSetIndex,
             rest: .live(exerciseID: exercise.id),
+            inSheet: isCutSheet,
             actions: CutSetLoggingActions(
                 logSet: { logSet(at: $0) },
                 activate: { i in
@@ -597,6 +600,7 @@ struct ExerciseSessionView: View {
                                 unit: unit, done: { viewModel.showInfo = false }) {
                 statsTabContent
             }
+            .environment(\.cutSheetDepth, cutSheetDepth + (isCutSheet ? 1 : 0))
         } else {
             legacyExerciseInfoSheet
         }

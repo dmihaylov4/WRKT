@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - Surface environment
 
@@ -935,6 +936,8 @@ public struct CutPillButtonStyle: ButtonStyle {
         case outline
         /// Lime outline, lime text: join.
         case outlineLime
+        case destructive
+        case control
     }
 
     private let tone: Tone
@@ -958,6 +961,7 @@ private struct CutTonedPill: View {
     let size: CutPrimaryButtonStyle.Size
     let fillsWidth: Bool
 
+    @Environment(\.cutSheetLevel) private var level
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -967,6 +971,8 @@ private struct CutTonedPill: View {
         case .lime: return DS.Cut.Colors.ink
         case .white: return .black
         case .outline: return DS.Cut.Colors.textPrimary
+        case .control: return DS.Cut.Colors.textPrimary
+        case .destructive: return DS.Cut.Colors.destructiveInk
         case .outlineLime: return DS.Cut.Colors.lime
         }
     }
@@ -976,13 +982,15 @@ private struct CutTonedPill: View {
         switch tone {
         case .lime: return DS.Cut.Colors.lime
         case .white: return .white
+        case .control: return level.control
+        case .destructive: return DS.Cut.Colors.destructive
         case .outline, .outlineLime: return .clear
         }
     }
 
     private var stroke: Color {
         switch tone {
-        case .lime, .white: return .clear
+        case .lime, .white, .destructive, .control: return .clear
         case .outline: return isEnabled ? DS.Cut.Colors.hairlineStrong : DS.Cut.Colors.hairline
         case .outlineLime: return isEnabled ? DS.Cut.Colors.lime : DS.Cut.Colors.hairline
         }
@@ -1039,11 +1047,28 @@ private struct CutQuietButton: View {
 
 // MARK: - Sheet
 
+private struct CutSheetDepthKey: EnvironmentKey {
+    static let defaultValue = 0
+}
+
+/// Presentation policy, independent of a view's data and actions.
+public enum CutSheetKind: Equatable, Sendable {
+    case choice, form, browser, confirm
+    public var fitsContent: Bool { self != .browser }
+    public var showsClose: Bool { self != .confirm }
+}
+
 private struct CutSheetLevelKey: EnvironmentKey {
     static let defaultValue: DS.Cut.SheetLevel = .base
 }
 
 public extension EnvironmentValues {
+    /// Number of family sheets below this destination, including sheets outside its subtree.
+    var cutSheetDepth: Int {
+        get { self[CutSheetDepthKey.self] }
+        set { self[CutSheetDepthKey.self] = newValue }
+    }
+
     /// The sheet surface a view sits on, so controls pick the matching fill.
     var cutSheetLevel: DS.Cut.SheetLevel {
         get { self[CutSheetLevelKey.self] }
@@ -1083,11 +1108,13 @@ public struct CutSheetHeader: View {
     private let title: String
     private let subtitle: String?
     private let close: () -> Void
+    private let showsClose: Bool
     @Environment(\.cutSheetLevel) private var level
 
-    public init(_ title: String, subtitle: String? = nil, close: @escaping () -> Void) {
+    public init(_ title: String, subtitle: String? = nil, showsClose: Bool = true, close: @escaping () -> Void) {
         self.title = title
         self.subtitle = subtitle
+        self.showsClose = showsClose
         self.close = close
     }
 
@@ -1108,16 +1135,18 @@ public struct CutSheetHeader: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Button(action: close) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(DS.Cut.Colors.textPrimary)
-                    .frame(width: DS.Cut.Metrics.minTouchTarget, height: DS.Cut.Metrics.minTouchTarget)
-                    .background(Circle().fill(level.control))
-                    .contentShape(Circle())
+            if showsClose {
+                Button(action: close) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(DS.Cut.Colors.textPrimary)
+                        .frame(width: DS.Cut.Metrics.minTouchTarget, height: DS.Cut.Metrics.minTouchTarget)
+                        .background(Circle().fill(level.control))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Close"))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Close"))
         }
         .padding(.leading, DS.Cut.Metrics.gutter)
         .padding(.trailing, 20)
@@ -1132,7 +1161,12 @@ public struct CutSheetHeader: View {
 public struct CutSheet<Content: View, Footer: View>: View {
     private let title: String
     private let subtitle: String?
-    private let level: DS.Cut.SheetLevel
+    private let explicitLevel: DS.Cut.SheetLevel?
+    private let kind: CutSheetKind
+    private let usesList: Bool
+    private let scrollsContent: Bool
+    @Environment(\.cutSheetDepth) private var parentDepth
+    private var level: DS.Cut.SheetLevel { explicitLevel ?? .resolve(parentDepth: parentDepth) }
     private let fitsContent: Bool
     private let close: () -> Void
     private let content: Content
@@ -1143,11 +1177,14 @@ public struct CutSheet<Content: View, Footer: View>: View {
     @State private var foot: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
-                close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
+    public init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
+                kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
         self.title = title
         self.subtitle = subtitle
-        self.level = level
+        self.explicitLevel = level
+        self.kind = kind
+        self.usesList = usesList
+        self.scrollsContent = scrollsContent
         self.fitsContent = fitsContent
         self.close = close
         self.content = content()
@@ -1155,25 +1192,43 @@ public struct CutSheet<Content: View, Footer: View>: View {
     }
 
     private var sizing: CutSheetSizing {
-        guard fitsContent else { return .large }
+        guard fitsContent, kind.fitsContent, header > 0, body_ > 0 else { return .large }
         let screen = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }.first ?? 844
         return CutSheetSizing.resolve(parts: [header, body_, dynamicTypeSize.isAccessibilitySize ? 0 : foot], screen: screen)
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            CutSheetHeader(title, subtitle: subtitle, close: close)
+            CutSheetHeader(title, subtitle: subtitle, showsClose: kind.showsClose, close: close)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { header = $0 }
-            // At accessibility sizes the footer scrolls with the content instead of covering it.
-            ScrollView {
-                VStack(spacing: 0) {
+            // A native List keeps swipe actions and onDelete. Both body variants measure
+            // their content, and put the footer inside the scroller at accessibility sizes.
+            if !scrollsContent {
+                // Browser destinations such as the unchanged Statistics view own their
+                // scroller. Give them a viewport rather than nesting two vertical scrollers.
+                content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else if usesList {
+                List {
                     content
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    if dynamicTypeSize.isAccessibilitySize { footer }
+                        .listRowBackground(level.surface)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        footer.listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(level.surface)
+                    }
                 }
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { body_ = $0 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+                .environment(\.defaultMinListRowHeight, 0)
+                .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, value in body_ = value }
+            } else {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        content.frame(maxWidth: .infinity, alignment: .leading)
+                        if dynamicTypeSize.isAccessibilitySize { footer }
+                    }
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { body_ = $0 }
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .scrollBounceBehavior(.basedOnSize)
             if !dynamicTypeSize.isAccessibilitySize {
                 footer
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { foot = $0 }
@@ -1182,6 +1237,7 @@ public struct CutSheet<Content: View, Footer: View>: View {
         .foregroundStyle(DS.Cut.Colors.textPrimary)
         .background(level.surface.ignoresSafeArea())
         .environment(\.cutSheetLevel, level)
+        .environment(\.cutSheetDepth, parentDepth + 1)
         .toolbar(.hidden, for: .navigationBar)
         .presentationBackground(level.surface)
         .presentationDragIndicator(.visible)
@@ -1191,9 +1247,9 @@ public struct CutSheet<Content: View, Footer: View>: View {
 }
 
 public extension CutSheet where Footer == EmptyView {
-    init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel = .base, fitsContent: Bool = true,
-         close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
-        self.init(title, subtitle: subtitle, level: level, fitsContent: fitsContent, close: close, content: content) { EmptyView() }
+    init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
+         kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.init(title, subtitle: subtitle, level: level, fitsContent: fitsContent, kind: kind, usesList: usesList, scrollsContent: scrollsContent, close: close, content: content) { EmptyView() }
     }
 }
 
@@ -1256,5 +1312,69 @@ public struct CutSheetInsetRow: View {
         Text(value).font(DS.Typography.custom(size: 17, weight: .medium, relativeTo: .body))
             .foregroundStyle(DS.Cut.Colors.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// Reads the actual presentation root. An environment presentation flag alone also reaches
+/// pushed descendants, which must not acquire sheet chrome or change their parent's detent.
+struct CutPresentationReader: UIViewControllerRepresentable {
+    let update: (Bool) -> Void
+    func makeUIViewController(context: Context) -> Reader { Reader(update: update) }
+    func updateUIViewController(_ controller: Reader, context: Context) { controller.update = update }
+
+    final class Reader: UIViewController {
+        var update: (Bool) -> Void
+        private var last: Bool?
+        init(update: @escaping (Bool) -> Void) { self.update = update; super.init(nibName: nil, bundle: nil) }
+        required init?(coder: NSCoder) { nil }
+        override func loadView() { view = UIView(); view.isUserInteractionEnabled = false }
+        override func viewWillAppear(_ animated: Bool) { super.viewWillAppear(animated); report() }
+        override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); report() }
+        override func didMove(toParent parent: UIViewController?) { super.didMove(toParent: parent); report() }
+        private func report() {
+            let value = Self.isPresentationRoot(self)
+            guard value != last else { return }
+            last = value
+            DispatchQueue.main.async { [weak self] in self?.update(value) }
+        }
+        static func isPresentationRoot(_ controller: UIViewController) -> Bool {
+            var node = controller
+            while let parent = node.parent {
+                if let navigation = parent as? UINavigationController, navigation.viewControllers.first !== node { return false }
+                node = parent
+            }
+            return node.presentingViewController != nil
+        }
+    }
+}
+
+/// The destructive member of the sheet family: one question and two full-width actions.
+public struct CutSheetConfirm: View {
+    public let title: String
+    public let message: String
+    public let primaryTitle: String
+    public let cancelTitle: String
+    public let confirm: () -> Void
+    public let cancel: () -> Void
+    public init(_ title: String, message: String, primaryTitle: String, cancelTitle: String,
+                confirm: @escaping () -> Void, cancel: @escaping () -> Void) {
+        self.title = title; self.message = message; self.primaryTitle = primaryTitle
+        self.cancelTitle = cancelTitle; self.confirm = confirm; self.cancel = cancel
+    }
+    public var body: some View {
+        CutSheet(title, kind: .confirm, close: cancel) {
+            Text(message).font(DS.Typography.custom(size: 17, weight: .medium, relativeTo: .body))
+                .foregroundStyle(DS.Cut.Colors.textSecondary).fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.bottom, 12)
+        } footer: {
+            VStack(spacing: 10) {
+                Button(primaryTitle, role: .destructive, action: confirm)
+                    .buttonStyle(CutPillButtonStyle(.destructive, size: .regular, fillsWidth: true))
+                Button(cancelTitle, action: cancel)
+                    .buttonStyle(CutPillButtonStyle(.control, size: .regular, fillsWidth: true))
+            }
+            .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
+        }
     }
 }

@@ -25,12 +25,22 @@ struct CutWorkoutDetailActions {
 struct CutWorkoutDetailView: View {
     let model: CutWorkoutDetailModel
     var actions = CutWorkoutDetailActions()
+    var inSheet = false
+    var close: () -> Void = {}
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     private var isLargeText: Bool { dynamicTypeSize.isAccessibilitySize }
 
     var body: some View {
-        ScrollView {
+        if inSheet {
+            CutSheet(model.title, kind: .browser, close: close) { recordContent }
+        } else {
+            ScrollView { recordContent }
+                .scrollIndicators(.hidden).background(DS.Cut.Colors.background.ignoresSafeArea())
+        }
+    }
+
+    private var recordContent: some View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 if model.heartRate != nil {
@@ -44,23 +54,17 @@ struct CutWorkoutDetailView: View {
             .padding(.horizontal, DS.Cut.Metrics.gutter)
             .padding(.top, 8)
             .padding(.bottom, 40)
-        }
-        .scrollIndicators(.hidden)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
     }
 
     // MARK: Header
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CutRecordTitle(title: model.title) {
-                Menu {
-                    Button("Edit workout", systemImage: "pencil", action: actions.edit)
-                    Button("Delete workout", systemImage: "trash", role: .destructive, action: actions.delete)
-                } label: {
-                    Label("More", systemImage: "ellipsis")
-                }
+            Group {
+                if inSheet { recordMenu.frame(maxWidth: .infinity, alignment: .trailing) }
+                else { CutRecordTitle(title: model.title) { recordMenu } }
             }
+            /* Sheet and push keep the same actions. */
             Text(model.dateLine)
                 .cutFont(.secondary)
                 .foregroundStyle(DS.Cut.Colors.textSecondary)
@@ -84,6 +88,13 @@ struct CutWorkoutDetailView: View {
                 .padding(.top, 14)
             }
         }
+    }
+
+    private var recordMenu: some View {
+        Menu {
+            Button("Edit workout", systemImage: "pencil", action: actions.edit)
+            Button("Delete workout", systemImage: "trash", role: .destructive, action: actions.delete)
+        } label: { Label("More", systemImage: "ellipsis") }
     }
 
     // MARK: Heart rate
