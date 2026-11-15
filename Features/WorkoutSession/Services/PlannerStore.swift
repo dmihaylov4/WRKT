@@ -565,13 +565,20 @@ final class PlannerStore {
         AppLogger.success("✅ Migration complete: Updated \(updatedCount) exercises across \(allWorkouts.count) planned workouts", category: AppLogger.storage)
     }
 
-    /// Delete all planned workouts (useful for resetting)
+    /// Clears the plan: deletes every planned workout and stops the active program, so nothing
+    /// claims to be running with an empty calendar. The program itself stays in the library.
     func deleteAllPlannedWorkouts() throws {
         guard let context = context else { return }
 
         let allWorkouts = try context.fetch(FetchDescriptor<PlannedWorkout>())
         for workout in allWorkouts {
             context.delete(workout)
+        }
+        let activeSplits = try context.fetch(
+            FetchDescriptor<WorkoutSplit>(predicate: #Predicate { $0.isActive == true })
+        )
+        for split in activeSplits {
+            split.isActive = false
         }
         try context.save()
 

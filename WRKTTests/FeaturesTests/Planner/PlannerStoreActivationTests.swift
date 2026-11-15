@@ -72,4 +72,50 @@ final class PlannerStoreActivationTests: WRKTTestCase {
         XCTAssertEqual(plannedWorkouts.first?.splitDayName, "Push")
         XCTAssertEqual(split.anchorDate, makeDate(year: 2026, month: 4, day: 20, hour: 0, minute: 0))
     }
+
+    func testClearingThePlanStopsTheActiveProgram() throws {
+        let schema = Schema([
+            PlannedWorkout.self,
+            PlannedExercise.self,
+            WorkoutSplit.self,
+            PlanBlock.self,
+            PlanBlockExercise.self
+        ])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: config)
+        let context = ModelContext(container)
+
+        let plannerStore = PlannerStore.shared
+        plannerStore.configure(container: container, context: context, workoutStore: WorkoutStoreV2())
+
+        let push = PlanBlock(
+            dayName: "Push",
+            exercises: [
+                PlanBlockExercise(
+                    exerciseID: "bench-press",
+                    exerciseName: "Bench Press",
+                    sets: 3,
+                    reps: 8,
+                    startingWeight: 80,
+                    progressionStrategy: .static,
+                    order: 0
+                )
+            ],
+            isRestDay: false
+        )
+        let split = WorkoutSplit(name: "Full Body", planBlocks: [push], anchorDate: .now)
+        try plannerStore.insert(split)
+        try plannerStore.activate(
+            split,
+            customization: ActivationCustomization(startDate: .now, restDayOverrides: [:], startingWeights: [:])
+        )
+        XCTAssertTrue(split.isActive)
+        XCTAssertFalse(try context.fetch(FetchDescriptor<PlannedWorkout>()).isEmpty)
+
+        try plannerStore.deleteAllPlannedWorkouts()
+
+        XCTAssertFalse(split.isActive)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<PlannedWorkout>()).isEmpty)
+        XCTAssertEqual(try plannerStore.splitLibrary().map(\.id), [split.id])
+    }
 }

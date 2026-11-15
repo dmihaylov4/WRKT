@@ -27,7 +27,7 @@ struct ProgramLibraryViewModelTests {
         #expect(split.isActive == false)
     }
 
-    @Test func deleteAllPlannedWorkoutsDelegatesToPlannerStoreAndRefreshesLibrary() {
+    @Test func clearingThePlanStopsTheActiveProgramAndKeepsItInTheLibrary() {
         let plannerStore = InMemoryPlannerStore()
         let activeSplit = WorkoutSplit(name: "Full Body", planBlocks: [], anchorDate: .now)
         activeSplit.isActive = true
@@ -41,7 +41,8 @@ struct ProgramLibraryViewModelTests {
         vm.deleteAllPlannedWorkouts()
 
         #expect(plannerStore.didDeleteAllPlannedWorkouts)
-        #expect(vm.activeSplit?.id == activeSplit.id)
+        #expect(vm.activeSplit == nil)
+        #expect(vm.library.map(\.id) == [activeSplit.id])
     }
 }
 
@@ -128,6 +129,8 @@ private final class InMemoryPlannerStore: PlannerStoreInterface {
     func deleteUpcomingPlannedWorkouts(for split: WorkoutSplit) throws {}
     func deleteAllPlannedWorkouts() throws {
         didDeleteAllPlannedWorkouts = true
+        // Mirrors PlannerStore: clearing the plan stops the active program.
+        splits.forEach { $0.isActive = false }
     }
     func saveContext() throws {}
 }
