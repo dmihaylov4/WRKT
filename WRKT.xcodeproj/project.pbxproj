@@ -275,6 +275,24 @@
 		2EC2022E2EF1622F00D6BAEF /* ActiveArena.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2022D2EF1622F00D6BAEF /* ActiveArena.swift */; };
 		2EC202302EF166A400D6BAEF /* CreateBattleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */; };
 		2EC202322EF166CB00D6BAEF /* UnifiedCompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */; };
+		C17CB1000000000000000101 /* CutCompeteModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000201 /* CutCompeteModel.swift */; };
+		C17CB1000000000000000102 /* CutCompeteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000202 /* CutCompeteView.swift */; };
+		C17CB1000000000000000103 /* CutCompeteHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000203 /* CutCompeteHost.swift */; };
+		C17CB1000000000000000104 /* CutBattleDetailModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000204 /* CutBattleDetailModel.swift */; };
+		C17CB1000000000000000105 /* CutBattleDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000205 /* CutBattleDetailView.swift */; };
+		C17CB1000000000000000106 /* CutBattleDetailHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000206 /* CutBattleDetailHost.swift */; };
+		C17CB1000000000000000107 /* CutBattlesListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000207 /* CutBattlesListModel.swift */; };
+		C17CB1000000000000000108 /* CutBattlesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000208 /* CutBattlesListView.swift */; };
+		C17CB1000000000000000109 /* CutBattlesListHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000209 /* CutBattlesListHost.swift */; };
+		C17CB100000000000000010A /* CutCreateBattleModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB100000000000000020A /* CutCreateBattleModel.swift */; };
+		C17CB100000000000000010B /* CutCreateBattleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB100000000000000020B /* CutCreateBattleView.swift */; };
+		C17CB100000000000000010C /* CutCreateBattleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB100000000000000020C /* CutCreateBattleHost.swift */; };
+		C17CB100000000000000010D /* CutChallengeDetailModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB100000000000000020D /* CutChallengeDetailModel.swift */; };
+		C17CB100000000000000010E /* CutChallengeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB100000000000000020E /* CutChallengeDetailView.swift */; };
+		C17CB100000000000000010F /* CutChallengeDetailHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB100000000000000020F /* CutChallengeDetailHost.swift */; };
+		C17CB1000000000000000110 /* CutChallengesBrowseModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000210 /* CutChallengesBrowseModel.swift */; };
+		C17CB1000000000000000111 /* CutChallengesBrowseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000211 /* CutChallengesBrowseView.swift */; };
+		C17CB1000000000000000112 /* CutChallengesBrowseHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB1000000000000000212 /* CutChallengesBrowseHost.swift */; };
 		2EC202342EF16B4C00D6BAEF /* FloatingActionButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */; };
 		2EC202372EF19F4800D6BAEF /* MetricCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */; };
 		2EC2028B2EF2A2D000D6BAEF /* RecommendationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC202892EF2A2D000D6BAEF /* RecommendationEngine.swift */; };
@@ -869,6 +887,24 @@
 		2EC2022D2EF1622F00D6BAEF /* ActiveArena.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveArena.swift; sourceTree = "<group>"; };
 		2EC2022F2EF166A400D6BAEF /* CreateBattleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreateBattleView.swift; sourceTree = "<group>"; };
 		2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedCompeteView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000201 /* CutCompeteModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCompeteModel.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000202 /* CutCompeteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCompeteView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000203 /* CutCompeteHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCompeteHost.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000204 /* CutBattleDetailModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattleDetailModel.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000205 /* CutBattleDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattleDetailView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000206 /* CutBattleDetailHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattleDetailHost.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000207 /* CutBattlesListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattlesListModel.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000208 /* CutBattlesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattlesListView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000209 /* CutBattlesListHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBattlesListHost.swift; sourceTree = "<group>"; };
+		C17CB100000000000000020A /* CutCreateBattleModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCreateBattleModel.swift; sourceTree = "<group>"; };
+		C17CB100000000000000020B /* CutCreateBattleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCreateBattleView.swift; sourceTree = "<group>"; };
+		C17CB100000000000000020C /* CutCreateBattleHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutCreateBattleHost.swift; sourceTree = "<group>"; };
+		C17CB100000000000000020D /* CutChallengeDetailModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengeDetailModel.swift; sourceTree = "<group>"; };
+		C17CB100000000000000020E /* CutChallengeDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengeDetailView.swift; sourceTree = "<group>"; };
+		C17CB100000000000000020F /* CutChallengeDetailHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengeDetailHost.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000210 /* CutChallengesBrowseModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengesBrowseModel.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000211 /* CutChallengesBrowseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengesBrowseView.swift; sourceTree = "<group>"; };
+		C17CB1000000000000000212 /* CutChallengesBrowseHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutChallengesBrowseHost.swift; sourceTree = "<group>"; };
 		2EC202332EF16B4C00D6BAEF /* FloatingActionButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingActionButton.swift; sourceTree = "<group>"; };
 		2EC202352EF19F4800D6BAEF /* MetricCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCalculator.swift; sourceTree = "<group>"; };
 		2EC202882EF2A2D000D6BAEF /* HomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewModel.swift; sourceTree = "<group>"; };
@@ -2170,6 +2206,31 @@
 			path = ViewModels;
 			sourceTree = "<group>";
 		};
+		C17CB1000000000000000001 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CB1000000000000000201 /* CutCompeteModel.swift */,
+				C17CB1000000000000000202 /* CutCompeteView.swift */,
+				C17CB1000000000000000203 /* CutCompeteHost.swift */,
+				C17CB1000000000000000204 /* CutBattleDetailModel.swift */,
+				C17CB1000000000000000205 /* CutBattleDetailView.swift */,
+				C17CB1000000000000000206 /* CutBattleDetailHost.swift */,
+				C17CB1000000000000000207 /* CutBattlesListModel.swift */,
+				C17CB1000000000000000208 /* CutBattlesListView.swift */,
+				C17CB1000000000000000209 /* CutBattlesListHost.swift */,
+				C17CB100000000000000020A /* CutCreateBattleModel.swift */,
+				C17CB100000000000000020B /* CutCreateBattleView.swift */,
+				C17CB100000000000000020C /* CutCreateBattleHost.swift */,
+				C17CB100000000000000020D /* CutChallengeDetailModel.swift */,
+				C17CB100000000000000020E /* CutChallengeDetailView.swift */,
+				C17CB100000000000000020F /* CutChallengeDetailHost.swift */,
+				C17CB1000000000000000210 /* CutChallengesBrowseModel.swift */,
+				C17CB1000000000000000211 /* CutChallengesBrowseView.swift */,
+				C17CB1000000000000000212 /* CutChallengesBrowseHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 		2EA7DAC12EEDCFAE0017683B /* Compete */ = {
 			isa = PBXGroup;
 			children = (
@@ -2177,6 +2238,7 @@
 				2EC202362EF19F4800D6BAEF /* Services */,
 				2EBC10062FA2000000000001 /* Views */,
 				2EC202312EF166CB00D6BAEF /* UnifiedCompeteView.swift */,
+				C17CB1000000000000000001 /* Cut */,
 			);
 			path = Compete;
 			sourceTree = "<group>";
@@ -3011,6 +3073,24 @@
 				2E2938BA2EC8D6A80057F60C /* ExercisePickerView.swift in Sources */,
 				2E2938792EC5FA710057F60C /* HealthKitStrengthDetailView.swift in Sources */,
 				2EC202322EF166CB00D6BAEF /* UnifiedCompeteView.swift in Sources */,
+				C17CB1000000000000000101 /* CutCompeteModel.swift in Sources */,
+				C17CB1000000000000000102 /* CutCompeteView.swift in Sources */,
+				C17CB1000000000000000103 /* CutCompeteHost.swift in Sources */,
+				C17CB1000000000000000104 /* CutBattleDetailModel.swift in Sources */,
+				C17CB1000000000000000105 /* CutBattleDetailView.swift in Sources */,
+				C17CB1000000000000000106 /* CutBattleDetailHost.swift in Sources */,
+				C17CB1000000000000000107 /* CutBattlesListModel.swift in Sources */,
+				C17CB1000000000000000108 /* CutBattlesListView.swift in Sources */,
+				C17CB1000000000000000109 /* CutBattlesListHost.swift in Sources */,
+				C17CB100000000000000010A /* CutCreateBattleModel.swift in Sources */,
+				C17CB100000000000000010B /* CutCreateBattleView.swift in Sources */,
+				C17CB100000000000000010C /* CutCreateBattleHost.swift in Sources */,
+				C17CB100000000000000010D /* CutChallengeDetailModel.swift in Sources */,
+				C17CB100000000000000010E /* CutChallengeDetailView.swift in Sources */,
+				C17CB100000000000000010F /* CutChallengeDetailHost.swift in Sources */,
+				C17CB1000000000000000110 /* CutChallengesBrowseModel.swift in Sources */,
+				C17CB1000000000000000111 /* CutChallengesBrowseView.swift in Sources */,
+				C17CB1000000000000000112 /* CutChallengesBrowseHost.swift in Sources */,
 				2EE8A0A32EE9AF1F00A74A3C /* ForgotPasswordView.swift in Sources */,
 				2EC201DD2EEF234C00D6BAEF /* PlanView.swift in Sources */,
 				C17CA3000000000000000101 /* CutPlanModel.swift in Sources */,

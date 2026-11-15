@@ -31,6 +31,12 @@ struct BattleDetailView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutBattleDetailHost(battle: battle, viewModel: viewModel, wrapInNavigationStack: wrapInNavigationStack) }
+        else { legacyBody }
+    }
+
+    @ViewBuilder
+    private var legacyBody: some View {
         if wrapInNavigationStack {
             NavigationStack { content }
         } else {

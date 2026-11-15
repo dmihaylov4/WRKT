@@ -17,6 +17,10 @@ struct BattlesListView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled { CutBattlesListHost() } else { legacyBody }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             Group {
                 if let viewModel = viewModel {
