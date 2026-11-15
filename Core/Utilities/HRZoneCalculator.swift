@@ -112,48 +112,27 @@ final class HRZoneCalculator: ObservableObject {
     /// Update resting HR (from HealthKit) and recalculate zones using Karvonen when available.
     /// Pass nil to remove resting HR and fall back to %maxHR.
     func setRestingHR(_ restingHR: Double?) {
-        let age = userAge
-        let maxHR: Double = age.map { a in 208.0 - 0.7 * Double(a) } ?? 190
-        let method: HRZoneConfig.CalculationMethod = restingHR != nil ? .karvonen : (age != nil ? .ageBased : .defaultMax)
-
-        let newConfig = HRZoneConfig(
-            maxHR: maxHR,
-            restingHR: restingHR,
-            age: age,
-            method: method,
-            lastUpdated: Date()
-        )
+        let newConfig = Self.config(age: userAge, restingHR: restingHR, now: Date())
         self.config = newConfig
         saveConfig(newConfig)
-        AppLogger.info("[HRZones] method=\(method.rawValue), maxHR=\(Int(maxHR)), restingHR=\(restingHR.map { String(Int($0)) } ?? "nil")", category: AppLogger.health)
+        AppLogger.info("[HRZones] method=\(newConfig.method.rawValue), maxHR=\(Int(newConfig.maxHR)), restingHR=\(restingHR.map { String(Int($0)) } ?? "nil")", category: AppLogger.health)
         logZoneBoundaries()
     }
 
-    /// Recalculate config based on current age setting
-    func recalculate() {
-        let age = userAge
-        let newConfig: HRZoneConfig
+    /// The one place a config is built. An age outside 1...119 counts as not set (190 max).
+    /// A known resting heart rate always selects Karvonen zones, whatever else changed.
+    static func config(age: Int?, restingHR: Double?, now: Date) -> HRZoneConfig {
+        let validAge = age.flatMap { $0 > 0 && $0 < 120 ? $0 : nil }
+        let maxHR = validAge.map { 208.0 - 0.7 * Double($0) } ?? 190
+        let method: HRZoneConfig.CalculationMethod =
+            restingHR != nil ? .karvonen : (validAge != nil ? .ageBased : .defaultMax)
+        return HRZoneConfig(maxHR: maxHR, restingHR: restingHR, age: validAge, method: method, lastUpdated: now)
+    }
 
-        if let age = age, age > 0 && age < 120 {
-            // Use 220 - age formula
-            let maxHR = 208.0 - 0.7 * Double(age)
-            newConfig = HRZoneConfig(
-                maxHR: maxHR,
-                restingHR: nil,
-                age: age,
-                method: .ageBased,
-                lastUpdated: Date()
-            )
-        } else {
-            // No age set - use default 190
-            newConfig = HRZoneConfig(
-                maxHR: 190,
-                restingHR: nil,
-                age: nil,
-                method: .defaultMax,
-                lastUpdated: Date()
-            )
-        }
+    /// Recalculate after the age changed. The resting heart rate already known is kept:
+    /// dropping it here used to push Karvonen users back to percent of max until the next launch.
+    func recalculate() {
+        let newConfig = Self.config(age: userAge, restingHR: config?.restingHR, now: Date())
 
         self.config = newConfig
         saveConfig(newConfig)

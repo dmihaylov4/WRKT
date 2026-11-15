@@ -111,4 +111,40 @@ struct HRZoneCalculatorTests {
             RoutePoint(lat: 0, lon: 0, t: Date(timeIntervalSince1970: Double(index) * 10), hr: hr)
         }
     }
+
+    // MARK: Config building
+
+    @Test func ageChangeKeepsRestingHeartRateAndKarvonen() {
+        let now = Date(timeIntervalSince1970: 0)
+        let before = HRZoneCalculator.config(age: 30, restingHR: 58, now: now)
+        // The age changes; the resting heart rate already known is passed back in.
+        let after = HRZoneCalculator.config(age: 31, restingHR: before.restingHR, now: now)
+        #expect(after.restingHR == 58)
+        #expect(after.method == .karvonen)
+        #expect(after.age == 31)
+        #expect(abs(after.maxHR - (208.0 - 0.7 * 31)) < 0.0001)
+    }
+
+    @Test func configMethodFollowsWhatIsKnown() {
+        let now = Date(timeIntervalSince1970: 0)
+        let ageOnly = HRZoneCalculator.config(age: 40, restingHR: nil, now: now)
+        #expect(ageOnly.method == .ageBased)
+        #expect(ageOnly.restingHR == nil)
+        let nothing = HRZoneCalculator.config(age: nil, restingHR: nil, now: now)
+        #expect(nothing.method == .defaultMax)
+        #expect(nothing.maxHR == 190)
+        let restingOnly = HRZoneCalculator.config(age: nil, restingHR: 60, now: now)
+        #expect(restingOnly.method == .karvonen)
+        #expect(restingOnly.maxHR == 190)
+    }
+
+    @Test func ageOutOfRangeCountsAsNotSet() {
+        let now = Date(timeIntervalSince1970: 0)
+        for age in [0, -5, 120, 400] {
+            let config = HRZoneCalculator.config(age: age, restingHR: nil, now: now)
+            #expect(config.age == nil)
+            #expect(config.maxHR == 190)
+            #expect(config.method == .defaultMax)
+        }
+    }
 }
