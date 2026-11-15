@@ -30,7 +30,7 @@ struct CutYearAwardContent: Equatable {
     /// "142 workouts, 23 records".
     let footer: String
 
-    /// The small engraving next to the mark.
+    /// Spoken by VoiceOver in place of the etched mark. Not drawn on the plaque.
     static let engraving = "Volia, year award"
     /// The plaque has room for three rows under the headline.
     static let maxRows = 3

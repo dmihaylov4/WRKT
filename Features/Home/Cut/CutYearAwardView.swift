@@ -51,7 +51,6 @@ struct CutYearAwardPlaque: View {
 /// The steel colours, taken from the approved mock.
 private enum CutYearAwardMetal {
     static let ink = Color(hex: "#24272B")
-    static let titleInk = Color(hex: "#2A2D31")
     static let secondaryInk = Color(hex: "#33373C")
     static let highlight = Color.white.opacity(0.65)
 
@@ -184,11 +183,7 @@ private struct CutYearAwardEngraving: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
-                Text(CutYearAwardContent.engraving)
-                    .font(DS.Typography.custom(size: 16, weight: .bold, relativeTo: .callout))
-                    .lineLimit(1)
-                    .engraved(highlight, ink: CutYearAwardMetal.titleInk)
-                    .padding(.top, 4)
+                // The mark alone names the plaque: no label is engraved beside it.
                 Spacer(minLength: 0)
                 CutYearAwardMark(highlight: highlight)
                     .frame(width: 66, height: 42)
