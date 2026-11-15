@@ -465,6 +465,9 @@
 		C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000201 /* CutLikesListModel.swift */; };
 		C17CAB000000000000000102 /* CutLikesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000202 /* CutLikesListView.swift */; };
 		C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAB000000000000000203 /* CutLikesListHost.swift */; };
+		C17CAD00000000000000010A /* CutEditPostModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020A /* CutEditPostModel.swift */; };
+		C17CAD00000000000000010B /* CutEditPostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020B /* CutEditPostView.swift */; };
+		C17CAD00000000000000010C /* CutEditPostHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD00000000000000020C /* CutEditPostHost.swift */; };
 		C17CAD000000000000000107 /* CutPostComposeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000207 /* CutPostComposeModel.swift */; };
 		C17CAD000000000000000108 /* CutPostComposeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000208 /* CutPostComposeView.swift */; };
 		C17CAD000000000000000109 /* CutPostComposeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAD000000000000000209 /* CutPostComposeHost.swift */; };
@@ -1028,6 +1031,9 @@
 		C17CAB000000000000000201 /* CutLikesListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListModel.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000202 /* CutLikesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListView.swift; sourceTree = "<group>"; };
 		C17CAB000000000000000203 /* CutLikesListHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutLikesListHost.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020A /* CutEditPostModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostModel.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020B /* CutEditPostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostView.swift; sourceTree = "<group>"; };
+		C17CAD00000000000000020C /* CutEditPostHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutEditPostHost.swift; sourceTree = "<group>"; };
 		C17CAD000000000000000207 /* CutPostComposeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPostComposeModel.swift; sourceTree = "<group>"; };
 		C17CAD000000000000000208 /* CutPostComposeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPostComposeView.swift; sourceTree = "<group>"; };
 		C17CAD000000000000000209 /* CutPostComposeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPostComposeHost.swift; sourceTree = "<group>"; };
@@ -2545,6 +2551,9 @@
 				C17CAB000000000000000201 /* CutLikesListModel.swift */,
 				C17CAB000000000000000202 /* CutLikesListView.swift */,
 				C17CAB000000000000000203 /* CutLikesListHost.swift */,
+				C17CAD00000000000000020A /* CutEditPostModel.swift */,
+				C17CAD00000000000000020B /* CutEditPostView.swift */,
+				C17CAD00000000000000020C /* CutEditPostHost.swift */,
 				C17CAD000000000000000207 /* CutPostComposeModel.swift */,
 				C17CAD000000000000000208 /* CutPostComposeView.swift */,
 				C17CAD000000000000000209 /* CutPostComposeHost.swift */,
@@ -2971,6 +2980,9 @@
 				C17CAB000000000000000101 /* CutLikesListModel.swift in Sources */,
 				C17CAB000000000000000102 /* CutLikesListView.swift in Sources */,
 				C17CAB000000000000000103 /* CutLikesListHost.swift in Sources */,
+				C17CAD00000000000000010A /* CutEditPostModel.swift in Sources */,
+				C17CAD00000000000000010B /* CutEditPostView.swift in Sources */,
+				C17CAD00000000000000010C /* CutEditPostHost.swift in Sources */,
 				C17CAD000000000000000107 /* CutPostComposeModel.swift in Sources */,
 				C17CAD000000000000000108 /* CutPostComposeView.swift in Sources */,
 				C17CAD000000000000000109 /* CutPostComposeHost.swift in Sources */,
