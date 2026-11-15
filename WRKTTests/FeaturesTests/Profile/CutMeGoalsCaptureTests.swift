@@ -66,4 +66,13 @@ struct CutMeGoalsCaptureTests {
         try await settingsCapture(CutDexDetailView(model: CutDexDetailLogic.model(locked)) { Color.clear.frame(height: 1) },
                                   name: "dex-detail-locked")
     }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_SETTINGS"] == "1"))
+    func captureMilestones() async throws {
+        let all = CutAchievementsLogic.model(CutAchievementsFixtures.all, search: "", filter: .all)
+        try await settingsCapture(CutAchievementsView(model: all), name: "milestones")
+        try await settingsCapture(CutAchievementsView(model: all), name: "milestones-ax5", dynamicType: .accessibility5)
+        let none = CutAchievementsLogic.model(CutAchievementsFixtures.all, search: "zzz", filter: .all)
+        try await settingsCapture(CutAchievementsView(model: none), name: "milestones-empty")
+    }
 }

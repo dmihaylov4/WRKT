@@ -503,6 +503,9 @@
 		C17CAE000000000000000207 /* CutAchievementsDexModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001207 /* CutAchievementsDexModel.swift */; };
 		C17CAE000000000000000208 /* CutAchievementsDexView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001208 /* CutAchievementsDexView.swift */; };
 		C17CAE000000000000000209 /* CutAchievementsDexHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001209 /* CutAchievementsDexHost.swift */; };
+		C17CAE00000000000000020A /* CutAchievementsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE00000000000000120A /* CutAchievementsModel.swift */; };
+		C17CAE00000000000000020B /* CutAchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE00000000000000120B /* CutAchievementsView.swift */; };
+		C17CAE00000000000000020C /* CutAchievementsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE00000000000000120C /* CutAchievementsHost.swift */; };
 		C17CAF000000000000000101 /* CutYearReviewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000201 /* CutYearReviewModel.swift */; };
 		C17CAF000000000000000102 /* CutYearReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000202 /* CutYearReviewView.swift */; };
 		C17CAF000000000000000103 /* CutYearAwardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000203 /* CutYearAwardModel.swift */; };
@@ -1070,6 +1073,9 @@
 		C17CAE000000000000001207 /* CutAchievementsDexModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAchievementsDexModel.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001208 /* CutAchievementsDexView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAchievementsDexView.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001209 /* CutAchievementsDexHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAchievementsDexHost.swift; sourceTree = "<group>"; };
+		C17CAE00000000000000120A /* CutAchievementsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAchievementsModel.swift; sourceTree = "<group>"; };
+		C17CAE00000000000000120B /* CutAchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAchievementsView.swift; sourceTree = "<group>"; };
+		C17CAE00000000000000120C /* CutAchievementsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutAchievementsHost.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000201 /* CutYearReviewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewModel.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000202 /* CutYearReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearReviewView.swift; sourceTree = "<group>"; };
 		C17CAF000000000000000203 /* CutYearAwardModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardModel.swift; sourceTree = "<group>"; };
@@ -2605,6 +2611,9 @@
 				C17CAE000000000000001207 /* CutAchievementsDexModel.swift */,
 				C17CAE000000000000001208 /* CutAchievementsDexView.swift */,
 				C17CAE000000000000001209 /* CutAchievementsDexHost.swift */,
+				C17CAE00000000000000120A /* CutAchievementsModel.swift */,
+				C17CAE00000000000000120B /* CutAchievementsView.swift */,
+				C17CAE00000000000000120C /* CutAchievementsHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3021,6 +3030,9 @@
 				C17CAE000000000000000207 /* CutAchievementsDexModel.swift in Sources */,
 				C17CAE000000000000000208 /* CutAchievementsDexView.swift in Sources */,
 				C17CAE000000000000000209 /* CutAchievementsDexHost.swift in Sources */,
+				C17CAE00000000000000020A /* CutAchievementsModel.swift in Sources */,
+				C17CAE00000000000000020B /* CutAchievementsView.swift in Sources */,
+				C17CAE00000000000000020C /* CutAchievementsHost.swift in Sources */,
 				2EEEACD82EA38B2A00EDD16E /* ExerciseMapping.swift in Sources */,
 				2EEEACD92EA38B2F00EDD16E /* MuscleIconMapper.swift in Sources */,
 				2EAB3F2C2EC0AB6300F1A7CA /* LocationManager.swift in Sources */,
