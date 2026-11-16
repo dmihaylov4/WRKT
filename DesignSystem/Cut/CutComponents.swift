@@ -1056,6 +1056,8 @@ public enum CutSheetKind: Equatable, Sendable {
     case choice, form, browser, confirm
     public var fitsContent: Bool { self != .browser }
     public var showsClose: Bool { self != .confirm }
+    /// A short browser, such as Likes, can explicitly fit without changing its kind.
+    public func resolvesFittedSizing(_ overrideValue: Bool?) -> Bool { overrideValue ?? fitsContent }
 }
 
 private struct CutSheetLevelKey: EnvironmentKey {
@@ -1111,13 +1113,15 @@ public struct CutSheetHeader: View {
     private let eyebrow: String?
     private let close: () -> Void
     private let showsClose: Bool
+    private let isCloseEnabled: Bool
     @Environment(\.cutSheetLevel) private var level
 
-    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, showsClose: Bool = true, close: @escaping () -> Void) {
+    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, showsClose: Bool = true, isCloseEnabled: Bool = true, close: @escaping () -> Void) {
         self.title = title
         self.subtitle = subtitle
         self.eyebrow = eyebrow
         self.showsClose = showsClose
+        self.isCloseEnabled = isCloseEnabled
         self.close = close
     }
 
@@ -1154,6 +1158,7 @@ public struct CutSheetHeader: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .disabled(!isCloseEnabled)
                 .accessibilityLabel(Text("Close"))
             }
         }
@@ -1175,6 +1180,8 @@ public struct CutSheet<Content: View, Footer: View>: View {
     private let kind: CutSheetKind
     private let usesList: Bool
     private let scrollsContent: Bool
+    private let isCloseEnabled: Bool
+    private let contentOverlay: AnyView?
     @Environment(\.cutSheetDepth) private var parentDepth
     private var level: DS.Cut.SheetLevel { explicitLevel ?? .resolve(parentDepth: parentDepth) }
     private let fitsContent: Bool
@@ -1187,8 +1194,8 @@ public struct CutSheet<Content: View, Footer: View>: View {
     @State private var foot: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
-                kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
+    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool? = nil,
+                kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, isCloseEnabled: Bool = true, contentOverlay: AnyView? = nil, close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
         self.title = title
         self.subtitle = subtitle
         self.eyebrow = eyebrow
@@ -1196,50 +1203,57 @@ public struct CutSheet<Content: View, Footer: View>: View {
         self.kind = kind
         self.usesList = usesList
         self.scrollsContent = scrollsContent
-        self.fitsContent = fitsContent
+        self.fitsContent = kind.resolvesFittedSizing(fitsContent)
+        self.isCloseEnabled = isCloseEnabled
+        self.contentOverlay = contentOverlay
         self.close = close
         self.content = content()
         self.footer = footer()
     }
 
     private var sizing: CutSheetSizing {
-        guard fitsContent, kind.fitsContent, header > 0, body_ > 0 else { return .large }
+        guard fitsContent, header > 0, body_ > 0 else { return .large }
         let screen = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }.first ?? 844
         return CutSheetSizing.resolve(parts: [header, body_, dynamicTypeSize.isAccessibilitySize ? 0 : foot], screen: screen)
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            CutSheetHeader(title, subtitle: subtitle, eyebrow: eyebrow, showsClose: kind.showsClose, close: close)
+            CutSheetHeader(title, subtitle: subtitle, eyebrow: eyebrow, showsClose: kind.showsClose, isCloseEnabled: isCloseEnabled, close: close)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { header = $0 }
             // A native List keeps swipe actions and onDelete. Both body variants measure
             // their content, and put the footer inside the scroller at accessibility sizes.
-            if !scrollsContent {
-                // Browser destinations such as the unchanged Statistics view own their
-                // scroller. Give them a viewport rather than nesting two vertical scrollers.
-                content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            } else if usesList {
-                List {
-                    content
-                        .listRowBackground(level.surface)
-                    if dynamicTypeSize.isAccessibilitySize {
-                        footer.listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(level.surface)
+            Group {
+                if !scrollsContent {
+                    // Browser destinations such as the unchanged Statistics view own their
+                    // scroller. Give them a viewport rather than nesting two vertical scrollers.
+                    content.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                } else if usesList {
+                    List {
+                        content
+                            .listRowBackground(level.surface)
+                        if dynamicTypeSize.isAccessibilitySize {
+                            footer.listRowInsets(EdgeInsets()).listRowSeparator(.hidden).listRowBackground(level.surface)
+                        }
                     }
-                }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .environment(\.defaultMinListRowHeight, 0)
-                .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, value in body_ = value }
-            } else {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        content.frame(maxWidth: .infinity, alignment: .leading)
-                        if dynamicTypeSize.isAccessibilitySize { footer }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.defaultMinListRowHeight, 0)
+                    .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, value in body_ = value }
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            content.frame(maxWidth: .infinity, alignment: .leading)
+                            if dynamicTypeSize.isAccessibilitySize { footer }
+                        }
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { body_ = $0 }
                     }
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { body_ = $0 }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-                .scrollBounceBehavior(.basedOnSize)
             }
+            // Progress may block the form body while the existing Close and commit
+            // actions keep their own enabled states.
+            .overlay { contentOverlay }
             if !dynamicTypeSize.isAccessibilitySize {
                 footer
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { foot = $0 }
@@ -1258,9 +1272,9 @@ public struct CutSheet<Content: View, Footer: View>: View {
 }
 
 public extension CutSheet where Footer == EmptyView {
-    init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
-         kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
-        self.init(title, subtitle: subtitle, eyebrow: eyebrow, level: level, fitsContent: fitsContent, kind: kind, usesList: usesList, scrollsContent: scrollsContent, close: close, content: content) { EmptyView() }
+    init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool? = nil,
+         kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, isCloseEnabled: Bool = true, contentOverlay: AnyView? = nil, close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
+        self.init(title, subtitle: subtitle, eyebrow: eyebrow, level: level, fitsContent: fitsContent, kind: kind, usesList: usesList, scrollsContent: scrollsContent, isCloseEnabled: isCloseEnabled, contentOverlay: contentOverlay, close: close, content: content) { EmptyView() }
     }
 }
 

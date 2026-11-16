@@ -49,7 +49,8 @@ struct CutSheets2PolicyTests {
     }
 
     @Test func modalWithoutNavigationStackIsRecognized() async throws {
-        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let foreground = try await CutSheetsSceneWait.foregroundScene()
+        let scene = try #require(foreground, "No foreground scene became available within ten seconds")
         let previous = scene.windows.first { $0.isKeyWindow }
         let window = UIWindow(windowScene: scene)
         var reading = false

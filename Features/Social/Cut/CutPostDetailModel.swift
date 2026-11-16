@@ -235,6 +235,11 @@ struct CutPostDetailModel: Equatable {
 // MARK: - Logic
 
 enum CutPostDetailLogic {
+    static let deleteTitle = "Delete this post?"
+    static let deleteMessage = "This removes the post, its likes and its comments."
+    static let deleteButton = "Delete post"
+    static let deleteCancel = "Cancel"
+
     static func model(_ facts: CutPostDetailFacts, now: Date, weightUnit: WeightUnit = .kg, locale: Locale = .current) -> CutPostDetailModel {
         let row = CutSocialLogic.row(facts.post, now: now, weightUnit: weightUnit, locale: locale)
         let likes = displayLikes(facts.post.likes, isLiked: facts.post.isLiked)

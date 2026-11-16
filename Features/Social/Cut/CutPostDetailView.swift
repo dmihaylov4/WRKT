@@ -1048,8 +1048,9 @@ struct CutPostDetailMapView<Map: View>: View {
             Color.black.ignoresSafeArea()
             map().frame(maxWidth: .infinity, maxHeight: .infinity)
             Button("Close map", systemImage: "xmark", action: close)
-                .labelStyle(.iconOnly).font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(DS.Cut.Colors.textPrimary).frame(width: 44, height: 44).padding()
+                .labelStyle(.iconOnly)
+                .buttonStyle(CutIconButtonStyle(tone: .fill, diameter: DS.Cut.Metrics.minTouchTarget))
+                .padding(.top, 24).padding(.trailing, 20)
         }
     }
 }

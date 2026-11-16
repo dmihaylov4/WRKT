@@ -29,7 +29,8 @@ struct CutSheets1PolicyTests {
         #expect(CutSheetSizing.resolve(parts: [80, 701], screen: 844) == .large)
     }
     @Test func pushedControllerDoesNotBecomeASheet() async throws {
-        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let foreground = try await CutSheetsSceneWait.foregroundScene()
+        let scene = try #require(foreground, "No foreground scene became available within ten seconds")
         let previous = scene.windows.first { $0.isKeyWindow }
         let window = UIWindow(windowScene: scene)
         let root = UIViewController()
@@ -52,7 +53,8 @@ struct CutSheets1PolicyTests {
         }
     }
     @Test func detectsSwiftUISheetAndItsPushedDestination() async throws {
-        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let foreground = try await CutSheetsSceneWait.foregroundScene()
+        let scene = try #require(foreground, "No foreground scene became available within ten seconds")
         let previous = scene.windows.first { $0.isKeyWindow }
         let window = UIWindow(windowScene: scene)
         var readings: [String: Bool] = [:]

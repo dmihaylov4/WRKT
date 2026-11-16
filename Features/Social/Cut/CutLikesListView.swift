@@ -4,19 +4,10 @@ struct CutLikesListView: View {
     let model: CutLikesListModel
     var retry: () -> Void = {}
     var done: () -> Void = {}
-    @State private var contentHeight: CGFloat = 180
 
     var body: some View {
-        ScrollView {
+        CutSheet("Liked by", fitsContent: true, kind: .browser, close: done) {
             LazyVStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Text("LIKED BY").font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2))
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer(minLength: 12)
-                    Button("Done", action: done).cutFont(.title).foregroundStyle(DS.Cut.Colors.textPrimary)
-                        .frame(minHeight: 44)
-                }
-                .padding(.bottom, 12)
                 CutHairline()
                 switch model.content {
                 case .loading:
@@ -49,13 +40,8 @@ struct CutLikesListView: View {
                 }
             }
             .padding(DS.Cut.Metrics.gutter)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
         }
-        .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .presentationDetents([.height(min(460, max(180, contentHeight + 32))), .large])
-        .presentationDragIndicator(.visible)
-        .shellPresentationBackground(DS.Cut.Colors.background)
+
     }
 
     private func message(_ value: String) -> some View {

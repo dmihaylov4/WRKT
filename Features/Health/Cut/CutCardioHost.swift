@@ -126,6 +126,8 @@ struct CutCardioDetailHost: View {
 
     @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    @State private var inSheet = false
 
     @State private var showingShareSheet = false
     @State private var showingDeleteConfirmation = false
@@ -170,34 +172,19 @@ struct CutCardioDetailHost: View {
         CutCardioDetailView(model: model, isRefreshing: isRefreshing, actions: CutCardioDetailActions(
             fetchRoute: { Task { await refresh() } },
             refreshDetails: { Task { await refresh() } }
-        )) {
+        ), inSheet: inSheet, close: { dismiss() }, tools: AnyView(workoutMenu(model)
+            .labelStyle(.iconOnly).menuStyle(.button)
+            .buttonStyle(CutIconButtonStyle(tone: .fill, diameter: DS.Cut.Metrics.minTouchTarget)))) {
             routeMap
         }
+        .background(CutPresentationReader { inSheet = $0 })
         .workoutDetailScrollEdge()
         // The hero carries the name; the bar keeps only back and the menu.
         .navigationTitle(Text(verbatim: ""))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Share workout", systemImage: "square.and.arrow.up") {
-                        Haptics.light()
-                        Task { await generateMapSnapshotAndShare() }
-                    }
-                    if latestRun.healthKitUUID != nil {
-                        Button(model.route == .map ? "Refresh route and details" : "Get route and details",
-                               systemImage: "arrow.clockwise") {
-                            Task { await refresh() }
-                        }
-                        .disabled(isRefreshing)
-                    }
-                    Button("Delete workout", systemImage: "trash", role: .destructive) {
-                        Haptics.light()
-                        showingDeleteConfirmation = true
-                    }
-                } label: {
-                    Label("More", systemImage: "ellipsis")
-                }
+            if !inSheet {
+                ToolbarItem(placement: .topBarTrailing) { workoutMenu(model) }
             }
         }
         .sheet(isPresented: $showingDeleteConfirmation) {
@@ -213,6 +200,7 @@ struct CutCardioDetailHost: View {
                         }
                     }
             }, cancel: { showingDeleteConfirmation = false })
+                .environment(\.cutSheetDepth, sheetDepth + (inSheet ? 1 : 0))
         }
         .alert("Delete failed", isPresented: Binding(
             get: { deleteError != nil },
@@ -224,6 +212,7 @@ struct CutCardioDetailHost: View {
         }
         .sheet(isPresented: $showingShareSheet) {
             PostCreationView(workout: enrichedWorkout(), mapImage: mapSnapshotImage)
+                .environment(\.cutSheetDepth, sheetDepth + (inSheet ? 1 : 0))
         }
         .overlay {
             if isGeneratingSnapshot {
@@ -249,6 +238,28 @@ struct CutCardioDetailHost: View {
             InteractiveRouteMapHeat(points: points)
         } else if let route = current.route, route.count > 1 {
             InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
+        }
+    }
+
+    private func workoutMenu(_ model: CutCardioDetailModel) -> some View {
+        Menu {
+            Button("Share workout", systemImage: "square.and.arrow.up") {
+                Haptics.light()
+                Task { await generateMapSnapshotAndShare() }
+            }
+            if latestRun.healthKitUUID != nil {
+                Button(model.route == .map ? "Refresh route and details" : "Get route and details",
+                       systemImage: "arrow.clockwise") {
+                    Task { await refresh() }
+                }
+                .disabled(isRefreshing)
+            }
+            Button("Delete workout", systemImage: "trash", role: .destructive) {
+                Haptics.light()
+                showingDeleteConfirmation = true
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis")
         }
     }
 
