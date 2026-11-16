@@ -112,15 +112,28 @@ enum BarbellRealityMode {
 
 func barbellRealityCameraPosition(
     for mode: BarbellRealityMode,
-    sizeClass: UserInterfaceSizeClass?
+    sizeClass: UserInterfaceSizeClass?,
+    barOnly: Bool = false,
+    barOnlyAspect: Float = 0.75
 ) -> SIMD3<Float> {
     let isWide = sizeClass == .regular
     switch mode {
     case .welcome:
         return SIMD3(0, 0.16, isWide ? -1.62 : -1.22)
     case .rackRoom:
+        if barOnly { return barbellBarOnlyCameraPosition(aspect: barOnlyAspect) }
         return SIMD3(0, isWide ? -0.42 : -0.40, isWide ? -1.72 : -1.30)
     }
+}
+
+/// The Cut rack frames the bar alone in a band of the screen: no wall storage above it, so the
+/// camera sits closer, centred on the bar with the floor in front of it. The view's field of view
+/// is fixed vertically, so a wide, short band shows more width; the distance follows the band's
+/// height-to-width `aspect` so a fully loaded bar always nearly spans the width. Calibrated on
+/// simulator captures (iPhone, 402 pt wide).
+func barbellBarOnlyCameraPosition(aspect: Float) -> SIMD3<Float> {
+    let clamped = max(0.4, min(1.6, aspect.isFinite ? aspect : 0.75))
+    return SIMD3(0, -0.52, 1.79 - 1.75 * clamped)
 }
 
 func clampFloorPlateX(_ x: Float, maxAbsX: Float = 0.64) -> Float {
@@ -395,9 +408,13 @@ final class SceneState {
     // MARK: Camera proxy
     /// Positions sceneRoot so the default RealityView perspective camera frames the scene.
     /// Call after scene setup completes and on horizontal size class changes.
-    func configureCameraPosition(for mode: BarbellRealityMode, sizeClass: UserInterfaceSizeClass?) {
-        sceneRoot.position = barbellRealityCameraPosition(for: mode, sizeClass: sizeClass)
+    func configureCameraPosition(for mode: BarbellRealityMode, sizeClass: UserInterfaceSizeClass?, barOnly: Bool = false) {
+        sceneRoot.position = barbellRealityCameraPosition(for: mode, sizeClass: sizeClass, barOnly: barOnly,
+                                                          barOnlyAspect: barOnlyAspect)
     }
+
+    /// Height over width of a bar-only view, measured on layout changes (never per frame).
+    var barOnlyAspect: Float = 0.75
 
     // MARK: Live plate addition
     func addPlate(_ plate: EarnedPlate) {
@@ -705,6 +722,164 @@ final class SceneState {
         entityMap[plate.id] = entity
         barPositionMap[plate.id] = SIMD3(offset, 0, 0)
         barMirrorMap[plate.id] = mirror
+        return true
+    }
+
+    // MARK: Cut rack: tray-driven loads and unloads
+    //
+    // The Cut rack keeps spare plates in a SwiftUI tray instead of the wall storage. The tray
+    // saves through BarbellProgressService first; these two calls then bring the scene in line
+    // with the same motions the scene already uses, and never save anything themselves.
+
+    /// Swings a plate and its mirror onto the sleeves (the award animation's hover, drop and settle)
+    /// and clinks. A plate already in the scene (lying on the floor after a swipe) is lifted from
+    /// where it is, not rebuilt; any other plate is built once, above the framed view, and swung in.
+    /// Returns false when the plate is already a bar plate, is being dragged, the slot is invalid,
+    /// or the plate is taken off again before it lands.
+    @MainActor
+    @discardableResult
+    func loadPlateOntoBar(_ plate: EarnedPlate, rackSlot: Int) async -> Bool {
+        if let existing = entityMap[plate.id] {
+            guard existing.components[PlateRoleComponent.self]?.role == .floor else { return false }
+            if case .draggingPlate(let dragging, _, _) = dragPhase, dragging === existing { return false }
+            if showcaseEntity === existing {
+                showcaseEntity = nil
+                showcaseToken = nil
+            }
+            floorSettles[plate.id] = nil
+            existing.stopAllAnimations(recursive: true)
+        } else {
+            let entity = makePlateEntity(
+                tierID: plate.tierID,
+                textures: plateTextureCache[plate.tierID],
+                material: materialCache[plate.tierID],
+                weightKg: plate.weightKg,
+                engravingText: plate.engravingText,
+                prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
+                renderProjection: BarbellPlateRenderProjection(plate: plate),
+                role: .floor
+            )
+            entity.name = plate.id
+            entity.orientation = plateDisplayOrientation
+            // Where the wall storage would be: above the bar-only framing.
+            entity.position = SIMD3(0.70, 1.60, 0.12)
+            entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+            sceneRoot.addChild(entity)
+            entityMap[plate.id] = entity
+        }
+        let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
+        guard slotOffsets.indices.contains(rackSlot), let entity = entityMap[plate.id] else { return false }
+        let offset = slotOffsets[rackSlot]
+
+        // Everything below moves in bar space, the way the swipe does: a move set up relative to
+        // the scene root keeps writing scene-root values after the plate joins the bar.
+        entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
+        entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
+        entity.components.set(PlateRoleComponent(role: .bar))
+        entity.setParent(barAnchor, preservingWorldTransform: true)
+        entity.orientation = plateBarOrientation
+        let mirror = makeMirrorEntity(from: entity, name: plate.id + "_mirror")
+        // Keep input and collision so the left plate can start the same swipe-to-unrack gesture.
+        mirror.components.remove(PhysicsMotionComponent.self)
+        mirror.position = SIMD3(-entity.position.x, entity.position.y, entity.position.z)
+        mirror.orientation = plateBarOrientation
+        barAnchor.addChild(mirror)
+        barPositionMap[plate.id] = SIMD3(offset, 0, 0)
+        barMirrorMap[plate.id] = mirror
+
+        if !isReduceMotionEnabled {
+            let steps: [(SIMD3<Float>, TimeInterval, AnimationTimingFunction)] = [
+                (SIMD3(offset + 0.12, 0.22, 0.05), 0.42, .easeInOut),
+                (SIMD3(offset, 0.035, 0), 0.18, .easeIn),
+                (SIMD3(offset, 0, 0), 0.12, .easeOut)
+            ]
+            for (target, duration, timing) in steps {
+                // Taken off again mid-swing: the release owns the plate now.
+                guard barMirrorMap[plate.id] === mirror else { return false }
+                for (mover, sign) in [(entity, Float(1)), (mirror as Entity, Float(-1))] {
+                    mover.move(
+                        to: Transform(scale: mover.scale, rotation: plateBarOrientation,
+                                      translation: SIMD3(sign * target.x, target.y, target.z)),
+                        relativeTo: barAnchor, duration: duration, timingFunction: timing
+                    )
+                }
+                try? await Task.sleep(for: .milliseconds(Int(duration * 1000)))
+            }
+        }
+        // The last move's final frame can land a frame late: seat both now and once more after it.
+        for pass in 0..<2 {
+            if pass == 1 { try? await Task.sleep(for: .milliseconds(50)) }
+            guard barMirrorMap[plate.id] === mirror else { return false }
+            for (seated, x) in [(entity, offset), (mirror as Entity, -offset)] {
+                seated.stopAllAnimations(recursive: false)
+                seated.position = SIMD3(x, 0, 0)
+                seated.orientation = plateBarOrientation
+            }
+        }
+        if let audio = entity.components[PlateAudioCategoryComponent.self] {
+            playClinkSound(on: entity, category: audio.category)
+        }
+        return true
+    }
+
+    /// Slides a bar plate and its mirror off the sleeves and drops the plate to the floor: the
+    /// motion of a swipe. Returns false when the plate is not a bar plate here, is already sliding
+    /// off, or is being dragged.
+    @MainActor
+    @discardableResult
+    func releaseBarPlateToFloor(plateID: String) async -> Bool {
+        guard let entity = entityMap[plateID],
+              entity.components[PlateRoleComponent.self]?.role == .bar,
+              !platesBeingUnracked.contains(plateID) else { return false }
+        if case .draggingPlate(let dragging, _, _) = dragPhase, dragging === entity { return false }
+        platesBeingUnracked.insert(plateID)
+        defer { platesBeingUnracked.remove(plateID) }
+
+        let mirror = barMirrorMap[plateID]
+        if !isReduceMotionEnabled {
+            let duration = barbellRackRoomSlideOutDuration(isReduceMotionEnabled: false)
+            for slider in [entity, mirror].compactMap({ $0 }) {
+                let target = Transform(
+                    scale: slider.scale,
+                    rotation: slider.orientation,
+                    translation: SIMD3(
+                        barbellRackRoomUnrackSlideTargetX(currentBarLocalX: slider.position.x),
+                        slider.position.y - 0.02,
+                        0.38
+                    )
+                )
+                slider.move(to: target, relativeTo: barAnchor, duration: duration, timingFunction: .easeOut)
+            }
+            try? await Task.sleep(for: .milliseconds(Int(duration * 1000)))
+        }
+
+        if let mirror {
+            mirror.isEnabled = false
+            mirror.removeFromParent()
+            if let model = mirror as? ModelEntity { preparedMirrors[plateID] = model }
+        }
+        barMirrorMap.removeValue(forKey: plateID)
+        barPositionMap.removeValue(forKey: plateID)
+        guard entityMap[plateID] === entity, !isPaused else { return false }
+
+        entity.stopAllAnimations(recursive: false)
+        entity.setParent(sceneRoot, preservingWorldTransform: true)
+        entity.components.set(PlateRoleComponent(role: .floor))
+        var release = barbellRackRoomFloorReleasePosition(localPosition: entity.position, maxAbsX: 0.74, minZ: -0.10, maxZ: 0.82)
+        release.z = max(-0.10, min(0.82, release.z + Float.random(in: -0.10 ... 0.10)))
+        entity.position = release
+        entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
+        entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+        floorSettles[plateID] = BarbellFloorSettleState(delay: 0.1)
+
+        if let audio = entity.components[PlateAudioCategoryComponent.self] {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(420))
+                guard entity.components[PlateRoleComponent.self]?.role == .floor else { return }
+                playDropSound(on: entity, category: audio.category)
+                playDropHaptic(category: audio.category)
+            }
+        }
         return true
     }
 
@@ -1046,6 +1221,12 @@ struct BarbellRealityView: View {
     var roomWallText: String?
     var allowsInteraction = true
     var showsStorage = true
+    /// The Cut rack: the bar alone. No wall storage is built and no storage plates are placed
+    /// (the screen's tray holds them), dragging toward the wall no longer targets storage slots,
+    /// and an upward swipe drops the plate to the floor like any other swipe. `floorPlates` stay
+    /// in the mode only so a plate dropped on the floor can be dragged back and saved. Off by
+    /// default, so every other caller builds the scene exactly as before.
+    var barOnly = false
     /// Floor plates use a 0.38m wide box collider. Keep their centers comfortably inside the
     /// wall inner faces at x=±0.85 so they don't spawn wedged into the side walls.
     private let floorPlateMaxAbsX: Float = 0.64
@@ -1093,7 +1274,7 @@ struct BarbellRealityView: View {
                     setupRackRoomScene(content: &content, racked: racked, floor: floor, barSkinID: barSkinID, rackStyleID: rackStyleID, roomThemeID: roomThemeID, roomWallText: roomWallText)
                 }
 
-                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass, barOnly: barOnly)
                 installFrameUpdates(content: content)
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-BarbellSceneStats") {
@@ -1120,9 +1301,15 @@ struct BarbellRealityView: View {
                     dropShowcase()
                 }
             )
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { size in
+                // Bar-only framing follows the view's shape; every other mode ignores it.
+                guard barOnly, size.width > 0, size.height > 0 else { return }
+                sceneState.barOnlyAspect = Float(size.height / size.width)
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass, barOnly: true)
+            }
             .onChange(of: sizeClass) { _, _ in
                 // Re-apply camera proxy on device rotation / iPad split view changes
-                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass)
+                sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass, barOnly: barOnly)
             }
             .onAppear {
                 // RealityView can retain its content across navigation. Restart frame work
@@ -1596,7 +1783,7 @@ struct BarbellRealityView: View {
                     let barLocalY = sceneState.barAnchor.position.y
                     let entityLocalY = entity.position.y
                     // Storage zone: Y above bar by 0.50m (midpoint between bar ~0.60 and slots ~1.60).
-                    let inStorageZone = entityLocalY > barLocalY + 0.50
+                    let inStorageZone = !barOnly && entityLocalY > barLocalY + 0.50
                     // Bar zone: Y within 0.2m below the bar, but not in storage zone above.
                     let inBarZone = !inStorageZone && entityLocalY > barLocalY - 0.2
 
@@ -1840,7 +2027,7 @@ struct BarbellRealityView: View {
                     //   Sideways/downward swipe → physics floor for freeplay.
                     // From the floor the user can drag a plate back up to the storage zone.
                     let swipedUpward = value.translation.height < -60
-                    let targetSlot = swipedUpward ? sceneState.findFreeStorageSlot() : nil
+                    let targetSlot = swipedUpward && !barOnly ? sceneState.findFreeStorageSlot() : nil
                     let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
                     // Wait only for the remaining slide time before reparenting.
                     // onChanged recorded barSlideStartTime when the animation started; subtract
@@ -2645,7 +2832,7 @@ struct BarbellRealityView: View {
         // they can be released into physics immediately after the scene appears.
         // Slots are 8 positions; plates beyond that count are not rendered at startup.
         // Kinematic physics: no drop needed -- they sit on the storage brackets.
-        let visibleFloor = Array(floor.prefix(sceneState.storageSlotPositions.count))
+        let visibleFloor = barOnly ? [] : Array(floor.prefix(sceneState.storageSlotPositions.count))
         for (idx, plate) in visibleFloor.enumerated() {
             let entity = makePlateEntity(
                 tierID: plate.tierID,
@@ -2704,7 +2891,7 @@ struct BarbellRealityView: View {
         let crossbarHalfWidth = armHalfX + armWidth / 2  // 0.070
 
         sceneState.storageSlotRings.removeAll()
-        guard showsStorage else { return }
+        guard showsStorage, !barOnly else { return }
 
         for pos in sceneState.storageSlotPositions {
             // Plain Entity container -- isEnabled = false hides all parts together.

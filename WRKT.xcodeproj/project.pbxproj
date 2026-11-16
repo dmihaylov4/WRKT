@@ -563,6 +563,9 @@
 		C17CAE000000000000000104 /* AutoPostSetting.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001104 /* AutoPostSetting.swift */; };
 		C17CAE000000000000000201 /* CutWeeklyGoalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001201 /* CutWeeklyGoalModel.swift */; };
 		C17CAE000000000000000202 /* CutWeeklyGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001202 /* CutWeeklyGoalView.swift */; };
+		C17CB5000000000000000101 /* CutRackModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB5000000000000000201 /* CutRackModel.swift */; };
+		C17CB5000000000000000102 /* CutRackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB5000000000000000202 /* CutRackView.swift */; };
+		C17CB5000000000000000103 /* CutRackHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB5000000000000000203 /* CutRackHost.swift */; };
 		C17CAE000000000000000203 /* CutWeeklyGoalHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001203 /* CutWeeklyGoalHost.swift */; };
 		C17CAE000000000000000204 /* CutWeeklyGoalSetupModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001204 /* CutWeeklyGoalSetupModel.swift */; };
 		C17CAE000000000000000205 /* CutWeeklyGoalSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAE000000000000001205 /* CutWeeklyGoalSetupView.swift */; };
@@ -1200,6 +1203,9 @@
 		C17CAE000000000000001104 /* AutoPostSetting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoPostSetting.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001201 /* CutWeeklyGoalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWeeklyGoalModel.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001202 /* CutWeeklyGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWeeklyGoalView.swift; sourceTree = "<group>"; };
+		C17CB5000000000000000201 /* CutRackModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackModel.swift; sourceTree = "<group>"; };
+		C17CB5000000000000000202 /* CutRackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackView.swift; sourceTree = "<group>"; };
+		C17CB5000000000000000203 /* CutRackHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackHost.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001203 /* CutWeeklyGoalHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWeeklyGoalHost.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001204 /* CutWeeklyGoalSetupModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWeeklyGoalSetupModel.swift; sourceTree = "<group>"; };
 		C17CAE000000000000001205 /* CutWeeklyGoalSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutWeeklyGoalSetupView.swift; sourceTree = "<group>"; };
@@ -2847,6 +2853,9 @@
 				C17CAE00000000000000120A /* CutAchievementsModel.swift */,
 				C17CAE00000000000000120B /* CutAchievementsView.swift */,
 				C17CAE00000000000000120C /* CutAchievementsHost.swift */,
+				C17CB5000000000000000201 /* CutRackModel.swift */,
+				C17CB5000000000000000202 /* CutRackView.swift */,
+				C17CB5000000000000000203 /* CutRackHost.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3323,6 +3332,9 @@
 				C17CAE000000000000000104 /* AutoPostSetting.swift in Sources */,
 				C17CAE000000000000000201 /* CutWeeklyGoalModel.swift in Sources */,
 				C17CAE000000000000000202 /* CutWeeklyGoalView.swift in Sources */,
+				C17CB5000000000000000101 /* CutRackModel.swift in Sources */,
+				C17CB5000000000000000102 /* CutRackView.swift in Sources */,
+				C17CB5000000000000000103 /* CutRackHost.swift in Sources */,
 				C17CAE000000000000000203 /* CutWeeklyGoalHost.swift in Sources */,
 				C17CAE000000000000000204 /* CutWeeklyGoalSetupModel.swift in Sources */,
 				C17CAE000000000000000205 /* CutWeeklyGoalSetupView.swift in Sources */,
