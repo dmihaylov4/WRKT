@@ -200,20 +200,19 @@ struct CutCardioDetailHost: View {
                 }
             }
         }
-        .confirmationDialog(model.deleteTitle, isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
-            Button("Delete workout", role: .destructive) {
-                Task {
-                    do {
-                        try await HealthKitManager.shared.deleteCardioWorkout(run: latestRun)
-                        dismiss()
-                    } catch {
-                        deleteError = error.localizedDescription
+        .sheet(isPresented: $showingDeleteConfirmation) {
+            CutSheetConfirm("Delete workout?", message: "\(model.deleteTitle)\n\nIt is removed from VOLIA and from Apple Health.",
+                primaryTitle: "Delete workout", cancelTitle: "Keep workout", confirm: {
+                    showingDeleteConfirmation = false
+                    Task {
+                        do {
+                            try await HealthKitManager.shared.deleteCardioWorkout(run: latestRun)
+                            dismiss()
+                        } catch {
+                            deleteError = error.localizedDescription
+                        }
                     }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("It is removed from VOLIA and from Apple Health.")
+            }, cancel: { showingDeleteConfirmation = false })
         }
         .alert("Delete failed", isPresented: Binding(
             get: { deleteError != nil },

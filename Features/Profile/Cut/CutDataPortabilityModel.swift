@@ -48,6 +48,11 @@ struct CutImportHistoryModel: Equatable {
     var showsEmpty: Bool { !isLoading && rows.isEmpty }
 }
 
+struct CutRestoreConfirmation: Equatable {
+    var title: String
+    var message: String
+}
+
 enum CutDataPortabilityLogic {
     static let exportFooter = "Saves strength workouts and earned plates to a JSON file. Cardio runs are excluded: re-sync them from Apple Health."
     static let importFooter = "Merge adds only items not already present. Replace overwrites all existing data: a snapshot is saved automatically so you can undo."
@@ -109,6 +114,13 @@ enum CutDataPortabilityLogic {
             detail: "\(replaced ? "Replace" : "Merge"), \(record.importedAt.formatted(style))",
             counts: "\(sign)\(record.workoutsAdded) workouts, \(sign)\(record.platesAdded) plates"
         )
+    }
+
+    /// Keep the original question and warning, but let the warning wrap as body text.
+    static func restoreConfirmation(records: [ImportRecord], restoring id: UUID?) -> CutRestoreConfirmation {
+        let text = restoreTitle(records: records, restoring: id)
+        guard let end = text.firstIndex(of: "?") else { return .init(title: text, message: "") }
+        return .init(title: String(text[...end]), message: String(text[text.index(after: end)...]).trimmingCharacters(in: .whitespaces))
     }
 
     /// The legacy restore question: it names how many later imports go with it.
