@@ -92,11 +92,45 @@ struct CutExerciseStatsLogicTests {
 
     @Test func captionIsStartAndLatest() throws {
         let weight = try #require(model().series(for: .weight))
-        // Average weight per session, warm-ups included, as the aggregator computes it.
-        #expect(weight.captionLeading == "Aug, 71.2 kg")
-        #expect(weight.captionTrailing == "Latest, 82.5 kg")
+        // Top working weight per session: the chart ends where the Heaviest record and the latest row do.
+        #expect(weight.captionLeading == "Aug, 75 kg")
+        #expect(weight.captionTrailing == "Latest, 90 kg")
+        #expect(weight.accessibilityLabel == "Top weight per session rising from 75 kilograms to 90 kilograms over 3 months")
         let volume = try #require(model().series(for: .volume))
         #expect(volume.captionLeading == "Aug, 1,875 kg")
+    }
+
+    @Test func weightSeriesAgreesWithTheRowsAndTheRecord() throws {
+        let model = model(unit: .lb)
+        let weight = try #require(model.series(for: .weight))
+        #expect(weight.captionTrailing == "Latest, 198.4 lb")
+        #expect(model.records.first?.value == "198.4 lb")
+        #expect(model.sessions.first?.line == "4 sets, top 198.4 lb x 5")
+    }
+
+    @Test func warmUpOnlyAndEmptySessionsAreSkippedNotPlottedAsZero() throws {
+        let warmUpOnly = F.workout(daysAgo: 5, sets: [F.set(60, 10, tag: .warmup), F.set(70, 5, tag: .warmup)])
+        let empty = F.workout(daysAgo: 4, sets: [])
+        let stats = F.statistics(F.benchWorkouts + [warmUpOnly, empty])
+        let model = model(stats)
+        let weight = try #require(model.series(for: .weight))
+        #expect(weight.points.count == 10)
+        #expect(weight.points.allSatisfy { $0.y >= 0 })
+        #expect(weight.captionTrailing == "Latest, 90 kg")
+        // The rows still list both sessions, with no top set.
+        #expect(model.sessions.count == 12)
+        #expect(model.sessions.contains { $0.line == "2 sets, 15 reps" })
+        #expect(model.sessions.contains { $0.line == "0 sets" })
+    }
+
+    @Test func topSetRule() {
+        func set(_ weight: Double, _ reps: Int, _ tag: SetTag = .working) -> SetPerformance {
+            SetPerformance(setNumber: 1, reps: reps, weight: weight, durationSeconds: 0, restAfter: nil, tag: tag,
+                           trackingMode: .weighted, isPR: false)
+        }
+        #expect(CutExerciseStatsLogic.topSet([set(100, 3, .warmup), set(90, 5), set(90, 6)])?.reps == 6)
+        #expect(CutExerciseStatsLogic.topSet([set(100, 3, .warmup), set(0, 10)]) == nil)
+        #expect(CutExerciseStatsLogic.topSet([]) == nil)
     }
 
     @Test func pointsAreNormalised() throws {

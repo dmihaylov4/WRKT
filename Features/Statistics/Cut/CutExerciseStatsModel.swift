@@ -177,14 +177,19 @@ nonisolated enum CutExerciseStatsLogic {
         let data = stats.progressData
         let mode = stats.trackingMode
         var result: [CutExerciseStatsModel.Series] = []
-        if let series = series(.weight, data.weightProgression, mode: mode, unit: unit, calendar: calendar, locale: locale) {
+        // Weighted lifts plot each session's top working set, the same rule as the session rows, so the
+        // chart, the rows and the Heaviest record agree. Other modes keep the aggregator's per-set average.
+        let weightPoints: [(date: Date, value: Double)] = mode == .weighted
+            ? topWeightPoints(stats.history.allWorkouts)
+            : data.weightProgression.map { ($0.date, $0.value) }
+        if let series = series(.weight, weightPoints, mode: mode, unit: unit, calendar: calendar, locale: locale) {
             result.append(series)
         }
-        if let series = series(.volume, data.volumeProgression, mode: mode, unit: unit, calendar: calendar, locale: locale) {
+        if let series = series(.volume, data.volumeProgression.map { ($0.date, $0.value) }, mode: mode, unit: unit, calendar: calendar, locale: locale) {
             result.append(series)
         }
         if mode == .weighted,
-           let series = series(.oneRepMax, data.e1rmProgression, mode: mode, unit: unit, calendar: calendar, locale: locale) {
+           let series = series(.oneRepMax, data.e1rmProgression.map { ($0.date, $0.value) }, mode: mode, unit: unit, calendar: calendar, locale: locale) {
             result.append(series)
         }
         return result
@@ -208,7 +213,7 @@ nonisolated enum CutExerciseStatsLogic {
     static func subject(_ metric: CutExerciseStatsModel.Metric, mode: TrackingMode) -> String {
         switch (metric, mode) {
         case (.oneRepMax, _): return "Best estimated 1RM per session"
-        case (.weight, .weighted): return "Average weight per session"
+        case (.weight, .weighted): return "Top weight per session"
         case (.volume, .weighted): return "Volume per session"
         case (.weight, .bodyweight): return "Average reps per set"
         case (.volume, .bodyweight): return "Total reps per session"
@@ -239,7 +244,7 @@ nonisolated enum CutExerciseStatsLogic {
     }
 
     /// A drawable series needs two sessions; nil otherwise.
-    static func series(_ metric: CutExerciseStatsModel.Metric, _ points: [ProgressPoint], mode: TrackingMode, unit: WeightUnit,
+    static func series(_ metric: CutExerciseStatsModel.Metric, _ points: [(date: Date, value: Double)], mode: TrackingMode, unit: WeightUnit,
                        calendar: Calendar, locale: Locale) -> CutExerciseStatsModel.Series? {
         let sorted = points.sorted { $0.date < $1.date }
         guard sorted.count >= 2, let first = sorted.first, let last = sorted.last else { return nil }
@@ -286,6 +291,20 @@ nonisolated enum CutExerciseStatsLogic {
         return plural(max(2, Int((Double(days) / 30.44).rounded())), "month")
     }
 
+    // MARK: Top set
+
+    /// A session's top set: the heaviest working set with a load, more reps breaking a tie. nil when
+    /// the session has only warm-up or back-off sets, or no loaded set. Shared by the rows and the chart.
+    static func topSet(_ sets: [SetPerformance]) -> SetPerformance? {
+        sets.filter { $0.tag == .working && $0.weight > 0 }.max { ($0.weight, $0.reps) < ($1.weight, $1.reps) }
+    }
+
+    /// One point per session with a top set, oldest first; sessions without one are skipped.
+    static func topWeightPoints(_ entries: [ExerciseWorkoutEntry]) -> [(date: Date, value: Double)] {
+        entries.compactMap { entry in topSet(entry.sets).map { (entry.date, $0.weight) } }
+            .sorted { $0.date < $1.date }
+    }
+
     // MARK: Sessions
 
     static func session(_ entry: ExerciseWorkoutEntry, trackingMode: TrackingMode, isRecord: Bool, unit: WeightUnit,
@@ -309,7 +328,7 @@ nonisolated enum CutExerciseStatsLogic {
         let reps = sets.reduce(0) { $0 + $1.reps }
         switch trackingMode {
         case .weighted:
-            let top = sets.filter { $0.weight > 0 }.max { ($0.weight, $0.reps) < ($1.weight, $1.reps) }
+            let top = topSet(sets)
             if let top {
                 return ("\(count), top \(CutStatsFormat.weight(top.weight, unit: unit, locale: locale)) x \(top.reps)",
                         "\(count), top set \(CutStatsFormat.spokenWeight(top.weight, unit: unit, locale: locale)) for \(top.reps) \(top.reps == 1 ? "rep" : "reps")")
