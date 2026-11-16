@@ -583,6 +583,16 @@
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 		C1A900000000000000000002 /* LaunchClapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A900000000000000000001 /* LaunchClapView.swift */; };
 		C1A900000000000000000004 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C1A900000000000000000003 /* LaunchScreen.storyboard */; };
+		C17CB6000000000000000101 /* CutStatsFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000201 /* CutStatsFormat.swift */; };
+		C17CB6000000000000000102 /* CutTrendsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000202 /* CutTrendsModel.swift */; };
+		C17CB6000000000000000103 /* CutTrendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000203 /* CutTrendsView.swift */; };
+		C17CB6000000000000000104 /* CutTrendsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000204 /* CutTrendsHost.swift */; };
+		C17CB6000000000000000105 /* CutBalanceModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000205 /* CutBalanceModel.swift */; };
+		C17CB6000000000000000106 /* CutBalanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000206 /* CutBalanceView.swift */; };
+		C17CB6000000000000000107 /* CutBalanceHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000207 /* CutBalanceHost.swift */; };
+		C17CB6000000000000000108 /* CutExerciseStatsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000208 /* CutExerciseStatsModel.swift */; };
+		C17CB6000000000000000109 /* CutExerciseStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000209 /* CutExerciseStatsView.swift */; };
+		C17CB600000000000000010A /* CutExerciseStatsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB600000000000000020A /* CutExerciseStatsHost.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1223,6 +1233,16 @@
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
 		C1A900000000000000000001 /* LaunchClapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchClapView.swift; sourceTree = "<group>"; };
 		C1A900000000000000000003 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		C17CB6000000000000000201 /* CutStatsFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutStatsFormat.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000202 /* CutTrendsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrendsModel.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000203 /* CutTrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrendsView.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000204 /* CutTrendsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutTrendsHost.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000205 /* CutBalanceModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBalanceModel.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000206 /* CutBalanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBalanceView.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000207 /* CutBalanceHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutBalanceHost.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000208 /* CutExerciseStatsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseStatsModel.swift; sourceTree = "<group>"; };
+		C17CB6000000000000000209 /* CutExerciseStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseStatsView.swift; sourceTree = "<group>"; };
+		C17CB600000000000000020A /* CutExerciseStatsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseStatsHost.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -1858,9 +1878,27 @@
 			path = Components;
 			sourceTree = "<group>";
 		};
+		C17CB6000000000000000301 /* Cut */ = {
+			isa = PBXGroup;
+			children = (
+				C17CB6000000000000000201 /* CutStatsFormat.swift */,
+				C17CB6000000000000000202 /* CutTrendsModel.swift */,
+				C17CB6000000000000000203 /* CutTrendsView.swift */,
+				C17CB6000000000000000204 /* CutTrendsHost.swift */,
+				C17CB6000000000000000205 /* CutBalanceModel.swift */,
+				C17CB6000000000000000206 /* CutBalanceView.swift */,
+				C17CB6000000000000000207 /* CutBalanceHost.swift */,
+				C17CB6000000000000000208 /* CutExerciseStatsModel.swift */,
+				C17CB6000000000000000209 /* CutExerciseStatsView.swift */,
+				C17CB600000000000000020A /* CutExerciseStatsHost.swift */,
+			);
+			path = Cut;
+			sourceTree = "<group>";
+		};
 		2E196EE82EAE43E000EB4780 /* Statistics */ = {
 			isa = PBXGroup;
 			children = (
+				C17CB6000000000000000301 /* Cut */,
 				2E196EEB2EAE474500EB4780 /* Services */,
 				2E196EEA2EAE474000EB4780 /* Models */,
 				2E196EE92EAE473C00EB4780 /* Views */,
@@ -3353,6 +3391,16 @@
 				2EA7DA1F2EEC15540017683B /* CachedPost.swift in Sources */,
 				2EA7DA202EEC15540017683B /* CachedProfile.swift in Sources */,
 				2E2938772EC5F8220057F60C /* ExerciseStatisticsView.swift in Sources */,
+				C17CB6000000000000000101 /* CutStatsFormat.swift in Sources */,
+				C17CB6000000000000000102 /* CutTrendsModel.swift in Sources */,
+				C17CB6000000000000000103 /* CutTrendsView.swift in Sources */,
+				C17CB6000000000000000104 /* CutTrendsHost.swift in Sources */,
+				C17CB6000000000000000105 /* CutBalanceModel.swift in Sources */,
+				C17CB6000000000000000106 /* CutBalanceView.swift in Sources */,
+				C17CB6000000000000000107 /* CutBalanceHost.swift in Sources */,
+				C17CB6000000000000000108 /* CutExerciseStatsModel.swift in Sources */,
+				C17CB6000000000000000109 /* CutExerciseStatsView.swift in Sources */,
+				C17CB600000000000000010A /* CutExerciseStatsHost.swift in Sources */,
 				2EE8A09D2EE9A12400A74A3C /* SupabaseAuthService.swift in Sources */,
 				2EEEACDB2EA38B3900EDD16E /* SwipeToConfirm.swift in Sources */,
 				2EA7DAB42EEDCD7F0017683B /* ChallengesViewModel.swift in Sources */,
