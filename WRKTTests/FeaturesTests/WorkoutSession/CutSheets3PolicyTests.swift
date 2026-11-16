@@ -29,6 +29,33 @@ enum CutSheetsSceneWait {
 @MainActor
 @Suite(.serialized)
 struct CutSheets3PolicyTests {
+    @Test func browsersCanExplicitlyFitWithoutChangingDefaults() {
+        for kind in [CutSheetKind.choice, .form, .browser, .confirm] {
+            #expect(kind.resolvesFittedSizing(nil) == kind.fitsContent)
+        }
+        #expect(!CutSheetKind.browser.resolvesFittedSizing(nil))
+        #expect(CutSheetKind.browser.resolvesFittedSizing(true))
+        #expect(!CutSheetKind.browser.resolvesFittedSizing(false))
+        #expect(CutSheetKind.form.resolvesFittedSizing(nil))
+        #expect(!CutSheetKind.form.resolvesFittedSizing(false))
+    }
+
+    @Test func postDeletionKeepsEveryExistingWord() {
+        #expect(CutPostDetailLogic.deleteTitle == "Delete this post?")
+        #expect(CutPostDetailLogic.deleteMessage == "This removes the post, its likes and its comments.")
+        #expect(CutPostDetailLogic.deleteButton == "Delete post")
+        #expect(CutPostDetailLogic.deleteCancel == "Cancel")
+    }
+
+    @Test func workoutSelectionFooterKeepsItsCountAndCommitRules() {
+        #expect(CutPostComposeLogic.selectionButtonTitle(0) == "Use 0 workouts")
+        #expect(CutPostComposeLogic.selectionButtonTitle(1) == "Use 1 workout")
+        #expect(CutPostComposeLogic.selectionButtonTitle(2) == "Use 2 workouts")
+        #expect(!CutPostComposeLogic.canFinishSelection([]))
+        let first = UUID(), second = UUID()
+        #expect(CutPostComposeLogic.committedSelection(availableIDs: [first, second], pending: [second]) == [second])
+    }
+
     @Test func waitsForDelayedAvailability() async throws {
         var reads = 0
         let value = try await CutSheetsSceneWait.value(timeout: .seconds(1), poll: .milliseconds(1)) {

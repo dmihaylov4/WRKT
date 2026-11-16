@@ -125,6 +125,9 @@ enum CutPostComposeLogic {
         return next
     }
     static func committedSelection(availableIDs: [UUID], pending: Set<UUID>) -> [UUID] { availableIDs.filter { pending.contains($0) } }
+    static func selectionButtonTitle(_ count: Int) -> String {
+        "Use \(count) workout\(count == 1 ? "" : "s")"
+    }
     static func canFinishSelection(_ pending: Set<UUID>) -> Bool { !pending.isEmpty }
     static func shouldGenerateMaps(initialWorkoutProvided: Bool, attached: Bool, selection: [UUID]) -> Bool {
         !initialWorkoutProvided && !attached && !selection.isEmpty

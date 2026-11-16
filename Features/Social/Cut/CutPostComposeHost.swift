@@ -10,6 +10,7 @@ struct CutPostComposeHost: View {
     let weeklyStats: WeeklyProgressStats?
     let attachedImage: UIImage?
     @Environment(\.dependencies) private var deps
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
     @AppStorage("weight_unit") private var weightUnitRaw = WeightUnit.kg.rawValue
     @State private var viewModel: PostCreationViewModel?
@@ -39,12 +40,14 @@ struct CutPostComposeHost: View {
                     if let vm = viewModel {
                         CutPostComposeWorkoutPickerHost(workouts: vm.recentWorkouts,
                             selectedWorkouts: Binding(get: { vm.selectedWorkouts }, set: { vm.selectedWorkouts = $0 }))
+                            .environment(\.cutSheetDepth, sheetDepth + 1)
                     }
                 }
                 .sheet(isPresented: $showingPartnerPicker) {
                     if let vm = viewModel {
                         CutPostComposePartnerPickerHost(friends: vm.friends,
                             selectedPartner: Binding(get: { vm.selectedPartner }, set: { vm.selectPartner($0) }), isLoading: vm.isLoadingFriends)
+                            .environment(\.cutSheetDepth, sheetDepth + 1)
                     }
                 }
                 .task { await prepare() }

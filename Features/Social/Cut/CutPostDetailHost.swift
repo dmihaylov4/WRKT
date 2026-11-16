@@ -63,11 +63,10 @@ struct CutPostDetailHost: View {
                 }
             )
         }
-        .confirmationDialog("Delete this post?", isPresented: $confirmsDelete, titleVisibility: .visible) {
-            Button("Delete post", role: .destructive) { Task { await deletePost() } }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes the post, its likes and its comments.")
+        .sheet(isPresented: $confirmsDelete) {
+            CutSheetConfirm(CutPostDetailLogic.deleteTitle, message: CutPostDetailLogic.deleteMessage,
+                primaryTitle: CutPostDetailLogic.deleteButton, cancelTitle: CutPostDetailLogic.deleteCancel,
+                confirm: { confirmsDelete = false; Task { await deletePost() } }, cancel: { confirmsDelete = false })
         }
         .alert("Could not delete the post", isPresented: $deleteFailed) {
             Button("OK", role: .cancel) {}

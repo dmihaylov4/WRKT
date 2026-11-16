@@ -20,57 +20,71 @@ struct CutCardioDetailView<RouteMap: View>: View {
     /// A route, splits or heart rate fetch is running.
     var isRefreshing = false
     var actions = CutCardioDetailActions()
+    var inSheet = false
+    var close: () -> Void = {}
+    var tools: AnyView? = nil
     @ViewBuilder var routeMap: () -> RouteMap
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.horizontal, DS.Cut.Metrics.gutter)
-                route
-                    .padding(.top, 28)
-                if !model.splits.isEmpty || model.canLoadSplits {
-                    splits
-                        .padding(.horizontal, DS.Cut.Metrics.gutter)
-                        .padding(.top, 32)
-                }
-                if model.heartRate != nil || model.canLoadDetails {
-                    heartRate
-                        .padding(.horizontal, DS.Cut.Metrics.gutter)
-                        .padding(.top, 32)
-                }
-                if !model.performance.isEmpty {
-                    performance
-                        .padding(.horizontal, DS.Cut.Metrics.gutter)
-                        .padding(.top, 32)
-                }
-                if let notes = model.notes {
-                    VStack(alignment: .leading, spacing: 10) {
-                        CutSectionTitle("Notes")
-                        CutHairline()
-                        Text(notes)
-                            .cutFont(.body)
-                            .foregroundStyle(DS.Cut.Colors.textPrimary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.horizontal, DS.Cut.Metrics.gutter)
-                    .padding(.top, 32)
-                }
-            }
-            .padding(.top, 8)
-            .padding(.bottom, 40)
+        if inSheet {
+            CutSheet(model.title, kind: .browser, close: close) { detailContent }
+        } else {
+            ScrollView { detailContent }
+                .scrollIndicators(.hidden)
+                .background(DS.Cut.Colors.background.ignoresSafeArea())
         }
-        .scrollIndicators(.hidden)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
     }
 
+    private var detailContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+                .padding(.horizontal, DS.Cut.Metrics.gutter)
+            route
+                .padding(.top, 28)
+            if !model.splits.isEmpty || model.canLoadSplits {
+                splits
+                    .padding(.horizontal, DS.Cut.Metrics.gutter)
+                    .padding(.top, 32)
+            }
+            if model.heartRate != nil || model.canLoadDetails {
+                heartRate
+                    .padding(.horizontal, DS.Cut.Metrics.gutter)
+                    .padding(.top, 32)
+            }
+            if !model.performance.isEmpty {
+                performance
+                    .padding(.horizontal, DS.Cut.Metrics.gutter)
+                    .padding(.top, 32)
+            }
+            if let notes = model.notes {
+                VStack(alignment: .leading, spacing: 10) {
+                    CutSectionTitle("Notes")
+                    CutHairline()
+                    Text(notes)
+                        .cutFont(.body)
+                        .foregroundStyle(DS.Cut.Colors.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, DS.Cut.Metrics.gutter)
+                .padding(.top, 32)
+            }
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 40)
+    }
     // MARK: Header
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CutHeroText(CutHeroText.balancedLines(model.title), hero: .xs, minimumScaleFactor: 0.5)
-                .foregroundStyle(DS.Cut.Colors.textPrimary)
-                .accessibilityAddTraits(.isHeader)
+            if inSheet {
+                if let tools { tools.frame(maxWidth: .infinity, alignment: .trailing) }
+            } else {
+                CutHeroText(CutHeroText.balancedLines(model.title), hero: .xs, minimumScaleFactor: 0.5)
+                    .foregroundStyle(DS.Cut.Colors.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+            }
             Text(model.dateLine)
                 .cutFont(.secondary)
                 .foregroundStyle(DS.Cut.Colors.textSecondary)
@@ -89,9 +103,29 @@ struct CutCardioDetailView<RouteMap: View>: View {
             .accessibilityElement(children: .combine)
             .padding(.top, 14)
             if !model.stats.isEmpty {
-                CutStatColumns(model.stats)
+                statColumns(model.stats)
                     .padding(.top, 10)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func statColumns(_ columns: [CutStatColumn]) -> some View {
+        if inSheet && dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(columns.enumerated()), id: \.offset) { _, column in
+                    if !column.label.isEmpty {
+                        Text(column.label).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(column.value + (column.unit.map { " " + $0 } ?? ""))
+                            .cutFont(.title).fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(column.isHighlighted ? DS.Cut.Colors.lime : DS.Cut.Colors.textPrimary)
+                        CutHairline()
+                    }
+                }
+            }
+        } else {
+            CutStatColumns(columns)
         }
     }
 
@@ -177,7 +211,7 @@ struct CutCardioDetailView<RouteMap: View>: View {
             CutHairline()
             if let heart = model.heartRate {
                 if !heart.stats.isEmpty {
-                    CutStatColumns(heart.stats)
+                    statColumns(heart.stats)
                         .padding(.top, 4)
                 }
                 if !heart.bars.isEmpty {
@@ -232,7 +266,7 @@ struct CutCardioDetailView<RouteMap: View>: View {
                 .padding(.bottom, 10)
             CutHairline()
             ForEach(Array(model.performance.enumerated()), id: \.offset) { _, row in
-                CutStatColumns(row.count == 1 ? row + [CutStatColumn(value: "", label: "")] : row)
+                statColumns(row.count == 1 ? row + [CutStatColumn(value: "", label: "")] : row)
                     .padding(.vertical, 14)
                 CutHairline()
             }
