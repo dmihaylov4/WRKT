@@ -92,6 +92,7 @@ struct CutWorkoutDetailHost: View {
                 CutExerciseStatsLoader(exerciseID: target.id, exerciseName: target.name)
                     .withDependencies()
             }
+            .environment(\.cutSheetDepth, sheetDepth + (inSheet ? 1 : 0))
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }

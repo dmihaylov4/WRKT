@@ -13,6 +13,9 @@ struct ExerciseStatisticsView: View {
     let exerciseID: String
     let exerciseName: String
     let trackingMode: TrackingMode
+    /// Cut only: the view sits inside another sheet's content (the exercise details Stats tab),
+    /// so it shows no title row or sheet chrome of its own. The legacy layout ignores it.
+    var isEmbedded: Bool = false
 
     @EnvironmentObject var store: WorkoutStoreV2
     @Environment(\.dismiss) private var dismiss
@@ -20,6 +23,15 @@ struct ExerciseStatisticsView: View {
     @State private var showAllHistory = false
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutExerciseStatsHost(exerciseID: exerciseID, exerciseName: exerciseName,
+                                 trackingMode: trackingMode, isEmbedded: isEmbedded)
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ZStack {
             DS.Semantic.surface.ignoresSafeArea()
 

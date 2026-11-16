@@ -768,7 +768,8 @@ struct ExerciseSessionView: View {
         ExerciseStatisticsView(
             exerciseID: exercise.id,
             exerciseName: exercise.name,
-            trackingMode: TrackingMode(rawValue: exercise.trackingMode ?? "weighted") ?? .weighted
+            trackingMode: TrackingMode(rawValue: exercise.trackingMode ?? "weighted") ?? .weighted,
+            isEmbedded: true
         )
         .environmentObject(store)
     }
