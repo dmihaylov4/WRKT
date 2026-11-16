@@ -242,6 +242,14 @@ struct PlateWallView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutRackHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
