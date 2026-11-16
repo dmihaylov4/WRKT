@@ -7,7 +7,7 @@
 //  Health sync), PlannerStore adherence and the same statistics summaries the Training Trends and
 //  Training Balance sections query. Same Settings, weekly goal, freeze, share, streak recovery
 //  and collection flows; only the presentation differs. The trends and balance details are the
-//  legacy sections on their own page.
+//  Cut Trends and Balance screens (Features/Statistics/Cut).
 //
 
 import SwiftUI
@@ -167,13 +167,9 @@ struct CutMeHost: View {
         case .milestones:
             AchievementsView()
         case .trends:
-            CutMeLegacySectionPage(title: "Training Trends") {
-                ProfileStatsView()
-            }
+            CutTrendsHost(weeks: 12)
         case .balance:
-            CutMeLegacySectionPage(title: "Training Balance") {
-                TrainingBalanceSection(weeks: 12)
-            }
+            CutBalanceHost(weeks: 12)
         }
     }
 
@@ -276,25 +272,5 @@ struct CutMeHost: View {
             try? await Task.sleep(nanoseconds: 400_000_000)
             NotificationCenter.default.post(name: .openProgressShareSheet, object: nil)
         }
-    }
-}
-
-/// A legacy Profile section (Training Trends, Training Balance) on its own page, unchanged,
-/// so every chart, list and info button of the old tab stays one tap away.
-private struct CutMeLegacySectionPage<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-
-    var body: some View {
-        ScrollView {
-            content
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .padding(.bottom, DS.Redesign.tabBarClearance(legacy: 56, system: 36))
-        }
-        .background(DS.Semantic.surface.ignoresSafeArea())
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .shellNavigationBarBackground(DS.Semantic.surface)
     }
 }
