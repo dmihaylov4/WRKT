@@ -21,6 +21,14 @@ struct LoginView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutLoginHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 18) {
                 Spacer(minLength: 18)

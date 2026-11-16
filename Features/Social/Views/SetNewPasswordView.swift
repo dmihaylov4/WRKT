@@ -29,6 +29,14 @@ struct SetNewPasswordView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutNewPasswordHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         NavigationStack {
             VStack(spacing: 24) {
                 if passwordUpdated {

@@ -2,9 +2,17 @@ import SwiftUI
 import Observation
 
 struct WhatsNewRelease {
+    /// A place in the app the release's button can open. Without one the button just closes.
+    enum Destination: Equatable {
+        /// The barbell rack (PlateWallView).
+        case rack
+    }
+
     let version: String
     let title: String
     let bullets: [String]
+    /// Used by the Cut sheet only; the legacy sheet always shows "Got it".
+    var destination: Destination? = nil
 }
 
 @Observable @MainActor
@@ -25,7 +33,8 @@ final class WhatsNewManager {
                 "Earn plates based on your workout history",
                 "Build and display your barbell rack",
                 "Plates backfilled from all past workouts automatically"
-            ]
+            ],
+            destination: .rack
         )
     ]
 

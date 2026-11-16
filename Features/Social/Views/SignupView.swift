@@ -24,6 +24,14 @@ struct SignupView: View {
     }
 
     var body: some View {
+        if DS.Redesign.cutEnabled {
+            CutSignupHost()
+        } else {
+            legacyBody
+        }
+    }
+
+    private var legacyBody: some View {
         ScrollView {
                 VStack(spacing: 20) {
                     // Header

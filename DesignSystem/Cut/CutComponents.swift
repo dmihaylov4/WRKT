@@ -1103,17 +1103,20 @@ public enum CutSheetSizing: Equatable, Sendable {
 }
 
 /// The header of every Cut sheet: a large condensed capital title at the top left, an optional
-/// single line under it, and a round 44 pt close button at the top right.
+/// single line under it, and a round 44 pt close button at the top right. An announcement sheet
+/// ("What's new") adds a short lime line above a larger title.
 public struct CutSheetHeader: View {
     private let title: String
     private let subtitle: String?
+    private let eyebrow: String?
     private let close: () -> Void
     private let showsClose: Bool
     @Environment(\.cutSheetLevel) private var level
 
-    public init(_ title: String, subtitle: String? = nil, showsClose: Bool = true, close: @escaping () -> Void) {
+    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, showsClose: Bool = true, close: @escaping () -> Void) {
         self.title = title
         self.subtitle = subtitle
+        self.eyebrow = eyebrow
         self.showsClose = showsClose
         self.close = close
     }
@@ -1121,8 +1124,14 @@ public struct CutSheetHeader: View {
     public var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
+                if let eyebrow {
+                    Text(eyebrow)
+                        .font(DS.Typography.custom(size: 16, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundStyle(DS.Cut.Colors.lime)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(title)
-                    .font(DS.Cut.Typography.condensed(size: 32, relativeTo: .title))
+                    .font(DS.Cut.Typography.condensed(size: eyebrow == nil ? 32 : 40, relativeTo: .title))
                     .textCase(.uppercase)
                     .foregroundStyle(DS.Cut.Colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1161,6 +1170,7 @@ public struct CutSheetHeader: View {
 public struct CutSheet<Content: View, Footer: View>: View {
     private let title: String
     private let subtitle: String?
+    private let eyebrow: String?
     private let explicitLevel: DS.Cut.SheetLevel?
     private let kind: CutSheetKind
     private let usesList: Bool
@@ -1177,10 +1187,11 @@ public struct CutSheet<Content: View, Footer: View>: View {
     @State private var foot: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
+    public init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
                 kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, close: @escaping () -> Void, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer) {
         self.title = title
         self.subtitle = subtitle
+        self.eyebrow = eyebrow
         self.explicitLevel = level
         self.kind = kind
         self.usesList = usesList
@@ -1199,7 +1210,7 @@ public struct CutSheet<Content: View, Footer: View>: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            CutSheetHeader(title, subtitle: subtitle, showsClose: kind.showsClose, close: close)
+            CutSheetHeader(title, subtitle: subtitle, eyebrow: eyebrow, showsClose: kind.showsClose, close: close)
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { header = $0 }
             // A native List keeps swipe actions and onDelete. Both body variants measure
             // their content, and put the footer inside the scroller at accessibility sizes.
@@ -1247,9 +1258,9 @@ public struct CutSheet<Content: View, Footer: View>: View {
 }
 
 public extension CutSheet where Footer == EmptyView {
-    init(_ title: String, subtitle: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
+    init(_ title: String, subtitle: String? = nil, eyebrow: String? = nil, level: DS.Cut.SheetLevel? = nil, fitsContent: Bool = true,
          kind: CutSheetKind = .choice, usesList: Bool = false, scrollsContent: Bool = true, close: @escaping () -> Void, @ViewBuilder content: () -> Content) {
-        self.init(title, subtitle: subtitle, level: level, fitsContent: fitsContent, kind: kind, usesList: usesList, scrollsContent: scrollsContent, close: close, content: content) { EmptyView() }
+        self.init(title, subtitle: subtitle, eyebrow: eyebrow, level: level, fitsContent: fitsContent, kind: kind, usesList: usesList, scrollsContent: scrollsContent, close: close, content: content) { EmptyView() }
     }
 }
 
