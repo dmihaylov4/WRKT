@@ -5,30 +5,23 @@ struct CutFilteredExerciseBrowserView: View {
     let select: (String) -> Void
     let done: () -> Void
     var body: some View {
-        ScrollView {
+        CutSheet(model.title, kind: .browser, close: done) {
             VStack(spacing: 0) {
                 CutHairline()
                 ForEach(model.subregions, id: \.self) { subregion in
                     Button { select(subregion) } label: {
-                        CutHairlineRow(subregion, showsChevron: true)
-                    }
-                    .buttonStyle(.plain)
+                        HStack(spacing: 12) {
+                            Text(subregion).font(DS.Typography.custom(size: 18, weight: .semibold, relativeTo: .body))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right").font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(DS.Cut.Colors.textSecondary).accessibilityHidden(true)
+                        }.frame(minHeight: 60).padding(.vertical, 8).contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                    CutHairline()
                 }
             }
-            .padding(.horizontal, DS.Cut.Metrics.gutter)
-            .padding(.top, 12)
+            .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.top, 12).padding(.bottom, 24)
         }
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .navigationTitle(model.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text(model.title.uppercased()).font(DS.Cut.Typography.condensed(size: 22, relativeTo: .headline))
-            }
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Done", action: done).cutFont(.title).tint(DS.Cut.Colors.textPrimary)
-            }
-        }
-        .shellNavigationBarBackground(DS.Cut.Colors.background)
     }
 }

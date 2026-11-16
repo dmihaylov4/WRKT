@@ -295,7 +295,7 @@ private struct CutPreferencesRestRow: View {
 
 // MARK: - Picker sheets
 
-/// The age wheel: Done in the bar, sized to the wheel. The wheel edits a draft; `onCommit` runs
+/// The age wheel: Close confirms like the previous Done button. `onCommit` runs
 /// once when the sheet closes with a change (see AgeDraft).
 struct CutAgePickerView: View {
     var onCommit: (Int) -> Void = { _ in }
@@ -310,30 +310,21 @@ struct CutAgePickerView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        CutSheet("Your age", kind: .choice, close: {
+            confirmed = true
+            dismiss()
+        }) {
             CutPreferencesWheel {
                 Picker("Age", selection: $draft.age) {
                     ForEach(AgeDraft.range, id: \.self) { years in
                         Text("\(years) years").tag(years)
                     }
-                }
-                .pickerStyle(.wheel)
-            }
-            .navigationTitle("Your age")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                CutPreferencesDoneItem {
-                    confirmed = true
-                    dismiss()
-                }
+                }.pickerStyle(.wheel)
             }
         }
         .onDisappear {
             if let age = draft.ageToCommit(confirmed: confirmed) { onCommit(age) }
         }
-        .presentationDetents([.height(cutPreferencesWheelSheetHeight)])
-        .presentationBackground(DS.Cut.Colors.background)
-        .presentationDragIndicator(.visible)
     }
 }
 
@@ -351,7 +342,7 @@ struct CutWeightPickerView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        CutSheet("Your bodyweight", kind: .choice, close: { dismiss() }) {
             CutPreferencesWheel {
                 HStack(spacing: 0) {
                     Picker(draft.unit == .kg ? "Kilograms" : "Pounds", selection: $draft.whole) {
@@ -359,8 +350,9 @@ struct CutWeightPickerView: View {
                     }
                     .pickerStyle(.wheel)
                     .frame(maxWidth: .infinity)
+                    // Match the native wheel row metrics for its adjacent symbols.
                     Text(verbatim: ".")
-                        .cutFont(.title)
+                        .cutFont(.title).dynamicTypeSize(.large)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
                         .accessibilityHidden(true)
                     Picker("Tenths", selection: $draft.tenth) {
@@ -369,28 +361,20 @@ struct CutWeightPickerView: View {
                     .pickerStyle(.wheel)
                     .frame(width: 72)
                     Text(draft.unit.rawValue)
-                        .cutFont(.title)
+                        .cutFont(.title).dynamicTypeSize(.large)
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
                         .padding(.trailing, DS.Cut.Metrics.gutter)
                 }
             }
-            .navigationTitle("Your bodyweight")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { CutPreferencesDoneItem { dismiss() } }
         }
         .onDisappear {
             if let kg = draft.kgToCommit { onCommit(kg) }
         }
-        .presentationDetents([.height(cutPreferencesWheelSheetHeight)])
-        .presentationBackground(DS.Cut.Colors.background)
-        .presentationDragIndicator(.visible)
     }
 }
 
-/// The bar plus the 200 pt wheel and its margins.
-private let cutPreferencesWheelSheetHeight: CGFloat = 300
-
-/// A system wheel on the black ground, its selection tinted lime.
+/// Native wheels manage their own row metrics. Keep their viewport fitted to those rows,
+/// rather than scaling empty space around a system picker.
 private struct CutPreferencesWheel<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
@@ -398,19 +382,7 @@ private struct CutPreferencesWheel<Content: View>: View {
         content()
             .frame(height: 200)
             .tint(DS.Cut.Colors.lime)
-            .padding(.top, 8)
-            .frame(maxHeight: .infinity, alignment: .top)
-            .background(DS.Cut.Colors.background.ignoresSafeArea())
-    }
-}
-
-private struct CutPreferencesDoneItem: ToolbarContent {
-    let done: () -> Void
-
-    var body: some ToolbarContent {
-        ToolbarItem(placement: .confirmationAction) {
-            Button("Done", action: done)
-                .fontWeight(.semibold)
-        }
+            .padding(.horizontal, DS.Cut.Metrics.gutter)
+            .padding(.top, 8).padding(.bottom, 24)
     }
 }

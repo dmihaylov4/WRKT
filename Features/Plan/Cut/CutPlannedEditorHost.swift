@@ -17,6 +17,7 @@ struct CutPlannedEditorHost: View {
 
     @Environment(\.dependencies) private var dependencies
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var repo: ExerciseRepository
     @EnvironmentObject private var store: WorkoutStoreV2
@@ -96,6 +97,7 @@ struct CutPlannedEditorHost: View {
             ExercisePickerView(onSelect: addExercise)
                 .environmentObject(repo)
                 .environmentObject(FavoritesStore())
+                .environment(\.cutSheetDepth, sheetDepth + 1)
         }
         .sheet(item: $editingExercise) { editing in
             if let index = drafts.firstIndex(where: { $0.id == editing.id }) {
@@ -113,6 +115,7 @@ struct CutPlannedEditorHost: View {
                         done: { editingExercise = nil }
                     )
                 }
+                .environment(\.cutSheetDepth, sheetDepth + 1)
             }
         }
     }

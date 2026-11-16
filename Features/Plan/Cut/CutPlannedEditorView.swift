@@ -3,10 +3,10 @@
 //  WRKT
 //
 //  The planned workout editor in the Cut language, matching Edit workout: the name as an
-//  underline field (its placeholder is its label), the date as a hairline row with the system
+//  field (its placeholder is its label), the date as a hairline row with the system
 //  date capsule, exercises as hairline rows with a one line summary that open the exercise
 //  sheet and swipe away, one compact Add exercise pill, and Delete workout as an outlined red
-//  pill. Cancel and Save sit in the bar. The exercise sheet uses the set editor's rows and adds
+//  pill. Close cancels; Save sits in the shared footer. The exercise sheet uses the set editor's rows and adds
 //  the note.
 //  Takes plain values, bindings for what is typed or picked, and closures.
 //
@@ -27,9 +27,10 @@ struct CutPlannedEditorView: View {
     @Binding var name: String
     @Binding var date: Date
     var actions = CutPlannedEditorActions()
+    @Environment(\.cutSheetDepth) private var sheetDepth
 
     var body: some View {
-        List {
+        CutSheet(model.title, kind: .form, usesList: true, close: actions.cancel) {
             editorRow {
                 CutEditorNameField(name: $name, placeholder: CutPlannedEditorLogic.namePlaceholder, capitalizesWords: true)
                     .padding(.top, 8)
@@ -53,7 +54,10 @@ struct CutPlannedEditorView: View {
                 }
                 .padding(.top, 8)
             }
-            editorRow { CutEditorExercisesHeader() }
+            editorRow {
+                Text("EXERCISES").font(DS.Cut.Typography.condensed(size: 23, relativeTo: .headline))
+                    .padding(.top, 24).padding(.bottom, 12)
+            }
             ForEach(model.rows) { row in
                 editorRow {
                     Button { actions.editExercise(row.id) } label: { CutPlannedExerciseRow(row: row) }
@@ -78,15 +82,11 @@ struct CutPlannedEditorView: View {
                 }
                 .padding(.bottom, 40)
             }
+        } footer: {
+            Button("Save", action: actions.save)
+                .buttonStyle(CutPillButtonStyle(.lime, size: .regular, fillsWidth: true)).disabled(!model.canSave)
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
-        .environment(\.defaultMinListRowHeight, 0)
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .navigationTitle(model.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { CutEditorToolbar(canSave: model.canSave, cancel: actions.cancel, save: actions.save) }
     }
 
     private var dateLabel: some View {
@@ -108,13 +108,14 @@ struct CutPlannedEditorView: View {
         content()
             .listRowInsets(EdgeInsets(top: 0, leading: DS.Cut.Metrics.gutter, bottom: 0, trailing: DS.Cut.Metrics.gutter))
             .listRowSeparator(.hidden)
-            .listRowBackground(DS.Cut.Colors.background)
+            .listRowBackground(DS.Cut.SheetLevel.resolve(parentDepth: sheetDepth).surface)
     }
 }
 
 /// One planned exercise: name, the first sets in short, the plateau note and the exercise note.
 private struct CutPlannedExerciseRow: View {
     let row: CutPlannedEditorModel.Row
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 0) {
@@ -144,7 +145,7 @@ private struct CutPlannedExerciseRow: View {
                         Text(note)
                             .cutFont(.secondary)
                             .foregroundStyle(DS.Cut.Colors.textPrimary)
-                            .lineLimit(2)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                             .padding(.top, 2)
                     }
                 }
@@ -170,12 +171,11 @@ private struct CutPlannedDestructiveButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DS.Cut.Typography.font(.button).weight(.semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.8)
-            .foregroundStyle(Color.red)
+            .fixedSize(horizontal: false, vertical: true)
+            .foregroundStyle(DS.Cut.Colors.destructive)
             .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, minHeight: 56)
-            .overlay(Capsule().strokeBorder(Color.red.opacity(0.6), lineWidth: 1.5))
+            .overlay(Capsule().strokeBorder(DS.Cut.Colors.destructive.opacity(0.6), lineWidth: 1.5))
             .contentShape(Capsule())
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.975 : 1)
             .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
@@ -192,21 +192,16 @@ struct CutPlannedSetsView: View {
     var apply: (CutSetEditorEdit) -> Void = { _ in }
     var done: () -> Void = {}
 
-    @State private var contentHeight: CGFloat = 0
     @State private var selected = 0
     @State private var typing: CutSetTyping?
     @State private var typedText = ""
     @FocusState private var focused: Bool
     @FocusState private var notesFocused: Bool
-
-    /// Estimated before the list has laid out, then measured.
-    private var sheetHeight: CGFloat {
-        let content = contentHeight > 0 ? contentHeight : CGFloat(150 + model.rows.count * 70 + 60 + 90 + 110)
-        return content + 64
-    }
+    @Environment(\.cutSheetDepth) private var sheetDepth
+    private var level: DS.Cut.SheetLevel { .resolve(parentDepth: sheetDepth) }
 
     var body: some View {
-        List {
+        CutSheet("Edit sets", kind: .form, usesList: true, close: { commitThen(done) }) {
             row { CutSetEditorHeader(name: model.exerciseName, countLine: model.countLine) }
             row { CutHairline() }
             ForEach(model.rows) { set in
@@ -243,37 +238,20 @@ struct CutPlannedSetsView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     TextField("Note", text: $notes,
                               prompt: Text("Note").foregroundStyle(DS.Cut.Colors.textSecondary), axis: .vertical)
-                        .lineLimit(1...6)
-                        .cutFont(.body)
-                        .foregroundStyle(DS.Cut.Colors.textPrimary)
-                        .tint(DS.Cut.Colors.lime)
-                        .focused($notesFocused)
-                        .frame(minHeight: 50)
-                    Rectangle()
-                        .fill(notesFocused ? DS.Cut.Colors.lime : DS.Cut.Colors.hairlineStrong)
-                        .frame(height: notesFocused ? 2 : 1)
-                        .accessibilityHidden(true)
+                        .lineLimit(1...6).cutFont(.body)
+                        .foregroundStyle(DS.Cut.Colors.textPrimary).tint(DS.Cut.Colors.lime)
+                        .focused($notesFocused).padding(16).frame(minHeight: 52)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(level.control))
                 }
                 .padding(.top, 24)
                 .padding(.bottom, 24)
             }
+        } footer: {
+            Button("Save sets") { commitThen(done) }
+                .buttonStyle(CutPillButtonStyle(.lime, size: .regular, fillsWidth: true))
+                .padding(.horizontal, DS.Cut.Metrics.gutter).padding(.vertical, 12)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollIndicators(.hidden)
-        .environment(\.defaultMinListRowHeight, 0)
-        .scrollBounceBehavior(.basedOnSize)
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { _, height in
-            contentHeight = height
-        }
-        .background(DS.Cut.Colors.background.ignoresSafeArea())
-        .navigationTitle("Edit sets")
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { commitThen(done) }
-                    .fontWeight(.semibold)
-            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") {
@@ -285,8 +263,6 @@ struct CutPlannedSetsView: View {
         .onChange(of: focused) { _, isFocused in
             if !isFocused { commitTyping() }
         }
-        .presentationDetents([.height(sheetHeight), .large])
-        .presentationDragIndicator(.visible)
     }
 
     private func row<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {

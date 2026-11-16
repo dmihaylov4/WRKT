@@ -66,7 +66,10 @@ struct CutDataPortabilityHost: View {
         }
         .confirmationDialog(
             CutDataPortabilityLogic.confirmTitle(importStrategy),
-            isPresented: $showImportConfirm,
+            isPresented: Binding(
+                get: { showImportConfirm && !CutDataPortabilityLogic.confirmIsDestructive(importStrategy) },
+                set: { showImportConfirm = $0 }
+            ),
             titleVisibility: .visible
         ) {
             Button(
@@ -77,6 +80,17 @@ struct CutDataPortabilityHost: View {
                 Task { await runImport(from: url) }
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .sheet(isPresented: Binding(
+            get: { showImportConfirm && CutDataPortabilityLogic.confirmIsDestructive(importStrategy) },
+            set: { showImportConfirm = $0 }
+        )) {
+            CutSheetConfirm(CutDataPortabilityLogic.confirmTitle(importStrategy), message: "",
+                primaryTitle: CutDataPortabilityLogic.confirmButton(importStrategy), cancelTitle: "Keep current data", confirm: {
+                    showImportConfirm = false
+                    guard let url = pendingImportURL else { return }
+                    Task { await runImport(from: url) }
+                }, cancel: { showImportConfirm = false })
         }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
@@ -127,13 +141,14 @@ struct CutImportHistoryHost: View {
             }
         )
         .task { await loadRecords() }
-        .confirmationDialog(CutDataPortabilityLogic.restoreTitle(records: records, restoring: recordToRestore?.id),
-                            isPresented: $showRestoreConfirm, titleVisibility: .visible) {
-            Button("Restore", role: .destructive) {
-                guard let record = recordToRestore else { return }
-                Task { await runRestore(record: record) }
-            }
-            Button("Cancel", role: .cancel) {}
+        .sheet(isPresented: $showRestoreConfirm) {
+            let confirmation = CutDataPortabilityLogic.restoreConfirmation(records: records, restoring: recordToRestore?.id)
+            CutSheetConfirm(confirmation.title, message: confirmation.message,
+                primaryTitle: "Restore", cancelTitle: "Keep current data", confirm: {
+                    showRestoreConfirm = false
+                    guard let record = recordToRestore else { return }
+                    Task { await runRestore(record: record) }
+                }, cancel: { showRestoreConfirm = false })
         }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
