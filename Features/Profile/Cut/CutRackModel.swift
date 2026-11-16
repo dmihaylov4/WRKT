@@ -138,9 +138,11 @@ enum CutRackLogic {
         case .loadFailed: return "That plate could not be loaded. Try again."
         case nil: break
         }
-        if facts.occupiedSlots > 0 { return "Swipe the bar to drop the outer plate." }
-        if loaded < facts.plates.count { return "Tap a plate below to load it." }
-        return nil
+        // Keyed on earned plates only: the starter alone never asks for a swipe, and with no
+        // plates earned the tray already says how to earn one.
+        if facts.plates.isEmpty { return nil }
+        if loaded == 0 { return "Tap a plate below to load it." }
+        return "Swipe the bar to drop the outer plate."
     }
 
     static func isBarFull(occupiedSlots: Int) -> Bool {

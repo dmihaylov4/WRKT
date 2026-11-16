@@ -101,10 +101,22 @@ import Testing
 
     // MARK: Hint and notices
 
-    @Test func hintTeachesTheSwipeWhileAnythingIsOnTheBar() {
-        #expect(Self.model([Self.plate("a", slot: 0)]).hint == "Swipe the bar to drop the outer plate.")
-        // Only the starter on the bar still counts: it can be swiped off.
-        #expect(Self.model([], occupied: 1).hint == "Swipe the bar to drop the outer plate.")
+    @Test func hintTeachesTheSwipeWhileAPlateIsLoaded() {
+        #expect(Self.model([Self.plate("a", slot: 0), Self.plate("b")]).hint == "Swipe the bar to drop the outer plate.")
+        #expect(Self.model((0..<4).map { Self.plate("p\($0)", slot: $0) }).hint == "Swipe the bar to drop the outer plate.")
+    }
+
+    @Test func hintAsksForATapWhenNothingIsLoaded() {
+        // The starter plate on the bar does not count as loaded (app run: "Nothing loaded, 3 in storage").
+        let m = Self.model([Self.plate("a"), Self.plate("b"), Self.plate("c")], occupied: 1)
+        #expect(m.summary == "Nothing loaded, 3 in storage")
+        #expect(m.hint == "Tap a plate below to load it.")
+    }
+
+    @Test func noHintWhenNoPlateIsEarned() {
+        // Only the starter on the bar: the tray's empty line says how to earn a plate.
+        #expect(Self.model([], occupied: 1).hint == nil)
+        #expect(Self.model([], occupied: 0).hint == nil)
     }
 
     @Test func noticesReplaceTheHint() {
