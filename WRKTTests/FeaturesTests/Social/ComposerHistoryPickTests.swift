@@ -66,7 +66,7 @@ final class ComposerHistoryPickTests: XCTestCase {
         for seed in 1...200 as ClosedRange<UInt64> {
             for count in [0, 1, 3, 12, 40] {
                 let (workouts, runs) = Self.history(seed: seed, count: count)
-                XCTAssertEqual(PostCreationViewModel.pickerWorkouts(workouts: workouts, runs: runs),
+                XCTAssertEqual(PostCreationViewModel.pickerWorkouts(workouts: workouts, runs: runs.map(\.summary)),
                                Self.referencePicker(workouts: workouts, runs: runs), "seed \(seed), count \(count)")
             }
         }
@@ -96,7 +96,7 @@ final class ComposerHistoryPickTests: XCTestCase {
         let diskWorkouts = try await fromDisk.loadWorkouts().workouts
         let diskRuns = try await fromDisk.loadRuns()
 
-        XCTAssertEqual(PostCreationViewModel.pickerWorkouts(workouts: store.completedWorkouts, runs: store.runs),
+        XCTAssertEqual(PostCreationViewModel.pickerWorkouts(workouts: store.completedWorkouts, runs: store.runSummaries),
                        Self.referencePicker(workouts: diskWorkouts, runs: diskRuns))
     }
 
@@ -111,7 +111,7 @@ final class ComposerHistoryPickTests: XCTestCase {
                 let (workouts, runs) = Self.history(seed: seed, count: count)
                 for candidateYear in [year, year + 1] {
                     XCTAssertEqual(
-                        CutYearAwardLogic.socialWorkout(year: candidateYear, workouts: workouts, runs: runs, calendar: calendar),
+                        CutYearAwardLogic.socialWorkout(year: candidateYear, workouts: workouts, runs: runs.map(\.summary), calendar: calendar),
                         Self.referenceSocialWorkout(year: candidateYear, workouts: workouts, runs: runs, calendar: calendar),
                         "seed \(seed), count \(count), year \(candidateYear)")
                 }

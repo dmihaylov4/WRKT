@@ -143,28 +143,33 @@ final class PostPayloadGoldenTests: XCTestCase {
 
     // MARK: - Harness: how each path builds the workouts it posts
 
-    /// The composer's picker list, and the workouts posted for a selection from it.
+    /// The composer's picker list, completed as it would be posted, and the workouts posted for
+    /// a selection from it.
     private func composerPosts(_ store: WorkoutStoreV2, selecting ids: [UUID]) async throws -> (list: [CompletedWorkout], posted: [CompletedWorkout]) {
-        let list = PostCreationViewModel.pickerWorkouts(workouts: Self.logged, runs: store.runs)
+        let candidates = PostCreationViewModel.pickerCandidates(workouts: Self.logged, runs: store.runSummaries)
+        let list = candidates.map(\.completedWorkout)
+        var picker: [UUID: CompletedWorkout] = [:]
+        for candidate in candidates { if case .run = candidate { picker[candidate.completedWorkout.id] = candidate.completedWorkout } }
+        // What the picker shows is the posted workout without samples.
+        let completedList = await PostCreationViewModel.workoutsForPosting(list, picker: picker, store: store)
+        XCTAssertEqual(list, completedList.map { workout in
+            var shown = workout
+            if picker[workout.id] != nil { shown.matchedHealthKitHeartRateSamples = nil }
+            return shown
+        })
         let selected = ids.compactMap { id in list.first { $0.id == id } }
-        return (list, selected)
+        let posted = await PostCreationViewModel.workoutsForPosting(selected, picker: picker, store: store)
+        return (completedList, posted)
     }
 
     private func yearAwardPost(_ store: WorkoutStoreV2, year: Int) async throws -> CompletedWorkout? {
-        CutYearAwardLogic.socialWorkout(year: year, workouts: Self.logged, runs: store.runs, calendar: Self.utc)
+        await CutYearAwardLogic.socialCandidate(year: year, workouts: Self.logged, runs: store.runSummaries,
+                                                calendar: Self.utc)?.completed(in: store)
     }
 
-    /// The detail screens' share, as they built it on the base commit.
-    private func detailShare(_ run: Run) async throws -> CompletedWorkout {
-        var workout = run.toCompletedWorkout()
-        CardioDataExtractor.shared.enrichWorkout(&workout, from: run)
-        if let routeWithHR = run.routeWithHR, !routeWithHR.isEmpty {
-            workout.matchedHealthKitHeartRateSamples = routeWithHR.compactMap { point in
-                guard let hr = point.hr else { return nil }
-                return HeartRateSample(timestamp: point.t, bpm: hr)
-            }
-        }
-        return workout
+    /// The detail screens' share: from the workout's live detail handle.
+    private func detailShare(_ run: Run, store: WorkoutStoreV2) async throws -> CompletedWorkout {
+        try XCTUnwrap(store.runDetail(id: run.id).run).sharedWorkout()
     }
     // END HARNESS
 
@@ -209,8 +214,7 @@ final class PostPayloadGoldenTests: XCTestCase {
     func testDetailSharePostsMatchTheirGoldens() async throws {
         for run in [Self.routeAndHeartRate, Self.routeFallback, Self.samplesNoRoute, Self.strength, Self.plain] {
             let store = try await store([run])
-            _ = store
-            let workout = try await detailShare(run)
+            let workout = try await detailShare(run, store: store)
             try check("detail-share-\(run.id.uuidString.suffix(3))", try Self.payload([workout]))
             try? FileManager.default.removeItem(at: directory)
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

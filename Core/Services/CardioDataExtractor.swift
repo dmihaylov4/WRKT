@@ -193,3 +193,21 @@ private extension Color {
                       Int(blue * 255))
     }
 }
+
+extension Run {
+    /// The workout a detail screen shares: the run's conversion with its splits, zones and
+    /// running dynamics, and, when the route carries heart rate, the route's readings as samples.
+    @MainActor
+    func sharedWorkout() -> CompletedWorkout {
+        var workout = toCompletedWorkout()
+        CardioDataExtractor.shared.enrichWorkout(&workout, from: self)
+        // Convert route HR data to samples for the post
+        if let routeWithHR, !routeWithHR.isEmpty {
+            workout.matchedHealthKitHeartRateSamples = routeWithHR.compactMap { point in
+                guard let hr = point.hr else { return nil }
+                return HeartRateSample(timestamp: point.t, bpm: hr)
+            }
+        }
+        return workout
+    }
+}

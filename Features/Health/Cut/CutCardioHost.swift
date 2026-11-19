@@ -302,16 +302,8 @@ struct CutCardioDetailHost: View {
     // MARK: Share (CardioDetailView's flow)
 
     private func enrichedWorkout() -> CompletedWorkout {
-        guard let current = detail.run else { return currentSummary.completedWorkoutWithoutSamples() }
-        var workout = current.toCompletedWorkout()
-        CardioDataExtractor.shared.enrichWorkout(&workout, from: current)
-        if let routeWithHR = current.routeWithHR, !routeWithHR.isEmpty {
-            workout.matchedHealthKitHeartRateSamples = routeWithHR.compactMap { point in
-                guard let hr = point.hr else { return nil }
-                return HeartRateSample(timestamp: point.t, bpm: hr)
-            }
-        }
-        return workout
+        // The full record is here from the first frame; without it, the workout as listed.
+        detail.run?.sharedWorkout() ?? currentSummary.completedWorkoutWithoutSamples()
     }
 
     private func generateMapSnapshotAndShare() async {

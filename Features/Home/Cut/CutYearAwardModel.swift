@@ -95,8 +95,9 @@ enum CutYearAwardLogic {
     /// The workout a Social post of the award is attached to: the year's most recent one.
     /// A feed post always carries a workout, so the award rides on the last one; the user can
     /// change it before posting. Runs already attached to a logged workout are not counted twice.
-    static func socialWorkout(year: Int, workouts: [CompletedWorkout], runs: [Run],
-                              calendar: Calendar = .current) -> CompletedWorkout? {
+    /// Of several ending at the same moment, the first: logged workouts, then runs, each in order.
+    static func socialCandidate(year: Int, workouts: [CompletedWorkout], runs: [RunSummary],
+                                calendar: Calendar = .current) -> HistoryCandidate? {
         guard let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)),
               let end = calendar.date(from: DateComponents(year: year + 1, month: 1, day: 1)) else { return nil }
         let range = start..<end
@@ -105,8 +106,13 @@ enum CutYearAwardLogic {
         let outings = runs
             .filter { range.contains($0.date) && !($0.healthKitUUID.map(matched.contains) ?? false) }
             .map(HistoryCandidate.run)
-        // Picked before converting, in the same order, so equal dates resolve as before.
-        return (logged + outings).max { $0.date < $1.date }?.completedWorkout
+        return (logged + outings).max { $0.date < $1.date }
+    }
+
+    /// `socialCandidate` as the workout a list shows (a run without heart-rate samples).
+    static func socialWorkout(year: Int, workouts: [CompletedWorkout], runs: [RunSummary],
+                              calendar: Calendar = .current) -> CompletedWorkout? {
+        socialCandidate(year: year, workouts: workouts, runs: runs, calendar: calendar)?.completedWorkout
     }
 }
 

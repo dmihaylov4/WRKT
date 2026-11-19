@@ -290,9 +290,9 @@ extension RunSummary {
 /// a few entries convert only those runs.
 enum HistoryCandidate {
     case workout(CompletedWorkout)
-    case run(Run)
+    case run(RunSummary)
 
-    /// The date the converted workout would have: `toCompletedWorkout` keeps the run's date.
+    /// The date the converted workout has: the conversion keeps the run's date.
     var date: Date {
         switch self {
         case .workout(let workout): return workout.date
@@ -300,11 +300,32 @@ enum HistoryCandidate {
         }
     }
 
+    /// The workout as a list shows it. A run's has no heart-rate samples; use `completed(in:)`
+    /// for one that is posted.
     var completedWorkout: CompletedWorkout {
         switch self {
         case .workout(let workout): return workout
-        case .run(let run): return run.toCompletedWorkout()
+        case .run(let run): return run.completedWorkoutWithoutSamples()
         }
+    }
+
+    /// The workout as it is posted: a run's full conversion, samples included. A run that can
+    /// no longer be read gives its list form.
+    @MainActor
+    func completed(in store: WorkoutStoreV2) async -> CompletedWorkout {
+        guard case .run(let run) = self else { return completedWorkout }
+        if case .loaded(let full)? = try? await store.loadRun(id: run.id) { return full.toCompletedWorkout() }
+        return completedWorkout
+    }
+
+    /// Newest first; on equal dates, the given order. Explicit, so ties never depend on the
+    /// sort algorithm.
+    static func newestFirst(_ candidates: [HistoryCandidate]) -> [HistoryCandidate] {
+        candidates.enumerated()
+            .sorted { lhs, rhs in
+                lhs.element.date != rhs.element.date ? lhs.element.date > rhs.element.date : lhs.offset < rhs.offset
+            }
+            .map(\.element)
     }
 }
 
