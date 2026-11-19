@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import simd
 import Testing
 @testable import WRKT
 
@@ -12,6 +13,7 @@ struct CutYearAwardContentTests {
         #expect(content.yearText == "2026")
         #expect(content.title == "Your 2026 award")
         #expect(content.shareTitle == "My 2026 in Volia")
+        #expect(content.shareFileName == "Volia 2026 award.png")
         // The first card's share line, balanced on two lines, without its full stop.
         #expect(content.headlineLines == ["I lifted the", "Riesenrad"])
         // All four cards: time gives way, three rows in card order.
@@ -191,5 +193,240 @@ struct CutYearAwardLightTests {
         for _ in 0..<200 { value = CutYearAwardLight.smoothed(value, toward: CutYearAwardTilt(yaw: 6, lean: 2)) }
         #expect(abs(value.yaw - 6) < 0.001)
         #expect(abs(value.lean - 2) < 0.001)
+    }
+}
+
+/// The 3D award object: which award shows, what is cut into it, how it moves and its shape.
+struct CutYearAwardObjectTests {
+    @Test func releaseBuildsNeverShowTheObject() {
+        #expect(!CutYearAwardRendering.usesObject(stored: nil, isDebug: false))
+        #expect(!CutYearAwardRendering.usesObject(stored: true, isDebug: false))
+    }
+
+    @Test func debugBuildsDefaultToTheObjectAndFollowTheSwitch() {
+        #expect(CutYearAwardRendering.usesObject(stored: nil, isDebug: true))
+        #expect(CutYearAwardRendering.usesObject(stored: true, isDebug: true))
+        #expect(!CutYearAwardRendering.usesObject(stored: false, isDebug: true))
+    }
+
+    @Test func storedChoiceIsReadFromDefaults() throws {
+        let defaults = try #require(UserDefaults(suiteName: "CutYearAwardObjectTests"))
+        defaults.removePersistentDomain(forName: "CutYearAwardObjectTests")
+        #if DEBUG
+        #expect(CutYearAwardRendering.usesObject(defaults: defaults))
+        defaults.set(false, forKey: CutYearAwardRendering.objectKey)
+        #expect(!CutYearAwardRendering.usesObject(defaults: defaults))
+        // A launch argument arrives as a string.
+        defaults.set("YES", forKey: CutYearAwardRendering.objectKey)
+        #expect(CutYearAwardRendering.usesObject(defaults: defaults))
+        #else
+        #expect(!CutYearAwardRendering.usesObject(defaults: defaults))
+        #endif
+        defaults.removePersistentDomain(forName: "CutYearAwardObjectTests")
+    }
+
+    @Test func objectCarriesOneQuietLine() {
+        let stats = CutYearReviewStats.sample(year: 2026)
+        let content = CutYearAwardLogic.content(stats: stats, unit: .kg, cards: CutYearReviewLogic.cards(for: stats))
+        #expect(content.objectLine == "142 workouts, 23 records")
+        #expect(content.objectLine == content.footer)
+        // VoiceOver keeps reading the whole award, rows included.
+        #expect(content.accessibilityText.contains("one giant wheel"))
+    }
+
+    @Test func sharedObjectCarriesTheRowsInItsCaption() {
+        let stats = CutYearReviewStats.sample(year: 2026)
+        let content = CutYearAwardLogic.content(stats: stats, unit: .kg, cards: CutYearReviewLogic.cards(for: stats))
+        let lines = content.objectShareCaption.components(separatedBy: "\n")
+        #expect(lines.first == content.shareTitle)
+        #expect(lines.count == 1 + content.rows.count)
+        // Numbers only: the comparisons ("one giant wheel") stay out of the caption.
+        #expect(lines[1] == content.rows[0].value)
+        #expect(lines[3] == "9 weeks")
+        #expect(!content.objectShareCaption.contains("giant wheel"))
+    }
+
+    @Test func sharedObjectWithoutRowsIsJustTheTitle() {
+        let content = CutYearAwardContent(year: 2026, headlineLines: ["Ready for", "next year"], rows: [],
+                                          footer: "0 workouts")
+        #expect(content.objectShareCaption == "My 2026 in Volia")
+    }
+
+    @Test func sharePoseIsCalmerThanRestAndWithinTheLimits() {
+        let share = CutYearAwardShare.pose, rest = CutYearAwardLight.staticPose
+        #expect(abs(share.yaw) <= abs(rest.yaw))
+        #expect(abs(share.lean) <= abs(rest.lean))
+        #expect(share.yaw != 0)
+        #expect(abs(share.yaw) <= CutYearAwardLight.maxAngle)
+    }
+
+    @Test func sharedPictureIsLandscapeAndNeedsNoResampling() {
+        let size = CutYearAwardShare.pixelSize
+        // The upload resamples anything over 1200 on a side.
+        #expect(max(size.width, size.height) <= 1200)
+        let aspect = size.width / size.height
+        #expect(aspect > 1.6 && aspect < 2.2)
+        // The plate has the picture's shape.
+        let plate = CGFloat(CutYearAwardShare.slab.width / CutYearAwardShare.slab.height)
+        #expect(abs(plate - aspect) < 0.01)
+    }
+
+    @Test func filledFrameShowsTheMiddleOfThePicture() {
+        let wide = CutYearAwardShare.visibleRect(pictureAspect: 2, frame: CGSize(width: 100, height: 100))
+        #expect(abs(wide.width - 0.5) < 1e-9 && abs(wide.minX - 0.25) < 1e-9 && wide.height == 1)
+        let tall = CutYearAwardShare.visibleRect(pictureAspect: 1, frame: CGSize(width: 200, height: 100))
+        #expect(abs(tall.height - 0.5) < 1e-9 && abs(tall.minY - 0.25) < 1e-9 && tall.width == 1)
+        #expect(CutYearAwardShare.visibleRect(pictureAspect: 1, frame: .zero) == .zero)
+    }
+
+    @Test func engravingSurvivesEveryPostFrame() {
+        let aspect = CutYearAwardShare.pixelSize.width / CutYearAwardShare.pixelSize.height
+        for style in [CutYearAwardShare.Style.face, .object] {
+            let content = CutYearAwardShare.contentRect(style)
+            // From the smallest current iPhone to the widest.
+            for width in [375.0, 390, 393, 402, 430, 440] as [CGFloat] {
+                for frame in CutYearAwardShare.postFrames(screenWidth: width) {
+                    let visible = CutYearAwardShare.visibleRect(pictureAspect: aspect, frame: frame)
+                    #expect(visible.contains(content), "\(style) at \(width) pt in \(frame)")
+                }
+            }
+        }
+    }
+
+    @Test func faceStyleShowsOnlySteel() {
+        #expect(!CutYearAwardShare.showsEdge(.face))
+        #expect(CutYearAwardShare.showsEdge(.object))
+    }
+
+    @Test func sharedPlateKeepsTheAwardsCutAndCrown() {
+        let shape = CutYearAwardShare.slab
+        let outline = CutYearAwardSlab.outline(shape)
+        let cut = outline[3] - outline[4]
+        #expect(abs(cut.x - shape.cut) < 1e-6 && abs(cut.y - shape.cut) < 1e-6)
+        #expect(abs(outline[2].x - shape.width / 2) < 1e-6 && abs(outline[2].y - shape.height / 2) < 1e-6)
+        let side = CutYearAwardSlab.crownNormal(at: SIMD2(shape.width / 2, 0), in: shape)
+        #expect(abs(acos(side.z) * 180 / .pi - CutYearAwardSlab.crownSideAngle) < 0.01)
+        #expect(CutYearAwardSlab.outline == CutYearAwardSlab.outline(CutYearAwardSlab.plaque))
+    }
+
+    @Test func shareStyleArgumentIsReadAndDefaultsToTheFace() {
+        #expect(CutYearAwardShare.style(arguments: ["app"]) == .face)
+        #expect(CutYearAwardShare.style(arguments: ["-CutYearAwardShareStyle", "object"]) == .object)
+        #expect(CutYearAwardShare.style(arguments: ["-CutYearAwardShareStyle", "nope"]) == .face)
+        #expect(CutYearAwardShare.style(arguments: ["-CutYearAwardShareStyle"]) == .face)
+    }
+
+    @Test func frameStatsReportTheRateWhileMovingAndTheWorstFrame() {
+        var stats = CutYearAwardFrameStats()
+        #expect(!stats.isDue(at: 100))
+        for index in 0..<10 {
+            stats.recordDrawn(at: 100 + Double(index) / 60, main: index == 3 ? 0.008 : 0.002, wait: 0.001)
+            stats.recordPresented(at: 100 + Double(index) / 60)
+        }
+        // A pause: the object came to rest. The idle time is not counted.
+        stats.pause()
+        stats.recordPresented(at: 103)
+        stats.recordPresented(at: 103 + 1.0 / 30)
+        stats.recordPresented(at: 0)
+        #expect(stats.drawn == 10 && stats.presented == 12 && stats.dropped == 1)
+        #expect(abs(stats.worstGap - 1.0 / 30) < 1e-9)
+        // Ten gaps in 0.183 s of drawing.
+        #expect(abs((stats.framesPerSecond ?? 0) - 10 / (9.0 / 60 + 1.0 / 30)) < 1e-6)
+        #expect(abs(stats.mainWorst - 0.008) < 1e-12)
+        #expect(stats.isDue(at: 105.1) && !stats.isDue(at: 104))
+        let line = stats.summary("every 5 s")
+        #expect(line.hasPrefix("Year award frames (every 5 s): 10 drawn, 12 shown, 1 dropped"))
+        #expect(line.contains("worst gap 33.3 ms") && line.contains("main thread mean 2.6 ms, worst 8.0 ms"))
+        stats.reset()
+        #expect(stats.drawn == 0 && stats.windowStart == nil && stats.framesPerSecond == nil)
+        // The run of presentations goes on across the reset.
+        stats.recordPresented(at: 103 + 2.0 / 30)
+        #expect(stats.gaps == 1)
+    }
+
+    @Test func fixedTiltIsParsedAndClamped() {
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["app"]) == nil)
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt"]) == nil)
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt", "nope"]) == nil)
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt", "-6, 3"])
+                == CutYearAwardTilt(yaw: -6, lean: 3))
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt", "40,-40"])
+                == CutYearAwardTilt(yaw: CutYearAwardLight.maxAngle, lean: -CutYearAwardLight.maxAngle))
+    }
+
+    @Test func springReachesItsTargetAndSettles() {
+        var spring = CutYearAwardSpring(value: 75)
+        for _ in 0..<120 { spring.step(toward: 0, parameters: .arrival, deltaTime: 1.0 / 60) }
+        #expect(spring.isSettled(at: 0))
+        #expect(!CutYearAwardSpring(value: 1).isSettled(at: 0))
+    }
+
+    @Test func releaseSpringOvershootsLikeTheSwiftUISpringBack() {
+        var spring = CutYearAwardSpring(value: 10)
+        var lowest = spring.value
+        for _ in 0..<120 {
+            spring.step(toward: 0, parameters: .release, deltaTime: 1.0 / 60)
+            lowest = min(lowest, spring.value)
+        }
+        #expect(lowest < -0.5)
+        var follow = CutYearAwardSpring(value: 10)
+        var followLowest = follow.value
+        for _ in 0..<120 {
+            follow.step(toward: 0, parameters: .follow, deltaTime: 1.0 / 60)
+            followLowest = min(followLowest, follow.value)
+        }
+        #expect(followLowest > -0.01)
+    }
+
+    @Test func aLongFrameDoesNotBlowTheSpringUp() {
+        var spring = CutYearAwardSpring(value: 14)
+        spring.step(toward: 0, parameters: .follow, deltaTime: 2)
+        #expect(spring.value.isFinite)
+        #expect(abs(spring.value) < 14)
+        var still = CutYearAwardSpring(value: 3)
+        still.step(toward: 0, parameters: .follow, deltaTime: 0)
+        still.step(toward: 0, parameters: .follow, deltaTime: .nan)
+        #expect(still.value == 3)
+    }
+
+    @Test func outlineHasTheCutCornerAtFortyFiveDegrees() {
+        let outline = CutYearAwardSlab.outline
+        #expect(outline.count == 5)
+        let cut = outline[3] - outline[4]
+        #expect(abs(cut.x - CutYearAwardSlab.cut) < 1e-6)
+        #expect(abs(cut.y - CutYearAwardSlab.cut) < 1e-6)
+    }
+
+    @Test func insetMovesEveryEdgeInByTheSameDistance() {
+        let distance: Float = 0.007
+        let inset = CutYearAwardSlab.inset(CutYearAwardSlab.outline, by: distance)
+        let w = CutYearAwardSlab.width / 2, h = CutYearAwardSlab.height / 2
+        #expect(abs(inset[0].x - (-w + distance)) < 1e-5)
+        #expect(abs(inset[0].y - (-h + distance)) < 1e-5)
+        #expect(abs(inset[2].x - (w - distance)) < 1e-5)
+        #expect(abs(inset[2].y - (h - distance)) < 1e-5)
+        // The cut stays at 45 degrees and is as far from the original cut as the other edges.
+        let cut = inset[3] - inset[4]
+        #expect(abs(cut.x - cut.y) < 1e-5)
+        let normal = simd_normalize(SIMD2<Float>(1, -1))
+        let gap = simd_dot(inset[4] - CutYearAwardSlab.outline[4], normal)
+        #expect(abs(gap - distance) < 1e-5)
+        #expect(CutYearAwardSlab.inset(CutYearAwardSlab.outline, by: 0) == CutYearAwardSlab.outline)
+    }
+
+    @Test func crownFallsAwayTowardTheEdges() {
+        let centre = CutYearAwardSlab.crownNormal(at: .zero)
+        #expect(centre == SIMD3<Float>(0, 0, 1))
+        let side = CutYearAwardSlab.crownNormal(at: SIMD2(CutYearAwardSlab.width / 2, 0))
+        let angle = acos(side.z) * 180 / .pi
+        #expect(abs(angle - CutYearAwardSlab.crownSideAngle) < 0.01)
+        #expect(CutYearAwardSlab.crownNormal(at: SIMD2(-0.1, 0)).x < 0)
+        #expect(CutYearAwardSlab.crownNormal(at: SIMD2(0, 0.2)).y > 0)
+    }
+
+    @Test func cameraShowsTheViewHeightAtTheObjectPlane() {
+        let distance = CutYearAwardSlab.cameraDistance(viewHeight: 476, fieldOfView: 24)
+        let visible = 2 * distance * tan(12 * Float.pi / 180)
+        #expect(abs(visible - 0.476) < 1e-5)
     }
 }

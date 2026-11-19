@@ -87,26 +87,29 @@ final class PostCreationViewModel {
         error = nil
         retryAttempt = 0
 
-        // Step 1: Upload the attached picture and user-picked photos (if any)
+        // Step 1: Upload the attached picture and user-picked photos (if any). The attached
+        // picture goes first, public, under its own file name so the post can be recognised
+        // as the year award's (see PostImage.isYearAwardImage).
         var uploadedUserPhotos: [PostImage] = []
-        let photosToUpload = (attachedImage.map { [$0] } ?? []) + photoImages
-        if !photosToUpload.isEmpty {
-            let pickedPrivacy = imagePrivacySettings.count == photoImages.count
-                ? imagePrivacySettings
-                : Array(repeating: true, count: photoImages.count)
-            let privacySettings = (attachedImage == nil ? [] : [true]) + pickedPrivacy
-
+        let batches: [(images: [UIImage], isPublic: [Bool], prefix: String)] = [
+            (attachedImage.map { [$0] } ?? [], attachedImage == nil ? [] : [true], PostImage.yearAwardPrefix),
+            (photoImages,
+             imagePrivacySettings.count == photoImages.count ? imagePrivacySettings : Array(repeating: true, count: photoImages.count),
+             "workout")
+        ]
+        for batch in batches where !batch.images.isEmpty {
             let uploadResult = await retryManager.uploadWithRetry {
                 try await self.imageUploadService.uploadWorkoutImages(
-                    images: photosToUpload,
+                    images: batch.images,
                     userId: currentUserId,
-                    isPublic: privacySettings
+                    isPublic: batch.isPublic,
+                    fileNamePrefix: batch.prefix
                 )
             }
 
             switch uploadResult {
             case .success(let images):
-                uploadedUserPhotos = images
+                uploadedUserPhotos += images
 
             case .failure(let err, let attempts):
                 let userError = errorHandler.handleError(err, context: .imageUpload)

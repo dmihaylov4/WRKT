@@ -282,6 +282,9 @@ private struct CutYearAwardEngraving: View {
 final class CutYearAwardMotion {
     private(set) var tilt: CutYearAwardTilt = .zero
 
+    /// Called after every change of `tilt`, for a reader that draws on its own schedule (the
+    /// 3D object) instead of through SwiftUI.
+    @ObservationIgnored var onTiltChange: (() -> Void)?
     @ObservationIgnored private let manager = CMMotionManager()
     @ObservationIgnored private var baseline: (roll: Double, pitch: Double)?
     @ObservationIgnored private var filtered: CutYearAwardTilt = .zero
@@ -303,7 +306,10 @@ final class CutYearAwardMotion {
         if manager.isDeviceMotionActive { manager.stopDeviceMotionUpdates() }
         baseline = nil
         filtered = .zero
-        if tilt != .zero { tilt = .zero }
+        if tilt != .zero {
+            tilt = .zero
+            onTiltChange?()
+        }
     }
 
     private func receive(roll: Double, pitch: Double) {
@@ -315,6 +321,7 @@ final class CutYearAwardMotion {
         // Skip changes too small to see, so a phone lying still does not redraw the plaque.
         if abs(filtered.yaw - tilt.yaw) > 0.05 || abs(filtered.lean - tilt.lean) > 0.05 {
             tilt = filtered
+            onTiltChange?()
         }
     }
 }
@@ -343,13 +350,14 @@ private struct CutYearAwardLivePlaque: View {
     let content: CutYearAwardContent
     let motion: CutYearAwardMotion
     let reduceMotion: Bool
+    var fixedTilt: CutYearAwardTilt?
 
     @State private var drag: CutYearAwardTilt = .zero
 
     var body: some View {
         let pose = reduceMotion
             ? CutYearAwardLight.staticPose
-            : CutYearAwardLight.pose(tilt: motion.tilt + drag)
+            : CutYearAwardLight.pose(tilt: (fixedTilt ?? motion.tilt) + drag)
         CutYearAwardPosedPlaque(content: content, pose: pose)
             .contentShape(Rectangle())
             .gesture(dragGesture, isEnabled: !reduceMotion)
@@ -379,10 +387,28 @@ struct CutYearAwardStep: View {
 
     @State private var motion = CutYearAwardMotion()
     @State private var image: UIImage?
+    /// The picture as a named PNG file, for the system share sheet.
+    @State private var shareFile: URL?
     @State private var landed = false
     @State private var canPost = false
     @State private var composing = false
     @State private var postWorkout: CompletedWorkout?
+    /// Debug builds can show the RealityKit object instead of the SwiftUI plaque.
+    @State private var usesObject = CutYearAwardRendering.usesObject()
+    @State private var objectFailed = false
+    /// Whether `image` is the 3D object's still rather than the SwiftUI plaque's picture.
+    @State private var imageIsObject = false
+
+    /// Debug screenshots: a fixed tilt, no motion and no arrival.
+    private static let fixedTilt: CutYearAwardTilt? = {
+        #if DEBUG
+        CutYearAwardRendering.fixedTilt(arguments: ProcessInfo.processInfo.arguments)
+        #else
+        nil
+        #endif
+    }()
+
+    private var showsObject: Bool { usesObject && !objectFailed }
 
     private var content: CutYearAwardContent {
         CutYearAwardLogic.content(stats: stats, unit: unit, cards: cards)
@@ -395,12 +421,21 @@ struct CutYearAwardStep: View {
             GeometryReader { proxy in
                 let fit = min(1, proxy.size.width / CutYearAwardPlaque.size.width,
                               proxy.size.height / (CutYearAwardPlaque.size.height + 12))
-                CutYearAwardLivePlaque(content: content, motion: motion, reduceMotion: reduceMotion)
-                    .rotation3DEffect(.degrees(landed ? 0 : 75), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-                    .offset(y: landed ? 0 : -24)
-                    .opacity(landed ? 1 : 0)
-                    .scaleEffect(fit)
-                    .frame(width: proxy.size.width, height: proxy.size.height)
+                if showsObject {
+                    CutYearAwardObjectPlaque(content: content, motion: motion, reduceMotion: reduceMotion,
+                                             active: scenePhase == .active && !composing, fit: fit,
+                                             fixedTilt: Self.fixedTilt, onFailure: objectDidFail,
+                                             onShareImage: { objectDidDrawShareImage($0, content: content) })
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                } else {
+                    CutYearAwardLivePlaque(content: content, motion: motion, reduceMotion: reduceMotion,
+                                           fixedTilt: Self.fixedTilt)
+                        .rotation3DEffect(.degrees(landed ? 0 : 75), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                        .offset(y: landed ? 0 : -24)
+                        .opacity(landed ? 1 : 0)
+                        .scaleEffect(fit)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                }
             }
             actions(content)
         }
@@ -413,9 +448,11 @@ struct CutYearAwardStep: View {
         .onChange(of: composing) { updateMotion() }
         .onChange(of: reduceMotion) { updateMotion() }
         .task { prepare(content) }
+        .onChange(of: image) { shareFile = Self.writeShareFile(image, named: content.shareFileName) }
         .sheet(isPresented: $composing) {
             if let image {
-                PostCreationView(attachedImage: image, caption: content.shareTitle,
+                PostCreationView(attachedImage: image,
+                                 caption: imageIsObject ? content.objectShareCaption : content.shareTitle,
                                  workout: postWorkout, title: "Share Award")
                     .environment(\.dependencies, deps)
             }
@@ -423,17 +460,12 @@ struct CutYearAwardStep: View {
     }
 
     private func header(_ content: CutYearAwardContent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(content.title)
-                .cutHero(.xs)
-                .accessibilityAddTraits(.isHeader)
-            Text(reduceMotion ? "Yours to keep, engraved in steel." : "Tilt your phone to catch the light.")
-                .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout))
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The title alone: the award explains itself, with no hint line under it.
+        Text(content.title)
+            .cutHero(.xs)
+            .accessibilityAddTraits(.isHeader)
+            .foregroundStyle(DS.Cut.Colors.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -463,9 +495,30 @@ struct CutYearAwardStep: View {
     private func systemShare<Label: View>(_ content: CutYearAwardContent, @ViewBuilder label: () -> Label) -> some View {
         if let image {
             let picture = Image(uiImage: image)
-            ShareLink(item: picture, preview: SharePreview(content.shareTitle, image: picture), label: label)
+            let preview = SharePreview(content.shareTitle, image: picture)
+            // A file keeps its name. A bare image arrives over AirDrop as a hidden temporary
+            // file (".com.apple.Foundation.NSItemProvider..."), greyed out in Finder.
+            if let shareFile {
+                ShareLink(item: shareFile, preview: preview, label: label)
+            } else {
+                ShareLink(item: picture, preview: preview, label: label)
+            }
         } else {
             Button(action: {}, label: label).disabled(true)
+        }
+    }
+
+    /// Writes the picture to a folder of its own in the temporary directory, replacing the last one.
+    private static func writeShareFile(_ image: UIImage?, named name: String) -> URL? {
+        guard let data = image?.pngData() else { return nil }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("YearAward", isDirectory: true)
+        let file = folder.appendingPathComponent(name)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try data.write(to: file, options: .atomic)
+            return file
+        } catch {
+            return nil
         }
     }
 
@@ -479,8 +532,9 @@ struct CutYearAwardStep: View {
     /// The plaque arrives once, turning in from the side, with one tap as it lands.
     private func arrive() {
         updateMotion()
-        guard !landed else { return }
-        guard !reduceMotion else {
+        // The object turns itself in once it is ready.
+        guard !landed, !showsObject else { return }
+        guard !reduceMotion, Self.fixedTilt == nil else {
             landed = true
             return
         }
@@ -488,8 +542,22 @@ struct CutYearAwardStep: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { Haptics.rigid() }
     }
 
+    /// The object could not be built: the SwiftUI plaque takes its place and arrives as usual.
+    private func objectDidFail() {
+        objectFailed = true
+        imageIsObject = false
+        image = Self.renderShareImage(content)
+        arrive()
+    }
+
+    /// The object's still arrived: it is what gets shared. Without one, the SwiftUI picture.
+    private func objectDidDrawShareImage(_ still: UIImage?, content: CutYearAwardContent) {
+        imageIsObject = still != nil
+        image = still ?? Self.renderShareImage(content)
+    }
+
     private func updateMotion() {
-        if !reduceMotion, scenePhase == .active, !composing {
+        if !reduceMotion, scenePhase == .active, !composing, Self.fixedTilt == nil {
             motion.start()
         } else {
             motion.stop()
@@ -498,7 +566,8 @@ struct CutYearAwardStep: View {
 
     /// Renders the shared picture and checks whether a Social post is possible.
     private func prepare(_ content: CutYearAwardContent) {
-        image = Self.renderShareImage(content)
+        // The 3D object hands over its own picture once it has landed.
+        if !showsObject { image = Self.renderShareImage(content) }
         canPost = deps.authService.currentUser != nil
         postWorkout = CutYearAwardLogic.socialWorkout(year: stats.year, workouts: deps.workoutStore.completedWorkouts,
                                                       runs: deps.workoutStore.runs)

@@ -23,6 +23,8 @@ struct CutSettingsHost: View {
     private var useRoundedShapes = DS.Redesign.roundedShapesDefault
     @AppStorage(DS.Redesign.cutPreferenceKey)
     private var useCut = DS.Redesign.cutDefault
+    @AppStorage(CutYearAwardRendering.objectKey)
+    private var yearAward3D = true
     @Environment(\.dependencies) private var dependencies
     #endif
 
@@ -84,7 +86,8 @@ struct CutSettingsHost: View {
     @ViewBuilder
     private var content: some View {
         #if DEBUG
-        CutSettingsView(model: model, roundedShapes: $useRoundedShapes, cutDesign: $useCut, actions: actions)
+        CutSettingsView(model: model, roundedShapes: $useRoundedShapes, cutDesign: $useCut,
+                        yearAward3D: $yearAward3D, actions: actions)
         #else
         CutSettingsView(model: model, actions: actions)
         #endif
@@ -147,7 +150,7 @@ struct CutSettingsHost: View {
     private func runDebug(_ row: CutSettingsModel.DebugRow) {
         #if DEBUG
         switch row {
-        case .roundedShapes, .cutDesign:
+        case .roundedShapes, .cutDesign, .yearAward3D:
             break
         case .replayLaunch:
             var transaction = Transaction()

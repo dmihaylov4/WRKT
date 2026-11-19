@@ -422,6 +422,8 @@ final class FeedViewModel {
         guard let currentUserId = authService.currentUser?.id,
               post.post.userId == currentUserId,
               post.post.workoutData.isCardioWorkout,
+              // The year award rides on a run but is not about it: no route map is added.
+              !(post.post.images ?? []).contains(where: \.isYearAwardImage),
               let healthKitUUID = post.post.workoutData.matchedHealthKitUUID else {
             return false
         }

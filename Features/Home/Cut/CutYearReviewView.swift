@@ -19,10 +19,13 @@ final class CutYearReviewCenter {
     static let shared = CutYearReviewCenter()
 
     private(set) var presented: CutYearReviewStats?
+    /// The deck's first card: 0, the opening card, except for Debug screenshots.
+    private(set) var startStep = 0
     @ObservationIgnored private var marksSeen = false
 
-    func present(_ stats: CutYearReviewStats, marksSeen: Bool = false) {
+    func present(_ stats: CutYearReviewStats, marksSeen: Bool = false, startStep: Int = 0) {
         self.marksSeen = marksSeen
+        self.startStep = startStep
         presented = stats
     }
 
@@ -59,7 +62,8 @@ struct CutYearReviewOverlay: View {
     var body: some View {
         ZStack {
             if let stats = center.presented {
-                CutYearReviewDeck(stats: stats, unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg) { seen in
+                CutYearReviewDeck(stats: stats, unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg,
+                                  startStep: center.startStep) { seen in
                     center.dismiss(seen: seen)
                 }
                 .transition(.opacity)
@@ -67,6 +71,16 @@ struct CutYearReviewOverlay: View {
         }
         .animation(.easeOut(duration: 0.25), value: center.presented != nil)
         .task {
+            #if DEBUG
+            // Screenshots: `-CutYearAwardDemo` opens the award card with the sample year.
+            if ProcessInfo.processInfo.arguments.contains("-CutYearAwardDemo") {
+                // After the launch animation, so the award's arrival can be seen.
+                try? await Task.sleep(for: .seconds(1.5))
+                let stats = CutYearReviewStats.sample(year: Calendar.current.component(.year, from: .now))
+                center.present(stats, startStep: CutYearReviewLogic.cards(for: stats).count + 1)
+                return
+            }
+            #endif
             // After the store has loaded and the first screen has settled.
             try? await Task.sleep(for: .seconds(1.5))
             center.presentIfDue(store: deps.workoutStore)
@@ -124,6 +138,12 @@ struct CutYearReviewDeck: View {
         })
         .environment(\.colorScheme, .dark)
         .accessibilityAddTraits(.isModal)
+        .task {
+            // Builds the 3D award while the cards play, so it is ready on the last one.
+            guard CutYearAwardRendering.usesObject() else { return }
+            CutYearAwardStageCache.shared.prepare(CutYearAwardLogic.content(stats: stats, unit: unit, cards: cards))
+        }
+        .onDisappear { CutYearAwardStageCache.shared.release() }
     }
 
     /// The opening card floats over the dimmed app; the deck gets its own black screen. The
