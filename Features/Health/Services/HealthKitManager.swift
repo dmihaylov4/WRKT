@@ -630,8 +630,8 @@ final class HealthKitManager: ObservableObject {
 
                 // Apply results on main actor
                 await MainActor.run {
-                    if !batchResults.updatedRuns.isEmpty {
-                        store.batchUpdateRuns(batchResults.updatedRuns)
+                    if !batchResults.updates.isEmpty {
+                        store.editRuns(batchResults.updates.map(\.edit))
                     }
 
                     for newRun in batchResults.newRuns {
@@ -679,38 +679,72 @@ final class HealthKitManager: ObservableObject {
         }
     }
 
+    /// What a HealthKit workout says about a workout already in history: its totals, type and
+    /// name, and heart rate when it was missing and has now been read. Applied by id to the
+    /// workout as it is when the edit lands, so nothing that changed in between is lost.
+    struct HealthImportUpdate: Sendable {
+        let id: UUID
+        let date: Date?
+        let distanceKm: Double
+        let durationSec: Int
+        let calories: Double?
+        let workoutType: String
+        let workoutName: String?
+        /// Set when the stored average was missing or zero: the value read, possibly nil.
+        var avgHeartRate: Double??
+        var maxHeartRate: Double?
+        var minHeartRate: Double?
+        var hrSamples: [HeartRateSample]?
+
+        var edit: RunEdit {
+            let update = self
+            return RunEdit(id: id, light: { run in
+                if let date = update.date { run.date = date }
+                run.distanceKm = update.distanceKm
+                run.durationSec = update.durationSec
+                run.calories = update.calories
+                run.workoutType = update.workoutType
+                run.workoutName = update.workoutName
+                if let average = update.avgHeartRate {
+                    run.avgHeartRate = average
+                    if let max = update.maxHeartRate { run.maxHeartRate = max }
+                    if let min = update.minHeartRate { run.minHeartRate = min }
+                }
+            }, hrSamples: update.hrSamples.map { .some($0) })
+        }
+    }
+
     /// Process a batch of workouts in parallel using TaskGroup
-    private func processBatchInParallel(_ batch: [HKWorkout], store: WorkoutStoreV2) async -> (updatedRuns: [Run], newRuns: [Run]) {
-        var updatedRuns: [Run] = []
+    private func processBatchInParallel(_ batch: [HKWorkout], store: WorkoutStoreV2) async -> (updates: [HealthImportUpdate], newRuns: [Run]) {
+        var updates: [HealthImportUpdate] = []
         var newRuns: [Run] = []
 
-        await withTaskGroup(of: (Run?, Bool).self) { group in
+        await withTaskGroup(of: (HealthImportUpdate?, Run?).self) { group in
             // Add tasks for each workout in the batch
             for workout in batch {
                 group.addTask {
                     // Check if run already exists
-                    let existingRun = await MainActor.run {
-                        store.runs.first(where: { $0.healthKitUUID == workout.uuid })
+                    let existing = await MainActor.run {
+                        store.runSummary(healthKitUUID: workout.uuid)
                     }
 
-                    if let existing = existingRun {
+                    if let existing {
                         // Update existing run
-                        var updated = existing
-                        updated.date = workout.endDate
-                        updated.distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
-                        updated.durationSec = workout.duration.safeInt
-                        updated.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
-
-                        let newType = self.workoutActivityTypeName(workout.workoutActivityType)
-                        updated.workoutType = newType
-                        updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+                        var update = HealthImportUpdate(
+                            id: existing.id,
+                            date: workout.endDate,
+                            distanceKm: (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0,
+                            durationSec: workout.duration.safeInt,
+                            calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()),
+                            workoutType: self.workoutActivityTypeName(workout.workoutActivityType),
+                            workoutName: workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String)
 
                         // Fetch heart rate if missing or 0 (Apple Watch data may not be available immediately)
-                        if updated.avgHeartRate == nil || updated.avgHeartRate == 0 {
-                            updated.avgHeartRate = try? await self.averageHeartRate(for: workout)
+                        if existing.avgHeartRate == nil || existing.avgHeartRate == 0 {
+                            update.avgHeartRate = .some(try? await self.averageHeartRate(for: workout))
                         }
 
-                        return (updated, true)  // true = existing
+                        return (update, nil)
                     } else {
                         // Import new workout
                         let km = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
@@ -733,24 +767,19 @@ final class HealthKitManager: ObservableObject {
                             workoutName: workoutName
                         )
 
-                        return (run, false)  // false = new
+                        return (nil, run)
                     }
                 }
             }
 
             // Collect results
-            for await (run, isExisting) in group {
-                if let run = run {
-                    if isExisting {
-                        updatedRuns.append(run)
-                    } else {
-                        newRuns.append(run)
-                    }
-                }
+            for await (update, run) in group {
+                if let update { updates.append(update) }
+                if let run { newRuns.append(run) }
             }
         }
 
-        return (updatedRuns, newRuns)
+        return (updates, newRuns)
     }
 
     @discardableResult
@@ -1077,45 +1106,45 @@ final class HealthKitManager: ObservableObject {
 
         // Check if already imported
         let existing = await MainActor.run {
-            store.runs.first(where: { $0.healthKitUUID == workout.uuid })
+            store.runSummary(healthKitUUID: workout.uuid)
         }
 
         if let existing {
             // Update if needed (e.g., if HealthKit data changed)
-            var updated = existing
-            updated.distanceKm = (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0
-            updated.durationSec = workout.duration.safeInt
-            updated.calories = workout.totalEnergyBurned?.doubleValue(for: .kilocalorie())
             let workoutType = workoutActivityTypeName(workout.workoutActivityType)
-            updated.workoutType = workoutType
-            updated.workoutName = workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String
+            var update = HealthImportUpdate(
+                id: existing.id,
+                date: nil,
+                distanceKm: (workout.totalDistance?.doubleValue(for: .meter()) ?? 0) / 1000.0,
+                durationSec: workout.duration.safeInt,
+                calories: workout.totalEnergyBurned?.doubleValue(for: .kilocalorie()),
+                workoutType: workoutType,
+                workoutName: workout.metadata?[HKMetadataKeyWorkoutBrandName] as? String)
 
             // Refetch heart rate if missing or 0 (Apple Watch data may not be available immediately)
-            if updated.avgHeartRate == nil || updated.avgHeartRate == 0 {
+            if existing.avgHeartRate == nil || existing.avgHeartRate == 0 {
                 if strengthTypes.contains(workout.workoutActivityType) {
                     // Fetch full HR stats for strength workouts (avg, max, min, samples)
                     if let (samples, avg, max, min) = try? await fetchHeartRateSamples(for: workout), avg > 0 {
-                        updated.avgHeartRate = avg
-                        updated.maxHeartRate = max
-                        updated.minHeartRate = min
-                        updated.hrSamples = samples
+                        update.avgHeartRate = .some(avg)
+                        update.maxHeartRate = max
+                        update.minHeartRate = min
+                        update.hrSamples = samples
                         AppLogger.debug("Refetched HR for \(workoutType): avg \(Int(avg)) max \(Int(max)) min \(Int(min)) bpm", category: AppLogger.health)
                     }
                 } else {
-                    updated.avgHeartRate = try? await averageHeartRate(for: workout)
-                    if let hr = updated.avgHeartRate {
+                    let average = try? await averageHeartRate(for: workout)
+                    update.avgHeartRate = .some(average)
+                    if let hr = average {
                         AppLogger.debug("Refetched heart rate for \(workoutType): \(Int(hr)) bpm", category: AppLogger.health)
                     }
                 }
             }
 
-            // Only persist if data actually changed to avoid redundant saves
-            guard updated != existing else { return }
-
-            AppLogger.debug("Updating: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))", category: AppLogger.health)
-
-            await MainActor.run {
-                store.updateRun(updated)
+            // Applied to the workout as it is now; an edit that changes nothing writes nothing.
+            let changed = await MainActor.run { store.editRun(update.edit) }
+            if changed {
+                AppLogger.debug("Updating: \(workoutType) at \(workout.startDate.formatted(date: .abbreviated, time: .shortened))", category: AppLogger.health)
             }
             return
         }
@@ -1415,23 +1444,16 @@ final class HealthKitManager: ObservableObject {
                 }
             }
 
-            // Re-read runs after the queries so an intervening deletion is never resurrected.
-            let enriched = results.compactMap { result -> (stored: Run, updated: Run, enrichment: DetailedRunEnrichment)? in
-                guard let run = workoutStore.runs.first(where: { $0.healthKitUUID == result.uuid }) else { return nil }
-                return (run, applyDetailedRunEnrichment(result.enrichment, to: run), result.enrichment)
+            // Look the workouts up after the queries so an intervening deletion is never resurrected.
+            let edits = results.compactMap { result -> RunEdit? in
+                guard let run = workoutStore.runSummary(healthKitUUID: result.uuid) else { return nil }
+                return RunEdit.enrichment(result.enrichment, id: run.id)
             }
-            if !enriched.isEmpty {
+            if !edits.isEmpty {
                 // A re-read of unchanged HealthKit data still differs in memory, since its dates
                 // carry sub-second precision the file does not keep. Only runs whose stored form
                 // changes are replaced, so a pass that learned nothing writes nothing.
-                let identical = await workoutStore.runsEncodeIdentically(enriched.map { ($0.stored, $0.updated) })
-                let updates = zip(enriched, identical).compactMap { candidate, identical -> Run? in
-                    guard let current = workoutStore.runs.first(where: { $0.id == candidate.stored.id }) else { return nil }
-                    // Changed during the comparison: enrich the current run and write it.
-                    guard current == candidate.stored else { return applyDetailedRunEnrichment(candidate.enrichment, to: current) }
-                    return identical ? nil : candidate.updated
-                }
-                if !updates.isEmpty { workoutStore.batchUpdateRuns(updates) }
+                await workoutStore.editRunsIfStoredFormChanges(edits)
                 // Even with no updates: an earlier failed write of these runs must reach disk
                 // before their tasks complete. A clean store skips the write.
                 try await workoutStore.flushHealthKitChanges()
@@ -1456,8 +1478,9 @@ final class HealthKitManager: ObservableObject {
             // Optional social work starts only after the local data and job outcome commit.
             for task in tasks where task.status != "pending" && (task.allowAutoPost ?? true) {
                 guard let uuid = UUID(uuidString: task.workoutUUID),
-                      let run = workoutStore.runs.first(where: { $0.healthKitUUID == uuid }),
-                      run.workoutType?.lowercased().contains("run") == true, run.distanceKm >= 1 else { continue }
+                      let summary = workoutStore.runSummary(healthKitUUID: uuid),
+                      summary.workoutType?.lowercased().contains("run") == true, summary.distanceKm >= 1,
+                      case .loaded(let run)? = try? await workoutStore.loadRun(id: summary.id) else { continue }
                 Task {
                     await CardioAutoPostService.shared.handleRunIfNeeded(
                         run: run, route: run.route, routeWithHR: run.routeWithHR)
@@ -2102,56 +2125,6 @@ final class HealthKitManager: ObservableObject {
         )
     }
 
-    private func applyDetailedRunEnrichment(_ enrichment: DetailedRunEnrichment, to run: Run) -> Run {
-        var updated = run
-        updated.distanceKm = enrichment.distanceKm
-        updated.durationSec = enrichment.durationSec
-        updated.calories = enrichment.calories
-        updated.workoutType = enrichment.workoutType
-        updated.workoutName = enrichment.workoutName
-        if let splits = enrichment.splits {
-            updated.splits = splits
-        }
-        if let avgHeartRate = enrichment.avgHeartRate {
-            updated.avgHeartRate = avgHeartRate
-        }
-        if let maxHeartRate = enrichment.maxHeartRate {
-            updated.maxHeartRate = maxHeartRate
-        }
-        if let minHeartRate = enrichment.minHeartRate {
-            updated.minHeartRate = minHeartRate
-        }
-        if let hrSamples = enrichment.hrSamples, !hrSamples.isEmpty {
-            updated.hrSamples = hrSamples
-        }
-        if let avgRunningPower = enrichment.avgRunningPower {
-            updated.avgRunningPower = avgRunningPower
-        }
-        if let avgCadence = enrichment.avgCadence {
-            updated.avgCadence = avgCadence
-        }
-        if let avgStrideLength = enrichment.avgStrideLength {
-            updated.avgStrideLength = avgStrideLength
-        }
-        if let avgGroundContactTime = enrichment.avgGroundContactTime {
-            updated.avgGroundContactTime = avgGroundContactTime
-        }
-        if let avgVerticalOscillation = enrichment.avgVerticalOscillation {
-            updated.avgVerticalOscillation = avgVerticalOscillation
-        }
-
-        if let route = enrichment.route, !route.isEmpty {
-            updated.route = route
-        }
-
-        if let routeWithHR = enrichment.routeWithHR, !routeWithHR.isEmpty {
-            updated.routeWithHR = routeWithHR
-            updated.route = routeWithHR.map { Coordinate(lat: $0.lat, lon: $0.lon) }
-        }
-
-        return updated
-    }
-
     // MARK: - Manual Data Refresh for Existing Run
 
     /// Manually fetch and update splits and HR data for an existing run
@@ -2162,7 +2135,7 @@ final class HealthKitManager: ObservableObject {
             return nil
         }
 
-        let run = await MainActor.run { store.runs.first(where: { $0.id == runId }) }
+        let run = await MainActor.run { store.runSummary(id: runId) }
 
         guard let run = run, let workoutUUID = run.healthKitUUID else {
             AppLogger.warning("Cannot refresh detailed data - run not found or no HealthKit UUID", category: AppLogger.health)
@@ -2178,13 +2151,12 @@ final class HealthKitManager: ObservableObject {
                 return nil
             }
             let enrichment = try await fetchDetailedRunEnrichment(for: workout)
-            let updated = applyDetailedRunEnrichment(enrichment, to: run)
 
-            // Update run
-            await MainActor.run {
-                store.updateRun(updated)
-                AppLogger.success("Refreshed detailed data for run: \(updated.splits?.count ?? 0) splits, route: \(updated.route?.count ?? 0) pts, dynamics loaded: \(updated.avgCadence != nil || updated.avgRunningPower != nil)", category: AppLogger.health)
-            }
+            // Applied to the run as it is now, not to the copy read before the HealthKit queries,
+            // so a change that landed meanwhile is kept.
+            store.editRun(RunEdit.enrichment(enrichment, id: run.id))
+            guard case .loaded(let updated)? = try? await store.loadRun(id: run.id) else { return nil }
+            AppLogger.success("Refreshed detailed data for run: \(updated.splits?.count ?? 0) splits, route: \(updated.route?.count ?? 0) pts, dynamics loaded: \(updated.avgCadence != nil || updated.avgRunningPower != nil)", category: AppLogger.health)
             return updated
         } catch {
             AppLogger.error("Failed to refresh detailed data: \(error)", category: AppLogger.health)

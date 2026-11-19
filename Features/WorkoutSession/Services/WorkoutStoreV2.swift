@@ -1090,13 +1090,69 @@ final class WorkoutStoreV2: ObservableObject {
 
         AppLogger.debug("Batch updated \(updateCount)/\(updatedRuns.count) runs", category: AppLogger.health)
         guard updateCount > 0 else { return }
-        runs = runsCopy
+        commitRuns(runsCopy, touched: touched)
+    }
+
+    /// Stores `newRuns`, whose `touched` indices changed, in one change: summaries, handles and
+    /// the queued save follow.
+    private func commitRuns(_ newRuns: [Run], touched: Set<Int>) {
+        runs = newRuns
         var summaries = runSummaries
-        for index in touched { summaries[index] = RunSummary(runsCopy[index]) }
+        for index in touched { summaries[index] = RunSummary(newRuns[index]) }
         runSummaries = summaries
         checkRunSummaries(touched: touched)
-        refreshRunDetails(touched.map { runsCopy[$0].id })
+        refreshRunDetails(touched.map { newRuns[$0].id })
         persistRuns()
+    }
+
+    // MARK: - Edits
+
+    /// Applies one edit to the stored workout, synchronously. Returns whether the workout
+    /// changed; an edit that changes nothing, or whose workout is gone, writes nothing.
+    @discardableResult
+    func editRun(_ edit: RunEdit) -> Bool {
+        !editRuns([edit]).isEmpty
+    }
+
+    /// Applies edits in order, each to the workout as the previous edits left it, in one change.
+    /// Edits whose workout is gone are dropped (an intervening delete is never undone); edits
+    /// that change nothing write nothing. Returns the ids that changed.
+    @discardableResult
+    func editRuns(_ edits: [RunEdit]) -> Set<UUID> {
+        var runsCopy = runs
+        var touched: Set<Int> = []
+        for edit in edits {
+            guard let index = runsCopy.firstIndex(where: { $0.id == edit.id }) else { continue }
+            let updated = edit.applied(to: runsCopy[index])
+            if updated != runsCopy[index] {
+                runsCopy[index] = updated
+                touched.insert(index)
+            }
+        }
+        AppLogger.debug("Edited \(touched.count)/\(edits.count) runs", category: AppLogger.health)
+        guard !touched.isEmpty else { return [] }
+        commitRuns(runsCopy, touched: touched)
+        return Set(touched.map { runsCopy[$0].id })
+    }
+
+    /// `editRuns`, leaving alone each workout whose edited form would encode to the bytes the
+    /// file already holds for it (a re-read of unchanged HealthKit data differs in memory only
+    /// below the file's precision). Encoding runs off the main thread; a workout that changed
+    /// meanwhile gets its edit applied to its current form and is written.
+    @discardableResult
+    func editRunsIfStoredFormChanges(_ edits: [RunEdit]) async -> Set<UUID> {
+        let candidates = edits.compactMap { edit in fullRun(id: edit.id).map { (edit, $0, edit.applied(to: $0)) } }
+        guard !candidates.isEmpty else { return [] }
+        let identical = await runsEncodeIdentically(candidates.map { ($0.1, $0.2) })
+        let updates = zip(candidates, identical).compactMap { candidate, identical -> RunEdit? in
+            let (edit, stored, _) = candidate
+            guard let current = fullRun(id: edit.id) else { return nil }
+            // Changed during the comparison: apply the edit to the current run and write it.
+            guard current == stored else { return edit }
+            // Unchanged: the edit gives the compared form, written only if its bytes differ.
+            return identical ? nil : edit
+        }
+        return editRuns(updates)
     }
 
     /// Whether replacing each first run with its second would leave the runs file unchanged.

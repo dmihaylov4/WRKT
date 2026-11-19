@@ -89,30 +89,27 @@ final class RunHistoryDiskReplayTests: XCTestCase {
     // MARK: - Harness: the writers' operations
 
     private func importUpdate(distanceKm: Double) {
-        guard var run = store.runs.first(where: { $0.id == Self.routed.id }) else { return XCTFail("missing") }
-        run.distanceKm = distanceKm
-        run.calories = 320
-        store.updateRun(run)
+        store.editRun(RunEdit(id: Self.routed.id, light: { run in
+            run.distanceKm = distanceKm
+            run.calories = 320
+        }))
     }
 
     private func strengthHeartRateRefetch() {
-        guard var run = store.runs.first(where: { $0.id == Self.strength.id }) else { return XCTFail("missing") }
-        run.avgHeartRate = 118
-        run.maxHeartRate = 151
-        run.minHeartRate = 72
-        run.hrSamples = (0..<4).map { HeartRateSample(timestamp: Self.start.addingTimeInterval(Double($0) * 60 + 0.25), bpm: 100 + Double($0)) }
-        store.updateRun(run)
+        store.editRun(RunEdit(id: Self.strength.id, light: { run in
+            run.avgHeartRate = 118
+            run.maxHeartRate = 151
+            run.minHeartRate = 72
+        }, hrSamples: .some((0..<4).map { HeartRateSample(timestamp: Self.start.addingTimeInterval(Double($0) * 60 + 0.25), bpm: 100 + Double($0)) })))
     }
 
     private func resyncBatch() {
-        var updates: [Run] = []
-        for id in [Self.routed.id, Self.imported.id] {
-            guard var run = store.runs.first(where: { $0.id == id }) else { return XCTFail("missing") }
-            run.workoutName = "Renamed \(id.uuidString.suffix(1))"
-            run.durationSec += 1
-            updates.append(run)
-        }
-        store.batchUpdateRuns(updates)
+        store.editRuns([Self.routed.id, Self.imported.id].map { id in
+            RunEdit(id: id, light: { run in
+                run.workoutName = "Renamed \(id.uuidString.suffix(1))"
+                run.durationSec += 1
+            })
+        })
     }
     // END HARNESS
 
