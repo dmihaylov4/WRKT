@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import simd
 import Testing
 @testable import WRKT
 
@@ -191,5 +192,130 @@ struct CutYearAwardLightTests {
         for _ in 0..<200 { value = CutYearAwardLight.smoothed(value, toward: CutYearAwardTilt(yaw: 6, lean: 2)) }
         #expect(abs(value.yaw - 6) < 0.001)
         #expect(abs(value.lean - 2) < 0.001)
+    }
+}
+
+/// The 3D award object: which award shows, what is cut into it, how it moves and its shape.
+struct CutYearAwardObjectTests {
+    @Test func releaseBuildsNeverShowTheObject() {
+        #expect(!CutYearAwardRendering.usesObject(stored: nil, isDebug: false))
+        #expect(!CutYearAwardRendering.usesObject(stored: true, isDebug: false))
+    }
+
+    @Test func debugBuildsDefaultToTheObjectAndFollowTheSwitch() {
+        #expect(CutYearAwardRendering.usesObject(stored: nil, isDebug: true))
+        #expect(CutYearAwardRendering.usesObject(stored: true, isDebug: true))
+        #expect(!CutYearAwardRendering.usesObject(stored: false, isDebug: true))
+    }
+
+    @Test func storedChoiceIsReadFromDefaults() throws {
+        let defaults = try #require(UserDefaults(suiteName: "CutYearAwardObjectTests"))
+        defaults.removePersistentDomain(forName: "CutYearAwardObjectTests")
+        #if DEBUG
+        #expect(CutYearAwardRendering.usesObject(defaults: defaults))
+        defaults.set(false, forKey: CutYearAwardRendering.objectKey)
+        #expect(!CutYearAwardRendering.usesObject(defaults: defaults))
+        // A launch argument arrives as a string.
+        defaults.set("YES", forKey: CutYearAwardRendering.objectKey)
+        #expect(CutYearAwardRendering.usesObject(defaults: defaults))
+        #else
+        #expect(!CutYearAwardRendering.usesObject(defaults: defaults))
+        #endif
+        defaults.removePersistentDomain(forName: "CutYearAwardObjectTests")
+    }
+
+    @Test func objectCarriesOneQuietLine() {
+        let stats = CutYearReviewStats.sample(year: 2026)
+        let content = CutYearAwardLogic.content(stats: stats, unit: .kg, cards: CutYearReviewLogic.cards(for: stats))
+        #expect(content.objectLine == "142 workouts, 23 records")
+        #expect(content.objectLine == content.footer)
+        // VoiceOver keeps reading the whole award, rows included.
+        #expect(content.accessibilityText.contains("one giant wheel"))
+    }
+
+    @Test func fixedTiltIsParsedAndClamped() {
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["app"]) == nil)
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt"]) == nil)
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt", "nope"]) == nil)
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt", "-6, 3"])
+                == CutYearAwardTilt(yaw: -6, lean: 3))
+        #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt", "40,-40"])
+                == CutYearAwardTilt(yaw: CutYearAwardLight.maxAngle, lean: -CutYearAwardLight.maxAngle))
+    }
+
+    @Test func springReachesItsTargetAndSettles() {
+        var spring = CutYearAwardSpring(value: 75)
+        for _ in 0..<120 { spring.step(toward: 0, parameters: .arrival, deltaTime: 1.0 / 60) }
+        #expect(spring.isSettled(at: 0))
+        #expect(!CutYearAwardSpring(value: 1).isSettled(at: 0))
+    }
+
+    @Test func releaseSpringOvershootsLikeTheSwiftUISpringBack() {
+        var spring = CutYearAwardSpring(value: 10)
+        var lowest = spring.value
+        for _ in 0..<120 {
+            spring.step(toward: 0, parameters: .release, deltaTime: 1.0 / 60)
+            lowest = min(lowest, spring.value)
+        }
+        #expect(lowest < -0.5)
+        var follow = CutYearAwardSpring(value: 10)
+        var followLowest = follow.value
+        for _ in 0..<120 {
+            follow.step(toward: 0, parameters: .follow, deltaTime: 1.0 / 60)
+            followLowest = min(followLowest, follow.value)
+        }
+        #expect(followLowest > -0.01)
+    }
+
+    @Test func aLongFrameDoesNotBlowTheSpringUp() {
+        var spring = CutYearAwardSpring(value: 14)
+        spring.step(toward: 0, parameters: .follow, deltaTime: 2)
+        #expect(spring.value.isFinite)
+        #expect(abs(spring.value) < 14)
+        var still = CutYearAwardSpring(value: 3)
+        still.step(toward: 0, parameters: .follow, deltaTime: 0)
+        still.step(toward: 0, parameters: .follow, deltaTime: .nan)
+        #expect(still.value == 3)
+    }
+
+    @Test func outlineHasTheCutCornerAtFortyFiveDegrees() {
+        let outline = CutYearAwardSlab.outline
+        #expect(outline.count == 5)
+        let cut = outline[3] - outline[4]
+        #expect(abs(cut.x - CutYearAwardSlab.cut) < 1e-6)
+        #expect(abs(cut.y - CutYearAwardSlab.cut) < 1e-6)
+    }
+
+    @Test func insetMovesEveryEdgeInByTheSameDistance() {
+        let distance: Float = 0.007
+        let inset = CutYearAwardSlab.inset(CutYearAwardSlab.outline, by: distance)
+        let w = CutYearAwardSlab.width / 2, h = CutYearAwardSlab.height / 2
+        #expect(abs(inset[0].x - (-w + distance)) < 1e-5)
+        #expect(abs(inset[0].y - (-h + distance)) < 1e-5)
+        #expect(abs(inset[2].x - (w - distance)) < 1e-5)
+        #expect(abs(inset[2].y - (h - distance)) < 1e-5)
+        // The cut stays at 45 degrees and is as far from the original cut as the other edges.
+        let cut = inset[3] - inset[4]
+        #expect(abs(cut.x - cut.y) < 1e-5)
+        let normal = simd_normalize(SIMD2<Float>(1, -1))
+        let gap = simd_dot(inset[4] - CutYearAwardSlab.outline[4], normal)
+        #expect(abs(gap - distance) < 1e-5)
+        #expect(CutYearAwardSlab.inset(CutYearAwardSlab.outline, by: 0) == CutYearAwardSlab.outline)
+    }
+
+    @Test func crownFallsAwayTowardTheEdges() {
+        let centre = CutYearAwardSlab.crownNormal(at: .zero)
+        #expect(centre == SIMD3<Float>(0, 0, 1))
+        let side = CutYearAwardSlab.crownNormal(at: SIMD2(CutYearAwardSlab.width / 2, 0))
+        let angle = acos(side.z) * 180 / .pi
+        #expect(abs(angle - CutYearAwardSlab.crownSideAngle) < 0.01)
+        #expect(CutYearAwardSlab.crownNormal(at: SIMD2(-0.1, 0)).x < 0)
+        #expect(CutYearAwardSlab.crownNormal(at: SIMD2(0, 0.2)).y > 0)
+    }
+
+    @Test func cameraShowsTheViewHeightAtTheObjectPlane() {
+        let distance = CutYearAwardSlab.cameraDistance(viewHeight: 476, fieldOfView: 24)
+        let visible = 2 * distance * tan(12 * Float.pi / 180)
+        #expect(abs(visible - 0.476) < 1e-5)
     }
 }
