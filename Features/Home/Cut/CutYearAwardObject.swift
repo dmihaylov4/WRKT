@@ -718,10 +718,13 @@ enum CutYearAwardObjectBuilder {
         // Tests the fallback to the SwiftUI plaque.
         if ProcessInfo.processInfo.arguments.contains("-CutYearAwardFailBuild") { throw BuildError.layout }
         let clock = ContinuousClock(), start = clock.now
-        func mark(_ stage: String) { log.info("Year award build: \(stage, privacy: .public) at \(clock.now - start, privacy: .public)") }
+        func mark(_ stage: String) {
+            log.info("Year award build: \(stage, privacy: .public) at \(clock.now - start, privacy: .public), \(CutYearAwardMemory.summary, privacy: .public)")
+        }
         #else
         func mark(_ stage: String) {}
         #endif
+        mark("start")
         guard let mask = CutYearAwardFaceMapBuilder.mask(for: content) else { throw BuildError.layout }
         mark("layout")
         async let mapsTask = Task.detached(priority: .userInitiated) {
@@ -774,3 +777,21 @@ enum CutYearAwardObjectBuilder {
         case maps
     }
 }
+
+#if DEBUG
+/// Debug: the app's memory footprint now and at its highest so far, for the build log.
+enum CutYearAwardMemory {
+    static var summary: String {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) { pointer in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return "footprint unknown" }
+        let mb = { (bytes: UInt64) in String(format: "%.0f MB", Double(bytes) / 1_048_576) }
+        return "footprint \(mb(info.phys_footprint)), peak \(mb(UInt64(info.ledger_phys_footprint_peak)))"
+    }
+}
+#endif

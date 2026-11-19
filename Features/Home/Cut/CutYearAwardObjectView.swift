@@ -40,9 +40,11 @@ final class CutYearAwardStage {
         renderer.lighting.resource = scene.environment
         renderer.lighting.intensityExponent = 0
         renderer.cameraSettings.colorBackground = .color(CGColor(gray: 0, alpha: 0))
-        // 4x multisampling stays: without it the bright chamfer steps visibly against the black
-        // on the cut corner's diagonal and crawls as the object turns. The lettering is in
-        // textures and does not need it. The cost is kept down by keeping the view small.
+        // 4x multisampling (the only other mode is none): without it the bright chamfer steps
+        // visibly against the black on the cut corner's diagonal and crawls as the object turns.
+        // The lettering is in textures and does not need it. Drawing at 2x instead of the
+        // screen's 3x softens the small line, so the layer keeps the screen's scale and the
+        // cost is kept down by keeping the view only as large as the turned object.
         renderer.cameraSettings.antialiasing = .multisample4X
         setPose(CutYearAwardLight.staticPose)
     }
@@ -110,7 +112,7 @@ final class CutYearAwardStage {
 @MainActor
 final class CutYearAwardStageCache {
     static let shared = CutYearAwardStageCache()
-    private static let log = Logger(subsystem: "com.dmihaylov.trak", category: "YearAward")
+    static let log = Logger(subsystem: "com.dmihaylov.trak", category: "YearAward")
 
     private var content: CutYearAwardContent?
     private var task: Task<CutYearAwardStage?, Never>?
@@ -127,10 +129,7 @@ final class CutYearAwardStageCache {
                 let scene = try await CutYearAwardObjectBuilder.build(content: content)
                 let stage = try CutYearAwardStage(scene: scene, device: device)
                 #if DEBUG
-                Self.log.info("Year award stage at \(ContinuousClock.now - start, privacy: .public)")
-                #endif
-                #if DEBUG
-                Self.log.info("Year award object built in \(ContinuousClock.now - start, privacy: .public)")
+                Self.log.info("Year award object built in \(ContinuousClock.now - start, privacy: .public), \(CutYearAwardMemory.summary, privacy: .public)")
                 #endif
                 return stage
             } catch {
@@ -253,6 +252,10 @@ final class CutYearAwardObjectController {
     @ObservationIgnored private var active = true
     @ObservationIgnored private var link: CADisplayLink?
     @ObservationIgnored private var lastTimestamp: CFTimeInterval?
+    #if DEBUG
+    /// Debug: main thread time spent per frame since the display link started.
+    @ObservationIgnored private var frameCost: (frames: Int, total: Duration, worst: Duration) = (0, .zero, .zero)
+    #endif
 
     /// The turn the object arrives from, in degrees: as the SwiftUI plaque did.
     static let arrivalYaw: Double = 75
@@ -336,6 +339,13 @@ final class CutYearAwardObjectController {
     }
 
     private func stopLink() {
+        #if DEBUG
+        if frameCost.frames > 0 {
+            let mean = frameCost.total / frameCost.frames
+            CutYearAwardStageCache.log.info("Year award frames: \(self.frameCost.frames) drawn, main thread mean \(mean, privacy: .public), worst \(self.frameCost.worst, privacy: .public)")
+            frameCost = (0, .zero, .zero)
+        }
+        #endif
         link?.invalidate()
         link = nil
         lastTimestamp = nil
@@ -359,7 +369,14 @@ final class CutYearAwardObjectController {
             pose = CutYearAwardLight.pose(tilt: CutYearAwardTilt(yaw: yaw.value, lean: lean.value))
         }
         view?.stage?.setPose(pose, extraYaw: arrival.value)
+        #if DEBUG
+        let frameStart = ContinuousClock.now
+        #endif
         view?.draw(deltaTime: deltaTime)
+        #if DEBUG
+        let cost = ContinuousClock.now - frameStart
+        frameCost = (frameCost.frames + 1, frameCost.total + cost, max(frameCost.worst, cost))
+        #endif
 
         let settled = reduceMotion || (yaw.isSettled(at: target.yaw) && lean.isSettled(at: target.lean)
                                        && (arrival.isSettled(at: 0) || !hasArrived))
