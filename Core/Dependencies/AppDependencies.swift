@@ -203,13 +203,7 @@ final class AppDependencies: ObservableObject {
         // CRITICAL: Wait for FULL catalog to load before computing stats
         // The slim catalog (50 exercises) has no force/muscle data needed for classification
         AppLogger.info("Waiting for full exercise catalog to load...", category: AppLogger.app)
-        var retries = 0
-        while !exerciseRepository.didLoadFull && retries < 100 {
-            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
-            retries += 1
-        }
-
-        if exerciseRepository.didLoadFull {
+        if await exerciseRepository.waitForFullCatalog(timeout: .seconds(10)) {
             AppLogger.success("Full catalog loaded: \(exerciseRepository.exercises.count) exercises", category: AppLogger.app)
         } else {
             AppLogger.warning("Timeout waiting for full catalog after 10 seconds", category: AppLogger.app)

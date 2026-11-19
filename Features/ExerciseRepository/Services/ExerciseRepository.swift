@@ -85,6 +85,27 @@ final class ExerciseRepository: ObservableObject {
         }
     }
 
+    /// Returns as soon as the full catalog has loaded, or false once `timeout` has passed first.
+    func waitForFullCatalog(timeout: Duration) async -> Bool {
+        if didLoadFull { return true }
+        // A published value is delivered on subscription too, so a load that finishes
+        // between the check above and here is not missed.
+        let loaded = $didLoadFull.values
+        return await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                for await value in loaded where value { return true }
+                return false
+            }
+            group.addTask {
+                try? await Task.sleep(for: timeout)
+                return false
+            }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
+        }
+    }
+
     /// Rebuild indexes with custom exercises merged in
     func reloadWithCustomExercises() async {
         await rebuildIndexes()

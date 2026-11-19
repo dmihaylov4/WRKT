@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Combine
 import HealthKit
 import OSLog
 
@@ -638,7 +639,11 @@ struct AppShellView: View {
             AppLogger.info("🚀 Calling badgeManager.startRealtimeSubscriptions() from handleAppLaunch", category: AppLogger.app)
             await badgeManager.startRealtimeSubscriptions()
             await presentPendingBattleRewardsOnLaunch()
-            Task { await prewarmPlateSnapshots() }
+            // A cache only the plate screens read: render it once the splash is gone.
+            Task {
+                for await dismissed in LaunchSplashState.shared.$isDismissed.values where dismissed { break }
+                await prewarmPlateSnapshots()
+            }
 
         } else {
             AppLogger.warning("⚠️ Not starting real-time subscriptions in handleAppLaunch", category: AppLogger.app)
