@@ -369,24 +369,38 @@ actor WorkoutStorage {
     // MARK: - Runs (Cardio/HealthKit)
 
     func loadRuns() async throws -> [Run] {
-        let runs: [Run]
-        if let validated = takeValidated(\.runs, at: runsFileURL) {
-            runs = validated
-        } else {
-            guard fileManager.fileExists(atPath: runsFileURL.path) else {
-                return []
-            }
-            do {
-                runs = try decoder.decode([Run].self, from: Data(contentsOf: runsFileURL))
-            } catch let error as DecodingError {
-                throw StorageError.decodingFailed("Runs", underlying: error)
-            }
-        }
-        AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
-        return runs
+        try loadRunsWithStamp().runs
     }
 
-    func saveRuns(_ runs: [Run]) async throws {
+    /// Also returns the stamp of the file the runs came from, so the caller can later tell
+    /// whether that file is still the one it loaded. nil when there is no file or it changed.
+    func loadRunsWithStamp() throws -> (runs: [Run], stamp: FileStamp?) {
+        try stamped(runsFileURL) {
+            let runs: [Run]
+            if let validated = takeValidated(\.runs, at: runsFileURL) {
+                runs = validated
+            } else {
+                guard fileManager.fileExists(atPath: runsFileURL.path) else {
+                    return []
+                }
+                do {
+                    runs = try decoder.decode([Run].self, from: Data(contentsOf: runsFileURL))
+                } catch let error as DecodingError {
+                    throw StorageError.decodingFailed("Runs", underlying: error)
+                }
+            }
+            AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
+            return runs
+        }
+    }
+
+    func runsFileStamp() -> FileStamp? {
+        FileStamp(runsFileURL)
+    }
+
+    /// Returns the stamp of the file it wrote.
+    @discardableResult
+    func saveRuns(_ runs: [Run]) async throws -> FileStamp? {
         do {
             try await createRunsBackupIfNeeded()
         } catch {
@@ -400,6 +414,7 @@ actor WorkoutStorage {
             try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: runsFileURL.path)
 
             AppLogger.success("Saved \(runs.count) runs", category: AppLogger.storage)
+            return FileStamp(runsFileURL)
         } catch let error as EncodingError {
             throw StorageError.encodingFailed("Runs", underlying: error)
         } catch {
@@ -410,33 +425,55 @@ actor WorkoutStorage {
     // MARK: - Ignored HealthKit UUIDs (for discarded workouts)
 
     func loadIgnoredHealthKitUUIDs() async throws -> Set<UUID> {
-        let uuids: [UUID]
-        if let validated = takeValidated(\.ignored, at: ignoredHealthKitUUIDsFileURL) {
-            uuids = validated
-        } else {
-            guard fileManager.fileExists(atPath: ignoredHealthKitUUIDsFileURL.path) else {
-                return []
-            }
-            do {
-                uuids = try decoder.decode([UUID].self, from: Data(contentsOf: ignoredHealthKitUUIDsFileURL))
-            } catch {
-                AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
-                throw error
-            }
-        }
-        AppLogger.info("Loaded \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
-        return Set(uuids)
+        try loadIgnoredHealthKitUUIDsWithStamp().uuids
     }
 
-    func saveIgnoredHealthKitUUIDs(_ uuids: Set<UUID>) async throws {
+    /// Also returns the stamp of the file the UUIDs came from, as `loadRunsWithStamp` does.
+    func loadIgnoredHealthKitUUIDsWithStamp() throws -> (uuids: Set<UUID>, stamp: FileStamp?) {
+        try stamped(ignoredHealthKitUUIDsFileURL) {
+            let uuids: [UUID]
+            if let validated = takeValidated(\.ignored, at: ignoredHealthKitUUIDsFileURL) {
+                uuids = validated
+            } else {
+                guard fileManager.fileExists(atPath: ignoredHealthKitUUIDsFileURL.path) else {
+                    return []
+                }
+                do {
+                    uuids = try decoder.decode([UUID].self, from: Data(contentsOf: ignoredHealthKitUUIDsFileURL))
+                } catch {
+                    AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
+                    throw error
+                }
+            }
+            AppLogger.info("Loaded \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
+            return Set(uuids)
+        }
+    }
+
+    func ignoredHealthKitUUIDsFileStamp() -> FileStamp? {
+        FileStamp(ignoredHealthKitUUIDsFileURL)
+    }
+
+    /// Returns the stamp of the file it wrote.
+    @discardableResult
+    func saveIgnoredHealthKitUUIDs(_ uuids: Set<UUID>) async throws -> FileStamp? {
         do {
             let data = try encoder.encode(Array(uuids))
             try data.write(to: ignoredHealthKitUUIDsFileURL, options: [.atomic])
             AppLogger.success("Saved \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
+            return FileStamp(ignoredHealthKitUUIDsFileURL)
         } catch {
             AppLogger.error("Failed to save ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
             throw error
         }
+    }
+
+    /// Runs a read and pairs its result with the stamp of `url`, or nil if the file changed
+    /// while it was read.
+    private func stamped<Value>(_ url: URL, _ read: () throws -> Value) rethrows -> (Value, FileStamp?) {
+        let before = FileStamp(url)
+        let value = try read()
+        return (value, before == FileStamp(url) ? before : nil)
     }
 
     // MARK: - Discarded Workout Windows
