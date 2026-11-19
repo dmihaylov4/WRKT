@@ -195,7 +195,7 @@ final class HomeViewModel {
                 return daysSince <= 7 ? workout : nil
             }()
 
-            let validCardio: Run? = {
+            let validCardio: RunSummary? = {
                 guard let cardio = lastCardio else { return nil }
                 let daysSince = Calendar.current.dateComponents([.day], from: cardio.date, to: .now).day ?? 0
                 return daysSince <= 7 ? cardio : nil
@@ -242,8 +242,8 @@ final class HomeViewModel {
     }
 
     /// Get last cardio activity (run/walk/cycle)
-    func getLastCardio() -> Run? {
-        let validRuns = workoutStore.validRuns
+    func getLastCardio() -> RunSummary? {
+        let validRuns = workoutStore.validRunSummaries
         // Get the most recent run by date (not just .last which depends on array order)
         return validRuns.max(by: { $0.date < $1.date })
     }
@@ -654,7 +654,7 @@ final class HomeViewModel {
         }
 
         // Get cardio runs from this week
-        let runsThisWeek = workoutStore.validRuns.filter { run in
+        let runsThisWeek = workoutStore.validRunSummaries.filter { run in
             run.date >= weekStart && run.date < weekEnd
         }
 
@@ -680,7 +680,7 @@ final class HomeViewModel {
         }
 
         // Count cardio minutes in current week
-        let runsThisWeek = workoutStore.validRuns.filter { run in
+        let runsThisWeek = workoutStore.validRunSummaries.filter { run in
             run.date >= weekStart && run.date < weekEnd
         }
 
@@ -847,7 +847,7 @@ final class HomeViewModel {
 
 enum HomeCardType: Identifiable {
     case lastWorkout(CompletedWorkout)
-    case lastCardio(Run)
+    case lastCardio(RunSummary)
     case recentActivity(RecentActivitySummary) // NEW: Combined strength + cardio
     case weeklyProgress(WeeklyProgressData)
     case activeCompetition(CompetitionSummary)
@@ -1135,7 +1135,7 @@ struct ComparativeStats {
 
 struct RecentActivitySummary {
     let lastWorkout: CompletedWorkout?
-    let lastCardio: Run?
+    let lastCardio: RunSummary?
 
     var hasStrength: Bool { lastWorkout != nil }
     var hasCardio: Bool { lastCardio != nil }

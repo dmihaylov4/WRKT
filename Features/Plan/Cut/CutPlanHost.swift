@@ -115,7 +115,7 @@ struct CutPlanHost: View {
         }
         .onChange(of: monthAnchor) { _, _ in handleDataChange() }
         .onChange(of: store.completedWorkouts.count) { _, _ in scheduleDataUpdate() }
-        .onChange(of: store.runs.count) { _, _ in scheduleDataUpdate() }
+        .onChange(of: store.runSummaries.count) { _, _ in scheduleDataUpdate() }
         .onChange(of: tutorialState.framesReady) { _, ready in
             if ready && !onboardingManager.hasSeenCalendar && !tutorialState.isActive {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

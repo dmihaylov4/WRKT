@@ -19,7 +19,7 @@ struct DayDetail: View {
     @State private var plannedWorkout: PlannedWorkout? = nil
 
     private var workouts: [CompletedWorkout] { store.workouts(on: date) }
-    private var allRuns: [Run] { store.runs(on: date) }
+    private var allRuns: [RunSummary] { store.runSummaries(on: date) }
 
     // Get matched HealthKit UUIDs from app workouts (to avoid showing duplicates)
     private var matchedHealthKitUUIDs: Set<UUID> {
@@ -28,7 +28,7 @@ struct DayDetail: View {
 
     // Separate HealthKit strength workouts from cardio
     // Exclude strength workouts that are already matched to app workouts or were discarded
-    private var healthKitStrengthWorkouts: [Run] {
+    private var healthKitStrengthWorkouts: [RunSummary] {
         allRuns.filter { run in
             // Must be a strength workout
             guard run.countsAsStrengthDay else { return false }
@@ -41,7 +41,7 @@ struct DayDetail: View {
             return true
         }
     }
-    private var cardioRuns: [Run] {
+    private var cardioRuns: [RunSummary] {
         allRuns.filter { !$0.countsAsStrengthDay }
     }
 
@@ -146,7 +146,9 @@ struct DayDetail: View {
 
                         ForEach(cardioRuns) { r in
                             NavigationLink {
-                                CardioDetailView(run: r)
+                                if let run = store.fullRun(id: r.id) {
+                                    CardioDetailView(run: run)
+                                }
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: "map.fill")
@@ -390,11 +392,12 @@ struct WorkoutRow: View {
 // MARK: - HealthKit Workout Row
 
 struct HealthKitWorkoutRow: View {
-    let workout: Run
+    let workout: RunSummary
+    @EnvironmentObject private var store: WorkoutStoreV2
 
     // Use classifier to generate consistent workout title
     private var workoutTitle: String {
-        MuscleGroupClassifier.classifyHealthKitStrength(workout.summary)
+        MuscleGroupClassifier.classifyHealthKitStrength(workout)
     }
 
     // Show "Ended: HH:MM" format for consistency with app workouts
@@ -410,10 +413,12 @@ struct HealthKitWorkoutRow: View {
     var body: some View {
         NavigationLink {
             // Route to appropriate detail view based on workout type
-            if isStrengthWorkout {
-                HealthKitStrengthDetailView(run: workout)
-            } else {
-                CardioDetailView(run: workout)
+            if let run = store.fullRun(id: workout.id) {
+                if isStrengthWorkout {
+                    HealthKitStrengthDetailView(run: run)
+                } else {
+                    CardioDetailView(run: run)
+                }
             }
         } label: {
             HStack {

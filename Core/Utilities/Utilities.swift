@@ -104,7 +104,7 @@ struct DayStat: Identifiable, Hashable {
     let workoutCount: Int
     let runCount: Int // Deprecated - use cardioActivities instead
     let cardioActivities: [CardioActivityType] // Types of cardio activities on this day
-    let healthKitStrengthWorkouts: [Run] // Apple Watch strength workouts (Traditional Strength, HIIT, Functional, Core)
+    let healthKitStrengthWorkouts: [RunSummary] // Apple Watch strength workouts (Traditional Strength, HIIT, Functional, Core)
     let plannedWorkout: PlannedWorkout?
 
     // Pre-calculated week status for performance (avoids recalculating for each cell)
@@ -117,7 +117,7 @@ struct DayStat: Identifiable, Hashable {
          workoutCount: Int,
          runCount: Int = 0,
          cardioActivities: [CardioActivityType] = [],
-         healthKitStrengthWorkouts: [Run] = [],
+         healthKitStrengthWorkouts: [RunSummary] = [],
          plannedWorkout: PlannedWorkout? = nil,
          isPartOfCompletedWeek: Bool = false,
          isPartOfSuperWeek: Bool = false,

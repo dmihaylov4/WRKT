@@ -52,6 +52,13 @@ final class WorkoutStoreV2: ObservableObject {
         runSummaries.first { $0.healthKitUUID == healthKitUUID }
     }
 
+    /// The full run for a screen that still takes one: the detail screens, and the legacy
+    /// cardio rows that draw a route. Lists find the workout by its summary, then open it with
+    /// this. Goes away when those screens load the run themselves.
+    func fullRun(id: UUID) -> Run? {
+        runs.first { $0.id == id }
+    }
+
     private var prIndex: [String: ExercisePRsV2] = [:]
 
     /// Guard flag: true only after storage has been successfully loaded.

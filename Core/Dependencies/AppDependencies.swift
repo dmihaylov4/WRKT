@@ -273,7 +273,7 @@ final class AppDependencies: ObservableObject {
 
     /// Log current memory footprint of services
     func logMemoryFootprint() {
-        AppLogger.info("AppDependencies Memory Footprint - ExerciseRepository: \(exerciseRepository.exercises.count) exercises, WorkoutStore: \(workoutStore.completedWorkouts.count) completed workouts, HealthKitManager: \(workoutStore.runs.count) runs, FavoritesStore: \(favoritesStore.ids.count) favorites, CustomExerciseStore: \(customExerciseStore.customExercises.count) custom exercises", category: AppLogger.performance)
+        AppLogger.info("AppDependencies Memory Footprint - ExerciseRepository: \(exerciseRepository.exercises.count) exercises, WorkoutStore: \(workoutStore.completedWorkouts.count) completed workouts, HealthKitManager: \(workoutStore.runSummaries.count) runs, FavoritesStore: \(favoritesStore.ids.count) favorites, CustomExerciseStore: \(customExerciseStore.customExercises.count) custom exercises", category: AppLogger.performance)
     }
 }
 

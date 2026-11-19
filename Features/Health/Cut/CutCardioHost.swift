@@ -100,7 +100,7 @@ struct CutCardioHost: View {
             },
             openRun: { id in
                 Haptics.light()
-                openedRun = store.validRuns.first { $0.id == id }
+                openedRun = store.fullRun(id: id)
             }
         )
     }

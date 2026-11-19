@@ -181,7 +181,7 @@ struct CalendarMonthView: View {
     // Daily streak (legacy)
     private var streakLength: Int { max(store.streak(), 0) }
     private func hasActivity(on d: Date) -> Bool {
-        !store.workouts(on: d).isEmpty || !store.runs(on: d).isEmpty
+        !store.workouts(on: d).isEmpty || !store.runSummaries(on: d).isEmpty
     }
 
     /// Update streak window once instead of recalculating for every day cell
@@ -591,7 +591,7 @@ struct CalendarMonthView: View {
             .onChange(of: store.completedWorkouts.count) { _, _ in
                 scheduleDataUpdate()
             }
-            .onChange(of: store.runs.count) { _, _ in
+            .onChange(of: store.runSummaries.count) { _, _ in
                 scheduleDataUpdate()
             }
             .onChange(of: tutorialState.framesReady) { _, ready in
@@ -828,7 +828,7 @@ struct CalendarMonthView: View {
         let newKey = CacheKey(
             monthTimestamp: monthAnchor.timeIntervalSince1970,
             workoutCount: store.completedWorkouts.count,
-            runCount: store.runs.count,
+            runCount: store.runSummaries.count,
             plannedCount: plannedWorkouts.count
         )
 
@@ -838,7 +838,7 @@ struct CalendarMonthView: View {
 
         // Capture data needed for background computation
         let workouts = store.completedWorkouts
-        let runs = store.runs
+        let runs = store.runSummaries
         let planned = plannedWorkouts
         let weekProgress = weekProgressCache
         let goal = weeklyGoal()

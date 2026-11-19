@@ -10,7 +10,7 @@ import SwiftUI
 struct RecentActivityCard: View {
     let summary: RecentActivitySummary
     var onWorkoutTap: ((CompletedWorkout) -> Void)? = nil
-    var onCardioTap: ((Run) -> Void)? = nil
+    var onCardioTap: ((RunSummary) -> Void)? = nil
 
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
@@ -142,7 +142,7 @@ struct RecentActivityCard: View {
     // MARK: - Cardio Section
 
     @ViewBuilder
-    private func cardioSection(run: Run) -> some View {
+    private func cardioSection(run: RunSummary) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             // Icon + Type + Chevron
             HStack(spacing: 4) {
@@ -255,14 +255,14 @@ struct RecentActivityCard: View {
         unit.formatVolumeValue(volume)
     }
 
-    private func activityType(for run: Run) -> String {
+    private func activityType(for run: RunSummary) -> String {
         if let workoutType = run.workoutType {
             return workoutType
         }
         return "Cardio"
     }
 
-    private func activityIcon(for run: Run) -> String {
+    private func activityIcon(for run: RunSummary) -> String {
         let type = run.workoutType?.lowercased() ?? ""
         if type.contains("run") {
             return "figure.run"
@@ -279,7 +279,7 @@ struct RecentActivityCard: View {
         }
     }
 
-    private func durationFormatted(run: Run) -> String {
+    private func durationFormatted(run: RunSummary) -> String {
         let minutes = run.durationSec / 60
         let seconds = run.durationSec % 60
 

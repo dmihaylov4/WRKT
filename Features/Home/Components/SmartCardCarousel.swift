@@ -11,7 +11,7 @@ struct SmartCardCarousel: View {
     let cards: [HomeCardType]
     var onCardTap: ((HomeCardType) -> Void)? = nil
     var onWorkoutTap: ((CompletedWorkout) -> Void)? = nil  // NEW: For RecentActivityCard
-    var onCardioTap: ((Run) -> Void)? = nil  // NEW: For RecentActivityCard
+    var onCardioTap: ((RunSummary) -> Void)? = nil  // NEW: For RecentActivityCard
     @State private var selectedCardID: String?
 
     private let cardHeight: CGFloat = 188

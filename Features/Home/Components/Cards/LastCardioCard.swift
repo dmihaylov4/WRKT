@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct LastCardioCard: View {
-    let run: Run
+    let run: RunSummary
 
     private var relativeDateString: String {
         let calendar = Calendar.current
@@ -182,7 +182,7 @@ struct LastCardioCard: View {
                 avgHeartRate: 145,
                 calories: 320,
                 workoutType: "Running"
-            )
+            ).summary
         )
         Spacer()
     }
@@ -199,7 +199,7 @@ struct LastCardioCard: View {
                 durationSec: 2400, // 40 minutes
                 avgHeartRate: 128,
                 workoutType: "Cycling"
-            )
+            ).summary
         )
         Spacer()
     }
@@ -215,7 +215,7 @@ struct LastCardioCard: View {
                 distanceKm: 3.0,
                 durationSec: 1800, // 30 minutes
                 workoutType: "Walking"
-            )
+            ).summary
         )
         Spacer()
     }

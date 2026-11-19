@@ -159,7 +159,7 @@ struct HomeWidgetSnapshotSync: View {
             outlook: viewModel.planOutlook,
             isStorageLoaded: store.isStorageLoaded,
             completedWorkouts: store.completedWorkouts.count,
-            runs: store.validRuns.count,
+            runs: store.validRunSummaries.count,
             goalTargets: goal.map { [$0.isSet ? 1 : 0, $0.targetStrengthDays, $0.targetActiveMinutes, $0.anchorWeekday] } ?? []
         )
     }

@@ -132,7 +132,7 @@ final class ChallengesViewModel {
 
         // HK-imported runs (Watch/third-party): updateChallengeProgress never ran for
         // these, so the DB was never written. Write to DB now as a backfill.
-        guard let runs = workoutStore?.runs,
+        guard let runs = workoutStore?.runSummaries,
               runs.contains(where: { $0.date >= participation.joinedAt }) else { return }
 
         do {
