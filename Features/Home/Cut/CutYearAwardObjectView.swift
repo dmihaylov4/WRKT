@@ -564,16 +564,24 @@ private struct CutYearAwardObjectGround: View {
         ZStack {
             // A circle of light squashed flat, so the pool fades out on every side.
             Circle()
-                .fill(RadialGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0)],
+                .fill(RadialGradient(colors: [Color.white.opacity(0.11), Color.white.opacity(0)],
                                      center: .center, startRadius: 0, endRadius: width * 0.75))
                 .frame(width: width * 1.5, height: width * 1.5)
                 .scaleEffect(x: 1, y: 0.22)
                 .offset(y: height / 2 + 10 * fit)
+            // A hint of the steel on the floor: a soft fade of light under the bottom edge.
+            Rectangle()
+                .fill(LinearGradient(colors: [Color(white: 0.75).opacity(0.10), Color.white.opacity(0)],
+                                     startPoint: .top, endPoint: .bottom))
+                .frame(width: width * 0.94, height: 46 * fit)
+                .blur(radius: 6 * fit)
+                .offset(y: height / 2 + 36 * fit)
+            // The contact shadow, tight under the edge.
             Ellipse()
-                .fill(Color.black.opacity(0.85))
-                .frame(width: width * 0.86, height: 18 * fit)
-                .blur(radius: 9 * fit)
-                .offset(y: height / 2 + 14 * fit)
+                .fill(Color.black.opacity(0.9))
+                .frame(width: width * 0.9, height: 12 * fit)
+                .blur(radius: 6 * fit)
+                .offset(y: height / 2 + 12 * fit)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

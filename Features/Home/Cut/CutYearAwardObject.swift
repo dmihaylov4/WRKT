@@ -144,7 +144,7 @@ enum CutYearAwardFaceMapBuilder {
         static let floorRoughness: Float = 0.5
         static let fineRoughness: Float = 0.36
 
-        static let floorDarkening: Float = 0.2
+        static let floorDarkening: Float = 0.3
         static let wallDarkening: Float = 0.04
         static let fineDarkening: Float = 0.5
         /// Darkening of the floor where it meets the walls.
@@ -495,6 +495,9 @@ enum CutYearAwardStudio {
         Light(azimuth: 180, elevation: 10, width: 140, height: 40, radiance: 0.6, feather: 30),
         // Light off the floor, so the bottom edge reads as metal.
         Light(azimuth: 0, elevation: -40, width: 360, height: 50, radiance: 0.45, feather: 30),
+        // The ground right under the object: the bottom chamfer looks almost straight down, so
+        // without this it drops to near black and the bottom edge merges with the background.
+        Light(azimuth: 0, elevation: -80, width: 360, height: 24, radiance: 0.45, feather: 20),
         // Broad fill behind the viewer: the face never drops to dark grey, so the cut words
         // always read darker than the steel round them.
         Light(azimuth: 0, elevation: 6, width: 120, height: 60, radiance: 0.55, feather: 40),
