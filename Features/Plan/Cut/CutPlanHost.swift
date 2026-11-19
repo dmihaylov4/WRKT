@@ -359,7 +359,7 @@ struct CutPlanHost: View {
         facts = CutPlanLogic.facts(
             days: days,
             workouts: store.completedWorkouts,
-            runs: store.runs,
+            runs: store.runSummaries,
             planned: planned.map {
                 ($0.scheduledDate, CutPlanDayFacts.Planned(id: $0.id, name: $0.splitDayName,
                                                            exerciseCount: $0.exercises.count, status: $0.workoutStatus))

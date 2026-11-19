@@ -376,7 +376,7 @@ struct BarbellViewLogicTests {
             workoutType: "High Intensity Interval Training"
         )
 
-        let summary = plateCollectionHealthKitSummary(for: plate, run: run)
+        let summary = plateCollectionHealthKitSummary(for: plate, run: run.summary)
 
         #expect(summary?.title == "Hybrid")
         #expect(summary?.detail == "HIGH INTENSITY INTERVAL TRAINING")

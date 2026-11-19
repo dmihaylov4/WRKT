@@ -45,7 +45,7 @@ final class CutYearReviewCenter {
         let forced = defaults.bool(forKey: CutYearReviewLogic.forceNextLaunchKey)
         let calendar = Calendar.current
         guard let year = forced ? calendar.component(.year, from: now) : CutYearReviewLogic.reviewYear(now: now) else { return }
-        let stats = CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runs, now: now)
+        let stats = CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runSummaries, now: now)
         let seenYear = forced ? nil : defaults.object(forKey: CutYearReviewLogic.seenYearKey) as? Int
         guard CutYearReviewLogic.shouldAutoPresent(stats: stats, seenYear: seenYear) else { return }
         defaults.removeObject(forKey: CutYearReviewLogic.forceNextLaunchKey)

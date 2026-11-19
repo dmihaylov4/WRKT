@@ -324,7 +324,7 @@ struct CutPlanLogicTests {
         ]
         let first = CutPlanFixtures.planned("Push"), second = CutPlanFixtures.planned("Pull")
         let facts = CutPlanLogic.facts(
-            days: days, workouts: [app, outside], runs: runs,
+            days: days, workouts: [app, outside], runs: runs.map(\.summary),
             planned: [(day(16), first), (day(16).addingTimeInterval(60), second)],
             ignoredHealthKitUUIDs: [ignoredUUID], calendar: calendar,
             workoutName: { $0.workoutName ?? "Workout" }, healthKitStrengthName: { _ in "Watch strength" })
@@ -340,8 +340,8 @@ struct CutPlanLogicTests {
     }
 
     @Test func cardioNamePrefersTheActivityName() {
-        #expect(CutPlanLogic.cardioName(Run(distanceKm: 5, durationSec: 1500, workoutType: "Cycling", workoutName: "Commute")) == "Commute")
-        #expect(CutPlanLogic.cardioName(Run(distanceKm: 5, durationSec: 1500, workoutType: "Cycling", workoutName: "  ")) == "Cycling")
+        #expect(CutPlanLogic.cardioName(Run(distanceKm: 5, durationSec: 1500, workoutType: "Cycling", workoutName: "Commute").summary) == "Commute")
+        #expect(CutPlanLogic.cardioName(Run(distanceKm: 5, durationSec: 1500, workoutType: "Cycling", workoutName: "  ").summary) == "Cycling")
     }
 
     // MARK: Week, gestures, header

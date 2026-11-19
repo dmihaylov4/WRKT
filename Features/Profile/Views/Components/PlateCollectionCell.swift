@@ -7,7 +7,7 @@ struct PlateCollectionFallbackSummary: Equatable {
     let detail: String
 }
 
-func plateCollectionHealthKitSummary(for plate: EarnedPlate, run: Run) -> PlateCollectionFallbackSummary? {
+func plateCollectionHealthKitSummary(for plate: EarnedPlate, run: RunSummary) -> PlateCollectionFallbackSummary? {
     guard plate.earnedByEvent.hasPrefix("hk_") || run.countsAsStrengthDay else { return nil }
     return PlateCollectionFallbackSummary(
         title: run.category.displayName,

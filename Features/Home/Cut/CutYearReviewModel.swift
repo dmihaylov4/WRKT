@@ -119,7 +119,7 @@ enum CutYearReviewLogic {
 
     // MARK: Building the stats
 
-    static func stats(year: Int, workouts: [CompletedWorkout], runs: [Run],
+    static func stats(year: Int, workouts: [CompletedWorkout], runs: [RunSummary],
                       now: Date = .now, calendar: Calendar = .current) -> CutYearReviewStats {
         var stats = CutYearReviewStats(year: year)
         guard let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)),

@@ -162,7 +162,7 @@ struct CutSettingsHost: View {
             let store = dependencies.workoutStore
             let year = Calendar.current.component(.year, from: .now)
             CutYearReviewCenter.shared.present(
-                CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runs))
+                CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runSummaries))
         case .yearReviewSample:
             let year = Calendar.current.component(.year, from: .now)
             CutYearReviewCenter.shared.present(.sample(year: year))

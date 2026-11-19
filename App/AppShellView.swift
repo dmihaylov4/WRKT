@@ -667,7 +667,7 @@ struct AppShellView: View {
             await SmartNudgeManager.shared.performStreakCheck(
                 weeklyGoal: weeklyGoal,
                 completedWorkouts: store.completedWorkouts,
-                runs: store.validRuns
+                runs: store.validRunSummaries
             )
         }
 

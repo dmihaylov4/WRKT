@@ -141,7 +141,7 @@ struct CutHealthStrengthHost: View {
 
     var body: some View {
         let existing = existingWorkout
-        let model = CutWorkoutDetailLogic.healthStrength(run, existing: existing, now: .now)
+        let model = CutWorkoutDetailLogic.healthStrength(run.summary, existing: existing, now: .now)
         CutHealthStrengthView(model: model, actions: CutHealthStrengthActions(
             edit: { showingEditor = true },
             delete: {
@@ -158,7 +158,7 @@ struct CutHealthStrengthHost: View {
                     .environmentObject(store)
                     .environmentObject(repo)
             } else {
-                CompletedWorkoutEditor(workout: CutWorkoutDetailLogic.workout(from: run), isNewWorkout: true)
+                CompletedWorkoutEditor(workout: CutWorkoutDetailLogic.workout(from: run.summary), isNewWorkout: true)
                     .environmentObject(store)
                     .environmentObject(repo)
             }

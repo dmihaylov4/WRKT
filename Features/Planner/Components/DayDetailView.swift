@@ -394,7 +394,7 @@ struct HealthKitWorkoutRow: View {
 
     // Use classifier to generate consistent workout title
     private var workoutTitle: String {
-        MuscleGroupClassifier.classifyHealthKitStrength(workout)
+        MuscleGroupClassifier.classifyHealthKitStrength(workout.summary)
     }
 
     // Show "Ended: HH:MM" format for consistency with app workouts

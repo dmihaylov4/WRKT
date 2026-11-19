@@ -778,7 +778,7 @@ extension RewardsEngine {
         weekStart: Date,
         goal: WeeklyGoal,
         completedWorkouts: [CompletedWorkout],
-        runs: [Run],
+        runs: [RunSummary],
         context: ModelContext,
         calendar: Calendar
     ) -> (met: Bool, strengthMet: Bool, mvpaMet: Bool) {
@@ -941,7 +941,7 @@ extension RewardsEngine {
                 weekStart: checkDate,
                 goal: weeklyGoal,
                 completedWorkouts: store.completedWorkouts,
-                runs: store.runs,
+                runs: store.runSummaries,
                 context: context,
                 calendar: calendar
             )
@@ -1034,7 +1034,7 @@ extension RewardsEngine {
                 weekStart: checkDate,
                 goal: weeklyGoal,
                 completedWorkouts: store.completedWorkouts,
-                runs: store.runs,
+                runs: store.runSummaries,
                 context: context,
                 calendar: calendar
             )

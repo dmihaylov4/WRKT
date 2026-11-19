@@ -26,12 +26,12 @@ struct CutCardioHost: View {
     // Same flag as the legacy tab: one automatic prompt until Health is connected.
     @AppStorage("hasPromptedForHealthKitAuth") private var hasPromptedThisSession = false
 
-    private var typedRuns: [Run] { CutCardioLogic.runs(store.validRuns, type: selectedType) }
+    private var typedRuns: [RunSummary] { CutCardioLogic.runs(store.validRunSummaries, type: selectedType) }
 
     private var model: CutCardioTabModel {
-        let loaded = store.isStorageLoaded || store.storageLoadError != nil || !store.runs.isEmpty
+        let loaded = store.isStorageLoaded || store.storageLoadError != nil || !store.runSummaries.isEmpty
         return CutCardioLogic.tab(
-            allRuns: loaded ? store.validRuns : nil,
+            allRuns: loaded ? store.validRunSummaries : nil,
             type: selectedType,
             weekOffset: weekOffset,
             connection: healthKit.connectionState,

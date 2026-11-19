@@ -637,7 +637,7 @@ final class HealthKitManager: ObservableObject {
                     for newRun in batchResults.newRuns {
                         store.addRun(newRun)
                         Task { @MainActor in
-                            await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: newRun)
+                            await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: newRun.summary)
                         }
                     }
 
@@ -1171,7 +1171,7 @@ final class HealthKitManager: ObservableObject {
         await MainActor.run {
             store.addRun(run)
             Task { @MainActor in
-                await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: run)
+                await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: run.summary)
             }
         }
 

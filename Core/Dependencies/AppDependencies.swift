@@ -177,7 +177,7 @@ final class AppDependencies: ObservableObject {
                 self.barbellProgressService.runBackfillIfNeeded(completedWorkouts: self.workoutStore.completedWorkouts)
                 self.barbellProgressService.backfillMissingLiftSpecificPlates(completedWorkouts: self.workoutStore.completedWorkouts)
                 Task { @MainActor in
-                    await self.barbellProgressService.backfillFunctionalHKPlatesIfNeeded(runs: self.workoutStore.runs)
+                    await self.barbellProgressService.backfillFunctionalHKPlatesIfNeeded(runs: self.workoutStore.runSummaries)
                 }
                 self.backfillCancellable = nil
             }

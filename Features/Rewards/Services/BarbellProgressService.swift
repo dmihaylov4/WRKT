@@ -1051,7 +1051,7 @@ final class BarbellProgressService {
 
     // MARK: - Backfill for existing users
 
-    func evaluateAndAwardFunctionalHK(run: Run) async {
+    func evaluateAndAwardFunctionalHK(run: RunSummary) async {
         guard let context else { return }
         guard run.countsAsStrengthDay, let hkUUID = run.healthKitUUID else { return }
 
@@ -1103,7 +1103,7 @@ final class BarbellProgressService {
         }
     }
 
-    func backfillFunctionalHKPlatesIfNeeded(runs: [Run]) async {
+    func backfillFunctionalHKPlatesIfNeeded(runs: [RunSummary]) async {
         let sorted = runs
             .filter { $0.countsAsStrengthDay && $0.healthKitUUID != nil }
             .sorted { $0.date < $1.date }
