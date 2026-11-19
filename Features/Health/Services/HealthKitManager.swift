@@ -105,6 +105,12 @@ final class HealthKitManager: ObservableObject {
     private let syncDelivery = HealthSyncDelivery()
     private var isSyncingExerciseTime = false
     private var isProcessingRouteQueue = false
+    /// Posts a run after the route queue stored its route. Tests replace it to observe the posts.
+    var runAutoPost: (Run) async -> Void = { run in
+        await CardioAutoPostService.shared.handleRunIfNeeded(run: run, route: run.route, routeWithHR: run.routeWithHR)
+    }
+    /// Called right after a route queue pass has committed its runs and tasks. Tests only.
+    var routeQueueDidCommit: (() -> Void)?
     private var routeQueueProcessStartedAt: Date = .now
     private var routeQueueLaunchWindowEndsAt: Date = .distantPast
 
@@ -1474,16 +1480,19 @@ final class HealthKitManager: ObservableObject {
                 }
             }
             try context.save()
+            routeQueueDidCommit?()
 
-            // Optional social work starts only after the local data and job outcome commit.
+            // Optional social work starts only after the local data and job outcome commit. The
+            // task is complete and never runs again, so the post runs in its own unstructured task
+            // and reads the run there: cancelling this pass cannot drop it.
+            let autoPost = runAutoPost
             for task in tasks where task.status != "pending" && (task.allowAutoPost ?? true) {
                 guard let uuid = UUID(uuidString: task.workoutUUID),
                       let summary = workoutStore.runSummary(healthKitUUID: uuid),
-                      summary.workoutType?.lowercased().contains("run") == true, summary.distanceKm >= 1,
-                      case .loaded(let run)? = try? await workoutStore.loadRun(id: summary.id) else { continue }
-                Task {
-                    await CardioAutoPostService.shared.handleRunIfNeeded(
-                        run: run, route: run.route, routeWithHR: run.routeWithHR)
+                      summary.workoutType?.lowercased().contains("run") == true, summary.distanceKm >= 1 else { continue }
+                Task { [workoutStore] in
+                    guard case .loaded(let run)? = try? await workoutStore.loadRun(id: summary.id) else { return }
+                    await autoPost(run)
                 }
             }
             return succeeded
