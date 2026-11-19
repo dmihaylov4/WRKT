@@ -1051,13 +1051,13 @@ final class WorkoutStoreV2: ObservableObject {
         }
     }
 
+    // Mutations that would change nothing return early: every assignment to `runs` bumps its
+    // save revision, which would rewrite the whole file for nothing.
+
     func updateRun(_ run: Run) {
-        if let index = runs.firstIndex(where: { $0.id == run.id }) {
-            var updatedRuns = runs
-            updatedRuns[index] = run
-            runs = updatedRuns
-            persistRuns()
-        }
+        guard let index = runs.firstIndex(where: { $0.id == run.id }), runs[index] != run else { return }
+        runs[index] = run
+        persistRuns()
     }
 
     func batchUpdateRuns(_ updatedRuns: [Run]) {
@@ -1065,14 +1065,15 @@ final class WorkoutStoreV2: ObservableObject {
         var updateCount = 0
 
         for run in updatedRuns {
-            if let index = runsCopy.firstIndex(where: { $0.id == run.id }) {
+            if let index = runsCopy.firstIndex(where: { $0.id == run.id }), runsCopy[index] != run {
                 runsCopy[index] = run
                 updateCount += 1
             }
         }
 
-        runs = runsCopy
         AppLogger.debug("Batch updated \(updateCount)/\(updatedRuns.count) runs", category: AppLogger.health)
+        guard updateCount > 0 else { return }
+        runs = runsCopy
         persistRuns()
     }
 
@@ -1089,6 +1090,7 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     func removeRun(withId id: UUID) {
+        guard runs.contains(where: { $0.id == id }) else { return }
         runs.removeAll(where: { $0.id == id })
         persistRuns()
     }
@@ -1099,6 +1101,7 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     func clearAllRuns() {
+        guard !runs.isEmpty else { return }
         runs.removeAll()
         persistRuns()
     }
