@@ -43,7 +43,7 @@ struct CutCardioDetailView<RouteMap: View>: View {
                 .padding(.horizontal, DS.Cut.Metrics.gutter)
             route
                 .padding(.top, 28)
-            if !model.splits.isEmpty || model.canLoadSplits {
+            if !model.splits.isEmpty || model.canLoadSplits || model.splitPlaceholderCount > 0 {
                 splits
                     .padding(.horizontal, DS.Cut.Metrics.gutter)
                     .padding(.top, 32)
@@ -138,7 +138,16 @@ struct CutCardioDetailView<RouteMap: View>: View {
             EmptyView()
         case .map:
             VStack(alignment: .leading, spacing: 12) {
-                routeMap()
+                Group {
+                    switch model.availability {
+                    case .ready:
+                        routeMap()
+                    case .loading:
+                        CutCardioPendingFill()
+                    case .unavailable:
+                        CutCardioPendingFill(line: "Route unavailable")
+                    }
+                }
                     .frame(height: 260)
                     .frame(maxWidth: .infinity)
                     .clipped()
@@ -171,7 +180,15 @@ struct CutCardioDetailView<RouteMap: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             CutSectionTitle("Splits per km")
             CutHairline()
-            if model.splits.isEmpty {
+            if model.splits.isEmpty && model.splitPlaceholderCount > 0 {
+                VStack(spacing: 12) {
+                    ForEach(0..<model.splitPlaceholderCount, id: \.self) { _ in
+                        CutCardioBar(fraction: 0, fill: .clear).frame(height: 26)
+                    }
+                }
+                .padding(.top, 6)
+                .accessibilityHidden(true)
+            } else if model.splits.isEmpty {
                 loadButton("Load splits")
             } else {
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 12) {
@@ -293,6 +310,31 @@ struct CutCardioDetailView<RouteMap: View>: View {
 extension CutCardioDetailView where RouteMap == EmptyView {
     init(model: CutCardioDetailModel, isRefreshing: Bool = false, actions: CutCardioDetailActions = CutCardioDetailActions()) {
         self.init(model: model, isRefreshing: isRefreshing, actions: actions) { EmptyView() }
+    }
+}
+
+/// The place of a route map that is not here: empty while it is read, after a short wait a
+/// small spinner, or one line when it could not be read.
+struct CutCardioPendingFill: View {
+    var line: String? = nil
+    @State private var showsSpinner = false
+
+    var body: some View {
+        ZStack {
+            DS.Cut.Colors.controlFill.opacity(0.3)
+            if let line {
+                Text(line)
+                    .cutFont(.secondary)
+                    .foregroundStyle(DS.Cut.Colors.textSecondary)
+            } else if showsSpinner {
+                ProgressView().tint(DS.Cut.Colors.textSecondary)
+            }
+        }
+        .task {
+            guard line == nil else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            showsSpinner = true
+        }
     }
 }
 

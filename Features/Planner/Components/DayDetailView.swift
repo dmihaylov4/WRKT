@@ -146,9 +146,7 @@ struct DayDetail: View {
 
                         ForEach(cardioRuns) { r in
                             NavigationLink {
-                                if let run = store.fullRun(id: r.id) {
-                                    CardioDetailView(run: run)
-                                }
+                                CardioDetailView(run: r)
                             } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: "map.fill")
@@ -393,7 +391,6 @@ struct WorkoutRow: View {
 
 struct HealthKitWorkoutRow: View {
     let workout: RunSummary
-    @EnvironmentObject private var store: WorkoutStoreV2
 
     // Use classifier to generate consistent workout title
     private var workoutTitle: String {
@@ -413,12 +410,10 @@ struct HealthKitWorkoutRow: View {
     var body: some View {
         NavigationLink {
             // Route to appropriate detail view based on workout type
-            if let run = store.fullRun(id: workout.id) {
-                if isStrengthWorkout {
-                    HealthKitStrengthDetailView(run: run)
-                } else {
-                    CardioDetailView(run: run)
-                }
+            if isStrengthWorkout {
+                HealthKitStrengthDetailView(run: workout)
+            } else {
+                CardioDetailView(run: workout)
             }
         } label: {
             HStack {

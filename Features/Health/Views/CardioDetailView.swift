@@ -18,8 +18,24 @@ private enum Theme {
 }
 
 struct CardioDetailView: View {
-    let run: Run
+    let run: RunSummary
+
+    var body: some View {
+        // The one Cut branch point: same workout, store, delete, share and detail fetches.
+        if DS.Redesign.cutEnabled {
+            CutCardioDetailHost(run: run)
+        } else {
+            LegacyCardioDetailView(run: run)
+        }
+    }
+}
+
+/// The detail Release builds show. Reads its one workout through the store's live detail
+/// handle; the hero and overview come from the workout's summary.
+struct LegacyCardioDetailView: View {
+    let run: RunSummary
     @EnvironmentObject private var store: WorkoutStoreV2
+    @State private var holder = RunDetailHolder()
     @State private var hasActiveWorkoutInset = false
     @State private var selectedTab: DetailTab = .overview
     @State private var showingShareSheet = false
@@ -39,49 +55,53 @@ struct CardioDetailView: View {
     }
 
     var body: some View {
-        // The one Cut branch point: same run, store, delete, share and detail fetches.
-        if DS.Redesign.cutEnabled {
-            CutCardioDetailHost(run: run)
-        } else {
-            legacyBody
-        }
-    }
-
-    @ViewBuilder
-    private var legacyBody: some View {
-        let currentRun = latestRun
+        let detail = self.detail
+        let summary = currentSummary
 
         ScrollView {
             VStack(spacing: 16) {
                 // HERO CARD - Workout summary
-                HeroCard(run: currentRun)
+                HeroCard(run: summary)
 
-                // MAP
-                mapSection
+                if let currentRun = detail.run {
+                    // MAP
+                    mapSection(currentRun)
 
-                // TABS
-                Picker("View", selection: $selectedTab) {
-                    ForEach(DetailTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
+                    // TABS
+                    Picker("View", selection: $selectedTab) {
+                        ForEach(DetailTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
                     }
-                }
-                .pickerStyle(.segmented)
-                .padding(.top, 4)
+                    .pickerStyle(.segmented)
+                    .padding(.top, 4)
 
-                // TAB CONTENT
-                Group {
-                    switch selectedTab {
-                    case .overview:
-                        OverviewTab(run: currentRun)
-                    case .splits:
-                        SplitsTab(run: currentRun)
-                    case .heartRate:
-                        HeartRateTab(run: currentRun)
+                    // TAB CONTENT
+                    Group {
+                        switch selectedTab {
+                        case .overview:
+                            OverviewTab(run: summary)
+                        case .splits:
+                            SplitsTab(run: currentRun)
+                        case .heartRate:
+                            HeartRateTab(run: currentRun)
+                        }
                     }
+                } else if detail.isLoading {
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 40)
+                } else {
+                    OverviewTab(run: summary)
+                    Text("Details unavailable")
+                        .dsFont(.subheadline)
+                        .foregroundStyle(Theme.secondary)
+                        .frame(maxWidth: .infinity)
                 }
 
                 // NOTES
-                if let notes = currentRun.notes, !notes.isEmpty {
+                if let notes = summary.notes, !notes.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Notes")
                             .dsFont(.headline)
@@ -133,7 +153,7 @@ struct CardioDetailView: View {
             Button("Delete Workout", role: .destructive) {
                 Task {
                     do {
-                        try await HealthKitManager.shared.deleteCardioWorkout(run: latestRun)
+                        try await HealthKitManager.shared.deleteCardioWorkout(run: currentSummary)
                         await MainActor.run {
                             dismiss()
                         }
@@ -193,10 +213,9 @@ struct CardioDetailView: View {
     // MARK: - Map Section
 
     @ViewBuilder
-    private var mapSection: some View {
+    private func mapSection(_ currentRun: Run) -> some View {
         // Prefer locally-fetched route so the map updates immediately
         // without waiting for the parent to re-render from the store.
-        let currentRun = latestRun
         let displayRouteWithHR = localRouteWithHR ?? currentRun.routeWithHR
         let displayRoute = localRoute ?? currentRun.route
 
@@ -244,7 +263,7 @@ struct CardioDetailView: View {
     // MARK: - Enriched Workout for Sharing
 
     private func enrichedWorkout() -> CompletedWorkout {
-        let currentRun = latestRun
+        guard let currentRun = detail.run else { return currentSummary.completedWorkoutWithoutSamples() }
         var workout = currentRun.toCompletedWorkout()
         CardioDataExtractor.shared.enrichWorkout(&workout, from: currentRun)
 
@@ -258,26 +277,32 @@ struct CardioDetailView: View {
         return workout
     }
 
-    /// Get the latest version of this run from the store (may have route data fetched after view was created)
-    private var latestRun: Run {
-        store.runs.first(where: { $0.id == run.id }) ?? run
+    /// This workout's live detail handle: kept current by the store, so route data fetched
+    /// after the screen opened appears in place.
+    private var detail: RunDetail {
+        holder.detail(for: run.id, in: store)
+    }
+
+    /// The workout's light fields: the store's summary, else the last run the screen held.
+    private var currentSummary: RunSummary {
+        store.runSummary(id: run.id) ?? detail.run?.summary ?? run
     }
 
     // MARK: - Map Snapshot Generation
 
     private func generateMapSnapshotAndShare() async {
         mapSnapshotImage = nil
-        var currentRun = latestRun
+        var currentRun = detail.run
         isGeneratingSnapshot = true
 
         // Always attempt on-demand HealthKit fetch if there is no usable route.
         // Use count > 1 (not == nil) because the background queue may have stored an
         // empty routeWithHR = [] when HK hadn't synced the route yet — a non-nil empty
         // array would bypass a nil-only check and silently skip the fetch.
-        let hasUsableRoute = (currentRun.routeWithHR?.count ?? 0) > 1 || (currentRun.route?.count ?? 0) > 1
+        let hasUsableRoute = (currentRun?.routeWithHR?.count ?? 0) > 1 || (currentRun?.route?.count ?? 0) > 1
 
-        if !hasUsableRoute, currentRun.healthKitUUID != nil,
-           let refreshed = await HealthKitManager.shared.refreshDetailedDataForRun(runId: currentRun.id) {
+        if !hasUsableRoute, currentSummary.healthKitUUID != nil,
+           let refreshed = await HealthKitManager.shared.refreshDetailedDataForRun(runId: run.id) {
             currentRun = refreshed
         }
 
@@ -285,10 +310,10 @@ struct CardioDetailView: View {
         let coordinates: [CLLocationCoordinate2D]
         let hrValues: [Double]?
 
-        if let routeWithHR = currentRun.routeWithHR, routeWithHR.count > 1 {
+        if let routeWithHR = currentRun?.routeWithHR, routeWithHR.count > 1 {
             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = routeWithHR.map { $0.hr ?? .nan }
-        } else if let route = currentRun.route, route.count > 1 {
+        } else if let route = currentRun?.route, route.count > 1 {
             coordinates = route.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = nil
         } else {
@@ -317,10 +342,10 @@ struct CardioDetailView: View {
     /// Fetches the GPS route from HealthKit and stores it locally so the map
     /// updates immediately without waiting for the background queue.
     private func fetchRouteOnly() async {
-        guard !isFetchingRoute, latestRun.healthKitUUID != nil else { return }
+        guard !isFetchingRoute, currentSummary.healthKitUUID != nil else { return }
         isFetchingRoute = true
 
-        if let updated = await HealthKitManager.shared.refreshDetailedDataForRun(runId: latestRun.id) {
+        if let updated = await HealthKitManager.shared.refreshDetailedDataForRun(runId: run.id) {
             localRouteWithHR = updated.routeWithHR
             localRoute = updated.route
         }
@@ -332,7 +357,7 @@ struct CardioDetailView: View {
 // MARK: - Hero Card
 
 private struct HeroCard: View {
-    let run: Run
+    let run: RunSummary
 
     private var isStrengthWorkout: Bool {
         run.countsAsStrengthDay
@@ -431,7 +456,7 @@ private struct HeroCard: View {
 // MARK: - Overview Tab
 
 private struct OverviewTab: View {
-    let run: Run
+    let run: RunSummary
 
     var body: some View {
         VStack(spacing: 12) {
@@ -593,7 +618,7 @@ private struct HeartRateTab: View {
 // MARK: - Performance Summary
 
 private struct PerformanceSummary: View {
-    let run: Run
+    let run: RunSummary
 
     private var avgPaceSecPerKm: Int? {
         guard run.distanceKm > 0 else { return nil }
@@ -684,7 +709,7 @@ private struct MetricCard: View {
 // MARK: - Stat Grid
 
 private struct StatGrid: View {
-    let run: Run
+    let run: RunSummary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

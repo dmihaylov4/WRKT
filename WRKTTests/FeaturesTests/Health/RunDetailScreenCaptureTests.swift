@@ -10,7 +10,7 @@ import UIKit
 /// (default /private/tmp/volia-run-detail). Which design is captured follows the Cut gate.
 @MainActor
 struct RunDetailScreenCaptureTests {
-    private static let date = Date(timeIntervalSince1970: 1_794_398_400)
+    static let date = Date(timeIntervalSince1970: 1_794_398_400)
 
     private static func points(_ count: Int) -> [RoutePoint] {
         (0..<count).map { i in
@@ -88,11 +88,11 @@ struct RunDetailScreenCaptureTests {
 
     // CAPTURE-API: the only lines that differ between the two sides of the comparison.
     private func cardio(_ run: Run, store: WorkoutStoreV2) -> some View {
-        CardioDetailView(run: run)
+        CardioDetailView(run: run.summary)
     }
 
     private func strengthView(_ run: Run, store: WorkoutStoreV2) -> some View {
-        HealthKitStrengthDetailView(run: run)
+        HealthKitStrengthDetailView(run: run.summary)
     }
     // END CAPTURE-API
 

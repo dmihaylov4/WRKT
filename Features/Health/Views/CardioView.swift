@@ -445,7 +445,7 @@ struct CardioView: View {
                             .foregroundStyle(Theme.text)
                         Spacer()
                         if selectedWeekRuns.count > 10 {
-                            NavigationLink("See all", destination: AllRunsList(runs: selectedWeekRuns.sorted(by: { $0.date > $1.date }).compactMap { store.fullRun(id: $0.id) }, activityType: selectedType))
+                            NavigationLink("See all", destination: AllRunsList(runs: selectedWeekRuns.sorted(by: { $0.date > $1.date }), activityType: selectedType))
                                 .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(Theme.accent)
                         }
@@ -469,11 +469,13 @@ struct CardioView: View {
                         .padding(.horizontal, 16)
                     } else {
                         VStack(spacing: 10) {
-                            ForEach(selectedWeekRuns.sorted(by: { $0.date > $1.date }).prefix(10).compactMap { store.fullRun(id: $0.id) }) { r in
+                            ForEach(Array(selectedWeekRuns.sorted(by: { $0.date > $1.date }).prefix(10))) { r in
                                 NavigationLink {
                                     CardioDetailView(run: r)
                                 } label: {
-                                    RunRowCard(run: r, activityType: selectedType)
+                                    if let full = store.fullRun(id: r.id) {
+                                        RunRowCard(run: full, activityType: selectedType)
+                                    }
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1482,7 +1484,8 @@ private struct RunRowCard: View {
 // MARK: - All Runs List
 
 private struct AllRunsList: View {
-    let runs: [Run]
+    let runs: [RunSummary]
+    @EnvironmentObject private var store: WorkoutStoreV2
     let activityType: CardioType
 
     var body: some View {
@@ -1492,7 +1495,9 @@ private struct AllRunsList: View {
                     NavigationLink {
                         CardioDetailView(run: r)
                     } label: {
-                        RunRowCard(run: r, activityType: activityType)
+                        if let full = store.fullRun(id: r.id) {
+                            RunRowCard(run: full, activityType: activityType)
+                        }
                     }
                     .buttonStyle(.plain)
                 }

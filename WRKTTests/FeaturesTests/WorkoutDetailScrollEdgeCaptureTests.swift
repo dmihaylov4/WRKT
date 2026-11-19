@@ -40,9 +40,11 @@ struct WorkoutDetailScrollEdgeCaptureTests {
 
         try await capture(WorkoutDetailView(workout: workout), name: "workout", store: store,
                           repository: repository, root: root)
-        try await capture(CardioDetailView(run: cardio), name: "cardio", store: store,
+        // Detail screens read their workout from the store.
+        store.addRun(cardio)
+        try await capture(CardioDetailView(run: cardio.summary), name: "cardio", store: store,
                           repository: repository, root: root)
-        try await capture(HealthKitStrengthDetailView(run: strength), name: "healthkit-strength", store: store,
+        try await capture(HealthKitStrengthDetailView(run: strength.summary), name: "healthkit-strength", store: store,
                           repository: repository, root: root)
     }
 

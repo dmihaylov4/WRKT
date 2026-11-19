@@ -135,6 +135,18 @@ struct CutCardioDetailModel: Equatable {
     var notes: String?
     /// "Morning Run, 6.2 km"
     var deleteTitle: String
+
+    /// Whether the workout's route, splits and heart-rate detail are here to show.
+    enum Availability: Equatable {
+        case ready
+        /// Still being read: the route and splits keep their place, empty.
+        case loading
+        /// Could not be read: the route says so, splits and heart-rate detail are left out.
+        case unavailable
+    }
+    var availability: Availability = .ready
+    /// While loading: how many split rows to hold space for.
+    var splitPlaceholderCount = 0
 }
 
 // MARK: - Logic
@@ -407,6 +419,15 @@ enum CutCardioLogic {
 
     static func detail(_ run: Run, zones: [HRZoneSummary], hrSamples: [HeartRateSample]?, now: Date,
                        calendar: Calendar = .current, locale: Locale = .current) -> CutCardioDetailModel {
+        detail(summary: run.summary, run: run, zones: zones, hrSamples: hrSamples, now: now,
+               calendar: calendar, locale: locale)
+    }
+
+    /// The detail from the workout's summary, with its route, splits and heart-rate detail from
+    /// `run` when it is here. Without it, `isLoading` says whether it is still coming.
+    static func detail(summary run: RunSummary, run full: Run?, isLoading: Bool = false,
+                       zones: [HRZoneSummary], hrSamples: [HeartRateSample]?, now: Date,
+                       calendar: Calendar = .current, locale: Locale = .current) -> CutCardioDetailModel {
         let hasDistance = run.distanceKm > 0.01
         let isCycling = run.workoutType == "Cycling"
         let paceValue: Double? = run.distanceKm > 0.2 && run.durationSec > 0 ? Double(run.durationSec) / run.distanceKm : nil
@@ -427,24 +448,29 @@ enum CutCardioLogic {
         }
         if let avgHR { stats.append(CutStatColumn(value: "\(Int(avgHR.rounded()))", label: "Avg bpm")) }
 
-        let routeCount = max(run.routeWithHR?.count ?? 0, run.route?.count ?? 0)
-        let route: CutCardioDetailModel.Route = routeCount > 1 ? .map : (run.healthKitUUID != nil ? .canFetch : .none)
+        // More than one point in either route: the same test as `max(routeWithHR, route) > 1`.
+        let route: CutCardioDetailModel.Route = run.hasUsableRouteData ? .map : (run.healthKitUUID != nil ? .canFetch : .none)
 
-        let splits = splitRows(run.splits ?? [])
-        return CutCardioDetailModel(
+        let splits = splitRows(full?.splits ?? [])
+        var model = CutCardioDetailModel(
             title: title(run),
             dateLine: dateLine(run.date, now: now, calendar: calendar, locale: locale),
             hero: hero,
             stats: stats,
             route: route,
             splits: splits,
-            canLoadSplits: splits.isEmpty && hasDistance && run.healthKitUUID != nil,
-            heartRate: heartRate(run, zones: zones, samples: hrSamples),
-            canLoadDetails: (run.routeWithHR?.count ?? 0) < 2 && run.healthKitUUID != nil,
+            canLoadSplits: full != nil && splits.isEmpty && hasDistance && run.healthKitUUID != nil,
+            heartRate: heartRate(run, zones: full == nil ? [] : zones, samples: full == nil ? nil : hrSamples),
+            canLoadDetails: full != nil && run.lacksHeartRateRoute && run.healthKitUUID != nil,
             performance: performance(run, hasDistance: hasDistance, showsEnergyInStats: !hasDistance),
             notes: run.notes.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 },
             deleteTitle: hasDistance ? "\(title(run)), \(String(format: "%.1f", run.distanceKm)) km" : title(run)
         )
+        if full == nil {
+            model.availability = isLoading ? .loading : .unavailable
+            model.splitPlaceholderCount = isLoading ? (run.splitCount ?? 0) : 0
+        }
+        return model
     }
 
     /// "Friday 13 Nov, 07:12"
@@ -471,7 +497,7 @@ enum CutCardioLogic {
         }
     }
 
-    static func heartRate(_ run: Run, zones: [HRZoneSummary], samples: [HeartRateSample]?) -> CutCardioDetailModel.HeartRate? {
+    static func heartRate(_ run: RunSummary, zones: [HRZoneSummary], samples: [HeartRateSample]?) -> CutCardioDetailModel.HeartRate? {
         var stats: [CutStatColumn] = []
         if let avg = run.avgHeartRate, avg > 0 { stats.append(CutStatColumn(value: "\(Int(avg.rounded()))", label: "Average")) }
         if let max = run.maxHeartRate, max > 0 { stats.append(CutStatColumn(value: "\(Int(max.rounded()))", label: "Max")) }
@@ -506,7 +532,7 @@ enum CutCardioLogic {
     }
 
     /// Energy, speed, energy per km and the running dynamics the watch recorded, two per row.
-    static func performance(_ run: Run, hasDistance: Bool, showsEnergyInStats: Bool) -> [[CutStatColumn]] {
+    static func performance(_ run: RunSummary, hasDistance: Bool, showsEnergyInStats: Bool) -> [[CutStatColumn]] {
         var items: [CutStatColumn] = []
         if !showsEnergyInStats, let kcal = run.calories, kcal > 0 {
             items.append(CutStatColumn(value: "\(Int(kcal.rounded()))", label: "Energy", unit: "kcal"))

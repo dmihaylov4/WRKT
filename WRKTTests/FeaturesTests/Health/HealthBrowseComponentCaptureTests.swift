@@ -52,7 +52,9 @@ struct HealthBrowseComponentCaptureTests {
             workoutType: "Running", avgRunningPower: 245, avgCadence: 172, avgStrideLength: 1.12,
             avgGroundContactTime: 238, avgVerticalOscillation: 8.4)
         let empty = try await makeStore(workouts: [])
-        try await saveHosted(NavigationStack { CardioDetailView(run: run) }
+        // Detail screens read their workout from the store.
+        empty.store.addRun(run)
+        try await saveHosted(NavigationStack { CardioDetailView(run: run.summary) }
             .environmentObject(empty.store).environmentObject(empty.repository),
             "cardio-detail-overview", height: 1_400, root)
 
@@ -60,13 +62,13 @@ struct HealthBrowseComponentCaptureTests {
         let strength = Run(date: date, distanceKm: 0, durationSec: 3_480, notes: "Upper body session.",
             healthKitUUID: strengthUUID, avgHeartRate: 121, calories: 402,
             workoutType: "Traditional Strength Training", workoutName: "Push Day")
-        try await saveHosted(NavigationStack { HealthKitStrengthDetailView(run: strength) }
+        try await saveHosted(NavigationStack { HealthKitStrengthDetailView(run: strength.summary) }
             .environmentObject(empty.store).environmentObject(empty.repository),
             "strength-detail-unmatched", height: 1_100, root)
         var matched = CompletedWorkout(date: date, entries: [TestFixtures.benchPressEntry], workoutName: "Push Day")
         matched.matchedHealthKitUUID = strengthUUID
         let matchedStore = try await makeStore(workouts: [matched])
-        try await saveHosted(NavigationStack { HealthKitStrengthDetailView(run: strength) }
+        try await saveHosted(NavigationStack { HealthKitStrengthDetailView(run: strength.summary) }
             .environmentObject(matchedStore.store).environmentObject(matchedStore.repository),
             "strength-detail-matched", height: 1_100, root)
 
