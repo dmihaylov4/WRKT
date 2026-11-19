@@ -1076,6 +1076,18 @@ final class WorkoutStoreV2: ObservableObject {
         persistRuns()
     }
 
+    /// Whether replacing each first run with its second would leave the runs file unchanged.
+    /// Unequal pairs are encoded on the storage actor, off the main thread, with the encoder
+    /// the file is written with.
+    func runsEncodeIdentically(_ pairs: [(Run, Run)]) async -> [Bool] {
+        var identical = pairs.map { $0.0 == $0.1 }
+        let unequal = identical.indices.filter { !identical[$0] }
+        guard !unequal.isEmpty else { return identical }
+        let encoded = await storage.runsEncodeIdentically(unequal.map { pairs[$0] })
+        for (index, match) in zip(unequal, encoded) { identical[index] = match }
+        return identical
+    }
+
     func removeRun(withId id: UUID) {
         runs.removeAll(where: { $0.id == id })
         persistRuns()
