@@ -450,17 +450,12 @@ struct CutYearAwardStep: View {
     }
 
     private func header(_ content: CutYearAwardContent) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(content.title)
-                .cutHero(.xs)
-                .accessibilityAddTraits(.isHeader)
-            Text(reduceMotion ? "Yours to keep, engraved in steel." : "Tilt your phone to catch the light.")
-                .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout))
-                .foregroundStyle(DS.Cut.Colors.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .foregroundStyle(DS.Cut.Colors.textPrimary)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The title alone: the award explains itself, with no hint line under it.
+        Text(content.title)
+            .cutHero(.xs)
+            .accessibilityAddTraits(.isHeader)
+            .foregroundStyle(DS.Cut.Colors.textPrimary)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
