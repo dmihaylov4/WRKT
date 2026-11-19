@@ -343,13 +343,14 @@ private struct CutYearAwardLivePlaque: View {
     let content: CutYearAwardContent
     let motion: CutYearAwardMotion
     let reduceMotion: Bool
+    var fixedTilt: CutYearAwardTilt?
 
     @State private var drag: CutYearAwardTilt = .zero
 
     var body: some View {
         let pose = reduceMotion
             ? CutYearAwardLight.staticPose
-            : CutYearAwardLight.pose(tilt: motion.tilt + drag)
+            : CutYearAwardLight.pose(tilt: (fixedTilt ?? motion.tilt) + drag)
         CutYearAwardPosedPlaque(content: content, pose: pose)
             .contentShape(Rectangle())
             .gesture(dragGesture, isEnabled: !reduceMotion)
@@ -383,6 +384,20 @@ struct CutYearAwardStep: View {
     @State private var canPost = false
     @State private var composing = false
     @State private var postWorkout: CompletedWorkout?
+    /// Debug builds can show the RealityKit object instead of the SwiftUI plaque.
+    @State private var usesObject = CutYearAwardRendering.usesObject()
+    @State private var objectFailed = false
+
+    /// Debug screenshots: a fixed tilt, no motion and no arrival.
+    private static let fixedTilt: CutYearAwardTilt? = {
+        #if DEBUG
+        CutYearAwardRendering.fixedTilt(arguments: ProcessInfo.processInfo.arguments)
+        #else
+        nil
+        #endif
+    }()
+
+    private var showsObject: Bool { usesObject && !objectFailed }
 
     private var content: CutYearAwardContent {
         CutYearAwardLogic.content(stats: stats, unit: unit, cards: cards)
@@ -395,12 +410,20 @@ struct CutYearAwardStep: View {
             GeometryReader { proxy in
                 let fit = min(1, proxy.size.width / CutYearAwardPlaque.size.width,
                               proxy.size.height / (CutYearAwardPlaque.size.height + 12))
-                CutYearAwardLivePlaque(content: content, motion: motion, reduceMotion: reduceMotion)
-                    .rotation3DEffect(.degrees(landed ? 0 : 75), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-                    .offset(y: landed ? 0 : -24)
-                    .opacity(landed ? 1 : 0)
-                    .scaleEffect(fit)
-                    .frame(width: proxy.size.width, height: proxy.size.height)
+                if showsObject {
+                    CutYearAwardObjectPlaque(content: content, motion: motion, reduceMotion: reduceMotion,
+                                             active: scenePhase == .active && !composing, fit: fit,
+                                             fixedTilt: Self.fixedTilt, onFailure: objectDidFail)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                } else {
+                    CutYearAwardLivePlaque(content: content, motion: motion, reduceMotion: reduceMotion,
+                                           fixedTilt: Self.fixedTilt)
+                        .rotation3DEffect(.degrees(landed ? 0 : 75), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+                        .offset(y: landed ? 0 : -24)
+                        .opacity(landed ? 1 : 0)
+                        .scaleEffect(fit)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                }
             }
             actions(content)
         }
@@ -479,8 +502,9 @@ struct CutYearAwardStep: View {
     /// The plaque arrives once, turning in from the side, with one tap as it lands.
     private func arrive() {
         updateMotion()
-        guard !landed else { return }
-        guard !reduceMotion else {
+        // The object turns itself in once it is ready.
+        guard !landed, !showsObject else { return }
+        guard !reduceMotion, Self.fixedTilt == nil else {
             landed = true
             return
         }
@@ -488,8 +512,14 @@ struct CutYearAwardStep: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { Haptics.rigid() }
     }
 
+    /// The object could not be built: the SwiftUI plaque takes its place and arrives as usual.
+    private func objectDidFail() {
+        objectFailed = true
+        arrive()
+    }
+
     private func updateMotion() {
-        if !reduceMotion, scenePhase == .active, !composing {
+        if !reduceMotion, scenePhase == .active, !composing, Self.fixedTilt == nil {
             motion.start()
         } else {
             motion.stop()
