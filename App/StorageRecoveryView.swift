@@ -5,6 +5,8 @@ struct StorageRecoveryView: View {
     let recoveryCopy: URL?
     let retry: () -> Void
     @State private var showingExport = false
+    /// The copy is offered only once it verifies here: a launch may have skipped hashing it.
+    @State private var verifiedCopy: URL?
 
     var body: some View {
         VStack(spacing: 24) {
@@ -20,7 +22,7 @@ struct StorageRecoveryView: View {
             Button("Try Again") { retry() }
                 .buttonStyle(.borderedProminent)
                 .tint(DS.Semantic.brand)
-            if recoveryCopy != nil {
+            if verifiedCopy != nil {
                 Button("Save a Recovery Copy") { showingExport = true }
                     .foregroundStyle(DS.Semantic.brand)
             }
@@ -30,7 +32,13 @@ struct StorageRecoveryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(DS.Semantic.surface)
         .sheet(isPresented: $showingExport) {
-            if let copy = recoveryCopy { RecoveryCopyExporter(url: copy) }
+            if let copy = verifiedCopy { RecoveryCopyExporter(url: copy) }
+        }
+        .task(id: recoveryCopy) {
+            let copy = recoveryCopy
+            verifiedCopy = await Task.detached(priority: .userInitiated) {
+                UpgradeBackup.verifiedRecoveryCopy(copy)
+            }.value
         }
     }
 }

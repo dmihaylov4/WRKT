@@ -76,7 +76,8 @@ final class AppDataStore: ObservableObject {
         let outcome: Result<(container: ModelContainer, history: ValidatedHistory?), Error>
     }
 
-    /// The backup is created or verified and existing data validated before any database is opened.
+    /// Until the store has opened once after it, the backup is created or verified before any
+    /// database is opened; existing data is validated on every open.
     nonisolated private static func open(storeURL: URL?, documents: URL, preferences: [String: Any]) -> OpenResult {
         let storeURL = storeURL ?? defaultStoreURL
         let support = storeURL.deletingLastPathComponent()
@@ -84,12 +85,22 @@ final class AppDataStore: ObservableObject {
             destination: support.appendingPathComponent("UpgradeBackups/before-schema-v2"))
         var recoveryCopy: URL?
         do {
-            recoveryCopy = try backup.createIfNeeded(preferences: preferences)
+            let readiness = try backup.prepareForOpen(preferences: preferences)
+            recoveryCopy = readiness.recoveryCopy
             let history = try WorkoutStorage.validateExistingData(applicationSupport: backup.applicationSupport,
                                                                   documents: backup.documents)
             let schema = Schema(versionedSchema: AppStoreSchema.self)
             let config = ModelConfiguration(schema: schema, url: storeURL, cloudKitDatabase: .none)
             let container = try ModelContainer(for: schema, migrationPlan: AppStoreMigration.self, configurations: config)
+            if readiness.recordAfterOpen {
+                // Failing to record only means the next launch verifies the snapshot again.
+                do {
+                    try backup.recordOpened()
+                } catch {
+                    AppLogger.warning("Could not record the first open after the upgrade recovery copy; the next launch verifies it again: \(error)",
+                                      category: AppLogger.storage)
+                }
+            }
             return OpenResult(recoveryCopy: recoveryCopy, outcome: .success((container, history)))
         } catch {
             return OpenResult(recoveryCopy: recoveryCopy, outcome: .failure(error))
