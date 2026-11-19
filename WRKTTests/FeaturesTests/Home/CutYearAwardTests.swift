@@ -240,8 +240,10 @@ struct CutYearAwardObjectTests {
         let lines = content.objectShareCaption.components(separatedBy: "\n")
         #expect(lines.first == content.shareTitle)
         #expect(lines.count == 1 + content.rows.count)
-        #expect(lines[1] == "\(content.rows[0].value), one giant wheel")
-        #expect(lines[3] == "9 weeks, longest streak")
+        // Numbers only: the comparisons ("one giant wheel") stay out of the caption.
+        #expect(lines[1] == content.rows[0].value)
+        #expect(lines[3] == "9 weeks")
+        #expect(!content.objectShareCaption.contains("giant wheel"))
     }
 
     @Test func sharedObjectWithoutRowsIsJustTheTitle() {

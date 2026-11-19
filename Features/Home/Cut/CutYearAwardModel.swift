@@ -274,10 +274,10 @@ extension CutYearAwardContent {
     var objectLine: String { footer }
 
     /// The prefilled Social caption when the 3D object is shared. Its picture carries only the
-    /// year, the headline and the quiet line, so the stat rows ride in the caption instead,
-    /// one per line, where the user can still edit them before posting.
+    /// year, the headline and the quiet line, so the stat numbers ride in the caption instead,
+    /// one per line and without their comparisons, where the user can still edit them.
     var objectShareCaption: String {
-        ([shareTitle] + rows.map { "\($0.value), \($0.label)" }).joined(separator: "\n")
+        ([shareTitle] + rows.map(\.value)).joined(separator: "\n")
     }
 }
 
