@@ -387,6 +387,8 @@ struct CutYearAwardStep: View {
     /// Debug builds can show the RealityKit object instead of the SwiftUI plaque.
     @State private var usesObject = CutYearAwardRendering.usesObject()
     @State private var objectFailed = false
+    /// Whether `image` is the 3D object's still rather than the SwiftUI plaque's picture.
+    @State private var imageIsObject = false
 
     /// Debug screenshots: a fixed tilt, no motion and no arrival.
     private static let fixedTilt: CutYearAwardTilt? = {
@@ -413,7 +415,8 @@ struct CutYearAwardStep: View {
                 if showsObject {
                     CutYearAwardObjectPlaque(content: content, motion: motion, reduceMotion: reduceMotion,
                                              active: scenePhase == .active && !composing, fit: fit,
-                                             fixedTilt: Self.fixedTilt, onFailure: objectDidFail)
+                                             fixedTilt: Self.fixedTilt, onFailure: objectDidFail,
+                                             onShareImage: { objectDidDrawShareImage($0, content: content) })
                         .frame(width: proxy.size.width, height: proxy.size.height)
                 } else {
                     CutYearAwardLivePlaque(content: content, motion: motion, reduceMotion: reduceMotion,
@@ -438,7 +441,8 @@ struct CutYearAwardStep: View {
         .task { prepare(content) }
         .sheet(isPresented: $composing) {
             if let image {
-                PostCreationView(attachedImage: image, caption: content.shareTitle,
+                PostCreationView(attachedImage: image,
+                                 caption: imageIsObject ? content.objectShareCaption : content.shareTitle,
                                  workout: postWorkout, title: "Share Award")
                     .environment(\.dependencies, deps)
             }
@@ -515,7 +519,15 @@ struct CutYearAwardStep: View {
     /// The object could not be built: the SwiftUI plaque takes its place and arrives as usual.
     private func objectDidFail() {
         objectFailed = true
+        imageIsObject = false
+        image = Self.renderShareImage(content)
         arrive()
+    }
+
+    /// The object's still arrived: it is what gets shared. Without one, the SwiftUI picture.
+    private func objectDidDrawShareImage(_ still: UIImage?, content: CutYearAwardContent) {
+        imageIsObject = still != nil
+        image = still ?? Self.renderShareImage(content)
     }
 
     private func updateMotion() {
@@ -528,7 +540,8 @@ struct CutYearAwardStep: View {
 
     /// Renders the shared picture and checks whether a Social post is possible.
     private func prepare(_ content: CutYearAwardContent) {
-        image = Self.renderShareImage(content)
+        // The 3D object hands over its own picture once it has landed.
+        if !showsObject { image = Self.renderShareImage(content) }
         canPost = deps.authService.currentUser != nil
         postWorkout = CutYearAwardLogic.socialWorkout(year: stats.year, workouts: deps.workoutStore.completedWorkouts,
                                                       runs: deps.workoutStore.runs)

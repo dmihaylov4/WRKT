@@ -338,14 +338,24 @@ final class CutYearAwardObjectController {
         stopLink()
     }
 
-    /// A still of the object for sharing: flat light, the resting pose, on a transparent ground.
-    func still(scale: CGFloat = 3) async -> UIImage? {
+    /// The shared picture: the object at a fixed, flattering turn, on black with room round it,
+    /// at 3x so it stays sharp when posted (1338 x 1812 px).
+    func shareImage() async -> UIImage? {
         guard let stage = view?.stage else { return nil }
-        let size = CGSize(width: CGFloat(CutYearAwardSlab.width * 1000) + 80,
-                          height: CGFloat(CutYearAwardSlab.height * 1000) + 80)
-        guard let image = await stage.snapshot(pose: CutYearAwardLight.staticPose, size: size, fit: 1,
+        let padding = CutYearAwardRendering.sharePadding
+        let size = CGSize(width: CGFloat(CutYearAwardSlab.width * 1000) + padding * 2,
+                          height: CGFloat(CutYearAwardSlab.height * 1000) + padding * 2)
+        let scale: CGFloat = 3
+        guard let still = await stage.snapshot(pose: CutYearAwardLight.sharePose, size: size, fit: 1,
                                                scale: scale) else { return nil }
-        return UIImage(cgImage: image, scale: scale, orientation: .up)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = scale
+        format.opaque = true
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+            UIColor.black.setFill()
+            context.fill(CGRect(origin: .zero, size: size))
+            UIImage(cgImage: still, scale: scale, orientation: .up).draw(in: CGRect(origin: .zero, size: size))
+        }
     }
 
     // MARK: Frames
@@ -459,6 +469,8 @@ struct CutYearAwardObjectPlaque: View {
     /// Debug: a fixed tilt instead of the phone's, with no arrival.
     var fixedTilt: CutYearAwardTilt?
     var onFailure: () -> Void = {}
+    /// Receives the shared picture once the object has landed, or nil if it could not be drawn.
+    var onShareImage: (UIImage?) -> Void = { _ in }
 
     @State private var controller = CutYearAwardObjectController()
     /// Room round the face for the turned object, in points: the near edge grows by about 15
@@ -495,13 +507,24 @@ struct CutYearAwardObjectPlaque: View {
         .onChange(of: controller.isReady) { _, ready in
             guard ready else { return }
             controller.arrive(animated: fixedTilt == nil)
+        }
+        .task(id: controller.isReady) {
+            guard controller.isReady else { return }
+            // After the arrival has settled: the large still costs a frame or two of GPU time
+            // and must not land in the middle of the turn. Cancelled if the card goes away.
+            do { try await Task.sleep(for: .seconds(1.6)) } catch { return }
             #if DEBUG
-            // `-CutYearAwardStill` writes a still of the object to the app's tmp folder.
+            let start = ContinuousClock.now
+            #endif
+            let image = await controller.shareImage()
+            guard !Task.isCancelled else { return }
+            onShareImage(image)
+            #if DEBUG
+            CutYearAwardStageCache.log.info("Year award share image \(image.map { "\(Int($0.size.width * $0.scale))x\(Int($0.size.height * $0.scale))" } ?? "failed", privacy: .public) in \(ContinuousClock.now - start, privacy: .public), \(CutYearAwardMemory.summary, privacy: .public)")
+            // `-CutYearAwardStill` also writes it to the app's tmp folder.
             if ProcessInfo.processInfo.arguments.contains("-CutYearAwardStill") {
-                Task {
-                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("award3d-still.png")
-                    try? await controller.still()?.pngData()?.write(to: url)
-                }
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("award3d-share.png")
+                try? image?.pngData()?.write(to: url)
             }
             #endif
         }

@@ -194,6 +194,10 @@ enum CutYearAwardLight {
     static let staticPose = CutYearAwardPose(yaw: restYaw, lean: restLean, band: restBand,
                                              highlight: CGSize(width: 0, height: 1))
 
+    /// The 3D object's shared picture: a little less turned than at rest, so the face reads
+    /// square on while the band and the chamfer still show it is steel.
+    static let sharePose = CutYearAwardPose(yaw: -7, lean: 3, band: restBand, highlight: CGSize(width: 0, height: 1))
+
     /// The shared picture: flat and front on, the band in a fixed spot across the year.
     static let exportPose = CutYearAwardPose(yaw: 0, lean: 0, band: 0.36,
                                              highlight: CGSize(width: 0, height: 1))
@@ -248,6 +252,9 @@ enum CutYearAwardRendering {
         return CutYearAwardLight.clamp(CutYearAwardTilt(yaw: parts[0], lean: parts[1]))
     }
 
+    /// Room round the object in the shared picture, in points.
+    static let sharePadding: CGFloat = 64
+
     static func usesObject(defaults: UserDefaults = .standard) -> Bool {
         #if DEBUG
         // `bool(forKey:)` also reads a launch argument such as `-cut.yearAward.object3D NO`.
@@ -263,6 +270,13 @@ extension CutYearAwardContent {
     /// The single quiet line under the headline on the 3D object. The year's count reads as a
     /// record of effort without turning the object into a table: the rows stay on the cards.
     var objectLine: String { footer }
+
+    /// The prefilled Social caption when the 3D object is shared. Its picture carries only the
+    /// year, the headline and the quiet line, so the stat rows ride in the caption instead,
+    /// one per line, where the user can still edit them before posting.
+    var objectShareCaption: String {
+        ([shareTitle] + rows.map { "\($0.value), \($0.label)" }).joined(separator: "\n")
+    }
 }
 
 /// A damped spring on one value, stepped per frame. Response and damping follow SwiftUI's
