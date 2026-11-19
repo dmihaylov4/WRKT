@@ -1,0 +1,61 @@
+[
+  {
+    "flushFailed" : false,
+    "name" : "load"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "import new",
+    "written" : "9a360381cf89de00561f7cff6ab7ec7819c956cd9fd3d0d3bfa52cc619a51a48"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "import duplicate"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "import update",
+    "written" : "c50917a0eb51c22ec242e20da18b4052ddeb7fb17b6f5bb0cbc7d2bf33b20e7b"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "import update unchanged"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "strength heart rate",
+    "written" : "cf21be9a74882ecdac79db9281003ccc9c09c90ec2fc8da4eac405bff4099ccd"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "route queue new route",
+    "written" : "58e2be12f60d517816df847de76d799f325a94ea3adc3032814deace0783f78e"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "route queue nothing new"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "resync batch",
+    "written" : "d12642d8310ef5ee516c3eb727c4f8059e1cb8ab1c750560a5b619c542237757"
+  },
+  {
+    "flushFailed" : true,
+    "name" : "failed write"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "retry after failure",
+    "written" : "d18970a958b0a6270b3736409fa8628d4dc3eeb892859d82afb21b9c94f84b41"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "delete",
+    "written" : "8c32e3d237784dfbf69852521c777a7738b5a7a937e17ddb1cb05d19cf6e07c1"
+  },
+  {
+    "flushFailed" : false,
+    "name" : "delete missing"
+  }
+]

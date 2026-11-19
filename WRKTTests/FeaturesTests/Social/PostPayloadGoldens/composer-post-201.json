@@ -1,0 +1,21 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "date" : "2026-11-07T11:30:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000201",
+    "matchedHealthKitCalories" : 400,
+    "matchedHealthKitHeartRate" : 125,
+    "matchedHealthKitUUID" : "00000000-0000-0000-0000-000000000105",
+    "startedAt" : "2026-11-07T10:30:00Z",
+    "workoutName" : "Push Day"
+  }
+}

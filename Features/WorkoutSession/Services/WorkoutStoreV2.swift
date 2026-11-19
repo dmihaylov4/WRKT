@@ -14,9 +14,11 @@ final class WorkoutStoreV2: ObservableObject {
     @Published var completedWorkouts: [CompletedWorkout] = []
     @Published private(set) var lastCompletedWorkout: CompletedWorkout?
     @Published private(set) var lastHealthImportEndDate: Date? = nil
-    /// Every run with its detail arrays. Not published itself: every mutation also updates
+    /// Every run with its detail arrays. Private: history-wide code reads `runSummaries`, one
+    /// workout's detail comes through `runDetail(id:)` or `loadRun(id:)`, and changes go through
+    /// `addRun`, `editRun(s)` and `removeRun`. Not published itself: every mutation also updates
     /// `runSummaries`, once, which publishes the change.
-    private(set) var runs: [Run] = [] {
+    private var runs: [Run] = [] {
         didSet { runsSave.changed() }
     }
     /// One summary per run, in the same order, updated in the same mutation as `runs`. History
@@ -36,12 +38,7 @@ final class WorkoutStoreV2: ObservableObject {
     private var ignoredSave = SaveTracker()
     private var discardedWorkoutWindows: [DiscardedWorkoutWindow] = []
 
-    /// Returns only valid cardio activities (filters out strength training and invalid data)
-    var validRuns: [Run] {
-        runs.filter { RunSummary.isValidCardio(distanceKm: $0.distanceKm, durationSec: $0.durationSec, workoutType: $0.workoutType) }
-    }
-
-    /// `validRuns`, as summaries.
+    /// Only valid cardio activities: strength training and invalid data left out.
     var validRunSummaries: [RunSummary] {
         runSummaries.filter(\.isValidCardio)
     }
@@ -1066,43 +1063,72 @@ final class WorkoutStoreV2: ObservableObject {
     // Mutations that would change nothing return early: every assignment to `runs` bumps its
     // save revision, which would rewrite the whole file for nothing.
 
-    func updateRun(_ run: Run) {
-        guard let index = runs.firstIndex(where: { $0.id == run.id }), runs[index] != run else { return }
-        runs[index] = run
-        runSummaries[index] = RunSummary(run)
-        checkRunSummaries(touched: [index])
-        refreshRunDetails([run.id])
+    /// Stores `newRuns`, whose `touched` indices changed, in one change: summaries, handles and
+    /// the queued save follow.
+    private func commitRuns(_ newRuns: [Run], touched: Set<Int>) {
+        runs = newRuns
+        var summaries = runSummaries
+        for index in touched { summaries[index] = RunSummary(newRuns[index]) }
+        runSummaries = summaries
+        checkRunSummaries(touched: touched)
+        refreshRunDetails(touched.map { newRuns[$0].id })
         persistRuns()
     }
 
-    func batchUpdateRuns(_ updatedRuns: [Run]) {
-        var runsCopy = runs
-        var updateCount = 0
-        var touched: Set<Int> = []
+    // MARK: - Edits
 
-        for run in updatedRuns {
-            if let index = runsCopy.firstIndex(where: { $0.id == run.id }), runsCopy[index] != run {
-                runsCopy[index] = run
+    /// Applies one edit to the stored workout, synchronously. Returns whether the workout
+    /// changed; an edit that changes nothing, or whose workout is gone, writes nothing.
+    @discardableResult
+    func editRun(_ edit: RunEdit) -> Bool {
+        !editRuns([edit]).isEmpty
+    }
+
+    /// Applies edits in order, each to the workout as the previous edits left it, in one change.
+    /// Edits whose workout is gone are dropped (an intervening delete is never undone); edits
+    /// that change nothing write nothing. Returns the ids that changed.
+    @discardableResult
+    func editRuns(_ edits: [RunEdit]) -> Set<UUID> {
+        var runsCopy = runs
+        var touched: Set<Int> = []
+        for edit in edits {
+            guard let index = runsCopy.firstIndex(where: { $0.id == edit.id }) else { continue }
+            let updated = edit.applied(to: runsCopy[index])
+            if updated != runsCopy[index] {
+                runsCopy[index] = updated
                 touched.insert(index)
-                updateCount += 1
             }
         }
+        AppLogger.debug("Edited \(touched.count)/\(edits.count) runs", category: AppLogger.health)
+        guard !touched.isEmpty else { return [] }
+        commitRuns(runsCopy, touched: touched)
+        return Set(touched.map { runsCopy[$0].id })
+    }
 
-        AppLogger.debug("Batch updated \(updateCount)/\(updatedRuns.count) runs", category: AppLogger.health)
-        guard updateCount > 0 else { return }
-        runs = runsCopy
-        var summaries = runSummaries
-        for index in touched { summaries[index] = RunSummary(runsCopy[index]) }
-        runSummaries = summaries
-        checkRunSummaries(touched: touched)
-        refreshRunDetails(touched.map { runsCopy[$0].id })
-        persistRuns()
+    /// `editRuns`, leaving alone each workout whose edited form would encode to the bytes the
+    /// file already holds for it (a re-read of unchanged HealthKit data differs in memory only
+    /// below the file's precision). Encoding runs off the main thread; a workout that changed
+    /// meanwhile gets its edit applied to its current form and is written.
+    @discardableResult
+    func editRunsIfStoredFormChanges(_ edits: [RunEdit]) async -> Set<UUID> {
+        let candidates = edits.compactMap { edit in fullRun(id: edit.id).map { (edit, $0, edit.applied(to: $0)) } }
+        guard !candidates.isEmpty else { return [] }
+        let identical = await runsEncodeIdentically(candidates.map { ($0.1, $0.2) })
+        let updates = zip(candidates, identical).compactMap { candidate, identical -> RunEdit? in
+            let (edit, stored, _) = candidate
+            guard let current = fullRun(id: edit.id) else { return nil }
+            // Changed during the comparison: apply the edit to the current run and write it.
+            guard current == stored else { return edit }
+            // Unchanged: the edit gives the compared form, written only if its bytes differ.
+            return identical ? nil : edit
+        }
+        return editRuns(updates)
     }
 
     /// Whether replacing each first run with its second would leave the runs file unchanged.
     /// Unequal pairs are encoded on the storage actor, off the main thread, with the encoder
     /// the file is written with.
-    func runsEncodeIdentically(_ pairs: [(Run, Run)]) async -> [Bool] {
+    private func runsEncodeIdentically(_ pairs: [(Run, Run)]) async -> [Bool] {
         var identical = pairs.map { $0.0 == $0.1 }
         let unequal = identical.indices.filter { !identical[$0] }
         guard !unequal.isEmpty else { return identical }
@@ -1120,28 +1146,13 @@ final class WorkoutStoreV2: ObservableObject {
         persistRuns()
     }
 
-    func deleteRuns(at offsets: IndexSet) {
-        let removed = offsets.map { runs[$0].id }
-        runs.remove(atOffsets: offsets)
-        runSummaries.remove(atOffsets: offsets)
-        checkRunSummaries(touched: [])
-        refreshRunDetails(removed)
-        persistRuns()
-    }
-
     func clearAllRuns() {
         guard !runs.isEmpty else { return }
         setRuns([])
         persistRuns()
     }
 
-    func runs(on date: Date, calendar: Calendar = .current) -> [Run] {
-        let day = calendar.startOfDay(for: date)
-        // Return ALL runs (including strength workouts) - let callers filter as needed
-        return runs.filter { calendar.isDate($0.date, inSameDayAs: day) }
-    }
-
-    /// `runs(on:)`, as summaries: every run that day, in history order.
+    /// Every workout that day, in history order.
     func runSummaries(on date: Date, calendar: Calendar = .current) -> [RunSummary] {
         let day = calendar.startOfDay(for: date)
         return runSummaries.filter { calendar.isDate($0.date, inSameDayAs: day) }
@@ -1164,9 +1175,6 @@ final class WorkoutStoreV2: ObservableObject {
         #endif
     }
 
-    func persist() {
-        persistRuns()
-    }
 
     func importRunsFromHealth() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }

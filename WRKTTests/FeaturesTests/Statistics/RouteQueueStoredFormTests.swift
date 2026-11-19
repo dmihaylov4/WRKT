@@ -103,7 +103,7 @@ final class RouteQueueStoredFormTests: XCTestCase {
         let (manager, store, _) = try await relaunch(runs: [original], tasks: [routeTask])
         let stamp = try XCTUnwrap(FileStamp(runsFile))
         // The precondition the phone showed: the fresh read differs in memory from the decoded run.
-        XCTAssertNotEqual(store.runs.first, original)
+        XCTAssertNotEqual(store.fullRunsForTesting.first, original)
 
         let succeeded = await manager.processRouteFetchQueue { _ in Self.enrichment(of: original) }
 
@@ -118,7 +118,7 @@ final class RouteQueueStoredFormTests: XCTestCase {
         let routeTask = task(for: original, createdDaysAgo: 200)
         let (manager, store, _) = try await relaunch(runs: [original], tasks: [routeTask])
         let stamp = try XCTUnwrap(FileStamp(runsFile))
-        XCTAssertNotEqual(store.runs.first, original)
+        XCTAssertNotEqual(store.fullRunsForTesting.first, original)
 
         await manager.processRouteFetchQueue { _ in Self.enrichment(of: original) }
 
@@ -190,7 +190,7 @@ final class RouteQueueStoredFormTests: XCTestCase {
 
         // The retry learns nothing beyond what is already in memory, but the file never got it.
         try FileManager.default.removeItem(at: runsFile)
-        XCTAssertEqual(store.runs.first?.routeWithHR?.count, 4)
+        XCTAssertEqual(store.fullRunsForTesting.first?.routeWithHR?.count, 4)
         let retried = await manager.processRouteFetchQueue { _ in Self.enrichment(of: arrived) }
 
         XCTAssertTrue(retried)
@@ -240,24 +240,24 @@ final class RouteQueueStoredFormTests: XCTestCase {
 
     func testStoredFormComparisonMatchesWhatTheFileWouldHold() async throws {
         let original = Self.healthKitRun()
-        let (_, store, _) = try await relaunch(runs: [original], tasks: [])
-        let decoded = try XCTUnwrap(store.runs.first)
+        let (_, store, storage) = try await relaunch(runs: [original], tasks: [])
+        let decoded = try XCTUnwrap(store.fullRunsForTesting.first)
         var heavier = original
         heavier.avgHeartRate = 150
 
-        let identical = await store.runsEncodeIdentically([(decoded, original), (decoded, heavier), (decoded, decoded)])
+        let identical = await storage.runsEncodeIdentically([(decoded, original), (decoded, heavier), (decoded, decoded)])
 
         XCTAssertEqual(identical, [true, false, true])
     }
 
     func testRunThatCannotBeEncodedCountsAsChanged() async throws {
         let original = Self.healthKitRun()
-        let (_, store, _) = try await relaunch(runs: [original], tasks: [])
-        let decoded = try XCTUnwrap(store.runs.first)
+        let (_, store, storage) = try await relaunch(runs: [original], tasks: [])
+        let decoded = try XCTUnwrap(store.fullRunsForTesting.first)
         var unencodable = decoded
         unencodable.avgHeartRate = .nan
 
-        let identical = await store.runsEncodeIdentically([(decoded, unencodable)])
+        let identical = await storage.runsEncodeIdentically([(decoded, unencodable)])
 
         XCTAssertEqual(identical, [false])
     }

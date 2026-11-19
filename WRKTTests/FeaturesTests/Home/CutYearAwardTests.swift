@@ -87,7 +87,7 @@ struct CutYearAwardContentTests {
         let march = CompletedWorkout(date: day(2026, 3, 2), entries: [])
         let nextYear = CompletedWorkout(date: day(2027, 1, 3), entries: [])
         let june = Run(date: day(2026, 6, 1), distanceKm: 10, durationSec: 3000)
-        let picked = CutYearAwardLogic.socialWorkout(year: 2026, workouts: [march, nextYear], runs: [june],
+        let picked = CutYearAwardLogic.socialWorkout(year: 2026, workouts: [march, nextYear], runs: [june.summary],
                                                      calendar: calendar)
         #expect(picked?.date == june.date)
         #expect(CutYearAwardLogic.socialWorkout(year: 2026, workouts: [nextYear], runs: [], calendar: calendar) == nil)

@@ -138,8 +138,8 @@ final class StoredRunTests: XCTestCase {
         for (index, item) in cases.enumerated() {
             XCTAssertEqual(older[index].routeWithHR, item.run.routeWithHR, item.name)
             XCTAssertEqual(older[index].route, item.slimmed ? nil : item.run.route, item.name)
-            XCTAssertEqual(older[index].hasUsableRouteData, item.run.hasUsableRouteData, item.name)
-            XCTAssertEqual(older[index].needsHistoricalEnrichment, item.run.needsHistoricalEnrichment, item.name)
+            XCTAssertEqual(older[index].summary.hasUsableRouteData, item.run.summary.hasUsableRouteData, item.name)
+            XCTAssertEqual(older[index].summary.needsHistoricalEnrichment, item.run.summary.needsHistoricalEnrichment, item.name)
         }
 
         // What it writes back has no marker; this version then reads route as nil, as written.
@@ -173,7 +173,7 @@ final class StoredRunTests: XCTestCase {
         let reloaded = WorkoutStoreV2(storage: WorkoutStorage(directory: directory),
                                       defaults: try XCTUnwrap(UserDefaults(suiteName: suiteName)))
         try await reloaded.waitForStorage()
-        XCTAssertEqual(Set(reloaded.runs), Set(store.runs))
+        XCTAssertEqual(Set(reloaded.fullRunsForTesting), Set(store.fullRunsForTesting))
         let newStamp = try XCTUnwrap(FileStamp(runsFile))
         try await reloaded.flushHealthKitChanges()
         XCTAssertEqual(FileStamp(runsFile), newStamp, "The slim file is not rewritten after loading either")

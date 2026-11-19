@@ -447,7 +447,7 @@ struct CutYearAwardStep: View {
         .onChange(of: scenePhase) { updateMotion() }
         .onChange(of: composing) { updateMotion() }
         .onChange(of: reduceMotion) { updateMotion() }
-        .task { prepare(content) }
+        .task { await prepare(content) }
         .onChange(of: image) { shareFile = Self.writeShareFile(image, named: content.shareFileName) }
         .sheet(isPresented: $composing) {
             if let image {
@@ -565,12 +565,14 @@ struct CutYearAwardStep: View {
     }
 
     /// Renders the shared picture and checks whether a Social post is possible.
-    private func prepare(_ content: CutYearAwardContent) {
+    private func prepare(_ content: CutYearAwardContent) async {
         // The 3D object hands over its own picture once it has landed.
         if !showsObject { image = Self.renderShareImage(content) }
         canPost = deps.authService.currentUser != nil
-        postWorkout = CutYearAwardLogic.socialWorkout(year: stats.year, workouts: deps.workoutStore.completedWorkouts,
-                                                      runs: deps.workoutStore.runs)
+        let store = deps.workoutStore
+        // Picked from the summaries, then completed from the run itself, samples included.
+        postWorkout = await CutYearAwardLogic.socialCandidate(year: stats.year, workouts: store.completedWorkouts,
+                                                              runs: store.runSummaries)?.completed(in: store)
     }
 
     /// The plaque flat and front on, on black so the cut corner survives apps that flatten

@@ -111,12 +111,12 @@ final class RunDetailTests: XCTestCase {
         var enriched = runs[1]
         enriched.routeWithHR = Self.points(3)
         enriched.splits = [KilometerSplit(number: 1, distanceKm: 1, durationSec: 600)]
-        store.updateRun(enriched)
+        store.editRun(.replacing(with: enriched))
         XCTAssertEqual(detail.run, enriched)
 
         var renamed = enriched
         renamed.workoutName = "Evening walk"
-        store.batchUpdateRuns([renamed])
+        store.editRuns([.replacing(with: renamed)])
         XCTAssertEqual(detail.run, renamed)
 
         store.removeRun(withId: runs[1].id)
@@ -130,7 +130,7 @@ final class RunDetailTests: XCTestCase {
         XCTAssertEqual(waiting.phase, .loaded(pending))
 
         let first = store.runDetail(id: runs[0].id)
-        store.deleteRuns(at: IndexSet([store.runSummaries.firstIndex { $0.id == runs[0].id }!]))
+        store.removeRun(withId: runs[0].id)
         XCTAssertEqual(first.phase, .unavailable(.removed))
         XCTAssertEqual(first.run, runs[0])
 
@@ -147,13 +147,13 @@ final class RunDetailTests: XCTestCase {
 
         var other = runs[1]
         other.notes = "other"
-        XCTAssertFalse(observes({ _ = detail.phase }, during: { store.updateRun(other) }))
+        XCTAssertFalse(observes({ _ = detail.phase }, during: { store.editRun(.replacing(with: other)) }))
         XCTAssertFalse(observes({ _ = detail.phase }, during: { store.addRun(Run(distanceKm: 1, durationSec: 60)) }))
-        XCTAssertFalse(observes({ _ = detail.phase }, during: { store.updateRun(runs[0]) }), "an unchanged run is no change")
+        XCTAssertFalse(observes({ _ = detail.phase }, during: { store.editRun(.replacing(with: runs[0])) }), "an unchanged run is no change")
 
         var own = runs[0]
         own.notes = "own"
-        XCTAssertTrue(observes({ _ = detail.phase }, during: { store.updateRun(own) }))
+        XCTAssertTrue(observes({ _ = detail.phase }, during: { store.editRun(.replacing(with: own)) }))
         XCTAssertTrue(observes({ _ = detail.revision }, during: { store.removeRun(withId: own.id) }))
     }
 

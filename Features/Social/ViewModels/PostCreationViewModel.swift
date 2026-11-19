@@ -43,14 +43,17 @@ final class PostCreationViewModel {
         selectedWorkouts.first
     }
 
-    // Store runs to access route data for map generation
-    private var cachedRuns: [Run] = []
+    /// The picker entries that stand for a run, as the picker built them (without heart-rate
+    /// samples). One still selected unchanged is completed from the run before posting.
+    private var runPickerWorkouts: [UUID: CompletedWorkout] = [:]
 
     private let postRepository: PostRepository
     private let imageUploadService: ImageUploadService
     private let authService: SupabaseAuthService
     private let friendshipRepository: FriendshipRepository
-    private let workoutStorage: WorkoutStorage
+    /// nil: the app's store.
+    private let injectedStore: WorkoutStoreV2?
+    private var workoutStore: WorkoutStoreV2 { injectedStore ?? AppDependencies.shared.workoutStore }
     private let retryManager = RetryManager.shared
     private let errorHandler = ErrorHandler.shared
 
@@ -59,13 +62,13 @@ final class PostCreationViewModel {
         imageUploadService: ImageUploadService,
         authService: SupabaseAuthService,
         friendshipRepository: FriendshipRepository,
-        workoutStorage: WorkoutStorage = .shared
+        workoutStore: WorkoutStoreV2? = nil
     ) {
         self.postRepository = postRepository
         self.imageUploadService = imageUploadService
         self.authService = authService
         self.friendshipRepository = friendshipRepository
-        self.workoutStorage = workoutStorage
+        self.injectedStore = workoutStore
     }
 
     func createPost(with workout: CompletedWorkout) async throws {
@@ -81,9 +84,11 @@ final class PostCreationViewModel {
             throw SupabaseError.notAuthenticated
         }
 
-        selectedWorkouts = workouts
         isUploading = true
         defer { isUploading = false }
+        // Run-backed picker entries carry no heart-rate samples: post the full workout.
+        let workouts = await Self.workoutsForPosting(workouts, picker: runPickerWorkouts, store: workoutStore)
+        selectedWorkouts = workouts
         error = nil
         retryAttempt = 0
 
@@ -347,41 +352,74 @@ final class PostCreationViewModel {
 
     func loadRecentWorkouts() async {
         isLoadingWorkouts = true
-        do {
-            // Strength workouts and cardio runs. The loaded store already holds what the files
-            // hold (plus any change still being saved), so the history is not decoded again.
-            let workouts: [CompletedWorkout]
-            let runs: [Run]
-            let store = AppDependencies.shared.workoutStore
-            if store.isStorageLoaded {
-                workouts = store.completedWorkouts
-                runs = store.runs
-            } else {
-                workouts = try await workoutStorage.loadWorkouts().workouts
-                runs = try await workoutStorage.loadRuns()
-            }
-
-            // Cache runs for map generation
-            self.cachedRuns = runs
-            recentWorkouts = Self.pickerWorkouts(workouts: workouts, runs: runs)
-
-            isLoadingWorkouts = false
-        } catch {
-            self.error = UserFriendlyError(
+        // Strength workouts and cardio runs, from the loaded store: the history is never decoded
+        // here. A history that failed to load, or does not load in time, ends in the error state.
+        switch await Self.waitForHistory(workoutStore, limit: Self.historyWaitLimit) {
+        case .loaded:
+            let candidates = Self.pickerCandidates(workouts: workoutStore.completedWorkouts, runs: workoutStore.runSummaries)
+            recentWorkouts = candidates.map(\.completedWorkout)
+            runPickerWorkouts = Dictionary(uniqueKeysWithValues: candidates.compactMap { candidate in
+                if case .run = candidate { return (candidate.completedWorkout.id, candidate.completedWorkout) }
+                return nil
+            })
+        case .failed(let failure):
+            error = UserFriendlyError(
                 title: "Workouts Load Failed",
                 message: "Failed to load workouts",
                 suggestion: "Pull down to refresh",
                 isRetryable: true,
-                originalError: error
+                originalError: failure
             )
-            isLoadingWorkouts = false
+        }
+        isLoadingWorkouts = false
+    }
+
+    enum HistoryWait {
+        case loaded
+        case failed(Error)
+    }
+
+    struct HistoryWaitTimedOut: Error {}
+
+    /// How long the composer waits for history that is still loading.
+    static let historyWaitLimit: Duration = .seconds(15)
+
+    /// Waits for the store's history, but never longer than `limit` and never past a failed load.
+    static func waitForHistory(_ store: WorkoutStoreV2, limit: Duration) async -> HistoryWait {
+        if store.isStorageLoaded { return .loaded }
+        return await waitForHistory(limit: limit) { try await store.waitForStorage() }
+    }
+
+    /// `wait` races the time limit; whichever ends first decides.
+    static func waitForHistory(limit: Duration, _ wait: @escaping @MainActor () async throws -> Void) async -> HistoryWait {
+        let once = HistoryWaitOnce()
+        return await withCheckedContinuation { continuation in
+            once.continuation = continuation
+            once.timer = Task { @MainActor in
+                try? await Task.sleep(for: limit)
+                once.finish(.failed(HistoryWaitTimedOut()))
+            }
+            Task { @MainActor in
+                do {
+                    try await wait()
+                    once.finish(.loaded)
+                } catch {
+                    once.finish(.failed(error))
+                }
+            }
         }
     }
 
     /// The picker's workouts: the latest `limit` of the logged workouts and the runs not already
     /// matched to one, newest first; on equal dates logged workouts come first, each in input
-    /// order. Only the runs that make the list are converted.
-    static func pickerWorkouts(workouts: [CompletedWorkout], runs: [Run], limit: Int = 10) -> [CompletedWorkout] {
+    /// order. Runs are converted without their heart-rate samples.
+    static func pickerWorkouts(workouts: [CompletedWorkout], runs: [RunSummary], limit: Int = 10) -> [CompletedWorkout] {
+        pickerCandidates(workouts: workouts, runs: runs, limit: limit).map(\.completedWorkout)
+    }
+
+    /// The picker's entries before conversion. The order is explicit: newest first, and on equal
+    /// dates the order of `workouts` followed by the order of `runs`.
+    static func pickerCandidates(workouts: [CompletedWorkout], runs: [RunSummary], limit: Int = 10) -> [HistoryCandidate] {
         // Runs already matched to an app workout (strength sessions recorded in the app)
         // are not shown again as separate entries.
         let matchedHKUUIDs = Set(workouts.compactMap { $0.matchedHealthKitUUID })
@@ -391,12 +429,21 @@ final class PostCreationViewModel {
                 return !matchedHKUUIDs.contains(hkUUID)
             }
             .map(HistoryCandidate.run)
-        // Same candidates in the same order as converting every run first, so equal dates
-        // resolve exactly as they did.
-        return candidates
-            .sorted(by: { $0.date > $1.date })
-            .prefix(limit)
-            .map(\.completedWorkout)
+        return Array(HistoryCandidate.newestFirst(candidates).prefix(limit))
+    }
+
+    /// The workouts to post: a picker entry that stands for a run and is still exactly as the
+    /// picker built it is replaced by the run's full conversion, samples included. Anything
+    /// else, such as a detail screen's share with its route samples, is posted as it is. A run
+    /// that can no longer be read is posted as listed.
+    static func workoutsForPosting(_ workouts: [CompletedWorkout], picker: [UUID: CompletedWorkout],
+                                   store: WorkoutStoreV2) async -> [CompletedWorkout] {
+        let runIDs = workouts.compactMap { workout in picker[workout.id] == workout ? workout.id : nil }
+        guard !runIDs.isEmpty, let loaded = try? await store.loadRuns(ids: runIDs) else { return workouts }
+        return workouts.map { workout in
+            guard picker[workout.id] == workout, case .loaded(let run) = loaded[workout.id] else { return workout }
+            return run.toCompletedWorkout()
+        }
     }
 
     // MARK: - Map Snapshot Generation
@@ -409,14 +456,17 @@ final class PostCreationViewModel {
         let identity = mapIdentity(for: workout)
         if mapImagesByWorkoutID[identity] != nil { return }
 
-        // Find the corresponding Run using the HealthKit UUID or workout ID
-        // Check both cachedRuns and the workout store for the latest data
-        var run: Run?
-        let allRuns = cachedRuns.isEmpty ? AppDependencies.shared.workoutStore.runs : cachedRuns
+        // Find the corresponding run by HealthKit UUID or workout ID, and read its route.
+        let store = workoutStore
+        let summary: RunSummary?
         if let healthKitUUID = workout.matchedHealthKitUUID {
-            run = allRuns.first { $0.healthKitUUID == healthKitUUID }
+            summary = store.runSummary(healthKitUUID: healthKitUUID)
         } else {
-            run = allRuns.first { $0.id == workout.id }
+            summary = store.runSummary(id: workout.id)
+        }
+        var run: Run?
+        if let summary, case .loaded(let full)? = try? await store.loadRun(id: summary.id) {
+            run = full
         }
 
         // Get route coordinates — try run first, then fetch on-demand from HealthKit
@@ -487,5 +537,19 @@ final class PostCreationViewModel {
             if mapImagesByWorkoutID[identity] != nil { continue }
             await generateMapSnapshotForWorkout(workout)
         }
+    }
+}
+
+/// Resolves `waitForHistory` once, whichever of the load and the time limit ends first.
+@MainActor
+private final class HistoryWaitOnce {
+    var continuation: CheckedContinuation<PostCreationViewModel.HistoryWait, Never>?
+    var timer: Task<Void, Never>?
+
+    func finish(_ result: PostCreationViewModel.HistoryWait) {
+        guard let continuation else { return }
+        self.continuation = nil
+        timer?.cancel()
+        continuation.resume(returning: result)
     }
 }

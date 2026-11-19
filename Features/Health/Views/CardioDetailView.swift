@@ -263,18 +263,8 @@ struct LegacyCardioDetailView: View {
     // MARK: - Enriched Workout for Sharing
 
     private func enrichedWorkout() -> CompletedWorkout {
-        guard let currentRun = detail.run else { return currentSummary.completedWorkoutWithoutSamples() }
-        var workout = currentRun.toCompletedWorkout()
-        CardioDataExtractor.shared.enrichWorkout(&workout, from: currentRun)
-
-        // Convert route HR data to samples for the post
-        if let routeWithHR = currentRun.routeWithHR, !routeWithHR.isEmpty {
-            workout.matchedHealthKitHeartRateSamples = routeWithHR.compactMap { point in
-                guard let hr = point.hr else { return nil }
-                return HeartRateSample(timestamp: point.t, bpm: hr)
-            }
-        }
-        return workout
+        // The full record is here from the first frame; without it, the workout as listed.
+        detail.run?.sharedWorkout() ?? currentSummary.completedWorkoutWithoutSamples()
     }
 
     /// This workout's live detail handle: kept current by the store, so route data fetched

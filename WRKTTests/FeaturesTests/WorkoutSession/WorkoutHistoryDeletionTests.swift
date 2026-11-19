@@ -109,7 +109,7 @@ final class WorkoutHistoryDeletionTests: XCTestCase {
         let relaunched = WorkoutStoreV2(storage: WorkoutStorage(directory: directory), defaults: defaults)
         try await relaunched.waitForStorage()
         XCTAssertTrue(relaunched.completedWorkouts.isEmpty, "Deleted strength workouts must stay deleted")
-        XCTAssertTrue(relaunched.runs.isEmpty, "Deleted runs must stay deleted")
+        XCTAssertTrue(relaunched.runSummaries.isEmpty, "Deleted runs must stay deleted")
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.appendingPathComponent("Backups").path).count, 2)
     }
 
