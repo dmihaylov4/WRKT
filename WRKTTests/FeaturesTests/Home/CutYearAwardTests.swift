@@ -233,6 +233,31 @@ struct CutYearAwardObjectTests {
         #expect(content.accessibilityText.contains("one giant wheel"))
     }
 
+    @Test func sharedObjectCarriesTheRowsInItsCaption() {
+        let stats = CutYearReviewStats.sample(year: 2026)
+        let content = CutYearAwardLogic.content(stats: stats, unit: .kg, cards: CutYearReviewLogic.cards(for: stats))
+        let lines = content.objectShareCaption.components(separatedBy: "\n")
+        #expect(lines.first == content.shareTitle)
+        #expect(lines.count == 1 + content.rows.count)
+        #expect(lines[1] == "\(content.rows[0].value), one giant wheel")
+        #expect(lines[3] == "9 weeks, longest streak")
+    }
+
+    @Test func sharedObjectWithoutRowsIsJustTheTitle() {
+        let content = CutYearAwardContent(year: 2026, headlineLines: ["Ready for", "next year"], rows: [],
+                                          footer: "0 workouts")
+        #expect(content.objectShareCaption == "My 2026 in Volia")
+    }
+
+    @Test func sharePoseIsCalmerThanRestAndWithinTheLimits() {
+        let share = CutYearAwardLight.sharePose, rest = CutYearAwardLight.staticPose
+        #expect(abs(share.yaw) <= abs(rest.yaw))
+        #expect(abs(share.lean) <= abs(rest.lean))
+        #expect(share.yaw != 0)
+        #expect(abs(share.yaw) <= CutYearAwardLight.maxAngle)
+        #expect(CutYearAwardRendering.sharePadding > 0)
+    }
+
     @Test func fixedTiltIsParsedAndClamped() {
         #expect(CutYearAwardRendering.fixedTilt(arguments: ["app"]) == nil)
         #expect(CutYearAwardRendering.fixedTilt(arguments: ["-CutYearAwardTilt"]) == nil)
