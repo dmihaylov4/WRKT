@@ -14,13 +14,19 @@ final class WorkoutStoreV2: ObservableObject {
     @Published var completedWorkouts: [CompletedWorkout] = []
     @Published private(set) var lastCompletedWorkout: CompletedWorkout?
     @Published private(set) var lastHealthImportEndDate: Date? = nil
-    @Published private(set) var runs: [Run] = []
+    @Published private(set) var runs: [Run] = [] {
+        didSet { runsSave.changed() }
+    }
 
     // Store last discarded workout for undo functionality
     private var lastDiscardedWorkout: CurrentWorkout?
 
     // Track HealthKit UUIDs that should be ignored (from discarded workouts)
-    private(set) var ignoredHealthKitUUIDs: Set<UUID> = []
+    private(set) var ignoredHealthKitUUIDs: Set<UUID> = [] {
+        didSet { ignoredSave.changed() }
+    }
+    private var runsSave = SaveTracker()
+    private var ignoredSave = SaveTracker()
     private var discardedWorkoutWindows: [DiscardedWorkoutWindow] = []
 
     /// Returns only valid cardio activities (filters out strength training and invalid data)
@@ -187,16 +193,20 @@ final class WorkoutStoreV2: ObservableObject {
                 // Restore saved work regardless of how the previous process ended.
                 // Load all data from unified storage
                 let (workouts, prIndex) = try await storage.loadWorkouts()
-                let runs = try await storage.loadRuns()
+                let (runs, runsStamp) = try await storage.loadRunsWithStamp()
                 let currentWorkout = try await storage.loadCurrentWorkout()
-                let ignoredUUIDs = try await storage.loadIgnoredHealthKitUUIDs()
+                let (ignoredUUIDs, ignoredStamp) = try await storage.loadIgnoredHealthKitUUIDsWithStamp()
                 let discardWindows = try await storage.loadDiscardedWorkoutWindows()
 
+                // Exactly what is on disk, so clean. Anything applied after this (deduplication
+                // below) changes the revision and is written.
                 self.runs = runs
+                runsSave.markSaved(runsSave.revision, stamp: runsStamp)
 
                 // IMPORTANT: Sort workouts by date to ensure proper ordering
                 self.currentWorkout = currentWorkout
                 self.ignoredHealthKitUUIDs = ignoredUUIDs
+                ignoredSave.markSaved(ignoredSave.revision, stamp: ignoredStamp)
                 self.discardedWorkoutWindows = discardWindows
                 self.lastHealthImportEndDate = defaults.object(forKey: lastImportKey) as? Date
 
@@ -1230,18 +1240,14 @@ final class WorkoutStoreV2: ObservableObject {
     /// Add a HealthKit UUID to the ignore list (used when matching discarded workout windows)
     func addIgnoredHealthKitUUID(_ uuid: UUID) {
         ignoredHealthKitUUIDs.insert(uuid)
-        Task {
-            try? await storage.saveIgnoredHealthKitUUIDs(ignoredHealthKitUUIDs)
-        }
+        persistIgnoredHealthKitUUIDs()
         AppLogger.info("Added \(uuid) to ignored HealthKit UUIDs", category: AppLogger.health)
     }
 
     /// Remove a HealthKit UUID from the ignore list
     func removeIgnoredHealthKitUUID(_ uuid: UUID) {
         ignoredHealthKitUUIDs.remove(uuid)
-        Task {
-            try? await storage.saveIgnoredHealthKitUUIDs(ignoredHealthKitUUIDs)
-        }
+        persistIgnoredHealthKitUUIDs()
     }
 
     // MARK: - Persistence Helpers
@@ -1250,8 +1256,9 @@ final class WorkoutStoreV2: ObservableObject {
         try await pendingSave?.value
     }
 
+    /// Runs saves one at a time, in the order they were queued, on the main actor.
     @discardableResult
-    private func enqueueSave(_ operation: @escaping @Sendable (WorkoutStorage) async throws -> Void) -> Task<Void, Error> {
+    private func enqueueSave(_ operation: @escaping @MainActor (WorkoutStorage) async throws -> Void) -> Task<Void, Error> {
         let previous = pendingSave
         let save = Task { [storage] in
             _ = try? await previous?.value
@@ -1266,14 +1273,14 @@ final class WorkoutStoreV2: ObservableObject {
         return save
     }
 
-    /// A later save of another collection must not mask an earlier failed run write.
+    /// A later save of another collection must not mask an earlier failed run write: a failed
+    /// write leaves its collection unsaved, so this writes it again and reports that outcome.
+    /// Returning means both files hold the current state, so the Health anchor may advance.
     func flushHealthKitChanges() async throws {
         try await waitForStorage()
-        let runs = runs
-        let ignored = ignoredHealthKitUUIDs
-        let save = enqueueSave {
-            try await $0.saveRuns(runs)
-            try await $0.saveIgnoredHealthKitUUIDs(ignored)
+        let save = enqueueSave { storage in
+            try await self.saveRunsIfChanged(to: storage)
+            try await self.saveIgnoredHealthKitUUIDsIfChanged(to: storage)
         }
         try await save.value
     }
@@ -1293,8 +1300,34 @@ final class WorkoutStoreV2: ObservableObject {
 
     private func persistRuns() {
         guard isStorageLoaded else { return }
-        let runs = runs
-        enqueueSave { try await $0.saveRuns(runs) }
+        enqueueSave { try await self.saveRunsIfChanged(to: $0) }
+    }
+
+    private func persistIgnoredHealthKitUUIDs() {
+        guard isStorageLoaded else { return }
+        enqueueSave { try await self.saveIgnoredHealthKitUUIDsIfChanged(to: $0) }
+    }
+
+    // Both run inside the save queue, so they see the outcome of every earlier save. Each
+    // writes the latest state, which also lets a burst of queued saves collapse into one write.
+
+    private func saveRunsIfChanged(to storage: WorkoutStorage) async throws {
+        // Read the stamp first so the revision is compared after the suspension, not before.
+        let onDisk = await storage.runsFileStamp()
+        if runsSave.isSaved(asOnDisk: onDisk) { return }
+        let revision = runsSave.revision
+        runsSave.markUnsaved()
+        let stamp = try await storage.saveRuns(runs)
+        runsSave.markSaved(revision, stamp: stamp)
+    }
+
+    private func saveIgnoredHealthKitUUIDsIfChanged(to storage: WorkoutStorage) async throws {
+        let onDisk = await storage.ignoredHealthKitUUIDsFileStamp()
+        if ignoredSave.isSaved(asOnDisk: onDisk) { return }
+        let revision = ignoredSave.revision
+        ignoredSave.markUnsaved()
+        let stamp = try await storage.saveIgnoredHealthKitUUIDs(ignoredHealthKitUUIDs)
+        ignoredSave.markSaved(revision, stamp: stamp)
     }
 
     private func startOfWeek(for date: Date) -> Date {
@@ -1785,5 +1818,29 @@ extension WorkoutStoreV2 {
                 }
             }
         }
+    }
+}
+
+// MARK: - Save Tracking
+
+/// Whether a saved collection still matches the file it was last written to or loaded from.
+/// Any doubt means unsaved: no successful write yet, a failed write, a later change, or a file
+/// replaced or removed behind the store's back.
+private struct SaveTracker {
+    /// Bumped by every mutation of the collection.
+    private(set) var revision = 0
+    private var saved: (revision: Int, stamp: FileStamp)?
+
+    mutating func changed() { revision &+= 1 }
+
+    mutating func markUnsaved() { saved = nil }
+
+    mutating func markSaved(_ revision: Int, stamp: FileStamp?) {
+        saved = stamp.map { (revision, $0) }
+    }
+
+    func isSaved(asOnDisk stamp: FileStamp?) -> Bool {
+        guard let saved, let stamp else { return false }
+        return saved.revision == revision && saved.stamp == stamp
     }
 }

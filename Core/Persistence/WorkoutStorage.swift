@@ -165,8 +165,10 @@ actor WorkoutStorage {
 
     private let maxBackups = 5  // Keep last 5 backups
     private let backupInterval: TimeInterval = 300  // 5 minutes between automatic backups
-    private var lastWorkoutsBackupTime: Date = .distantPast
-    private var lastRunsBackupTime: Date = .distantPast
+    /// nil until the first save of this process reads the newest backup on disk, so a relaunch
+    /// inside the interval does not copy the whole file again.
+    private var lastWorkoutsBackupTime: Date?
+    private var lastRunsBackupTime: Date?
 
     /// What startup validation decoded, consumed by the first loads so history is decoded once.
     private var validated: ValidatedHistory?
@@ -367,24 +369,38 @@ actor WorkoutStorage {
     // MARK: - Runs (Cardio/HealthKit)
 
     func loadRuns() async throws -> [Run] {
-        let runs: [Run]
-        if let validated = takeValidated(\.runs, at: runsFileURL) {
-            runs = validated
-        } else {
-            guard fileManager.fileExists(atPath: runsFileURL.path) else {
-                return []
-            }
-            do {
-                runs = try decoder.decode([Run].self, from: Data(contentsOf: runsFileURL))
-            } catch let error as DecodingError {
-                throw StorageError.decodingFailed("Runs", underlying: error)
-            }
-        }
-        AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
-        return runs
+        try loadRunsWithStamp().runs
     }
 
-    func saveRuns(_ runs: [Run]) async throws {
+    /// Also returns the stamp of the file the runs came from, so the caller can later tell
+    /// whether that file is still the one it loaded. nil when there is no file or it changed.
+    func loadRunsWithStamp() throws -> (runs: [Run], stamp: FileStamp?) {
+        try stamped(runsFileURL) {
+            let runs: [Run]
+            if let validated = takeValidated(\.runs, at: runsFileURL) {
+                runs = validated
+            } else {
+                guard fileManager.fileExists(atPath: runsFileURL.path) else {
+                    return []
+                }
+                do {
+                    runs = try decoder.decode([Run].self, from: Data(contentsOf: runsFileURL))
+                } catch let error as DecodingError {
+                    throw StorageError.decodingFailed("Runs", underlying: error)
+                }
+            }
+            AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
+            return runs
+        }
+    }
+
+    func runsFileStamp() -> FileStamp? {
+        FileStamp(runsFileURL)
+    }
+
+    /// Returns the stamp of the file it wrote.
+    @discardableResult
+    func saveRuns(_ runs: [Run]) async throws -> FileStamp? {
         do {
             try await createRunsBackupIfNeeded()
         } catch {
@@ -398,6 +414,7 @@ actor WorkoutStorage {
             try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: runsFileURL.path)
 
             AppLogger.success("Saved \(runs.count) runs", category: AppLogger.storage)
+            return FileStamp(runsFileURL)
         } catch let error as EncodingError {
             throw StorageError.encodingFailed("Runs", underlying: error)
         } catch {
@@ -408,33 +425,55 @@ actor WorkoutStorage {
     // MARK: - Ignored HealthKit UUIDs (for discarded workouts)
 
     func loadIgnoredHealthKitUUIDs() async throws -> Set<UUID> {
-        let uuids: [UUID]
-        if let validated = takeValidated(\.ignored, at: ignoredHealthKitUUIDsFileURL) {
-            uuids = validated
-        } else {
-            guard fileManager.fileExists(atPath: ignoredHealthKitUUIDsFileURL.path) else {
-                return []
-            }
-            do {
-                uuids = try decoder.decode([UUID].self, from: Data(contentsOf: ignoredHealthKitUUIDsFileURL))
-            } catch {
-                AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
-                throw error
-            }
-        }
-        AppLogger.info("Loaded \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
-        return Set(uuids)
+        try loadIgnoredHealthKitUUIDsWithStamp().uuids
     }
 
-    func saveIgnoredHealthKitUUIDs(_ uuids: Set<UUID>) async throws {
+    /// Also returns the stamp of the file the UUIDs came from, as `loadRunsWithStamp` does.
+    func loadIgnoredHealthKitUUIDsWithStamp() throws -> (uuids: Set<UUID>, stamp: FileStamp?) {
+        try stamped(ignoredHealthKitUUIDsFileURL) {
+            let uuids: [UUID]
+            if let validated = takeValidated(\.ignored, at: ignoredHealthKitUUIDsFileURL) {
+                uuids = validated
+            } else {
+                guard fileManager.fileExists(atPath: ignoredHealthKitUUIDsFileURL.path) else {
+                    return []
+                }
+                do {
+                    uuids = try decoder.decode([UUID].self, from: Data(contentsOf: ignoredHealthKitUUIDsFileURL))
+                } catch {
+                    AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
+                    throw error
+                }
+            }
+            AppLogger.info("Loaded \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
+            return Set(uuids)
+        }
+    }
+
+    func ignoredHealthKitUUIDsFileStamp() -> FileStamp? {
+        FileStamp(ignoredHealthKitUUIDsFileURL)
+    }
+
+    /// Returns the stamp of the file it wrote.
+    @discardableResult
+    func saveIgnoredHealthKitUUIDs(_ uuids: Set<UUID>) async throws -> FileStamp? {
         do {
             let data = try encoder.encode(Array(uuids))
             try data.write(to: ignoredHealthKitUUIDsFileURL, options: [.atomic])
             AppLogger.success("Saved \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
+            return FileStamp(ignoredHealthKitUUIDsFileURL)
         } catch {
             AppLogger.error("Failed to save ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
             throw error
         }
+    }
+
+    /// Runs a read and pairs its result with the stamp of `url`, or nil if the file changed
+    /// while it was read.
+    private func stamped<Value>(_ url: URL, _ read: () throws -> Value) rethrows -> (Value, FileStamp?) {
+        let before = FileStamp(url)
+        let value = try read()
+        return (value, before == FileStamp(url) ? before : nil)
     }
 
     // MARK: - Discarded Workout Windows
@@ -478,9 +517,10 @@ actor WorkoutStorage {
     /// Create workouts backup only if enough time has passed since the last workouts backup.
     private func createWorkoutsBackupIfNeeded() async throws {
         let now = Date()
-        let timeSinceLastBackup = now.timeIntervalSince(lastWorkoutsBackupTime)
+        let last = lastWorkoutsBackupTime ?? newestBackupDate(prefix: "workouts_backup_", before: now)
+        lastWorkoutsBackupTime = last
 
-        guard timeSinceLastBackup >= backupInterval else {
+        guard now.timeIntervalSince(last) >= backupInterval else {
             return
         }
 
@@ -491,9 +531,10 @@ actor WorkoutStorage {
     /// Create runs backup only if enough time has passed since the last runs backup.
     private func createRunsBackupIfNeeded() async throws {
         let now = Date()
-        let timeSinceLastBackup = now.timeIntervalSince(lastRunsBackupTime)
+        let last = lastRunsBackupTime ?? newestBackupDate(prefix: "runs_backup_", before: now)
+        lastRunsBackupTime = last
 
-        guard timeSinceLastBackup >= backupInterval else {
+        guard now.timeIntervalSince(last) >= backupInterval else {
             return
         }
 
@@ -541,6 +582,23 @@ actor WorkoutStorage {
         } catch {
             throw StorageError.backupFailed(error.localizedDescription)
         }
+    }
+
+    /// When the newest backup with this prefix was made, read from the timestamp in its name:
+    /// a copy keeps the source file's dates, so they tell when the backed-up file was written,
+    /// not when it was copied. A name that does not parse or a time after `now` (the clock
+    /// moved back) is ignored, so any doubt means "back up now".
+    private func newestBackupDate(prefix: String, before now: Date) -> Date {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd'T'HH-mm-ss'Z'"
+        let names = (try? fileManager.contentsOfDirectory(atPath: backupsDirectory.path)) ?? []
+        return names
+            .filter { $0.hasPrefix(prefix) }
+            .compactMap { parser.date(from: String($0.dropFirst(prefix.count).prefix(20))) }
+            .filter { $0 <= now }
+            .max() ?? .distantPast
     }
 
     private func rotateBackups(prefix: String) async throws {
