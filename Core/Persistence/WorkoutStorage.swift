@@ -85,6 +85,57 @@ struct WorkoutStorageContainer: Codable {
     }
 }
 
+// MARK: - Stored Run
+
+/// A run as `runs_v2.json` holds it. `route` is left out when it is exactly the points of
+/// `routeWithHR`, and `routeFromRouteWithHR` says so; decoding rebuilds it, so the decoded run
+/// equals the encoded one. Every other run, and every file written before this form, is
+/// encoded and decoded exactly as `Run` alone. Older app versions ignore the marker, read
+/// `route` as absent and use `routeWithHR`, which every reader prefers.
+nonisolated struct StoredRun: Codable {
+    let run: Run
+
+    init(_ run: Run) { self.run = run }
+
+    private enum Keys: String, CodingKey {
+        case route, routeFromRouteWithHR
+    }
+
+    /// True when `route` holds the same coordinates as `routeWithHR`, bit for bit, so
+    /// rebuilding it gives back the identical value.
+    static func routeRepeatsRouteWithHR(_ run: Run) -> Bool {
+        guard let route = run.route, let points = run.routeWithHR, route.count == points.count else { return false }
+        for index in route.indices {
+            guard route[index].lat.bitPattern == points[index].lat.bitPattern,
+                  route[index].lon.bitPattern == points[index].lon.bitPattern else { return false }
+        }
+        return true
+    }
+
+    init(from decoder: Decoder) throws {
+        var run = try Run(from: decoder)
+        let container = try decoder.container(keyedBy: Keys.self)
+        if try container.decodeIfPresent(Bool.self, forKey: .routeFromRouteWithHR) == true,
+           !container.contains(.route), let points = run.routeWithHR {
+            run.route = points.map { Coordinate(lat: $0.lat, lon: $0.lon) }
+        }
+        self.run = run
+    }
+
+    func encode(to encoder: Encoder) throws {
+        guard Self.routeRepeatsRouteWithHR(run) else {
+            try run.encode(to: encoder)
+            return
+        }
+        var slim = run
+        slim.route = nil
+        try slim.encode(to: encoder)
+        // The same object as the run's own keys.
+        var container = encoder.container(keyedBy: Keys.self)
+        try container.encode(true, forKey: .routeFromRouteWithHR)
+    }
+}
+
 // MARK: - Validated History
 
 /// Identifies one version of a file: an atomic replace changes the file number, an in-place
@@ -233,7 +284,8 @@ actor WorkoutStorage {
                 throw StorageError.validationFailed("Workout history format or count needs recovery")
             }
         }
-        let runs = try read([Run].self, at: current.appendingPathComponent("runs_v2.json"))
+        let runs = try read([StoredRun].self, at: current.appendingPathComponent("runs_v2.json"))
+            .map { ValidatedHistory.Part(value: $0.value.map(\.run), stamp: $0.stamp) }
         let active = try read(CurrentWorkout.self, at: current.appendingPathComponent("current_workout_v2.json"))
         let ignored = try read([UUID].self, at: current.appendingPathComponent("ignored_healthkit_uuids.json"))
         let windows = try read([DiscardedWorkoutWindow].self, at: current.appendingPathComponent("discarded_workout_windows.json"))
@@ -384,7 +436,7 @@ actor WorkoutStorage {
                     return []
                 }
                 do {
-                    runs = try decoder.decode([Run].self, from: Data(contentsOf: runsFileURL))
+                    runs = try decoder.decode([StoredRun].self, from: Data(contentsOf: runsFileURL)).map(\.run)
                 } catch let error as DecodingError {
                     throw StorageError.decodingFailed("Runs", underlying: error)
                 }
@@ -407,7 +459,7 @@ actor WorkoutStorage {
             AppLogger.warning("Runs backup skipped: \(error)", category: AppLogger.storage)
         }
         do {
-            let data = try encoder.encode(runs)
+            let data = try encoder.encode(runs.map(StoredRun.init))
             try data.write(to: runsFileURL, options: [.atomic])
 
             // Ensure file protection is applied after write
@@ -428,7 +480,8 @@ actor WorkoutStorage {
     func runsEncodeIdentically(_ pairs: [(Run, Run)]) -> [Bool] {
         pairs.map { a, b in
             // Encoded as the file holds them: as elements of an array.
-            guard let encodedA = try? encoder.encode([a]), let encodedB = try? encoder.encode([b]) else { return false }
+            guard let encodedA = try? encoder.encode([StoredRun(a)]),
+                  let encodedB = try? encoder.encode([StoredRun(b)]) else { return false }
             return encodedA == encodedB
         }
     }
