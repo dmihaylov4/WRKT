@@ -26,7 +26,7 @@ struct CutSettingsActions {
     var openDiagnostics: () -> Void = {}
     var logIn: () -> Void = {}
     var logOut: () -> Void = {}
-    /// A Debug button or page row (the two switches use the bindings instead).
+    /// A Debug button or page row (the switches use the bindings instead).
     var debug: (CutSettingsModel.DebugRow) -> Void = { _ in }
 }
 
@@ -34,6 +34,7 @@ struct CutSettingsView: View {
     let model: CutSettingsModel
     var roundedShapes: Binding<Bool> = .constant(false)
     var cutDesign: Binding<Bool> = .constant(true)
+    var yearAward3D: Binding<Bool> = .constant(true)
     var actions = CutSettingsActions()
 
     var body: some View {
@@ -86,6 +87,8 @@ struct CutSettingsView: View {
             CutSettingsToggleRow(row.title, subtitle: row.subtitle, isOn: roundedShapes)
         case .cutDesign:
             CutSettingsToggleRow(row.title, subtitle: row.subtitle, isOn: cutDesign)
+        case .yearAward3D:
+            CutSettingsToggleRow(row.title, subtitle: row.subtitle, isOn: yearAward3D)
         default:
             if row.pushes {
                 CutSettingsLinkRow(row.title, subtitle: row.subtitle) { actions.debug(row) }

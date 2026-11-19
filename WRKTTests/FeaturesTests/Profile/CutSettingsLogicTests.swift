@@ -55,7 +55,7 @@ struct CutSettingsLogicTests {
     @Test func debugRowsArePresentOnlyInDebugBuilds() {
         #if DEBUG
         #expect(model().debugRows == CutSettingsModel.DebugRow.allCases)
-        #expect(model(local: true, loggedIn: false).debugRows.count == 8)
+        #expect(model(local: true, loggedIn: false).debugRows.count == 9)
         #else
         #expect(model().debugRows.isEmpty)
         #endif
@@ -66,13 +66,14 @@ struct CutSettingsLogicTests {
         #expect(rows.map(\.title) == [
             "Rounded shapes", "Cut design", "Replay launch animation", "Barbell playground",
             "Year in review: my data", "Year in review: sample data",
-            "Year in review: pop up on next launch", "Cut gallery"
+            "Year in review: pop up on next launch", "Year in review: 3D award", "Cut gallery"
         ])
-        #expect(rows.filter(\.isToggle) == [.roundedShapes, .cutDesign])
+        #expect(rows.filter(\.isToggle) == [.roundedShapes, .cutDesign, .yearAward3D])
         #expect(rows.filter(\.pushes) == [.barbellPlayground, .cutGallery])
         #expect(CutSettingsModel.DebugRow.cutDesign.subtitle == "Applies after restarting the app")
         #expect(CutSettingsModel.DebugRow.roundedShapes.subtitle == "Applies after restarting the app")
         #expect(CutSettingsModel.DebugRow.yearReviewNextLaunch.subtitle == "Needs the Cut design and five workouts this year")
+        #expect(CutSettingsModel.DebugRow.yearAward3D.subtitle == "Off shows the SwiftUI plaque")
         #expect(CutSettingsModel.DebugRow.cutGallery.subtitle == nil)
     }
 

@@ -36,6 +36,7 @@ struct CutSettingsModel: Equatable {
         case yearReviewMine
         case yearReviewSample
         case yearReviewNextLaunch
+        case yearAward3D
         case cutGallery
 
         var id: String { rawValue }
@@ -49,6 +50,7 @@ struct CutSettingsModel: Equatable {
             case .yearReviewMine: "Year in review: my data"
             case .yearReviewSample: "Year in review: sample data"
             case .yearReviewNextLaunch: "Year in review: pop up on next launch"
+            case .yearAward3D: "Year in review: 3D award"
             case .cutGallery: "Cut gallery"
             }
         }
@@ -57,12 +59,13 @@ struct CutSettingsModel: Equatable {
             switch self {
             case .roundedShapes, .cutDesign: "Applies after restarting the app"
             case .yearReviewNextLaunch: "Needs the Cut design and five workouts this year"
+            case .yearAward3D: "Off shows the SwiftUI plaque"
             default: nil
             }
         }
 
         /// A switch rather than a button.
-        var isToggle: Bool { self == .roundedShapes || self == .cutDesign }
+        var isToggle: Bool { self == .roundedShapes || self == .cutDesign || self == .yearAward3D }
 
         /// Pushes a page (chevron) rather than acting in place.
         var pushes: Bool { self == .barbellPlayground || self == .cutGallery }
