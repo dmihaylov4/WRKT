@@ -14,9 +14,14 @@ final class WorkoutStoreV2: ObservableObject {
     @Published var completedWorkouts: [CompletedWorkout] = []
     @Published private(set) var lastCompletedWorkout: CompletedWorkout?
     @Published private(set) var lastHealthImportEndDate: Date? = nil
-    @Published private(set) var runs: [Run] = [] {
+    /// Every run with its detail arrays. Not published itself: every mutation also updates
+    /// `runSummaries`, once, which publishes the change.
+    private(set) var runs: [Run] = [] {
         didSet { runsSave.changed() }
     }
+    /// One summary per run, in the same order, updated in the same mutation as `runs`. History
+    /// order is not date order: new runs are inserted first.
+    @Published private(set) var runSummaries: [RunSummary] = []
 
     // Store last discarded workout for undo functionality
     private var lastDiscardedWorkout: CurrentWorkout?
@@ -31,72 +36,20 @@ final class WorkoutStoreV2: ObservableObject {
 
     /// Returns only valid cardio activities (filters out strength training and invalid data)
     var validRuns: [Run] {
-        runs.filter { run in
-            // Filter out invalid runs:
-            // 1. Runs with 0 distance (likely misclassified strength training)
-            //    Exception: Allow 0 distance if it's a valid cardio type with duration (e.g., stationary bike, elliptical)
-            if run.distanceKm <= 0 {
-                // If no workout type specified and 0 distance, filter it out
-                guard let workoutType = run.workoutType else { return false }
+        runs.filter { RunSummary.isValidCardio(distanceKm: $0.distanceKm, durationSec: $0.durationSec, workoutType: $0.workoutType) }
+    }
 
-                // Valid cardio types that might have 0 distance
-                let validZeroDistanceTypes = [
-                    "Elliptical",
-                    "Stair Climbing",
-                    "Rowing",
-                    "High Intensity Interval Training",
-                    "Dance",
-                    "Kickboxing",
-                    "Boxing",
-                    "Soccer",
-                    "Basketball",
-                    "Tennis",
-                    "Pickleball",
-                    "Badminton",
-                    "Volleyball",
-                    "Handball",
-                    "Racquetball",
-                    "Squash",
-                    "Table Tennis",
-                    "Hockey",
-                    "Field Hockey",
-                    "Lacrosse",
-                    "Rugby",
-                    "Football",
-                    "Cricket",
-                    "Martial Arts",
-                    "Wrestling",
-                    "Skating Sports",
-                    "Snow Sports"
-                ]
+    /// `validRuns`, as summaries.
+    var validRunSummaries: [RunSummary] {
+        runSummaries.filter(\.isValidCardio)
+    }
 
-                // If it's not a valid zero-distance type, filter it out
-                if !validZeroDistanceTypes.contains(workoutType) {
-                    return false
-                }
-            }
+    func runSummary(id: UUID) -> RunSummary? {
+        runSummaries.first { $0.id == id }
+    }
 
-            // 2. Exclude traditional strength training and other non-cardio activities
-            let excludedWorkoutTypes = [
-                "Traditional Strength Training",
-                "Functional Strength Training",
-                "Core Training",
-                "Flexibility",
-                "Mind and Body",
-                "Yoga"
-            ]
-
-            if let workoutType = run.workoutType, excludedWorkoutTypes.contains(workoutType) {
-                return false
-            }
-
-            // 3. Filter out activities with 0 duration (invalid data)
-            if run.durationSec <= 0 {
-                return false
-            }
-
-            return true
-        }
+    func runSummary(healthKitUUID: UUID) -> RunSummary? {
+        runSummaries.first { $0.healthKitUUID == healthKitUUID }
     }
 
     private var prIndex: [String: ExercisePRsV2] = [:]
@@ -200,7 +153,7 @@ final class WorkoutStoreV2: ObservableObject {
 
                 // Exactly what is on disk, so clean. Anything applied after this (deduplication
                 // below) changes the revision and is written.
-                self.runs = runs
+                setRuns(runs)
                 runsSave.markSaved(runsSave.revision, stamp: runsStamp)
 
                 // IMPORTANT: Sort workouts by date to ensure proper ordering
@@ -1022,6 +975,8 @@ final class WorkoutStoreV2: ObservableObject {
         }
 
         runs.insert(run, at: 0)
+        runSummaries.insert(RunSummary(run), at: 0)
+        checkRunSummaries(touched: [0])
         persistRuns()
     }
 
@@ -1046,7 +1001,7 @@ final class WorkoutStoreV2: ObservableObject {
         let removedCount = runs.count - uniqueRuns.count
         if removedCount > 0 {
             AppLogger.info("Removed \(removedCount) duplicate run(s)", category: AppLogger.health)
-            runs = uniqueRuns
+            setRuns(uniqueRuns)
             persistRuns()
         }
     }
@@ -1057,16 +1012,20 @@ final class WorkoutStoreV2: ObservableObject {
     func updateRun(_ run: Run) {
         guard let index = runs.firstIndex(where: { $0.id == run.id }), runs[index] != run else { return }
         runs[index] = run
+        runSummaries[index] = RunSummary(run)
+        checkRunSummaries(touched: [index])
         persistRuns()
     }
 
     func batchUpdateRuns(_ updatedRuns: [Run]) {
         var runsCopy = runs
         var updateCount = 0
+        var touched: Set<Int> = []
 
         for run in updatedRuns {
             if let index = runsCopy.firstIndex(where: { $0.id == run.id }), runsCopy[index] != run {
                 runsCopy[index] = run
+                touched.insert(index)
                 updateCount += 1
             }
         }
@@ -1074,6 +1033,10 @@ final class WorkoutStoreV2: ObservableObject {
         AppLogger.debug("Batch updated \(updateCount)/\(updatedRuns.count) runs", category: AppLogger.health)
         guard updateCount > 0 else { return }
         runs = runsCopy
+        var summaries = runSummaries
+        for index in touched { summaries[index] = RunSummary(runsCopy[index]) }
+        runSummaries = summaries
+        checkRunSummaries(touched: touched)
         persistRuns()
     }
 
@@ -1092,17 +1055,21 @@ final class WorkoutStoreV2: ObservableObject {
     func removeRun(withId id: UUID) {
         guard runs.contains(where: { $0.id == id }) else { return }
         runs.removeAll(where: { $0.id == id })
+        runSummaries.removeAll(where: { $0.id == id })
+        checkRunSummaries(touched: [])
         persistRuns()
     }
 
     func deleteRuns(at offsets: IndexSet) {
         runs.remove(atOffsets: offsets)
+        runSummaries.remove(atOffsets: offsets)
+        checkRunSummaries(touched: [])
         persistRuns()
     }
 
     func clearAllRuns() {
         guard !runs.isEmpty else { return }
-        runs.removeAll()
+        setRuns([])
         persistRuns()
     }
 
@@ -1110,6 +1077,28 @@ final class WorkoutStoreV2: ObservableObject {
         let day = calendar.startOfDay(for: date)
         // Return ALL runs (including strength workouts) - let callers filter as needed
         return runs.filter { calendar.isDate($0.date, inSameDayAs: day) }
+    }
+
+    /// `runs(on:)`, as summaries: every run that day, in history order.
+    func runSummaries(on date: Date, calendar: Calendar = .current) -> [RunSummary] {
+        let day = calendar.startOfDay(for: date)
+        return runSummaries.filter { calendar.isDate($0.date, inSameDayAs: day) }
+    }
+
+    /// Replaces every run and derives every summary: loading and whole-history changes only.
+    private func setRuns(_ newRuns: [Run]) {
+        runs = newRuns
+        runSummaries = newRuns.map(RunSummary.init)
+    }
+
+    /// DEBUG only: the summaries list the runs' ids in order, and each touched summary equals
+    /// its run. Mutations update both in step; this catches one that forgets.
+    private func checkRunSummaries(touched: Set<Int>) {
+        #if DEBUG
+        assert(runSummaries.count == runs.count
+               && zip(runSummaries, runs).allSatisfy { $0.id == $1.id }, "Run summaries out of step with runs")
+        assert(touched.allSatisfy { runSummaries[$0] == RunSummary(runs[$0]) }, "A changed run's summary is stale")
+        #endif
     }
 
     func persist() {
