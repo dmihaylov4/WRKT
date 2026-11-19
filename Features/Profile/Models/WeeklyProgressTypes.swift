@@ -105,13 +105,8 @@ extension WorkoutStoreV2 {
 
         // NOTE: We do NOT add HealthKit run durations because Apple Watch exercise minutes
         // already include MVPA from cardio activities. Adding run durations would double-count.
-        // The validRuns filter is kept for reference but mvpaFromRuns is not added to the total.
-        let mvpaFromRuns = validRuns
-            .filter { $0.date >= start && $0.date < end && $0.date >= cutoffDate }
-            .reduce(0) { $0 + ($1.durationSec / 60) }  // convert seconds to minutes
 
         // Total MVPA: strength minutes + Apple Watch exercise minutes
-        // We exclude mvpaFromRuns to avoid double-counting (runs are already in appleExerciseMinutes)
         // NOTE: healthKitMinutes parameter is deprecated and ignored to prevent double-counting
         let mvpaDone = minutesFromSummaries + appleExerciseMinutes
 
@@ -135,7 +130,7 @@ extension WorkoutStoreV2 {
         // IMPORTANT: Only count HealthKit workouts after data cutoff date
         // This prevents legacy/imported workouts from counting toward new streaks
         let healthKitStrengthDays: Set<Date> = Set(
-            runs
+            runSummaries
                 .filter { run in
                     // Must be within the week
                     guard run.date >= start && run.date < end else { return false }
