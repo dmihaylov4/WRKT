@@ -101,11 +101,12 @@ enum CutYearAwardLogic {
               let end = calendar.date(from: DateComponents(year: year + 1, month: 1, day: 1)) else { return nil }
         let range = start..<end
         let matched = Set(workouts.compactMap(\.matchedHealthKitUUID))
-        let logged = workouts.filter { range.contains($0.date) }
+        let logged = workouts.filter { range.contains($0.date) }.map(HistoryCandidate.workout)
         let outings = runs
             .filter { range.contains($0.date) && !($0.healthKitUUID.map(matched.contains) ?? false) }
-            .map { $0.toCompletedWorkout() }
-        return (logged + outings).max { $0.date < $1.date }
+            .map(HistoryCandidate.run)
+        // Picked before converting, in the same order, so equal dates resolve as before.
+        return (logged + outings).max { $0.date < $1.date }?.completedWorkout
     }
 }
 

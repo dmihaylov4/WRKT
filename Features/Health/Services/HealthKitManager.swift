@@ -923,6 +923,10 @@ final class HealthKitManager: ObservableObject {
 
     // MARK: - Operational State Repair
 
+    /// How long a failed route task rests before a storage load queues it again. Manual retry,
+    /// pull to refresh of recent workouts and a full resync still reset it at any time.
+    static let failedRouteTaskRetryInterval: TimeInterval = 7 * 86_400
+
     /// Rebuilds low-value HealthKit operational SwiftData state from durable `Run` data.
     /// Safe to run on startup. Does not modify durable workout/run history.
     func repairOperationalStateIfNeeded(runs: [Run]) async {
@@ -967,10 +971,16 @@ final class HealthKitManager: ObservableObject {
             routeTaskByUUID[task.workoutUUID] = task
         }
 
+        // A failed task is retried only once its last attempt is old enough, so data that reaches
+        // HealthKit later is still picked up without querying every failed workout on every launch.
+        let failedRetryThreshold = Date.now.addingTimeInterval(-Self.failedRouteTaskRetryInterval)
+
         for (index, run) in enrichmentCandidates.enumerated() {
             guard let workoutUUIDString = run.healthKitUUID?.uuidString else { continue }
             if let existing = routeTaskByUUID[workoutUUIDString] {
-                if existing.status == "failed" || (existing.status == "fetching" && (existing.lastAttemptDate ?? .distantPast) < staleThreshold) {
+                let lastAttempt = existing.lastAttemptDate ?? .distantPast
+                if (existing.status == "failed" && lastAttempt < failedRetryThreshold)
+                    || (existing.status == "fetching" && lastAttempt < staleThreshold) {
                     existing.status = "pending"
                     existing.attemptCount = 0
                     existing.priority = index < 5 ? 0 : 1

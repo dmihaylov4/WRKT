@@ -348,34 +348,22 @@ final class PostCreationViewModel {
     func loadRecentWorkouts() async {
         isLoadingWorkouts = true
         do {
-            // Load both strength workouts and cardio runs
-            let (workouts, _) = try await workoutStorage.loadWorkouts()
-            let runs = try await workoutStorage.loadRuns()
+            // Strength workouts and cardio runs. The loaded store already holds what the files
+            // hold (plus any change still being saved), so the history is not decoded again.
+            let workouts: [CompletedWorkout]
+            let runs: [Run]
+            let store = AppDependencies.shared.workoutStore
+            if store.isStorageLoaded {
+                workouts = store.completedWorkouts
+                runs = store.runs
+            } else {
+                workouts = try await workoutStorage.loadWorkouts().workouts
+                runs = try await workoutStorage.loadRuns()
+            }
 
             // Cache runs for map generation
             self.cachedRuns = runs
-
-            // Show the latest workouts regardless of age, then cap the picker list.
-            let recentStrengthWorkouts = workouts
-
-            // Build the set of HealthKit UUIDs already matched to app workouts,
-            // so we don't show them again as separate entries in the picker.
-            let matchedHKUUIDs = Set(workouts.compactMap { $0.matchedHealthKitUUID })
-
-            // Filter and convert runs to CompletedWorkout, excluding those already
-            // matched to an app workout (strength sessions recorded via ExerciseSessionView).
-            let recentCardioWorkouts = runs
-                .filter { run in
-                    guard let hkUUID = run.healthKitUUID else { return true }
-                    return !matchedHKUUIDs.contains(hkUUID)
-                }
-                .map { $0.toCompletedWorkout() }
-
-            // Combine both types and sort by date
-            recentWorkouts = (recentStrengthWorkouts + recentCardioWorkouts)
-                .sorted(by: { $0.date > $1.date })
-                .prefix(10)
-                .map { $0 }
+            recentWorkouts = Self.pickerWorkouts(workouts: workouts, runs: runs)
 
             isLoadingWorkouts = false
         } catch {
@@ -388,6 +376,27 @@ final class PostCreationViewModel {
             )
             isLoadingWorkouts = false
         }
+    }
+
+    /// The picker's workouts: the latest `limit` of the logged workouts and the runs not already
+    /// matched to one, newest first; on equal dates logged workouts come first, each in input
+    /// order. Only the runs that make the list are converted.
+    static func pickerWorkouts(workouts: [CompletedWorkout], runs: [Run], limit: Int = 10) -> [CompletedWorkout] {
+        // Runs already matched to an app workout (strength sessions recorded in the app)
+        // are not shown again as separate entries.
+        let matchedHKUUIDs = Set(workouts.compactMap { $0.matchedHealthKitUUID })
+        let candidates = workouts.map(HistoryCandidate.workout) + runs
+            .filter { run in
+                guard let hkUUID = run.healthKitUUID else { return true }
+                return !matchedHKUUIDs.contains(hkUUID)
+            }
+            .map(HistoryCandidate.run)
+        // Same candidates in the same order as converting every run first, so equal dates
+        // resolve exactly as they did.
+        return candidates
+            .sorted(by: { $0.date > $1.date })
+            .prefix(limit)
+            .map(\.completedWorkout)
     }
 
     // MARK: - Map Snapshot Generation

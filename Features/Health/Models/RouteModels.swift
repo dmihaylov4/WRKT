@@ -275,6 +275,28 @@ extension Run {
     }
 }
 
+/// A logged workout or a run, ordered by date before the run is converted, so lists that keep
+/// a few entries convert only those runs.
+enum HistoryCandidate {
+    case workout(CompletedWorkout)
+    case run(Run)
+
+    /// The date the converted workout would have: `toCompletedWorkout` keeps the run's date.
+    var date: Date {
+        switch self {
+        case .workout(let workout): return workout.date
+        case .run(let run): return run.date
+        }
+    }
+
+    var completedWorkout: CompletedWorkout {
+        switch self {
+        case .workout(let workout): return workout
+        case .run(let run): return run.toCompletedWorkout()
+        }
+    }
+}
+
 // Helper to apply HealthKit data to CompletedWorkout
 private extension CompletedWorkout {
     func with(
