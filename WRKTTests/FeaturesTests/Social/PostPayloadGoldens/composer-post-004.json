@@ -1,0 +1,108 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "cardioWorkoutType" : "Traditional Strength Training",
+    "date" : "2026-11-08T11:00:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000004",
+    "matchedHealthKitCalories" : 356,
+    "matchedHealthKitDistance" : 0,
+    "matchedHealthKitDuration" : 2760,
+    "matchedHealthKitHeartRate" : 118,
+    "matchedHealthKitHeartRateSamples" : [
+      {
+        "bpm" : 100,
+        "timestamp" : "2026-11-08T10:00:00Z"
+      },
+      {
+        "bpm" : 101,
+        "timestamp" : "2026-11-08T10:01:00Z"
+      },
+      {
+        "bpm" : 102,
+        "timestamp" : "2026-11-08T10:02:00Z"
+      },
+      {
+        "bpm" : 103,
+        "timestamp" : "2026-11-08T10:03:00Z"
+      },
+      {
+        "bpm" : 104,
+        "timestamp" : "2026-11-08T10:04:00Z"
+      },
+      {
+        "bpm" : 105,
+        "timestamp" : "2026-11-08T10:05:00Z"
+      },
+      {
+        "bpm" : 106,
+        "timestamp" : "2026-11-08T10:06:00Z"
+      },
+      {
+        "bpm" : 107,
+        "timestamp" : "2026-11-08T10:07:00Z"
+      },
+      {
+        "bpm" : 108,
+        "timestamp" : "2026-11-08T10:08:00Z"
+      },
+      {
+        "bpm" : 109,
+        "timestamp" : "2026-11-08T10:09:00Z"
+      },
+      {
+        "bpm" : 110,
+        "timestamp" : "2026-11-08T10:10:00Z"
+      },
+      {
+        "bpm" : 111,
+        "timestamp" : "2026-11-08T10:11:00Z"
+      },
+      {
+        "bpm" : 112,
+        "timestamp" : "2026-11-08T10:12:00Z"
+      },
+      {
+        "bpm" : 113,
+        "timestamp" : "2026-11-08T10:13:00Z"
+      },
+      {
+        "bpm" : 114,
+        "timestamp" : "2026-11-08T10:14:00Z"
+      },
+      {
+        "bpm" : 115,
+        "timestamp" : "2026-11-08T10:15:00Z"
+      },
+      {
+        "bpm" : 116,
+        "timestamp" : "2026-11-08T10:16:00Z"
+      },
+      {
+        "bpm" : 117,
+        "timestamp" : "2026-11-08T10:17:00Z"
+      },
+      {
+        "bpm" : 118,
+        "timestamp" : "2026-11-08T10:18:00Z"
+      },
+      {
+        "bpm" : 119,
+        "timestamp" : "2026-11-08T10:19:00Z"
+      }
+    ],
+    "matchedHealthKitMaxHeartRate" : 151,
+    "matchedHealthKitMinHeartRate" : 72,
+    "matchedHealthKitUUID" : "00000000-0000-0000-0000-000000000104",
+    "startedAt" : "2026-11-08T10:14:00Z",
+    "workoutName" : "Strength"
+  }
+}

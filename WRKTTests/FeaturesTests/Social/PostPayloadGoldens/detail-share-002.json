@@ -1,0 +1,124 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "cardioHRZones" : [
+      {
+        "colorHex" : "#0091FF",
+        "isEstimated" : false,
+        "minutes" : 0,
+        "name" : "Light",
+        "rangeDisplay" : "95-114 bpm",
+        "zone" : 1
+      },
+      {
+        "colorHex" : "#30D158",
+        "isEstimated" : false,
+        "minutes" : 9.67948717948718,
+        "name" : "Moderate",
+        "rangeDisplay" : "114-133 bpm",
+        "zone" : 2
+      },
+      {
+        "colorHex" : "#FFD600",
+        "isEstimated" : false,
+        "minutes" : 13.551282051282051,
+        "name" : "Aerobic",
+        "rangeDisplay" : "133-152 bpm",
+        "zone" : 3
+      },
+      {
+        "colorHex" : "#FF9230",
+        "isEstimated" : false,
+        "minutes" : 1.935897435897436,
+        "name" : "Threshold",
+        "rangeDisplay" : "152-171 bpm",
+        "zone" : 4
+      },
+      {
+        "colorHex" : "#FF4245",
+        "isEstimated" : false,
+        "minutes" : 0,
+        "name" : "Max",
+        "rangeDisplay" : "171-190 bpm",
+        "zone" : 5
+      }
+    ],
+    "cardioSplits" : [
+
+    ],
+    "cardioWorkoutType" : "Running",
+    "date" : "2026-11-10T11:00:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000002",
+    "matchedHealthKitCalories" : 300,
+    "matchedHealthKitDistance" : 4050,
+    "matchedHealthKitDuration" : 1510,
+    "matchedHealthKitHeartRate" : 139,
+    "matchedHealthKitHeartRateSamples" : [
+      {
+        "bpm" : 122,
+        "timestamp" : "2026-11-10T10:00:30Z"
+      },
+      {
+        "bpm" : 124,
+        "timestamp" : "2026-11-10T10:01:00Z"
+      },
+      {
+        "bpm" : 126,
+        "timestamp" : "2026-11-10T10:01:30Z"
+      },
+      {
+        "bpm" : 130,
+        "timestamp" : "2026-11-10T10:02:30Z"
+      },
+      {
+        "bpm" : 132,
+        "timestamp" : "2026-11-10T10:03:00Z"
+      },
+      {
+        "bpm" : 134,
+        "timestamp" : "2026-11-10T10:03:30Z"
+      },
+      {
+        "bpm" : 138,
+        "timestamp" : "2026-11-10T10:04:30Z"
+      },
+      {
+        "bpm" : 140,
+        "timestamp" : "2026-11-10T10:05:00Z"
+      },
+      {
+        "bpm" : 142,
+        "timestamp" : "2026-11-10T10:05:30Z"
+      },
+      {
+        "bpm" : 146,
+        "timestamp" : "2026-11-10T10:06:30Z"
+      },
+      {
+        "bpm" : 148,
+        "timestamp" : "2026-11-10T10:07:00Z"
+      },
+      {
+        "bpm" : 150,
+        "timestamp" : "2026-11-10T10:07:30Z"
+      },
+      {
+        "bpm" : 154,
+        "timestamp" : "2026-11-10T10:08:30Z"
+      }
+    ],
+    "matchedHealthKitMaxHeartRate" : 154,
+    "matchedHealthKitMinHeartRate" : 122,
+    "matchedHealthKitUUID" : "00000000-0000-0000-0000-000000000102",
+    "startedAt" : "2026-11-10T10:34:50Z"
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "cardioAvgCadence" : 168.25,
+    "cardioAvgGroundContactTime" : 238,
+    "cardioAvgPower" : 245.5,
+    "cardioAvgStrideLength" : 1.12,
+    "cardioAvgVerticalOscillation" : 8.4,
+    "cardioHRZones" : [
+      {
+        "colorHex" : "#0091FF",
+        "isEstimated" : false,
+        "minutes" : 0,
+        "name" : "Light",
+        "rangeDisplay" : "95-114 bpm",
+        "zone" : 1
+      },
+      {
+        "colorHex" : "#30D158",
+        "isEstimated" : false,
+        "minutes" : 8.55,
+        "name" : "Moderate",
+        "rangeDisplay" : "114-133 bpm",
+        "zone" : 2
+      },
+      {
+        "colorHex" : "#FFD600",
+        "isEstimated" : false,
+        "minutes" : 19.95,
+        "name" : "Aerobic",
+        "rangeDisplay" : "133-152 bpm",
+        "zone" : 3
+      },
+      {
+        "colorHex" : "#FF9230",
+        "isEstimated" : false,
+        "minutes" : 5.7,
+        "name" : "Threshold",
+        "rangeDisplay" : "152-171 bpm",
+        "zone" : 4
+      },
+      {
+        "colorHex" : "#FF4245",
+        "isEstimated" : false,
+        "minutes" : 0,
+        "name" : "Max",
+        "rangeDisplay" : "171-190 bpm",
+        "zone" : 5
+      }
+    ],
+    "cardioSplits" : [
+      {
+        "distanceKm" : 1,
+        "durationSec" : 324,
+        "number" : 1,
+        "paceSecPerKm" : 324
+      },
+      {
+        "distanceKm" : 1,
+        "durationSec" : 328,
+        "number" : 2,
+        "paceSecPerKm" : 328
+      },
+      {
+        "distanceKm" : 1,
+        "durationSec" : 332,
+        "number" : 3,
+        "paceSecPerKm" : 332
+      },
+      {
+        "distanceKm" : 1,
+        "durationSec" : 336,
+        "number" : 4,
+        "paceSecPerKm" : 336
+      },
+      {
+        "distanceKm" : 1,
+        "durationSec" : 340,
+        "number" : 5,
+        "paceSecPerKm" : 340
+      },
+      {
+        "distanceKm" : 0.2,
+        "durationSec" : 344,
+        "number" : 6,
+        "paceSecPerKm" : 1720
+      }
+    ],
+    "cardioWorkoutType" : "Running",
+    "date" : "2026-11-11T12:00:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000001",
+    "matchedHealthKitCalories" : 412.25,
+    "matchedHealthKitDistance" : 6200,
+    "matchedHealthKitDuration" : 2052,
+    "matchedHealthKitHeartRate" : 142.4,
+    "matchedHealthKitHeartRateSamples" : [
+      {
+        "bpm" : 128,
+        "timestamp" : "2026-11-11T11:00:00Z"
+      },
+      {
+        "bpm" : 131.5,
+        "timestamp" : "2026-11-11T11:00:30Z"
+      },
+      {
+        "bpm" : 135,
+        "timestamp" : "2026-11-11T11:01:00Z"
+      },
+      {
+        "bpm" : 138.5,
+        "timestamp" : "2026-11-11T11:01:30Z"
+      },
+      {
+        "bpm" : 142,
+        "timestamp" : "2026-11-11T11:02:00Z"
+      },
+      {
+        "bpm" : 145.5,
+        "timestamp" : "2026-11-11T11:02:30Z"
+      },
+      {
+        "bpm" : 149,
+        "timestamp" : "2026-11-11T11:03:00Z"
+      },
+      {
+        "bpm" : 152.5,
+        "timestamp" : "2026-11-11T11:03:30Z"
+      },
+      {
+        "bpm" : 156,
+        "timestamp" : "2026-11-11T11:04:00Z"
+      },
+      {
+        "bpm" : 128,
+        "timestamp" : "2026-11-11T11:04:30Z"
+      },
+      {
+        "bpm" : 131.5,
+        "timestamp" : "2026-11-11T11:05:00Z"
+      },
+      {
+        "bpm" : 135,
+        "timestamp" : "2026-11-11T11:05:30Z"
+      },
+      {
+        "bpm" : 138.5,
+        "timestamp" : "2026-11-11T11:06:00Z"
+      },
+      {
+        "bpm" : 142,
+        "timestamp" : "2026-11-11T11:06:30Z"
+      },
+      {
+        "bpm" : 145.5,
+        "timestamp" : "2026-11-11T11:07:00Z"
+      },
+      {
+        "bpm" : 149,
+        "timestamp" : "2026-11-11T11:07:30Z"
+      },
+      {
+        "bpm" : 152.5,
+        "timestamp" : "2026-11-11T11:08:00Z"
+      },
+      {
+        "bpm" : 156,
+        "timestamp" : "2026-11-11T11:08:30Z"
+      },
+      {
+        "bpm" : 128,
+        "timestamp" : "2026-11-11T11:09:00Z"
+      },
+      {
+        "bpm" : 131.5,
+        "timestamp" : "2026-11-11T11:09:30Z"
+      },
+      {
+        "bpm" : 135,
+        "timestamp" : "2026-11-11T11:10:00Z"
+      },
+      {
+        "bpm" : 138.5,
+        "timestamp" : "2026-11-11T11:10:30Z"
+      },
+      {
+        "bpm" : 142,
+        "timestamp" : "2026-11-11T11:11:00Z"
+      },
+      {
+        "bpm" : 145.5,
+        "timestamp" : "2026-11-11T11:11:30Z"
+      }
+    ],
+    "matchedHealthKitMaxHeartRate" : 168,
+    "matchedHealthKitMinHeartRate" : 101,
+    "matchedHealthKitUUID" : "00000000-0000-0000-0000-000000000101",
+    "startedAt" : "2026-11-11T11:25:48Z",
+    "workoutName" : "Morning Run"
+  }
+}

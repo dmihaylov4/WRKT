@@ -1,0 +1,25 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "cardioWorkoutType" : "Running",
+    "date" : "2026-11-10T11:00:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000002",
+    "matchedHealthKitCalories" : 300,
+    "matchedHealthKitDistance" : 4050,
+    "matchedHealthKitDuration" : 1510,
+    "matchedHealthKitHeartRate" : 139,
+    "matchedHealthKitMaxHeartRate" : 154,
+    "matchedHealthKitMinHeartRate" : 122,
+    "matchedHealthKitUUID" : "00000000-0000-0000-0000-000000000102",
+    "startedAt" : "2026-11-10T10:34:50Z"
+  }
+}

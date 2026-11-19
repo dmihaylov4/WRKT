@@ -1,0 +1,76 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "cardioWorkoutType" : "Running",
+    "date" : "2026-11-09T11:00:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000003",
+    "matchedHealthKitCalories" : 590,
+    "matchedHealthKitDistance" : 8400,
+    "matchedHealthKitDuration" : 2700,
+    "matchedHealthKitHeartRate" : 150,
+    "matchedHealthKitHeartRateSamples" : [
+      {
+        "bpm" : 110,
+        "timestamp" : "2026-11-09T10:00:00Z"
+      },
+      {
+        "bpm" : 115,
+        "timestamp" : "2026-11-09T10:01:00Z"
+      },
+      {
+        "bpm" : 120,
+        "timestamp" : "2026-11-09T10:02:00Z"
+      },
+      {
+        "bpm" : 125,
+        "timestamp" : "2026-11-09T10:03:00Z"
+      },
+      {
+        "bpm" : 130,
+        "timestamp" : "2026-11-09T10:04:00Z"
+      },
+      {
+        "bpm" : 135,
+        "timestamp" : "2026-11-09T10:05:00Z"
+      },
+      {
+        "bpm" : 140,
+        "timestamp" : "2026-11-09T10:06:00Z"
+      },
+      {
+        "bpm" : 145,
+        "timestamp" : "2026-11-09T10:07:00Z"
+      },
+      {
+        "bpm" : 150,
+        "timestamp" : "2026-11-09T10:08:00Z"
+      },
+      {
+        "bpm" : 155,
+        "timestamp" : "2026-11-09T10:09:00Z"
+      },
+      {
+        "bpm" : 160,
+        "timestamp" : "2026-11-09T10:10:00Z"
+      },
+      {
+        "bpm" : 165,
+        "timestamp" : "2026-11-09T10:11:00Z"
+      }
+    ],
+    "matchedHealthKitMaxHeartRate" : 171,
+    "matchedHealthKitMinHeartRate" : 110,
+    "matchedHealthKitUUID" : "00000000-0000-0000-0000-000000000103",
+    "startedAt" : "2026-11-09T10:15:00Z",
+    "workoutName" : "Treadmill"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "caption" : "Golden",
+  "post_type" : "workout",
+  "user_id" : "00000000-0000-0000-0000-000000000999",
+  "visibility" : "friends",
+  "workout_data" : {
+    "date" : "2026-11-05T11:00:00Z",
+    "entries" : [
+
+    ],
+    "excusedPlannedExerciseIDs" : [
+
+    ],
+    "id" : "00000000-0000-0000-0000-000000000202",
+    "startedAt" : "2026-11-05T10:00:00Z",
+    "workoutName" : "Legs"
+  }
+}
