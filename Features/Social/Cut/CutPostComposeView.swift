@@ -85,7 +85,7 @@ struct CutPostComposeView<PhotoPicker: View>: View {
         }.accessibilityElement(children: .combine))
     }
     private var workoutSection: some View {
-        section(model.weeklyStats.isEmpty ? (model.workouts.count > 1 ? "Session" : "Workout") : "Weekly Progress") {
+        section(CutPostComposeLogic.workoutSectionTitle(model)) {
             if !model.weeklyStats.isEmpty {
                 Button("Change", action: actions.chooseWorkouts).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
                 ForEach(Array(model.weeklyStats.enumerated()), id: \.offset) { _, stats in weeklyStats(stats) }
@@ -104,6 +104,10 @@ struct CutPostComposeView<PhotoPicker: View>: View {
                 case .selected:
                     Button("Change", action: actions.chooseWorkouts).buttonStyle(CutSecondaryButtonStyle(size: .compact, fillsWidth: false))
                     ForEach(model.workouts) { workout in CutPostComposeWorkoutRow(workout: workout) }
+                    if let note = model.workoutNote {
+                        Text(note).cutFont(.secondary).foregroundStyle(DS.Cut.Colors.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
@@ -146,7 +150,7 @@ struct CutPostComposeView<PhotoPicker: View>: View {
                                         if let image = image(photo) { image.resizable().scaledToFill() }
                                         else { Rectangle().fill(DS.Cut.Colors.controlFill).overlay(Image(systemName: "photo")) }
                                     }
-                                    .frame(width: dynamicTypeSize.isAccessibilitySize ? 260 : 140, height: 140).clipped()
+                                    .frame(width: thumbnailWidth(photo), height: 140).clipped()
                                     .accessibilityLabel(photo.kind == .attached ? "Attached picture" : photo.kind == .map ? "Map" : "Selected photo")
                                     if photo.canRemove, case .picked(let index) = photo.kind {
                                         Button("Remove photo", systemImage: "xmark") { actions.removePhoto(index) }
@@ -163,6 +167,10 @@ struct CutPostComposeView<PhotoPicker: View>: View {
                 }.scrollIndicators(.hidden)
             }
         }
+    }
+    /// A handed-in picture (the year award's landscape plate) shows whole, not cropped square.
+    private func thumbnailWidth(_ photo: CutPostComposeModel.Photo) -> CGFloat {
+        dynamicTypeSize.isAccessibilitySize || photo.kind == .attached ? 260 : 140
     }
     @ViewBuilder private func weeklyStats(_ stats: [CutStatColumn]) -> some View {
         if dynamicTypeSize.isAccessibilitySize {

@@ -59,6 +59,8 @@ struct CutPostComposeModel: Equatable {
     var partner: Partner?
     var isLoadingFriends = false
     var photos: [Photo] = []
+    /// Explains the workout a handed-in picture (the year award) rides on, nil otherwise.
+    var workoutNote: String?
     var errorTitle: String?
     var errorMessage: String?
     var errorIsRetryable = false
@@ -79,6 +81,7 @@ enum CutPostComposeLogic {
                                         photos: photos(attached: attached, pickedPrivacy: pickedPrivacy, map: map),
                                         errorTitle: errorTitle, errorMessage: errorMessage, errorIsRetryable: errorIsRetryable,
                                         overlay: uploading ? "Sharing workout..." : generatingMap ? "Preparing map..." : nil)
+        if attached, weekly == nil { model.workoutNote = attachedWorkoutNote }
         if let weekly {
             model.weeklyStats = [[.init(value: unit.formatVolumeValue(weekly.volumeKg), label: "Tonnage", unit: unit.label),
                                   .init(value: "\(weekly.exercises)", label: "Exercises"), .init(value: "\(weekly.sets)", label: "Sets")],
@@ -89,6 +92,14 @@ enum CutPostComposeLogic {
             if selected.count > 1 { model.sessionHint = "\(selected.count) sessions included" }
         }
         return model
+    }
+    /// A post always carries a workout, so a handed-in picture goes out with one: say so, so
+    /// the award does not read as a post about that run.
+    static let attachedWorkoutNote = "Every post goes out with a workout, so your award is attached to your latest one. Change it if you like."
+    static func workoutSectionTitle(_ model: CutPostComposeModel) -> String {
+        if !model.weeklyStats.isEmpty { return "Weekly Progress" }
+        if model.workoutNote != nil { return "Posted with" }
+        return model.workouts.count > 1 ? "Session" : "Workout"
     }
     static func canShare(selectedCount: Int, uploading: Bool) -> Bool { selectedCount > 0 && !uploading }
     static func photos(attached: Bool, pickedPrivacy: [Bool?], map: Bool) -> [CutPostComposeModel.Photo] {

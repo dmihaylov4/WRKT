@@ -44,6 +44,23 @@ struct CutPostComposeLogicTests {
         #expect(photos.map(\.canRemove) == [false, true, true, false])
         #expect(photos.map(\.privacy) == [true, false, true, true])
     }
+    @Test func anAttachedAwardSaysWhichWorkoutItGoesOutWith() {
+        let award = CutPostComposeLogic.model(title: "Share Award", selected: [F.cardio], available: [], attached: true)
+        #expect(award.workoutNote == CutPostComposeLogic.attachedWorkoutNote)
+        #expect(CutPostComposeLogic.workoutSectionTitle(award) == "Posted with")
+        let plain = CutPostComposeLogic.model(title: "Share Workout", selected: [F.cardio], available: [])
+        #expect(plain.workoutNote == nil && CutPostComposeLogic.workoutSectionTitle(plain) == "Workout")
+        let session = CutPostComposeLogic.model(title: "Share", selected: [F.cardio, F.strength], available: [])
+        #expect(CutPostComposeLogic.workoutSectionTitle(session) == "Session")
+        let weekly = CutPostComposeLogic.model(title: "Share", selected: [F.strength], available: [], weekly: F.weekly, attached: true)
+        #expect(weekly.workoutNote == nil && CutPostComposeLogic.workoutSectionTitle(weekly) == "Weekly Progress")
+    }
+    @Test func theAwardPictureIsRecognisedByItsFileNameAndIsNotAMap() {
+        let award = PostImage(storagePath: "workout-images-public/u/year_award_1794960000_0.jpg", isPublic: true)
+        #expect(award.isYearAwardImage && !award.isGeneratedMapImage)
+        #expect(!PostImage(storagePath: "workout-images-public/u/workout_1794960000_0.jpg", isPublic: true).isYearAwardImage)
+        #expect(!PostImage(storagePath: "workout-images-public/u/route_map_1794960000_0.jpg", isPublic: true).isYearAwardImage)
+    }
     @Test func missingPrivacyMetadataDoesNotHideAPickedPhoto() {
         let photos = CutPostComposeLogic.photos(attached: false, pickedPrivacy: [nil, false], map: false)
         #expect(photos.count == 2 && photos[0].privacy == nil)

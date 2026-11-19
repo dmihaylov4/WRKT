@@ -126,6 +126,14 @@ struct PostImage: Codable, Sendable, Hashable, Identifiable {
 
     /// Generated route/map snapshots must be distinguishable from user photos.
     /// Match path components and generated prefixes, not arbitrary words like "maple".
+    /// The year award's picture, uploaded under its own file name prefix. Older versions read
+    /// it as an ordinary photo.
+    var isYearAwardImage: Bool {
+        storagePath.lowercased().contains("/\(Self.yearAwardPrefix)_")
+    }
+
+    static let yearAwardPrefix = "year_award"
+
     var isGeneratedMapImage: Bool {
         let lower = storagePath.lowercased()
         return lower.contains("/route_map_")

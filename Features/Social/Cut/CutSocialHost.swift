@@ -425,6 +425,7 @@ struct CutSocialPostMedia: View {
     private var canBuildRoute: Bool {
         allowsBackfill && post.post.userId == currentUserId && isCardio && !post.post.isMultiWorkout
             && post.post.workoutData.matchedHealthKitUUID != nil
+            && !(post.post.images ?? []).contains(where: \.isYearAwardImage)
     }
 
     private var taskKey: String {
