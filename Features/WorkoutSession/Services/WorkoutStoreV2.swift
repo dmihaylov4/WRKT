@@ -22,6 +22,8 @@ final class WorkoutStoreV2: ObservableObject {
     /// One summary per run, in the same order, updated in the same mutation as `runs`. History
     /// order is not date order: new runs are inserted first.
     @Published private(set) var runSummaries: [RunSummary] = []
+    /// Live detail handles, by workout id. Weak: a handle lives as long as a screen holds it.
+    private var runDetailHandles: [UUID: WeakRunDetail] = [:]
 
     // Store last discarded workout for undo functionality
     private var lastDiscardedWorkout: CurrentWorkout?
@@ -52,11 +54,58 @@ final class WorkoutStoreV2: ObservableObject {
         runSummaries.first { $0.healthKitUUID == healthKitUUID }
     }
 
-    /// The full run for a screen that still takes one: the detail screens, and the legacy
-    /// cardio rows that draw a route. Lists find the workout by its summary, then open it with
-    /// this. Goes away when those screens load the run themselves.
-    func fullRun(id: UUID) -> Run? {
+    /// The full run with this id, from memory. Screens read it through `runDetail(id:)`.
+    private func fullRun(id: UUID) -> Run? {
         runs.first { $0.id == id }
+    }
+
+    // MARK: - Run detail
+
+    /// The live handle for one workout's full record. While any caller holds it, every caller
+    /// gets the same instance, and every change to that workout updates it in the same
+    /// main-actor turn as `runSummaries`. Returned already loaded, from memory.
+    func runDetail(id: UUID) -> RunDetail {
+        if let live = runDetailHandles[id]?.detail { return live }
+        let detail = RunDetail(id: id, phase: fullRun(id: id).map(RunDetail.Phase.loaded) ?? .unavailable(.removed))
+        runDetailHandles = runDetailHandles.filter { $0.value.detail != nil }
+        runDetailHandles[id] = WeakRunDetail(detail: detail)
+        return detail
+    }
+
+    /// One workout's full record, for code that is not a view (sharing, posting). Waits for the
+    /// history to load; throws if it could not load, or if the task is cancelled.
+    func loadRun(id: UUID) async throws -> RunLoadResult {
+        try Task.checkCancellation()
+        try await waitForStorage()
+        try Task.checkCancellation()
+        return fullRun(id: id).map(RunLoadResult.loaded) ?? .removed
+    }
+
+    /// Several workouts' full records at once.
+    func loadRuns(ids: [UUID]) async throws -> [UUID: RunLoadResult] {
+        try Task.checkCancellation()
+        try await waitForStorage()
+        try Task.checkCancellation()
+        var results: [UUID: RunLoadResult] = [:]
+        for id in ids { results[id] = fullRun(id: id).map(RunLoadResult.loaded) ?? .removed }
+        return results
+    }
+
+    /// Brings the live handles for these ids up to date with `runs`; nil means every live handle.
+    private func refreshRunDetails(_ ids: [UUID]?) {
+        guard !runDetailHandles.isEmpty else { return }
+        let targets = ids ?? Array(runDetailHandles.keys)
+        for id in targets {
+            guard let detail = runDetailHandles[id]?.detail else {
+                runDetailHandles[id] = nil
+                continue
+            }
+            if let run = fullRun(id: id) {
+                detail.setLoaded(run)
+            } else if detail.phase != .unavailable(.removed) {
+                detail.setUnavailable(.removed)
+            }
+        }
     }
 
     private var prIndex: [String: ExercisePRsV2] = [:]
@@ -984,6 +1033,7 @@ final class WorkoutStoreV2: ObservableObject {
         runs.insert(run, at: 0)
         runSummaries.insert(RunSummary(run), at: 0)
         checkRunSummaries(touched: [0])
+        refreshRunDetails([run.id])
         persistRuns()
     }
 
@@ -1021,6 +1071,7 @@ final class WorkoutStoreV2: ObservableObject {
         runs[index] = run
         runSummaries[index] = RunSummary(run)
         checkRunSummaries(touched: [index])
+        refreshRunDetails([run.id])
         persistRuns()
     }
 
@@ -1044,6 +1095,7 @@ final class WorkoutStoreV2: ObservableObject {
         for index in touched { summaries[index] = RunSummary(runsCopy[index]) }
         runSummaries = summaries
         checkRunSummaries(touched: touched)
+        refreshRunDetails(touched.map { runsCopy[$0].id })
         persistRuns()
     }
 
@@ -1064,13 +1116,16 @@ final class WorkoutStoreV2: ObservableObject {
         runs.removeAll(where: { $0.id == id })
         runSummaries.removeAll(where: { $0.id == id })
         checkRunSummaries(touched: [])
+        refreshRunDetails([id])
         persistRuns()
     }
 
     func deleteRuns(at offsets: IndexSet) {
+        let removed = offsets.map { runs[$0].id }
         runs.remove(atOffsets: offsets)
         runSummaries.remove(atOffsets: offsets)
         checkRunSummaries(touched: [])
+        refreshRunDetails(removed)
         persistRuns()
     }
 
@@ -1096,6 +1151,7 @@ final class WorkoutStoreV2: ObservableObject {
     private func setRuns(_ newRuns: [Run]) {
         runs = newRuns
         runSummaries = newRuns.map(RunSummary.init)
+        refreshRunDetails(nil)
     }
 
     /// DEBUG only: the summaries list the runs' ids in order, and each touched summary equals

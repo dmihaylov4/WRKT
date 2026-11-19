@@ -32,7 +32,7 @@ struct HomeViewNew: View {
 
     // Sheet states for card taps
     @State private var selectedWorkoutForDetail: CompletedWorkout? = nil
-    @State private var selectedCardioForDetail: Run? = nil
+    @State private var selectedCardioForDetail: RunSummary? = nil
 
 
     // Communicate browse state to app level to hide LiveWorkoutGrabTab
@@ -106,7 +106,7 @@ struct HomeViewNew: View {
                         selectedWorkoutForDetail = workout
                     },
                     onCardioTap: { cardio in
-                        selectedCardioForDetail = store.fullRun(id: cardio.id)
+                        selectedCardioForDetail = cardio
                     }
                 )
                 .padding(.top, 8)
@@ -346,7 +346,7 @@ struct HomeViewNew: View {
 
         case .lastCardio(let run):
             // Show cardio detail sheet
-            selectedCardioForDetail = store.fullRun(id: run.id)
+            selectedCardioForDetail = run
 
         case .recentActivity:
             // Individual sections have their own tap handlers

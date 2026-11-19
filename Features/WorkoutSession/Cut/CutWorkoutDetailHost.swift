@@ -123,7 +123,7 @@ struct CutWorkoutDetailHost: View {
 // MARK: - Apple Health strength
 
 struct CutHealthStrengthHost: View {
-    let run: Run
+    let run: RunSummary
 
     @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dismiss) private var dismiss
@@ -141,7 +141,7 @@ struct CutHealthStrengthHost: View {
 
     var body: some View {
         let existing = existingWorkout
-        let model = CutWorkoutDetailLogic.healthStrength(run.summary, existing: existing, now: .now)
+        let model = CutWorkoutDetailLogic.healthStrength(run, existing: existing, now: .now)
         CutHealthStrengthView(model: model, actions: CutHealthStrengthActions(
             edit: { showingEditor = true },
             delete: {
@@ -158,7 +158,7 @@ struct CutHealthStrengthHost: View {
                     .environmentObject(store)
                     .environmentObject(repo)
             } else {
-                CompletedWorkoutEditor(workout: CutWorkoutDetailLogic.workout(from: run.summary), isNewWorkout: true)
+                CompletedWorkoutEditor(workout: CutWorkoutDetailLogic.workout(from: run), isNewWorkout: true)
                     .environmentObject(store)
                     .environmentObject(repo)
             }

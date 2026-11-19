@@ -1221,7 +1221,7 @@ final class HealthKitManager: ObservableObject {
     // MARK: - Delete Workout
 
     /// Delete a cardio workout from HealthKit and local storage
-    func deleteCardioWorkout(run: Run) async throws {
+    func deleteCardioWorkout(run: RunSummary) async throws {
         guard connectionState == .connected else {
             AppLogger.warning("Cannot delete workout - HealthKit not authorized", category: AppLogger.health)
             throw SupabaseError.notAuthenticated

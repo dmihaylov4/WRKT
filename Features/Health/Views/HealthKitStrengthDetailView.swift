@@ -20,7 +20,7 @@ private enum Theme {
 }
 
 struct HealthKitStrengthDetailView: View {
-    let run: Run
+    let run: RunSummary
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: WorkoutStoreV2
     @EnvironmentObject var repo: ExerciseRepository
@@ -187,7 +187,7 @@ struct HealthKitStrengthDetailView: View {
 // MARK: - Header Card
 
 private struct HeaderCard: View {
-    let run: Run
+    let run: RunSummary
     let workoutTitle: String
 
     var body: some View {
@@ -259,7 +259,7 @@ private struct HeaderCard: View {
 // MARK: - Metrics Grid
 
 private struct MetricsGrid: View {
-    let run: Run
+    let run: RunSummary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

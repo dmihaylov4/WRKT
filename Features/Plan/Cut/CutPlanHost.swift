@@ -270,11 +270,11 @@ struct CutPlanHost: View {
                 WorkoutDetailView(workout: workout)
             }
         case .healthKitStrength(let id):
-            if let run = store.fullRun(id: id) {
+            if let run = store.runSummary(id: id) {
                 HealthKitStrengthDetailView(run: run)
             }
         case .cardio(let id):
-            if let run = store.fullRun(id: id) {
+            if let run = store.runSummary(id: id) {
                 CardioDetailView(run: run)
             }
         }

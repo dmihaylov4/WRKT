@@ -21,7 +21,7 @@ struct CutCardioHost: View {
     @State private var isResyncing = false
     @State private var selectedType: CardioType = .running
     @State private var weekOffset = 0
-    @State private var openedRun: Run?
+    @State private var openedRun: RunSummary?
 
     // Same flag as the legacy tab: one automatic prompt until Health is connected.
     @AppStorage("hasPromptedForHealthKitAuth") private var hasPromptedThisSession = false
@@ -100,7 +100,7 @@ struct CutCardioHost: View {
             },
             openRun: { id in
                 Haptics.light()
-                openedRun = store.fullRun(id: id)
+                openedRun = store.validRunSummaries.first { $0.id == id }
             }
         )
     }
@@ -119,10 +119,11 @@ struct CutCardioHost: View {
 
 // MARK: - Detail
 
-/// CardioDetailView's data and flows behind the Cut detail. Reads the latest copy of the run
-/// from the store, as the legacy view does, so fetched routes and splits appear in place.
+/// CardioDetailView's data and flows behind the Cut detail. Reads its one workout through the
+/// store's live detail handle, so fetched routes and splits appear in place, and builds the
+/// model (heart-rate zones included) again only when that workout or the zone settings change.
 struct CutCardioDetailHost: View {
-    let run: Run
+    let run: RunSummary
 
     @EnvironmentObject private var store: WorkoutStoreV2
     @Environment(\.dismiss) private var dismiss
@@ -136,22 +137,34 @@ struct CutCardioDetailHost: View {
     @State private var isGeneratingSnapshot = false
     @State private var localRouteWithHR: [RoutePoint]?
     @State private var localRoute: [Coordinate]?
+    /// Bumped whenever the two local routes change, so the cached model is rebuilt.
+    @State private var localRouteRevision = 0
     @State private var isRefreshing = false
+    @State private var holder = RunDetailHolder()
+    @State private var modelCache: CutCardioDetailModelCache
 
-    private var latestRun: Run {
-        store.runs.first { $0.id == run.id } ?? run
+    /// `modelCache` is for tests that count model builds.
+    init(run: RunSummary, modelCache: CutCardioDetailModelCache = CutCardioDetailModelCache()) {
+        self.run = run
+        _modelCache = State(initialValue: modelCache)
     }
 
-    /// The latest run with any route fetched on this screen laid over it.
-    private var displayRun: Run {
-        var current = latestRun
+    private var detail: RunDetail { holder.detail(for: run.id, in: store) }
+
+    /// The workout's light fields: the store's summary, else the last run the screen held.
+    private var currentSummary: RunSummary {
+        store.runSummary(id: run.id) ?? detail.run?.summary ?? run
+    }
+
+    /// The workout's full record with any route fetched on this screen laid over it.
+    private var displayRun: Run? {
+        guard var current = detail.run else { return nil }
         if let localRouteWithHR { current.routeWithHR = localRouteWithHR }
         if let localRoute { current.route = localRoute }
         return current
     }
 
-    private var hrSamples: [HeartRateSample]? {
-        let current = displayRun
+    private static func hrSamples(_ current: Run) -> [HeartRateSample]? {
         let routeSamples = current.routeWithHR?.compactMap { point -> HeartRateSample? in
             guard let hr = point.hr else { return nil }
             return HeartRateSample(timestamp: point.t, bpm: hr)
@@ -161,10 +174,21 @@ struct CutCardioDetailHost: View {
     }
 
     private var model: CutCardioDetailModel {
-        let current = displayRun
-        return CutCardioLogic.detail(current,
-                                     zones: CardioDataExtractor.shared.calculateHRZones(from: current) ?? [],
-                                     hrSamples: hrSamples, now: .now)
+        let detail = self.detail
+        let now = Date.now
+        let key = CutCardioDetailModelCache.Key(
+            handle: ObjectIdentifier(detail), revision: detail.revision, localRouteRevision: localRouteRevision,
+            year: Calendar.current.component(.year, from: now), zones: HRZoneCalculator.shared.config,
+            summary: detail.run == nil ? currentSummary : nil)
+        return modelCache.model(for: key) {
+            if let current = displayRun {
+                return CutCardioLogic.detail(current,
+                                             zones: CardioDataExtractor.shared.calculateHRZones(from: current) ?? [],
+                                             hrSamples: Self.hrSamples(current), now: now)
+            }
+            return CutCardioLogic.detail(summary: currentSummary, run: nil, isLoading: detail.isLoading,
+                                         zones: [], hrSamples: nil, now: now)
+        }
     }
 
     var body: some View {
@@ -193,7 +217,7 @@ struct CutCardioDetailHost: View {
                     showingDeleteConfirmation = false
                     Task {
                         do {
-                            try await HealthKitManager.shared.deleteCardioWorkout(run: latestRun)
+                            try await HealthKitManager.shared.deleteCardioWorkout(run: currentSummary)
                             dismiss()
                         } catch {
                             deleteError = error.localizedDescription
@@ -234,9 +258,9 @@ struct CutCardioDetailHost: View {
     @ViewBuilder
     private var routeMap: some View {
         let current = displayRun
-        if let points = current.routeWithHR, points.count > 1 {
+        if let points = current?.routeWithHR, points.count > 1 {
             InteractiveRouteMapHeat(points: points)
-        } else if let route = current.route, route.count > 1 {
+        } else if let route = current?.route, route.count > 1 {
             InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
         }
     }
@@ -247,7 +271,7 @@ struct CutCardioDetailHost: View {
                 Haptics.light()
                 Task { await generateMapSnapshotAndShare() }
             }
-            if latestRun.healthKitUUID != nil {
+            if currentSummary.healthKitUUID != nil {
                 Button(model.route == .map ? "Refresh route and details" : "Get route and details",
                        systemImage: "arrow.clockwise") {
                     Task { await refresh() }
@@ -265,11 +289,12 @@ struct CutCardioDetailHost: View {
 
     /// The legacy Get Route, Load Splits and Load Details: one detailed refresh from Health.
     private func refresh() async {
-        guard !isRefreshing, latestRun.healthKitUUID != nil else { return }
+        guard !isRefreshing, currentSummary.healthKitUUID != nil else { return }
         isRefreshing = true
-        if let updated = await HealthKitManager.shared.refreshDetailedDataForRun(runId: latestRun.id) {
+        if let updated = await HealthKitManager.shared.refreshDetailedDataForRun(runId: run.id) {
             localRouteWithHR = updated.routeWithHR
             localRoute = updated.route
+            localRouteRevision &+= 1
         }
         isRefreshing = false
     }
@@ -277,7 +302,7 @@ struct CutCardioDetailHost: View {
     // MARK: Share (CardioDetailView's flow)
 
     private func enrichedWorkout() -> CompletedWorkout {
-        let current = latestRun
+        guard let current = detail.run else { return currentSummary.completedWorkoutWithoutSamples() }
         var workout = current.toCompletedWorkout()
         CardioDataExtractor.shared.enrichWorkout(&workout, from: current)
         if let routeWithHR = current.routeWithHR, !routeWithHR.isEmpty {
@@ -291,21 +316,21 @@ struct CutCardioDetailHost: View {
 
     private func generateMapSnapshotAndShare() async {
         mapSnapshotImage = nil
-        var current = latestRun
+        var current = detail.run
         isGeneratingSnapshot = true
 
-        let hasUsableRoute = (current.routeWithHR?.count ?? 0) > 1 || (current.route?.count ?? 0) > 1
-        if !hasUsableRoute, current.healthKitUUID != nil,
-           let refreshed = await HealthKitManager.shared.refreshDetailedDataForRun(runId: current.id) {
+        let hasUsableRoute = (current?.routeWithHR?.count ?? 0) > 1 || (current?.route?.count ?? 0) > 1
+        if !hasUsableRoute, currentSummary.healthKitUUID != nil,
+           let refreshed = await HealthKitManager.shared.refreshDetailedDataForRun(runId: run.id) {
             current = refreshed
         }
 
         let coordinates: [CLLocationCoordinate2D]
         let hrValues: [Double]?
-        if let routeWithHR = current.routeWithHR, routeWithHR.count > 1 {
+        if let routeWithHR = current?.routeWithHR, routeWithHR.count > 1 {
             coordinates = routeWithHR.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = routeWithHR.map { $0.hr ?? .nan }
-        } else if let route = current.route, route.count > 1 {
+        } else if let route = current?.route, route.count > 1 {
             coordinates = route.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
             hrValues = nil
         } else {
@@ -321,5 +346,37 @@ struct CutCardioDetailHost: View {
         )
         isGeneratingSnapshot = false
         showingShareSheet = true
+    }
+}
+
+/// The Cut detail model for the last inputs it was built from. A plain class kept in `@State`:
+/// reading or filling it never triggers a render.
+@MainActor
+final class CutCardioDetailModelCache {
+    struct Key: Equatable {
+        /// The handle and its revision: the workout's full record as last set.
+        var handle: ObjectIdentifier
+        var revision: Int
+        var localRouteRevision: Int
+        /// The date line names the year only for other years.
+        var year: Int
+        var zones: HRZoneConfig?
+        /// Only while the full record is not here: then the model is built from the summary.
+        var summary: RunSummary?
+    }
+
+    private(set) var builds = 0
+    private var key: Key?
+    private var model: CutCardioDetailModel?
+
+    nonisolated init() {}
+
+    func model(for key: Key, build: () -> CutCardioDetailModel) -> CutCardioDetailModel {
+        if let model, self.key == key { return model }
+        let built = build()
+        builds += 1
+        self.key = key
+        model = built
+        return built
     }
 }
