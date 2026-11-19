@@ -229,7 +229,8 @@ actor WorkoutStorage {
     init(directory: URL? = nil) {
         // Setup encoder/decoder
         self.encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes, .sortedKeys]
+        // Compact: the files are read by the app, not by people. Readers ignore whitespace.
+        encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
 
         self.decoder = JSONDecoder()

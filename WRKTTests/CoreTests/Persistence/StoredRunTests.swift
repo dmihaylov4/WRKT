@@ -194,6 +194,38 @@ final class StoredRunTests: XCTestCase {
                        "A run whose route was dropped by an older version is a different value and is written")
     }
 
+    // MARK: - Compact files
+
+    func testEveryFileIsWrittenCompactWithSortedKeysAndISODatesAndReadsAsBefore() async throws {
+        let storage = WorkoutStorage(directory: directory)
+        let p = Self.points(3)
+        let runs = [Self.run(route: Self.coordinates(p), routeWithHR: p), Self.run(route: nil, routeWithHR: nil)]
+        let workouts = [TestFixtures.makeCompletedWorkout()]
+        try await storage.saveRuns(runs)
+        try await storage.saveWorkouts(workouts, prIndex: ["bench-press": TestFixtures.samplePR])
+        try await storage.saveCurrentWorkout(TestFixtures.makeCurrentWorkout())
+        try await storage.saveIgnoredHealthKitUUIDs([UUID()])
+        try await storage.saveDiscardedWorkoutWindows([DiscardedWorkoutWindow(workoutStartedAt: .now, discardedAt: .now)])
+
+        for name in ["runs_v2.json", "workouts_v2.json", "current_workout_v2.json",
+                     "ignored_healthkit_uuids.json", "discarded_workout_windows.json"] {
+            let text = try String(contentsOf: directory.appendingPathComponent(name), encoding: .utf8)
+            XCTAssertFalse(text.contains("\n"), name)
+            XCTAssertFalse(text.contains(": "), name)
+        }
+        let runsText = try String(contentsOf: runsFile, encoding: .utf8)
+        XCTAssertTrue(runsText.hasPrefix(#"[{"avgHeartRate":142.5,"date":"2025-11-16T15:33:20Z","distanceKm":"#),
+                      runsText.prefix(80).description)
+
+        // The same values in the previous pretty form decode identically.
+        let compact = try Data(contentsOf: runsFile)
+        let pretty = try Self.previousEncoder.encode(Self.plainDecoder.decode([StoredRun].self, from: compact).map(\.run))
+        XCTAssertEqual(try Self.plainDecoder.decode([StoredRun].self, from: pretty).map(\.run),
+                       try Self.plainDecoder.decode([StoredRun].self, from: compact).map(\.run))
+        let loaded = try await WorkoutStorage(directory: directory).loadWorkouts()
+        XCTAssertEqual(loaded.workouts.map(\.id), workouts.map(\.id))
+    }
+
     // MARK: - Cost
 
     func testRepeatedRouteCheckIsCheapForALongRoute() {
