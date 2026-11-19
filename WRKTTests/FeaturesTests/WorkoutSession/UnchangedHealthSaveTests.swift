@@ -109,7 +109,7 @@ final class UnchangedHealthSaveTests: XCTestCase {
         try await store.flushHealthKitChanges()
 
         run.avgHeartRate = 151
-        store.updateRun(run)
+        store.editRun(.replacing(with: run))
         try await store.flushHealthKitChanges()
 
         let durable = try await storage.loadRuns()
@@ -122,7 +122,7 @@ final class UnchangedHealthSaveTests: XCTestCase {
         try await store.flushHealthKitChanges()
 
         run.calories = 420
-        store.batchUpdateRuns([run])
+        store.editRuns([.replacing(with: run)])
         try await store.flushHealthKitChanges()
 
         let durable = try await storage.loadRuns()
@@ -136,8 +136,8 @@ final class UnchangedHealthSaveTests: XCTestCase {
         let (store, _) = try await relaunch(runs: [run, makeRun(8)])
         let stamp = FileStamp(runsFile)
 
-        store.updateRun(try XCTUnwrap(store.runs.first { $0.id == run.id }))
-        store.updateRun(makeRun(3))  // not in the store
+        store.editRun(.replacing(with: try XCTUnwrap(store.fullRunsForTesting.first { $0.id == run.id })))
+        store.editRun(.replacing(with: makeRun(3)))  // not in the store
         try await store.flushHealthKitChanges()
 
         XCTAssertEqual(FileStamp(runsFile), stamp)
@@ -147,7 +147,7 @@ final class UnchangedHealthSaveTests: XCTestCase {
         let (store, _) = try await relaunch(runs: [makeRun(), makeRun(8)])
         let stamp = FileStamp(runsFile)
 
-        store.batchUpdateRuns(store.runs + [makeRun(3)])
+        store.editRuns((store.fullRunsForTesting + [makeRun(3)]).map(RunEdit.replacing(with:)))
         try await store.flushHealthKitChanges()
 
         XCTAssertEqual(FileStamp(runsFile), stamp)
@@ -155,10 +155,10 @@ final class UnchangedHealthSaveTests: XCTestCase {
 
     func testBatchUpdateWritesOnlyWhenOneRunChanged() async throws {
         let (store, storage) = try await relaunch(runs: [makeRun(), makeRun(8)])
-        var changed = store.runs
+        var changed = store.fullRunsForTesting
         changed[1].notes = "Hills"
 
-        store.batchUpdateRuns(changed)
+        store.editRuns(changed.map(RunEdit.replacing(with:)))
         try await store.flushHealthKitChanges()
 
         let durable = try await storage.loadRuns()
@@ -230,7 +230,7 @@ final class UnchangedHealthSaveTests: XCTestCase {
 
         try await store.flushHealthKitChanges()
 
-        XCTAssertEqual(store.runs.map(\.id), [first.id])
+        XCTAssertEqual(store.runSummaries.map(\.id), [first.id])
         let durable = try await storage.loadRuns()
         XCTAssertEqual(durable.map(\.id), [first.id])
     }

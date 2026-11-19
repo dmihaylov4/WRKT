@@ -71,18 +71,3 @@ enum HealthKitWorkoutCategory {
         return .other
     }
 }
-
-/// Helper extension on Run model to determine workout category
-extension Run {
-    /// The category of this workout
-    var category: HealthKitWorkoutCategory {
-        HealthKitWorkoutCategory.categorize(workoutType)
-    }
-
-    /// Whether this HealthKit workout should count as a strength day
-    var countsAsStrengthDay: Bool {
-        // Only count if this is a HealthKit workout (has UUID)
-        guard healthKitUUID != nil else { return false }
-        return category.countsAsStrengthDay
-    }
-}

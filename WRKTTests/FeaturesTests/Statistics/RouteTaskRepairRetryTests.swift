@@ -42,7 +42,7 @@ final class RouteTaskRepairRetryTests: XCTestCase {
 
     func testRecentlyFailedTaskStaysFailed() async throws {
         let run = routelessWalk()
-        XCTAssertTrue(run.needsHistoricalEnrichment)
+        XCTAssertTrue(run.summary.needsHistoricalEnrichment)
         let task = try failedTask(for: run, lastAttemptDaysAgo: 1)
 
         _ = await repair([run])

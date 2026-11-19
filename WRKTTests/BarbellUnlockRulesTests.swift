@@ -362,8 +362,8 @@ struct BarbellUnlockRulesTests {
             workoutType: "Functional Training"
         )
 
-        #expect(!running.countsAsStrengthDay)
-        #expect(functionalStrength.countsAsStrengthDay)
+        #expect(!running.summary.countsAsStrengthDay)
+        #expect(functionalStrength.summary.countsAsStrengthDay)
     }
 
     @Test func prExistingLegacyPrefixDoesNotEarnDuplicateFullUUIDPlate() {

@@ -54,8 +54,8 @@ final class RunSummaryStoreTests: XCTestCase {
     }
 
     private func assertInStep(_ store: WorkoutStoreV2, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertEqual(store.runSummaries, store.runs.map(RunSummary.init), file: file, line: line)
-        XCTAssertEqual(store.runSummaries.map(\.id), store.runs.map(\.id), file: file, line: line)
+        XCTAssertEqual(store.runSummaries, store.fullRunsForTesting.map(RunSummary.init), file: file, line: line)
+        XCTAssertEqual(store.runSummaries.map(\.id), store.fullRunsForTesting.map(\.id), file: file, line: line)
     }
 
     func testSummariesFollowEveryMutationInOrder() async throws {
@@ -78,7 +78,7 @@ final class RunSummaryStoreTests: XCTestCase {
         enriched.routeWithHR = Self.points(3)
         enriched.route = enriched.routeWithHR?.map { Coordinate(lat: $0.lat, lon: $0.lon) }
         enriched.splits = [KilometerSplit(number: 1, distanceKm: 1, durationSec: 600)]
-        store.updateRun(enriched)
+        store.editRun(.replacing(with: enriched))
         XCTAssertEqual(store.runSummary(id: enriched.id)?.routeWithHRPointCount, 3)
         XCTAssertEqual(store.runSummary(id: enriched.id)?.splitCount, 1)
         assertInStep(store)
@@ -87,7 +87,7 @@ final class RunSummaryStoreTests: XCTestCase {
         renamed.workoutName = "Long run"
         var heavier = runs[1]
         heavier.hrSamples = nil
-        store.batchUpdateRuns([renamed, heavier, Run(distanceKm: 1, durationSec: 60)])
+        store.editRuns([renamed, heavier, Run(distanceKm: 1, durationSec: 60)].map(RunEdit.replacing(with:)))
         XCTAssertEqual(store.runSummary(id: renamed.id)?.workoutName, "Long run")
         XCTAssertNil(store.runSummary(id: heavier.id)?.heartRateSampleCount)
         assertInStep(store)
@@ -96,7 +96,8 @@ final class RunSummaryStoreTests: XCTestCase {
         XCTAssertNil(store.runSummary(id: runs[1].id))
         assertInStep(store)
 
-        store.deleteRuns(at: IndexSet([0, 2]))
+        let removed = [store.runSummaries[0].id, store.runSummaries[2].id]
+        removed.forEach(store.removeRun(withId:))
         assertInStep(store)
         XCTAssertEqual(store.runSummaries.map(\.id), [runs[0].id, runs[3].id])
 
@@ -121,10 +122,10 @@ final class RunSummaryStoreTests: XCTestCase {
     func testLookupsAndFiltersMatchTheRuns() async throws {
         let runs = Self.history()
         let store = try await relaunch(runs: runs)
-        XCTAssertEqual(store.validRunSummaries.map(\.id), store.validRuns.map(\.id))
+        XCTAssertEqual(store.validRunSummaries.map(\.id), store.fullRunsForTesting.filter(LegacyRunHelpers.isValidRun).map(\.id))
         XCTAssertEqual(store.validRunSummaries.map(\.id), [runs[0].id, runs[2].id])
         let day = Self.start
-        XCTAssertEqual(store.runSummaries(on: day).map(\.id), store.runs(on: day).map(\.id))
+        XCTAssertEqual(store.runSummaries(on: day).map(\.id), store.fullRunsForTesting.filter { Calendar.current.isDate($0.date, inSameDayAs: day) }.map(\.id))
         for run in runs {
             XCTAssertEqual(store.runSummary(id: run.id), RunSummary(run))
             XCTAssertEqual(store.runSummary(healthKitUUID: run.healthKitUUID!), RunSummary(run))
@@ -150,17 +151,16 @@ final class RunSummaryStoreTests: XCTestCase {
         let added = Run(distanceKm: 3, durationSec: 900, healthKitUUID: UUID())
         expect(1, "add") { store.addRun(added) }
         expect(0, "duplicate add") { store.addRun(Run(distanceKm: 1, durationSec: 1, healthKitUUID: added.healthKitUUID)) }
-        expect(0, "unchanged update") { store.updateRun(runs[0]) }
+        expect(0, "unchanged update") { store.editRun(.replacing(with: runs[0])) }
         var changed = runs[0]
         changed.notes = "x"
-        expect(1, "update") { store.updateRun(changed) }
-        expect(0, "unchanged batch") { store.batchUpdateRuns([changed]) }
+        expect(1, "update") { store.editRun(.replacing(with: changed)) }
+        expect(0, "unchanged batch") { store.editRuns([.replacing(with: changed)]) }
         var other = runs[1]
         other.notes = "y"
-        expect(1, "batch") { store.batchUpdateRuns([changed, other]) }
+        expect(1, "batch") { store.editRuns([.replacing(with: changed), .replacing(with: other)]) }
         expect(0, "remove missing") { store.removeRun(withId: UUID()) }
         expect(1, "remove") { store.removeRun(withId: runs[2].id) }
-        expect(1, "delete at") { store.deleteRuns(at: IndexSet([0])) }
         expect(1, "clear") { store.clearAllRuns() }
         expect(0, "clear empty") { store.clearAllRuns() }
     }

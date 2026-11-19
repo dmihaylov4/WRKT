@@ -14,9 +14,11 @@ final class WorkoutStoreV2: ObservableObject {
     @Published var completedWorkouts: [CompletedWorkout] = []
     @Published private(set) var lastCompletedWorkout: CompletedWorkout?
     @Published private(set) var lastHealthImportEndDate: Date? = nil
-    /// Every run with its detail arrays. Not published itself: every mutation also updates
+    /// Every run with its detail arrays. Private: history-wide code reads `runSummaries`, one
+    /// workout's detail comes through `runDetail(id:)` or `loadRun(id:)`, and changes go through
+    /// `addRun`, `editRun(s)` and `removeRun`. Not published itself: every mutation also updates
     /// `runSummaries`, once, which publishes the change.
-    private(set) var runs: [Run] = [] {
+    private var runs: [Run] = [] {
         didSet { runsSave.changed() }
     }
     /// One summary per run, in the same order, updated in the same mutation as `runs`. History
@@ -36,12 +38,7 @@ final class WorkoutStoreV2: ObservableObject {
     private var ignoredSave = SaveTracker()
     private var discardedWorkoutWindows: [DiscardedWorkoutWindow] = []
 
-    /// Returns only valid cardio activities (filters out strength training and invalid data)
-    var validRuns: [Run] {
-        runs.filter { RunSummary.isValidCardio(distanceKm: $0.distanceKm, durationSec: $0.durationSec, workoutType: $0.workoutType) }
-    }
-
-    /// `validRuns`, as summaries.
+    /// Only valid cardio activities: strength training and invalid data left out.
     var validRunSummaries: [RunSummary] {
         runSummaries.filter(\.isValidCardio)
     }
@@ -1066,33 +1063,6 @@ final class WorkoutStoreV2: ObservableObject {
     // Mutations that would change nothing return early: every assignment to `runs` bumps its
     // save revision, which would rewrite the whole file for nothing.
 
-    func updateRun(_ run: Run) {
-        guard let index = runs.firstIndex(where: { $0.id == run.id }), runs[index] != run else { return }
-        runs[index] = run
-        runSummaries[index] = RunSummary(run)
-        checkRunSummaries(touched: [index])
-        refreshRunDetails([run.id])
-        persistRuns()
-    }
-
-    func batchUpdateRuns(_ updatedRuns: [Run]) {
-        var runsCopy = runs
-        var updateCount = 0
-        var touched: Set<Int> = []
-
-        for run in updatedRuns {
-            if let index = runsCopy.firstIndex(where: { $0.id == run.id }), runsCopy[index] != run {
-                runsCopy[index] = run
-                touched.insert(index)
-                updateCount += 1
-            }
-        }
-
-        AppLogger.debug("Batch updated \(updateCount)/\(updatedRuns.count) runs", category: AppLogger.health)
-        guard updateCount > 0 else { return }
-        commitRuns(runsCopy, touched: touched)
-    }
-
     /// Stores `newRuns`, whose `touched` indices changed, in one change: summaries, handles and
     /// the queued save follow.
     private func commitRuns(_ newRuns: [Run], touched: Set<Int>) {
@@ -1158,7 +1128,7 @@ final class WorkoutStoreV2: ObservableObject {
     /// Whether replacing each first run with its second would leave the runs file unchanged.
     /// Unequal pairs are encoded on the storage actor, off the main thread, with the encoder
     /// the file is written with.
-    func runsEncodeIdentically(_ pairs: [(Run, Run)]) async -> [Bool] {
+    private func runsEncodeIdentically(_ pairs: [(Run, Run)]) async -> [Bool] {
         var identical = pairs.map { $0.0 == $0.1 }
         let unequal = identical.indices.filter { !identical[$0] }
         guard !unequal.isEmpty else { return identical }
@@ -1176,28 +1146,13 @@ final class WorkoutStoreV2: ObservableObject {
         persistRuns()
     }
 
-    func deleteRuns(at offsets: IndexSet) {
-        let removed = offsets.map { runs[$0].id }
-        runs.remove(atOffsets: offsets)
-        runSummaries.remove(atOffsets: offsets)
-        checkRunSummaries(touched: [])
-        refreshRunDetails(removed)
-        persistRuns()
-    }
-
     func clearAllRuns() {
         guard !runs.isEmpty else { return }
         setRuns([])
         persistRuns()
     }
 
-    func runs(on date: Date, calendar: Calendar = .current) -> [Run] {
-        let day = calendar.startOfDay(for: date)
-        // Return ALL runs (including strength workouts) - let callers filter as needed
-        return runs.filter { calendar.isDate($0.date, inSameDayAs: day) }
-    }
-
-    /// `runs(on:)`, as summaries: every run that day, in history order.
+    /// Every workout that day, in history order.
     func runSummaries(on date: Date, calendar: Calendar = .current) -> [RunSummary] {
         let day = calendar.startOfDay(for: date)
         return runSummaries.filter { calendar.isDate($0.date, inSameDayAs: day) }
@@ -1220,9 +1175,6 @@ final class WorkoutStoreV2: ObservableObject {
         #endif
     }
 
-    func persist() {
-        persistRuns()
-    }
 
     func importRunsFromHealth() async {
         guard HKHealthStore.isHealthDataAvailable() else { return }

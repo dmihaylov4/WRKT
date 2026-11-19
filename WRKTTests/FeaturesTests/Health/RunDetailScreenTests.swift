@@ -96,7 +96,7 @@ struct RunDetailScreenTests {
         var enriched = F.nothing
         enriched.routeWithHR = F.routeAndHeartRate.routeWithHR
         enriched.route = F.routeAndHeartRate.route
-        fixture.store.updateRun(enriched)
+        fixture.store.editRun(.replacing(with: enriched))
         try await Task.sleep(for: .milliseconds(200))
         host.view.layoutIfNeeded()
         #expect(mapViews(in: host.view).count == 1)
@@ -126,14 +126,14 @@ struct RunDetailScreenTests {
 
         var other = F.nothing
         other.notes = "another workout changed"
-        fixture.store.updateRun(other)
+        fixture.store.editRun(.replacing(with: other))
         try await Task.sleep(for: .milliseconds(200))
         host.view.layoutIfNeeded()
         #expect(cache.builds == initial)
 
         var own = F.routeAndHeartRate
         own.notes = "this workout changed"
-        fixture.store.updateRun(own)
+        fixture.store.editRun(.replacing(with: own))
         try await Task.sleep(for: .milliseconds(200))
         host.view.layoutIfNeeded()
         #expect(cache.builds == initial + 1)
