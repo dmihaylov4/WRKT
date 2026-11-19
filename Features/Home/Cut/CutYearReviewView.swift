@@ -74,6 +74,8 @@ struct CutYearReviewOverlay: View {
             #if DEBUG
             // Screenshots: `-CutYearAwardDemo` opens the award card with the sample year.
             if ProcessInfo.processInfo.arguments.contains("-CutYearAwardDemo") {
+                // After the launch animation, so the award's arrival can be seen.
+                try? await Task.sleep(for: .seconds(1.5))
                 let stats = CutYearReviewStats.sample(year: Calendar.current.component(.year, from: .now))
                 center.present(stats, startStep: CutYearReviewLogic.cards(for: stats).count + 1)
                 return
