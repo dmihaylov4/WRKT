@@ -9,6 +9,7 @@
 //
 
 import CoreGraphics
+import simd
 import Foundation
 
 // MARK: - Content
@@ -218,5 +219,158 @@ enum CutYearAwardLight {
                          factor: Double = smoothing) -> CutYearAwardTilt {
         CutYearAwardTilt(yaw: previous.yaw + (sample.yaw - previous.yaw) * factor,
                          lean: previous.lean + (sample.lean - previous.lean) * factor)
+    }
+}
+
+// MARK: - The 3D object
+
+/// Which award the screen shows: the layered SwiftUI plaque or the RealityKit object.
+/// Release builds always show the plaque; the object is a Debug-only prototype for now.
+enum CutYearAwardRendering {
+    /// Bool in UserDefaults: true for the 3D object. Unset means the build's default.
+    static let objectKey = "cut.yearAward.object3D"
+
+    static func usesObject(stored: Bool?, isDebug: Bool) -> Bool {
+        guard isDebug else { return false }
+        return stored ?? true
+    }
+
+    /// Launch argument for screenshots: `-CutYearAwardTilt -6,3` holds the award at that tilt,
+    /// with no arrival and no device motion. Read in Debug builds only.
+    static let fixedTiltArgument = "-CutYearAwardTilt"
+
+    static func fixedTilt(arguments: [String]) -> CutYearAwardTilt? {
+        guard let index = arguments.firstIndex(of: fixedTiltArgument), arguments.indices.contains(index + 1) else {
+            return nil
+        }
+        let parts = arguments[index + 1].split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard parts.count == 2 else { return nil }
+        return CutYearAwardLight.clamp(CutYearAwardTilt(yaw: parts[0], lean: parts[1]))
+    }
+
+    static func usesObject(defaults: UserDefaults = .standard) -> Bool {
+        #if DEBUG
+        // `bool(forKey:)` also reads a launch argument such as `-cut.yearAward.object3D NO`.
+        usesObject(stored: defaults.object(forKey: objectKey) == nil ? nil : defaults.bool(forKey: objectKey),
+                   isDebug: true)
+        #else
+        false
+        #endif
+    }
+}
+
+extension CutYearAwardContent {
+    /// The single quiet line under the headline on the 3D object. The year's count reads as a
+    /// record of effort without turning the object into a table: the rows stay on the cards.
+    var objectLine: String { footer }
+}
+
+/// A damped spring on one value, stepped per frame. Response and damping follow SwiftUI's
+/// `.spring(response:dampingFraction:)`, so the 3D object moves like the SwiftUI plaque did.
+struct CutYearAwardSpring: Equatable {
+    struct Parameters: Equatable {
+        var response: Double
+        var damping: Double
+
+        /// Following a finger or the phone: quick, no overshoot.
+        static let follow = Parameters(response: 0.14, damping: 1)
+        /// Letting go of a drag: the SwiftUI plaque's spring back.
+        static let release = Parameters(response: 0.55, damping: 0.6)
+        /// Turning in from the side when the screen opens.
+        static let arrival = Parameters(response: 0.8, damping: 0.8)
+    }
+
+    var value: Double
+    var velocity: Double = 0
+
+    /// Below these the spring counts as at rest, in degrees and degrees per second.
+    static let restDistance = 0.02
+    static let restSpeed = 0.05
+
+    /// Advances toward `target`. Long frames are split so a hitch cannot blow the spring up.
+    mutating func step(toward target: Double, parameters: Parameters, deltaTime: Double) {
+        guard deltaTime > 0, deltaTime.isFinite else { return }
+        let stiffness = pow(2 * Double.pi / max(parameters.response, 0.01), 2)
+        let friction = 4 * Double.pi * parameters.damping / max(parameters.response, 0.01)
+        var remaining = min(deltaTime, 0.25)
+        while remaining > 0 {
+            let dt = min(remaining, 1.0 / 240)
+            velocity += (-stiffness * (value - target) - friction * velocity) * dt
+            value += velocity * dt
+            remaining -= dt
+        }
+    }
+
+    func isSettled(at target: Double) -> Bool {
+        abs(value - target) < Self.restDistance && abs(velocity) < Self.restSpeed
+    }
+
+    mutating func settle(at target: Double) {
+        value = target
+        velocity = 0
+    }
+}
+
+/// The object's shape in metres, one point of the SwiftUI plaque to one millimetre, so the
+/// camera can frame it at the plaque's on-screen size. y points up, the origin is the centre.
+enum CutYearAwardSlab {
+    static let width: Float = 0.318
+    static let height: Float = 0.476
+    static let cut: Float = 0.052
+    /// Thick enough to read as a block of steel when it turns, not a card.
+    static let thickness: Float = 0.016
+    /// The 45 degree chamfer round the face, and a smaller one at the back.
+    static let frontChamfer: Float = 0.007
+    static let backChamfer: Float = 0.002
+
+    /// The outline counterclockwise from the bottom leading corner, the top leading corner cut.
+    static var outline: [SIMD2<Float>] {
+        let w = width / 2, h = height / 2
+        return [SIMD2(-w, -h), SIMD2(w, -h), SIMD2(w, h), SIMD2(-w + cut, h), SIMD2(-w, h - cut)]
+    }
+
+    /// A convex counterclockwise polygon moved inward by `distance` on every edge.
+    static func inset(_ polygon: [SIMD2<Float>], by distance: Float) -> [SIMD2<Float>] {
+        let count = polygon.count
+        guard count >= 3, distance != 0 else { return polygon }
+        // Each edge as a point and a direction, shifted along its inward (left) normal.
+        let lines: [(point: SIMD2<Float>, direction: SIMD2<Float>)] = (0..<count).map { index in
+            let a = polygon[index], b = polygon[(index + 1) % count]
+            let direction = simd_normalize(b - a)
+            let inward = SIMD2(-direction.y, direction.x)
+            return (a + inward * distance, direction)
+        }
+        return (0..<count).map { index in
+            let previous = lines[(index + count - 1) % count], next = lines[index]
+            // previous.point + s * previous.direction meets next.point + t * next.direction.
+            let cross = previous.direction.x * next.direction.y - previous.direction.y * next.direction.x
+            guard abs(cross) > 1e-6 else { return next.point }
+            let delta = next.point - previous.point
+            let s = (delta.x * next.direction.y - delta.y * next.direction.x) / cross
+            return previous.point + previous.direction * s
+        }
+    }
+
+    /// The face is flat but its normals fall away toward the edges, a few degrees, as a machined
+    /// plaque's crown does. A dead flat face reflects one direction everywhere and changes all
+    /// at once; the crown spreads the reflection so a band of light can cross it.
+    static let crownSideAngle: Float = 8
+    static let crownTopAngle: Float = 3
+
+    static func crownNormal(at point: SIMD2<Float>) -> SIMD3<Float> {
+        let x = point.x / (width / 2), y = point.y / (height / 2)
+        let sx = tan(crownSideAngle * .pi / 180) * x, sy = tan(crownTopAngle * .pi / 180) * y
+        return simd_normalize(SIMD3(sx, sy, 1))
+    }
+
+    /// Vertical field of view of the camera, in degrees. Narrow, like a long lens, so the
+    /// object keeps its shape and the turn shows the edge rather than distorting the face.
+    static let fieldOfView: Float = 24
+
+    /// Camera distance that shows `viewHeight` points of view height as `viewHeight` mm at the
+    /// object's plane, so the face at rest is drawn at the SwiftUI plaque's size.
+    static func cameraDistance(viewHeight: Float, fieldOfView: Float = fieldOfView) -> Float {
+        let visible = viewHeight / 1000
+        return visible / 2 / tan(fieldOfView / 2 * .pi / 180)
     }
 }
