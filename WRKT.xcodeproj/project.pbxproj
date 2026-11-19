@@ -439,6 +439,7 @@
 		2EEEACC02EA3814D00EDD16E /* CardioDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */; };
 		2EEEACC22EA3816600EDD16E /* HealthAuthSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */; };
 		2EEEACC42EA3824A00EDD16E /* RouteModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC32EA3824A00EDD16E /* RouteModels.swift */; };
+		C17CB7000000000000000104 /* RunSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000204 /* RunSummary.swift */; };
 		2EEEACC62EA3862200EDD16E /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACC52EA3862200EDD16E /* HealthKitManager.swift */; };
 		2EEEACD62EA38B2000EDD16E /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACD22EA38ADA00EDD16E /* Models.swift */; };
 		2EEEACD72EA38B2500EDD16E /* DS.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EEEACCF2EA38AB700EDD16E /* DS.swift */; };
@@ -1094,6 +1095,7 @@
 		2EEEACBF2EA3814D00EDD16E /* CardioDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioDetailView.swift; sourceTree = "<group>"; };
 		2EEEACC12EA3816600EDD16E /* HealthAuthSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthAuthSheet.swift; sourceTree = "<group>"; };
 		2EEEACC32EA3824A00EDD16E /* RouteModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteModels.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000204 /* RunSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunSummary.swift; sourceTree = "<group>"; };
 		2EEEACC52EA3862200EDD16E /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		2EEEACCF2EA38AB700EDD16E /* DS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DS.swift; sourceTree = "<group>"; };
 		2EEEACD02EA38AC400EDD16E /* ExerciseMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseMapping.swift; sourceTree = "<group>"; };
@@ -1815,6 +1817,7 @@
 			children = (
 				2EBE3FAE2EB8B46100A26355 /* HealthKitWorkoutCategory.swift */,
 				2EEEACC32EA3824A00EDD16E /* RouteModels.swift */,
+				C17CB7000000000000000204 /* RunSummary.swift */,
 				2EEEACBB2EA37F3A00EDD16E /* HealthSyncAnchor.swift */,
 			);
 			path = Models;
@@ -3535,6 +3538,7 @@
 				2EBE3F9B2EB8955600A26355 /* ExerciseIconUtilities.swift in Sources */,
 				2E695B882F002429002EA9FC /* RecentActivityCard.swift in Sources */,
 				2EEEACC42EA3824A00EDD16E /* RouteModels.swift in Sources */,
+				C17CB7000000000000000104 /* RunSummary.swift in Sources */,
 				2E7461FC2E95891100A71C35 /* Notifications.swift in Sources */,
 				2EC202BA2EF4324A00D6BAEF /* AppSettings.swift in Sources */,
 				2E2938BE2EC8E0EC0057F60C /* RetrospectiveWorkoutBuilder.swift in Sources */,

@@ -230,11 +230,27 @@ extension Run {
     /// Convert a Run to a CompletedWorkout for sharing.
     /// Strength-type workouts (functional training, strength training, etc.) will have
     /// isCardioWorkout == false because cardioWorkoutType is set and maps to .strength.
+    /// The summary's conversion plus the heart-rate samples, so the two cannot drift.
     func toCompletedWorkout() -> CompletedWorkout {
+        var workout = summary.completedWorkoutWithoutSamples()
+
+        // HR time-series samples (used for chart in the Watch page)
+        if let samples = hrSamples, !samples.isEmpty {
+            workout.matchedHealthKitHeartRateSamples = samples
+        }
+        return workout
+    }
+}
+
+extension RunSummary {
+    /// `Run.toCompletedWorkout()` without the heart-rate samples; equal to it in every other
+    /// field, max and min from the route included. For lists and pickers: anything posted must
+    /// come from the full run.
+    func completedWorkoutWithoutSamples() -> CompletedWorkout {
         // Max/min HR: prefer explicit fields (set for strength workouts); fall back to
         // per-point route data for running/cycling which has HR embedded in the route.
-        let maxHR = maxHeartRate ?? routeWithHR?.compactMap { $0.hr }.max()
-        let minHR = minHeartRate ?? routeWithHR?.compactMap { $0.hr }.min()
+        let maxHR = effectiveMaxHeartRate
+        let minHR = effectiveMinHeartRate
 
         // Convert distance from km to meters
         let distanceMeters = distanceKm * 1000
@@ -258,11 +274,6 @@ extension Run {
 
         // Preserve workout type so isCardioWorkout can correctly classify strength types
         workout.cardioWorkoutType = workoutType
-
-        // HR time-series samples (used for chart in the Watch page)
-        if let samples = hrSamples, !samples.isEmpty {
-            workout.matchedHealthKitHeartRateSamples = samples
-        }
 
         // Map running dynamics
         workout.cardioAvgPower = avgRunningPower
