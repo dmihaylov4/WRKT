@@ -165,8 +165,10 @@ actor WorkoutStorage {
 
     private let maxBackups = 5  // Keep last 5 backups
     private let backupInterval: TimeInterval = 300  // 5 minutes between automatic backups
-    private var lastWorkoutsBackupTime: Date = .distantPast
-    private var lastRunsBackupTime: Date = .distantPast
+    /// nil until the first save of this process reads the newest backup on disk, so a relaunch
+    /// inside the interval does not copy the whole file again.
+    private var lastWorkoutsBackupTime: Date?
+    private var lastRunsBackupTime: Date?
 
     /// What startup validation decoded, consumed by the first loads so history is decoded once.
     private var validated: ValidatedHistory?
@@ -478,9 +480,10 @@ actor WorkoutStorage {
     /// Create workouts backup only if enough time has passed since the last workouts backup.
     private func createWorkoutsBackupIfNeeded() async throws {
         let now = Date()
-        let timeSinceLastBackup = now.timeIntervalSince(lastWorkoutsBackupTime)
+        let last = lastWorkoutsBackupTime ?? newestBackupDate(prefix: "workouts_backup_", before: now)
+        lastWorkoutsBackupTime = last
 
-        guard timeSinceLastBackup >= backupInterval else {
+        guard now.timeIntervalSince(last) >= backupInterval else {
             return
         }
 
@@ -491,9 +494,10 @@ actor WorkoutStorage {
     /// Create runs backup only if enough time has passed since the last runs backup.
     private func createRunsBackupIfNeeded() async throws {
         let now = Date()
-        let timeSinceLastBackup = now.timeIntervalSince(lastRunsBackupTime)
+        let last = lastRunsBackupTime ?? newestBackupDate(prefix: "runs_backup_", before: now)
+        lastRunsBackupTime = last
 
-        guard timeSinceLastBackup >= backupInterval else {
+        guard now.timeIntervalSince(last) >= backupInterval else {
             return
         }
 
@@ -541,6 +545,23 @@ actor WorkoutStorage {
         } catch {
             throw StorageError.backupFailed(error.localizedDescription)
         }
+    }
+
+    /// When the newest backup with this prefix was made, read from the timestamp in its name:
+    /// a copy keeps the source file's dates, so they tell when the backed-up file was written,
+    /// not when it was copied. A name that does not parse or a time after `now` (the clock
+    /// moved back) is ignored, so any doubt means "back up now".
+    private func newestBackupDate(prefix: String, before now: Date) -> Date {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.dateFormat = "yyyy-MM-dd'T'HH-mm-ss'Z'"
+        let names = (try? fileManager.contentsOfDirectory(atPath: backupsDirectory.path)) ?? []
+        return names
+            .filter { $0.hasPrefix(prefix) }
+            .compactMap { parser.date(from: String($0.dropFirst(prefix.count).prefix(20))) }
+            .filter { $0 <= now }
+            .max() ?? .distantPast
     }
 
     private func rotateBackups(prefix: String) async throws {
