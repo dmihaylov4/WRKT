@@ -473,9 +473,7 @@ struct CardioView: View {
                                 NavigationLink {
                                     CardioDetailView(run: r)
                                 } label: {
-                                    if let full = store.fullRun(id: r.id) {
-                                        RunRowCard(run: full, activityType: selectedType)
-                                    }
+                                    RunRowCard(run: r, activityType: selectedType)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -1326,8 +1324,10 @@ private struct StatTile: View {
 // MARK: - Recent Run Row
 
 private struct RunRowCard: View {
-    let run: Run
+    let run: RunSummary
     let activityType: CardioType
+    @EnvironmentObject private var store: WorkoutStoreV2
+    @State private var holder = RunDetailHolder()
 
     private var pace: String {
         guard run.distanceKm > 0.2 else { return "—" }
@@ -1351,7 +1351,7 @@ private struct RunRowCard: View {
         return false
     }
 
-    private var previewRoute: [Coordinate]? {
+    private func previewRoute(_ run: Run) -> [Coordinate]? {
         if let routeWithHR = run.routeWithHR, routeWithHR.count > 1 {
             return routeWithHR.map { Coordinate(lat: $0.lat, lon: $0.lon) }
         }
@@ -1453,20 +1453,33 @@ private struct RunRowCard: View {
                 Spacer()
             }
 
-            // Route map preview
-            if let routeWithHR = run.routeWithHR, routeWithHR.count > 1 {
-                InteractiveRouteMapHeat(points: routeWithHR)
-                    .frame(height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            } else if let route = previewRoute {
-                InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
-                    .frame(height: 120)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            // Route map preview: only a row whose workout has a route reads its full record.
+            if run.hasUsableRouteData {
+                routePreview(holder.detail(for: run.id, in: store))
             }
         }
         .padding(12)
         .background(Theme.surface, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
         .overlay(DS.RoleShape(.card, legacy: ChamferedRectangle(.large)).stroke(Theme.border, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func routePreview(_ detail: RunDetail) -> some View {
+        if let full = detail.run, let routeWithHR = full.routeWithHR, routeWithHR.count > 1 {
+            InteractiveRouteMapHeat(points: routeWithHR)
+                .frame(height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        } else if let full = detail.run, let route = previewRoute(full) {
+            InteractiveRouteMapHeat(coords: route, hrPerPoint: nil)
+                .frame(height: 120)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        } else if detail.isLoading {
+            // Holds the map's place while the route is read; an unreadable route leaves the
+            // row as a row without a route.
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Theme.surface2)
+                .frame(height: 120)
+        }
     }
 
     private func formatDuration(_ seconds: Int) -> String {
@@ -1485,7 +1498,6 @@ private struct RunRowCard: View {
 
 private struct AllRunsList: View {
     let runs: [RunSummary]
-    @EnvironmentObject private var store: WorkoutStoreV2
     let activityType: CardioType
 
     var body: some View {
@@ -1495,9 +1507,7 @@ private struct AllRunsList: View {
                     NavigationLink {
                         CardioDetailView(run: r)
                     } label: {
-                        if let full = store.fullRun(id: r.id) {
-                            RunRowCard(run: full, activityType: activityType)
-                        }
+                        RunRowCard(run: r, activityType: activityType)
                     }
                     .buttonStyle(.plain)
                 }

@@ -54,9 +54,8 @@ final class WorkoutStoreV2: ObservableObject {
         runSummaries.first { $0.healthKitUUID == healthKitUUID }
     }
 
-    /// The full run with this id, from memory. Screens that still take a full run use it
-    /// until they read their workout through `runDetail(id:)`.
-    func fullRun(id: UUID) -> Run? {
+    /// The full run with this id, from memory. Screens read it through `runDetail(id:)`.
+    private func fullRun(id: UUID) -> Run? {
         runs.first { $0.id == id }
     }
 

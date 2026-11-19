@@ -86,6 +86,41 @@ struct RunDetailScreenCaptureTests {
         }
     }
 
+    /// The legacy cardio tab's rows draw each workout's route. Legacy design only.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_RUN_DETAIL"] == "1"))
+    func captureCardioList() async throws {
+        guard !DS.Redesign.cutEnabled else { return }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let suite = "RunDetailScreenCaptureTests.list." + UUID().uuidString
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let prompted = UserDefaults.standard.object(forKey: "hasPromptedForHealthKitAuth")
+        UserDefaults.standard.set(true, forKey: "hasPromptedForHealthKitAuth")
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? FileManager.default.removeItem(at: directory)
+            UserDefaults.standard.set(prompted, forKey: "hasPromptedForHealthKitAuth")
+        }
+        // Today at 07:00 and 06:00: in this week whatever the day, the same text on every run.
+        let morning = Calendar.current.startOfDay(for: .now).addingTimeInterval(7 * 3600)
+        var routed = Self.routeAndHeartRate
+        routed.date = morning
+        var bare = Self.splitsOnly
+        bare.date = morning.addingTimeInterval(-3600)
+        let storage = WorkoutStorage(directory: directory)
+        try Data().write(to: directory.appendingPathComponent(".migrated"))
+        try await storage.saveWorkouts([], prIndex: [:])
+        try await storage.saveRuns([routed, bare])
+        defaults.set(true, forKey: "runs.deduplication.v1")
+        let repository = ExerciseRepository()
+        let store = WorkoutStoreV2(repo: repository, storage: WorkoutStorage(directory: directory), defaults: defaults)
+        try await store.waitForStorage()
+        let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_DIR"] ?? "/private/tmp/volia-run-detail")
+            .appendingPathComponent("legacy")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try await capture(CardioView().environmentObject(HealthKitManager()), name: "cardio-list", store: store,
+                          repository: repository, root: root)
+    }
+
     // CAPTURE-API: the only lines that differ between the two sides of the comparison.
     private func cardio(_ run: Run, store: WorkoutStoreV2) -> some View {
         CardioDetailView(run: run.summary)
