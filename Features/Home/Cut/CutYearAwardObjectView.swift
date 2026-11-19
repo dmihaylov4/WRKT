@@ -178,6 +178,8 @@ final class CutYearAwardMetalView: UIView {
     var fit: CGFloat = 1
     /// Called once the first frame is on screen.
     var onFirstFrame: (() -> Void)?
+    /// Called when the renderer refuses to draw.
+    var onRenderFailure: (() -> Void)?
     var onLayout: (() -> Void)?
 
     override init(frame: CGRect) {
@@ -211,8 +213,13 @@ final class CutYearAwardMetalView: UIView {
         eventValue += 1
         let value = eventValue
         do {
+            #if DEBUG
+            // Tests the fallback when the object builds but cannot be drawn.
+            if ProcessInfo.processInfo.arguments.contains("-CutYearAwardFailRender") { throw CancellationError() }
+            #endif
             try stage.render(to: drawable.texture, deltaTime: deltaTime, after: [.signal(event, value: value)])
         } catch {
+            onRenderFailure?()
             return
         }
         // Present once the renderer has finished drawing into the drawable.
@@ -271,12 +278,28 @@ final class CutYearAwardObjectController {
         }
         view?.stage = stage
         requestFrame()
+        // A stage that never gets a frame on screen would leave the card empty: give up on the
+        // object and let the SwiftUI plaque take over. Only counts time while the app is active.
+        var waited: Duration = .zero
+        while !isReady && !failed && waited < Self.firstFrameTimeout {
+            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            if active { waited += .milliseconds(250) }
+        }
+        if !isReady { failed = true }
     }
+
+    /// How long the first frame may take once the stage exists.
+    static let firstFrameTimeout: Duration = .seconds(3)
 
     func attach(_ view: CutYearAwardMetalView) {
         self.view = view
         view.onLayout = { [weak self] in self?.requestFrame() }
         view.onFirstFrame = { [weak self] in self?.isReady = true }
+        view.onRenderFailure = { [weak self] in
+            guard let self, !self.isReady else { return }
+            self.failed = true
+            self.stopLink()
+        }
     }
 
     func configure(reduceMotion: Bool, active: Bool, fit: CGFloat) {
