@@ -422,6 +422,17 @@ actor WorkoutStorage {
         }
     }
 
+    /// For each pair, whether the two runs encode to the same bytes with the encoder `saveRuns`
+    /// uses, so replacing one with the other cannot change the file. Values that differ only
+    /// below the file's precision (sub-second dates) match. Failing to encode counts as a change.
+    func runsEncodeIdentically(_ pairs: [(Run, Run)]) -> [Bool] {
+        pairs.map { a, b in
+            // Encoded as the file holds them: as elements of an array.
+            guard let encodedA = try? encoder.encode([a]), let encodedB = try? encoder.encode([b]) else { return false }
+            return encodedA == encodedB
+        }
+    }
+
     // MARK: - Ignored HealthKit UUIDs (for discarded workouts)
 
     func loadIgnoredHealthKitUUIDs() async throws -> Set<UUID> {

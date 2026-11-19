@@ -129,6 +129,62 @@ final class UnchangedHealthSaveTests: XCTestCase {
         XCTAssertEqual(durable.first?.calories, 420)
     }
 
+    // MARK: - Mutations that change nothing
+
+    func testUpdatingARunToItselfWritesNothing() async throws {
+        let run = makeRun()
+        let (store, _) = try await relaunch(runs: [run, makeRun(8)])
+        let stamp = FileStamp(runsFile)
+
+        store.updateRun(try XCTUnwrap(store.runs.first { $0.id == run.id }))
+        store.updateRun(makeRun(3))  // not in the store
+        try await store.flushHealthKitChanges()
+
+        XCTAssertEqual(FileStamp(runsFile), stamp)
+    }
+
+    func testBatchUpdateWithUnchangedRunsWritesNothing() async throws {
+        let (store, _) = try await relaunch(runs: [makeRun(), makeRun(8)])
+        let stamp = FileStamp(runsFile)
+
+        store.batchUpdateRuns(store.runs + [makeRun(3)])
+        try await store.flushHealthKitChanges()
+
+        XCTAssertEqual(FileStamp(runsFile), stamp)
+    }
+
+    func testBatchUpdateWritesOnlyWhenOneRunChanged() async throws {
+        let (store, storage) = try await relaunch(runs: [makeRun(), makeRun(8)])
+        var changed = store.runs
+        changed[1].notes = "Hills"
+
+        store.batchUpdateRuns(changed)
+        try await store.flushHealthKitChanges()
+
+        let durable = try await storage.loadRuns()
+        XCTAssertEqual(durable.map(\.notes), [nil, "Hills"])
+    }
+
+    func testRemovingAnUnknownRunWritesNothing() async throws {
+        let (store, _) = try await relaunch(runs: [makeRun()])
+        let stamp = FileStamp(runsFile)
+
+        store.removeRun(withId: UUID())
+        try await store.flushHealthKitChanges()
+
+        XCTAssertEqual(FileStamp(runsFile), stamp)
+    }
+
+    func testClearingNoRunsWritesNothing() async throws {
+        let (store, _) = try await relaunch(runs: [])
+        let stamp = try XCTUnwrap(FileStamp(runsFile))
+
+        store.clearAllRuns()
+        try await store.flushHealthKitChanges()
+
+        XCTAssertEqual(FileStamp(runsFile), stamp)
+    }
+
     func testFailedWriteIsReportedAndTheNextFlushWritesAgain() async throws {
         let (store, storage) = try await relaunch(runs: [makeRun()])
         let run = makeRun(12)

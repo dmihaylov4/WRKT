@@ -1406,12 +1406,24 @@ final class HealthKitManager: ObservableObject {
             }
 
             // Re-read runs after the queries so an intervening deletion is never resurrected.
-            let updates = results.compactMap { result -> Run? in
+            let enriched = results.compactMap { result -> (stored: Run, updated: Run, enrichment: DetailedRunEnrichment)? in
                 guard let run = workoutStore.runs.first(where: { $0.healthKitUUID == result.uuid }) else { return nil }
-                return applyDetailedRunEnrichment(result.enrichment, to: run)
+                return (run, applyDetailedRunEnrichment(result.enrichment, to: run), result.enrichment)
             }
-            if !updates.isEmpty {
-                workoutStore.batchUpdateRuns(updates)
+            if !enriched.isEmpty {
+                // A re-read of unchanged HealthKit data still differs in memory, since its dates
+                // carry sub-second precision the file does not keep. Only runs whose stored form
+                // changes are replaced, so a pass that learned nothing writes nothing.
+                let identical = await workoutStore.runsEncodeIdentically(enriched.map { ($0.stored, $0.updated) })
+                let updates = zip(enriched, identical).compactMap { candidate, identical -> Run? in
+                    guard let current = workoutStore.runs.first(where: { $0.id == candidate.stored.id }) else { return nil }
+                    // Changed during the comparison: enrich the current run and write it.
+                    guard current == candidate.stored else { return applyDetailedRunEnrichment(candidate.enrichment, to: current) }
+                    return identical ? nil : candidate.updated
+                }
+                if !updates.isEmpty { workoutStore.batchUpdateRuns(updates) }
+                // Even with no updates: an earlier failed write of these runs must reach disk
+                // before their tasks complete. A clean store skips the write.
                 try await workoutStore.flushHealthKitChanges()
             }
             try Task.checkCancellation()
