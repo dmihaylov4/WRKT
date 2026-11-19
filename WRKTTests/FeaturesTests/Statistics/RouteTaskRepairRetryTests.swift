@@ -36,7 +36,7 @@ final class RouteTaskRepairRetryTests: XCTestCase {
     private func repair(_ runs: [Run]) async -> HealthKitManager {
         let manager = HealthKitManager()
         manager.modelContext = context
-        await manager.repairOperationalStateIfNeeded(runs: runs)
+        await manager.repairOperationalStateIfNeeded(runs: runs.map(\.summary))
         return manager
     }
 

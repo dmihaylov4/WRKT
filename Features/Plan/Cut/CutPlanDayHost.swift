@@ -155,11 +155,11 @@ struct CutPlanDayHost: View {
                 WorkoutDetailView(workout: workout)
             }
         case .healthKitStrength(let id):
-            if let run = store.runs.first(where: { $0.id == id }) {
+            if let run = store.fullRun(id: id) {
                 HealthKitStrengthDetailView(run: run)
             }
         case .cardio(let id):
-            if let run = store.runs.first(where: { $0.id == id }) {
+            if let run = store.fullRun(id: id) {
                 CardioDetailView(run: run)
             }
         }

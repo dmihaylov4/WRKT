@@ -186,7 +186,7 @@ final class WorkoutStoreV2: ObservableObject {
                 }
 
                 // Repair low-value HealthKit operational SwiftData state from durable runs.
-                await HealthKitManager.shared.repairOperationalStateIfNeeded(runs: self.runs)
+                await HealthKitManager.shared.repairOperationalStateIfNeeded(runs: self.runSummaries)
 
                 AppLogger.success("Loaded from unified storage - Workouts: \(self.completedWorkouts.count), Runs: \(runs.count), PR entries: \(self.prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
 
@@ -1122,7 +1122,7 @@ final class WorkoutStoreV2: ObservableObject {
 
             await HealthKitManager.shared.syncWorkoutsIncremental()
 
-            if let latest = runs.map({ $0.date }).max() {
+            if let latest = runSummaries.map({ $0.date }).max() {
                 lastHealthImportEndDate = latest
                 defaults.set(latest, forKey: lastImportKey)
             }
@@ -1148,7 +1148,7 @@ final class WorkoutStoreV2: ObservableObject {
         let endWindow = workoutEndTime.addingTimeInterval(matchWindow)
 
         let strengthTypes = ["Strength Training", "Functional Training", "Core Training", "Traditional Strength Training", "High Intensity Interval Training"]
-        let strengthRuns = runs.filter { run in
+        let strengthRuns = runSummaries.filter { run in
             guard let type = run.workoutType else { return false }
             return strengthTypes.contains(type)
         }

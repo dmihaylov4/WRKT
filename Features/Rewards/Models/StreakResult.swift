@@ -916,7 +916,7 @@ extension RewardsEngine {
 
         AppLogger.info("🔍 Current week start: \(currentWeekStart.formatted(date: .abbreviated, time: .omitted))", category: AppLogger.rewards)
         AppLogger.info("🔍 Weekly goal: \(weeklyGoal.targetStrengthDays) days, \(weeklyGoal.targetActiveMinutes) mins", category: AppLogger.rewards)
-        AppLogger.info("🔍 Total workouts in store: \(store.completedWorkouts.count), Total runs: \(store.runs.count)", category: AppLogger.rewards)
+        AppLogger.info("🔍 Total workouts in store: \(store.completedWorkouts.count), Total runs: \(store.runSummaries.count)", category: AppLogger.rewards)
 
         // ALWAYS rebuild streak from ALL weeks since goal creation
         let goalCreationWeek = calendar.startOfWeek(for: weeklyGoal.createdAt, anchorWeekday: anchorWeekday)

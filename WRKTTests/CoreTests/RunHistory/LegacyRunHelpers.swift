@@ -5,6 +5,7 @@ import Foundation
 /// summaries existed: `RouteModels.swift:181-276`, `HealthKitWorkoutCategory.swift:76-87` and
 /// `WorkoutStoreV2.validRuns`. The summary facts are proven equal to these. Do not edit them to
 /// make a test pass: they are the definition of today's behaviour.
+@MainActor
 enum LegacyRunHelpers {
     private static func normalizedWorkoutType(_ run: Run) -> String {
         (run.workoutType ?? "").lowercased()
