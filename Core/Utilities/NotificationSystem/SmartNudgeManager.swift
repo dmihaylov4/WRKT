@@ -485,7 +485,7 @@ final class SmartNudgeManager {
     func performStreakCheck(
         weeklyGoal: WeeklyGoal,
         completedWorkouts: [CompletedWorkout],
-        runs: [Run]
+        runs: [RunSummary]
     ) async {
         guard isEnabled else { return }
 

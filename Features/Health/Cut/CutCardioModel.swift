@@ -152,7 +152,7 @@ enum CutCardioLogic {
         "Snow Sports"
     ]
 
-    static func matches(_ run: Run, type: CardioType) -> Bool {
+    static func matches(_ run: RunSummary, type: CardioType) -> Bool {
         guard let workoutType = run.workoutType else {
             return type == .running && run.distanceKm > 0.1
         }
@@ -162,7 +162,7 @@ enum CutCardioLogic {
         }
     }
 
-    static func runs(_ all: [Run], type: CardioType) -> [Run] {
+    static func runs(_ all: [RunSummary], type: CardioType) -> [RunSummary] {
         all.filter { matches($0, type: type) }
     }
 
@@ -184,14 +184,14 @@ enum CutCardioLogic {
         return calendar.date(byAdding: .day, value: -7 * offset, to: current) ?? current
     }
 
-    static func runs(_ runs: [Run], inWeek offset: Int, now: Date, calendar: Calendar) -> [Run] {
+    static func runs(_ runs: [RunSummary], inWeek offset: Int, now: Date, calendar: Calendar) -> [RunSummary] {
         let start = weekStart(offset: offset, now: now, calendar: calendar)
         guard let end = calendar.date(byAdding: .day, value: 7, to: start) else { return [] }
         return runs.filter { $0.date >= start && $0.date < end }
     }
 
     /// How many weeks back the oldest run is; 0 when there are none.
-    static func maxWeekOffset(_ runs: [Run], now: Date, calendar: Calendar) -> Int {
+    static func maxWeekOffset(_ runs: [RunSummary], now: Date, calendar: Calendar) -> Int {
         guard let oldest = runs.map(\.date).min() else { return 0 }
         let current = weekStart(of: now, calendar: calendar)
         let first = weekStart(of: oldest, calendar: calendar)
@@ -199,7 +199,7 @@ enum CutCardioLogic {
         return max(0, Int((Double(days) / 7).rounded()))
     }
 
-    static func clampedOffset(_ offset: Int, runs: [Run], now: Date, calendar: Calendar) -> Int {
+    static func clampedOffset(_ offset: Int, runs: [RunSummary], now: Date, calendar: Calendar) -> Int {
         min(max(0, offset), maxWeekOffset(runs, now: now, calendar: calendar))
     }
 
@@ -221,7 +221,7 @@ enum CutCardioLogic {
     // MARK: Tab
 
     static func tab(
-        allRuns: [Run]?,
+        allRuns: [RunSummary]?,
         type: CardioType,
         weekOffset: Int,
         connection: HealthConnectionState,
@@ -265,7 +265,7 @@ enum CutCardioLogic {
                                 showsConnect: false)
     }
 
-    static func week(_ typed: [Run], type: CardioType, offset: Int, now: Date, calendar: Calendar, locale: Locale) -> CutCardioWeek {
+    static func week(_ typed: [RunSummary], type: CardioType, offset: Int, now: Date, calendar: Calendar, locale: Locale) -> CutCardioWeek {
         let inWeek = runs(typed, inWeek: offset, now: now, calendar: calendar).sorted { $0.date > $1.date }
         return CutCardioWeek(
             label: weekLabel(offset: offset, now: now, calendar: calendar, locale: locale),
@@ -283,7 +283,7 @@ enum CutCardioLogic {
     }
 
     /// Distance for the distance types; total time for Other.
-    static func weekHero(_ runs: [Run], type: CardioType) -> CutCardioHero {
+    static func weekHero(_ runs: [RunSummary], type: CardioType) -> CutCardioHero {
         if type.showsPace {
             return CutCardioHero(value: String(format: "%.1f", runs.reduce(0) { $0 + $1.distanceKm }), unit: "km")
         }
@@ -294,7 +294,7 @@ enum CutCardioLogic {
         return CutCardioHero(value: "\(seconds / 60)", unit: "min")
     }
 
-    static func weekStats(_ runs: [Run], type: CardioType) -> [CutStatColumn] {
+    static func weekStats(_ runs: [RunSummary], type: CardioType) -> [CutStatColumn] {
         let total = runs.reduce(0) { $0 + $1.durationSec }
         let count = CutStatColumn(value: "\(runs.count)", label: type.activityName)
         switch type {
@@ -315,7 +315,7 @@ enum CutCardioLogic {
     }
 
     /// Seven bars, Monday first: distance per day, or time for Other.
-    static func dayBars(_ runs: [Run], type: CardioType, weekStart: Date, today: Date?, calendar: Calendar) -> [CutCardioDayBar] {
+    static func dayBars(_ runs: [RunSummary], type: CardioType, weekStart: Date, today: Date?, calendar: Calendar) -> [CutCardioDayBar] {
         let letters = ["M", "T", "W", "T", "F", "S", "S"]
         let values: [Double] = (0..<7).map { index in
             guard let day = calendar.date(byAdding: .day, value: index, to: weekStart) else { return 0 }
@@ -332,7 +332,7 @@ enum CutCardioLogic {
     }
 
     /// The week streak, then the week's best pace (or speed), or for Other the all-time count.
-    static func summary(_ typed: [Run], week: [Run], type: CardioType, now: Date, calendar: Calendar) -> [CutStatColumn] {
+    static func summary(_ typed: [RunSummary], week: [RunSummary], type: CardioType, now: Date, calendar: Calendar) -> [CutStatColumn] {
         let streak = CutStatColumn(value: "\(streakWeeks(typed, type: type, now: now, calendar: calendar))", label: "Week streak")
         switch type {
         case .running, .walking:
@@ -346,7 +346,7 @@ enum CutCardioLogic {
 
     /// Consecutive weeks up to this one with at least one qualifying session: 1 km or more for
     /// the distance types, any time for Other. Zero when this week has none yet.
-    static func streakWeeks(_ runs: [Run], type: CardioType, now: Date, calendar: Calendar) -> Int {
+    static func streakWeeks(_ runs: [RunSummary], type: CardioType, now: Date, calendar: Calendar) -> Int {
         let qualifying = runs.filter { type.showsPace ? $0.distanceKm >= 1.0 : $0.durationSec > 0 }
         let weeks = Set(qualifying.map { weekStart(of: $0.date, calendar: calendar) })
         var week = weekStart(of: now, calendar: calendar)
@@ -360,17 +360,17 @@ enum CutCardioLogic {
     }
 
     /// Mean of per-session paces in seconds per km, sessions over 200 m only.
-    static func averagePace(_ runs: [Run]) -> Double? {
+    static func averagePace(_ runs: [RunSummary]) -> Double? {
         let paces = runs.filter { $0.distanceKm > 0.2 }.map { Double($0.durationSec) / $0.distanceKm }
         guard !paces.isEmpty else { return nil }
         return paces.reduce(0, +) / Double(paces.count)
     }
 
-    static func bestPace(_ runs: [Run]) -> Double? {
+    static func bestPace(_ runs: [RunSummary]) -> Double? {
         runs.filter { $0.distanceKm > 0.2 }.map { Double($0.durationSec) / $0.distanceKm }.min()
     }
 
-    static func row(_ run: Run, type: CardioType, now: Date, calendar: Calendar, locale: Locale) -> CutCardioRunRow {
+    static func row(_ run: RunSummary, type: CardioType, now: Date, calendar: Calendar, locale: Locale) -> CutCardioRunRow {
         let day = dayLabel(run.date, now: now, calendar: calendar, locale: locale)
         if type.showsPace {
             return CutCardioRunRow(id: run.id, title: title(run), line: "\(day), \(duration(run.durationSec))",
@@ -379,9 +379,17 @@ enum CutCardioLogic {
         return CutCardioRunRow(id: run.id, title: title(run), line: day, value: duration(run.durationSec))
     }
 
+    static func title(_ run: RunSummary) -> String {
+        title(name: run.workoutName, type: run.workoutType)
+    }
+
     static func title(_ run: Run) -> String {
-        if let name = run.workoutName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { return name }
-        if let type = run.workoutType, !type.isEmpty { return type }
+        title(name: run.workoutName, type: run.workoutType)
+    }
+
+    private static func title(name: String?, type: String?) -> String {
+        if let name = name?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { return name }
+        if let type, !type.isEmpty { return type }
         return "Run"
     }
 

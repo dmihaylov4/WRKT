@@ -457,12 +457,12 @@ enum CutPlanLogic {
     static func facts(
         days: [Date],
         workouts: [CompletedWorkout],
-        runs: [Run],
+        runs: [RunSummary],
         planned: [(date: Date, planned: CutPlanDayFacts.Planned)],
         ignoredHealthKitUUIDs: Set<UUID>,
         calendar: Calendar,
         workoutName: (CompletedWorkout) -> String,
-        healthKitStrengthName: (Run) -> String
+        healthKitStrengthName: (RunSummary) -> String
     ) -> [Date: CutPlanDayFacts] {
         guard let first = days.first.map({ calendar.startOfDay(for: $0) }),
               let lastDay = days.last.map({ calendar.startOfDay(for: $0) }),
@@ -510,7 +510,7 @@ enum CutPlanLogic {
     }
 
     /// A Health activity's own name, else its type ("Running").
-    static func cardioName(_ run: Run) -> String {
+    static func cardioName(_ run: RunSummary) -> String {
         if let name = run.workoutName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty { return name }
         return CardioActivityType(from: run.workoutType).rawValue
     }

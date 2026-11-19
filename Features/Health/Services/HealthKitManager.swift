@@ -597,7 +597,7 @@ final class HealthKitManager: ObservableObject {
         do {
             try await store.waitForStorage()
             AppLogger.info("Starting batched full re-sync of all HealthKit workouts...", category: AppLogger.health)
-            AppLogger.debug("Current runs count: \(await MainActor.run { store.runs.count })", category: AppLogger.health)
+            AppLogger.debug("Current runs count: \(await MainActor.run { store.runSummaries.count })", category: AppLogger.health)
 
             // Perform full sync (with nil anchor, it fetches everything)
             let (added, deleted, newAnchor) = try await fetchWorkoutsAnchored(anchor: nil)
@@ -637,7 +637,7 @@ final class HealthKitManager: ObservableObject {
                     for newRun in batchResults.newRuns {
                         store.addRun(newRun)
                         Task { @MainActor in
-                            await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: newRun)
+                            await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: newRun.summary)
                         }
                     }
 
@@ -659,7 +659,7 @@ final class HealthKitManager: ObservableObject {
             }
 
             try Task.checkCancellation()
-            try queueHistoricalEnrichment(for: store.runs.filter(\.needsHistoricalEnrichment), context: context)
+            try queueHistoricalEnrichment(for: store.runSummaries.filter(\.needsHistoricalEnrichment), context: context)
 
             // Save new anchor
             let anchorRecord = try fetchOrCreateAnchor(dataType: "all_workouts", context: context)
@@ -929,7 +929,7 @@ final class HealthKitManager: ObservableObject {
 
     /// Rebuilds low-value HealthKit operational SwiftData state from durable `Run` data.
     /// Safe to run on startup. Does not modify durable workout/run history.
-    func repairOperationalStateIfNeeded(runs: [Run]) async {
+    func repairOperationalStateIfNeeded(runs: [RunSummary]) async {
         guard let context = modelContext else { return }
 
         let validWorkoutUUIDs = Set(runs.compactMap { $0.healthKitUUID?.uuidString })
@@ -1171,7 +1171,7 @@ final class HealthKitManager: ObservableObject {
         await MainActor.run {
             store.addRun(run)
             Task { @MainActor in
-                await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: run)
+                await BarbellProgressService.shared.evaluateAndAwardFunctionalHK(run: run.summary)
             }
         }
 
@@ -1212,7 +1212,7 @@ final class HealthKitManager: ObservableObject {
         // HealthKitManager is @MainActor, so this method is already on the main actor.
         // Call store directly — no Task wrapper needed (and a Task would defer the
         // deletion past context.save(), causing the save to miss it).
-        if let existing = store.runs.first(where: { $0.healthKitUUID == uuid }) {
+        if let existing = store.runSummary(healthKitUUID: uuid) {
             store.removeRun(withId: existing.id)
             AppLogger.info("Deleted workout: \(uuid)", category: AppLogger.health)
         }
@@ -1299,7 +1299,7 @@ final class HealthKitManager: ObservableObject {
 
     }
 
-    private func queueHistoricalEnrichment(for runs: [Run], context: ModelContext) throws {
+    private func queueHistoricalEnrichment(for runs: [RunSummary], context: ModelContext) throws {
         let sortedRuns = runs.sorted { $0.date > $1.date }
 
         for (index, run) in sortedRuns.enumerated() {
@@ -1439,7 +1439,7 @@ final class HealthKitManager: ObservableObject {
             try Task.checkCancellation()
 
             for result in results {
-                guard workoutStore.runs.contains(where: { $0.healthKitUUID == result.uuid }) else {
+                guard workoutStore.runSummaries.contains(where: { $0.healthKitUUID == result.uuid }) else {
                     result.task.status = "failed"
                     continue
                 }

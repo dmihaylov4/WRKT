@@ -115,7 +115,7 @@ struct CutPlanHost: View {
         }
         .onChange(of: monthAnchor) { _, _ in handleDataChange() }
         .onChange(of: store.completedWorkouts.count) { _, _ in scheduleDataUpdate() }
-        .onChange(of: store.runs.count) { _, _ in scheduleDataUpdate() }
+        .onChange(of: store.runSummaries.count) { _, _ in scheduleDataUpdate() }
         .onChange(of: tutorialState.framesReady) { _, ready in
             if ready && !onboardingManager.hasSeenCalendar && !tutorialState.isActive {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -270,11 +270,11 @@ struct CutPlanHost: View {
                 WorkoutDetailView(workout: workout)
             }
         case .healthKitStrength(let id):
-            if let run = store.runs.first(where: { $0.id == id }) {
+            if let run = store.fullRun(id: id) {
                 HealthKitStrengthDetailView(run: run)
             }
         case .cardio(let id):
-            if let run = store.runs.first(where: { $0.id == id }) {
+            if let run = store.fullRun(id: id) {
                 CardioDetailView(run: run)
             }
         }
@@ -359,7 +359,7 @@ struct CutPlanHost: View {
         facts = CutPlanLogic.facts(
             days: days,
             workouts: store.completedWorkouts,
-            runs: store.runs,
+            runs: store.runSummaries,
             planned: planned.map {
                 ($0.scheduledDate, CutPlanDayFacts.Planned(id: $0.id, name: $0.splitDayName,
                                                            exerciseCount: $0.exercises.count, status: $0.workoutStatus))

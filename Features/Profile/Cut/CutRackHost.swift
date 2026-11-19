@@ -322,7 +322,7 @@ struct CutRackPlateDetailHost: View {
             if let workout = store.completedWorkouts.first(where: { $0.id == id }) {
                 return PlateWorkoutSummary(plate: plate, workout: workout).title
             }
-            if let run = store.runs.first(where: { $0.healthKitUUID == id || $0.id == id }),
+            if let run = store.runSummaries.first(where: { $0.healthKitUUID == id || $0.id == id }),
                let summary = plateCollectionHealthKitSummary(for: plate, run: run) {
                 return summary.title
             }

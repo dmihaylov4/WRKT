@@ -92,7 +92,7 @@ enum CutWorkoutDetailFixtures {
     }
 
     static func strength(_ run: Run = strengthRun(), existing: CompletedWorkout? = nil) -> CutHealthStrengthModel {
-        CutWorkoutDetailLogic.healthStrength(run, existing: existing, now: now, calendar: calendar, locale: locale)
+        CutWorkoutDetailLogic.healthStrength(run.summary, existing: existing, now: now, calendar: calendar, locale: locale)
     }
 }
 
@@ -416,7 +416,7 @@ enum CutWorkoutDetailFixtures {
 
     @Test func newWorkoutCarriesHealthData() {
         let run = F.strengthRun()
-        let workout = CutWorkoutDetailLogic.workout(from: run)
+        let workout = CutWorkoutDetailLogic.workout(from: run.summary)
         #expect(workout.date == run.date)
         #expect(workout.startedAt == run.date.addingTimeInterval(-2_466))
         #expect(workout.entries.isEmpty)

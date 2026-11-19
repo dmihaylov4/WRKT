@@ -100,7 +100,7 @@ enum MuscleGroupClassifier {
 
     /// Generate workout title for HealthKit strength workouts (Apple Watch)
     /// Uses custom workout name if available, otherwise returns "Strength Workout"
-    static func classifyHealthKitStrength(_ run: Run) -> String {
+    static func classifyHealthKitStrength(_ run: RunSummary) -> String {
         if let customName = run.workoutName, !customName.isEmpty {
             return customName
         }

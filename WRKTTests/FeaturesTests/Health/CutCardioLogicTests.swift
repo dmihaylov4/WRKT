@@ -55,7 +55,7 @@ enum CutCardioFixtures {
         connection: HealthConnectionState = .connected,
         syncing: Bool = false
     ) -> CutCardioTabModel {
-        CutCardioLogic.tab(allRuns: runs, type: type, weekOffset: week, connection: connection, isSyncing: syncing,
+        CutCardioLogic.tab(allRuns: runs?.map(\.summary), type: type, weekOffset: week, connection: connection, isSyncing: syncing,
                            syncProcessed: 12, syncTotal: 46, now: now, calendar: calendar, locale: locale)
     }
 
@@ -108,13 +108,13 @@ struct CutCardioLogicTests {
     @Test func filtersByTypeAsTheLegacyTab() {
         let untyped = Run(distanceKm: 3, durationSec: 900)
         let tiny = Run(distanceKm: 0.05, durationSec: 60)
-        #expect(CutCardioLogic.matches(untyped, type: .running))
-        #expect(!CutCardioLogic.matches(tiny, type: .running))
-        #expect(CutCardioLogic.runs(F.runs, type: .running).count == 6)
-        #expect(CutCardioLogic.runs(F.runs, type: .walking).count == 1)
-        #expect(CutCardioLogic.runs(F.runs, type: .cycling).count == 1)
+        #expect(CutCardioLogic.matches(untyped.summary, type: .running))
+        #expect(!CutCardioLogic.matches(tiny.summary, type: .running))
+        #expect(CutCardioLogic.runs(F.runs.map(\.summary), type: .running).count == 6)
+        #expect(CutCardioLogic.runs(F.runs.map(\.summary), type: .walking).count == 1)
+        #expect(CutCardioLogic.runs(F.runs.map(\.summary), type: .cycling).count == 1)
         // Rowing and HIIT count as Other; strength training does not.
-        #expect(CutCardioLogic.runs(F.runs, type: .other).count == 2)
+        #expect(CutCardioLogic.runs(F.runs.map(\.summary), type: .other).count == 2)
     }
 
     @Test func weeksStartOnMondayWhateverTheLocaleCalendar() {
@@ -134,7 +134,7 @@ struct CutCardioLogicTests {
     }
 
     @Test func weekOffsetIsClampedToHistory() {
-        let running = CutCardioLogic.runs(F.runs, type: .running)
+        let running = CutCardioLogic.runs(F.runs.map(\.summary), type: .running)
         #expect(CutCardioLogic.maxWeekOffset(running, now: F.now, calendar: F.calendar) == 3)
         #expect(CutCardioLogic.clampedOffset(9, runs: running, now: F.now, calendar: F.calendar) == 3)
         #expect(CutCardioLogic.clampedOffset(-1, runs: running, now: F.now, calendar: F.calendar) == 0)
@@ -207,7 +207,7 @@ struct CutCardioLogicTests {
         #expect(week.rows.first?.title == "Rowing")
         #expect(week.rows.first?.value == "1:05")
         #expect(week.summary.map(\.label) == ["Week streak", "All time"])
-        #expect(CutCardioLogic.weekHero([F.run(seconds: 2_520)], type: .other) == CutCardioHero(value: "42", unit: "min"))
+        #expect(CutCardioLogic.weekHero([F.run(seconds: 2_520).summary], type: .other) == CutCardioHero(value: "42", unit: "min"))
     }
 
     @Test func cyclingShowsSpeed() {
@@ -218,9 +218,9 @@ struct CutCardioLogicTests {
     }
 
     @Test func streakNeedsThisWeekAndOneKilometre() {
-        let running = CutCardioLogic.runs(F.runs, type: .running)
+        let running = CutCardioLogic.runs(F.runs.map(\.summary), type: .running)
         #expect(CutCardioLogic.streakWeeks(running, type: .running, now: F.now, calendar: F.calendar) == 2)
-        let short = [F.run(day: 0, km: 0.8), F.run(day: -7, km: 5)]
+        let short = [F.run(day: 0, km: 0.8), F.run(day: -7, km: 5)].map(\.summary)
         #expect(CutCardioLogic.streakWeeks(short, type: .running, now: F.now, calendar: F.calendar) == 0)
     }
 

@@ -165,7 +165,7 @@ struct SettingsView: View {
                             let store = dependencies.workoutStore
                             let year = Calendar.current.component(.year, from: .now)
                             CutYearReviewCenter.shared.present(
-                                CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runs))
+                                CutYearReviewLogic.stats(year: year, workouts: store.completedWorkouts, runs: store.runSummaries))
                         } label: {
                             Label("Year in review: my data", systemImage: "sparkles.rectangle.stack")
                         }

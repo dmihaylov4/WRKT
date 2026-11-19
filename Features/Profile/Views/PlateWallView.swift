@@ -841,10 +841,10 @@ struct PlateCollectionView: View {
         return plateCollectionFallbackSummary(for: plate).map(PlateWorkoutSummary.init(fallback:))
     }
 
-    private func sourceRun(for plate: EarnedPlate) -> Run? {
+    private func sourceRun(for plate: EarnedPlate) -> RunSummary? {
         guard let sourceWorkoutID = plate.sourceWorkoutID,
               let uuid = UUID(uuidString: sourceWorkoutID) else { return nil }
-        return store.runs.first { run in
+        return store.runSummaries.first { run in
             run.healthKitUUID == uuid || run.id == uuid
         }
     }

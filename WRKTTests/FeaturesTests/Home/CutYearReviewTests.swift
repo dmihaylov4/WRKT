@@ -77,7 +77,7 @@ struct CutYearReviewLogicTests {
         ]
         let runs = [Run(date: date(2026, 3, 17), distanceKm: 10, durationSec: 3000),
                     Run(date: date(2026, 6, 1), distanceKm: 21.1, durationSec: 7200)]
-        let stats = CutYearReviewLogic.stats(year: 2026, workouts: workouts, runs: runs,
+        let stats = CutYearReviewLogic.stats(year: 2026, workouts: workouts, runs: runs.map(\.summary),
                                              now: date(2026, 11, 14), calendar: calendar)
         #expect(stats.liftedKg == 1_800)
         #expect(stats.records == 2)

@@ -73,7 +73,7 @@ import Testing
     }
 
     @Test func newHealthWorkoutNeedsAChangeToSave() {
-        let fresh = CutWorkoutDetailLogic.workout(from: F.strengthRun())
+        let fresh = CutWorkoutDetailLogic.workout(from: F.strengthRun().summary)
         #expect(!editor(fresh).canSave)
         #expect(editor(fresh, entries: [F.squat]).canSave)
     }

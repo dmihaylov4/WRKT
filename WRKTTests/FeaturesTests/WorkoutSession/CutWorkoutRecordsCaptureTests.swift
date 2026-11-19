@@ -82,7 +82,7 @@ struct CutWorkoutRecordsCaptureTests {
         let edits: [(String, CutWorkoutEditorModel, String)] = [
             ("edit", editor(full, name: "Lower Body", entries: full.entries), "Lower Body"),
             ("edit-changed-many", editor(many, name: "", entries: many.entries.dropLast()), ""),
-            ("edit-empty", editor(CutWorkoutDetailLogic.workout(from: F.strengthRun()), name: "", entries: []), "")
+            ("edit-empty", editor(CutWorkoutDetailLogic.workout(from: F.strengthRun().summary), name: "", entries: []), "")
         ]
         for (name, model, text) in edits {
             try await capture(SheetHost { NavigationStack { CutWorkoutEditorView(model: model, name: .constant(text)) } },

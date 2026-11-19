@@ -116,8 +116,8 @@ struct CardioView: View {
     ]
 
     // Filter to cardio workouts by selected type
-    private var cardioRuns: [Run] {
-        store.validRuns.filter { run in
+    private var cardioRuns: [RunSummary] {
+        store.validRunSummaries.filter { run in
             guard let type = run.workoutType else {
                 return selectedType == .running && run.distanceKm > 0.1
             }
@@ -131,12 +131,12 @@ struct CardioView: View {
         }
     }
 
-    private var runsSorted: [Run] {
+    private var runsSorted: [RunSummary] {
         cardioRuns.sorted(by: { $0.date > $1.date })
     }
 
     // Get runs for a specific week offset (0 = current week, 1 = last week, etc.)
-    private func runsForWeek(offset: Int) -> [Run] {
+    private func runsForWeek(offset: Int) -> [RunSummary] {
         let cal = Calendar.current
         let now = Date()
         // Get start of current week (Monday)
@@ -149,17 +149,17 @@ struct CardioView: View {
     }
 
     // This week's runs (using selected offset)
-    private var thisWeekRuns: [Run] {
+    private var thisWeekRuns: [RunSummary] {
         runsForWeek(offset: selectedWeekOffset)
     }
 
     // Previous week's runs for comparison (relative to selected week)
-    private var lastWeekRuns: [Run] {
+    private var lastWeekRuns: [RunSummary] {
         runsForWeek(offset: selectedWeekOffset + 1)
     }
 
     // Runs for the selected week only (for Pace Insights)
-    private var selectedWeekRuns: [Run] {
+    private var selectedWeekRuns: [RunSummary] {
         runsForWeek(offset: selectedWeekOffset)
     }
 
@@ -249,7 +249,7 @@ struct CardioView: View {
     }
 
     // Last 30 days for pace trend
-    private var last30DaysRuns: [Run] {
+    private var last30DaysRuns: [RunSummary] {
         guard let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: Date()) else { return [] }
         return cardioRuns.filter { $0.date >= cutoff }
     }
@@ -445,7 +445,7 @@ struct CardioView: View {
                             .foregroundStyle(Theme.text)
                         Spacer()
                         if selectedWeekRuns.count > 10 {
-                            NavigationLink("See all", destination: AllRunsList(runs: selectedWeekRuns.sorted(by: { $0.date > $1.date }), activityType: selectedType))
+                            NavigationLink("See all", destination: AllRunsList(runs: selectedWeekRuns.sorted(by: { $0.date > $1.date }).compactMap { store.fullRun(id: $0.id) }, activityType: selectedType))
                                 .dsFont(.subheadline, weight: .semibold)
                                 .foregroundStyle(Theme.accent)
                         }
@@ -469,7 +469,7 @@ struct CardioView: View {
                         .padding(.horizontal, 16)
                     } else {
                         VStack(spacing: 10) {
-                            ForEach(Array(selectedWeekRuns.sorted(by: { $0.date > $1.date }).prefix(10))) { r in
+                            ForEach(selectedWeekRuns.sorted(by: { $0.date > $1.date }).prefix(10).compactMap { store.fullRun(id: $0.id) }) { r in
                                 NavigationLink {
                                     CardioDetailView(run: r)
                                 } label: {
@@ -640,8 +640,8 @@ private struct CustomPageIndicator: View {
 // MARK: - Weekly Summary Card
 
 private struct WeeklySummaryCard: View {
-    let thisWeek: [Run]
-    let lastWeek: [Run]
+    let thisWeek: [RunSummary]
+    let lastWeek: [RunSummary]
     let activityType: CardioType
     let weekLabel: String
 
@@ -775,7 +775,7 @@ private struct WeeklySummaryCard: View {
 // MARK: - Pace Insights Card
 
 private struct PaceInsightsCard: View {
-    let runs: [Run]
+    let runs: [RunSummary]
     let activityType: CardioType
     let weekLabel: String
 
@@ -993,10 +993,10 @@ private struct PaceInsightsCard: View {
 // MARK: - Consistency Card
 
 private struct ConsistencyCard: View {
-    let allRuns: [Run]
+    let allRuns: [RunSummary]
     let activityType: CardioType
 
-    private var qualifyingRuns: [Run] {
+    private var qualifyingRuns: [RunSummary] {
         if activityType.showsPace {
             return allRuns.filter { $0.distanceKm >= 1.0 }
         }

@@ -66,7 +66,7 @@ struct CutPlanDayHost: View {
     /// The legacy DayDetail's reads, as plain values.
     private var input: CutPlanDayInput {
         let workouts = store.workouts(on: date)
-        let runs = store.runs(on: date)
+        let runs = store.runSummaries(on: date)
         let matched = Set(workouts.compactMap(\.matchedHealthKitUUID))
         let watchStrength = runs.filter { run in
             guard run.countsAsStrengthDay, let uuid = run.healthKitUUID else { return false }
@@ -155,11 +155,11 @@ struct CutPlanDayHost: View {
                 WorkoutDetailView(workout: workout)
             }
         case .healthKitStrength(let id):
-            if let run = store.runs.first(where: { $0.id == id }) {
+            if let run = store.fullRun(id: id) {
                 HealthKitStrengthDetailView(run: run)
             }
         case .cardio(let id):
-            if let run = store.runs.first(where: { $0.id == id }) {
+            if let run = store.fullRun(id: id) {
                 CardioDetailView(run: run)
             }
         }

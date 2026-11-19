@@ -507,10 +507,10 @@ struct BarbellEditorView: View {
         return store.completedWorkouts.first(where: { $0.id == uuid })
     }
 
-    private func sourceRun(for plate: EarnedPlate) -> Run? {
+    private func sourceRun(for plate: EarnedPlate) -> RunSummary? {
         guard let sourceWorkoutID = plate.sourceWorkoutID,
               let uuid = UUID(uuidString: sourceWorkoutID) else { return nil }
-        return store.runs.first { $0.healthKitUUID == uuid || $0.id == uuid }
+        return store.runSummaries.first { $0.healthKitUUID == uuid || $0.id == uuid }
     }
 
     private var nonStarterPlates: [EarnedPlate] {

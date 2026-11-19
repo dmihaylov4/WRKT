@@ -106,7 +106,7 @@ struct HomeViewNew: View {
                         selectedWorkoutForDetail = workout
                     },
                     onCardioTap: { cardio in
-                        selectedCardioForDetail = cardio
+                        selectedCardioForDetail = store.fullRun(id: cardio.id)
                     }
                 )
                 .padding(.top, 8)
@@ -346,7 +346,7 @@ struct HomeViewNew: View {
 
         case .lastCardio(let run):
             // Show cardio detail sheet
-            selectedCardioForDetail = run
+            selectedCardioForDetail = store.fullRun(id: run.id)
 
         case .recentActivity:
             // Individual sections have their own tap handlers
@@ -395,7 +395,7 @@ struct HomeViewNew: View {
         .onChange(of: store.completedWorkouts.count) { _, _ in
             refreshHome()
         }
-        .onChange(of: store.validRuns.count) { _, _ in
+        .onChange(of: store.validRunSummaries.count) { _, _ in
             refreshHome()
         }
     }

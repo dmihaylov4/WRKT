@@ -25,7 +25,7 @@ struct HomeScreenshotCaptureTests {
             WorkoutEntry(exerciseID: "bench-press", exerciseName: "Bench Press", muscleGroups: ["Chest"],
                          sets: [SetInput(reps: 8, weight: 60, tag: .working, autoWeight: false, isCompleted: true)])
         ])
-        let run = Run(distanceKm: 5, durationSec: 1800, avgHeartRate: 145, calories: 320, workoutType: "Running")
+        let run = Run(distanceKm: 5, durationSec: 1800, avgHeartRate: 145, calories: 320, workoutType: "Running").summary
         let friend = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         let friendActivity = FriendActivitySummary(activities: [
             FriendActivitySummary.FriendWorkoutActivity(id: friend, friendId: friend, friendName: "John",

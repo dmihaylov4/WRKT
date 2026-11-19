@@ -352,7 +352,7 @@ enum CutWorkoutDetailLogic {
     // MARK: Apple Health strength
 
     static func healthStrength(
-        _ run: Run,
+        _ run: RunSummary,
         existing: CompletedWorkout?,
         now: Date,
         calendar: Calendar = .current,
@@ -386,14 +386,14 @@ enum CutWorkoutDetailLogic {
     }
 
     /// The converted workout's name or muscle-group title, else the Health name, else the type.
-    static func healthStrengthTitle(_ run: Run, existing: CompletedWorkout?) -> String {
+    static func healthStrengthTitle(_ run: RunSummary, existing: CompletedWorkout?) -> String {
         if let existing { return title(existing) }
         if let name = run.workoutName, !name.isEmpty { return name }
         return run.workoutType ?? "Strength Workout"
     }
 
     /// The new workout the editor starts from when details are added to a Health workout.
-    static func workout(from run: Run) -> CompletedWorkout {
+    static func workout(from run: RunSummary) -> CompletedWorkout {
         var workout = CompletedWorkout(
             date: run.date,
             startedAt: run.date.addingTimeInterval(-TimeInterval(run.durationSec)),
