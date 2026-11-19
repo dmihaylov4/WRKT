@@ -582,6 +582,7 @@
 		C17CAF000000000000000104 /* CutYearAwardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CAF000000000000000204 /* CutYearAwardView.swift */; };
 		C17CB7000000000000000101 /* CutYearAwardObject.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000201 /* CutYearAwardObject.swift */; };
 		C17CB7000000000000000102 /* CutYearAwardObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000202 /* CutYearAwardObjectView.swift */; };
+		C17CB7000000000000000103 /* CutYearAwardShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000203 /* CutYearAwardShare.swift */; };
 		CAFE001B2FA2000000F00001 /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = A1F000022FA2000000F00001 /* Fonts */; };
 		C1A900000000000000000002 /* LaunchClapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A900000000000000000001 /* LaunchClapView.swift */; };
 		C1A900000000000000000004 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = C1A900000000000000000003 /* LaunchScreen.storyboard */; };
@@ -1234,6 +1235,7 @@
 		C17CAF000000000000000204 /* CutYearAwardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardView.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000201 /* CutYearAwardObject.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardObject.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000202 /* CutYearAwardObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardObjectView.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000203 /* CutYearAwardShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutYearAwardShare.swift; sourceTree = "<group>"; };
 		DCB5B8F3B8AD4BE9B478F2F9 /* BarbellModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellModels.swift; sourceTree = "<group>"; };
 		C1A900000000000000000001 /* LaunchClapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchClapView.swift; sourceTree = "<group>"; };
 		C1A900000000000000000003 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -2756,6 +2758,7 @@
 				C17CAF000000000000000203 /* CutYearAwardModel.swift */,
 				C17CB7000000000000000201 /* CutYearAwardObject.swift */,
 				C17CB7000000000000000202 /* CutYearAwardObjectView.swift */,
+				C17CB7000000000000000203 /* CutYearAwardShare.swift */,
 				C17CA1000000000000000024 /* CutTrainStatusBar.swift */,
 				D1D6E7000000000000000021 /* HomeWidgetPublisher.swift */,
 			);
@@ -3469,6 +3472,7 @@
 				C17CAF000000000000000103 /* CutYearAwardModel.swift in Sources */,
 				C17CB7000000000000000101 /* CutYearAwardObject.swift in Sources */,
 				C17CB7000000000000000102 /* CutYearAwardObjectView.swift in Sources */,
+				C17CB7000000000000000103 /* CutYearAwardShare.swift in Sources */,
 				D1D6E7000000000000000011 /* HomeWidgetPublisher.swift in Sources */,
 				C17CA1000000000000000014 /* CutTrainStatusBar.swift in Sources */,
 				2EEEACBC2EA37F3A00EDD16E /* HealthSyncAnchor.swift in Sources */,

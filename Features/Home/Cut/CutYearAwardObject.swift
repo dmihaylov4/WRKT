@@ -92,24 +92,50 @@ struct CutYearAwardFaceMaps: @unchecked Sendable {
     let tint: CGImage
 }
 
+/// Memory for the maps' scratch planes and pixels, straight from the kernel and given back to it
+/// the moment it is freed. Large malloc blocks can stay in the app's footprint after a free;
+/// on a phone the build's 60 MB of planes did, for as long as the award was open.
+enum CutYearAwardPages {
+    static func allocate<T>(_ type: T.Type, count: Int) -> UnsafeMutablePointer<T>? {
+        let bytes = max(1, count * MemoryLayout<T>.stride)
+        guard let raw = mmap(nil, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0),
+              raw != MAP_FAILED else { return nil }
+        // Anonymous pages arrive zeroed.
+        return raw.bindMemory(to: T.self, capacity: count)
+    }
+
+    static func free<T>(_ pointer: UnsafeMutablePointer<T>, count: Int) {
+        munmap(UnsafeMutableRawPointer(pointer), max(1, count * MemoryLayout<T>.stride))
+    }
+
+    /// Hands malloc's cached free memory back to the system, after a build or a share picture.
+    static func relieve() {
+        malloc_zone_pressure_relief(nil, 0)
+    }
+}
+
 /// Float planes allocated once and reused, so building the maps does not churn through large
 /// temporary arrays. Freed when the pool goes.
 private final class CutYearAwardPlanes {
     let count: Int
     private let planes: [UnsafeMutablePointer<Float>]
 
-    init(count: Int, planes number: Int) {
+    init?(count: Int, planes number: Int) {
         self.count = count
-        planes = (0..<number).map { _ in
-            let plane = UnsafeMutablePointer<Float>.allocate(capacity: count)
-            plane.initialize(repeating: 0, count: count)
-            return plane
+        var planes: [UnsafeMutablePointer<Float>] = []
+        for _ in 0..<number {
+            guard let plane = CutYearAwardPages.allocate(Float.self, count: count) else {
+                planes.forEach { CutYearAwardPages.free($0, count: count) }
+                return nil
+            }
+            planes.append(plane)
         }
+        self.planes = planes
     }
 
     subscript(index: Int) -> UnsafeMutablePointer<Float> { planes[index] }
 
-    deinit { planes.forEach { $0.deallocate() } }
+    deinit { planes.forEach { CutYearAwardPages.free($0, count: count) } }
 }
 
 enum CutYearAwardFaceMapBuilder {
@@ -120,8 +146,15 @@ enum CutYearAwardFaceMapBuilder {
     /// Lays the engraving out with SwiftUI, so the object uses the app's fonts and the mark.
     @MainActor
     static func mask(for content: CutYearAwardContent) -> CGImage? {
-        let renderer = ImageRenderer(content: CutYearAwardObjectLayout(content: content).background(Color.black))
-        renderer.scale = CGFloat(width) / CGFloat(CutYearAwardSlab.width * 1000)
+        mask(CutYearAwardObjectLayout(content: content), pointWidth: CGFloat(CutYearAwardSlab.width * 1000),
+             pixelWidth: width)
+    }
+
+    /// Renders a layout drawn in the mask's inks, on black, `pixelWidth` pixels across.
+    @MainActor
+    static func mask<Layout: View>(_ layout: Layout, pointWidth: CGFloat, pixelWidth: Int) -> CGImage? {
+        let renderer = ImageRenderer(content: layout.background(Color.black))
+        renderer.scale = CGFloat(pixelWidth) / pointWidth
         renderer.isOpaque = true
         return renderer.cgImage
     }
@@ -166,7 +199,7 @@ enum CutYearAwardFaceMapBuilder {
     nonisolated static func maps(mask: CGImage) -> CutYearAwardFaceMaps? {
         let w = mask.width, h = mask.height, n = w * h
         guard w > 8, h > 8 else { return nil }
-        let p = CutYearAwardPlanes(count: n, planes: 7)
+        guard let p = CutYearAwardPlanes(count: n, planes: 7) else { return nil }
         let deep = p[0], fine = p[1], height = p[2], current = p[3], a = p[4], b = p[5], floor = p[6]
         let length = vDSP_Length(n)
 
@@ -214,9 +247,10 @@ enum CutYearAwardFaceMapBuilder {
     /// The mask's red and green channels as floats in 0...1.
     private static func split(_ mask: CGImage, red: UnsafeMutablePointer<Float>, green: UnsafeMutablePointer<Float>,
                               width w: Int, height h: Int) -> Bool {
-        let rgba = UnsafeMutablePointer<UInt8>.allocate(capacity: w * h * 4)
-        let channel = UnsafeMutablePointer<UInt8>.allocate(capacity: w * h)
-        defer { rgba.deallocate(); channel.deallocate() }
+        guard let rgba = CutYearAwardPages.allocate(UInt8.self, count: w * h * 4) else { return false }
+        defer { CutYearAwardPages.free(rgba, count: w * h * 4) }
+        guard let channel = CutYearAwardPages.allocate(UInt8.self, count: w * h) else { return false }
+        defer { CutYearAwardPages.free(channel, count: w * h) }
         guard let context = CGContext(data: rgba, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
                                       space: CGColorSpaceCreateDeviceRGB(),
                                       bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
@@ -359,8 +393,8 @@ enum CutYearAwardFaceMapBuilder {
         // A point is shaded when the point up and a little to the left of it is still inside
         // the cut, short of the shift: the shadow covers the upper wall and falls a few pixels
         // onto the floor below it.
-        let blurred = UnsafeMutablePointer<Float>.allocate(capacity: count)
-        defer { blurred.deallocate() }
+        guard let blurred = CutYearAwardPages.allocate(Float.self, count: count) else { return nil }
+        defer { CutYearAwardPages.free(blurred, count: count) }
         vDSP_vclr(scratch, 1, n)
         let (dx, dy) = Style.shadowOffset
         for y in dy..<h {
@@ -412,8 +446,9 @@ enum CutYearAwardFaceMapBuilder {
         vDSP_vdiv(length, 1, ny, 1, ny, 1, n)
         vDSP_svdiv(&one, length, 1, nz, 1, n)
 
-        let planes8 = (0..<4).map { _ in UnsafeMutablePointer<UInt8>.allocate(capacity: count) }
-        defer { planes8.forEach { $0.deallocate() } }
+        let planes8 = (0..<4).compactMap { _ in CutYearAwardPages.allocate(UInt8.self, count: count) }
+        defer { planes8.forEach { CutYearAwardPages.free($0, count: count) } }
+        guard planes8.count == 4 else { return nil }
         var buffers = planes8.map {
             vImage_Buffer(data: $0, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w)
         }
@@ -422,7 +457,7 @@ enum CutYearAwardFaceMapBuilder {
             vImageConvert_PlanarFtoPlanar8(&floats, &buffers[index], 1, -1, vImage_Flags(kvImageNoFlags))
         }
         planes8[3].initialize(repeating: 255, count: count)
-        let pixels = UnsafeMutablePointer<UInt8>.allocate(capacity: count * 4)
+        guard let pixels = CutYearAwardPages.allocate(UInt8.self, count: count * 4) else { return nil }
         var output = vImage_Buffer(data: pixels, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w * 4)
         // Memory order follows the argument order: red, green, blue, then the opaque alpha.
         vImageConvert_Planar8toARGB8888(&buffers[0], &buffers[1], &buffers[2], &buffers[3], &output,
@@ -432,26 +467,28 @@ enum CutYearAwardFaceMapBuilder {
 
     /// A 0...1 plane as an 8 bit grey image at half size: roughness and tint change slowly.
     private static func grayImage(_ plane: UnsafeMutablePointer<Float>, width w: Int, height h: Int) -> CGImage? {
-        let full = UnsafeMutablePointer<UInt8>.allocate(capacity: w * h)
-        defer { full.deallocate() }
+        guard let full = CutYearAwardPages.allocate(UInt8.self, count: w * h) else { return nil }
+        defer { CutYearAwardPages.free(full, count: w * h) }
         var floats = buffer(plane, width: w, height: h)
         var bytes = vImage_Buffer(data: full, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w)
         vImageConvert_PlanarFtoPlanar8(&floats, &bytes, 1, 0, vImage_Flags(kvImageNoFlags))
         let outWidth = w / 2, outHeight = h / 2
-        let half = UnsafeMutablePointer<UInt8>.allocate(capacity: outWidth * outHeight)
+        guard let half = CutYearAwardPages.allocate(UInt8.self, count: outWidth * outHeight) else { return nil }
         var output = vImage_Buffer(data: half, height: vImagePixelCount(outHeight), width: vImagePixelCount(outWidth),
                                    rowBytes: outWidth)
         vImageScale_Planar8(&bytes, &output, nil, vImage_Flags(kvImageHighQualityResampling))
         return image(owning: half, width: outWidth, height: outHeight, components: 1)
     }
 
-    /// Wraps pixels in an image without copying them; the image frees them.
+    /// Wraps pages from `CutYearAwardPages` in an image without copying them; the image frees them.
     private static func image(owning pixels: UnsafeMutablePointer<UInt8>, width: Int, height: Int,
                               components: Int) -> CGImage? {
         let space = components == 1 ? CGColorSpaceCreateDeviceGray() : CGColorSpaceCreateDeviceRGB()
         let info: CGImageAlphaInfo = components == 1 ? .none : .noneSkipLast
         let size = width * height * components
-        let data = Data(bytesNoCopy: pixels, count: size, deallocator: .custom { pointer, _ in pointer.deallocate() })
+        let data = Data(bytesNoCopy: pixels, count: size, deallocator: .custom { pointer, count in
+            munmap(pointer, max(1, count))
+        })
         guard let provider = CGDataProvider(data: data as CFData) else { return nil }
         return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8 * components,
                        bytesPerRow: width * components, space: space, bitmapInfo: CGBitmapInfo(rawValue: info.rawValue),
@@ -577,12 +614,19 @@ enum CutYearAwardSlabMesh {
         case back = 2
     }
 
+    /// The slab, built off the main thread. `MeshResource.generate` is synchronous and on the
+    /// main actor; on a phone it held the main thread for most of a second while RealityKit
+    /// finished the studio's and the maps' uploads.
+    @concurrent
+    nonisolated static func make(_ shape: CutYearAwardSlab.Shape) async throws -> MeshResource {
+        try await MeshResource(from: [descriptor(shape)])
+    }
+
     /// The slab with flat shaded facets: the face, a 45 degree chamfer round it, the side
     /// walls, a small back chamfer and the back. The face carries planar UVs over the whole
     /// outline (matching the maps) and tangents along x, so the brushing runs across.
-    @MainActor
-    static func make() throws -> MeshResource {
-        let outline = CutYearAwardSlab.outline
+    nonisolated static func descriptor(_ shape: CutYearAwardSlab.Shape) -> MeshDescriptor {
+        let outline = CutYearAwardSlab.outline(shape)
         let front = CutYearAwardSlab.inset(outline, by: CutYearAwardSlab.frontChamfer)
         let back = CutYearAwardSlab.inset(outline, by: CutYearAwardSlab.backChamfer)
         let t = CutYearAwardSlab.thickness / 2
@@ -597,7 +641,7 @@ enum CutYearAwardSlabMesh {
         var indices: [UInt32] = []
         var parts: [UInt32] = []
 
-        let w = CutYearAwardSlab.width, h = CutYearAwardSlab.height
+        let w = shape.width, h = shape.height
         func faceUV(_ p: SIMD2<Float>) -> SIMD2<Float> { SIMD2(p.x / w + 0.5, p.y / h + 0.5) }
 
         func addPolygon(_ points: [SIMD2<Float>], z: Float, normal: SIMD3<Float>, part: Part) {
@@ -625,7 +669,9 @@ enum CutYearAwardSlabMesh {
             let minY = polygon.map(\.y).min() ?? 0, maxY = polygon.map(\.y).max() ?? 0
             // The cut runs from polygon[4] (on the leading side) to polygon[3] (on the top).
             let cutStart = polygon[4], cutEnd = polygon[3]
-            let columns = 24, rows = 36
+            // About 13 mm per cell: fine enough for the crown's normals to run smoothly.
+            let columns = max(8, Int((shape.width / 0.013).rounded(.down)))
+            let rows = max(8, Int((shape.height / 0.013).rounded(.down)))
             let start = UInt32(positions.count)
             for row in 0...rows {
                 for column in 0...columns {
@@ -636,7 +682,7 @@ enum CutYearAwardSlabMesh {
                         p.y = min(p.y, cutStart.y + (cutEnd.y - cutStart.y) * t)
                     }
                     positions.append(SIMD3(p.x, p.y, z))
-                    let normal = CutYearAwardSlab.crownNormal(at: p)
+                    let normal = CutYearAwardSlab.crownNormal(at: p, in: shape)
                     normals.append(normal)
                     uvs.append(faceUV(p))
                     let tangent = simd_normalize(SIMD3<Float>(normal.z, 0, -normal.x))
@@ -693,14 +739,14 @@ enum CutYearAwardSlabMesh {
         descriptor.bitangents = MeshBuffers.Tangents(bitangents)
         descriptor.primitives = .triangles(indices)
         descriptor.materials = .perFace(parts)
-        return try MeshResource.generate(from: [descriptor])
+        return descriptor
     }
 }
 
 // MARK: - Scene
 
-/// Builds the award object and its studio. The slow parts (the maps and the panorama) run off
-/// the main actor; uploading them to RealityKit happens on it.
+/// Builds the award object and its studio. The maps, the panorama and the mesh are built off
+/// the main actor; the layout, the uploads' setup and the entity happen on it.
 enum CutYearAwardObjectBuilder {
     struct Scene {
         let object: ModelEntity
@@ -721,15 +767,25 @@ enum CutYearAwardObjectBuilder {
         // Tests the fallback to the SwiftUI plaque.
         if ProcessInfo.processInfo.arguments.contains("-CutYearAwardFailBuild") { throw BuildError.layout }
         let clock = ContinuousClock(), start = clock.now
-        func mark(_ stage: String) {
-            log.info("Year award build: \(stage, privacy: .public) at \(clock.now - start, privacy: .public), \(CutYearAwardMemory.summary, privacy: .public)")
+        func mark(_ stage: String, main: Duration? = nil) {
+            let onMain = main.map { ", main thread \($0)" } ?? ""
+            log.info("Year award build: \(stage, privacy: .public) at \(clock.now - start, privacy: .public)\(onMain, privacy: .public), \(CutYearAwardMemory.summary, privacy: .public)")
+        }
+        func timed<T>(_ work: () throws -> T) rethrows -> (T, Duration?) {
+            let begin = clock.now
+            let value = try work()
+            return (value, clock.now - begin)
         }
         #else
-        func mark(_ stage: String) {}
+        func mark(_ stage: String, main: Duration? = nil) {}
+        func timed<T>(_ work: () throws -> T) rethrows -> (T, Duration?) { (try work(), nil) }
         #endif
         mark("start")
-        guard let mask = CutYearAwardFaceMapBuilder.mask(for: content) else { throw BuildError.layout }
-        mark("layout")
+        // The mesh needs nothing else, so it starts first and is built off the main thread.
+        async let meshTask = CutYearAwardSlabMesh.make(CutYearAwardSlab.plaque)
+        let (mask, layoutTime) = timed { CutYearAwardFaceMapBuilder.mask(for: content) }
+        guard let mask else { throw BuildError.layout }
+        mark("layout", main: layoutTime)
         async let mapsTask = Task.detached(priority: .userInitiated) {
             CutYearAwardFaceMapBuilder.maps(mask: mask)
         }.value
@@ -741,20 +797,58 @@ enum CutYearAwardObjectBuilder {
 
         // The studio's prefiltering is the slowest step: run the uploads alongside it.
         async let environmentTask = EnvironmentResource(equirectangular: panorama, withName: "CutYearAwardStudio")
-        async let normalTask = TextureResource(image: maps.normal, withName: nil,
-                                               options: .init(semantic: .normal, mipmapsMode: .allocateAndGenerateAll))
-        async let roughnessTask = TextureResource(image: maps.roughness, withName: nil,
-                                                  options: .init(semantic: .scalar, mipmapsMode: .allocateAndGenerateAll))
-        async let tintTask = TextureResource(image: maps.tint, withName: nil,
-                                             options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
-        let (environment, normal, roughness, tint) = try await (environmentTask, normalTask, roughnessTask, tintTask)
+        async let texturesTask = textures(maps)
+        let (environment, textures) = try await (environmentTask, texturesTask)
         mark("environment and textures")
+        let mesh = try await meshTask
+        mark("mesh")
+        let (object, entityTime) = timed { ModelEntity(mesh: mesh, materials: materials(textures)) }
+        mark("entity", main: entityTime)
+        // The maps' pixels went to the GPU: hand any memory malloc kept back to the system.
+        CutYearAwardPages.relieve()
+        return Scene(object: object, environment: environment)
+    }
 
+    /// A slab of another shape with its own engraving, in the same steel: the shared picture's
+    /// plate. Lit by the studio the caller already has.
+    @MainActor
+    static func buildSlab(_ shape: CutYearAwardSlab.Shape, layout: some View, mapWidth: Int) async throws -> ModelEntity {
+        async let meshTask = CutYearAwardSlabMesh.make(shape)
+        guard let mask = CutYearAwardFaceMapBuilder.mask(layout, pointWidth: CGFloat(shape.width * 1000),
+                                                          pixelWidth: mapWidth) else { throw BuildError.layout }
+        guard let maps = await Task.detached(priority: .userInitiated, operation: {
+            CutYearAwardFaceMapBuilder.maps(mask: mask)
+        }).value else { throw BuildError.maps }
+        let textures = try await textures(maps)
+        let mesh = try await meshTask
+        return ModelEntity(mesh: mesh, materials: materials(textures))
+    }
+
+    struct FaceTextures {
+        let normal: TextureResource
+        let roughness: TextureResource
+        let tint: TextureResource
+    }
+
+    @MainActor
+    private static func textures(_ maps: CutYearAwardFaceMaps) async throws -> FaceTextures {
+        async let normal = TextureResource(image: maps.normal, withName: nil,
+                                           options: .init(semantic: .normal, mipmapsMode: .allocateAndGenerateAll))
+        async let roughness = TextureResource(image: maps.roughness, withName: nil,
+                                              options: .init(semantic: .scalar, mipmapsMode: .allocateAndGenerateAll))
+        async let tint = TextureResource(image: maps.tint, withName: nil,
+                                         options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+        return try await FaceTextures(normal: normal, roughness: roughness, tint: tint)
+    }
+
+    /// The face, the polished chamfer and sides, and the back, in the mesh's part order.
+    @MainActor
+    private static func materials(_ textures: FaceTextures) -> [any RealityKit.Material] {
         var face = PhysicallyBasedMaterial()
-        face.baseColor = .init(tint: steel, texture: .init(tint))
+        face.baseColor = .init(tint: steel, texture: .init(textures.tint))
         face.metallic = 1.0
-        face.roughness = .init(scale: 1, texture: .init(roughness))
-        face.normal = .init(texture: .init(normal))
+        face.roughness = .init(scale: 1, texture: .init(textures.roughness))
+        face.normal = .init(texture: .init(textures.normal))
         face.anisotropyLevel = 0.4
         face.anisotropyAngle = 0.0
 
@@ -768,11 +862,7 @@ enum CutYearAwardObjectBuilder {
         back.baseColor = .init(tint: steel)
         back.metallic = 1.0
         back.roughness = 0.42
-
-        let mesh = try CutYearAwardSlabMesh.make()
-        let object = ModelEntity(mesh: mesh, materials: [face, edge, back])
-        mark("mesh")
-        return Scene(object: object, environment: environment)
+        return [face, edge, back]
     }
 
     enum BuildError: Error {

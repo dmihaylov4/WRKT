@@ -21,12 +21,15 @@ import UIKit
 @MainActor
 final class CutYearAwardStage {
     let device: MTLDevice
+    /// The studio, kept for the shared picture's own renderer.
+    let environment: EnvironmentResource
     private let renderer: RealityRenderer
     private let pivot = Entity()
     private let camera = PerspectiveCamera()
 
     init(scene: CutYearAwardObjectBuilder.Scene, device: MTLDevice) throws {
         self.device = device
+        environment = scene.environment
         renderer = try RealityRenderer()
         let root = Entity()
         pivot.addChild(scene.object)
@@ -51,9 +54,13 @@ final class CutYearAwardStage {
 
     /// Yaw sends the right edge away, lean the top edge, as in the SwiftUI plaque.
     func setPose(_ pose: CutYearAwardPose, extraYaw: Double = 0) {
+        pivot.orientation = Self.orientation(for: pose, extraYaw: extraYaw)
+    }
+
+    static func orientation(for pose: CutYearAwardPose, extraYaw: Double = 0) -> simd_quatf {
         let yaw = Float((pose.yaw + extraYaw) * .pi / 180)
         let lean = Float(pose.lean * .pi / 180)
-        pivot.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0)) * simd_quatf(angle: -lean, axis: SIMD3(1, 0, 0))
+        return simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0)) * simd_quatf(angle: -lean, axis: SIMD3(1, 0, 0))
     }
 
     /// Frames the camera so `viewHeight` points of view show the face at `fit` of its size.
@@ -71,40 +78,9 @@ final class CutYearAwardStage {
                                      actionsAfterRender: actions)
     }
 
-    /// The on-screen layer's format. The still uses it too, so it reuses the screen's compiled
-    /// pipelines: a new format costs about a second of shader work on the main thread.
+    /// The on-screen layer's format. The shared picture uses it too, so it reuses the screen's
+    /// compiled pipelines: a new format costs about a second of shader work on the main thread.
     static let pixelFormat: MTLPixelFormat = .bgra8Unorm_srgb
-
-    /// A still of the object in a pose, on a transparent ground. The share image could use this.
-    func snapshot(pose: CutYearAwardPose, size: CGSize, fit: CGFloat, scale: CGFloat) async -> CGImage? {
-        let width = Int(size.width * scale), height = Int(size.height * scale)
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: Self.pixelFormat, width: width,
-                                                                  height: height, mipmapped: false)
-        descriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
-        descriptor.storageMode = .shared
-        guard let texture = device.makeTexture(descriptor: descriptor) else { return nil }
-        let saved = (pivot.orientation, camera.position)
-        setPose(pose)
-        frame(viewHeight: size.height, fit: fit)
-        defer { pivot.orientation = saved.0; camera.position = saved.1 }
-        let done: Bool = await withCheckedContinuation { continuation in
-            do {
-                try render(to: texture, deltaTime: 0) { _ in continuation.resume(returning: true) }
-            } catch {
-                continuation.resume(returning: false)
-            }
-        }
-        guard done else { return nil }
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        texture.getBytes(&bytes, bytesPerRow: width * 4, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
-        guard let provider = CGDataProvider(data: Data(bytes) as CFData),
-              let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
-        return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-                       space: space,
-                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue
-                                                | CGBitmapInfo.byteOrder32Little.rawValue),
-                       provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
-    }
 }
 
 /// Builds the stage once per review, starting when the review opens so it is ready by the last
@@ -127,9 +103,12 @@ final class CutYearAwardStageCache {
             #endif
             do {
                 let scene = try await CutYearAwardObjectBuilder.build(content: content)
+                #if DEBUG
+                let stageStart = ContinuousClock.now
+                #endif
                 let stage = try CutYearAwardStage(scene: scene, device: device)
                 #if DEBUG
-                Self.log.info("Year award object built in \(ContinuousClock.now - start, privacy: .public), \(CutYearAwardMemory.summary, privacy: .public)")
+                Self.log.info("Year award object built in \(ContinuousClock.now - start, privacy: .public) (renderer \(ContinuousClock.now - stageStart, privacy: .public) on the main thread), \(CutYearAwardMemory.summary, privacy: .public)")
                 #endif
                 return stage
             } catch {
@@ -181,6 +160,12 @@ final class CutYearAwardMetalView: UIView {
     /// Called when the renderer refuses to draw.
     var onRenderFailure: (() -> Void)?
     var onLayout: (() -> Void)?
+    #if DEBUG
+    /// Debug: when each frame reached the screen (0 if it was dropped), on the main thread.
+    var onPresented: ((CFTimeInterval) -> Void)?
+    /// Debug: how long the last frame waited for a drawable.
+    private(set) var drawableWait: Duration = .zero
+    #endif
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -207,8 +192,16 @@ final class CutYearAwardMetalView: UIView {
     }
 
     func draw(deltaTime: TimeInterval) {
-        guard let stage, let queue, let event, bounds.width >= 1, bounds.height >= 1,
-              let drawable = metalLayer.nextDrawable() else { return }
+        guard let stage, let queue, let event, bounds.width >= 1, bounds.height >= 1 else { return }
+        #if DEBUG
+        let waitStart = ContinuousClock.now
+        #endif
+        // Blocks while all drawables are still with the GPU or the display.
+        let next = metalLayer.nextDrawable()
+        #if DEBUG
+        drawableWait = ContinuousClock.now - waitStart
+        #endif
+        guard let drawable = next else { return }
         stage.frame(viewHeight: bounds.height, fit: fit)
         eventValue += 1
         let value = eventValue
@@ -225,6 +218,22 @@ final class CutYearAwardMetalView: UIView {
         // Present once the renderer has finished drawing into the drawable.
         guard let commands = queue.makeCommandBuffer() else { return }
         commands.encodeWaitForEvent(event, value: value)
+        #if DEBUG
+        if onPresented != nil {
+            #if targetEnvironment(simulator)
+            // The simulator has no presentation times: the present's completion stands in.
+            commands.addCompletedHandler { [weak self] _ in
+                let time = CACurrentMediaTime()
+                DispatchQueue.main.async { self?.onPresented?(time) }
+            }
+            #else
+            drawable.addPresentedHandler { [weak self] drawable in
+                let time = drawable.presentedTime
+                DispatchQueue.main.async { self?.onPresented?(time) }
+            }
+            #endif
+        }
+        #endif
         commands.present(drawable)
         if !hasPresented {
             hasPresented = true
@@ -240,6 +249,8 @@ final class CutYearAwardMetalView: UIView {
 
 /// Moves the object: springs the tilt toward the phone's tilt plus the drag, turns it in on
 /// arrival, and draws a frame on each display refresh only while something is still moving.
+/// The tilt is read here, on each frame, not through SwiftUI: a motion sample or a drag only
+/// asks for a frame, so the view's body is not run for every sample.
 @MainActor
 @Observable
 final class CutYearAwardObjectController {
@@ -252,7 +263,9 @@ final class CutYearAwardObjectController {
     @ObservationIgnored private var lean = CutYearAwardSpring(value: 0)
     /// Extra yaw while turning in from the side.
     @ObservationIgnored private var arrival = CutYearAwardSpring(value: 0)
-    @ObservationIgnored private var target: CutYearAwardTilt = .zero
+    @ObservationIgnored private weak var motion: CutYearAwardMotion?
+    @ObservationIgnored private var fixedTilt: CutYearAwardTilt?
+    @ObservationIgnored private var drag: CutYearAwardTilt = .zero
     @ObservationIgnored private var dragging = false
     @ObservationIgnored private var releasing = false
     @ObservationIgnored private var reduceMotion = false
@@ -260,12 +273,15 @@ final class CutYearAwardObjectController {
     @ObservationIgnored private var link: CADisplayLink?
     @ObservationIgnored private var lastTimestamp: CFTimeInterval?
     #if DEBUG
-    /// Debug: main thread time spent per frame since the display link started.
-    @ObservationIgnored private var frameCost: (frames: Int, total: Duration, worst: Duration) = (0, .zero, .zero)
+    /// Debug: the frames drawn since the last summary, for the device log.
+    @ObservationIgnored private var frameStats = CutYearAwardFrameStats()
+    @ObservationIgnored private var loggedFirstFrame = false
     #endif
 
     /// The turn the object arrives from, in degrees: as the SwiftUI plaque did.
     static let arrivalYaw: Double = 75
+
+    private var target: CutYearAwardTilt { (fixedTilt ?? motion?.tilt ?? .zero) + drag }
 
     /// Builds or fetches the stage and draws a first, hidden frame. With `arrives`, that frame
     /// already shows the start of the turn, so any first-use GPU work happens before the reveal.
@@ -300,13 +316,29 @@ final class CutYearAwardObjectController {
             self.failed = true
             self.stopLink()
         }
+        #if DEBUG
+        view.onPresented = { [weak self] time in self?.frameStats.recordPresented(at: time) }
+        #endif
+    }
+
+    /// Follows the phone's tilt, or holds `fixedTilt` instead.
+    func follow(_ motion: CutYearAwardMotion, fixedTilt: CutYearAwardTilt?) {
+        self.motion = motion
+        self.fixedTilt = fixedTilt
+        motion.onTiltChange = { [weak self] in self?.requestFrame() }
+        requestFrame()
     }
 
     func configure(reduceMotion: Bool, active: Bool, fit: CGFloat) {
         self.reduceMotion = reduceMotion
         self.active = active
         view?.fit = fit
-        if !active { stopLink() }
+        if !active {
+            stopLink()
+            #if DEBUG
+            logFrames("paused")
+            #endif
+        }
         requestFrame()
     }
 
@@ -322,40 +354,39 @@ final class CutYearAwardObjectController {
         requestFrame()
     }
 
-    func setTilt(_ tilt: CutYearAwardTilt) {
-        target = tilt
+    func dragChanged(_ tilt: CutYearAwardTilt) {
+        dragging = true
+        releasing = false
+        drag = tilt
         requestFrame()
     }
-
-    func dragChanged() { dragging = true; releasing = false }
 
     func dragEnded() {
         dragging = false
         releasing = true
+        drag = .zero
+        requestFrame()
     }
 
+    /// Leaving the card: stops drawing and, in Debug builds, logs the frames drawn on it.
     func stop() {
         stopLink()
+        #if DEBUG
+        logFrames("left the card")
+        #endif
     }
 
-    /// The shared picture: the object at a fixed, flattering turn, on black with room round it,
-    /// at 3x so it stays sharp when posted (1338 x 1812 px).
-    func shareImage() async -> UIImage? {
+    /// The shared picture: a landscape plate in the object's steel, rendered by a renderer of
+    /// its own that is gone again when this returns. See `CutYearAwardSharePicture`.
+    func shareImage(_ content: CutYearAwardContent) async -> UIImage? {
         guard let stage = view?.stage else { return nil }
-        let padding = CutYearAwardRendering.sharePadding
-        let size = CGSize(width: CGFloat(CutYearAwardSlab.width * 1000) + padding * 2,
-                          height: CGFloat(CutYearAwardSlab.height * 1000) + padding * 2)
-        let scale: CGFloat = 3
-        guard let still = await stage.snapshot(pose: CutYearAwardLight.sharePose, size: size, fit: 1,
-                                               scale: scale) else { return nil }
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = scale
-        format.opaque = true
-        return UIGraphicsImageRenderer(size: size, format: format).image { context in
-            UIColor.black.setFill()
-            context.fill(CGRect(origin: .zero, size: size))
-            UIImage(cgImage: still, scale: scale, orientation: .up).draw(in: CGRect(origin: .zero, size: size))
-        }
+        #if DEBUG
+        let style = CutYearAwardShare.style(arguments: ProcessInfo.processInfo.arguments)
+        #else
+        let style = CutYearAwardShare.Style.face
+        #endif
+        return await CutYearAwardSharePicture.render(content: content, environment: stage.environment,
+                                                     device: stage.device, style: style)
     }
 
     // MARK: Frames
@@ -373,21 +404,26 @@ final class CutYearAwardObjectController {
 
     private func stopLink() {
         #if DEBUG
-        if frameCost.frames > 0 {
-            let mean = frameCost.total / frameCost.frames
-            CutYearAwardStageCache.log.info("Year award frames: \(self.frameCost.frames) drawn, main thread mean \(mean, privacy: .public), worst \(self.frameCost.worst, privacy: .public)")
-            frameCost = (0, .zero, .zero)
-        }
+        frameStats.pause()
         #endif
         link?.invalidate()
         link = nil
         lastTimestamp = nil
     }
 
+    #if DEBUG
+    private func logFrames(_ reason: String) {
+        guard frameStats.drawn > 0 else { return }
+        CutYearAwardStageCache.log.info("\(self.frameStats.summary(reason), privacy: .public)")
+        frameStats.reset()
+    }
+    #endif
+
     fileprivate func tick(_ link: CADisplayLink) {
         // A hitch slows the motion down instead of skipping it.
         let deltaTime = min(lastTimestamp.map { link.timestamp - $0 } ?? link.duration, 1.0 / 30)
         lastTimestamp = link.timestamp
+        let target = target
 
         let pose: CutYearAwardPose
         if reduceMotion {
@@ -407,8 +443,16 @@ final class CutYearAwardObjectController {
         #endif
         view?.draw(deltaTime: deltaTime)
         #if DEBUG
-        let cost = ContinuousClock.now - frameStart
-        frameCost = (frameCost.frames + 1, frameCost.total + cost, max(frameCost.worst, cost))
+        let cost = (ContinuousClock.now - frameStart).seconds
+        let wait = (view?.drawableWait ?? .zero).seconds
+        if !loggedFirstFrame {
+            // The hidden first frame compiles the pipelines: logged apart from the rest.
+            loggedFirstFrame = true
+            CutYearAwardStageCache.log.info("Year award first frame: main thread \(String(format: "%.1f ms", cost * 1000), privacy: .public)")
+        } else {
+            frameStats.recordDrawn(at: link.timestamp, main: cost, wait: wait)
+            if frameStats.isDue(at: link.timestamp) { logFrames("every \(Int(CutYearAwardFrameStats.interval)) s") }
+        }
         #endif
 
         let settled = reduceMotion || (yaw.isSettled(at: target.yaw) && lean.isSettled(at: target.lean)
@@ -416,9 +460,21 @@ final class CutYearAwardObjectController {
         if settled && !dragging {
             releasing = false
             stopLink()
+            #if DEBUG
+            if frameStats.isDue(at: link.timestamp) { logFrames("at rest") }
+            #endif
         }
     }
 }
+
+#if DEBUG
+private extension Duration {
+    var seconds: Double {
+        let parts = components
+        return Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+    }
+}
+#endif
 
 /// CADisplayLink holds its target strongly; this keeps it from holding the controller.
 private final class DisplayLinkTarget: NSObject {
@@ -476,9 +532,6 @@ struct CutYearAwardObjectPlaque: View {
     /// Room round the face for the turned object, in points: the near edge grows by about 15
     /// percent in the arrival turn.
     static let margin: CGFloat = 40
-    @State private var drag: CutYearAwardTilt = .zero
-
-    private var tilt: CutYearAwardTilt { (fixedTilt ?? motion.tilt) + drag }
 
     var body: some View {
         ZStack {
@@ -501,7 +554,7 @@ struct CutYearAwardObjectPlaque: View {
         .accessibilityLabel(Text(content.accessibilityText))
         .task {
             controller.configure(reduceMotion: reduceMotion, active: active, fit: fit)
-            controller.setTilt(tilt)
+            controller.follow(motion, fixedTilt: fixedTilt)
             await controller.load(content, arrives: fixedTilt == nil)
         }
         .onChange(of: controller.isReady) { _, ready in
@@ -516,7 +569,7 @@ struct CutYearAwardObjectPlaque: View {
             #if DEBUG
             let start = ContinuousClock.now
             #endif
-            let image = await controller.shareImage()
+            let image = await controller.shareImage(content)
             guard !Task.isCancelled else { return }
             onShareImage(image)
             #if DEBUG
@@ -529,7 +582,6 @@ struct CutYearAwardObjectPlaque: View {
             #endif
         }
         .onChange(of: controller.failed) { _, failed in if failed { onFailure() } }
-        .onChange(of: tilt) { _, tilt in controller.setTilt(tilt) }
         .onChange(of: active) { configure() }
         .onChange(of: reduceMotion) { configure() }
         .onChange(of: fit) { configure() }
@@ -542,14 +594,8 @@ struct CutYearAwardObjectPlaque: View {
 
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 1)
-            .onChanged { value in
-                controller.dragChanged()
-                drag = CutYearAwardLight.dragTilt(translation: value.translation)
-            }
-            .onEnded { _ in
-                controller.dragEnded()
-                drag = .zero
-            }
+            .onChanged { value in controller.dragChanged(CutYearAwardLight.dragTilt(translation: value.translation)) }
+            .onEnded { _ in controller.dragEnded() }
     }
 }
 

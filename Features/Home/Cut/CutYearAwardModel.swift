@@ -196,10 +196,6 @@ enum CutYearAwardLight {
     static let staticPose = CutYearAwardPose(yaw: restYaw, lean: restLean, band: restBand,
                                              highlight: CGSize(width: 0, height: 1))
 
-    /// The 3D object's shared picture: a little less turned than at rest, so the face reads
-    /// square on while the band and the chamfer still show it is steel.
-    static let sharePose = CutYearAwardPose(yaw: -7, lean: 3, band: restBand, highlight: CGSize(width: 0, height: 1))
-
     /// The shared picture: flat and front on, the band in a fixed spot across the year.
     static let exportPose = CutYearAwardPose(yaw: 0, lean: 0, band: 0.36,
                                              highlight: CGSize(width: 0, height: 1))
@@ -253,9 +249,6 @@ enum CutYearAwardRendering {
         guard parts.count == 2 else { return nil }
         return CutYearAwardLight.clamp(CutYearAwardTilt(yaw: parts[0], lean: parts[1]))
     }
-
-    /// Room round the object in the shared picture, in points.
-    static let sharePadding: CGFloat = 64
 
     static func usesObject(defaults: UserDefaults = .standard) -> Bool {
         #if DEBUG
@@ -339,10 +332,23 @@ enum CutYearAwardSlab {
     static let frontChamfer: Float = 0.007
     static let backChamfer: Float = 0.002
 
+    /// A slab's face and its cut corner, in metres.
+    struct Shape: Equatable {
+        var width: Float
+        var height: Float
+        var cut: Float
+    }
+
+    /// The award on screen.
+    static let plaque = Shape(width: width, height: height, cut: cut)
+
+    /// The on-screen award's outline.
+    static var outline: [SIMD2<Float>] { outline(plaque) }
+
     /// The outline counterclockwise from the bottom leading corner, the top leading corner cut.
-    static var outline: [SIMD2<Float>] {
-        let w = width / 2, h = height / 2
-        return [SIMD2(-w, -h), SIMD2(w, -h), SIMD2(w, h), SIMD2(-w + cut, h), SIMD2(-w, h - cut)]
+    static func outline(_ shape: Shape) -> [SIMD2<Float>] {
+        let w = shape.width / 2, h = shape.height / 2
+        return [SIMD2(-w, -h), SIMD2(w, -h), SIMD2(w, h), SIMD2(-w + shape.cut, h), SIMD2(-w, h - shape.cut)]
     }
 
     /// A convex counterclockwise polygon moved inward by `distance` on every edge.
@@ -373,8 +379,8 @@ enum CutYearAwardSlab {
     static let crownSideAngle: Float = 8
     static let crownTopAngle: Float = 3
 
-    static func crownNormal(at point: SIMD2<Float>) -> SIMD3<Float> {
-        let x = point.x / (width / 2), y = point.y / (height / 2)
+    static func crownNormal(at point: SIMD2<Float>, in shape: Shape = plaque) -> SIMD3<Float> {
+        let x = point.x / (shape.width / 2), y = point.y / (shape.height / 2)
         let sx = tan(crownSideAngle * .pi / 180) * x, sy = tan(crownTopAngle * .pi / 180) * y
         return simd_normalize(SIMD3(sx, sy, 1))
     }
@@ -388,5 +394,163 @@ enum CutYearAwardSlab {
     static func cameraDistance(viewHeight: Float, fieldOfView: Float = fieldOfView) -> Float {
         let visible = viewHeight / 1000
         return visible / 2 / tan(fieldOfView / 2 * .pi / 180)
+    }
+}
+
+// MARK: - The shared picture
+
+/// The picture a Social post and the share sheet carry: the award as a landscape steel plate,
+/// cut for the frames a post's picture is shown in. The feed shows it at the card's width and
+/// 200 points tall, the post detail at the screen's width and 200 tall, both filled and
+/// cropped to the middle; the full screen viewer shows all of it.
+enum CutYearAwardShare {
+    enum Style: String {
+        /// Only the brushed face: the plate is larger than the picture, so nothing but steel shows.
+        case face
+        /// The whole plate, its bevel and cut corner, on a dark studio wall.
+        case object
+    }
+
+    /// 1.85 to 1: between the feed's (1.64 to 1.91) and the detail's (1.88 to 2.2) shapes on
+    /// current phones, so either loses only a sliver. At most 1200 pixels on a side: the upload
+    /// keeps such a picture as it is instead of resampling it.
+    static let pixelSize = CGSize(width: 1200, height: 650)
+
+    /// The plate, in the picture's shape, with the on-screen award's cut corner. Metres, one
+    /// point of layout to one millimetre, as the on-screen slab.
+    static let slab = CutYearAwardSlab.Shape(width: 0.600, height: 0.325, cut: 0.052)
+
+    /// How much of the plate's height the picture shows. The face style stays inside the bevel
+    /// with room for the turn; the object style leaves a little wall round the plate.
+    static func visibleHeight(_ style: Style) -> Float {
+        switch style {
+        case .face: slab.height * 0.82
+        case .object: slab.height * 1.1
+        }
+    }
+
+    /// Where the engraving sits on the plate, in points from its edges: inside what every post
+    /// frame keeps of the face style.
+    static let contentInsets = (horizontal: CGFloat(86), vertical: CGFloat(54))
+
+    /// The plate's turn in the picture: a little to the left and tipped back, so the light band
+    /// crosses the face. Calmer than on screen: a still has no motion to explain the light.
+    static let pose = CutYearAwardPose(yaw: -6, lean: 3, band: CutYearAwardLight.restBand,
+                                       highlight: CGSize(width: 0, height: 1))
+
+    /// The part of a picture a frame shows when the picture fills it, in unit coordinates.
+    static func visibleRect(pictureAspect: CGFloat, frame: CGSize) -> CGRect {
+        guard pictureAspect > 0, frame.width > 0, frame.height > 0 else { return .zero }
+        let frameAspect = frame.width / frame.height
+        if frameAspect > pictureAspect {
+            let height = pictureAspect / frameAspect
+            return CGRect(x: 0, y: (1 - height) / 2, width: 1, height: height)
+        }
+        let width = frameAspect / pictureAspect
+        return CGRect(x: (1 - width) / 2, y: 0, width: width, height: 1)
+    }
+
+    /// The engraving's area in unit picture coordinates, for a style seen straight on.
+    static func contentRect(_ style: Style) -> CGRect {
+        let visibleHeight = CGFloat(visibleHeight(style))
+        let visibleWidth = visibleHeight * pixelSize.width / pixelSize.height
+        let width = CGFloat(slab.width) - 2 * contentInsets.horizontal / 1000
+        let height = CGFloat(slab.height) - 2 * contentInsets.vertical / 1000
+        return CGRect(x: 0.5 - width / visibleWidth / 2, y: 0.5 - height / visibleHeight / 2,
+                      width: width / visibleWidth, height: height / visibleHeight)
+    }
+
+    /// Whether the plate's edge shows anywhere in the picture.
+    static func showsEdge(_ style: Style) -> Bool {
+        visibleHeight(style) * Float(pixelSize.width / pixelSize.height) > slab.width - 2 * CutYearAwardSlab.frontChamfer
+            || visibleHeight(style) > slab.height - 2 * CutYearAwardSlab.frontChamfer
+    }
+
+    /// The frames a post's picture is filled into on a phone `screenWidth` points wide: the
+    /// feed card (inside the 24 point gutters) and the post detail (edge to edge), both 200 tall.
+    static func postFrames(screenWidth: CGFloat) -> [CGSize] {
+        [CGSize(width: screenWidth - 48, height: 200), CGSize(width: screenWidth, height: 200)]
+    }
+
+    /// Debug launch argument: `-CutYearAwardShareStyle object` renders the object style.
+    static let styleArgument = "-CutYearAwardShareStyle"
+
+    /// The style a build uses: the face, unless a Debug launch argument asks for the other.
+    static func style(arguments: [String]) -> Style {
+        guard let index = arguments.firstIndex(of: styleArgument), arguments.indices.contains(index + 1),
+              let style = Style(rawValue: arguments[index + 1]) else { return .face }
+        return style
+    }
+}
+
+// MARK: - Frame cost
+
+/// Debug builds: the 3D award's drawn frames over a window, summarised for the device log.
+/// Times in seconds. Presentations are counted in runs: a pause (the object at rest, nothing
+/// drawn) ends a run, so the rate is the rate while moving, not over idle time.
+struct CutYearAwardFrameStats: Equatable {
+    private(set) var drawn = 0
+    private(set) var mainTotal: Double = 0
+    private(set) var mainWorst: Double = 0
+    private(set) var waitWorst: Double = 0
+    private(set) var presented = 0
+    private(set) var dropped = 0
+    private(set) var movingTime: Double = 0
+    private(set) var gaps = 0
+    private(set) var worstGap: Double = 0
+    private(set) var windowStart: Double?
+    private var lastPresented: Double?
+
+    /// How often a summary is logged while frames are drawn.
+    static let interval: Double = 5
+
+    mutating func recordDrawn(at time: Double, main: Double, wait: Double) {
+        if windowStart == nil { windowStart = time }
+        drawn += 1
+        mainTotal += main
+        mainWorst = max(mainWorst, main)
+        waitWorst = max(waitWorst, wait)
+    }
+
+    /// `time` is the drawable's presented time: 0 when it never reached the screen.
+    mutating func recordPresented(at time: Double) {
+        guard time > 0 else {
+            dropped += 1
+            return
+        }
+        presented += 1
+        if let lastPresented, time > lastPresented {
+            let gap = time - lastPresented
+            movingTime += gap
+            gaps += 1
+            worstGap = max(worstGap, gap)
+        }
+        lastPresented = time
+    }
+
+    /// Drawing stopped: the next presentation starts a new run.
+    mutating func pause() { lastPresented = nil }
+
+    func isDue(at time: Double) -> Bool {
+        guard let windowStart else { return false }
+        return time - windowStart >= Self.interval
+    }
+
+    /// Starts the next window, keeping the run of presentations going.
+    mutating func reset() {
+        let last = lastPresented
+        self = CutYearAwardFrameStats()
+        lastPresented = last
+    }
+
+    var framesPerSecond: Double? { movingTime > 0 ? Double(gaps) / movingTime : nil }
+
+    func summary(_ reason: String) -> String {
+        func ms(_ seconds: Double) -> String { String(format: "%.1f ms", seconds * 1000) }
+        let mean = drawn > 0 ? mainTotal / Double(drawn) : 0
+        let rate = framesPerSecond.map { String(format: "%.1f fps while moving", $0) } ?? "no rate"
+        return "Year award frames (\(reason)): \(drawn) drawn, \(presented) shown, \(dropped) dropped, \(rate), "
+            + "worst gap \(ms(worstGap)), main thread mean \(ms(mean)), worst \(ms(mainWorst)), "
+            + "drawable wait worst \(ms(waitWorst))"
     }
 }

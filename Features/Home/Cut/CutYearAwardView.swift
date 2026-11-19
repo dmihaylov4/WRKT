@@ -282,6 +282,9 @@ private struct CutYearAwardEngraving: View {
 final class CutYearAwardMotion {
     private(set) var tilt: CutYearAwardTilt = .zero
 
+    /// Called after every change of `tilt`, for a reader that draws on its own schedule (the
+    /// 3D object) instead of through SwiftUI.
+    @ObservationIgnored var onTiltChange: (() -> Void)?
     @ObservationIgnored private let manager = CMMotionManager()
     @ObservationIgnored private var baseline: (roll: Double, pitch: Double)?
     @ObservationIgnored private var filtered: CutYearAwardTilt = .zero
@@ -303,7 +306,10 @@ final class CutYearAwardMotion {
         if manager.isDeviceMotionActive { manager.stopDeviceMotionUpdates() }
         baseline = nil
         filtered = .zero
-        if tilt != .zero { tilt = .zero }
+        if tilt != .zero {
+            tilt = .zero
+            onTiltChange?()
+        }
     }
 
     private func receive(roll: Double, pitch: Double) {
@@ -315,6 +321,7 @@ final class CutYearAwardMotion {
         // Skip changes too small to see, so a phone lying still does not redraw the plaque.
         if abs(filtered.yaw - tilt.yaw) > 0.05 || abs(filtered.lean - tilt.lean) > 0.05 {
             tilt = filtered
+            onTiltChange?()
         }
     }
 }

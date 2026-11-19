@@ -253,12 +253,95 @@ struct CutYearAwardObjectTests {
     }
 
     @Test func sharePoseIsCalmerThanRestAndWithinTheLimits() {
-        let share = CutYearAwardLight.sharePose, rest = CutYearAwardLight.staticPose
+        let share = CutYearAwardShare.pose, rest = CutYearAwardLight.staticPose
         #expect(abs(share.yaw) <= abs(rest.yaw))
         #expect(abs(share.lean) <= abs(rest.lean))
         #expect(share.yaw != 0)
         #expect(abs(share.yaw) <= CutYearAwardLight.maxAngle)
-        #expect(CutYearAwardRendering.sharePadding > 0)
+    }
+
+    @Test func sharedPictureIsLandscapeAndNeedsNoResampling() {
+        let size = CutYearAwardShare.pixelSize
+        // The upload resamples anything over 1200 on a side.
+        #expect(max(size.width, size.height) <= 1200)
+        let aspect = size.width / size.height
+        #expect(aspect > 1.6 && aspect < 2.2)
+        // The plate has the picture's shape.
+        let plate = CGFloat(CutYearAwardShare.slab.width / CutYearAwardShare.slab.height)
+        #expect(abs(plate - aspect) < 0.01)
+    }
+
+    @Test func filledFrameShowsTheMiddleOfThePicture() {
+        let wide = CutYearAwardShare.visibleRect(pictureAspect: 2, frame: CGSize(width: 100, height: 100))
+        #expect(abs(wide.width - 0.5) < 1e-9 && abs(wide.minX - 0.25) < 1e-9 && wide.height == 1)
+        let tall = CutYearAwardShare.visibleRect(pictureAspect: 1, frame: CGSize(width: 200, height: 100))
+        #expect(abs(tall.height - 0.5) < 1e-9 && abs(tall.minY - 0.25) < 1e-9 && tall.width == 1)
+        #expect(CutYearAwardShare.visibleRect(pictureAspect: 1, frame: .zero) == .zero)
+    }
+
+    @Test func engravingSurvivesEveryPostFrame() {
+        let aspect = CutYearAwardShare.pixelSize.width / CutYearAwardShare.pixelSize.height
+        for style in [CutYearAwardShare.Style.face, .object] {
+            let content = CutYearAwardShare.contentRect(style)
+            // From the smallest current iPhone to the widest.
+            for width in [375.0, 390, 393, 402, 430, 440] as [CGFloat] {
+                for frame in CutYearAwardShare.postFrames(screenWidth: width) {
+                    let visible = CutYearAwardShare.visibleRect(pictureAspect: aspect, frame: frame)
+                    #expect(visible.contains(content), "\(style) at \(width) pt in \(frame)")
+                }
+            }
+        }
+    }
+
+    @Test func faceStyleShowsOnlySteel() {
+        #expect(!CutYearAwardShare.showsEdge(.face))
+        #expect(CutYearAwardShare.showsEdge(.object))
+    }
+
+    @Test func sharedPlateKeepsTheAwardsCutAndCrown() {
+        let shape = CutYearAwardShare.slab
+        let outline = CutYearAwardSlab.outline(shape)
+        let cut = outline[3] - outline[4]
+        #expect(abs(cut.x - shape.cut) < 1e-6 && abs(cut.y - shape.cut) < 1e-6)
+        #expect(abs(outline[2].x - shape.width / 2) < 1e-6 && abs(outline[2].y - shape.height / 2) < 1e-6)
+        let side = CutYearAwardSlab.crownNormal(at: SIMD2(shape.width / 2, 0), in: shape)
+        #expect(abs(acos(side.z) * 180 / .pi - CutYearAwardSlab.crownSideAngle) < 0.01)
+        #expect(CutYearAwardSlab.outline == CutYearAwardSlab.outline(CutYearAwardSlab.plaque))
+    }
+
+    @Test func shareStyleArgumentIsReadAndDefaultsToTheFace() {
+        #expect(CutYearAwardShare.style(arguments: ["app"]) == .face)
+        #expect(CutYearAwardShare.style(arguments: ["-CutYearAwardShareStyle", "object"]) == .object)
+        #expect(CutYearAwardShare.style(arguments: ["-CutYearAwardShareStyle", "nope"]) == .face)
+        #expect(CutYearAwardShare.style(arguments: ["-CutYearAwardShareStyle"]) == .face)
+    }
+
+    @Test func frameStatsReportTheRateWhileMovingAndTheWorstFrame() {
+        var stats = CutYearAwardFrameStats()
+        #expect(!stats.isDue(at: 100))
+        for index in 0..<10 {
+            stats.recordDrawn(at: 100 + Double(index) / 60, main: index == 3 ? 0.008 : 0.002, wait: 0.001)
+            stats.recordPresented(at: 100 + Double(index) / 60)
+        }
+        // A pause: the object came to rest. The idle time is not counted.
+        stats.pause()
+        stats.recordPresented(at: 103)
+        stats.recordPresented(at: 103 + 1.0 / 30)
+        stats.recordPresented(at: 0)
+        #expect(stats.drawn == 10 && stats.presented == 12 && stats.dropped == 1)
+        #expect(abs(stats.worstGap - 1.0 / 30) < 1e-9)
+        // Ten gaps in 0.183 s of drawing.
+        #expect(abs((stats.framesPerSecond ?? 0) - 10 / (9.0 / 60 + 1.0 / 30)) < 1e-6)
+        #expect(abs(stats.mainWorst - 0.008) < 1e-12)
+        #expect(stats.isDue(at: 105.1) && !stats.isDue(at: 104))
+        let line = stats.summary("every 5 s")
+        #expect(line.hasPrefix("Year award frames (every 5 s): 10 drawn, 12 shown, 1 dropped"))
+        #expect(line.contains("worst gap 33.3 ms") && line.contains("main thread mean 2.6 ms, worst 8.0 ms"))
+        stats.reset()
+        #expect(stats.drawn == 0 && stats.windowStart == nil && stats.framesPerSecond == nil)
+        // The run of presentations goes on across the reset.
+        stats.recordPresented(at: 103 + 2.0 / 30)
+        #expect(stats.gaps == 1)
     }
 
     @Test func fixedTiltIsParsedAndClamped() {
