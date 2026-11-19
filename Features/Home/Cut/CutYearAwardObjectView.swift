@@ -9,6 +9,7 @@
 //
 
 import Metal
+import OSLog
 import QuartzCore
 import RealityKit
 import SwiftUI
@@ -65,10 +66,14 @@ final class CutYearAwardStage {
                                      actionsAfterRender: actions)
     }
 
+    /// The on-screen layer's format. The still uses it too, so it reuses the screen's compiled
+    /// pipelines: a new format costs about a second of shader work on the main thread.
+    static let pixelFormat: MTLPixelFormat = .bgra8Unorm_srgb
+
     /// A still of the object in a pose, on a transparent ground. The share image could use this.
     func snapshot(pose: CutYearAwardPose, size: CGSize, fit: CGFloat, scale: CGFloat) async -> CGImage? {
         let width = Int(size.width * scale), height = Int(size.height * scale)
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm_srgb, width: width,
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: Self.pixelFormat, width: width,
                                                                   height: height, mipmapped: false)
         descriptor.usage = [.renderTarget, .shaderRead, .shaderWrite]
         descriptor.storageMode = .shared
@@ -90,7 +95,9 @@ final class CutYearAwardStage {
         guard let provider = CGDataProvider(data: Data(bytes) as CFData),
               let space = CGColorSpace(name: CGColorSpace.sRGB) else { return nil }
         return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: width * 4,
-                       space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                       space: space,
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue
+                                                | CGBitmapInfo.byteOrder32Little.rawValue),
                        provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
     }
 }
@@ -100,6 +107,7 @@ final class CutYearAwardStage {
 @MainActor
 final class CutYearAwardStageCache {
     static let shared = CutYearAwardStageCache()
+    private static let log = Logger(subsystem: "com.dmihaylov.trak", category: "YearAward")
 
     private var content: CutYearAwardContent?
     private var task: Task<CutYearAwardStage?, Never>?
@@ -116,12 +124,12 @@ final class CutYearAwardStageCache {
                 let scene = try await CutYearAwardObjectBuilder.build(content: content)
                 let stage = try CutYearAwardStage(scene: scene, device: device)
                 #if DEBUG
-                print("[CutYearAward] object built in \(ContinuousClock.now - start)")
+                Self.log.info("Year award object built in \(ContinuousClock.now - start, privacy: .public)")
                 #endif
                 return stage
             } catch {
                 #if DEBUG
-                print("[CutYearAward] object failed: \(error)")
+                Self.log.error("Year award object failed: \(error.localizedDescription, privacy: .public)")
                 #endif
                 return nil
             }
@@ -172,7 +180,7 @@ final class CutYearAwardMetalView: UIView {
         isOpaque = false
         backgroundColor = .clear
         isAccessibilityElement = false
-        metalLayer.pixelFormat = .bgra8Unorm_srgb
+        metalLayer.pixelFormat = CutYearAwardStage.pixelFormat
         metalLayer.framebufferOnly = false
         metalLayer.isOpaque = false
         metalLayer.maximumDrawableCount = 3
@@ -243,8 +251,11 @@ final class CutYearAwardObjectController {
     /// The turn the object arrives from, in degrees: as the SwiftUI plaque did.
     static let arrivalYaw: Double = 75
 
-    func load(_ content: CutYearAwardContent) async {
+    /// Builds or fetches the stage and draws a first, hidden frame. With `arrives`, that frame
+    /// already shows the start of the turn, so any first-use GPU work happens before the reveal.
+    func load(_ content: CutYearAwardContent, arrives: Bool) async {
         guard view?.stage == nil else { return }
+        if arrives && !reduceMotion { arrival.settle(at: Self.arrivalYaw) }
         guard let stage = await CutYearAwardStageCache.shared.stage(for: content) else {
             failed = true
             return
@@ -271,9 +282,10 @@ final class CutYearAwardObjectController {
     func arrive(animated: Bool) {
         guard !hasArrived else { return }
         hasArrived = true
-        if animated && !reduceMotion {
-            arrival.settle(at: Self.arrivalYaw)
+        if animated && !reduceMotion && arrival.value != 0 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { Haptics.rigid() }
+        } else {
+            arrival.settle(at: 0)
         }
         requestFrame()
     }
@@ -292,6 +304,16 @@ final class CutYearAwardObjectController {
 
     func stop() {
         stopLink()
+    }
+
+    /// A still of the object for sharing: flat light, the resting pose, on a transparent ground.
+    func still(scale: CGFloat = 3) async -> UIImage? {
+        guard let stage = view?.stage else { return nil }
+        let size = CGSize(width: CGFloat(CutYearAwardSlab.width * 1000) + 80,
+                          height: CGFloat(CutYearAwardSlab.height * 1000) + 80)
+        guard let image = await stage.snapshot(pose: CutYearAwardLight.staticPose, size: size, fit: 1,
+                                               scale: scale) else { return nil }
+        return UIImage(cgImage: image, scale: scale, orientation: .up)
     }
 
     // MARK: Frames
@@ -314,8 +336,10 @@ final class CutYearAwardObjectController {
     }
 
     fileprivate func tick(_ link: CADisplayLink) {
-        let deltaTime = lastTimestamp.map { link.timestamp - $0 } ?? link.duration
+        // A hitch slows the motion down instead of skipping it.
+        let deltaTime = min(lastTimestamp.map { link.timestamp - $0 } ?? link.duration, 1.0 / 30)
         lastTimestamp = link.timestamp
+
         let pose: CutYearAwardPose
         if reduceMotion {
             pose = CutYearAwardLight.staticPose
@@ -324,14 +348,15 @@ final class CutYearAwardObjectController {
             let parameters: CutYearAwardSpring.Parameters = releasing ? .release : .follow
             yaw.step(toward: target.yaw, parameters: parameters, deltaTime: deltaTime)
             lean.step(toward: target.lean, parameters: parameters, deltaTime: deltaTime)
-            arrival.step(toward: 0, parameters: .arrival, deltaTime: deltaTime)
+            // The turn in waits, held at its start, until the object is revealed.
+            if hasArrived { arrival.step(toward: 0, parameters: .arrival, deltaTime: deltaTime) }
             pose = CutYearAwardLight.pose(tilt: CutYearAwardTilt(yaw: yaw.value, lean: lean.value))
         }
         view?.stage?.setPose(pose, extraYaw: arrival.value)
         view?.draw(deltaTime: deltaTime)
 
         let settled = reduceMotion || (yaw.isSettled(at: target.yaw) && lean.isSettled(at: target.lean)
-                                       && arrival.isSettled(at: 0))
+                                       && (arrival.isSettled(at: 0) || !hasArrived))
         if settled && !dragging {
             releasing = false
             stopLink()
@@ -412,11 +437,20 @@ struct CutYearAwardObjectPlaque: View {
         .task {
             controller.configure(reduceMotion: reduceMotion, active: active, fit: fit)
             controller.setTilt(tilt)
-            await controller.load(content)
+            await controller.load(content, arrives: fixedTilt == nil)
         }
         .onChange(of: controller.isReady) { _, ready in
             guard ready else { return }
             controller.arrive(animated: fixedTilt == nil)
+            #if DEBUG
+            // `-CutYearAwardStill` writes a still of the object to the app's tmp folder.
+            if ProcessInfo.processInfo.arguments.contains("-CutYearAwardStill") {
+                Task {
+                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("award3d-still.png")
+                    try? await controller.still()?.pngData()?.write(to: url)
+                }
+            }
+            #endif
         }
         .onChange(of: controller.failed) { _, failed in if failed { onFailure() } }
         .onChange(of: tilt) { _, tilt in controller.setTilt(tilt) }
@@ -452,10 +486,12 @@ private struct CutYearAwardObjectGround: View {
         let width = CGFloat(CutYearAwardSlab.width * 1000) * fit
         let height = CGFloat(CutYearAwardSlab.height * 1000) * fit
         ZStack {
-            Ellipse()
-                .fill(RadialGradient(colors: [Color.white.opacity(0.05), Color.white.opacity(0)],
-                                     center: .center, startRadius: 0, endRadius: width * 0.7))
-                .frame(width: width * 1.5, height: width * 0.4)
+            // A circle of light squashed flat, so the pool fades out on every side.
+            Circle()
+                .fill(RadialGradient(colors: [Color.white.opacity(0.06), Color.white.opacity(0)],
+                                     center: .center, startRadius: 0, endRadius: width * 0.75))
+                .frame(width: width * 1.5, height: width * 1.5)
+                .scaleEffect(x: 1, y: 0.22)
                 .offset(y: height / 2 + 10 * fit)
             Ellipse()
                 .fill(Color.black.opacity(0.85))
