@@ -22,11 +22,11 @@ private func performTimerAction(_ action: RestTimerAction, timerID: String) asyn
     guard let id = UUID(uuidString: timerID) else {
         throw RestTimerIntentError("Open your workout in the app to restore this timer.")
     }
+    // The store opens asynchronously at launch; app services are touched only after that.
+    let container = await WRKTApp.storage.openedContainer()
     // Only logging the next set writes workout data, so only it needs the full container.
     if case .nextSet = action {
-        // Bootstrap the same container even when no AppShellView has appeared.
-        let storage = WRKTApp.storage
-        guard let container = storage.container else {
+        guard let container else {
             throw RestTimerIntentError("Workout storage is unavailable. Open the app to recover it.")
         }
         RewardsEngine.shared.configure(context: container.mainContext)

@@ -17,11 +17,12 @@ final class StoreUpgradeTests: XCTestCase {
 
     override func tearDown() async throws { try? FileManager.default.removeItem(at: directory) }
 
-    func testUnversionedStoreUpgradesWithoutLosingRecordsOrRelationshipsAndBackupReopens() throws {
+    func testUnversionedStoreUpgradesWithoutLosingRecordsOrRelationshipsAndBackupReopens() async throws {
         try seedLegacyStore(at: storeURL)
         let note = Data("existing user file".utf8)
         try note.write(to: documents.appendingPathComponent("notes.txt"))
         let storage = AppDataStore(storeURL: storeURL, documents: documents, preferences: { ["weightUnit": "lb"] })
+        _ = await storage.openedContainer()
         XCTAssertNil(storage.error)
         let context = try XCTUnwrap(storage.container).mainContext
         try assertCurrentRecords(context)
@@ -39,15 +40,17 @@ final class StoreUpgradeTests: XCTestCase {
         // Opening an already-upgraded database does not duplicate records or replace the snapshot.
         let manifest = try Data(contentsOf: copy.appendingPathComponent("manifest.json"))
         storage.retry()
+        _ = await storage.openedContainer()
         try assertCurrentRecords(context)
         XCTAssertEqual(try Data(contentsOf: copy.appendingPathComponent("manifest.json")), manifest)
     }
 
-    func testBackupFailureLeavesExistingDatabaseClosedAndUnmodifiedThenRetrySucceeds() throws {
+    func testBackupFailureLeavesExistingDatabaseClosedAndUnmodifiedThenRetrySucceeds() async throws {
         try seedLegacyStore(at: storeURL)
         let blockedDirectory = support.appendingPathComponent("UpgradeBackups")
         try Data("not a directory".utf8).write(to: blockedDirectory)
         let storage = AppDataStore(storeURL: storeURL, documents: documents, preferences: { [:] })
+        _ = await storage.openedContainer()
         XCTAssertNil(storage.container)
         XCTAssertNotNil(storage.error)
         try autoreleasepool {
@@ -58,13 +61,15 @@ final class StoreUpgradeTests: XCTestCase {
         }
         try FileManager.default.removeItem(at: blockedDirectory)
         storage.retry()
+        _ = await storage.openedContainer()
         try assertCurrentRecords(XCTUnwrap(storage.container).mainContext)
     }
 
-    func testCorruptDatabaseIsPreservedAndNeverReplacedWithAnEmptyStore() throws {
+    func testCorruptDatabaseIsPreservedAndNeverReplacedWithAnEmptyStore() async throws {
         let bytes = Data("unreadable original database".utf8)
         try bytes.write(to: storeURL)
         let storage = AppDataStore(storeURL: storeURL, documents: documents, preferences: { [:] })
+        _ = await storage.openedContainer()
         XCTAssertNil(storage.container)
         XCTAssertNotNil(storage.error)
         let copy = try XCTUnwrap(storage.recoveryCopy)
@@ -94,7 +99,7 @@ final class StoreUpgradeTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: corruptURL), corrupt)
     }
 
-    func testAlreadyCurrentUnversionedStoreCanAdoptTheMigrationPlan() throws {
+    func testAlreadyCurrentUnversionedStoreCanAdoptTheMigrationPlan() async throws {
         try autoreleasepool {
             let schema = Schema(AppStoreSchema.models)
             let old = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: storeURL))
@@ -102,14 +107,16 @@ final class StoreUpgradeTests: XCTestCase {
             try old.mainContext.save()
         }
         let storage = AppDataStore(storeURL: storeURL, documents: documents, preferences: { [:] })
+        _ = await storage.openedContainer()
         XCTAssertNil(storage.error)
         let container = try XCTUnwrap(storage.container)
         XCTAssertEqual(try container.mainContext.fetch(FetchDescriptor<Wallet>()).first?.coins, 912)
     }
 
-    func testCacheOnlyLegacyStoreIsPreservedInsteadOfReplacedWithEmptyUserData() throws {
+    func testCacheOnlyLegacyStoreIsPreservedInsteadOfReplacedWithEmptyUserData() async throws {
         try seedLegacyCache(at: storeURL)
         let storage = AppDataStore(storeURL: storeURL, documents: documents, preferences: { [:] })
+        _ = await storage.openedContainer()
         XCTAssertNil(storage.container)
         XCTAssertNotNil(storage.error)
         XCTAssertNotNil(storage.recoveryCopy)
@@ -118,13 +125,14 @@ final class StoreUpgradeTests: XCTestCase {
         XCTAssertEqual(try old.mainContext.fetch(FetchDescriptor<LegacyStoreSchema.CachedProfile>()).first?.username, "existing-user")
     }
 
-    func testCorruptWorkoutHistoryBlocksStartupAndIsIncludedInRecoveryCopy() throws {
+    func testCorruptWorkoutHistoryBlocksStartupAndIsIncludedInRecoveryCopy() async throws {
         try seedLegacyStore(at: storeURL)
         let history = documents.appendingPathComponent("WRKT_Storage")
         try FileManager.default.createDirectory(at: history, withIntermediateDirectories: true)
         let bytes = Data("{truncated history".utf8)
         try bytes.write(to: history.appendingPathComponent("workouts_v2.json"))
         let storage = AppDataStore(storeURL: storeURL, documents: documents, preferences: { [:] })
+        _ = await storage.openedContainer()
         XCTAssertNil(storage.container)
         let copy = try XCTUnwrap(storage.recoveryCopy)
         XCTAssertEqual(try Data(contentsOf: copy.appendingPathComponent("Documents/WRKT_Storage/workouts_v2.json")), bytes)

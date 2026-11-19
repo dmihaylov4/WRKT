@@ -94,6 +94,10 @@ final class HealthKitManager: ObservableObject {
     weak var challengeRepository: ChallengeRepository?
     weak var authService: SupabaseAuthService?
 
+    /// Awaited before an observer delivery or a catch-up writes anything. The app uses it to wait
+    /// for the user store to open at launch and to configure health sync against it.
+    var prepareForSync: @MainActor () async -> Void = {}
+
     // Observer queries (kept alive)
     private var workoutObserver: HKObserverQuery?
     private var exerciseTimeObserver: HKObserverQuery?
@@ -262,6 +266,7 @@ final class HealthKitManager: ObservableObject {
                 Task { @MainActor [weak self] in
                     guard let self else { completion(); return }
                     if let error { self.syncError = error }
+                    await self.prepareForSync()
                     do {
                         try self.syncDelivery.receive(completion: completion)
                     } catch {
@@ -293,6 +298,7 @@ final class HealthKitManager: ObservableObject {
     @discardableResult
     func catchUpHealthChanges() async -> Bool {
         guard connectionState == .connected else { return false }
+        await prepareForSync()
         do {
             try syncDelivery.receive { }
         } catch {

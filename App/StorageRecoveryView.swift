@@ -55,14 +55,21 @@ struct WorkoutDataGate: View {
             StorageRecoveryView(recoveryCopy: recoveryCopy, retry: store.retryStorageLoad)
                 .onAppear { LaunchSplashState.shared.isContentReady = true }
         } else {
-            ZStack {
-                Color.black
-                LaunchClapMark(elapsed: 0, reduceMotion: false)
-            }
-            .ignoresSafeArea()
-            .statusBarHidden()
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Opening your history")
+            LaunchHoldView()
         }
+    }
+}
+
+/// The launch screen's still mark on black, under the clap while the store opens and history loads.
+struct LaunchHoldView: View {
+    var body: some View {
+        ZStack {
+            Color.black
+            LaunchClapMark(elapsed: 0, reduceMotion: false)
+        }
+        .ignoresSafeArea()
+        .statusBarHidden()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Opening your history")
     }
 }
