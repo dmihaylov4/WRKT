@@ -11,6 +11,7 @@
 //
 
 import Accelerate
+import OSLog
 import RealityKit
 import SwiftUI
 import UIKit
@@ -25,41 +26,48 @@ struct CutYearAwardObjectLayout: View {
     static let deepInk = Color(red: 1, green: 0, blue: 0)
     static let fineInk = Color(red: 0, green: 1, blue: 0)
 
+    static let inset = EdgeInsets(top: 30, leading: 28, bottom: 30, trailing: 28)
+    /// The top of the year's digits, in points from the top of the face. The year is the
+    /// face's centre of gravity, a little above the middle; the words sit under it and leave
+    /// a calm margin at the bottom.
+    static let yearTop: CGFloat = 150
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                VMarkShape()
-                    .fill(Self.deepInk)
-                    .frame(width: 74, height: 46)
-            }
-            Spacer(minLength: 0)
-            Text(content.yearText)
-                .font(DS.Cut.Typography.condensed(size: 118, monospacedDigits: true))
-                .tracking(1)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .padding(.vertical, Self.tightening(size: 118, lineHeight: 0.84))
-                .foregroundStyle(Self.deepInk)
-            VStack(alignment: .leading, spacing: Self.lineGap(size: 28, lineHeight: 1.0)) {
-                ForEach(Array(content.headlineLines.enumerated()), id: \.offset) { _, line in
-                    Text(line)
-                        .font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2))
-                        .textCase(.uppercase)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
+        ZStack(alignment: .topLeading) {
+            // The mark keeps its corner, clear of the cut one, without pushing the text down.
+            VMarkShape()
+                .fill(Self.deepInk)
+                .frame(width: 74, height: 46)
+                .frame(maxWidth: .infinity, alignment: .topTrailing)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(content.yearText)
+                    .font(DS.Cut.Typography.condensed(size: 118, monospacedDigits: true))
+                    .tracking(1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .padding(.vertical, Self.tightening(size: 118, lineHeight: 0.84))
+                    .foregroundStyle(Self.deepInk)
+                VStack(alignment: .leading, spacing: Self.lineGap(size: 28, lineHeight: 1.0)) {
+                    ForEach(Array(content.headlineLines.enumerated()), id: \.offset) { _, line in
+                        Text(line)
+                            .font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title2))
+                            .textCase(.uppercase)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
                 }
-            }
-            .foregroundStyle(Self.fineInk)
-            .padding(.top, 12)
-            Text(content.objectLine)
-                .font(DS.Typography.custom(size: 18, weight: .bold, relativeTo: .body))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
                 .foregroundStyle(Self.fineInk)
-                .padding(.top, 18)
+                .padding(.top, 14)
+                Text(content.objectLine)
+                    .font(DS.Typography.custom(size: 18, weight: .bold, relativeTo: .body))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .foregroundStyle(Self.fineInk)
+                    .padding(.top, 16)
+            }
+            .padding(.top, Self.yearTop - Self.inset.top)
         }
-        .padding(EdgeInsets(top: 30, leading: 28, bottom: 30, trailing: 28))
+        .padding(Self.inset)
         .frame(width: CGFloat(CutYearAwardSlab.width * 1000), height: CGFloat(CutYearAwardSlab.height * 1000),
                alignment: .topLeading)
         .dynamicTypeSize(.large)
@@ -84,6 +92,26 @@ struct CutYearAwardFaceMaps: @unchecked Sendable {
     let tint: CGImage
 }
 
+/// Float planes allocated once and reused, so building the maps does not churn through large
+/// temporary arrays. Freed when the pool goes.
+private final class CutYearAwardPlanes {
+    let count: Int
+    private let planes: [UnsafeMutablePointer<Float>]
+
+    init(count: Int, planes number: Int) {
+        self.count = count
+        planes = (0..<number).map { _ in
+            let plane = UnsafeMutablePointer<Float>.allocate(capacity: count)
+            plane.initialize(repeating: 0, count: count)
+            return plane
+        }
+    }
+
+    subscript(index: Int) -> UnsafeMutablePointer<Float> { planes[index] }
+
+    deinit { planes.forEach { $0.deallocate() } }
+}
+
 enum CutYearAwardFaceMapBuilder {
     /// Pixels across the face. About 3.2 px per point: the face is drawn at most 318 pt wide,
     /// so this matches a 3x screen without wasting memory (6 MB for the normal map).
@@ -98,231 +126,333 @@ enum CutYearAwardFaceMapBuilder {
         return renderer.cgImage
     }
 
-    /// Engraving profile, in pixels: the deep cut has 45 degree walls this wide and then a flat
-    /// floor; the fine cut is narrow enough that it is a V.
-    static let deepSteps = 7
-    static let fineSteps = 4
-
-    /// Turns the mask into the face's maps. Pure CPU work, vectorised with Accelerate.
-    nonisolated static func maps(mask: CGImage) -> CutYearAwardFaceMaps? {
-        let w = mask.width, h = mask.height, n = w * h
-        guard w > 8, h > 8 else { return nil }
-
-        // The mask as RGBA bytes, then its red and green channels as floats in 0...1.
-        var rgba = [UInt8](repeating: 0, count: n * 4)
-        let drawn: Bool = rgba.withUnsafeMutableBytes { raw in
-            guard let context = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8,
-                                          bytesPerRow: w * 4, space: CGColorSpaceCreateDeviceRGB(),
-                                          bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
-            context.draw(mask, in: CGRect(x: 0, y: 0, width: w, height: h))
-            return true
-        }
-        guard drawn else { return nil }
-        let deep = channel(rgba, index: 0, width: w, height: h)
-        let fine = channel(rgba, index: 1, width: w, height: h)
-
-        let (deepDepth, deepFloor) = depth(deep, steps: deepSteps, width: w, height: h)
-        let (fineDepth, fineFloor) = depth(fine, steps: fineSteps, width: w, height: h)
-
-        // Height: 0 on the face, negative into the cut, one unit per pixel inward (45 degrees).
-        var height = [Float](repeating: 0, count: n)
-        height = vDSP.multiply(-1, vDSP.add(deepDepth, fineDepth))
-        height = convolve(height, width: w, height: h,
-                          kernel: [1, 2, 1, 2, 4, 2, 1, 2, 1].map { Float($0) / 16 })
-
-        // Brushing: fine horizontal grain on the face only, not inside the cuts.
-        let cut = vDSP.clip(vDSP.add(deep, fine), to: 0...1)
-        let face = vDSP.subtract([Float](repeating: 1, count: n), cut)
-        let grain = brushGrain(width: w, height: h)
-        let faceGrain = vDSP.multiply(grain, face)
-        height = vDSP.add(height, faceGrain)
-
-        // Normals from the height's slope. Image rows run down, the texture's v runs up.
-        let sobelX: [Float] = [-1, 0, 1, -2, 0, 2, -1, 0, 1].map { $0 / 8 }
-        let sobelY: [Float] = [-1, -2, -1, 0, 0, 0, 1, 2, 1].map { $0 / 8 }
-        let dx = convolve(height, width: w, height: h, kernel: sobelX)
-        let dy = convolve(height, width: w, height: h, kernel: sobelY)
-        var nx = vDSP.multiply(-1, dx)
-        var ny = dy
-        var length = [Float](repeating: 1, count: n)
-        length = vDSP.add(length, vDSP.add(vDSP.square(nx), vDSP.square(ny)))
-        length = vForce.sqrt(length)
-        nx = vDSP.divide(nx, length)
-        ny = vDSP.divide(ny, length)
-        let nz = vDSP.divide(1, length)
-
-        // Roughness: satin brushed face, polished cut walls, a matte floor in the deep cut.
-        let floor = vDSP.add(deepFloor, fineFloor)
-        let wall = vDSP.subtract(cut, floor)
-        var roughness = vDSP.multiply(Style.faceRoughness, face)
-        roughness = vDSP.add(roughness, vDSP.multiply(Style.wallRoughness, wall))
-        roughness = vDSP.add(roughness, vDSP.multiply(Style.floorRoughness, floor))
-        roughness = vDSP.add(roughness, vDSP.multiply(Style.grainRoughness, faceGrain))
-        // The words: frosted over their whole width, not only on a floor.
-        roughness = vDSP.add(vDSP.multiply(vDSP.subtract([Float](repeating: 1, count: n), fine), roughness),
-                             vDSP.multiply(Style.fineRoughness, fine))
-        roughness = vDSP.clip(roughness, to: 0...1)
-
-        // Tint: the cut reflects less of the room than the face around it.
-        var tint = [Float](repeating: 1, count: n)
-        tint = vDSP.subtract(tint, vDSP.multiply(Style.floorDarkening, floor))
-        tint = vDSP.subtract(tint, vDSP.multiply(Style.wallDarkening, wall))
-        tint = vDSP.subtract(tint, vDSP.multiply(Style.fineDarkening, fine))
-
-        guard let normalImage = rgbImage(nx, ny, nz, width: w, height: h),
-              let roughnessImage = grayImage(roughness, width: w, height: h, scale: 0.5),
-              let tintImage = grayImage(tint, width: w, height: h, scale: 0.5) else { return nil }
-        return CutYearAwardFaceMaps(normal: normalImage, roughness: roughnessImage, tint: tintImage)
-    }
-
     enum Style {
+        /// The deep cut (the year and the mark): walls this many pixels wide, steeper than 45
+        /// degrees so the lip and the wall separate, then a flat floor.
+        static let deepSteps = 7
+        static let deepSlope: Float = 1.5
+        /// The words: narrow enough that the cut is a V.
+        static let fineSteps = 4
+        static let fineSlope: Float = 1.2
+        /// How far into the floor the corner darkening reaches, in pixels.
+        static let occlusionSteps = 6
+
         static let faceRoughness: Float = 0.17
-        static let wallRoughness: Float = 0.12
-        static let floorRoughness: Float = 0.55
-        static let grainRoughness: Float = 0.5
-        static let floorDarkening: Float = 0.34
-        static let wallDarkening: Float = 0.06
-        /// The words are frosted as well as cut, so they read even when the walls catch no light.
-        static let fineDarkening: Float = 0.38
-        static let fineRoughness: Float = 0.42
+        /// The cut walls are left polished by the cutter: the bright lip.
+        static let wallRoughness: Float = 0.08
+        /// The floor is bead blasted: a fine matte stipple against the brushed face.
+        static let floorRoughness: Float = 0.5
+        static let fineRoughness: Float = 0.36
+
+        static let floorDarkening: Float = 0.2
+        static let wallDarkening: Float = 0.04
+        static let fineDarkening: Float = 0.5
+        /// Darkening of the floor where it meets the walls.
+        static let occlusion: Float = 0.35
+        /// The shadow the upper wall casts on the floor: the light comes from above and a
+        /// little to the left, so the shadow falls down and a little right.
+        static let shadow: Float = 0.5
+        static let shadowOffset = (x: 2, y: 13)
+
         /// Height of the brush grain, in pixels of depth. Small: the grain is felt in the light,
         /// not seen as lines.
         static let grainDepth: Float = 0.035
+        /// Height of the bead blast stipple on the floor.
+        static let blastDepth: Float = 0.22
     }
 
-    // MARK: Helpers
+    /// Turns the mask into the face's maps. Pure CPU work, vectorised with Accelerate, in a
+    /// fixed set of reused planes: about 60 MB at the peak instead of a new array per step.
+    nonisolated static func maps(mask: CGImage) -> CutYearAwardFaceMaps? {
+        let w = mask.width, h = mask.height, n = w * h
+        guard w > 8, h > 8 else { return nil }
+        let p = CutYearAwardPlanes(count: n, planes: 7)
+        let deep = p[0], fine = p[1], height = p[2], current = p[3], a = p[4], b = p[5], floor = p[6]
+        let length = vDSP_Length(n)
 
-    private static func channel(_ rgba: [UInt8], index: Int, width: Int, height: Int) -> [Float] {
-        var bytes = [UInt8](repeating: 0, count: width * height)
-        rgba.withUnsafeBufferPointer { source in
-            bytes.withUnsafeMutableBufferPointer { dest in
-                for i in 0..<(width * height) { dest[i] = source[i * 4 + index] }
+        guard split(mask, red: deep, green: fine, width: w, height: h) else { return nil }
+
+        // Height: 0 on the face, negative into the cut. Each erosion adds one pixel of depth:
+        // the sum is a distance into the shape, capped at the wall width.
+        func accumulate(_ plane: UnsafeMutablePointer<Float>, steps: Int, slope: Float) {
+            current.update(from: plane, count: n)
+            var s = slope
+            vDSP_vsma(current, 1, &s, height, 1, height, 1, length)
+            for step in 0..<steps {
+                erode(current, into: a, scratch: b, step: step, width: w, height: h)
+                current.update(from: a, count: n)
+                vDSP_vsma(current, 1, &s, height, 1, height, 1, length)
             }
         }
-        return vDSP.divide(vDSP.integerToFloatingPoint(bytes, floatingPointType: Float.self), 255)
-    }
+        accumulate(deep, steps: Style.deepSteps, slope: Style.deepSlope)
+        // What is left after the walls is the deep cut's floor.
+        floor.update(from: current, count: n)
+        accumulate(fine, steps: Style.fineSteps, slope: Style.fineSlope)
+        vDSP_vneg(height, 1, height, 1, length)
+        // A light smoothing: enough to hide the erosion steps, not enough to round the lip.
+        convolve(height, into: a, kernel: [0, 1, 0, 1, 4, 1, 0, 1, 0].map { $0 / 8 }, width: w, height: h)
+        height.update(from: a, count: n)
 
-    /// Approximate distance into the shape, capped at `steps` pixels: the sum of the shape
-    /// eroded once, twice, and so on. Alternating square and cross erosions keep the walls
-    /// even on diagonals. Also returns the last erosion: the flat floor past the walls.
-    private static func depth(_ plane: [Float], steps: Int, width: Int, height: Int) -> ([Float], [Float]) {
-        var sum = plane
-        var current = plane
-        for step in 0..<steps {
-            if step.isMultiple(of: 2) {
-                current = minimum(current, width: width, height: height, kernelWidth: 3, kernelHeight: 3)
-            } else {
-                let across = minimum(current, width: width, height: height, kernelWidth: 3, kernelHeight: 1)
-                let down = minimum(current, width: width, height: height, kernelWidth: 1, kernelHeight: 3)
-                current = vDSP.minimum(across, down)
-            }
-            sum = vDSP.add(sum, current)
+        // Brush grain on the face, bead blast on the floor.
+        addSurface(to: height, deep: deep, fine: fine, floor: floor, width: w, height: h)
+
+        // Roughness and tint first, while the planes they need are still there.
+        guard let roughness = roughnessImage(deep: deep, fine: fine, floor: floor, into: a, cut: b,
+                                             width: w, height: h),
+              let tint = tintImage(deep: deep, fine: fine, floor: floor, into: a, scratch: b, current: current,
+                                   width: w, height: h),
+              let normal = normalImage(height: height, planes: (deep, fine, a, b), width: w, height: h) else {
+            return nil
         }
-        return (sum, current)
+        return CutYearAwardFaceMaps(normal: normal, roughness: roughness, tint: tint)
     }
 
-    private static func minimum(_ plane: [Float], width: Int, height: Int, kernelWidth: Int, kernelHeight: Int) -> [Float] {
-        var result = [Float](repeating: 0, count: plane.count)
-        var source = plane
-        source.withUnsafeMutableBytes { src in
-            result.withUnsafeMutableBytes { dst in
-                var input = vImage_Buffer(data: src.baseAddress, height: vImagePixelCount(height),
-                                          width: vImagePixelCount(width), rowBytes: width * 4)
-                var output = vImage_Buffer(data: dst.baseAddress, height: vImagePixelCount(height),
-                                           width: vImagePixelCount(width), rowBytes: width * 4)
-                _ = vImageMin_PlanarF(&input, &output, nil, 0, 0, vImagePixelCount(kernelHeight),
-                                      vImagePixelCount(kernelWidth), vImage_Flags(kvImageEdgeExtend))
-            }
+    // MARK: Steps
+
+    private static let blur: [Float] = [1, 2, 1, 2, 4, 2, 1, 2, 1].map { $0 / 16 }
+
+    /// The mask's red and green channels as floats in 0...1.
+    private static func split(_ mask: CGImage, red: UnsafeMutablePointer<Float>, green: UnsafeMutablePointer<Float>,
+                              width w: Int, height h: Int) -> Bool {
+        let rgba = UnsafeMutablePointer<UInt8>.allocate(capacity: w * h * 4)
+        let channel = UnsafeMutablePointer<UInt8>.allocate(capacity: w * h)
+        defer { rgba.deallocate(); channel.deallocate() }
+        guard let context = CGContext(data: rgba, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+        context.draw(mask, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var source = vImage_Buffer(data: rgba, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w * 4)
+        var bytes = vImage_Buffer(data: channel, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w)
+        for (index, plane) in [(0, red), (1, green)] {
+            var floats = buffer(plane, width: w, height: h)
+            vImageExtractChannel_ARGB8888(&source, &bytes, index, vImage_Flags(kvImageNoFlags))
+            vImageConvert_Planar8toPlanarF(&bytes, &floats, 1, 0, vImage_Flags(kvImageNoFlags))
         }
-        return result
+        return true
     }
 
-    private static func convolve(_ plane: [Float], width: Int, height: Int, kernel: [Float]) -> [Float] {
-        var result = [Float](repeating: 0, count: plane.count)
-        var source = plane
-        source.withUnsafeMutableBytes { src in
-            result.withUnsafeMutableBytes { dst in
-                var input = vImage_Buffer(data: src.baseAddress, height: vImagePixelCount(height),
-                                          width: vImagePixelCount(width), rowBytes: width * 4)
-                var output = vImage_Buffer(data: dst.baseAddress, height: vImagePixelCount(height),
-                                           width: vImagePixelCount(width), rowBytes: width * 4)
-                _ = vImageConvolve_PlanarF(&input, &output, nil, 0, 0, kernel, 3, 3, 0,
-                                           vImage_Flags(kvImageEdgeExtend))
-            }
+    /// One erosion step. Alternating square and cross keeps the walls even on diagonals.
+    private static func erode(_ source: UnsafeMutablePointer<Float>, into dest: UnsafeMutablePointer<Float>,
+                              scratch: UnsafeMutablePointer<Float>, step: Int, width w: Int, height h: Int) {
+        var input = buffer(source, width: w, height: h)
+        var output = buffer(dest, width: w, height: h)
+        let flags = vImage_Flags(kvImageEdgeExtend)
+        if step.isMultiple(of: 2) {
+            vImageMin_PlanarF(&input, &output, nil, 0, 0, 3, 3, flags)
+        } else {
+            var other = buffer(scratch, width: w, height: h)
+            vImageMin_PlanarF(&input, &output, nil, 0, 0, 1, 3, flags)
+            vImageMin_PlanarF(&input, &other, nil, 0, 0, 3, 1, flags)
+            vDSP_vmin(dest, 1, scratch, 1, dest, 1, vDSP_Length(w * h))
         }
-        return result
     }
 
-    /// Horizontal brush grain: every row gets its own small height, with a few longer streaks
-    /// on top. Seeded, so every award gets the same metal.
-    private static func brushGrain(width: Int, height: Int) -> [Float] {
+    private static func convolve(_ source: UnsafeMutablePointer<Float>, into dest: UnsafeMutablePointer<Float>,
+                                 kernel: [Float], width w: Int, height h: Int) {
+        var input = buffer(source, width: w, height: h)
+        var output = buffer(dest, width: w, height: h)
+        vImageConvolve_PlanarF(&input, &output, nil, 0, 0, kernel, 3, 3, 0, vImage_Flags(kvImageEdgeExtend))
+    }
+
+    private static func buffer(_ plane: UnsafeMutablePointer<Float>, width w: Int, height h: Int) -> vImage_Buffer {
+        vImage_Buffer(data: plane, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w * 4)
+    }
+
+    /// Adds the brush grain to the face and the bead blast to the deep floor, a row at a time.
+    /// Seeded, so every award gets the same metal.
+    private static func addSurface(to height: UnsafeMutablePointer<Float>, deep: UnsafeMutablePointer<Float>,
+                                   fine: UnsafeMutablePointer<Float>, floor: UnsafeMutablePointer<Float>,
+                                   width w: Int, height h: Int) {
         var seed: UInt64 = 0x5EED_2026
         func next() -> Float {
             seed = seed &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
             return Float(seed >> 40) / Float(1 << 24)
         }
-        var grain = [Float](repeating: 0, count: width * height)
-        let depth = Style.grainDepth
-        grain.withUnsafeMutableBufferPointer { buffer in
-            guard let base = buffer.baseAddress else { return }
-            for row in 0..<height {
-                let rowBase = base + row * width
-                var value = (next() - 0.5) * depth
-                vDSP_vfill(&value, rowBase, 1, vDSP_Length(width))
-                for _ in 0..<3 {
-                    let start = Int(next() * Float(width))
-                    let length = min(width - start, Int(Float(width) * (0.2 + next() * 0.8)))
-                    guard length > 0 else { continue }
-                    var streak = (next() - 0.5) * depth * 1.6
-                    vDSP_vsadd(rowBase + start, 1, &streak, rowBase + start, 1, vDSP_Length(length))
+        // A small tile of soft noise for the blast, repeated across the floor.
+        let tileSize = 64
+        var tile = [Float](repeating: 0, count: tileSize * tileSize)
+        for i in tile.indices { tile[i] = next() - 0.5 }
+        var soft = tile
+        for y in 0..<tileSize {
+            for x in 0..<tileSize {
+                var sum: Float = 0
+                for dy in -1...1 {
+                    for dx in -1...1 {
+                        sum += tile[((y + dy + tileSize) % tileSize) * tileSize + (x + dx + tileSize) % tileSize]
+                    }
+                }
+                soft[y * tileSize + x] = sum / 9 * Style.blastDepth * 3
+            }
+        }
+        let row = UnsafeMutablePointer<Float>.allocate(capacity: w)
+        let face = UnsafeMutablePointer<Float>.allocate(capacity: w)
+        defer { row.deallocate(); face.deallocate() }
+        let count = vDSP_Length(w)
+        var one: Float = 1, minusOne: Float = -1, zero: Float = 0
+        for y in 0..<h {
+            let offset = y * w
+            // Grain: one height per row plus a few longer streaks.
+            var value = (next() - 0.5) * Style.grainDepth
+            vDSP_vfill(&value, row, 1, count)
+            for _ in 0..<3 {
+                let start = Int(next() * Float(w))
+                let span = min(w - start, Int(Float(w) * (0.2 + next() * 0.8)))
+                guard span > 0 else { continue }
+                var streak = (next() - 0.5) * Style.grainDepth * 1.6
+                vDSP_vsadd(row + start, 1, &streak, row + start, 1, vDSP_Length(span))
+            }
+            // Only on the face: 1 - (deep + fine), clipped.
+            vDSP_vadd(deep + offset, 1, fine + offset, 1, face, 1, count)
+            vDSP_vclip(face, 1, &zero, &one, face, 1, count)
+            vDSP_vsmsa(face, 1, &minusOne, &one, face, 1, count)
+            vDSP_vma(row, 1, face, 1, height + offset, 1, height + offset, 1, count)
+            // Blast: the tile's row, repeated, only on the floor.
+            soft.withUnsafeBufferPointer { source in
+                guard let base = source.baseAddress else { return }
+                let tileRow = base + (y % tileSize) * tileSize
+                var x = 0
+                while x < w {
+                    let span = min(tileSize, w - x)
+                    (row + x).update(from: tileRow, count: span)
+                    x += span
                 }
             }
+            vDSP_vma(row, 1, floor + offset, 1, height + offset, 1, height + offset, 1, count)
         }
-        return grain
     }
 
-    /// Unit normals in -1...1 as an RGBA8 image.
-    private static func rgbImage(_ x: [Float], _ y: [Float], _ z: [Float], width: Int, height: Int) -> CGImage? {
-        func bytes(_ plane: [Float]) -> [UInt8] {
-            let scaled = vDSP.add(127.5, vDSP.multiply(127.5, plane))
-            return vDSP.floatingPointToInteger(vDSP.clip(scaled, to: 0...255), integerType: UInt8.self,
-                                               rounding: .towardNearestInteger)
-        }
-        let r = bytes(x), g = bytes(y), b = bytes(z)
-        var pixels = [UInt8](repeating: 255, count: width * height * 4)
-        pixels.withUnsafeMutableBufferPointer { dest in
-            for i in 0..<(width * height) {
-                dest[i * 4] = r[i]
-                dest[i * 4 + 1] = g[i]
-                dest[i * 4 + 2] = b[i]
-            }
-        }
-        return image(pixels, width: width, height: height, components: 4)
+    /// Satin brushed face, polished walls, a matte blasted floor, frosted words.
+    private static func roughnessImage(deep: UnsafeMutablePointer<Float>, fine: UnsafeMutablePointer<Float>,
+                                       floor: UnsafeMutablePointer<Float>, into out: UnsafeMutablePointer<Float>,
+                                       cut: UnsafeMutablePointer<Float>, width w: Int, height h: Int) -> CGImage? {
+        let n = vDSP_Length(w * h)
+        var zero: Float = 0, one: Float = 1
+        vDSP_vadd(deep, 1, fine, 1, cut, 1, n)
+        vDSP_vclip(cut, 1, &zero, &one, cut, 1, n)
+        var wallStep = Style.wallRoughness - Style.faceRoughness, face = Style.faceRoughness
+        vDSP_vsmsa(cut, 1, &wallStep, &face, out, 1, n)
+        var floorStep = Style.floorRoughness - Style.wallRoughness
+        vDSP_vsma(floor, 1, &floorStep, out, 1, out, 1, n)
+        var fineStep = Style.fineRoughness - Style.wallRoughness
+        vDSP_vsma(fine, 1, &fineStep, out, 1, out, 1, n)
+        vDSP_vclip(out, 1, &zero, &one, out, 1, n)
+        return grayImage(out, width: w, height: h)
     }
 
-    /// A 0...1 plane as an 8 bit grey image, optionally scaled down.
-    private static func grayImage(_ plane: [Float], width: Int, height: Int, scale: Double) -> CGImage? {
-        var bytes = vDSP.floatingPointToInteger(vDSP.clip(vDSP.multiply(255, plane), to: 0...255),
-                                                integerType: UInt8.self, rounding: .towardNearestInteger)
-        let outWidth = max(1, Int(Double(width) * scale)), outHeight = max(1, Int(Double(height) * scale))
-        guard outWidth != width else { return image(bytes, width: width, height: height, components: 1) }
-        var scaled = [UInt8](repeating: 0, count: outWidth * outHeight)
-        bytes.withUnsafeMutableBytes { src in
-            scaled.withUnsafeMutableBytes { dst in
-                var input = vImage_Buffer(data: src.baseAddress, height: vImagePixelCount(height),
-                                          width: vImagePixelCount(width), rowBytes: width)
-                var output = vImage_Buffer(data: dst.baseAddress, height: vImagePixelCount(outHeight),
-                                           width: vImagePixelCount(outWidth), rowBytes: outWidth)
-                _ = vImageScale_Planar8(&input, &output, nil, vImage_Flags(kvImageHighQualityResampling))
-            }
+    /// How much of the room each point reflects: less in the cut, less again in the floor's
+    /// corners and under the upper wall's shadow.
+    private static func tintImage(deep: UnsafeMutablePointer<Float>, fine: UnsafeMutablePointer<Float>,
+                                  floor: UnsafeMutablePointer<Float>, into out: UnsafeMutablePointer<Float>,
+                                  scratch: UnsafeMutablePointer<Float>, current: UnsafeMutablePointer<Float>,
+                                  width w: Int, height h: Int) -> CGImage? {
+        let count = w * h, n = vDSP_Length(count)
+        var one: Float = 1, minusOne: Float = -1, zero: Float = 0
+        vDSP_vfill(&one, out, 1, n)
+        var wall = -Style.wallDarkening
+        vDSP_vsma(deep, 1, &wall, out, 1, out, 1, n)
+        var floorDark = -(Style.floorDarkening - Style.wallDarkening)
+        vDSP_vsma(floor, 1, &floorDark, out, 1, out, 1, n)
+        var fineDark = -Style.fineDarkening
+        vDSP_vsma(fine, 1, &fineDark, out, 1, out, 1, n)
+
+        // The upper wall and the floor under it are in shadow: the light comes from above.
+        // A point is shaded when the point up and a little to the left of it is still inside
+        // the cut, short of the shift: the shadow covers the upper wall and falls a few pixels
+        // onto the floor below it.
+        let blurred = UnsafeMutablePointer<Float>.allocate(capacity: count)
+        defer { blurred.deallocate() }
+        vDSP_vclr(scratch, 1, n)
+        let (dx, dy) = Style.shadowOffset
+        for y in dy..<h {
+            (scratch + y * w + dx).update(from: deep + (y - dy) * w, count: w - dx)
         }
-        return image(scaled, width: outWidth, height: outHeight, components: 1)
+        // Shadow = deep * (1 - shifted deep).
+        vDSP_vsmsa(scratch, 1, &minusOne, &one, scratch, 1, n)
+        vDSP_vmul(scratch, 1, deep, 1, scratch, 1, n)
+        convolve(scratch, into: blurred, kernel: blur, width: w, height: h)
+        convolve(blurred, into: scratch, kernel: blur, width: w, height: h)
+        var shadow = -Style.shadow
+        vDSP_vsma(scratch, 1, &shadow, out, 1, out, 1, n)
+
+        // Corner darkening: how far into the floor a point is, from further erosions of it.
+        vDSP_vclr(scratch, 1, n)
+        current.update(from: floor, count: count)
+        for step in 0..<Style.occlusionSteps {
+            erode(current, into: blurred, scratch: deep, step: step, width: w, height: h)
+            current.update(from: blurred, count: count)
+            vDSP_vadd(scratch, 1, current, 1, scratch, 1, n)
+        }
+        // scratch is now 0 at the floor's edge rising to occlusionSteps inside it.
+        var inverse = -1 / Float(Style.occlusionSteps)
+        vDSP_vsmsa(scratch, 1, &inverse, &one, scratch, 1, n)
+        vDSP_vmul(scratch, 1, floor, 1, scratch, 1, n)
+        var occlusion = -Style.occlusion
+        vDSP_vsma(scratch, 1, &occlusion, out, 1, out, 1, n)
+        vDSP_vclip(out, 1, &zero, &one, out, 1, n)
+        return grayImage(out, width: w, height: h)
     }
 
-    private static func image(_ bytes: [UInt8], width: Int, height: Int, components: Int) -> CGImage? {
+    /// Unit normals from the height's slope, as an RGBA8 image. Image rows run down, the
+    /// texture's v runs up.
+    private static func normalImage(height: UnsafeMutablePointer<Float>,
+                                    planes: (UnsafeMutablePointer<Float>, UnsafeMutablePointer<Float>,
+                                             UnsafeMutablePointer<Float>, UnsafeMutablePointer<Float>),
+                                    width w: Int, height h: Int) -> CGImage? {
+        let (nx, ny, nz, length) = planes
+        let count = w * h, n = vDSP_Length(count)
+        convolve(height, into: nx, kernel: [-1, 0, 1, -2, 0, 2, -1, 0, 1].map { $0 / 8 }, width: w, height: h)
+        convolve(height, into: ny, kernel: [-1, -2, -1, 0, 0, 0, 1, 2, 1].map { $0 / 8 }, width: w, height: h)
+        var one: Float = 1, nCount = Int32(count)
+        vDSP_vsq(nx, 1, length, 1, n)
+        vDSP_vma(ny, 1, ny, 1, length, 1, length, 1, n)
+        vDSP_vsadd(length, 1, &one, length, 1, n)
+        vvsqrtf(length, length, &nCount)
+        vDSP_vdiv(length, 1, nx, 1, nx, 1, n)
+        vDSP_vneg(nx, 1, nx, 1, n)
+        vDSP_vdiv(length, 1, ny, 1, ny, 1, n)
+        vDSP_svdiv(&one, length, 1, nz, 1, n)
+
+        let planes8 = (0..<4).map { _ in UnsafeMutablePointer<UInt8>.allocate(capacity: count) }
+        defer { planes8.forEach { $0.deallocate() } }
+        var buffers = planes8.map {
+            vImage_Buffer(data: $0, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w)
+        }
+        for (index, plane) in [nx, ny, nz].enumerated() {
+            var floats = buffer(plane, width: w, height: h)
+            vImageConvert_PlanarFtoPlanar8(&floats, &buffers[index], 1, -1, vImage_Flags(kvImageNoFlags))
+        }
+        planes8[3].initialize(repeating: 255, count: count)
+        let pixels = UnsafeMutablePointer<UInt8>.allocate(capacity: count * 4)
+        var output = vImage_Buffer(data: pixels, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w * 4)
+        // Memory order follows the argument order: red, green, blue, then the opaque alpha.
+        vImageConvert_Planar8toARGB8888(&buffers[0], &buffers[1], &buffers[2], &buffers[3], &output,
+                                        vImage_Flags(kvImageNoFlags))
+        return image(owning: pixels, width: w, height: h, components: 4)
+    }
+
+    /// A 0...1 plane as an 8 bit grey image at half size: roughness and tint change slowly.
+    private static func grayImage(_ plane: UnsafeMutablePointer<Float>, width w: Int, height h: Int) -> CGImage? {
+        let full = UnsafeMutablePointer<UInt8>.allocate(capacity: w * h)
+        defer { full.deallocate() }
+        var floats = buffer(plane, width: w, height: h)
+        var bytes = vImage_Buffer(data: full, height: vImagePixelCount(h), width: vImagePixelCount(w), rowBytes: w)
+        vImageConvert_PlanarFtoPlanar8(&floats, &bytes, 1, 0, vImage_Flags(kvImageNoFlags))
+        let outWidth = w / 2, outHeight = h / 2
+        let half = UnsafeMutablePointer<UInt8>.allocate(capacity: outWidth * outHeight)
+        var output = vImage_Buffer(data: half, height: vImagePixelCount(outHeight), width: vImagePixelCount(outWidth),
+                                   rowBytes: outWidth)
+        vImageScale_Planar8(&bytes, &output, nil, vImage_Flags(kvImageHighQualityResampling))
+        return image(owning: half, width: outWidth, height: outHeight, components: 1)
+    }
+
+    /// Wraps pixels in an image without copying them; the image frees them.
+    private static func image(owning pixels: UnsafeMutablePointer<UInt8>, width: Int, height: Int,
+                              components: Int) -> CGImage? {
         let space = components == 1 ? CGColorSpaceCreateDeviceGray() : CGColorSpaceCreateDeviceRGB()
         let info: CGImageAlphaInfo = components == 1 ? .none : .noneSkipLast
-        guard let provider = CGDataProvider(data: Data(bytes) as CFData) else { return nil }
+        let size = width * height * components
+        let data = Data(bytesNoCopy: pixels, count: size, deallocator: .custom { pointer, _ in pointer.deallocate() })
+        guard let provider = CGDataProvider(data: data as CFData) else { return nil }
         return CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8 * components,
                        bytesPerRow: width * components, space: space, bitmapInfo: CGBitmapInfo(rawValue: info.rawValue),
                        provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
@@ -331,11 +461,13 @@ enum CutYearAwardFaceMapBuilder {
 
 // MARK: - Studio
 
-/// The room the steel reflects: near black, a broad soft light overhead, a tall strip either
-/// side of the viewer and a faint fill, so the brushed face shows one calm band of light that
-/// sweeps as it turns. Generated as a small HDR panorama.
+/// The room the steel reflects: a soft lit room rather than a black void, a round light
+/// overhead, a tall strip either side of the viewer, side and floor light for the chamfers,
+/// so the face is clean bright steel with one band of light that sweeps as it turns and the
+/// edges always catch something. Generated as a small HDR panorama.
 enum CutYearAwardStudio {
-    static let width = 1024
+    /// Soft lights need little resolution; the polished chamfers still show clean edges.
+    static let width = 512
 
     struct Light {
         /// Centre, in degrees: azimuth round from the viewer (0 is behind the viewer, where the
@@ -350,75 +482,86 @@ enum CutYearAwardStudio {
 
     static let lights: [Light] = [
         // Up and to the left, for the cut corner's chamfer.
-        Light(azimuth: -70, elevation: 48, width: 40, height: 26, radiance: 1.2, feather: 14),
+        Light(azimuth: -70, elevation: 48, width: 40, height: 26, radiance: 1.3, feather: 14),
         // The band on the face: a tall strip a little to the viewer's left, where the resting
         // pose looks, so the band crosses the face at rest and sweeps off as it turns.
-        Light(azimuth: -14, elevation: 8, width: 8, height: 80, radiance: 3.2, feather: 9),
+        Light(azimuth: -14, elevation: 8, width: 8, height: 80, radiance: 3.0, feather: 9),
         // A weaker strip on the right, so turning the other way finds light too.
         Light(azimuth: 30, elevation: 12, width: 14, height: 70, radiance: 1.6, feather: 10),
-        // Side lights for the side chamfers and the edge.
-        Light(azimuth: -95, elevation: 30, width: 34, height: 76, radiance: 1.4, feather: 16),
-        Light(azimuth: 100, elevation: 10, width: 12, height: 50, radiance: 1.0, feather: 8),
-        // A faint bounce from the floor, so the bottom edge reads as metal, not a black line.
-        Light(azimuth: 0, elevation: -40, width: 360, height: 40, radiance: 0.10, feather: 30),
-        // Soft fill behind the viewer, so the face is never black.
-        Light(azimuth: 0, elevation: 4, width: 90, height: 40, radiance: 0.20, feather: 30),
+        // Side lights for the side chamfers: a rim that keeps the silhouette off the black.
+        Light(azimuth: -95, elevation: 25, width: 40, height: 90, radiance: 1.5, feather: 18),
+        Light(azimuth: 95, elevation: 20, width: 34, height: 80, radiance: 1.3, feather: 18),
+        // Behind the object, for the side walls when the turn shows them.
+        Light(azimuth: 180, elevation: 10, width: 140, height: 40, radiance: 0.6, feather: 30),
+        // Light off the floor, so the bottom edge reads as metal.
+        Light(azimuth: 0, elevation: -40, width: 360, height: 50, radiance: 0.45, feather: 30),
+        // Broad fill behind the viewer: the face never drops to dark grey, so the cut words
+        // always read darker than the steel round them.
+        Light(azimuth: 0, elevation: 6, width: 120, height: 60, radiance: 0.55, feather: 40),
     ]
 
     /// The overhead light: a round soft box round the zenith, which a rectangle in azimuth
     /// and elevation cannot describe. The top chamfer and a face tipped back catch it.
     static let overheadRadius: Float = 38
-    static let overheadRadiance: Float = 2.2
+    static let overheadRadiance: Float = 2.4
     static let overheadFeather: Float = 18
 
+    /// Every light is a product of an azimuth profile and an elevation profile, so the image
+    /// is built a row at a time with vector adds rather than a loop over every pixel.
     nonisolated static func panorama() -> CGImage? {
         let w = width, h = width / 2
-        var pixels = [Float](repeating: 0, count: w * h * 4)
-        pixels.withUnsafeMutableBufferPointer { buffer in
-            for row in 0..<h {
-                let elevation = (0.5 - (Float(row) + 0.5) / Float(h)) * 180
-                // Ambient: a dark room a touch lighter above than below.
-                let ambient: Float = elevation > 0 ? 0.025 + 0.02 * elevation / 90 : 0.012
-                for column in 0..<w {
-                    // The centre of the image looks down -Z, away from the viewer: azimuth 180.
-                    // RealityKit's panorama runs right to left seen from inside, so mirror.
-                    var azimuth = 360 - ((Float(column) + 0.5) / Float(w)) * 360
-                    if azimuth > 180 { azimuth -= 360 }
-                    let fromZenith = 90 - elevation
-                    let t = min(max((overheadRadius + overheadFeather / 2 - fromZenith) / overheadFeather, 0), 1)
-                    var value = ambient + overheadRadiance * t * t * (3 - 2 * t)
-                    for light in lights {
-                        value += light.radiance * coverage(light, azimuth: azimuth, elevation: elevation)
-                    }
-                    // A hair cool, as daylight on steel.
-                    let index = (row * w + column) * 4
-                    buffer[index] = value
-                    buffer[index + 1] = value
-                    buffer[index + 2] = value * 1.02
-                    buffer[index + 3] = 1
-                }
+        let columns: [[Float]] = lights.map { light in
+            (0..<w).map { column in
+                // RealityKit's panorama runs right to left seen from inside, so mirror.
+                var azimuth = 360 - ((Float(column) + 0.5) / Float(w)) * 360
+                if azimuth > 180 { azimuth -= 360 }
+                var distance = abs(azimuth - light.azimuth)
+                if distance > 180 { distance = 360 - distance }
+                return edge(distance, half: light.width / 2, feather: light.feather)
             }
         }
-        guard let space = CGColorSpace(name: CGColorSpace.extendedLinearSRGB) else { return nil }
+        let pixels = UnsafeMutablePointer<Float>.allocate(capacity: w * h * 4)
+        let row = UnsafeMutablePointer<Float>.allocate(capacity: w)
+        defer { row.deallocate() }
+        let count = vDSP_Length(w)
+        var alpha: Float = 1, cool: Float = 1.02, one: Float = 1
+        for y in 0..<h {
+            let elevation = (0.5 - (Float(y) + 0.5) / Float(h)) * 180
+            // A dim room, a touch lighter above than below.
+            var base: Float = elevation > 0 ? 0.06 + 0.04 * elevation / 90 : 0.035
+            base += overheadRadiance * edge(90 - elevation, half: overheadRadius, feather: overheadFeather)
+            vDSP_vfill(&base, row, 1, count)
+            for (index, light) in lights.enumerated() {
+                var weight = light.radiance * edge(abs(elevation - light.elevation), half: light.height / 2,
+                                                   feather: light.feather)
+                guard weight > 0 else { continue }
+                columns[index].withUnsafeBufferPointer { profile in
+                    vDSP_vsma(profile.baseAddress!, 1, &weight, row, 1, row, 1, count)
+                }
+            }
+            // Interleave as RGBA, a hair cool, as daylight on steel.
+            let out = pixels + y * w * 4
+            vDSP_vsmul(row, 1, &one, out, 4, count)
+            vDSP_vsmul(row, 1, &one, out + 1, 4, count)
+            vDSP_vsmul(row, 1, &cool, out + 2, 4, count)
+            vDSP_vfill(&alpha, out + 3, 4, count)
+        }
+        // The image owns the pixels and frees them.
+        let size = w * h * 16
+        let data = Data(bytesNoCopy: pixels, count: size, deallocator: .custom { pointer, _ in pointer.deallocate() })
+        guard let space = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
+              let provider = CGDataProvider(data: data as CFData) else { return nil }
         let info = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.floatComponents.rawValue
             | CGBitmapInfo.byteOrder32Little.rawValue
-        return pixels.withUnsafeMutableBytes { raw in
-            CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 32, bytesPerRow: w * 16,
-                      space: space, bitmapInfo: info)?.makeImage()
-        }
+        return CGImage(width: w, height: h, bitsPerComponent: 32, bitsPerPixel: 128, bytesPerRow: w * 16,
+                       space: space, bitmapInfo: CGBitmapInfo(rawValue: info), provider: provider, decode: nil,
+                       shouldInterpolate: true, intent: .defaultIntent)
     }
 
-    /// How much of a soft edged rectangular light covers a direction, 0...1.
-    private static func coverage(_ light: Light, azimuth: Float, elevation: Float) -> Float {
-        var da = abs(azimuth - light.azimuth)
-        if da > 180 { da = 360 - da }
-        let de = abs(elevation - light.elevation)
-        func edge(_ distance: Float, _ half: Float) -> Float {
-            let t = (half + light.feather / 2 - distance) / light.feather
-            let c = min(max(t, 0), 1)
-            return c * c * (3 - 2 * c)
-        }
-        return edge(da, light.width / 2) * edge(de, light.height / 2)
+    /// A soft edged step: 1 inside `half`, 0 past `half + feather / 2`, smooth between.
+    private static func edge(_ distance: Float, half: Float, feather: Float) -> Float {
+        let t = min(max((half + feather / 2 - distance) / feather, 0), 1)
+        return t * t * (3 - 2 * t)
     }
 }
 
@@ -561,12 +704,26 @@ enum CutYearAwardObjectBuilder {
         let environment: EnvironmentResource
     }
 
-    /// Steel's own colour: a cool, slightly dark grey, so it reads as steel and not chrome.
-    static let steel = UIColor(red: 0.74, green: 0.75, blue: 0.77, alpha: 1)
+    /// Steel's own colour: a clean, slightly cool grey. Bright enough to read as polished steel,
+    /// short of chrome's near white.
+    static let steel = UIColor(red: 0.80, green: 0.81, blue: 0.83, alpha: 1)
+
+    #if DEBUG
+    private static let log = Logger(subsystem: "com.dmihaylov.trak", category: "YearAward")
+    #endif
 
     @MainActor
     static func build(content: CutYearAwardContent) async throws -> Scene {
+        #if DEBUG
+        // Tests the fallback to the SwiftUI plaque.
+        if ProcessInfo.processInfo.arguments.contains("-CutYearAwardFailBuild") { throw BuildError.layout }
+        let clock = ContinuousClock(), start = clock.now
+        func mark(_ stage: String) { log.info("Year award build: \(stage, privacy: .public) at \(clock.now - start, privacy: .public)") }
+        #else
+        func mark(_ stage: String) {}
+        #endif
         guard let mask = CutYearAwardFaceMapBuilder.mask(for: content) else { throw BuildError.layout }
+        mark("layout")
         async let mapsTask = Task.detached(priority: .userInitiated) {
             CutYearAwardFaceMapBuilder.maps(mask: mask)
         }.value
@@ -574,14 +731,18 @@ enum CutYearAwardObjectBuilder {
             CutYearAwardStudio.panorama()
         }.value
         guard let maps = await mapsTask, let panorama = await panoramaTask else { throw BuildError.maps }
+        mark("maps and studio")
 
-        let environment = try await EnvironmentResource(equirectangular: panorama, withName: "CutYearAwardStudio")
-        let normal = try await TextureResource(image: maps.normal, withName: nil,
+        // The studio's prefiltering is the slowest step: run the uploads alongside it.
+        async let environmentTask = EnvironmentResource(equirectangular: panorama, withName: "CutYearAwardStudio")
+        async let normalTask = TextureResource(image: maps.normal, withName: nil,
                                                options: .init(semantic: .normal, mipmapsMode: .allocateAndGenerateAll))
-        let roughness = try await TextureResource(image: maps.roughness, withName: nil,
+        async let roughnessTask = TextureResource(image: maps.roughness, withName: nil,
                                                   options: .init(semantic: .scalar, mipmapsMode: .allocateAndGenerateAll))
-        let tint = try await TextureResource(image: maps.tint, withName: nil,
+        async let tintTask = TextureResource(image: maps.tint, withName: nil,
                                              options: .init(semantic: .color, mipmapsMode: .allocateAndGenerateAll))
+        let (environment, normal, roughness, tint) = try await (environmentTask, normalTask, roughnessTask, tintTask)
+        mark("environment and textures")
 
         var face = PhysicallyBasedMaterial()
         face.baseColor = .init(tint: steel, texture: .init(tint))
@@ -604,6 +765,7 @@ enum CutYearAwardObjectBuilder {
 
         let mesh = try CutYearAwardSlabMesh.make()
         let object = ModelEntity(mesh: mesh, materials: [face, edge, back])
+        mark("mesh")
         return Scene(object: object, environment: environment)
     }
 

@@ -40,6 +40,9 @@ final class CutYearAwardStage {
         renderer.lighting.resource = scene.environment
         renderer.lighting.intensityExponent = 0
         renderer.cameraSettings.colorBackground = .color(CGColor(gray: 0, alpha: 0))
+        // 4x multisampling stays: without it the bright chamfer steps visibly against the black
+        // on the cut corner's diagonal and crawls as the object turns. The lettering is in
+        // textures and does not need it. The cost is kept down by keeping the view small.
         renderer.cameraSettings.antialiasing = .multisample4X
         setPose(CutYearAwardLight.staticPose)
     }
@@ -123,6 +126,9 @@ final class CutYearAwardStageCache {
             do {
                 let scene = try await CutYearAwardObjectBuilder.build(content: content)
                 let stage = try CutYearAwardStage(scene: scene, device: device)
+                #if DEBUG
+                Self.log.info("Year award stage at \(ContinuousClock.now - start, privacy: .public)")
+                #endif
                 #if DEBUG
                 Self.log.info("Year award object built in \(ContinuousClock.now - start, privacy: .public)")
                 #endif
@@ -415,6 +421,9 @@ struct CutYearAwardObjectPlaque: View {
     var onFailure: () -> Void = {}
 
     @State private var controller = CutYearAwardObjectController()
+    /// Room round the face for the turned object, in points: the near edge grows by about 15
+    /// percent in the arrival turn.
+    static let margin: CGFloat = 40
     @State private var drag: CutYearAwardTilt = .zero
 
     private var tilt: CutYearAwardTilt { (fixedTilt ?? motion.tilt) + drag }
@@ -423,7 +432,11 @@ struct CutYearAwardObjectPlaque: View {
         ZStack {
             CutYearAwardObjectGround(fit: fit)
                 .opacity(controller.hasArrived ? 1 : 0)
+            // Only as large as the turned object needs: the drawables and the multisampled
+            // targets scale with this area.
             CutYearAwardMetalRepresentable(controller: controller)
+                .frame(width: (CGFloat(CutYearAwardSlab.width * 1000) + Self.margin * 2) * fit,
+                       height: (CGFloat(CutYearAwardSlab.height * 1000) + Self.margin * 2) * fit)
                 .accessibilityHidden(true)
                 .opacity(controller.isReady && controller.hasArrived ? 1 : 0)
                 .offset(y: controller.hasArrived ? 0 : -24)
