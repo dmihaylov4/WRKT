@@ -13,6 +13,7 @@ struct CutYearAwardContentTests {
         #expect(content.yearText == "2026")
         #expect(content.title == "Your 2026 award")
         #expect(content.shareTitle == "My 2026 in Volia")
+        #expect(content.shareFileName == "Volia 2026 award.png")
         // The first card's share line, balanced on two lines, without its full stop.
         #expect(content.headlineLines == ["I lifted the", "Riesenrad"])
         // All four cards: time gives way, three rows in card order.

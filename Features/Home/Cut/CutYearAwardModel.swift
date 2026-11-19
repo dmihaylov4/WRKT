@@ -41,6 +41,8 @@ struct CutYearAwardContent: Equatable {
     var title: String { "Your \(yearText) award" }
     /// The share sheet title and the prefilled Social caption.
     var shareTitle: String { "My \(yearText) in Volia" }
+    /// The name the shared picture carries, so a received file is not an anonymous temporary one.
+    var shareFileName: String { "Volia \(yearText) award.png" }
 
     /// One phrase for VoiceOver: the plaque is read as a whole.
     var accessibilityText: String {

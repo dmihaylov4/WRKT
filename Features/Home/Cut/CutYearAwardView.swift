@@ -380,6 +380,8 @@ struct CutYearAwardStep: View {
 
     @State private var motion = CutYearAwardMotion()
     @State private var image: UIImage?
+    /// The picture as a named PNG file, for the system share sheet.
+    @State private var shareFile: URL?
     @State private var landed = false
     @State private var canPost = false
     @State private var composing = false
@@ -439,6 +441,7 @@ struct CutYearAwardStep: View {
         .onChange(of: composing) { updateMotion() }
         .onChange(of: reduceMotion) { updateMotion() }
         .task { prepare(content) }
+        .onChange(of: image) { shareFile = Self.writeShareFile(image, named: content.shareFileName) }
         .sheet(isPresented: $composing) {
             if let image {
                 PostCreationView(attachedImage: image,
@@ -485,9 +488,30 @@ struct CutYearAwardStep: View {
     private func systemShare<Label: View>(_ content: CutYearAwardContent, @ViewBuilder label: () -> Label) -> some View {
         if let image {
             let picture = Image(uiImage: image)
-            ShareLink(item: picture, preview: SharePreview(content.shareTitle, image: picture), label: label)
+            let preview = SharePreview(content.shareTitle, image: picture)
+            // A file keeps its name. A bare image arrives over AirDrop as a hidden temporary
+            // file (".com.apple.Foundation.NSItemProvider..."), greyed out in Finder.
+            if let shareFile {
+                ShareLink(item: shareFile, preview: preview, label: label)
+            } else {
+                ShareLink(item: picture, preview: preview, label: label)
+            }
         } else {
             Button(action: {}, label: label).disabled(true)
+        }
+    }
+
+    /// Writes the picture to a folder of its own in the temporary directory, replacing the last one.
+    private static func writeShareFile(_ image: UIImage?, named name: String) -> URL? {
+        guard let data = image?.pngData() else { return nil }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("YearAward", isDirectory: true)
+        let file = folder.appendingPathComponent(name)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try data.write(to: file, options: .atomic)
+            return file
+        } catch {
+            return nil
         }
     }
 
