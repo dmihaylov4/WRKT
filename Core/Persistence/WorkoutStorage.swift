@@ -85,6 +85,43 @@ struct WorkoutStorageContainer: Codable {
     }
 }
 
+// MARK: - Validated History
+
+/// Identifies one version of a file: an atomic replace changes the file number, an in-place
+/// write the size or modification date.
+nonisolated struct FileStamp: Equatable, Sendable {
+    let number: Int
+    let size: Int
+    let modified: Date
+
+    init?(_ url: URL) {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let number = (attributes[.systemFileNumber] as? NSNumber)?.intValue,
+              let size = (attributes[.size] as? NSNumber)?.intValue,
+              let modified = attributes[.modificationDate] as? Date else { return nil }
+        self.number = number
+        self.size = size
+        self.modified = modified
+    }
+}
+
+/// History decoded by startup validation, handed once to the first loads so it is not decoded
+/// twice. A missing part means "read the disk", never "no data".
+nonisolated struct ValidatedHistory: @unchecked Sendable {
+    struct Part<Value> {
+        let value: Value
+        /// nil when the file changed while it was read; such a value is never reused.
+        let stamp: FileStamp?
+    }
+
+    let directory: URL
+    var workouts: Part<WorkoutStorageContainer>?
+    var runs: Part<[Run]>?
+    var current: Part<CurrentWorkout>?
+    var ignored: Part<[UUID]>?
+    var discardWindows: Part<[DiscardedWorkoutWindow]>?
+}
+
 // MARK: - PR Data Structures (V2 - Enhanced)
 
 struct LastSetV2: Codable, Hashable {
@@ -131,6 +168,9 @@ actor WorkoutStorage {
     private var lastWorkoutsBackupTime: Date = .distantPast
     private var lastRunsBackupTime: Date = .distantPast
 
+    /// What startup validation decoded, consumed by the first loads so history is decoded once.
+    private var validated: ValidatedHistory?
+
     // MARK: - Initialization
 
     init(directory: URL? = nil) {
@@ -169,18 +209,23 @@ actor WorkoutStorage {
     // MARK: - Workouts (with PR Index)
 
     /// Read-only startup validation, before any service can interpret unreadable data as empty.
-    @MainActor
-    static func validateExistingData(applicationSupport: URL, documents: URL) throws {
+    /// Runs off the main thread. For already-migrated history it returns what it decoded, so the
+    /// first loads can skip a second decode; nil whenever a migration may still run.
+    @discardableResult
+    static func validateExistingData(applicationSupport: URL, documents: URL) throws -> ValidatedHistory? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let fm = FileManager.default
-        func read<T: Decodable>(_ type: T.Type, at url: URL) throws -> T? {
+        func read<T: Decodable>(_ type: T.Type, at url: URL) throws -> ValidatedHistory.Part<T>? {
             guard fm.fileExists(atPath: url.path) else { return nil }
-            return try decoder.decode(type, from: Data(contentsOf: url))
+            let before = FileStamp(url)
+            let value = try decoder.decode(type, from: Data(contentsOf: url))
+            // A file replaced while it was being read has no stamp, so its value is never reused.
+            return ValidatedHistory.Part(value: value, stamp: before == FileStamp(url) ? before : nil)
         }
         let current = documents.appendingPathComponent("WRKT_Storage")
         let workouts = try read(WorkoutStorageContainer.self, at: current.appendingPathComponent("workouts_v2.json"))
-        if let workouts {
+        if let workouts = workouts?.value {
             guard workouts.metadata.version == StorageMetadata.currentVersion,
                   workouts.metadata.itemCount == workouts.workouts.count else {
                 throw StorageError.validationFailed("Workout history format or count needs recovery")
@@ -188,14 +233,17 @@ actor WorkoutStorage {
         }
         let runs = try read([Run].self, at: current.appendingPathComponent("runs_v2.json"))
         let active = try read(CurrentWorkout.self, at: current.appendingPathComponent("current_workout_v2.json"))
-        _ = try read([UUID].self, at: current.appendingPathComponent("ignored_healthkit_uuids.json"))
-        _ = try read([DiscardedWorkoutWindow].self, at: current.appendingPathComponent("discarded_workout_windows.json"))
-        guard !fm.fileExists(atPath: current.appendingPathComponent(".migrated").path) else { return }
+        let ignored = try read([UUID].self, at: current.appendingPathComponent("ignored_healthkit_uuids.json"))
+        let windows = try read([DiscardedWorkoutWindow].self, at: current.appendingPathComponent("discarded_workout_windows.json"))
+        guard !fm.fileExists(atPath: current.appendingPathComponent(".migrated").path) else {
+            return ValidatedHistory(directory: current, workouts: workouts, runs: runs, current: active,
+                                    ignored: ignored, discardWindows: windows)
+        }
         if workouts != nil || runs != nil || active != nil {
             guard workouts != nil && runs != nil else {
                 throw StorageError.migrationFailed("An interrupted history import needs recovery")
             }
-            return
+            return nil
         }
         let legacy = applicationSupport.appendingPathComponent("WRKT")
         _ = try read([CompletedWorkout].self, at: legacy.appendingPathComponent("completed_workouts.json"))
@@ -205,32 +253,52 @@ actor WorkoutStorage {
             _ = try read(CurrentWorkout.self, at: root.appendingPathComponent("current_workout.json"))
         }
         _ = try read([CompletedWorkout].self, at: documents.appendingPathComponent("workouts.json"))
+        return nil
+    }
+
+    /// Accepts what startup validation decoded, if it was read from this storage's directory.
+    func adopt(_ history: ValidatedHistory) {
+        guard history.directory.standardizedFileURL == storageDirectory.standardizedFileURL else { return }
+        validated = history
+    }
+
+    /// Hands out one validated value, once. It is used only while the file is still the exact
+    /// file validation decoded; any doubt returns nil and the caller reads the disk as before.
+    private func takeValidated<Value>(_ part: WritableKeyPath<ValidatedHistory, ValidatedHistory.Part<Value>?>,
+                                      at url: URL) -> Value? {
+        guard let taken = validated?[keyPath: part] else { return nil }
+        validated?[keyPath: part] = nil
+        guard let stamp = taken.stamp, FileStamp(url) == stamp else {
+            AppLogger.info("\(url.lastPathComponent) changed after validation; reading it from disk", category: AppLogger.storage)
+            return nil
+        }
+        return taken.value
     }
 
     /// Load workouts and PR index atomically
     func loadWorkouts() async throws -> (workouts: [CompletedWorkout], prIndex: [String: ExercisePRsV2]) {
-        guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
-            AppLogger.debug("No workouts file found, returning empty", category: AppLogger.storage)
-            return ([], [:])
-        }
-
-        do {
-            let data = try Data(contentsOf: workoutsFileURL)
-            let container = try decoder.decode(WorkoutStorageContainer.self, from: data)
-
-            // Validate data
-            guard container.workouts.count == container.metadata.itemCount else {
-                throw StorageError.validationFailed("Item count mismatch: expected \(container.metadata.itemCount), got \(container.workouts.count)")
+        let container: WorkoutStorageContainer
+        if let validated = takeValidated(\.workouts, at: workoutsFileURL) {
+            container = validated
+        } else {
+            guard fileManager.fileExists(atPath: workoutsFileURL.path) else {
+                AppLogger.debug("No workouts file found, returning empty", category: AppLogger.storage)
+                return ([], [:])
             }
-
-            AppLogger.info("Loaded \(container.workouts.count) workouts with \(container.prIndex.count) PR entries", category: AppLogger.storage)
-            return (container.workouts, container.prIndex)
-
-        } catch let error as DecodingError {
-            throw StorageError.decodingFailed("WorkoutStorageContainer", underlying: error)
-        } catch {
-            throw error
+            do {
+                container = try decoder.decode(WorkoutStorageContainer.self, from: Data(contentsOf: workoutsFileURL))
+            } catch let error as DecodingError {
+                throw StorageError.decodingFailed("WorkoutStorageContainer", underlying: error)
+            }
         }
+
+        // Validate data
+        guard container.workouts.count == container.metadata.itemCount else {
+            throw StorageError.validationFailed("Item count mismatch: expected \(container.metadata.itemCount), got \(container.workouts.count)")
+        }
+
+        AppLogger.info("Loaded \(container.workouts.count) workouts with \(container.prIndex.count) PR entries", category: AppLogger.storage)
+        return (container.workouts, container.prIndex)
     }
 
     /// Save workouts and PR index atomically
@@ -263,12 +331,15 @@ actor WorkoutStorage {
     // MARK: - Current Workout
 
     func loadCurrentWorkout() async throws -> CurrentWorkout? {
-        guard fileManager.fileExists(atPath: currentWorkoutFileURL.path) else {
-            return nil
+        let workout: CurrentWorkout
+        if let validated = takeValidated(\.current, at: currentWorkoutFileURL) {
+            workout = validated
+        } else {
+            guard fileManager.fileExists(atPath: currentWorkoutFileURL.path) else {
+                return nil
+            }
+            workout = try decoder.decode(CurrentWorkout.self, from: Data(contentsOf: currentWorkoutFileURL))
         }
-
-        let data = try Data(contentsOf: currentWorkoutFileURL)
-        let workout = try decoder.decode(CurrentWorkout.self, from: data)
         AppLogger.info("Loaded current workout with \(workout.entries.count) entries", category: AppLogger.storage)
         return workout
     }
@@ -296,18 +367,21 @@ actor WorkoutStorage {
     // MARK: - Runs (Cardio/HealthKit)
 
     func loadRuns() async throws -> [Run] {
-        guard fileManager.fileExists(atPath: runsFileURL.path) else {
-            return []
+        let runs: [Run]
+        if let validated = takeValidated(\.runs, at: runsFileURL) {
+            runs = validated
+        } else {
+            guard fileManager.fileExists(atPath: runsFileURL.path) else {
+                return []
+            }
+            do {
+                runs = try decoder.decode([Run].self, from: Data(contentsOf: runsFileURL))
+            } catch let error as DecodingError {
+                throw StorageError.decodingFailed("Runs", underlying: error)
+            }
         }
-
-        do {
-            let data = try Data(contentsOf: runsFileURL)
-            let runs = try decoder.decode([Run].self, from: data)
-            AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
-            return runs
-        } catch let error as DecodingError {
-            throw StorageError.decodingFailed("Runs", underlying: error)
-        }
+        AppLogger.info("Loaded \(runs.count) runs", category: AppLogger.storage)
+        return runs
     }
 
     func saveRuns(_ runs: [Run]) async throws {
@@ -334,19 +408,22 @@ actor WorkoutStorage {
     // MARK: - Ignored HealthKit UUIDs (for discarded workouts)
 
     func loadIgnoredHealthKitUUIDs() async throws -> Set<UUID> {
-        guard fileManager.fileExists(atPath: ignoredHealthKitUUIDsFileURL.path) else {
-            return []
+        let uuids: [UUID]
+        if let validated = takeValidated(\.ignored, at: ignoredHealthKitUUIDsFileURL) {
+            uuids = validated
+        } else {
+            guard fileManager.fileExists(atPath: ignoredHealthKitUUIDsFileURL.path) else {
+                return []
+            }
+            do {
+                uuids = try decoder.decode([UUID].self, from: Data(contentsOf: ignoredHealthKitUUIDsFileURL))
+            } catch {
+                AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
+                throw error
+            }
         }
-
-        do {
-            let data = try Data(contentsOf: ignoredHealthKitUUIDsFileURL)
-            let uuids = try decoder.decode([UUID].self, from: data)
-            AppLogger.info("Loaded \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
-            return Set(uuids)
-        } catch {
-            AppLogger.warning("Failed to load ignored HealthKit UUIDs: \(error)", category: AppLogger.storage)
-            throw error
-        }
+        AppLogger.info("Loaded \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
+        return Set(uuids)
     }
 
     func saveIgnoredHealthKitUUIDs(_ uuids: Set<UUID>) async throws {
@@ -363,24 +440,27 @@ actor WorkoutStorage {
     // MARK: - Discarded Workout Windows
 
     func loadDiscardedWorkoutWindows() async throws -> [DiscardedWorkoutWindow] {
-        guard fileManager.fileExists(atPath: discardedWorkoutWindowsFileURL.path) else {
-            return []
+        var windows: [DiscardedWorkoutWindow]
+        if let validated = takeValidated(\.discardWindows, at: discardedWorkoutWindowsFileURL) {
+            windows = validated
+        } else {
+            guard fileManager.fileExists(atPath: discardedWorkoutWindowsFileURL.path) else {
+                return []
+            }
+            do {
+                windows = try decoder.decode([DiscardedWorkoutWindow].self, from: Data(contentsOf: discardedWorkoutWindowsFileURL))
+            } catch {
+                AppLogger.warning("Failed to load discarded workout windows: \(error)", category: AppLogger.storage)
+                throw error
+            }
         }
 
-        do {
-            let data = try Data(contentsOf: discardedWorkoutWindowsFileURL)
-            var windows = try decoder.decode([DiscardedWorkoutWindow].self, from: data)
+        // Clean up old windows (older than 7 days)
+        let cutoff = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+        windows = windows.filter { $0.discardedAt > cutoff }
 
-            // Clean up old windows (older than 7 days)
-            let cutoff = Date().addingTimeInterval(-7 * 24 * 60 * 60)
-            windows = windows.filter { $0.discardedAt > cutoff }
-
-            AppLogger.info("Loaded \(windows.count) discarded workout windows", category: AppLogger.storage)
-            return windows
-        } catch {
-            AppLogger.warning("Failed to load discarded workout windows: \(error)", category: AppLogger.storage)
-            throw error
-        }
+        AppLogger.info("Loaded \(windows.count) discarded workout windows", category: AppLogger.storage)
+        return windows
     }
 
     func saveDiscardedWorkoutWindows(_ windows: [DiscardedWorkoutWindow]) async throws {

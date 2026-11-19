@@ -33,7 +33,7 @@ struct CutRackAppRunTests {
         }
 
         try await Task.sleep(for: .seconds(4))
-        let context = try #require(WRKTApp.storage.container?.mainContext)
+        let context = try #require(await WRKTApp.storage.openedContainer()?.mainContext)
         let fixtures = [
             EarnedPlate(id: "fixture-rackrun-lime", tierID: 22, weightKg: 20, engravingText: "", earnedByEvent: "fixture"),
             EarnedPlate(id: "fixture-rackrun-blue", tierID: 15, weightKg: 20, engravingText: "", earnedByEvent: "fixture"),

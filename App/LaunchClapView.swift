@@ -34,6 +34,14 @@ enum LaunchClapTimeline {
         return component((lower + upper) / 2, y1, y2)
     }
 
+    /// Evenly spaced values of a timeline curve between two times, both ends included.
+    /// The Core Animation player plays these back, so it follows the same curves.
+    static func samples(from start: Double, to end: Double, rate: Double = 120,
+                        _ value: (Double) -> Double) -> [Double] {
+        let steps = max(1, Int(((end - start) * rate).rounded(.up)))
+        return (0...steps).map { value(start + (end - start) * Double($0) / Double(steps)) }
+    }
+
     static func leftAngle(at fraction: Double, reduceMotion: Bool = false) -> Double {
         guard !reduceMotion else { return 0 }
         switch fraction {
@@ -138,6 +146,23 @@ struct LaunchClapView: View {
     }
 
     var body: some View {
+        Group {
+            if reduceMotion || snapshotTime != nil {
+                // Reduce Motion only fades the still mark in, and fixed screenshot
+                // times need a clock that can be held: both stay on the SwiftUI clock.
+                timelineBody
+            } else {
+                LaunchClapPlayer(sessionReady: sessionReady, onComplete: onComplete)
+                    .ignoresSafeArea()
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("VOLIA")
+        .accessibilityAddTraits(.isImage)
+        .statusBarHidden()
+    }
+
+    private var timelineBody: some View {
         TimelineView(.animation(paused: didComplete || snapshotTime != nil)) { context in
             let elapsed = snapshotTime ?? clock.advance(to: context.date)
             let canReveal = LaunchClapTimeline.canRevealShell(
@@ -168,12 +193,273 @@ struct LaunchClapView: View {
                 onComplete()
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("VOLIA")
-        .accessibilityAddTraits(.isImage)
-        .statusBarHidden()
     }
 
+}
+
+// MARK: - Core Animation player
+
+/// Hosts the layer-based clap in SwiftUI.
+private struct LaunchClapPlayer: UIViewRepresentable {
+    let sessionReady: Bool
+    let onComplete: () -> Void
+
+    func makeUIView(context: Context) -> LaunchClapPlayerView {
+        let view = LaunchClapPlayerView()
+        view.onComplete = onComplete
+        view.sessionReady = sessionReady
+        return view
+    }
+
+    func updateUIView(_ view: LaunchClapPlayerView, context: Context) {
+        view.onComplete = onComplete
+        view.sessionReady = sessionReady
+    }
+}
+
+/// Plays the clap as Core Animation layers. The whole animation is handed to the
+/// render server in one commit, so it keeps its frame rate while launch work blocks
+/// the main thread. `LaunchClapTimeline` stays the source of every angle and timing:
+/// the arm and thump curves are sampled from it.
+final class LaunchClapPlayerView: UIView {
+    static let markSide: CGFloat = 160
+    /// Logo coordinates are a 1024 square; layers are built at their final size so
+    /// nothing is drawn large and scaled down.
+    private static let scale = markSide / 1024
+    private static let origin = LaunchClapTimeline.skippedLeadIn
+    private static let total = LaunchClapTimeline.holdDuration - origin
+
+    var onComplete: (() -> Void)?
+    var sessionReady = false {
+        didSet { updateFade() }
+    }
+
+    /// Carries the impact squash; every other layer sits inside it.
+    private let markLayer = CALayer()
+    private var pendingAnimations: [(layer: CALayer, animation: CAAnimation)] = []
+    private var didStart = false
+    private var holdFinished = false
+    private var isFading = false
+    private var didComplete = false
+    private var fadeGeneration = 0
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .black
+        markLayer.bounds = CGRect(x: 0, y: 0, width: Self.markSide, height: Self.markSide)
+        layer.addSublayer(markLayer)
+        buildLayers()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not used")
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        let displayScale = window?.screen.scale ?? traitCollection.displayScale
+        markLayer.sublayers?.forEach { $0.contentsScale = displayScale }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        markLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        CATransaction.commit()
+        if !didStart, window != nil, !bounds.isEmpty {
+            didStart = true
+            play()
+        }
+    }
+
+    // MARK: Layers
+
+    private func buildLayers() {
+        let brand = UIColor(DS.Semantic.brand).cgColor
+        let origin = Self.origin
+        let clap = LaunchClapTimeline.clapDuration
+
+        // Arms. Each begins at commit time, where the launch screen left the still mark.
+        let arms: [([CGPoint], Double)] = [(VMarkShape.leftArm, 1), (VMarkShape.rightArm, -1)]
+        for (points, direction) in arms {
+            let arm = armLayer(points, color: brand)
+            markLayer.addSublayer(arm)
+            let rotation = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            rotation.values = LaunchClapTimeline.samples(from: origin, to: clap) {
+                direction * LaunchClapTimeline.leftAngle(at: $0 / clap) * .pi / 180
+            }
+            rotation.calculationMode = .linear
+            rotation.duration = clap - origin
+            pendingAnimations.append((arm, rotation))
+        }
+
+        // Impact squash on the whole mark. This group runs for the full hold and
+        // reports when the animation is over.
+        if let first = LaunchClapTimeline.impacts.first, let last = LaunchClapTimeline.impacts.last {
+            let end = last + 0.26
+            let squash: [CAAnimation] = ["transform.scale.x", "transform.scale.y"].map { keyPath in
+                let animation = CAKeyframeAnimation(keyPath: keyPath)
+                animation.values = LaunchClapTimeline.samples(from: first, to: end) {
+                    let thump = LaunchClapTimeline.thump(elapsed: $0, reduceMotion: false)
+                    return keyPath.hasSuffix("x") ? thump.width : thump.height
+                }
+                animation.calculationMode = .linear
+                animation.beginTime = first - origin
+                animation.duration = end - first
+                return animation
+            }
+            let hold = group(squash)
+            hold.delegate = LaunchClapStopDelegate { [weak self] in
+                self?.holdFinished = true
+                self?.updateFade()
+            }
+            pendingAnimations.append((markLayer, hold))
+        }
+
+        // Ripple, burst and flash for each impact, hidden outside their window.
+        let centre = CGPoint(x: 554 * Self.scale, y: 520 * Self.scale)
+        for impact in LaunchClapTimeline.impacts {
+            let start = impact - origin
+
+            let ripple = CAShapeLayer()
+            let rippleSide = 240 * Self.scale
+            ripple.bounds = CGRect(x: 0, y: 0, width: rippleSide, height: rippleSide)
+            ripple.path = CGPath(ellipseIn: ripple.bounds, transform: nil)
+            ripple.fillColor = nil
+            ripple.strokeColor = brand
+            ripple.lineWidth = 6 * Self.scale
+            ripple.position = centre
+            ripple.opacity = 0
+            markLayer.addSublayer(ripple)
+            pendingAnimations.append((ripple, group([
+                basic("transform.scale", from: 0.2, to: 1.9, at: start, duration: 0.5),
+                basic("opacity", from: 1, to: 0, at: start, duration: 0.5)
+            ])))
+
+            // 1 - (1 - t)^3, the burst's travel curve, as an exact cubic Bezier.
+            let easeOutCubic = CAMediaTimingFunction(controlPoints: 1.0 / 3, 1, 2.0 / 3, 1)
+            for index in 0..<16 {
+                let angle = Double(index) * .pi / 8
+                let distance = Double(120 + (index * 67) % 231) * Self.scale
+                let radius = Double(16 + (index * 7) % 16) * Self.scale
+                let particle = disc(radius: radius, color: brand, at: centre)
+                markLayer.addSublayer(particle)
+                let target = CGPoint(x: centre.x + cos(angle) * distance, y: centre.y + sin(angle) * distance)
+                pendingAnimations.append((particle, group([
+                    basic("position", from: NSValue(cgPoint: centre), to: NSValue(cgPoint: target),
+                          at: start, duration: 0.62, timing: easeOutCubic),
+                    basic("transform.scale", from: 1, to: 0.15, at: start, duration: 0.62),
+                    basic("opacity", from: 1, to: 0, at: start, duration: 0.62)
+                ])))
+            }
+
+            let flash = disc(radius: 90 * Self.scale, color: UIColor.white.cgColor, at: centre)
+            markLayer.addSublayer(flash)
+            pendingAnimations.append((flash, group([
+                basic("transform.scale", from: 0.3, to: 1.1, at: start, duration: 0.22),
+                basic("opacity", from: 0.9, to: 0, at: start, duration: 0.22)
+            ])))
+        }
+    }
+
+    private func armLayer(_ points: [CGPoint], color: CGColor) -> CAShapeLayer {
+        let arm = CAShapeLayer()
+        arm.bounds = markLayer.bounds
+        // Both arms turn about the foot of the V.
+        arm.anchorPoint = CGPoint(x: 582.0 / 1024, y: 587.0 / 1024)
+        arm.position = CGPoint(x: 582 * Self.scale, y: 587 * Self.scale)
+        let path = CGMutablePath()
+        path.addLines(between: points.map { CGPoint(x: $0.x * Self.scale, y: $0.y * Self.scale) })
+        path.closeSubpath()
+        arm.path = path
+        arm.fillColor = color
+        return arm
+    }
+
+    private func disc(radius: CGFloat, color: CGColor, at centre: CGPoint) -> CALayer {
+        let disc = CALayer()
+        disc.bounds = CGRect(x: 0, y: 0, width: radius * 2, height: radius * 2)
+        disc.cornerRadius = radius
+        disc.backgroundColor = color
+        disc.position = centre
+        disc.opacity = 0
+        return disc
+    }
+
+    /// A linear animation inside a group; `start` is seconds after the clap begins.
+    private func basic(_ keyPath: String, from: Any, to: Any, at start: Double, duration: Double,
+                       timing: CAMediaTimingFunction? = nil) -> CABasicAnimation {
+        let animation = CABasicAnimation(keyPath: keyPath)
+        animation.fromValue = from
+        animation.toValue = to
+        animation.beginTime = start
+        animation.duration = duration
+        animation.timingFunction = timing
+        return animation
+    }
+
+    /// A group begins when it is committed, which keeps every layer in step even if
+    /// the main thread stalls between building the animation and showing it.
+    private func group(_ animations: [CAAnimation]) -> CAAnimationGroup {
+        let group = CAAnimationGroup()
+        group.animations = animations
+        group.duration = Self.total
+        return group
+    }
+
+    // MARK: Playback
+
+    private func play() {
+        for (index, pending) in pendingAnimations.enumerated() {
+            pending.layer.add(pending.animation, forKey: "launchClap\(index)")
+        }
+        pendingAnimations = []
+    }
+
+    private func updateFade() {
+        let shouldFade = LaunchClapTimeline.canRevealShell(animationFinished: holdFinished,
+                                                           sessionReady: sessionReady)
+        guard shouldFade != isFading, !didComplete else { return }
+        isFading = shouldFade
+        fadeGeneration += 1
+        guard shouldFade else {
+            layer.removeAnimation(forKey: "launchClapFade")
+            return
+        }
+        let generation = fadeGeneration
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            guard let self, self.fadeGeneration == generation, !self.didComplete else { return }
+            self.didComplete = true
+            self.onComplete?()
+        }
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.duration = LaunchClapTimeline.fadeDuration
+        // The view is removed when the fade completes; holding the last frame avoids a flash.
+        fade.fillMode = .forwards
+        fade.isRemovedOnCompletion = false
+        layer.add(fade, forKey: "launchClapFade")
+        CATransaction.commit()
+    }
+}
+
+private final class LaunchClapStopDelegate: NSObject, CAAnimationDelegate {
+    private let onStop: () -> Void
+
+    init(onStop: @escaping () -> Void) {
+        self.onStop = onStop
+    }
+
+    // Also called with `finished == false` when the app is backgrounded mid-clap;
+    // the mark is at rest either way, so the splash may move on.
+    func animationDidStop(_ anim: CAAnimation, finished flag: Bool) {
+        onStop()
+    }
 }
 
 /// Also used while history loads, so the first SwiftUI frame matches the launch storyboard.

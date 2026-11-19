@@ -70,6 +70,25 @@ struct LaunchClapTimelineTests {
         #expect(clock.advance(to: start.addingTimeInterval(1)) == elapsed)
     }
 
+    @Test func sampledArmCurveCoversTheWholeClap() {
+        let clap = LaunchClapTimeline.clapDuration
+        let samples = LaunchClapTimeline.samples(from: LaunchClapTimeline.skippedLeadIn, to: clap) {
+            LaunchClapTimeline.leftAngle(at: $0 / clap)
+        }
+        // Starts and ends at rest, reaches the closed angle, and keeps the wind-up and overshoot.
+        #expect(samples.first == 0)
+        #expect(samples.last == 0)
+        #expect(abs((samples.max() ?? 0) - 22.5) < 0.0001)
+        #expect((samples.min() ?? 0) < -4)
+        // At least 120 samples a second, so straight lines between them are not visible.
+        #expect(Double(samples.count - 1) >= (clap - LaunchClapTimeline.skippedLeadIn) * 120)
+    }
+
+    @Test func samplesIncludeBothEnds() {
+        let samples = LaunchClapTimeline.samples(from: 1, to: 2, rate: 4) { $0 }
+        #expect(samples == [1, 1.25, 1.5, 1.75, 2])
+    }
+
     @Test func clockStartsWhereTheArmsBeginToMove() {
         let leadIn = LaunchClapTimeline.skippedLeadIn
         #expect(LaunchClapTimeline.leftAngle(at: leadIn / LaunchClapTimeline.clapDuration) == 0)

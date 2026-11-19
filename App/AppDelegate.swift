@@ -11,11 +11,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         AppLogger.info("AppDelegate: didFinishLaunchingWithOptions", category: AppLogger.app)
         let healthKit = HealthKitManager.shared
+        // The store opens asynchronously. Every delivery and catch-up, including the BGProcessing
+        // task, waits for it here and is configured against it before writing anything.
+        healthKit.prepareForSync = { _ = await Self.configureHealthSyncWhenOpen() }
         if healthKit.connectionState == .connected {
-            let storage = WRKTApp.storage
-            if let container = storage.container {
-                AppDependencies.shared.configureHealthSync(with: container.mainContext)
-            }
+            // Registered during launch so a background delivery that woke the app is received.
             healthKit.setupBackgroundObservers()
             Task { await healthKit.catchUpHealthChanges() }
         }
@@ -28,11 +28,23 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     }
 
     func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) {
-        let storage = WRKTApp.storage
-        storage.retry()
-        guard let container = storage.container else { return }
+        Task {
+            let storage = WRKTApp.storage
+            // An open started while the device was locked may still be running; let it finish
+            // (it fails on protected files) so the retry below is not swallowed by it.
+            _ = await storage.openedContainer()
+            storage.retry()
+            guard await Self.configureHealthSyncWhenOpen() else { return }
+            await HealthKitManager.shared.catchUpHealthChanges()
+        }
+    }
+
+    /// Configures health sync once the user store is open. Never touches app services before that.
+    @MainActor
+    static func configureHealthSyncWhenOpen() async -> Bool {
+        guard let container = await WRKTApp.storage.openedContainer() else { return false }
         AppDependencies.shared.configureHealthSync(with: container.mainContext)
-        Task { await HealthKitManager.shared.catchUpHealthChanges() }
+        return true
     }
 
     // MARK: - Push Notification Registration

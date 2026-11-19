@@ -9,10 +9,14 @@ import OSLog
 
 @main
 struct WRKTApp: App {
-    static let storage = AppDataStore()
+    /// Opens asynchronously. Anything that reads or writes app data waits for `openedContainer()`
+    /// or, in views, is built only inside the `container` branch of `body`.
+    static let storage = AppDataStore(handOffHistory: { await WorkoutStorage.shared.adopt($0) })
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var dataStore = WRKTApp.storage
     @ObservedObject private var launchSplash = LaunchSplashState.shared
+    /// A URL that launched the app while the store was still opening.
+    @State private var pendingURL: URL?
 
     init() {
         _ = DS.Redesign.roundedShapesEnabled
@@ -176,13 +180,17 @@ struct WRKTApp: App {
                         WorkoutDataGate(recoveryCopy: dataStore.recoveryCopy)
                             .modelContainer(container)
                             .task { await prepareServices() }
+                    } else if dataStore.isOpening {
+                        LaunchHoldView()
                     } else {
                         StorageRecoveryView(recoveryCopy: dataStore.recoveryCopy, retry: dataStore.retry)
+                            // The clap never returns over this screen, including during a retry.
+                            .onAppear { launchSplash.isDismissed = true }
                     }
                 }
-                // The clap starts on the first frame and plays over history loading and
-                // the shell being built underneath, instead of waiting for both.
-                if dataStore.container != nil, !launchSplash.isDismissed {
+                // The clap starts on the first frame and plays over the store opening, history
+                // loading and the shell being built underneath, instead of waiting for them.
+                if dataStore.container != nil || dataStore.isOpening, !launchSplash.isDismissed {
                     LaunchClapView(sessionReady: launchSplash.isContentReady) {
                         launchSplash.isDismissed = true
                     }
@@ -191,7 +199,15 @@ struct WRKTApp: App {
             }
             .preferredColorScheme(.dark)
             .onOpenURL { url in
-                guard dataStore.container != nil else { return }
+                if dataStore.container != nil {
+                    handleURL(url)
+                } else if dataStore.isOpening {
+                    pendingURL = url
+                }
+            }
+            .onChange(of: dataStore.container != nil) { _, isOpen in
+                guard isOpen, let url = pendingURL else { return }
+                pendingURL = nil
                 handleURL(url)
             }
         }

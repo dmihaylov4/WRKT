@@ -147,8 +147,9 @@ struct AppShellView: View {
         .onChange(of: !authService.isCheckingSession || settings.isLocalMode, initial: true) { _, ready in
             launchSplash.isContentReady = ready
         }
-        .onChange(of: launchSplash.isDismissed) { _, dismissed in
+        .onChange(of: launchSplash.isDismissed, initial: true) { _, dismissed in
             // Push registration waits so the system's permission prompt cannot cover the clap.
+            // Initial: after a failed open and a retry the splash is already dismissed.
             guard dismissed else { return }
             Task { await PushNotificationService.shared.registerForPushNotifications() }
         }

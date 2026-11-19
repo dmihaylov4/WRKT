@@ -3,7 +3,8 @@ import CryptoKit
 
 /// Called before opening any database or starting services that write app data.
 /// The original SQLite database, journals and external files are copied together.
-struct UpgradeBackup {
+/// Nonisolated so the store can run it off the main thread at launch.
+nonisolated struct UpgradeBackup: Sendable {
     let applicationSupport: URL
     let documents: URL
     let destination: URL
