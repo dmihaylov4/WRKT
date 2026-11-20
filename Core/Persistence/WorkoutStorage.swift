@@ -224,9 +224,24 @@ actor WorkoutStorage {
     /// What startup validation decoded, consumed by the first loads so history is decoded once.
     private var validated: ValidatedHistory?
 
+    /// Writes every history file: temporary file, `fsync`, rename, directory `fsync`.
+    private let writer: DurableFileWriter
+    /// The files this actor writes, by name. Only this actor writes them, so a temporary file
+    /// beside one of them that exists before this actor's first write is a leftover of a killed
+    /// process.
+    private var historyFileNames: [String] {
+        [workoutsFileURL, currentWorkoutFileURL, runsFileURL, ignoredHealthKitUUIDsFileURL,
+         discardedWorkoutWindowsFileURL].map(\.lastPathComponent)
+    }
+    private var leftoversRemoved = false
+    /// True from the start of a process (a previous one may have written without a barrier)
+    /// and after every write, until a barrier succeeds.
+    private var writesSinceBarrier = true
+
     // MARK: - Initialization
 
-    init(directory: URL? = nil) {
+    init(directory: URL? = nil, fileSystem: DurableFileSystem = POSIXDurableFileSystem()) {
+        self.writer = DurableFileWriter(fileSystem: fileSystem)
         // Setup encoder/decoder
         self.encoder = JSONEncoder()
         // Compact: the files are read by the app, not by people. Readers ignore whitespace.
@@ -370,10 +385,7 @@ actor WorkoutStorage {
 
         do {
             let data = try encoder.encode(container)
-            try data.write(to: workoutsFileURL, options: [.atomic])
-
-            // Ensure file protection is applied after write
-            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: workoutsFileURL.path)
+            try writeDurably(data, to: workoutsFileURL)
 
             AppLogger.success("Saved \(workouts.count) workouts with \(prIndex.count) PR entries", category: AppLogger.storage)
         } catch let error as EncodingError {
@@ -402,10 +414,7 @@ actor WorkoutStorage {
     func saveCurrentWorkout(_ workout: CurrentWorkout?) async throws {
         if let workout = workout {
             let data = try encoder.encode(workout)
-            try data.write(to: currentWorkoutFileURL, options: [.atomic])
-
-            // Ensure file protection is applied after write
-            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: currentWorkoutFileURL.path)
+            try writeDurably(data, to: currentWorkoutFileURL)
 
             AppLogger.success("Saved current workout with \(workout.entries.count) entries", category: AppLogger.storage)
         } else {
@@ -461,10 +470,7 @@ actor WorkoutStorage {
         }
         do {
             let data = try encoder.encode(runs.map(StoredRun.init))
-            try data.write(to: runsFileURL, options: [.atomic])
-
-            // Ensure file protection is applied after write
-            try? fileManager.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: runsFileURL.path)
+            try writeDurably(data, to: runsFileURL)
 
             AppLogger.success("Saved \(runs.count) runs", category: AppLogger.storage)
             return FileStamp(runsFileURL)
@@ -484,6 +490,58 @@ actor WorkoutStorage {
             guard let encodedA = try? encoder.encode([StoredRun(a)]),
                   let encodedB = try? encoder.encode([StoredRun(b)]) else { return false }
             return encodedA == encodedB
+        }
+    }
+
+    // MARK: - Durable Writes
+
+    /// Replaces one history file through `DurableFileWriter`, with the protection class the
+    /// storage has always used, applied before the file is renamed into place. Synchronous, so no
+    /// other call on this actor runs between creating the temporary file and the rename.
+    private func writeDurably(_ data: Data, to url: URL) throws {
+        removeLeftoversBeforeFirstWrite()
+        writesSinceBarrier = true
+        try writer.write(data, to: url, protection: .completeUntilFirstUserAuthentication)
+    }
+
+    /// Makes every history file written so far survive a power loss (`F_FULLFSYNC`). Writes
+    /// nothing; skipped when this process has written nothing since the last barrier.
+    func makeWritesDurable() throws {
+        guard writesSinceBarrier else { return }
+        try writer.barrier(at: storageDirectory)
+        writesSinceBarrier = false
+    }
+
+    /// Removes the temporary files a killed write left beside the history files, once per
+    /// instance, before its first write: at that moment this actor has no write in progress, and
+    /// nothing else writes these names. Only regular files directly in the storage directory
+    /// whose name is a history file name followed by exactly the writer's or Foundation's
+    /// temporary suffix are removed; symbolic links are never followed or removed.
+    private func removeLeftoversBeforeFirstWrite() {
+        guard !leftoversRemoved else { return }
+        leftoversRemoved = true
+        let names: [String]
+        do {
+            names = try fileManager.contentsOfDirectory(atPath: storageDirectory.path)
+        } catch {
+            AppLogger.warning("Could not list the storage directory for leftover temporary files: \(error)",
+                              category: AppLogger.storage)
+            return
+        }
+        let historyNames = historyFileNames
+        for name in names {
+            guard historyNames.contains(where: { DurableFileWriter.isTemporaryName(name, for: $0)
+                || DurableFileWriter.isSystemAtomicWriteName(name, for: $0) }) else { continue }
+            let path = storageDirectory.appendingPathComponent(name).path
+            var info = stat()
+            guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { continue }
+            if unlink(path) == 0 {
+                AppLogger.info("Removed leftover temporary history file \(name) (\(info.st_size) bytes)",
+                               category: AppLogger.storage)
+            } else {
+                AppLogger.warning("Could not remove leftover temporary history file \(name): errno \(errno)",
+                                  category: AppLogger.storage)
+            }
         }
     }
 
@@ -524,7 +582,7 @@ actor WorkoutStorage {
     func saveIgnoredHealthKitUUIDs(_ uuids: Set<UUID>) async throws -> FileStamp? {
         do {
             let data = try encoder.encode(Array(uuids))
-            try data.write(to: ignoredHealthKitUUIDsFileURL, options: [.atomic])
+            try writeDurably(data, to: ignoredHealthKitUUIDsFileURL)
             AppLogger.success("Saved \(uuids.count) ignored HealthKit UUIDs", category: AppLogger.storage)
             return FileStamp(ignoredHealthKitUUIDsFileURL)
         } catch {
@@ -570,7 +628,7 @@ actor WorkoutStorage {
     func saveDiscardedWorkoutWindows(_ windows: [DiscardedWorkoutWindow]) async throws {
         do {
             let data = try encoder.encode(windows)
-            try data.write(to: discardedWorkoutWindowsFileURL, options: [.atomic])
+            try writeDurably(data, to: discardedWorkoutWindowsFileURL)
             AppLogger.success("Saved \(windows.count) discarded workout windows", category: AppLogger.storage)
         } catch {
             AppLogger.error("Failed to save discarded workout windows: \(error)", category: AppLogger.storage)
@@ -716,8 +774,7 @@ actor WorkoutStorage {
 
         // Retain the current file for recovery and atomically replace it only after validation.
         try await createWorkoutsBackup()
-        try data.write(to: workoutsFileURL, options: [.atomic])
-        enableFileProtection(for: workoutsFileURL)
+        try writeDurably(data, to: workoutsFileURL)
         AppLogger.success("Restored from backup: \(url.lastPathComponent)", category: AppLogger.storage)
     }
 

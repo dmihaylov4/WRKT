@@ -1350,12 +1350,14 @@ final class WorkoutStoreV2: ObservableObject {
 
     /// A later save of another collection must not mask an earlier failed run write: a failed
     /// write leaves its collection unsaved, so this writes it again and reports that outcome.
-    /// Returning means both files hold the current state, so the Health anchor may advance.
+    /// Returning means both files hold the current state and, after the barrier, survive a
+    /// power loss, so the Health anchor may advance. A failed barrier throws like a failed write.
     func flushHealthKitChanges() async throws {
         try await waitForStorage()
         let save = enqueueSave { storage in
             try await self.saveRunsIfChanged(to: storage)
             try await self.saveIgnoredHealthKitUUIDsIfChanged(to: storage)
+            try await storage.makeWritesDurable()
         }
         try await save.value
     }
