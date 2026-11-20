@@ -222,3 +222,12 @@ nonisolated enum RunsV3Presence {
         }
     }
 }
+
+// MARK: - Configuration
+
+nonisolated enum RunHistoryConfiguration {
+    /// The migration kill switch (spec 7.1): while false, no migration from runs_v2.json starts.
+    /// It never disables reading an existing runs_v3. A stub until the migration exists (batch 3):
+    /// nothing reads it yet, and no build may turn it on before then.
+    static let migrationEnabled = false
+}

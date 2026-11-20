@@ -72,6 +72,23 @@ final class RunsV3StoreWiringTests: XCTestCase {
         XCTAssertFalse(names.contains { $0.contains("runs_v3") || $0.contains("tmp") })
     }
 
+    func testTheSwitchChoosesTodaysFileUnlessARunsV3EntryExists() async throws {
+        XCTAssertFalse(RunHistoryConfiguration.migrationEnabled, "no migration may start before batch 3")
+        try Data().write(to: directory.appendingPathComponent(".migrated"))
+        try await WorkoutStorage(directory: directory).saveRuns([Self.run(1)])
+        let before = V3Disk.tree(directory)
+        guard case .v2(let runs, _) = try await WorkoutStorage(directory: directory).openRunHistory(isProtectedDataAvailable: true) else {
+            return XCTFail("today's path")
+        }
+        XCTAssertEqual(runs.map(\.id), [V3.id(1)])
+        XCTAssertEqual(V3Disk.tree(directory), before, "deciding creates nothing")
+        try V3Disk.seed(directory, [Self.run(2)])
+        guard case .v3(let opened) = try await WorkoutStorage(directory: directory).openRunHistory(isProtectedDataAvailable: true) else {
+            return XCTFail("runs_v3 once its entry exists")
+        }
+        XCTAssertEqual(opened.entries.map(\.id), [V3.id(2)])
+    }
+
     func testStartupValidationSkipsTheFrozenV2FileOnlyWhenRunsV3Exists() throws {
         let documents = root.appendingPathComponent("Documents")
         let storage = documents.appendingPathComponent("WRKT_Storage")
