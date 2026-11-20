@@ -24,7 +24,7 @@ struct CutTrainCaptureTests {
             try await capture(model, to: root.appendingPathComponent("train-\(state.name).png"),
                               scrolledTo: ["planned", "live"].contains(state.name)
                                   ? root.appendingPathComponent("train-\(state.name)-scrolled.png") : nil)
-            if ["planned", "resting", "no-plan"].contains(state.name) {
+            if ["planned", "resting", "resting-long-name", "no-plan"].contains(state.name) {
                 try await capture(model, dynamicType: .accessibility3,
                                   to: root.appendingPathComponent("train-\(state.name)-ax.png"))
             }

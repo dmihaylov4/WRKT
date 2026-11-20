@@ -115,10 +115,10 @@ private struct CutTrainField: View {
         }
     }
 
-    /// Only the states with a control up here get a row: the elapsed clock while a workout is
-    /// live, Add exercise while resting. The small mark that used to sit on the left is gone
-    /// (the field's cut and the weekly V already carry the brand), so every other state starts
-    /// with its headline and the field is 44 pt shorter.
+    /// Only the live state gets a row up here: the elapsed clock. The small mark that used to sit
+    /// on the left is gone (the field's cut and the weekly V already carry the brand), and the
+    /// resting state no longer floats Add exercise up here (the live workout sheet that View
+    /// opens offers it), so every other state starts with its headline.
     @ViewBuilder
     private var topRow: some View {
         switch hero {
@@ -128,13 +128,6 @@ private struct CutTrainField: View {
             CutTrainElapsedClock(startDate: startDate)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.top, 6)
-        case .resting:
-            HStack(alignment: .center) {
-                Spacer(minLength: 12)
-                Button("Add exercise", systemImage: "plus", action: actions.addExercise)
-                    .buttonStyle(CutIconButtonStyle(tone: .outline, diameter: 44))
-            }
-            .frame(minHeight: 44)
         default:
             EmptyView()
         }
@@ -151,17 +144,29 @@ private struct CutTrainField: View {
             switch hero {
             case .resting(_, let countdown, _):
                 CutTrainRestCountdown(countdown: countdown)
-                    .padding(.top, 20)
-                // What the rest is for, then the next set: quiet lines that wrap, never truncate.
-                let restLines = CutTrainLogic.restingLines(hero)
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(restLines.indices, id: \.self) { index in
-                        Text(restLines[index])
-                            .cutFont(index == 0 ? .title : .body)
+                    .padding(.top, 8)
+                // The exercise as a condensed heading (one line when it fits, else two balanced
+                // lines), then one secondary line for what follows. The countdown already says
+                // it is a rest, so neither line repeats it.
+                VStack(alignment: .leading, spacing: 10) {
+                    if let heading = CutTrainLogic.restingHeading(hero) {
+                        ViewThatFits(in: .horizontal) {
+                            Text(heading)
+                                .cutHero(.exercise, minimumScaleFactor: 1)
+                            CutHeroText(CutHeroText.balancedLines(heading), hero: .exercise, minimumScaleFactor: 0.4)
+                        }
+                    }
+                    if let detail = CutTrainLogic.restingDetail(hero) {
+                        Text(detail)
+                            .cutFont(.title)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-                .padding(.top, 16)
+                .padding(.top, 4)
+                // "Resting: Bench Press. Next: set 3 of 4, 85 kg x 6": the full meaning, read
+                // after the countdown.
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(CutTrainLogic.restingAccessibilityLabel(hero)))
             default:
                 let lines = CutHeroText.balancedLines(CutTrainLogic.heroTitle(hero))
                 CutHeroText(lines, hero: CutTrainLogic.heroSize(forLines: lines), minimumScaleFactor: 0.25)
@@ -186,8 +191,8 @@ private struct CutTrainField: View {
     }
 }
 
-/// Hero plus line as one VoiceOver element. The resting countdown keeps its own live value,
-/// so its label is left to the combined children.
+/// Hero plus line as one VoiceOver element. While resting the combined children are read: the
+/// live countdown's label and value, then the text under it as one sentence.
 private struct HeroAccessibilityLabel: ViewModifier {
     let hero: CutTrainHero
     let line: String?
@@ -478,8 +483,12 @@ enum CutTrainFixtures {
         ("no-plan", .noPlan),
         ("live", .live(name: "Upper Body", exercisesDone: 2, exerciseCount: 6,
                        startDate: Date.now.addingTimeInterval(-(24 * 60 + 16)))),
-        ("resting", .resting(nextLine: "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92),
+        ("resting", .resting(nextLine: "Next: set 3 of 4, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92),
                              exerciseName: "Bench Press")),
+        ("resting-long-name", .resting(nextLine: "Next: set 2 of 4, 10 reps", countdown: .fixed(92),
+                                       exerciseName: "Bar Eccentric Pull Up")),
+        ("resting-next-exercise", .resting(nextLine: "Next: Incline DB Press, 32\u{00A0}kg\u{00A0}x\u{00A0}10",
+                                           countdown: .fixed(92), exerciseName: "Bench Press")),
         ("resting-last-set", .resting(nextLine: nil, countdown: .fixed(92),
                                       exerciseName: "Bar Eccentric Pull Up With a Very Long Name"))
     ]

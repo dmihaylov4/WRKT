@@ -103,7 +103,7 @@ enum CutTrainLogic {
         if let workout, !workout.entries.isEmpty {
             if let rest {
                 let next = nextSet(in: workout.entries, restingOn: rest.exerciseID)
-                return .resting(nextLine: next.map { nextSetLine(name: $0.name, set: $0.set, unit: unit) },
+                return .resting(nextLine: next.map { restingNextLine($0, unit: unit) },
                                 countdown: countdown,
                                 exerciseName: restingExerciseName(in: workout.entries, restingOn: rest.exerciseID))
             }
@@ -152,12 +152,16 @@ enum CutTrainLogic {
         return name
     }
 
-    /// The first open set from the exercise being rested on onwards.
-    static func nextSet(in entries: [WorkoutEntry], restingOn exerciseID: String) -> (name: String, set: SetInput)? {
-        let start = entries.firstIndex { $0.exerciseID == exerciseID } ?? entries.startIndex
-        for entry in entries[start...] {
-            if let set = entry.sets.first(where: { !$0.isCompleted }) {
-                return (entry.exerciseName, set)
+    /// The first open set from the exercise being rested on onwards: its exercise, the set, its
+    /// number and the exercise's set count, and whether it belongs to the rested exercise.
+    static func nextSet(in entries: [WorkoutEntry], restingOn exerciseID: String)
+        -> (name: String, set: SetInput, number: Int, count: Int, isSameExercise: Bool)? {
+        let found = entries.firstIndex { $0.exerciseID == exerciseID }
+        let start = found ?? entries.startIndex
+        for (offset, entry) in entries[start...].enumerated() {
+            if let index = entry.sets.firstIndex(where: { !$0.isCompleted }) {
+                return (entry.exerciseName, entry.sets[index], index + 1, entry.sets.count,
+                        found != nil && offset == 0)
             }
         }
         return nil
@@ -253,25 +257,50 @@ extension CutTrainLogic {
         }
     }
 
-    /// The resting hero's lines under the countdown: what the rest is for, then the next set
-    /// when one is open. Empty for every other state.
-    static func restingLines(_ hero: CutTrainHero) -> [String] {
-        guard case .resting(let nextLine, _, let exerciseName) = hero else { return [] }
-        var lines = [exerciseName.map { "Resting: \($0)" } ?? "Resting"]
-        if let nextLine { lines.append(nextLine) }
-        return lines
+    /// The resting hero's heading under the countdown: the exercise the rest belongs to, set
+    /// in capitals by the view. Nil outside rest, or when the timer's exercise is unknown.
+    static func restingHeading(_ hero: CutTrainHero) -> String? {
+        guard case .resting(_, _, let exerciseName) = hero else { return nil }
+        return exerciseName
+    }
+
+    /// The one secondary line under the heading: what comes next. Nil when nothing is open.
+    static func restingDetail(_ hero: CutTrainHero) -> String? {
+        guard case .resting(let nextLine, _, _) = hero else { return nil }
+        return nextLine
+    }
+
+    /// What VoiceOver reads after the countdown: "Resting: Bench Press. Next: set 3 of 4, 85 kg x 6".
+    static func restingAccessibilityLabel(_ hero: CutTrainHero) -> String {
+        guard case .resting(let nextLine, _, let exerciseName) = hero else { return "" }
+        let resting = exerciseName.map { "Resting: \($0)" } ?? "Resting"
+        return nextLine.map { "\(resting). \($0)" } ?? resting
+    }
+
+    /// The line under the resting heading. The rested exercise is not named again: "Next: set 3
+    /// of 4, 85 kg x 6". Another exercise is named: "Next: Row, 60 kg x 10".
+    static func restingNextLine(_ next: (name: String, set: SetInput, number: Int, count: Int, isSameExercise: Bool),
+                                unit: WeightUnit) -> String {
+        guard next.isSameExercise else { return nextSetLine(name: next.name, set: next.set, unit: unit) }
+        let lead = "Next: set \(next.number) of \(next.count)"
+        return setValues(next.set, unit: unit).map { "\(lead), \($0)" } ?? lead
     }
 
     static func nextSetLine(name: String, set: SetInput, unit: WeightUnit) -> String {
+        setValues(set, unit: unit).map { "Next: \(name), \($0)" } ?? "Next: \(name)"
+    }
+
+    /// "85 kg x 6", "8 reps", or nil when the set has neither.
+    static func setValues(_ set: SetInput, unit: WeightUnit) -> String? {
         if set.weight > 0, set.reps > 0 {
             // No-break spaces keep "85 kg x 6" together when the line wraps at large type.
             let weight = unit.format(set.weight).replacingOccurrences(of: " ", with: "\u{00A0}")
-            return "Next: \(name), \(weight)\u{00A0}x\u{00A0}\(set.reps)"
+            return "\(weight)\u{00A0}x\u{00A0}\(set.reps)"
         }
         if set.reps > 0 {
-            return "Next: \(name), \(set.reps) \(set.reps == 1 ? "rep" : "reps")"
+            return "\(set.reps) \(set.reps == 1 ? "rep" : "reps")"
         }
-        return "Next: \(name)"
+        return nil
     }
 
     /// Elapsed workout time: "4:05", "24:16", then "1:02" (h:mm) from one hour.

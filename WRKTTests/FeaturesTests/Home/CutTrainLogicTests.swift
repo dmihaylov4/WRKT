@@ -111,51 +111,80 @@ struct CutTrainLogicTests {
         #expect(name == "Live workout")
     }
 
-    @Test func runningRestWinsAndNamesTheNextOpenSet() {
+    @Test func runningRestWinsAndDoesNotRepeatTheRestedExercise() {
         let entries = [entry("a", "Bench Press", done: 2, of: 3), entry("b", "Row", done: 0, of: 3)]
         let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
                                       todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(92))
-        #expect(hero == .resting(nextLine: "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92),
+        #expect(hero == .resting(nextLine: "Next: set 3 of 3, 85\u{00A0}kg\u{00A0}x\u{00A0}6", countdown: .fixed(92),
                                  exerciseName: "Bench Press"))
     }
 
-    // MARK: Resting lines
+    // MARK: Resting text
 
-    @Test func restingWithNoOpenSetsNamesTheExercise() {
+    @Test func restingHeadingIsTheExerciseAndTheLineSaysWhatFollows() {
+        let entries = [entry("a", "Bar Eccentric Pull Up", done: 1, of: 4, weight: 0, reps: 10)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        #expect(CutTrainLogic.restingHeading(hero) == "Bar Eccentric Pull Up")
+        #expect(CutTrainLogic.restingDetail(hero) == "Next: set 2 of 4, 10 reps")
+        #expect(CutTrainLogic.restingAccessibilityLabel(hero) == "Resting: Bar Eccentric Pull Up. Next: set 2 of 4, 10 reps")
+    }
+
+    @Test func restingLinesNeverStartWithResting() {
+        let entries = [entry("a", "Bench Press", done: 1, of: 3), entry("b", "Row", done: 0, of: 3)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        for text in [CutTrainLogic.restingHeading(hero), CutTrainLogic.restingDetail(hero)].compactMap({ $0 }) {
+            #expect(!text.hasPrefix("Resting"))
+        }
+    }
+
+    @Test func restingWithNoOpenSetsHasOnlyTheHeading() {
         let entries = [entry("a", "Bar Eccentric Pull Up", done: 3, of: 3)]
         let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
                                       todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
-        #expect(CutTrainLogic.restingLines(hero) == ["Resting: Bar Eccentric Pull Up"])
+        #expect(CutTrainLogic.restingHeading(hero) == "Bar Eccentric Pull Up")
+        #expect(CutTrainLogic.restingDetail(hero) == nil)
+        #expect(CutTrainLogic.restingAccessibilityLabel(hero) == "Resting: Bar Eccentric Pull Up")
     }
 
-    @Test func restingWithAnOpenSetShowsBothLines() {
+    @Test func restingNamesTheNextExerciseOnlyWhenItChanges() {
         let entries = [entry("a", "Bench Press", done: 3, of: 3), entry("b", "Row", done: 0, of: 3, weight: 60, reps: 10)]
         let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
                                       todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
-        #expect(CutTrainLogic.restingLines(hero) == ["Resting: Bench Press", "Next: Row, 60\u{00A0}kg\u{00A0}x\u{00A0}10"])
+        #expect(CutTrainLogic.restingHeading(hero) == "Bench Press")
+        #expect(CutTrainLogic.restingDetail(hero) == "Next: Row, 60\u{00A0}kg\u{00A0}x\u{00A0}10")
     }
 
-    @Test func restingOnAnUnknownExerciseFallsBackToPlainResting() {
+    @Test func restingSameExerciseWithoutValuesSaysOnlyTheSet() {
+        let entries = [entry("a", "Plank", done: 1, of: 2, weight: 0, reps: 0)]
+        let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
+                                      todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
+        #expect(CutTrainLogic.restingDetail(hero) == "Next: set 2 of 2")
+    }
+
+    @Test func restingOnAnUnknownExerciseNamesTheNextOne() {
         let entries = [entry("a", "Bench Press", done: 1, of: 3)]
         let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "gone"),
                                       todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
         guard case .resting(_, _, let name) = hero else { Issue.record("expected resting"); return }
         #expect(name == nil)
-        let lines = CutTrainLogic.restingLines(hero)
-        #expect(lines.first == "Resting")
-        #expect(!lines.contains { $0.hasSuffix(":") || $0.hasSuffix(": ") })
+        #expect(CutTrainLogic.restingHeading(hero) == nil)
+        #expect(CutTrainLogic.restingDetail(hero) == "Next: Bench Press, 85\u{00A0}kg\u{00A0}x\u{00A0}6")
+        #expect(CutTrainLogic.restingAccessibilityLabel(hero).hasPrefix("Resting. Next: Bench Press"))
     }
 
-    @Test func restingOnAnExerciseWithABlankNameFallsBack() {
+    @Test func restingOnAnExerciseWithABlankNameHasNoHeading() {
         let entries = [entry("a", "  ", done: 3, of: 3)]
         let hero = CutTrainLogic.hero(workout: workout(entries), rest: .init(exerciseID: "a"),
                                       todaysPlan: nil, outlook: PlanOutlook(), unit: .kg, countdown: .fixed(60))
-        #expect(CutTrainLogic.restingLines(hero) == ["Resting"])
+        #expect(CutTrainLogic.restingHeading(hero) == nil)
+        #expect(CutTrainLogic.restingAccessibilityLabel(hero) == "Resting")
     }
 
-    @Test func restingLinesAreEmptyOutsideRest() {
-        #expect(CutTrainLogic.restingLines(.noPlan).isEmpty)
-        #expect(CutTrainLogic.restingLines(.planned(name: "Upper Body", exerciseCount: 6)).isEmpty)
+    @Test func restingTextIsEmptyOutsideRest() {
+        #expect(CutTrainLogic.restingHeading(.noPlan) == nil)
+        #expect(CutTrainLogic.restingDetail(.planned(name: "Upper Body", exerciseCount: 6)) == nil)
     }
 
     @Test func nextSetMovesOnWhenTheRestedExerciseIsDone() {
