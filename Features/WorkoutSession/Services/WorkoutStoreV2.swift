@@ -26,6 +26,17 @@ final class WorkoutStoreV2: ObservableObject {
     @Published private(set) var runSummaries: [RunSummary] = []
     /// Live detail handles, by workout id. Weak: a handle lives as long as a screen holds it.
     private var runDetailHandles: [UUID: WeakRunDetail] = [:]
+    /// The per-workout history (runs_v3), set at load only when the storage found it active.
+    /// nil means today's path: `runs` holds every run and one file stores them. Every run
+    /// method below branches on this once, at its top.
+    private var runsV3: RunsV3History?
+    private var runsV3Observers: [NSObjectProtocol] = []
+    private var protectedDataObserver: NSObjectProtocol?
+    private let protectedDataAvailable: @MainActor () -> Bool
+    /// Stored summaries that did not match memory after a drain (tests expect none).
+    private(set) var runsV3SummaryMismatches = 0
+    /// Full runs held in memory by the per-workout history (0 on today's path, which holds them all).
+    var runsV3CachedRunCount: Int { runsV3?.cachedCount ?? 0 }
 
     // Store last discarded workout for undo functionality
     private var lastDiscardedWorkout: CurrentWorkout?
@@ -63,6 +74,7 @@ final class WorkoutStoreV2: ObservableObject {
     /// main-actor turn as `runSummaries`. Returned already loaded, from memory.
     func runDetail(id: UUID) -> RunDetail {
         if let live = runDetailHandles[id]?.detail { return live }
+        if let runsV3 { return makeRunsV3Detail(id: id, history: runsV3) }
         let detail = RunDetail(id: id, phase: fullRun(id: id).map(RunDetail.Phase.loaded) ?? .unavailable(.removed))
         runDetailHandles = runDetailHandles.filter { $0.value.detail != nil }
         runDetailHandles[id] = WeakRunDetail(detail: detail)
@@ -75,6 +87,7 @@ final class WorkoutStoreV2: ObservableObject {
         try Task.checkCancellation()
         try await waitForStorage()
         try Task.checkCancellation()
+        if let runsV3 { return try await loadRunsV3(id, history: runsV3) }
         return fullRun(id: id).map(RunLoadResult.loaded) ?? .removed
     }
 
@@ -84,6 +97,10 @@ final class WorkoutStoreV2: ObservableObject {
         try await waitForStorage()
         try Task.checkCancellation()
         var results: [UUID: RunLoadResult] = [:]
+        if let runsV3 {
+            for id in ids { results[id] = try await loadRunsV3(id, history: runsV3) }
+            return results
+        }
         for id in ids { results[id] = fullRun(id: id).map(RunLoadResult.loaded) ?? .removed }
         return results
     }
@@ -92,6 +109,10 @@ final class WorkoutStoreV2: ObservableObject {
     private func refreshRunDetails(_ ids: [UUID]?) {
         guard !runDetailHandles.isEmpty else { return }
         let targets = ids ?? Array(runDetailHandles.keys)
+        if let runsV3 {
+            refreshRunsV3Details(targets, history: runsV3)
+            return
+        }
         for id in targets {
             guard let detail = runDetailHandles[id]?.detail else {
                 runDetailHandles[id] = nil
@@ -166,12 +187,14 @@ final class WorkoutStoreV2: ObservableObject {
         repo: ExerciseRepository = .shared,
         storage: WorkoutStorage = .shared,
         defaults: UserDefaults = .standard,
-        rewardsEngine: RewardsEngine = .shared
+        rewardsEngine: RewardsEngine = .shared,
+        protectedDataAvailable: (@MainActor () -> Bool)? = nil
     ) {
         self.repo = repo
         self.storage = storage
         self.defaults = defaults
         self.rewardsEngine = rewardsEngine
+        self.protectedDataAvailable = protectedDataAvailable ?? { UIApplication.shared.isProtectedDataAvailable }
 
         retryStorageLoad()
 
@@ -199,15 +222,25 @@ final class WorkoutStoreV2: ObservableObject {
                 // Restore saved work regardless of how the previous process ended.
                 // Load all data from unified storage
                 let (workouts, prIndex) = try await storage.loadWorkouts()
-                let (runs, runsStamp) = try await storage.loadRunsWithStamp()
+                // The one place that decides: runs_v3 when its entry exists, else runs_v2.json
+                // exactly as before (WorkoutStorage.openRunHistory).
+                let runHistory = try await storage.openRunHistory(isProtectedDataAvailable: protectedDataAvailable())
                 let currentWorkout = try await storage.loadCurrentWorkout()
                 let (ignoredUUIDs, ignoredStamp) = try await storage.loadIgnoredHealthKitUUIDsWithStamp()
                 let discardWindows = try await storage.loadDiscardedWorkoutWindows()
 
-                // Exactly what is on disk, so clean. Anything applied after this (deduplication
-                // below) changes the revision and is written.
-                setRuns(runs)
-                runsSave.markSaved(runsSave.revision, stamp: runsStamp)
+                let runCount: Int
+                switch runHistory {
+                case .v2(let runs, let runsStamp):
+                    // Exactly what is on disk, so clean. Anything applied after this (deduplication
+                    // below) changes the revision and is written.
+                    setRuns(runs)
+                    runsSave.markSaved(runsSave.revision, stamp: runsStamp)
+                    runCount = runs.count
+                case .v3(let opened):
+                    activateRunsV3(opened)
+                    runCount = runSummaries.count
+                }
 
                 // IMPORTANT: Sort workouts by date to ensure proper ordering
                 self.currentWorkout = currentWorkout
@@ -234,11 +267,17 @@ final class WorkoutStoreV2: ObservableObject {
                 // Repair low-value HealthKit operational SwiftData state from durable runs.
                 await HealthKitManager.shared.repairOperationalStateIfNeeded(runs: self.runSummaries)
 
-                AppLogger.success("Loaded from unified storage - Workouts: \(self.completedWorkouts.count), Runs: \(runs.count), PR entries: \(self.prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
+                AppLogger.success("Loaded from unified storage - Workouts: \(self.completedWorkouts.count), Runs: \(runCount), PR entries: \(self.prIndex.count), Current workout: \(currentWorkout != nil ? "Yes" : "No")", category: AppLogger.storage)
 
                 // Match workouts with HealthKit data if available
                 matchAllWorkoutsWithHealthKit()
 
+            } catch StorageError.runHistoryDeferred {
+                // Before the first unlock: nothing was concluded. Load again once protected data
+                // is available; until then the launch screen stays and nothing is written.
+                isStorageLoaded = false
+                AppLogger.info("Workout history waits for the device to be unlocked", category: AppLogger.storage)
+                retryWhenProtectedDataIsAvailable()
             } catch {
                 isStorageLoaded = false
                 storageLoadError = error
@@ -1018,6 +1057,10 @@ final class WorkoutStoreV2: ObservableObject {
     // MARK: - Runs
 
     func addRun(_ run: Run) {
+        if let runsV3 {
+            addRunsV3(run, history: runsV3)
+            return
+        }
         // Check for duplicates by healthKitUUID (if present)
         if let hkUUID = run.healthKitUUID {
             // If a run with this healthKitUUID already exists, don't add a duplicate
@@ -1037,6 +1080,10 @@ final class WorkoutStoreV2: ObservableObject {
     /// Remove duplicate runs that have the same healthKitUUID
     /// This is a one-time cleanup function to remove any existing duplicates
     func deduplicateRuns() {
+        if let runsV3 {
+            deduplicateRunsV3(history: runsV3)
+            return
+        }
         var seenUUIDs: Set<UUID> = []
         var uniqueRuns: [Run] = []
 
@@ -1089,6 +1136,7 @@ final class WorkoutStoreV2: ObservableObject {
     /// that change nothing write nothing. Returns the ids that changed.
     @discardableResult
     func editRuns(_ edits: [RunEdit]) -> Set<UUID> {
+        if let runsV3 { return editRunsV3(edits, history: runsV3) }
         var runsCopy = runs
         var touched: Set<Int> = []
         for edit in edits {
@@ -1111,6 +1159,7 @@ final class WorkoutStoreV2: ObservableObject {
     /// meanwhile gets its edit applied to its current form and is written.
     @discardableResult
     func editRunsIfStoredFormChanges(_ edits: [RunEdit]) async -> Set<UUID> {
+        if let runsV3 { return await editRunsV3IfStoredFormChanges(edits, history: runsV3) }
         let candidates = edits.compactMap { edit in fullRun(id: edit.id).map { (edit, $0, edit.applied(to: $0)) } }
         guard !candidates.isEmpty else { return [] }
         let identical = await runsEncodeIdentically(candidates.map { ($0.1, $0.2) })
@@ -1138,6 +1187,10 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     func removeRun(withId id: UUID) {
+        if let runsV3 {
+            removeRunsV3(ids: [id], history: runsV3)
+            return
+        }
         guard runs.contains(where: { $0.id == id }) else { return }
         runs.removeAll(where: { $0.id == id })
         runSummaries.removeAll(where: { $0.id == id })
@@ -1147,6 +1200,10 @@ final class WorkoutStoreV2: ObservableObject {
     }
 
     func clearAllRuns() {
+        if let runsV3 {
+            removeRunsV3(ids: runSummaries.map(\.id), history: runsV3)
+            return
+        }
         guard !runs.isEmpty else { return }
         setRuns([])
         persistRuns()
@@ -1355,7 +1412,11 @@ final class WorkoutStoreV2: ObservableObject {
     func flushHealthKitChanges() async throws {
         try await waitForStorage()
         let save = enqueueSave { storage in
-            try await self.saveRunsIfChanged(to: storage)
+            if self.runsV3 != nil {
+                try await self.drainRunsV3(requireDurable: true)
+            } else {
+                try await self.saveRunsIfChanged(to: storage)
+            }
             try await self.saveIgnoredHealthKitUUIDsIfChanged(to: storage)
             try await storage.makeWritesDurable()
         }
@@ -1377,6 +1438,10 @@ final class WorkoutStoreV2: ObservableObject {
 
     private func persistRuns() {
         guard isStorageLoaded else { return }
+        if runsV3 != nil {
+            enqueueSave { _ in try await self.drainRunsV3(requireDurable: false) }
+            return
+        }
         enqueueSave { try await self.saveRunsIfChanged(to: $0) }
     }
 
@@ -1899,6 +1964,258 @@ extension WorkoutStoreV2 {
 }
 
 // MARK: - Save Tracking
+
+// MARK: - Per-workout history (runs_v3)
+
+/// The runs_v3 half of the run API. Reached only after `activateRunsV3`, which only a load that
+/// found an active runs_v3 directory calls; with no runs_v3 entry on disk nothing here runs.
+extension WorkoutStoreV2 {
+    private final class ReadBox { var result: RunsV3ReadResult? }
+
+    fileprivate func activateRunsV3(_ opened: WorkoutStorage.RunsV3Opened) {
+        let history = RunsV3History(storage: storage, opened: opened)
+        history.isObserved = { [weak self] id in self?.runDetailHandles[id]?.detail != nil }
+        history.enqueueIndexWrite = { [weak self] operation in _ = self?.enqueueSave(operation) }
+        runsV3 = history
+        runSummaries = opened.entries.map(\.summary)
+        refreshRunDetails(nil)
+        runsV3Observers.append(NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.runsV3?.trim(keepRecent: 0) }
+        })
+        runsV3Observers.append(NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshRunDetails(nil) }
+        })
+        if history.isWritable {
+            enqueueSave { storage in
+                do { try await storage.runsV3PurgeTrash() } catch {
+                    AppLogger.warning("runs_v3 trash purge skipped: \(error)", category: AppLogger.storage)
+                }
+            }
+        }
+        AppLogger.info("Run history: runs_v3 (\(opened.mode == .writable ? "writable" : "read-only"), \(opened.entries.count) workouts)",
+                       category: AppLogger.storage)
+    }
+
+    fileprivate func retryWhenProtectedDataIsAvailable() {
+        guard protectedDataObserver == nil else { return }
+        protectedDataObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.protectedDataDidBecomeAvailableNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if let observer = self.protectedDataObserver { NotificationCenter.default.removeObserver(observer) }
+                self.protectedDataObserver = nil
+                self.retryStorageLoad()
+            }
+        }
+    }
+
+    private func refuseRunChange(_ what: String) {
+        AppLogger.warning("Run history is read-only in this version of the app: \(what) was not saved", category: AppLogger.storage)
+    }
+
+    // Reads
+
+    /// Reads one workout inside the save queue, so it sees every queued change and no drain runs
+    /// meanwhile. `wanted` is checked when the read's turn comes: a handle that went away is
+    /// not read for.
+    fileprivate func readRunsV3(_ id: UUID, history: RunsV3History, wanted: @escaping @MainActor () -> Bool = { true }) async -> RunsV3ReadResult? {
+        let box = ReadBox()
+        let task = enqueueSave { _ in
+            guard wanted() else { return }
+            box.result = await history.read(id)
+        }
+        _ = try? await task.value
+        return box.result
+    }
+
+    fileprivate func loadRunsV3(_ id: UUID, history: RunsV3History) async throws -> RunLoadResult {
+        if let cached = history.cachedRun(id) { return .loaded(cached) }
+        guard runSummary(id: id) != nil else { return .removed }
+        let result = await readRunsV3(id, history: history)
+        try Task.checkCancellation()
+        switch result {
+        case .loaded(let run)?: return .loaded(run)
+        case .removed?: return .removed
+        case .unreadable?: return .unreadable
+        case .temporarilyUnavailable?, nil: throw StorageError.runHistoryDeferred
+        }
+    }
+
+    fileprivate func makeRunsV3Detail(id: UUID, history: RunsV3History) -> RunDetail {
+        let phase: RunDetail.Phase
+        if let run = history.cachedRun(id) {
+            phase = .loaded(run)
+        } else if runSummary(id: id) == nil {
+            phase = .unavailable(.removed)
+        } else {
+            phase = .loading
+        }
+        let detail = RunDetail(id: id, phase: phase)
+        runDetailHandles = runDetailHandles.filter { $0.value.detail != nil }
+        runDetailHandles[id] = WeakRunDetail(detail: detail)
+        if case .loading = phase { startRunsV3Load(detail, history: history) }
+        return detail
+    }
+
+    /// Loads off the main thread (the storage actor decodes); cancelled with the handle.
+    private func startRunsV3Load(_ detail: RunDetail, history: RunsV3History) {
+        let id = detail.id
+        detail.loadTask?.cancel()
+        detail.loadTask = Task { [weak self, weak detail] in
+            guard let self else { return }
+            let result = await self.readRunsV3(id, history: history, wanted: { [weak detail] in detail != nil })
+            guard !Task.isCancelled, let detail else { return }
+            switch result {
+            case .loaded(let run)?:
+                detail.setLoaded(run)
+            case .removed?:
+                if detail.phase != .unavailable(.removed) { detail.setUnavailable(.removed) }
+            case .unreadable?:
+                detail.setUnavailable(.unreadable)
+            case .temporarilyUnavailable?, nil:
+                break   // Stays loading; protected data becoming available refreshes it.
+            }
+        }
+    }
+
+    fileprivate func refreshRunsV3Details(_ ids: [UUID], history: RunsV3History) {
+        for id in ids {
+            guard let detail = runDetailHandles[id]?.detail else {
+                runDetailHandles[id] = nil
+                continue
+            }
+            if let run = history.cachedRun(id) {
+                detail.setLoaded(run)
+            } else if runSummary(id: id) == nil {
+                if detail.phase != .unavailable(.removed) { detail.setUnavailable(.removed) }
+            } else if detail.isLoading || detail.phase == .unavailable(.unreadable) {
+                startRunsV3Load(detail, history: history)
+            } else {
+                // Shown but no longer in memory (a memory warning): load the current record.
+                startRunsV3Load(detail, history: history)
+            }
+        }
+    }
+
+    // Writes
+
+    fileprivate func addRunsV3(_ run: Run, history: RunsV3History) {
+        if let hkUUID = run.healthKitUUID, runSummaries.contains(where: { $0.healthKitUUID == hkUUID }) {
+            AppLogger.debug("Skipping duplicate run with healthKitUUID: \(hkUUID)", category: AppLogger.health)
+            return
+        }
+        guard !runSummaries.contains(where: { $0.id == run.id }) else { return }
+        guard history.isWritable else { return refuseRunChange("a new workout") }
+        history.enqueue(.add(run, seq: history.takeSeq()), for: run.id)
+        runSummaries.insert(RunSummary(run), at: 0)
+        refreshRunDetails([run.id])
+        persistRuns()
+    }
+
+    fileprivate func deduplicateRunsV3(history: RunsV3History) {
+        var seen: Set<UUID> = []
+        var duplicates: [UUID] = []
+        for summary in runSummaries {
+            guard let hkUUID = summary.healthKitUUID else { continue }
+            if seen.contains(hkUUID) { duplicates.append(summary.id) } else { seen.insert(hkUUID) }
+        }
+        guard !duplicates.isEmpty else { return }
+        AppLogger.info("Removed \(duplicates.count) duplicate run(s)", category: AppLogger.health)
+        removeRunsV3(ids: duplicates, history: history)
+    }
+
+    fileprivate func editRunsV3(_ edits: [RunEdit], history: RunsV3History) -> Set<UUID> {
+        guard history.isWritable else {
+            if !edits.isEmpty { refuseRunChange("\(edits.count) workout edit(s)") }
+            return []
+        }
+        var summaries = runSummaries
+        var changed: Set<UUID> = []
+        for edit in edits {
+            guard let index = summaries.firstIndex(where: { $0.id == edit.id }) else { continue }
+            if let cached = history.cachedRun(edit.id) {
+                // The full run is in memory: exactly today's test.
+                let updated = edit.applied(to: cached)
+                guard updated != cached else { continue }
+                history.enqueue(.edit(edit), for: edit.id)
+                summaries[index] = RunSummary(updated)
+            } else {
+                // Without the full run: the summary shows the edit at once; an edit that may
+                // change only its arrays is queued, and the drain writes nothing if the stored
+                // form does not change.
+                let updated = summaries[index].updated(by: edit)
+                guard updated != summaries[index] || RunSummary.replacesDetail(edit) else { continue }
+                history.enqueue(.edit(edit), for: edit.id)
+                summaries[index] = updated
+            }
+            changed.insert(edit.id)
+        }
+        AppLogger.debug("Edited \(changed.count)/\(edits.count) runs", category: AppLogger.health)
+        guard !changed.isEmpty else { return [] }
+        runSummaries = summaries
+        refreshRunDetails(Array(changed))
+        persistRuns()
+        return changed
+    }
+
+    fileprivate func editRunsV3IfStoredFormChanges(_ edits: [RunEdit], history: RunsV3History) async -> Set<UUID> {
+        var candidates: [(edit: RunEdit, stored: Run, serial: Int)] = []
+        for edit in edits {
+            guard runSummary(id: edit.id) != nil,
+                  case .loaded(let stored)? = try? await loadRunsV3(edit.id, history: history) else { continue }
+            candidates.append((edit, stored, history.serial(of: edit.id)))
+        }
+        guard !candidates.isEmpty else { return [] }
+        let identical = await runsEncodeIdentically(candidates.map { ($0.stored, $0.edit.applied(to: $0.stored)) })
+        let updates = zip(candidates, identical).compactMap { candidate, identical -> RunEdit? in
+            guard runSummary(id: candidate.edit.id) != nil else { return nil }
+            // Changed during the comparison: apply the edit to its current form and write it.
+            guard history.serial(of: candidate.edit.id) == candidate.serial else { return candidate.edit }
+            return identical ? nil : candidate.edit
+        }
+        return editRunsV3(updates, history: history)
+    }
+
+    fileprivate func removeRunsV3(ids: [UUID], history: RunsV3History) {
+        let present = Set(ids).intersection(runSummaries.map(\.id))
+        guard !present.isEmpty else { return }
+        guard history.isWritable else { return refuseRunChange("removing \(present.count) workout(s)") }
+        for id in ids where present.contains(id) { history.enqueue(.delete, for: id) }
+        runSummaries.removeAll { present.contains($0.id) }
+        refreshRunDetails(Array(present))
+        persistRuns()
+    }
+
+    /// Drains every queued change (inside the save queue). With `requireDurable` (the Health
+    /// anchor's flush), throws unless everything queued is durable and the history is writable.
+    fileprivate func drainRunsV3(requireDurable: Bool) async throws {
+        guard let history = runsV3 else { return }
+        if requireDurable && !history.isWritable { throw StorageError.runHistoryReadOnly }
+        guard history.hasPendingChanges || requireDurable else { return }
+        let report = await history.drain()
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        for (id, stored) in report.settled {
+            // Memory and the file must agree at the file's precision (whole-second dates).
+            guard let memory = runSummary(id: id) else { continue }
+            if (try? encoder.encode(memory)) != (try? encoder.encode(stored)) {
+                runsV3SummaryMismatches += 1
+                AppLogger.error("runs_v3: the stored summary of \(id) differs from memory", category: AppLogger.storage)
+            }
+        }
+        for (id, reason) in report.dropped {
+            AppLogger.warning("runs_v3: changes to \(id) were dropped: \(reason)", category: AppLogger.storage)
+        }
+        if !report.isFullyDurable {
+            let message = "\(report.failed.count) failed, \(report.awaitingBarrier.count) awaiting a barrier"
+                + (report.barrierError.map { ", barrier: \($0)" } ?? "")
+            if requireDurable || !report.failed.isEmpty { throw StorageError.runHistoryNotDurable(message) }
+        }
+    }
+}
 
 /// Whether a saved collection still matches the file it was last written to or loaded from.
 /// Any doubt means unsaved: no successful write yet, a failed write, a later change, or a file

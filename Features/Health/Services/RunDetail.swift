@@ -43,6 +43,13 @@ final class RunDetail: Identifiable {
     private(set) var lastLoaded: Run?
     /// Bumped every time the phase is set: lets a screen cache work done on one version.
     private(set) var revision = 0
+    /// The load from disk started for this handle (per-workout history only). Cancelled when the
+    /// last holder lets the handle go.
+    @ObservationIgnored nonisolated(unsafe) var loadTask: Task<Void, Never>?
+
+    deinit {
+        loadTask?.cancel()
+    }
 
     init(id: UUID, phase: Phase) {
         self.id = id
