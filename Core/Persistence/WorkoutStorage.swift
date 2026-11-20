@@ -18,6 +18,22 @@ enum StorageError: LocalizedError {
     case migrationFailed(String)
     case validationFailed(String)
     case backupFailed(String)
+    /// The run history (runs_v3) was written by a newer version of the app.
+    case runHistoryNeedsNewerApp(minimumReaderVersion: Int)
+    /// Something that is not a directory is named runs_v3.
+    case runHistoryInvalidLayout(String)
+    /// The run history can be read but this version may not write it (a newer writer made it).
+    case runHistoryReadOnly
+    /// Protected data is unavailable (before the first unlock): nothing was concluded.
+    case runHistoryDeferred
+    /// Run changes did not all reach permanent storage.
+    case runHistoryNotDurable(String)
+
+    /// True for the error the recovery screen shows with an update action.
+    var needsNewerApp: Bool {
+        if case .runHistoryNeedsNewerApp = self { return true }
+        return false
+    }
 
     var errorDescription: String? {
         switch self {
@@ -35,6 +51,16 @@ enum StorageError: LocalizedError {
             return "Validation failed: \(message)"
         case .backupFailed(let message):
             return "Backup failed: \(message)"
+        case .runHistoryNeedsNewerApp(let version):
+            return "Workout history needs a newer app (reader version \(version))"
+        case .runHistoryInvalidLayout(let message):
+            return "Workout history layout is invalid: \(message)"
+        case .runHistoryReadOnly:
+            return "Workout history is read-only in this version of the app"
+        case .runHistoryDeferred:
+            return "Workout history is not readable until the device is unlocked"
+        case .runHistoryNotDurable(let message):
+            return "Workout changes did not reach storage: \(message)"
         }
     }
 }
@@ -171,6 +197,9 @@ nonisolated struct ValidatedHistory: @unchecked Sendable {
     var current: Part<CurrentWorkout>?
     var ignored: Part<[UUID]>?
     var discardWindows: Part<[DiscardedWorkoutWindow]>?
+    /// The opened runs_v3 history, when it is active: then `runs` is nil and runs_v2.json was
+    /// not decoded.
+    var runsV3: RunsV3Store?
 }
 
 // MARK: - PR Data Structures (V2 - Enhanced)
@@ -226,6 +255,10 @@ actor WorkoutStorage {
 
     /// Writes every history file: temporary file, `fsync`, rename, directory `fsync`.
     private let writer: DurableFileWriter
+    private let fileSystem: DurableFileSystem
+    private let runsV3Environment: RunsV3Store.Environment
+    /// The open runs_v3 history, when it is the active one (decided by `openRunHistory`).
+    private var runsV3: RunsV3Store?
     /// The files this actor writes, by name. Only this actor writes them, so a temporary file
     /// beside one of them that exists before this actor's first write is a leftover of a killed
     /// process.
@@ -240,8 +273,11 @@ actor WorkoutStorage {
 
     // MARK: - Initialization
 
-    init(directory: URL? = nil, fileSystem: DurableFileSystem = POSIXDurableFileSystem()) {
+    init(directory: URL? = nil, fileSystem: DurableFileSystem = POSIXDurableFileSystem(),
+         runsV3Environment: RunsV3Store.Environment? = nil) {
         self.writer = DurableFileWriter(fileSystem: fileSystem)
+        self.fileSystem = fileSystem
+        self.runsV3Environment = runsV3Environment ?? Self.productionRunsV3Environment(fileSystem)
         // Setup encoder/decoder
         self.encoder = JSONEncoder()
         // Compact: the files are read by the app, not by people. Readers ignore whitespace.
@@ -300,14 +336,18 @@ actor WorkoutStorage {
                 throw StorageError.validationFailed("Workout history format or count needs recovery")
             }
         }
-        let runs = try read([StoredRun].self, at: current.appendingPathComponent("runs_v2.json"))
+        // Once runs_v3 exists it is the history: runs_v2.json is a frozen fallback, never decoded
+        // at launch, and its damage must not block the app.
+        let runsV3 = try openRunsV3ForValidation(storage: current)
+        let v3Present = runsV3 != nil || RunsV3Presence.exists(in: current, fileSystem: POSIXDurableFileSystem())
+        let runs = v3Present ? nil : try read([StoredRun].self, at: current.appendingPathComponent("runs_v2.json"))
             .map { ValidatedHistory.Part(value: $0.value.map(\.run), stamp: $0.stamp) }
         let active = try read(CurrentWorkout.self, at: current.appendingPathComponent("current_workout_v2.json"))
         let ignored = try read([UUID].self, at: current.appendingPathComponent("ignored_healthkit_uuids.json"))
         let windows = try read([DiscardedWorkoutWindow].self, at: current.appendingPathComponent("discarded_workout_windows.json"))
-        guard !fm.fileExists(atPath: current.appendingPathComponent(".migrated").path) else {
+        guard !fm.fileExists(atPath: current.appendingPathComponent(".migrated").path) && !v3Present else {
             return ValidatedHistory(directory: current, workouts: workouts, runs: runs, current: active,
-                                    ignored: ignored, discardWindows: windows)
+                                    ignored: ignored, discardWindows: windows, runsV3: runsV3)
         }
         if workouts != nil || runs != nil || active != nil {
             guard workouts != nil && runs != nil else {
@@ -324,6 +364,26 @@ actor WorkoutStorage {
         }
         _ = try read([CompletedWorkout].self, at: documents.appendingPathComponent("workouts.json"))
         return nil
+    }
+
+    /// Opens runs_v3 for startup validation, reading only. nil when it is not active or the
+    /// read is deferred (protected data); throws for a layout or format the app cannot use, so
+    /// the recovery screen shows instead of an older history.
+    nonisolated static func openRunsV3ForValidation(storage: URL) throws -> RunsV3Store? {
+        let store = RunsV3Store(storage: storage, environment: productionRunsV3Environment(POSIXDurableFileSystem()))
+        switch store.open(isProtectedDataAvailable: true) {
+        case .notActive, .deferred: return nil
+        case .unsupported(let version): throw StorageError.runHistoryNeedsNewerApp(minimumReaderVersion: version)
+        case .invalidLayout(let message): throw StorageError.runHistoryInvalidLayout(message)
+        case .active: return store
+        }
+    }
+
+    nonisolated static func productionRunsV3Environment(_ fileSystem: DurableFileSystem) -> RunsV3Store.Environment {
+        let info = Bundle.main.infoDictionary
+        let build = "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+        return RunsV3Store.Environment(fileSystem: fileSystem, now: { Date() }, random: { UInt16.random(in: 0...UInt16.max) },
+                                       token: { UUID() }, build: build)
     }
 
     /// Accepts what startup validation decoded, if it was read from this storage's directory.
@@ -543,6 +603,105 @@ actor WorkoutStorage {
                                   category: AppLogger.storage)
             }
         }
+    }
+
+    // MARK: - Run history source (the switch)
+
+    /// What the run history is, decided in one place: runs_v3 if and only if an entry named
+    /// runs_v3 exists in the storage directory (spec 1 and 4), else runs_v2.json through exactly
+    /// today's code. Checking costs one `lstat` and creates nothing.
+    enum RunHistoryOpening {
+        case v2(runs: [Run], stamp: FileStamp?)
+        case v3(RunsV3Opened)
+    }
+
+    struct RunsV3Opened {
+        let mode: RunsV3Mode
+        /// History order.
+        let entries: [RunsV3Entry]
+        let nextSeq: Int64
+        let report: RunsV3OpenReport
+    }
+
+    func openRunHistory(isProtectedDataAvailable: Bool) throws -> RunHistoryOpening {
+        guard RunsV3Presence.exists(in: storageDirectory, fileSystem: fileSystem) else {
+            let (runs, stamp) = try loadRunsWithStamp()
+            return .v2(runs: runs, stamp: stamp)
+        }
+        let store: RunsV3Store
+        if let opened = validated?.runsV3, opened.layout.storage.standardizedFileURL == storageDirectory.standardizedFileURL,
+           opened.mode != nil, isProtectedDataAvailable {
+            validated?.runsV3 = nil
+            store = opened
+        } else {
+            validated?.runsV3 = nil
+            store = RunsV3Store(storage: storageDirectory, environment: runsV3Environment)
+            switch store.open(isProtectedDataAvailable: isProtectedDataAvailable) {
+            case .notActive:
+                // Gone between the check and the open: nothing else may create or remove it.
+                throw StorageError.runHistoryInvalidLayout("runs_v3 disappeared while opening")
+            case .deferred: throw StorageError.runHistoryDeferred
+            case .unsupported(let version): throw StorageError.runHistoryNeedsNewerApp(minimumReaderVersion: version)
+            case .invalidLayout(let message): throw StorageError.runHistoryInvalidLayout(message)
+            case .active: break
+            }
+        }
+        if store.mode == .writable {
+            do {
+                let repaired = try store.repair()
+                AppLogger.info("runs_v3 opened: \(store.entries.count) workouts, index \(store.report.indexState), repaired \(repaired)",
+                               category: AppLogger.storage)
+            } catch {
+                // Cleanup that failed (disk full) is retried at the next launch; the history is intact.
+                AppLogger.warning("runs_v3 repair did not finish: \(error)", category: AppLogger.storage)
+            }
+        } else {
+            AppLogger.warning("runs_v3 is read-only for this version of the app", category: AppLogger.storage)
+        }
+        runsV3 = store
+        return .v3(RunsV3Opened(mode: store.mode ?? .readOnly, entries: store.history, nextSeq: store.nextSeq, report: store.report))
+    }
+
+    /// One workout's full record from runs_v3.
+    func runsV3Read(id: UUID) -> RunsV3ReadResult {
+        runsV3?.readRun(id: id) ?? .removed
+    }
+
+    /// Several at once, in one actor turn.
+    func runsV3Read(ids: [UUID]) -> [UUID: RunsV3ReadResult] {
+        var results: [UUID: RunsV3ReadResult] = [:]
+        for id in ids { results[id] = runsV3?.readRun(id: id) ?? .removed }
+        return results
+    }
+
+    struct RunsV3DrainOutcome {
+        let result: RunsV3DrainResult
+        /// The stored summary of every id in the batch that is still live.
+        let summaries: [UUID: RunSummary]
+    }
+
+    /// Applies one batch to runs_v3 and makes it durable; the index waits for
+    /// `runsV3WriteIndexIfStale`.
+    func runsV3Drain(_ batch: [(id: UUID, operations: [RunsV3Operation])]) -> RunsV3DrainOutcome {
+        guard let runsV3 else {
+            var result = RunsV3DrainResult()
+            for item in batch { result.failed[item.id] = RunsV3StoreError.notOpen }
+            return RunsV3DrainOutcome(result: result, summaries: [:])
+        }
+        let result = runsV3.drain(batch, writeIndex: false)
+        var summaries: [UUID: RunSummary] = [:]
+        for item in batch { if let entry = runsV3.entries[item.id] { summaries[item.id] = entry.summary } }
+        return RunsV3DrainOutcome(result: result, summaries: summaries)
+    }
+
+    @discardableResult
+    func runsV3WriteIndexIfStale() throws -> Bool {
+        try runsV3?.writeIndexIfStale() ?? false
+    }
+
+    @discardableResult
+    func runsV3PurgeTrash() throws -> Int {
+        try runsV3?.purgeTrash() ?? 0
     }
 
     // MARK: - Ignored HealthKit UUIDs (for discarded workouts)
@@ -781,7 +940,9 @@ actor WorkoutStorage {
     // MARK: - Migration
 
     func needsMigration() async -> Bool {
+        // A runs_v3 directory is only ever made from migrated history.
         return !fileManager.fileExists(atPath: migrationFlagURL.path)
+            && !RunsV3Presence.exists(in: storageDirectory, fileSystem: fileSystem)
     }
 
     func migrateFromLegacyStorage(applicationSupport: URL? = nil, documents: URL? = nil) async throws {
@@ -1133,6 +1294,9 @@ actor WorkoutStorage {
         try? fileManager.removeItem(at: workoutsFileURL)
         try? fileManager.removeItem(at: currentWorkoutFileURL)
         try? fileManager.removeItem(at: runsFileURL)
+        // runs_v3 after runs_v2.json (spec 3.8): a kill in between leaves v3 whole, never v2 alone.
+        try? RunsV3Store.wipe(storage: storageDirectory, fileSystem: fileSystem, now: Date())
+        runsV3 = nil
         try? fileManager.removeItem(at: migrationFlagURL)
         try? fileManager.removeItem(at: backupsDirectory)
 
