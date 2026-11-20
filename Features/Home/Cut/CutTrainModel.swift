@@ -85,6 +85,8 @@ enum CutTrainLogic {
     }
 
     static let liveWorkoutName = "Live workout"
+    /// The no plan hero's start pill. Its action and sheet are those of every other start pill.
+    static let noPlanStartTitle = "New workout"
 
     static func hero(
         workout: ActiveWorkout?,

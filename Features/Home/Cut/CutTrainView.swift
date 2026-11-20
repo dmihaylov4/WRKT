@@ -96,7 +96,7 @@ private struct CutTrainField: View {
 
     var body: some View {
         CutField(tone: tone == .lime ? .lime : .dark,
-                 // 84 at the bottom keeps a two-pill row ("Start workout", "Set up a plan")
+                 // 84 at the bottom keeps a two-pill row ("New workout", "Set up a plan")
                  // clear of the 112 pt cut on a 402 pt wide screen.
                  padding: EdgeInsets(top: topInset + 2, leading: DS.Cut.Metrics.gutter,
                                      bottom: 84, trailing: DS.Cut.Metrics.gutter)) {
@@ -239,7 +239,7 @@ private struct CutTrainHeroActions: View {
             Button("Browse exercises", systemImage: "magnifyingglass", action: actions.browseExercises)
                 .buttonStyle(CutIconButtonStyle(tone: .outline, diameter: 56))
         case .noPlan:
-            Button("Start workout", systemImage: "arrow.right") {
+            Button(CutTrainLogic.noPlanStartTitle, systemImage: "arrow.right") {
                 Haptics.medium()
                 actions.startWorkout()
             }
