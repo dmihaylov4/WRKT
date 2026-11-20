@@ -27,9 +27,15 @@ struct CutTrainHost: View {
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
 
     @State private var planSetup: PlanSetupDestination?
-    /// The past workouts sheet's values, built when the Last workout row opens it.
-    @State private var pastWorkouts: CutPastWorkoutsModel?
-    @State private var showsPastWorkouts = false
+    /// The past workouts sheet, presented by its values. Presenting by item hands the sheet the
+    /// values it was opened with: a Boolean flag beside a separate optional showed an empty,
+    /// full-height sheet the first time, because the content was built before the values arrived.
+    @State private var pastWorkouts: PastWorkoutsSheet?
+
+    private struct PastWorkoutsSheet: Identifiable {
+        let id = UUID()
+        let model: CutPastWorkoutsModel
+    }
 
     private enum PlanSetupDestination: Hashable {
         case create, library
@@ -43,10 +49,8 @@ struct CutTrainHost: View {
                 case .library: ProgramLibraryView()
                 }
             }
-            .sheet(isPresented: $showsPastWorkouts) {
-                if let pastWorkouts {
-                    CutPastWorkoutsView(model: pastWorkouts, onStart: startPastWorkout, onCancel: { showsPastWorkouts = false })
-                }
+            .sheet(item: $pastWorkouts) { sheet in
+                CutPastWorkoutsView(model: sheet.model, onStart: startPastWorkout, onCancel: { pastWorkouts = nil })
             }
     }
 
@@ -102,17 +106,16 @@ struct CutTrainHost: View {
     }
 
     private func openPastWorkouts() {
-        pastWorkouts = CutPastWorkoutsLogic.model(repeatableWorkouts,
-                                                  unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg,
-                                                  isAvailable: isInLibrary)
-        showsPastWorkouts = true
+        pastWorkouts = PastWorkoutsSheet(model: CutPastWorkoutsLogic.model(repeatableWorkouts,
+                                                                           unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg,
+                                                                           isAvailable: isInLibrary))
     }
 
     /// Closes the sheet, then starts the workout the way a planned one starts (HomeViewNew's
     /// handleHeroTap): the store builds the pre-filled workout and the live workout opens.
     /// A workout that started meanwhile is never replaced; it is shown instead.
     private func startPastWorkout(_ id: UUID) {
-        showsPastWorkouts = false
+        pastWorkouts = nil
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             guard let workout = store.completedWorkouts.first(where: { $0.id == id }) else { return }
             if store.startRepeatedWorkout(workout) {
