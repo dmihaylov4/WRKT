@@ -58,6 +58,10 @@ struct CutTrainRow: Equatable, Identifiable {
     let kind: Kind
     let title: String
     let value: String
+    /// The row opens a sheet of choices (the Last workout row with workouts to repeat).
+    var showsChevron = false
+    /// What the row opens, for VoiceOver.
+    var accessibilityHint: String? = nil
 
     var id: Kind { kind }
 }
@@ -163,6 +167,7 @@ enum CutTrainLogic {
         battle: (title: String, value: String)?,
         streakWeeks: Int?,
         lastWorkout: (name: String, date: Date)?,
+        lastWorkoutOpensPastWorkouts: Bool = false,
         now: Date = .now,
         calendar: Calendar = .current
     ) -> [CutTrainRow] {
@@ -177,7 +182,9 @@ enum CutTrainLogic {
             rows.append(CutTrainRow(
                 kind: .lastWorkout,
                 title: "Last workout",
-                value: "\(lastWorkout.name), \(relativeDay(lastWorkout.date, now: now, calendar: calendar, style: .short))"
+                value: "\(lastWorkout.name), \(relativeDay(lastWorkout.date, now: now, calendar: calendar, style: .short))",
+                showsChevron: lastWorkoutOpensPastWorkouts,
+                accessibilityHint: lastWorkoutOpensPastWorkouts ? CutPastWorkoutsLogic.rowHint : nil
             ))
         }
         return Array(rows.prefix(3))

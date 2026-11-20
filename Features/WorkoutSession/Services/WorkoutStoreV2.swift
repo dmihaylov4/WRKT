@@ -353,6 +353,31 @@ final class WorkoutStoreV2: ObservableObject {
         AppLogger.info("Started planned workout: \(planned.splitDayName)", category: AppLogger.workout)
     }
 
+    /// Starts a logged workout again, pre-filled with last time's exercises and sets (editable,
+    /// not yet logged), the way a planned workout starts. Never replaces a workout in progress:
+    /// with one running (it has exercises) nothing changes and this returns false, as a start
+    /// from the watch does. Also false when nothing in `workout` can be repeated.
+    /// - Parameter isAvailable: whether an exercise is still in the library; the repository by
+    ///   default. Exercises that are not (a deleted custom exercise) are left out.
+    @discardableResult
+    func startRepeatedWorkout(_ workout: CompletedWorkout, isAvailable: ((String) -> Bool)? = nil) -> Bool {
+        if let current = currentWorkout, !current.entries.isEmpty {
+            AppLogger.warning("Not repeating a workout: a workout is in progress", category: AppLogger.workout)
+            return false
+        }
+        let entries = CutPastWorkoutsLogic.entriesToRepeat(workout, isAvailable: isAvailable ?? { [repo] in repo.exercise(byID: $0) != nil })
+        guard !entries.isEmpty else { return false }
+
+        currentWorkout = CurrentWorkout(
+            startedAt: .now,
+            entries: entries,
+            activeEntryID: entries.first?.id
+        )
+        persistCurrentWorkout()
+        AppLogger.info("Started a past workout again: \(entries.count) exercises", category: AppLogger.workout)
+        return true
+    }
+
     func discardCurrentWorkout() {
         // Notify Watch to discard HKWorkoutSession (don't save to HealthKit)
         WatchConnectivityManager.shared.sendDiscardWatchWorkout()

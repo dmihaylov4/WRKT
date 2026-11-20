@@ -427,7 +427,8 @@ private struct CutTrainRows: View {
         CutHairlineList {
             ForEach(rows) { row in
                 let hairlineRow = CutHairlineRow(row.title, value: row.value,
-                                                 valueTone: row.kind == .battle ? .lime : .secondary)
+                                                 valueTone: row.kind == .battle ? .lime : .secondary,
+                                                 showsChevron: row.showsChevron)
                 if actions.tappableRows.contains(row.kind) {
                     Button {
                         Haptics.light()
@@ -436,6 +437,7 @@ private struct CutTrainRows: View {
                         hairlineRow
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint(row.accessibilityHint.map { Text($0) } ?? Text(""))
                 } else {
                     hairlineRow
                 }
