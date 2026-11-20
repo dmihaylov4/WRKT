@@ -38,6 +38,7 @@ struct CutSettingsModel: Equatable {
         case yearReviewNextLaunch
         case yearAward3D
         case cutGallery
+        case runHistoryMigration
 
         var id: String { rawValue }
 
@@ -52,6 +53,7 @@ struct CutSettingsModel: Equatable {
             case .yearReviewNextLaunch: "Year in review: pop up on next launch"
             case .yearAward3D: "Year in review: 3D award"
             case .cutGallery: "Cut gallery"
+            case .runHistoryMigration: "Per-workout history migration"
             }
         }
 
@@ -60,12 +62,14 @@ struct CutSettingsModel: Equatable {
             case .roundedShapes, .cutDesign: "Applies after restarting the app"
             case .yearReviewNextLaunch: "Needs the Cut design and five workouts this year"
             case .yearAward3D: "Off shows the SwiftUI plaque"
+            case .runHistoryMigration:
+                "Simulator and scratch testing only until the v2 merge lands (batch 3b). Starts after launch only when the app is also launched with the migration opt-in argument."
             default: nil
             }
         }
 
         /// A switch rather than a button.
-        var isToggle: Bool { self == .roundedShapes || self == .cutDesign || self == .yearAward3D }
+        var isToggle: Bool { self == .roundedShapes || self == .cutDesign || self == .yearAward3D || self == .runHistoryMigration }
 
         /// Pushes a page (chevron) rather than acting in place.
         var pushes: Bool { self == .barbellPlayground || self == .cutGallery }
