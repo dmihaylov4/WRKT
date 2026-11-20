@@ -203,6 +203,33 @@ final class RunsV3DrainTests: XCTestCase {
         XCTAssertEqual(back.history.map(\.summary.workoutName), ["A", "C2", "B"])
     }
 
+    func testDrainsCanLeaveTheIndexToOneLaterWrite() throws {
+        let (fs, store) = try seeded([V3.run(1, points: 3)])
+        fs.clearLog()
+        for n in 2...4 { XCTAssertTrue(store.drainOne(V3.id(n), .add(V3.run(n), seq: Int64(n)), writeIndex: false).isFullyDurable) }
+        XCTAssertTrue(store.drain([(V3.id(1), [.edit(rename("x"))])], writeIndex: false).isFullyDurable)
+        XCTAssertFalse(fs.log.contains { $0.hasPrefix("rename index.json") }, "no index write during the burst")
+        XCTAssertTrue(store.isIndexStale)
+        XCTAssertEqual(fs.names(in: layout.runs).filter { $0.hasPrefix(V3.id(1).uuidString.lowercased()) }.count, 2,
+                       "the superseded revision waits for the index")
+        XCTAssertTrue(try store.writeIndexIfStale())
+        XCTAssertFalse(try store.writeIndexIfStale())
+        XCTAssertEqual(fs.log.filter { $0.hasPrefix("rename index.json") }.count, 1)
+        XCTAssertEqual(fs.names(in: layout.runs).filter { $0.hasPrefix(V3.id(1).uuidString.lowercased()) }.count, 1)
+        let back = try reopened(fs)
+        XCTAssertEqual(back.report.indexState, .valid)
+        XCTAssertEqual(back.history.map(\.id), [V3.id(4), V3.id(3), V3.id(2), V3.id(1)])
+    }
+
+    func testTheIndexIsNotWrittenWhileABarrierIsOwed() throws {
+        let (fs, store) = try seeded([V3.run(1)])
+        fs.failNext = ("F_FULLFSYNC", nil, EIO)
+        XCTAssertFalse(store.drainOne(V3.id(2), .add(V3.run(2), seq: 2), writeIndex: false).isFullyDurable)
+        XCTAssertFalse(try store.writeIndexIfStale(), "an index must not list a file that is not durable")
+        XCTAssertTrue(store.drain([], writeIndex: false).isFullyDurable)
+        XCTAssertTrue(try store.writeIndexIfStale())
+    }
+
     // MARK: - Purge (spec 3.6)
 
     func testPurgeRemovesOldTrashButKeepsDeletionEvidenceTheIndexStillNeeds() throws {

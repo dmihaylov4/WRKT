@@ -28,6 +28,8 @@ final class RunsV3CrashTests: XCTestCase {
     struct Scenario {
         var seed: [Run]
         var batches: [[(UUID, [Op])]]
+        /// Drains leave the index stale; one `writeIndexIfStale` follows the last batch.
+        var deferIndex = false
     }
 
     struct Model: Equatable {
@@ -71,10 +73,11 @@ final class RunsV3CrashTests: XCTestCase {
         _ = try? store.repair()
         var ends: [Int] = []
         for batch in scenario.batches {
-            let result = store.drain(batch.map { ($0.0, $0.1.map(\.operation)) })
+            let result = store.drain(batch.map { ($0.0, $0.1.map(\.operation)) }, writeIndex: !scenario.deferIndex)
             if checkDurable { XCTAssertTrue(result.isFullyDurable, "reference run: \(result.failed)") }
             ends.append(fs.callCount)
         }
+        if scenario.deferIndex { _ = try? store.writeIndexIfStale() }
         return ends
     }
 
@@ -213,6 +216,17 @@ final class RunsV3CrashTests: XCTestCase {
             [(V3.id(2), [.delete])],                                  // and deleted a second time
         ])
         print("sequence: \(Self.exhaust(scenario, name: "sequence", seeds: [1, 2])) cases")
+    }
+
+    /// The same sequence with the index written once at the end, as the app coalesces it.
+    func testEveryCrashPointOfASequenceWithACoalescedIndex() {
+        let scenario = Scenario(seed: [V3.run(1, points: 2), V3.run(2), V3.run(3)], batches: [
+            [(V3.id(4), [.add(V3.run(4), seq: 4)])],
+            [(V3.id(1), [rename("one")]), (V3.id(2), [.delete])],
+            [(V3.id(4), [rename("four"), .strip]), (V3.id(3), [.delete])],
+            [(V3.id(2), [.add(V3.run(2, distance: 22), seq: 5)])],
+        ], deferIndex: true)
+        print("coalesced: \(Self.exhaust(scenario, name: "coalesced", seeds: [1, 2])) cases")
     }
 
     /// Q-MIXED: one drain with several pending operations on several workouts.

@@ -116,7 +116,7 @@ nonisolated enum V3 {
 extension RunsV3Store {
     /// One operation, drained alone.
     @discardableResult
-    func drainOne(_ id: UUID, _ operations: RunsV3Operation...) -> RunsV3DrainResult {
-        drain([(id, operations)])
+    func drainOne(_ id: UUID, _ operations: RunsV3Operation..., writeIndex: Bool = true) -> RunsV3DrainResult {
+        drain([(id, operations)], writeIndex: writeIndex)
     }
 }

@@ -14,7 +14,7 @@ import Foundation
 ///
 /// The coding keys are explicit and stable: renaming or removing one changes a stored format
 /// that a later version may depend on.
-struct RunSummary: Identifiable, Hashable, Codable {
+nonisolated struct RunSummary: Identifiable, Hashable, Codable {
     let id: UUID
 
     // Light fields: the same names, types and meaning as on `Run`.
@@ -99,6 +99,44 @@ struct RunSummary: Identifiable, Hashable, Codable {
         routeHasHeartRate = hasHeartRate
         routeMaxHeartRate = highest
         routeMinHeartRate = lowest
+    }
+}
+
+// MARK: - Edits without the full run
+
+extension RunSummary {
+    /// The summary of `edit.applied(to: run)`, from this summary of `run` alone: the light edit
+    /// is applied as `RunEdit.applied` applies it, and the facts of each replaced array are
+    /// derived from the replacement; the facts of the arrays it keeps stay. Lets a store that
+    /// does not hold the full run show an edit at once (the per-workout history). Equal to
+    /// `RunSummary(edit.applied(to: run))` for every run and edit (tested).
+    func updated(by edit: RunEdit) -> RunSummary {
+        var light = self
+        edit.light(&light)
+        // A run holding only the light fields and the replaced arrays: its facts are exactly the
+        // facts of those arrays.
+        var probe = Run(id: light.id, date: light.date, distanceKm: light.distanceKm, durationSec: light.durationSec)
+        if let route = edit.route { probe.route = route }
+        if let routeWithHR = edit.routeWithHR { probe.routeWithHR = routeWithHR }
+        if let splits = edit.splits { probe.splits = splits }
+        if let hrSamples = edit.hrSamples { probe.hrSamples = hrSamples }
+        let replaced = RunSummary(probe)
+        var result = light
+        if edit.route != nil { result.routePointCount = replaced.routePointCount }
+        if edit.routeWithHR != nil {
+            result.routeWithHRPointCount = replaced.routeWithHRPointCount
+            result.routeHasHeartRate = replaced.routeHasHeartRate
+            result.routeMaxHeartRate = replaced.routeMaxHeartRate
+            result.routeMinHeartRate = replaced.routeMinHeartRate
+        }
+        if edit.splits != nil { result.splitCount = replaced.splitCount }
+        if edit.hrSamples != nil { result.heartRateSampleCount = replaced.heartRateSampleCount }
+        return result
+    }
+
+    /// Whether the edit replaces any detail array (its effect on them is unknown without the run).
+    static func replacesDetail(_ edit: RunEdit) -> Bool {
+        edit.route != nil || edit.routeWithHR != nil || edit.splits != nil || edit.hrSamples != nil
     }
 }
 

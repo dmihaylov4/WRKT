@@ -382,6 +382,7 @@
 		C17CB7000000000000000108 /* RunsV3Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000208 /* RunsV3Format.swift */; };
 		C17CB7000000000000000109 /* RunsV3Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000209 /* RunsV3Store.swift */; };
 		2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */; };
+		C17CB7000000000000000110 /* RunsV3History.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000210 /* RunsV3History.swift */; };
 		2EC99E782EAA2794006B875E /* ExerciseSessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */; };
 		2EC99E792EAA2794006B875E /* OverviewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E752EAA2794006B875E /* OverviewComponents.swift */; };
 		2EC99E7B2EAA2794006B875E /* ExerciseSessionComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E722EAA2794006B875E /* ExerciseSessionComponents.swift */; };
@@ -1049,6 +1050,7 @@
 		C17CB7000000000000000208 /* RunsV3Format.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Format.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000209 /* RunsV3Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Store.swift; sourceTree = "<group>"; };
 		2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStoreV2.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000210 /* RunsV3History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3History.swift; sourceTree = "<group>"; };
 		2EC99E712EAA2794006B875E /* ExerciseCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCache.swift; sourceTree = "<group>"; };
 		2EC99E722EAA2794006B875E /* ExerciseSessionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionComponents.swift; sourceTree = "<group>"; };
 		2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionModels.swift; sourceTree = "<group>"; };
@@ -1775,6 +1777,7 @@
 			children = (
 				2EBE3FE52EB8C23700A26355 /* LiveActivityManager.swift */,
 				2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */,
+				C17CB7000000000000000210 /* RunsV3History.swift */,
 				2E7461BD2E9409A000A71C35 /* WorkoutStoreRecent.swift */,
 				2EE39C6E2EA77AA6000549C3 /* PlannerStore.swift */,
 			);
@@ -3500,6 +3503,7 @@
 				2E7461CD2E942FC900A71C35 /* MuscleTaxonomy.swift in Sources */,
 				2ED2379E2EA60FEA009C742E /* RestTimerPreferences.swift in Sources */,
 				2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */,
+				C17CB7000000000000000110 /* RunsV3History.swift in Sources */,
 				2E510B702E99599F0089EE2C /* ExerciseMusclesSection.swift in Sources */,
 				2EA7DAAF2EEDC9950017683B /* BattleRepository.swift in Sources */,
 				2EA7DAAB2EEDC76F0017683B /* Battle.swift in Sources */,

@@ -1,10 +1,21 @@
 import XCTest
 
-/// Until the store is wired in behind its switch, nothing in the app may refer to the runs_v3
-/// module, so no device can ever get a runs_v3 directory from this build. The module's own two
-/// files are the only app sources that may name it.
+/// Only these app sources may name the runs_v3 module, each for its reason. Until the migration
+/// exists (batch 3), nothing in the app creates a runs_v3 directory; the files below only read
+/// or write one that already exists. A listed file that no longer refers to the module must
+/// leave the list.
 final class RunsV3IsolationPolicyTests: XCTestCase {
-    static let moduleFiles: Set<String> = ["Core/Persistence/RunsV3Format.swift", "Core/Persistence/RunsV3Store.swift"]
+    static let allowlist: [String: String] = [
+        "Core/Persistence/RunsV3Format.swift": "The module: layout, names, schemas and the presence check.",
+        "Core/Persistence/RunsV3Store.swift": "The module: reader, repair, drain, purge and wipe.",
+        "Core/Persistence/WorkoutStorage.swift":
+            "The switch (openRunHistory: runs_v3 only when its entry exists), validation skipping runs_v2.json, the storage actor's entry points, and the development wipe.",
+        "Features/WorkoutSession/Services/RunsV3History.swift":
+            "The store-side state of the per-workout history: cache, queued changes, drains.",
+        "Features/WorkoutSession/Services/WorkoutStoreV2.swift":
+            "Branches each run method to the per-workout history when the load found it active.",
+    ]
+    static var moduleFiles: Set<String> { Set(allowlist.keys) }
     static let tokens = ["RunsV3", "RunFileV1", "runs_v3"]
     static let sourceRoots = ["App", "Core", "Features", "Shared", "DesignSystem", "Persistence",
                               "WRKT Watch Watch App", "WRKTWidgets"]
@@ -29,14 +40,18 @@ final class RunsV3IsolationPolicyTests: XCTestCase {
             for case let url as URL in walker where url.pathExtension == "swift" {
                 let relative = String(url.standardizedFileURL.path.dropFirst(root.standardizedFileURL.path.count + 1))
                 scanned += 1
-                if Self.moduleFiles.contains(relative) { moduleSeen.insert(relative); continue }
                 let text = try String(contentsOf: url, encoding: .utf8)
+                if Self.moduleFiles.contains(relative) {
+                    XCTAssertTrue(Self.tokens.contains { text.contains($0) }, "\(relative) no longer refers to the module: remove it from the list")
+                    moduleSeen.insert(relative)
+                    continue
+                }
                 for token in Self.tokens where text.contains(token) {
-                    XCTFail("\(relative) refers to \(token): the runs_v3 module is not wired in yet")
+                    XCTFail("\(relative) refers to \(token) but is not on the allowlist")
                 }
             }
         }
         XCTAssertGreaterThan(scanned, 100, "the scan found too few sources")
-        XCTAssertEqual(moduleSeen, Self.moduleFiles, "the module files moved: update this test")
+        XCTAssertEqual(moduleSeen, Self.moduleFiles, "a listed file moved: update this test")
     }
 }

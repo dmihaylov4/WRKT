@@ -207,3 +207,27 @@ nonisolated struct RunsV3BaselineV1: Codable, Equatable {
         let seq: Int64
     }
 }
+
+// MARK: - Presence (the switch)
+
+nonisolated enum RunsV3Presence {
+    /// Whether an entry named runs_v3 exists in the storage directory, of any kind: one `lstat`,
+    /// nothing created. An error other than "not there" counts as present, so a failed check is
+    /// never taken for "no runs_v3" (the open that follows then reports it).
+    static func exists(in storage: URL, fileSystem: DurableFileSystem) -> Bool {
+        do {
+            return try fileSystem.itemInfo(RunsV3Layout(storage: storage).root) != nil
+        } catch {
+            return true
+        }
+    }
+}
+
+// MARK: - Configuration
+
+nonisolated enum RunHistoryConfiguration {
+    /// The migration kill switch (spec 7.1): while false, no migration from runs_v2.json starts.
+    /// It never disables reading an existing runs_v3. A stub until the migration exists (batch 3):
+    /// nothing reads it yet, and no build may turn it on before then.
+    static let migrationEnabled = false
+}
