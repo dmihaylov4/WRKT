@@ -60,9 +60,10 @@ struct CutPlannerTitle: View {
     }
 }
 
-/// The round "more" glyph used as a Menu label.
+/// The "more" glyph used as a Menu label: round on a panel or on lime; on the background
+/// (`open`) just the three dots, flush with the trailing edge of the same touch target.
 struct CutPlannerMoreLabel: View {
-    enum Tone { case panel, ink }
+    enum Tone { case panel, ink, open }
     var tone: Tone = .panel
     var diameter: CGFloat = DS.Cut.Metrics.minTouchTarget
 
@@ -70,10 +71,10 @@ struct CutPlannerMoreLabel: View {
         Image(systemName: "ellipsis")
             .font(.system(size: 18, weight: .bold))
             .foregroundStyle(tone == .ink ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
-            .frame(width: diameter, height: diameter)
-            .background(Circle().fill(tone == .ink ? Color.clear : DS.Cut.Colors.panelControl))
+            .frame(width: diameter, height: diameter, alignment: tone == .open ? .trailing : .center)
+            .background(Circle().fill(tone == .panel ? DS.Cut.Colors.panelControl : Color.clear))
             .overlay { if tone == .ink { Circle().strokeBorder(DS.Cut.Colors.ink, lineWidth: 2) } }
-            .contentShape(Circle())
+            .contentShape(tone == .open ? AnyShape(Rectangle()) : AnyShape(Circle()))
     }
 }
 

@@ -3,7 +3,7 @@
 //  WRKT
 //
 //  Programs: the title on the back button row with New, the active program as one lime card,
-//  then From friends and Saved as raised panels.
+//  then From friends and Saved as open rows on the background, framed by hairlines at the gutter.
 //
 
 import SwiftUI
@@ -45,13 +45,13 @@ struct CutProgramsView: View {
                             CutActiveProgramCard(program: active, edit: actions.edit, share: { actions.share(active.id) },
                                                  sentInvites: { actions.sentInvites(active.id) }, clear: { confirmingClear = true })
                         } else if let prompt = model.prompt {
-                            CutPanel { CutProgramsPromptRow(title: prompt.title, line: prompt.line, action: actions.new) }
+                            CutProgramsRowGroup { CutProgramsPromptRow(title: prompt.title, line: prompt.line, action: actions.new) }
                         }
                     }
                     .padding(.top, 20)
                     if !model.invites.isEmpty {
                         CutPanelHeader("From friends").padding(.top, 26)
-                        CutPanel {
+                        CutProgramsRowGroup {
                             ForEach(Array(model.invites.enumerated()), id: \.element.id) { index, invite in
                                 if index > 0 { CutHairline() }
                                 CutProgramInviteRow(invite: invite) { actions.openInvite(invite.id) }
@@ -61,7 +61,7 @@ struct CutProgramsView: View {
                     }
                     if !model.saved.isEmpty {
                         CutPanelHeader("Saved").padding(.top, 26)
-                        CutPanel {
+                        CutProgramsRowGroup {
                             ForEach(Array(model.saved.enumerated()), id: \.element.id) { index, program in
                                 if index > 0 { CutHairline() }
                                 CutSavedProgramRow(program: program, use: { actions.use(program.id) },
@@ -156,6 +156,22 @@ private struct CutActiveProgramCard: View {
     }
 }
 
+/// One group of rows on the background: a hairline above the first row and one below the last,
+/// with rows and hairlines on the same gutter as the section headers. Rows add their own
+/// hairlines between them.
+private struct CutProgramsRowGroup<Content: View>: View {
+    @ViewBuilder let content: Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            CutHairline()
+            content
+            CutHairline()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, DS.Cut.Metrics.gutter)
+    }
+}
+
 /// No program running: a calm prompt that leads to New.
 private struct CutProgramsPromptRow: View {
     let title: String
@@ -174,7 +190,6 @@ private struct CutProgramsPromptRow: View {
                     .foregroundStyle(DS.Cut.Colors.textSecondary)
                     .accessibilityHidden(true)
             }
-            .padding(.horizontal, DS.Cut.Metrics.panelRowPadding)
             .padding(.vertical, 16)
             .contentShape(Rectangle())
         }
@@ -207,7 +222,6 @@ private struct CutProgramInviteRow: View {
                 .fixedSize()
                 .accessibilityLabel(Text("View \(invite.programName)"))
         }
-        .padding(.horizontal, DS.Cut.Metrics.panelRowPadding)
         .padding(.vertical, 14)
     }
 }
@@ -228,7 +242,9 @@ private struct CutSavedProgramRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
-            HStack(spacing: 12) {
+            // No spacing: the open dots sit at the trailing edge of their 44 pt target, so its empty
+            // leading part keeps the same visible gap to Use as the round button had.
+            HStack(spacing: 0) {
                 Button("Use", action: use)
                     .buttonStyle(CutPillButtonStyle(.outlineLime))
                     .fixedSize()
@@ -239,14 +255,13 @@ private struct CutSavedProgramRow: View {
                         Button("Sent invites", systemImage: "paperplane", action: sentInvites)
                     }
                 } label: {
-                    CutPlannerMoreLabel()
+                    CutPlannerMoreLabel(tone: .open)
                 }
                 .menuStyle(.button)
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("More for \(program.name)"))
             }
         }
-        .padding(.horizontal, DS.Cut.Metrics.panelRowPadding)
         .padding(.vertical, 14)
     }
 }
