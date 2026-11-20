@@ -3,7 +3,8 @@
 //  WRKT
 //
 //  Versioned Codable envelope for data export/import.
-//  Excluded: cardio runs (HealthKit), BarbellConfig (derived/internal state).
+//  Version 2 adds the workouts from Apple Health (runs), optionally without routes and
+//  heart-rate samples. Excluded: BarbellConfig (derived/internal state).
 //
 
 import Foundation
@@ -11,13 +12,28 @@ import Foundation
 // MARK: - Envelope
 
 struct ExportBundle: Codable {
-    static let currentVersion: Int = 1
+    static let currentVersion: Int = 2
 
     let version: Int
     let appVersion: String
     let exportedAt: Date
     let completedWorkouts: [CompletedWorkout]
     let earnedPlates: [EarnedPlateExport]
+    /// Version 2: the workouts from Apple Health in history order, each in its stored form.
+    /// Absent in version 1 files and in import snapshots.
+    var runs: [StoredRun]? = nil
+    /// Version 2: true when routes and heart-rate samples were left out of `runs`.
+    var runsWithoutDetail: Bool? = nil
+
+    /// A run as an export without routes holds it: the route, the route with heart rate and the
+    /// heart-rate samples left out; splits and every figure kept.
+    static func withoutDetail(_ run: Run) -> Run {
+        var light = run
+        light.route = nil
+        light.routeWithHR = nil
+        light.hrSamples = nil
+        return light
+    }
 }
 
 // MARK: - EarnedPlate mirror (EarnedPlate is @Model, not Codable)

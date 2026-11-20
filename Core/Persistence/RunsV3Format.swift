@@ -271,7 +271,7 @@ nonisolated struct RunHistoryMigrationRecord: Codable, Equatable {
 /// The Debug row's text for the migration: where the history is and what the last attempt did.
 nonisolated enum RunHistoryMigrationStatus {
     static func describe(migrated: Bool, optIn: Bool, argumentPresent: Bool, attempts: Int,
-                         last: RunHistoryMigrationRecord?) -> String {
+                         last: RunHistoryMigrationRecord?, merge: RunHistoryMergeRecord? = nil) -> String {
         var parts = [migrated ? "Migrated: this history is per workout." : "Not migrated: this history is runs_v2.json."]
         if !migrated {
             parts.append(optIn && argumentPresent ? "Opt-in active." : optIn ? "Opt-in set, launch argument missing." : "Opt-in off.")
@@ -279,6 +279,14 @@ nonisolated enum RunHistoryMigrationStatus {
         }
         if let last {
             parts.append("Last attempt \(last.date.formatted(date: .abbreviated, time: .shortened)) (\(last.build)): \(last.result)")
+        }
+        if migrated, let merge {
+            var line = "Merge check \(merge.date.formatted(date: .abbreviated, time: .shortened)): \(merge.outcome)."
+            if let c = merge.counts {
+                line += " Added \(c.added), replaced \(c.replaced), trashed \(c.trashed), deduplicated \(c.deduplicated), "
+                    + "held back by the valve \(c.skippedByValve), repaired \(c.repaired), conflicts kept \(c.conflicts)."
+            }
+            parts.append(line)
         }
         return parts.joined(separator: " ")
     }

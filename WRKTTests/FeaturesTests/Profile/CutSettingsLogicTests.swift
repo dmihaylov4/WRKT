@@ -76,7 +76,7 @@ struct CutSettingsLogicTests {
         #expect(CutSettingsModel.DebugRow.yearReviewNextLaunch.subtitle == "Needs the Cut design and five workouts this year")
         #expect(CutSettingsModel.DebugRow.yearAward3D.subtitle == "Off shows the SwiftUI plaque")
         #expect(CutSettingsModel.DebugRow.cutGallery.subtitle == nil)
-        #expect(CutSettingsModel.DebugRow.runHistoryMigration.subtitle?.contains("until the v2 merge lands (batch 3b)") == true)
+        #expect(CutSettingsModel.DebugRow.runHistoryMigration.subtitle?.contains("The merge with an older build's writes is in place") == true)
     }
 
     @Test func hairlinesRunBetweenRowsButNotUnderASectionsLastRow() {

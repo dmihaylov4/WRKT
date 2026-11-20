@@ -16,4 +16,6 @@ struct ImportRecord: Codable, Identifiable {
     let workoutsAdded: Int
     let platesAdded: Int
     let snapshotFileName: String    // filename inside Documents/volia-snapshots/
+    /// Workouts from Apple Health added (version 2 backups); absent in older records.
+    var runsAdded: Int? = nil
 }

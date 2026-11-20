@@ -20,6 +20,7 @@ struct CutDataPortabilityActions {
 struct CutDataPortabilityView: View {
     let model: CutDataPortabilityModel
     @Binding var strategy: String
+    var includeRoutes: Binding<Bool> = .constant(true)
     var actions = CutDataPortabilityActions()
 
     var body: some View {
@@ -30,6 +31,7 @@ struct CutDataPortabilityView: View {
             } else {
                 CutSettingsActionRow("Export backup", systemImage: "square.and.arrow.up", action: actions.export)
             }
+            CutSettingsToggleRow("Include routes and heart rate", isOn: includeRoutes)
             CutSettingsFooter(model.exportFooter)
 
             CutSettingsSectionHeader("Import")

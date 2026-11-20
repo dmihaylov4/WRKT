@@ -42,6 +42,10 @@ final class HeavyRunFieldPolicyTests: XCTestCase {
             "The Cut detail model for one workout, built from its full record.",
         "Features/Health/Views/CardioView.swift":
             "A legacy cardio row draws its own workout's route preview through the handle.",
+        "Core/Models/ExportBundle.swift":
+            "Clears one exported workout's route and heart-rate arrays for a backup without routes.",
+        "Core/Persistence/RunsV3Merge.swift":
+            "The merge keeps a stored route when an older build's copy only dropped it.",
     ]
 
     /// Whether `text` uses `token` as a whole name: `.routeWithHR` matches `run.routeWithHR`

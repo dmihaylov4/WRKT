@@ -155,7 +155,8 @@ struct CutSettingsHost: View {
         return RunHistoryMigrationStatus.describe(
             migrated: store.isOnPerWorkoutHistory, optIn: runHistoryMigrationOptIn,
             argumentPresent: ProcessInfo.processInfo.arguments.contains(RunHistoryConfiguration.debugOptInArgument),
-            attempts: store.runHistoryMigrationAttempts, last: store.lastRunHistoryMigration)
+            attempts: store.runHistoryMigrationAttempts, last: store.lastRunHistoryMigration,
+            merge: store.lastRunHistoryMerge)
     }
     #endif
 

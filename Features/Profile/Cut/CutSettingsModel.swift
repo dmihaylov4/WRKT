@@ -63,7 +63,7 @@ struct CutSettingsModel: Equatable {
             case .yearReviewNextLaunch: "Needs the Cut design and five workouts this year"
             case .yearAward3D: "Off shows the SwiftUI plaque"
             case .runHistoryMigration:
-                "Simulator and scratch testing only until the v2 merge lands (batch 3b). Starts after launch only when the app is also launched with the migration opt-in argument."
+                "The merge with an older build's writes is in place. For simulator, scratch and owner testing; it starts after launch only when the app is also launched with the migration opt-in argument."
             default: nil
             }
         }

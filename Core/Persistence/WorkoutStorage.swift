@@ -687,6 +687,15 @@ actor WorkoutStorage {
                 // Cleanup that failed (disk full) is retried at the next launch; the history is intact.
                 AppLogger.warning("runs_v3 repair did not finish: \(error)", category: AppLogger.storage)
             }
+            if store.report.missingFiles.isEmpty, store.report.unreadable.isEmpty, store.migratedFrom() != nil {
+                removeRollingRunBackups()
+                // Stage 3, the one place runs_v2.json will be deleted (NOT built yet). Only when all
+                // hold: no build without runs_v3 can still be installed (90 days after the last
+                // pre-Stage-2 TestFlight upload); two App Store releases have shipped with runs_v3;
+                // this launch opened runs_v3 writable with nothing unavailable (just checked); and
+                // trash holds no `corrupt` file not explained by a logged repair. Then delete
+                // runs_v2.json first and baseline.json after it, and drop the merge.
+            }
         } else {
             AppLogger.warning("runs_v3 is read-only for this version of the app", category: AppLogger.storage)
         }
@@ -766,6 +775,114 @@ actor WorkoutStorage {
             AppLogger.warning("Could not exclude runs_v2.json from backups: \(error)", category: AppLogger.storage)
             return false
         }
+    }
+
+    // MARK: - Rolling run backups (owner's decision 3)
+
+    /// `runs_backup_<yyyy-MM-ddTHH-mm-ssZ>_<UUID>.json`, exactly as `createRunsBackup` names them.
+    static func isRollingRunBackupName(_ name: String) -> Bool {
+        name.range(of: #"^runs_backup_[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}Z_[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\.json$"#,
+                   options: .regularExpression) != nil
+    }
+
+    /// Once the history is runs_v3 (made by a verified migration) and opened writable with
+    /// nothing unavailable, the whole-file run backups protect nothing the frozen runs_v2.json
+    /// does not: they are deleted. Only regular files in Backups/ with exactly that name; never
+    /// the workouts backups, never runs_v2.json. On runs_v3 no new ones are made (saveRuns
+    /// refuses to run). Returns the bytes freed.
+    @discardableResult
+    func removeRollingRunBackups() -> Int {
+        guard runsV3 != nil || RunsV3Presence.exists(in: storageDirectory, fileSystem: fileSystem) else { return 0 }
+        guard let names = try? fileManager.contentsOfDirectory(atPath: backupsDirectory.path) else { return 0 }
+        var freed = 0
+        var removed = 0
+        for name in names where Self.isRollingRunBackupName(name) {
+            let path = backupsDirectory.appendingPathComponent(name).path
+            var info = stat()
+            guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { continue }
+            if unlink(path) == 0 {
+                freed += Int(info.st_size)
+                removed += 1
+            }
+        }
+        if removed > 0 {
+            AppLogger.info("Removed \(removed) rolling run backups (\(freed) bytes): the history is runs_v3", category: AppLogger.storage)
+        }
+        return freed
+    }
+
+    // MARK: - Merge with an older build's runs_v2.json (spec 8)
+
+    enum MergeCheck {
+        /// Nothing to do: not writable runs_v3, no baseline, or runs_v2.json as recorded.
+        case unchanged(String)
+        /// The baseline's record of runs_v2.json was brought up to date; the history is untouched.
+        case recorded(String)
+        /// runs_v2.json changed in content: apply `plan`, then `runsV3WriteMergedBaseline(input)`.
+        case changed(MergeInput)
+    }
+
+    struct MergeInput {
+        let v2: [Run]
+        let state: RunsV3BaselineV1.V2State
+        let previous: [RunsV3BaselineV1.Entry]
+        let plan: RunsV3Merge.Plan
+    }
+
+    /// Spec R11 and 8.2. Reads runs_v2.json only when its stamp differs, decodes it only when its
+    /// content differs. Never throws for a damaged runs_v2.json: that is logged and recorded so
+    /// it is not read again until it changes. Must run with no change pending in the store.
+    func runsV3MergeCheck() -> MergeCheck {
+        guard let runsV3, runsV3.mode == .writable else { return .unchanged("not a writable runs_v3") }
+        guard let baseline = runsV3.readBaseline() else { return .unchanged("no baseline") }
+        func record(_ state: RunsV3BaselineV1.V2State, _ message: String) -> MergeCheck {
+            do {
+                try runsV3.writeBaseline(.init(formatVersion: 1, reconciledAt: Date(), v2: state, entries: baseline.entries))
+            } catch {
+                AppLogger.warning("runs_v3 baseline update failed: \(error)", category: AppLogger.storage)
+            }
+            return .recorded(message)
+        }
+        guard let stamp = FileStamp(runsFileURL) else {
+            guard baseline.v2.present else { return .unchanged("no runs_v2.json") }
+            // Gone (a later stage, a wipe, or by hand): never read as "every workout deleted".
+            return record(.init(present: false, size: nil, modified: nil, fileNumber: nil, sha256: nil, decodable: true),
+                          "runs_v2.json is gone: nothing to merge")
+        }
+        if RunsV3Merge.stampMatches(baseline.v2, size: stamp.size, fileNumber: stamp.number, modified: stamp.modified) {
+            return .unchanged("runs_v2.json as recorded")
+        }
+        guard let sha = try? Self.streamingSHA256(of: runsFileURL) else { return .unchanged("runs_v2.json could not be read") }
+        let state = RunsV3BaselineV1.V2State(present: true, size: stamp.size, modified: stamp.modified, fileNumber: stamp.number,
+                                             sha256: sha, decodable: true)
+        if baseline.v2.sha256 == sha {
+            return record(.init(present: true, size: stamp.size, modified: stamp.modified, fileNumber: stamp.number,
+                                sha256: sha, decodable: baseline.v2.decodable),
+                          "same content under a new stamp (a restore): recorded")
+        }
+        let v2: [Run]
+        do {
+            v2 = try decoder.decode([StoredRun].self, from: Data(contentsOf: runsFileURL, options: .mappedIfSafe)).map(\.run)
+        } catch {
+            AppLogger.warning("runs_v2.json changed but cannot be decoded; not merged: \(error)", category: AppLogger.storage)
+            return record(.init(present: true, size: stamp.size, modified: stamp.modified, fileNumber: stamp.number,
+                                sha256: sha, decodable: false), "runs_v2.json changed but cannot be decoded: skipped")
+        }
+        let live = runsV3.entries.mapValues { RunsV3Merge.Live(seq: $0.seq, unavailable: $0.unavailable, healthKitUUID: $0.summary.healthKitUUID) }
+        let entries = baseline.v2.present ? baseline.entries : []
+        let plan = RunsV3Merge.plan(baseline: entries, v2: v2, live: live, trashed: runsV3.deletedIDs()) { id in
+            if case .loaded(let run) = runsV3.readRun(id: id) { return run }
+            return nil
+        }
+        return .changed(MergeInput(v2: v2, state: state, previous: baseline.entries, plan: plan))
+    }
+
+    /// After the merge's changes are durable: the baseline becomes runs_v2.json as it is now.
+    func runsV3WriteMergedBaseline(_ input: MergeInput) throws {
+        guard let runsV3 else { throw RunsV3StoreError.notOpen }
+        let seqs = runsV3.entries.mapValues(\.seq)
+        try runsV3.writeBaseline(RunsV3Merge.baseline(after: input.v2, state: input.state, previous: input.previous,
+                                                      seqs: seqs, now: Date()))
     }
 
     private static func streamingSHA256(of url: URL) throws -> String {

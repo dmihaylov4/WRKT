@@ -29,6 +29,7 @@ struct CutDataPortabilityHost: View {
     @State private var lastSummary: ImportSummary?
     @State private var errorMessage: String?
     @State private var showsHistory = false
+    @State private var includeRoutes = true
 
     var body: some View {
         CutDataPortabilityView(
@@ -38,6 +39,7 @@ struct CutDataPortabilityHost: View {
                 get: { importStrategy.rawValue },
                 set: { importStrategy = CutDataPortabilityLogic.strategy($0) }
             ),
+            includeRoutes: $includeRoutes,
             actions: CutDataPortabilityActions(
                 export: { Task { await runExport() } },
                 importBackup: { showImporter = true },
@@ -47,7 +49,7 @@ struct CutDataPortabilityHost: View {
         .navigationDestination(isPresented: $showsHistory) {
             ImportHistoryView(service: service)
         }
-        .onAppear { service.configure(context: modelContext) }
+        .onAppear { service.configure(context: modelContext, store: store) }
         .sheet(isPresented: $showShare) {
             if let url = exportURL { CutSettingsShareSheet(url: url) }
         }
@@ -104,7 +106,7 @@ struct CutDataPortabilityHost: View {
 
     private func runExport() async {
         do {
-            exportURL = try await service.makeExportURL()
+            exportURL = try await service.makeExportURL(includeRoutes: includeRoutes)
             showShare = true
         } catch {
             errorMessage = error.localizedDescription
