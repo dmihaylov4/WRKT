@@ -226,8 +226,60 @@ nonisolated enum RunsV3Presence {
 // MARK: - Configuration
 
 nonisolated enum RunHistoryConfiguration {
-    /// The migration kill switch (spec 7.1): while false, no migration from runs_v2.json starts.
-    /// It never disables reading an existing runs_v3. A stub until the migration exists (batch 3):
-    /// nothing reads it yet, and no build may turn it on before then.
+    /// The migration kill switch (spec 7.1): while false, no migration from runs_v2.json starts
+    /// on its own. It never disables reading an existing runs_v3. False in every build until the
+    /// merge with an older build's v2 write exists (batch 3b).
     static let migrationEnabled = false
+
+    /// Whether a migration may start in this process: the kill switch, or, in Debug builds only,
+    /// the explicit opt-in. A Release build compiles the opt-in out entirely.
+    static var migrationMayStart: Bool { migrationEnabled || debugOptIn() }
+
+    #if DEBUG
+    /// Debug-only opt-in, for simulator and scratch testing until the v2 merge lands: both this
+    /// UserDefaults key (the Debug settings row) and the launch argument must be set.
+    static let debugOptInKey = "debug.runsV3.migrationOptIn"
+    static let debugOptInArgument = "-VoliaRunsV3MigrationOptIn"
+
+    static func debugOptIn(defaults: UserDefaults = .standard,
+                           arguments: [String] = ProcessInfo.processInfo.arguments) -> Bool {
+        defaults.bool(forKey: debugOptInKey) && arguments.contains(debugOptInArgument)
+    }
+    #else
+    static func debugOptIn() -> Bool { false }
+    #endif
+
+    /// Attempts per build (spec 7.1: at most 3), and the last attempt, for the Debug row.
+    static let maximumAttempts = 3
+    static func attemptsKey(build: String) -> String { "runsV3.migration.attempts.\(build)" }
+    static let lastAttemptKey = "runsV3.migration.lastAttempt"
+
+    static var currentBuild: String {
+        let info = Bundle.main.infoDictionary
+        return "\(info?["CFBundleShortVersionString"] as? String ?? "?")-\(info?["CFBundleVersion"] as? String ?? "?")"
+    }
+}
+
+/// What a migration attempt ended as, kept in UserDefaults for the Debug row and later launches.
+nonisolated struct RunHistoryMigrationRecord: Codable, Equatable {
+    var date: Date
+    var build: String
+    /// "started", "migrated" or "failed: <step and reason>".
+    var result: String
+}
+
+/// The Debug row's text for the migration: where the history is and what the last attempt did.
+nonisolated enum RunHistoryMigrationStatus {
+    static func describe(migrated: Bool, optIn: Bool, argumentPresent: Bool, attempts: Int,
+                         last: RunHistoryMigrationRecord?) -> String {
+        var parts = [migrated ? "Migrated: this history is per workout." : "Not migrated: this history is runs_v2.json."]
+        if !migrated {
+            parts.append(optIn && argumentPresent ? "Opt-in active." : optIn ? "Opt-in set, launch argument missing." : "Opt-in off.")
+            parts.append("Attempts this build: \(attempts) of \(RunHistoryConfiguration.maximumAttempts).")
+        }
+        if let last {
+            parts.append("Last attempt \(last.date.formatted(date: .abbreviated, time: .shortened)) (\(last.build)): \(last.result)")
+        }
+        return parts.joined(separator: " ")
+    }
 }
