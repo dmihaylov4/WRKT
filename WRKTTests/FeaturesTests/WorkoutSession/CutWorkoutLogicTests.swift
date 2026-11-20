@@ -170,16 +170,6 @@ struct CutSetLoggingLogicTests {
         #expect(!CutSetLoggingLogic.showsRPE(mode: .weighted, set: nil))
     }
 
-    @Test func rpeValuesFitOneRowThenWrap() {
-        // 342 pt inside the gutters: seven 44 pt cells.
-        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 40, width: 342, spacing: 6) == 7)
-        // Too wide for seven: two rows of four.
-        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 60, width: 342, spacing: 6) == 4)
-        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 100, width: 342, spacing: 6) == 3)
-        #expect(CutSetLoggingLogic.rpeColumns(count: 7, widestValue: 1000, width: 342, spacing: 6) == 1)
-        #expect(CutSetLoggingLogic.rpeColumns(count: 0, widestValue: 40, width: 342, spacing: 6) == 1)
-    }
-
     @Test func supportLine() {
         #expect(CutSetLoggingLogic.supportLine(mode: .weighted, unit: .kg, progression: (87.5, 6), bestE1RMKg: 100,
                                                prReps: nil, lastReps: nil) == "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6, PR 100\u{00A0}kg")
@@ -240,11 +230,11 @@ struct CutSetEditingTests {
         #expect(set.durationSeconds == 25)
     }
 
-    @Test func rpeToggles() {
+    @Test func rpeIsSetFromTheMenu() {
         var set = SetInput(reps: 5, weight: 80)
-        CutSetEditing.toggleRPE(&set, 8)
+        CutSetEditing.setRPE(&set, 8)
         #expect(set.rpe == 8)
-        CutSetEditing.toggleRPE(&set, 8)
+        CutSetEditing.setRPE(&set, nil)
         #expect(set.rpe == nil)
     }
 

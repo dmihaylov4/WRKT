@@ -212,15 +212,24 @@ struct ExerciseSessionView: View {
             rest: .live(exerciseID: exercise.id),
             inSheet: isCutSheet,
             actions: CutSetLoggingActions(
-                logSet: { logSet(at: $0) },
-                activate: { i in
-                    // SetsSection's onActivate
-                    viewModel.activeSetIndex = i
-                    if !viewModel.sets[i].isCompleted && viewModel.sets[i].startTime == nil {
-                        viewModel.sets[i].startTime = Date()
-                    }
+                logSet: { i in
+                    logSet(at: i)
+                    // A reopened set logged again moves on to the first open set, not to a
+                    // logged one after it; normal logging lands where logSet put it.
+                    let next = CutSetEditing.activeIndexAfterLogging(sets: viewModel.sets, loggedIndex: i)
+                    if viewModel.activeSetIndex != next { cutActivate(next) }
                 },
-                toggleComplete: { toggleSetCompletion(at: $0) },
+                activate: { cutActivate($0) },
+                editSet: { i in
+                    // As the legacy Mark incomplete: the set is open again and a rest running for
+                    // this exercise stops. Then it is active with its logged values in the editor.
+                    // Totals and records follow the sets as after Mark incomplete; logging it
+                    // again starts a rest like any logged set.
+                    guard let active = CutSetEditing.reopen(&viewModel.sets, at: i) else { return }
+                    stopRestForThisExercise()
+                    Haptics.light()
+                    cutActivate(active)
+                },
                 deleteSet: { viewModel.deleteSet(at: $0) },
                 addSet: {
                     viewModel.addSet()
@@ -252,6 +261,15 @@ struct ExerciseSessionView: View {
         .onChange(of: viewModel.sets.count) { oldCount, newCount in
             // New rows get the legacy rows' on-appear seeding.
             if newCount > oldCount { prepareCutSets(from: oldCount) }
+        }
+    }
+
+    /// SetsSection's onActivate.
+    private func cutActivate(_ i: Int) {
+        guard viewModel.sets.indices.contains(i) else { return }
+        viewModel.activeSetIndex = i
+        if !viewModel.sets[i].isCompleted && viewModel.sets[i].startTime == nil {
+            viewModel.sets[i].startTime = Date()
         }
     }
 
@@ -322,20 +340,12 @@ struct ExerciseSessionView: View {
         }
     }
 
-    /// The legacy leading swipe on a set row.
-    private func toggleSetCompletion(at i: Int) {
-        guard viewModel.sets.indices.contains(i) else { return }
-        let wasCompleted = viewModel.sets[i].isCompleted
-        withAnimation(.easeInOut(duration: 0.18)) {
-            viewModel.sets[i].isCompleted.toggle()
+    /// A rest running for this exercise stops when one of its logged sets is opened again.
+    private func stopRestForThisExercise() {
+        let manager = RestTimerManager.shared
+        if manager.isTimerFor(exerciseID: exercise.id) {
+            manager.stopTimer()
         }
-        if wasCompleted {
-            let manager = RestTimerManager.shared
-            if manager.isTimerFor(exerciseID: exercise.id) {
-                manager.stopTimer()
-            }
-        }
-        Haptics.light()
     }
 
     /// After the last set: saves the sets as leaving does, then the live overview opens the next

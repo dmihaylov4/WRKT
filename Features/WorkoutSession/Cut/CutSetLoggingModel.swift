@@ -65,14 +65,27 @@ enum CutSetLoggingBar: Equatable {
     case addSet
 }
 
-/// Where "Add set" sits by the set segments. It is drawn the same way whether or not a rest runs.
-enum CutAddSetPlacement: Equatable {
-    /// No segments are drawn (no sets yet); the bottom pill adds the first set.
+/// Where a set segment stands.
+enum CutSetSegmentState: Equatable {
+    case logged, current, upcoming
+}
+
+/// What tapping a set segment does.
+enum CutSetSegmentTap: Equatable {
+    /// An open set that is not active: it becomes the active one.
+    case activate
+    /// A logged set: ask first, with Edit set and Delete set.
+    case askEditOrDelete
+    /// The active set, a running hold, or no such set.
     case none
-    /// A dashed segment in the columns the sets leave free, spanning `span` of `columns`.
-    case freeColumns(columns: Int, span: Int)
-    /// Every column holds a set: "Add set" goes under the full row.
-    case underRow(columns: Int)
+}
+
+/// One cell of the segment grid. "Add set" is one more cell, drawn the same in every state.
+enum CutSegmentCell: Equatable {
+    case set(Int)
+    case addSet
+    /// Fills the rest of the last row, so cells keep one width.
+    case empty
 }
 
 /// What the legacy header said about the exercise, in two parts: the record ("PR 100 kg"), which
@@ -240,14 +253,86 @@ enum CutSetLoggingLogic {
         return .logSet(restLine: restLine(seconds: restSeconds))
     }
 
-    /// The segments sit on a grid of at least four columns, so one or two sets do not stretch
-    /// across the screen. "Add set" takes the free columns, or goes under a full row. A running
-    /// rest does not change this: the same control in the same place in both states.
-    static func addSetPlacement(setCount: Int, isResting: Bool) -> CutAddSetPlacement {
-        guard setCount > 0 else { return .none }
-        let columns = max(4, setCount)
-        let free = columns - setCount
-        return free > 0 ? .freeColumns(columns: columns, span: free) : .underRow(columns: columns)
+    /// The segments sit on a grid of fixed columns, so one or two sets do not stretch across the
+    /// screen and many sets wrap onto more rows instead of shrinking below a tappable width.
+    /// "Add set" is the cell after the last set. Nothing here depends on a running rest: the
+    /// same control in the same place in both states. No sets: no segments (the pill adds one).
+    static func segmentRows(setCount: Int, columns: Int) -> [[CutSegmentCell]] {
+        guard setCount > 0 else { return [] }
+        let columns = max(1, columns)
+        var cells = (0..<setCount).map(CutSegmentCell.set) + [.addSet]
+        while cells.count % columns != 0 { cells.append(.empty) }
+        return stride(from: 0, to: cells.count, by: columns).map { Array(cells[$0..<($0 + columns)]) }
+    }
+
+    /// Four columns (about 80 pt each on a phone, room for "102.5 x 10"); two at accessibility
+    /// text sizes, where a label needs twice the width.
+    static func segmentColumns(isAccessibilitySize: Bool) -> Int {
+        isAccessibilitySize ? 2 : 4
+    }
+
+    static func segmentState(sets: [SetInput], index: Int, activeSetIndex: Int) -> CutSetSegmentState {
+        guard let set = sets[safe: index] else { return .upcoming }
+        if set.isCompleted { return .logged }
+        return index == activeSetIndex ? .current : .upcoming
+    }
+
+    /// Tap an open set to work on it; a logged one asks first (editing makes it open again).
+    /// A running hold writes into the active set when it stops, so nothing moves meanwhile.
+    static func segmentTap(sets: [SetInput], index: Int, activeSetIndex: Int, holdRunning: Bool) -> CutSetSegmentTap {
+        guard !holdRunning, let set = sets[safe: index] else { return .none }
+        if set.isCompleted { return .askEditOrDelete }
+        return index == activeSetIndex ? .none : .activate
+    }
+
+    /// VoiceOver for one segment: number, state, then the set type when not a working set, the
+    /// values and the RPE. "Set 2, current, 85 kilograms, 6 reps".
+    static func segmentAccessibilityLabel(_ set: SetInput, index: Int, state: CutSetSegmentState,
+                                          mode: CutSetMode, unit: WeightUnit) -> String {
+        var parts = ["Set \(index + 1)"]
+        switch state {
+        case .logged: parts.append("logged")
+        case .current: parts.append("current")
+        case .upcoming: parts.append("upcoming")
+        }
+        if set.tag != .working { parts.append(set.tag.label.lowercased()) }
+        switch mode {
+        case .weighted:
+            if set.weight > 0 {
+                parts.append("\(number(unit.displayValue(set.weight))) \(unit == .kg ? "kilograms" : "pounds")")
+            }
+            parts.append(set.reps == 1 ? "1 rep" : "\(set.reps) reps")
+        case .bodyweight:
+            parts.append(set.reps == 1 ? "1 rep" : "\(set.reps) reps")
+        case .timed:
+            parts.append(spokenDuration(set.durationSeconds))
+        }
+        if let rpe = set.rpe { parts.append("RPE \(formatRPE(rpe))") }
+        return parts.joined(separator: ", ")
+    }
+
+    /// The header of a logged set's menu: what its old list row showed. "Set 1, warm-up, 80 kg x 8, RPE 7".
+    static func segmentMenuTitle(_ set: SetInput, index: Int, mode: CutSetMode, unit: WeightUnit) -> String {
+        var parts = ["Set \(index + 1)"]
+        if set.tag != .working { parts.append(set.tag.label.lowercased()) }
+        parts.append(rowValue(set, mode: mode, unit: unit))
+        if let rpe = set.rpe { parts.append("RPE \(formatRPE(rpe))") }
+        return parts.joined(separator: ", ")
+    }
+
+    /// "45 seconds", "1 minute 30 seconds".
+    static func spokenDuration(_ seconds: Int) -> String {
+        let total = max(0, seconds)
+        let minutes = total / 60, rest = total % 60
+        var parts: [String] = []
+        if minutes > 0 { parts.append(minutes == 1 ? "1 minute" : "\(minutes) minutes") }
+        if rest > 0 || minutes == 0 { parts.append(rest == 1 ? "1 second" : "\(rest) seconds") }
+        return parts.joined(separator: " ")
+    }
+
+    /// One RPE menu row: "No RPE", "8", "8.5".
+    static func rpeOptionTitle(_ value: Double?) -> String {
+        value.map(formatRPE) ?? "No RPE"
     }
 
     /// The pill is filled lime unless a rest runs; then it is a lime outline.
@@ -289,23 +374,10 @@ enum CutSetLoggingLogic {
         rpe.map(formatRPE) ?? "Not set"
     }
 
-    /// The RPE pill and its values show where the legacy RPE chips did: weighted working sets
-    /// not yet logged.
+    /// The RPE pill shows where the legacy RPE chips did: weighted working sets not yet logged.
     static func showsRPE(mode: CutSetMode, set: SetInput?) -> Bool {
         guard mode == .weighted, let set else { return false }
         return set.tag == .working && !set.isCompleted
-    }
-
-    /// How many RPE values go in a row: all of them while the widest fits an equal share of the
-    /// width, otherwise the fewest rows (two, then three...) whose equal cells hold it.
-    static func rpeColumns(count: Int, widestValue: Double, width: Double, spacing: Double) -> Int {
-        guard count > 0 else { return 1 }
-        for rows in 1...count {
-            let columns = Int((Double(count) / Double(rows)).rounded(.up))
-            let cell = (width - spacing * Double(columns - 1)) / Double(columns)
-            if widestValue <= cell { return columns }
-        }
-        return 1
     }
 
     /// The supporting line under the next set while resting: "Working set. Target 87.5 kg x 6".
@@ -346,16 +418,6 @@ enum CutSetLoggingLogic {
         case .bodyweight, .timed:
             return compactValue(set, mode: mode, unit: unit)
         }
-    }
-
-    /// One sentence for VoiceOver on the set segments.
-    static func segmentsAccessibilityValue(sets: [SetInput], activeSetIndex: Int) -> String {
-        let done = sets.filter(\.isCompleted).count
-        var text = "\(done) of \(sets.count) done"
-        if sets.indices.contains(activeSetIndex), !sets[activeSetIndex].isCompleted {
-            text += ", set \(activeSetIndex + 1) current"
-        }
-        return text
     }
 
     /// The next unfinished exercise after the current one, wrapping to the start.
@@ -404,6 +466,9 @@ enum CutSetLoggingLogic {
 enum CutSetEditing {
     /// The legacy RPE chips.
     static let rpeValues: [Double] = [6.0, 7.0, 8.0, 8.5, 9.0, 9.5, 10.0]
+
+    /// The RPE menu: no value, then the legacy values.
+    static let rpeOptions: [Double?] = [nil] + rpeValues.map { $0 }
 
     /// SetRowUnified.step: the weight step in the display unit.
     static func weightStep(unit: WeightUnit, weightStepKg: Double) -> Double {
@@ -469,8 +534,27 @@ enum CutSetEditing {
         set.isAutoGeneratedPlaceholder = false
     }
 
-    static func toggleRPE(_ set: inout SetInput, _ value: Double) {
-        set.rpe = set.rpe == value ? nil : value
+    /// The RPE menu's choice; "No RPE" clears it. The same stored values as the legacy chips.
+    static func setRPE(_ set: inout SetInput, _ value: Double?) {
+        set.rpe = value
+    }
+
+    /// "Edit set" on a logged set: it is open again with its logged values, and becomes the active
+    /// set. Returns the new active index, or nil when there is no logged set at `index`.
+    @discardableResult
+    static func reopen(_ sets: inout [SetInput], at index: Int) -> Int? {
+        guard sets.indices.contains(index), sets[index].isCompleted else { return nil }
+        sets[index].isCompleted = false
+        return index
+    }
+
+    /// Where the active set goes after logging `loggedIndex`: the first open set after it, then
+    /// the first open set before it (a reopened set was logged again), otherwise as the legacy
+    /// logging did, the set after it or the same one.
+    static func activeIndexAfterLogging(sets: [SetInput], loggedIndex: Int) -> Int {
+        if let next = sets.indices.first(where: { $0 > loggedIndex && !sets[$0].isCompleted }) { return next }
+        if let earlier = sets.indices.first(where: { !sets[$0].isCompleted }) { return earlier }
+        return min(loggedIndex + 1, max(0, sets.count - 1))
     }
 
     /// The legacy rows activated a set on tap: the weighted row only when it was not already active,
