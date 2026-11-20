@@ -7,9 +7,8 @@ struct StorageRecoveryView: View {
     /// Why storage could not open, when known. A history saved by a newer version of the app
     /// (a per-workout history needing a newer reader) shows an update action instead of a plain retry.
     var error: Error? = nil
-    /// Opens the App Store's updates page. Replace with the app's own App Store link once its id
-    /// is recorded in the project.
-    static let updateURL = URL(string: "itms-apps://apps.apple.com/updates")!
+    /// Opens Volia's page in the App Store app (id 6754609707), where the update is offered.
+    static let updateURL = URL(string: "itms-apps://apps.apple.com/app/id6754609707")!
 
     private var needsNewerApp: Bool { (error as? StorageError)?.needsNewerApp == true }
     @State private var showingExport = false
