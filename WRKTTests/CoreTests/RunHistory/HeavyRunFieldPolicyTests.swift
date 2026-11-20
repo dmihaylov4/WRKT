@@ -44,6 +44,22 @@ final class HeavyRunFieldPolicyTests: XCTestCase {
             "A legacy cardio row draws its own workout's route preview through the handle.",
     ]
 
+    /// Whether `text` uses `token` as a whole name: `.routeWithHR` matches `run.routeWithHR`
+    /// but not the summary fact `summary.routeWithHRPointCount`, which reads no array.
+    static func mentions(_ text: String, _ token: String) -> Bool {
+        guard let last = token.unicodeScalars.last, last.properties.isAlphabetic || last == "_" else {
+            return text.contains(token)
+        }
+        var searchStart = text.startIndex
+        while let range = text.range(of: token, range: searchStart..<text.endIndex) {
+            guard range.upperBound < text.endIndex else { return true }
+            let next = text[range.upperBound]
+            if !(next.isLetter || next.isNumber || next == "_") { return true }
+            searchStart = range.upperBound
+        }
+        return false
+    }
+
     static let tokens = [".routeWithHR", ".hrSamples", "routeWithHR:", "hrSamples:", "toCompletedWorkout(",
                          "sharedWorkout(", "loadRun(", "loadRuns(", "runDetail(", "RunDetailHolder"]
 
@@ -68,7 +84,7 @@ final class HeavyRunFieldPolicyTests: XCTestCase {
             guard let walker = fileManager.enumerator(at: base, includingPropertiesForKeys: nil) else { continue }
             for case let url as URL in walker where url.pathExtension == "swift" {
                 let text = try String(contentsOf: url, encoding: .utf8)
-                let found = Self.tokens.filter { text.contains($0) }
+                let found = Self.tokens.filter { Self.mentions(text, $0) }
                 guard !found.isEmpty else { continue }
                 let relative = String(url.standardizedFileURL.path.dropFirst(root.standardizedFileURL.path.count + 1))
                 readers[relative] = found

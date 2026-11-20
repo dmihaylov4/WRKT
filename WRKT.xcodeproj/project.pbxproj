@@ -379,6 +379,8 @@
 		2EC89F602F93FDAA0011159D /* ProgramLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC89F5F2F93FDAA0011159D /* ProgramLibraryView.swift */; };
 		2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6B2EA8D1E9006B875E /* WorkoutStorage.swift */; };
 		C17CB7000000000000000107 /* DurableFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000207 /* DurableFileWriter.swift */; };
+		C17CB7000000000000000108 /* RunsV3Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000208 /* RunsV3Format.swift */; };
+		C17CB7000000000000000109 /* RunsV3Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000209 /* RunsV3Store.swift */; };
 		2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */; };
 		2EC99E782EAA2794006B875E /* ExerciseSessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */; };
 		2EC99E792EAA2794006B875E /* OverviewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E752EAA2794006B875E /* OverviewComponents.swift */; };
@@ -1044,6 +1046,8 @@
 		2EC89F5F2F93FDAA0011159D /* ProgramLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgramLibraryView.swift; sourceTree = "<group>"; };
 		2EC99E6B2EA8D1E9006B875E /* WorkoutStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStorage.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000207 /* DurableFileWriter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurableFileWriter.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000208 /* RunsV3Format.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Format.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000209 /* RunsV3Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Store.swift; sourceTree = "<group>"; };
 		2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStoreV2.swift; sourceTree = "<group>"; };
 		2EC99E712EAA2794006B875E /* ExerciseCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCache.swift; sourceTree = "<group>"; };
 		2EC99E722EAA2794006B875E /* ExerciseSessionComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseSessionComponents.swift; sourceTree = "<group>"; };
@@ -1436,6 +1440,8 @@
 				AA20261000CC000000000302 /* UpgradeBackup.swift */,
 				2EC99E6B2EA8D1E9006B875E /* WorkoutStorage.swift */,
 				C17CB7000000000000000207 /* DurableFileWriter.swift */,
+				C17CB7000000000000000208 /* RunsV3Format.swift */,
+				C17CB7000000000000000209 /* RunsV3Store.swift */,
 				AA20260930AA000000000003 /* RestTimerStorage.swift */,
 			);
 			path = Persistence;
@@ -3664,6 +3670,8 @@
 				AA20261000CC000000000301 /* UpgradeBackup.swift in Sources */,
 				2EC99E6C2EA8D1E9006B875E /* WorkoutStorage.swift in Sources */,
 				C17CB7000000000000000107 /* DurableFileWriter.swift in Sources */,
+				C17CB7000000000000000108 /* RunsV3Format.swift in Sources */,
+				C17CB7000000000000000109 /* RunsV3Store.swift in Sources */,
 				AA20260930AA000000000002 /* RestTimerStorage.swift in Sources */,
 				2EA7D9932EE9D30B0017683B /* Friendship.swift in Sources */,
 				2EA7D9C92EEB673E0017683B /* ErrorView.swift in Sources */,

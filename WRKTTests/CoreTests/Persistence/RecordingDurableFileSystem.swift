@@ -37,4 +37,10 @@ nonisolated final class RecordingDurableFileSystem: DurableFileSystem, @unchecke
     func synchronizeDirectory(_ url: URL) throws { try record(.synchronizeDirectory, url.path); try real.synchronizeDirectory(url) }
     func flushDevice(at url: URL) throws { try record(.flushDevice, url.path); try real.flushDevice(at: url) }
     func remove(_ url: URL) { real.remove(url) }
+    func renameExclusive(_ source: URL, to destination: URL) throws { try record(.rename, destination.path); try real.renameExclusive(source, to: destination) }
+    func contentsOfDirectory(_ url: URL) throws -> [String] { try real.contentsOfDirectory(url) }
+    func readFile(_ url: URL) throws -> Data { try real.readFile(url) }
+    func itemInfo(_ url: URL) throws -> DurableItemInfo? { try real.itemInfo(url) }
+    func createDirectory(_ url: URL, protection: FileProtectionType?) throws { try real.createDirectory(url, protection: protection) }
+    func removeTree(_ url: URL) throws { try real.removeTree(url) }
 }

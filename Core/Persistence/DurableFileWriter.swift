@@ -40,6 +40,35 @@ nonisolated protocol DurableFileSystem: Sendable {
     /// when it returns (fcntl(2)).
     func flushDevice(at url: URL) throws
     func remove(_ url: URL)
+
+    // Used by the per-workout history store (format v3).
+
+    /// `renamex_np(RENAME_EXCL)`: fails with `EEXIST` instead of replacing `destination`.
+    func renameExclusive(_ source: URL, to destination: URL) throws
+    /// The names in a directory, without `.` and `..`, in no particular order.
+    func contentsOfDirectory(_ url: URL) throws -> [String]
+    /// The whole file, without following a symbolic link.
+    func readFile(_ url: URL) throws -> Data
+    /// What is at `url`, without following a symbolic link; nil when nothing is there.
+    func itemInfo(_ url: URL) throws -> DurableItemInfo?
+    /// Creates one directory; fails if anything exists at `url`.
+    func createDirectory(_ url: URL, protection: FileProtectionType?) throws
+    /// Removes a directory and everything in it, never following symbolic links.
+    func removeTree(_ url: URL) throws
+}
+
+/// What `itemInfo` found.
+nonisolated struct DurableItemInfo: Equatable, Sendable {
+    enum Kind: Equatable, Sendable { case file, directory, other }
+    let kind: Kind
+    let size: Int
+}
+
+extension DurableFileError {
+    /// The file or directory is not there.
+    var isMissing: Bool { code == ENOENT }
+    /// Data Protection keeps the file closed (before the first unlock) or access is denied.
+    var isPermission: Bool { code == EPERM || code == EACCES }
 }
 
 /// The real calls.
@@ -109,6 +138,83 @@ nonisolated struct POSIXDurableFileSystem: DurableFileSystem {
     func remove(_ url: URL) {
         unlink(url.path)
     }
+
+    func renameExclusive(_ source: URL, to destination: URL) throws {
+        guard renamex_np(source.path, destination.path, UInt32(RENAME_EXCL)) == 0 else { throw fail("rename", destination) }
+    }
+
+    func contentsOfDirectory(_ url: URL) throws -> [String] {
+        guard let directory = opendir(url.path) else { throw fail("opendir", url) }
+        defer { closedir(directory) }
+        var names: [String] = []
+        errno = 0
+        while let entry = readdir(directory) {
+            let name = withUnsafePointer(to: entry.pointee.d_name) {
+                $0.withMemoryRebound(to: CChar.self, capacity: Int(entry.pointee.d_namlen) + 1) { String(cString: $0) }
+            }
+            if name != "." && name != ".." { names.append(name) }
+        }
+        guard errno == 0 else { throw fail("readdir", url) }
+        return names
+    }
+
+    func readFile(_ url: URL) throws -> Data {
+        let descriptor = open(url.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        guard descriptor >= 0 else { throw fail("open", url) }
+        defer { Darwin.close(descriptor) }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0 else { throw fail("fstat", url) }
+        var data = Data(count: Int(info.st_size))
+        var offset = 0
+        try data.withUnsafeMutableBytes { (buffer: UnsafeMutableRawBufferPointer) in
+            while offset < buffer.count {
+                let count = Darwin.read(descriptor, buffer.baseAddress! + offset, buffer.count - offset)
+                if count < 0 {
+                    if errno == EINTR { continue }
+                    throw fail("read", url)
+                }
+                if count == 0 { break }
+                offset += count
+            }
+        }
+        // A file that shrank while it was read: return what was there.
+        if offset < data.count { data.removeSubrange(offset...) }
+        return data
+    }
+
+    func itemInfo(_ url: URL) throws -> DurableItemInfo? {
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else {
+            if errno == ENOENT || errno == ENOTDIR { return nil }
+            throw fail("lstat", url)
+        }
+        let type = info.st_mode & S_IFMT
+        let kind: DurableItemInfo.Kind = type == S_IFREG ? .file : type == S_IFDIR ? .directory : .other
+        return DurableItemInfo(kind: kind, size: Int(info.st_size))
+    }
+
+    func createDirectory(_ url: URL, protection: FileProtectionType?) throws {
+        guard mkdir(url.path, 0o755) == 0 else { throw fail("mkdir", url) }
+        if let protection {
+            do {
+                try setProtection(protection, at: url)
+            } catch {
+                AppLogger.warning("Could not set file protection on \(url.lastPathComponent): \(error)",
+                                  category: AppLogger.storage)
+            }
+        }
+    }
+
+    func removeTree(_ url: URL) throws {
+        guard try itemInfo(url) != nil else { return }
+        do {
+            try FileManager().removeItem(at: url)
+        } catch {
+            let underlying = (error as NSError).userInfo[NSUnderlyingErrorKey] as? NSError
+            throw DurableFileError(operation: "remove", path: url.path,
+                                   code: underlying?.domain == NSPOSIXErrorDomain ? Int32(underlying!.code) : EIO)
+        }
+    }
 }
 
 /// Writes a whole file the way the history files need it.
@@ -125,9 +231,12 @@ nonisolated struct POSIXDurableFileSystem: DurableFileSystem {
 /// the data in its cache and reorder it.
 nonisolated struct DurableFileWriter: Sendable {
     let fileSystem: DurableFileSystem
+    /// Names temporary files; injectable so tests are deterministic.
+    private let token: @Sendable () -> UUID
 
-    init(fileSystem: DurableFileSystem = POSIXDurableFileSystem()) {
+    init(fileSystem: DurableFileSystem = POSIXDurableFileSystem(), token: @escaping @Sendable () -> UUID = { UUID() }) {
         self.fileSystem = fileSystem
+        self.token = token
     }
 
     static let temporaryInfix = ".wrkt-"
@@ -161,7 +270,26 @@ nonisolated struct DurableFileWriter: Sendable {
 
     func write(_ data: Data, to url: URL, protection: FileProtectionType?) throws {
         let directory = url.deletingLastPathComponent()
-        let temporary = directory.appendingPathComponent(Self.temporaryName(for: url.lastPathComponent))
+        let temporary = directory.appendingPathComponent(Self.temporaryName(for: url.lastPathComponent, token: token()))
+        try writeTemporary(data, at: temporary, protection: protection) {
+            try fileSystem.rename(temporary, to: url)
+        }
+        try fileSystem.synchronizeDirectory(directory)
+    }
+
+    /// Writes a file that must not exist yet: a temporary file `<uuid>.tmp` in
+    /// `temporaryDirectory` (same volume), written and synchronized, then renamed to `url` with
+    /// `renameExclusive`, so an existing file is never replaced. Neither directory is
+    /// synchronized: the caller's `barrier(directories:)` does that once per batch.
+    func writeNew(_ data: Data, to url: URL, temporaryDirectory: URL, protection: FileProtectionType?) throws {
+        let temporary = temporaryDirectory.appendingPathComponent(token().uuidString.lowercased() + Self.temporarySuffix)
+        try writeTemporary(data, at: temporary, protection: protection) {
+            try fileSystem.renameExclusive(temporary, to: url)
+        }
+    }
+
+    private func writeTemporary(_ data: Data, at temporary: URL, protection: FileProtectionType?,
+                                publish: () throws -> Void) throws {
         let descriptor = try fileSystem.createExclusive(temporary)
         var isOpen = true
         do {
@@ -180,17 +308,25 @@ nonisolated struct DurableFileWriter: Sendable {
             try fileSystem.synchronize(descriptor)
             isOpen = false
             try fileSystem.close(descriptor)
-            try fileSystem.rename(temporary, to: url)
+            try publish()
         } catch {
             if isOpen { try? fileSystem.close(descriptor) }
             fileSystem.remove(temporary)
             throw error
         }
-        try fileSystem.synchronizeDirectory(directory)
     }
 
     /// Puts every file written before it on this device on permanent storage.
     func barrier(at directory: URL) throws {
         try fileSystem.flushDevice(at: directory)
+    }
+
+    /// Synchronizes each directory (so renames into or out of it leave the host), then flushes
+    /// the device once, at the last one: everything synchronized before is then on permanent
+    /// storage (fcntl(2), F_FULLFSYNC).
+    func barrier(directories: [URL]) throws {
+        guard let last = directories.last else { return }
+        for directory in directories { try fileSystem.synchronizeDirectory(directory) }
+        try fileSystem.flushDevice(at: last)
     }
 }
