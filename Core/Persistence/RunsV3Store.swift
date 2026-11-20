@@ -174,6 +174,7 @@ nonisolated final class RunsV3Store {
     /// Revisions to retire once an index listing their successor is on disk.
     private var pendingRetirement: [UUID: (rev: Int, detailRemoved: Bool)] = [:]
     private var formatNeedsRewrite = false
+    private var evidenceStorage: [UUID: Int]?
     /// Ids whose superseded revision was unlinked or moved after the last barrier.
     private var retiredSinceBarrier: Set<UUID> = []
     /// Revisions found damaged when open or a read decoded them, moved to trash by `repair`.
@@ -206,6 +207,7 @@ nonisolated final class RunsV3Store {
         indexStale = false
         formatNeedsRewrite = false
         onDiskIndexRevisions = [:]
+        evidenceStorage = nil
         trashedRevisions = nil
         pendingRetirement = [:]
         writtenAwaitingBarrier = []
@@ -328,6 +330,13 @@ nonisolated final class RunsV3Store {
                 // Damaged revisions are quarantined only behind a readable one, so an id never
                 // loses its last file to repair.
                 for name in report.corruptRevisions where name.id == id { quarantine.insert(name) }
+            } else if let listed, (try deletionEvidence())[id].map({ $0 >= listed.rev }) == true {
+                // The revision the index lists was deleted (it is in trash), and every revision
+                // left is damaged: an interrupted re-add that never became durable, not the
+                // deleted workout. Not shown; its damaged files are quarantined.
+                report.completedDeletes.append(id)
+                indexStale = true
+                for rev in revs { quarantine.insert(RunsV3FileName(id: id, rev: rev)) }
             } else if let listed {
                 report.unreadable.append(id)
                 entries[id] = RunsV3Entry(id: id, rev: top, seq: listed.seq, summary: listed.summary,
@@ -341,9 +350,9 @@ nonisolated final class RunsV3Store {
         // R8
         let unlisted = indexEntries.keys.filter { byID[$0] == nil }
         if !unlisted.isEmpty {
-            let deletedIDs = try deletionEvidence()
+            let deleted = try deletionEvidence()
             for id in unlisted {
-                if deletedIDs.contains(id) {
+                if let deletedRev = deleted[id], deletedRev >= (indexEntries[id]?.rev ?? 0) {
                     report.completedDeletes.append(id)
                     indexStale = true
                 } else if let listed = indexEntries[id] {
@@ -385,12 +394,22 @@ nonisolated final class RunsV3Store {
         return .decoded(file, data)
     }
 
-    /// Ids with a `deleted` or `merged` file in trash: a recorded deletion. `corrupt` and
-    /// `superseded` files are not evidence of a deletion.
-    private func deletionEvidence() throws -> Set<UUID> {
-        let names = (try readDirectoryIfPresent(layout.trash)) ?? []
-        return Set(names.compactMap(RunsV3TrashName.parse)
-            .filter { $0.reason == .deleted || $0.reason == .merged }.map(\.id))
+    /// The highest revision with a `deleted` or `merged` file in trash, per id: a recorded
+    /// deletion of that revision. `corrupt` and `superseded` files are not evidence of a
+    /// deletion. Read once per open.
+    private func deletionEvidence() throws -> [UUID: Int] {
+        if let cachedEvidence { return cachedEvidence }
+        var evidence: [UUID: Int] = [:]
+        for name in ((try readDirectoryIfPresent(layout.trash)) ?? []).compactMap(RunsV3TrashName.parse)
+        where name.reason == .deleted || name.reason == .merged {
+            evidence[name.id] = max(evidence[name.id] ?? 0, name.rev)
+        }
+        cachedEvidence = evidence
+        return evidence
+    }
+    private var cachedEvidence: [UUID: Int]? {
+        get { evidenceStorage }
+        set { evidenceStorage = newValue }
     }
 
     private func permissionAware<T>(_ body: () throws -> T) throws -> T {
@@ -535,8 +554,10 @@ nonisolated final class RunsV3Store {
     // MARK: - Drain (spec 3.5)
 
     /// Applies one batch of operations, per workout in the given order, then the barrier, then
-    /// the index, then retires superseded revisions.
-    func drain(_ batch: [(id: UUID, operations: [RunsV3Operation])]) -> RunsV3DrainResult {
+    /// (with `writeIndex`) the index, then retires superseded revisions. Without `writeIndex` the
+    /// index and the retirement wait for `writeIndexIfStale`, so a burst of drains rewrites the
+    /// index once.
+    func drain(_ batch: [(id: UUID, operations: [RunsV3Operation])], writeIndex: Bool = true) -> RunsV3DrainResult {
         var result = RunsV3DrainResult()
         guard let mode else {
             for item in batch { result.failed[item.id] = RunsV3StoreError.notOpen }
@@ -581,9 +602,10 @@ nonisolated final class RunsV3Store {
             result.durable = handled
         }
 
+        guard writeIndex else { return result }
         if indexStale {
             do {
-                try writeIndex()
+                try self.writeIndex()
                 result.indexWritten = true
             } catch {
                 result.indexError = error
@@ -593,6 +615,21 @@ nonisolated final class RunsV3Store {
         retireSuperseded()
         return result
     }
+
+    /// Writes the index if it is stale, then retires superseded revisions. Skipped (false) while
+    /// a barrier is owed: the index never lists a file that is not yet durable.
+    @discardableResult
+    func writeIndexIfStale() throws -> Bool {
+        guard let mode else { throw RunsV3StoreError.notOpen }
+        guard mode == .writable else { throw RunsV3StoreError.readOnly }
+        guard indexStale, !needsBarrier else { return false }
+        try writeIndex()
+        retireSuperseded()
+        return true
+    }
+
+    /// Whether the index on disk no longer describes the history.
+    var isIndexStale: Bool { indexStale }
 
     private enum Applied {
         case unchanged, changed
