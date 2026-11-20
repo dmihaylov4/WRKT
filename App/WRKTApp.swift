@@ -183,7 +183,7 @@ struct WRKTApp: App {
                     } else if dataStore.isOpening {
                         LaunchHoldView()
                     } else {
-                        StorageRecoveryView(recoveryCopy: dataStore.recoveryCopy, retry: dataStore.retry)
+                        StorageRecoveryView(recoveryCopy: dataStore.recoveryCopy, retry: dataStore.retry, error: dataStore.error)
                             // The clap never returns over this screen, including during a retry.
                             .onAppear { launchSplash.isDismissed = true }
                     }

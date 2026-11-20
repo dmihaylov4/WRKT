@@ -4,6 +4,14 @@ import UIKit
 struct StorageRecoveryView: View {
     let recoveryCopy: URL?
     let retry: () -> Void
+    /// Why storage could not open, when known. A history saved by a newer version of the app
+    /// (a per-workout history needing a newer reader) shows an update action instead of a plain retry.
+    var error: Error? = nil
+    /// Opens the App Store's updates page. Replace with the app's own App Store link once its id
+    /// is recorded in the project.
+    static let updateURL = URL(string: "itms-apps://apps.apple.com/updates")!
+
+    private var needsNewerApp: Bool { (error as? StorageError)?.needsNewerApp == true }
     @State private var showingExport = false
     /// The copy is offered only once it verifies here: a launch may have skipped hashing it.
     @State private var verifiedCopy: URL?
@@ -13,15 +21,25 @@ struct StorageRecoveryView: View {
             Image(systemName: "externaldrive.badge.exclamationmark")
                 .font(.system(size: 44))
                 .foregroundStyle(DS.Semantic.brand)
-            Text("Your saved data needs attention")
+            Text(needsNewerApp ? "Update Volia to open your history" : "Your saved data needs attention")
                 .font(DS.Typography.font(.title))
                 .foregroundStyle(DS.Semantic.textPrimary)
-            Text("Volia couldn’t open your saved data. Changes are paused to protect it. Keep the app installed, unlock your device, and try again.")
+            Text(needsNewerApp
+                 ? "Your workout history was saved by a newer version of Volia. Update the app to open it. Nothing has been changed."
+                 : "Volia couldn’t open your saved data. Changes are paused to protect it. Keep the app installed, unlock your device, and try again.")
                 .font(DS.Typography.font(.body))
                 .foregroundStyle(DS.Semantic.textSecondary)
-            Button("Try Again") { retry() }
-                .buttonStyle(.borderedProminent)
-                .tint(DS.Semantic.brand)
+            if needsNewerApp {
+                Button("Update Volia") { UIApplication.shared.open(Self.updateURL) }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DS.Semantic.brand)
+                Button("Try Again") { retry() }
+                    .foregroundStyle(DS.Semantic.brand)
+            } else {
+                Button("Try Again") { retry() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(DS.Semantic.brand)
+            }
             if verifiedCopy != nil {
                 Button("Save a Recovery Copy") { showingExport = true }
                     .foregroundStyle(DS.Semantic.brand)
@@ -60,7 +78,7 @@ struct WorkoutDataGate: View {
         if store.isStorageLoaded {
             AppShellView()
         } else if store.storageLoadError != nil {
-            StorageRecoveryView(recoveryCopy: recoveryCopy, retry: store.retryStorageLoad)
+            StorageRecoveryView(recoveryCopy: recoveryCopy, retry: store.retryStorageLoad, error: store.storageLoadError)
                 .onAppear { LaunchSplashState.shared.isContentReady = true }
         } else {
             LaunchHoldView()
