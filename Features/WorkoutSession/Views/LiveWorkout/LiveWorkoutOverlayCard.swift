@@ -23,6 +23,8 @@ struct LiveWorkoutOverlayCard: View {
     @State private var showShareWorkout = false
     @State private var completedWorkoutToShare: CompletedWorkout?
     @State private var swappingEntry: WorkoutEntry? = nil
+    /// Cut only: the exercise picker opened from the overview's Add exercise row.
+    @State private var addingExercise = false
     @State private var pendingPermanentSwap: PendingSwap? = nil
 
     private struct PendingSwap {
@@ -78,6 +80,12 @@ struct LiveWorkoutOverlayCard: View {
                 performSwap(entry: entry, newExercise: exercise)
             })
         }
+        .sheet(isPresented: $addingExercise) {
+            // The store makes the new exercise the active one, so it becomes the Now row.
+            ExercisePickerView(onSelect: { exercise in
+                store.addExerciseToCurrent(exercise)
+            })
+        }
         .confirmationDialog(
             "Update your plan?",
             isPresented: Binding(get: { pendingPermanentSwap != nil }, set: { if !$0 { pendingPermanentSwap = nil } }),
@@ -128,6 +136,7 @@ struct LiveWorkoutOverlayCard: View {
                             store.removeFromSuperset(entryID: id)
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         },
+                        addExercise: { addingExercise = true },
                         minimise: onClose,
                         finish: finishWorkout,
                         discard: discardWorkout

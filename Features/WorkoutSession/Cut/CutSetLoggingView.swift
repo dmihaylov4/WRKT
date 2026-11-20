@@ -6,8 +6,9 @@
 //  exercise name, weight and reps as two numerals with round steppers, slanted set segments, and
 //  a lime "Log set" pill at the bottom. While a rest runs the rest leads instead: one line naming
 //  the exercise and set, the countdown, and the next set's values on one line ("Change" opens
-//  the steppers); the pill turns to a lime outline. Everything the legacy rows offered stays
-//  reachable below as hairline rows (set list, set menus, superset, advice rows).
+//  the steppers); the pill turns to a lime outline. The set segments are the set control: tap an
+//  open set to work on it, tap a logged one to edit or delete it, long press an open one to
+//  delete it. Superset and advice rows stay below as hairline rows.
 //
 //  Takes plain values, a binding to the sets and closures, so fixtures can render every state.
 //  ExerciseSessionView owns the data and wires each closure to its existing code.
@@ -19,8 +20,8 @@ import SwiftUI
 struct CutSetLoggingActions {
     var logSet: (Int) -> Void = { _ in }
     var activate: (Int) -> Void = { _ in }
-    /// The legacy leading swipe: mark complete or incomplete.
-    var toggleComplete: (Int) -> Void = { _ in }
+    /// "Edit set" on a logged set: it is open again (as the legacy Mark incomplete) and active.
+    var editSet: (Int) -> Void = { _ in }
     /// The legacy delete, after this view's confirmation (none for the last set: the view
     /// model asks itself).
     var deleteSet: (Int) -> Void = { _ in }
@@ -58,21 +59,20 @@ struct CutSetLoggingView: View {
     var actions = CutSetLoggingActions()
     /// Fixtures only: a rest tip already showing, as if the reps had just changed.
     var initialRestZone: CutRestZone?
-    /// Fixtures only: the RPE values already open.
-    var initiallyOpensRPE = false
+    /// Fixtures only: the Edit set / Delete set prompt already up for this set.
+    var initialEditPrompt: Int?
 
     @FocusState private var focus: CutSetField?
     @State private var holdStart: Date?
     @State private var holdBase = 0
     @State private var pendingDeleteIndex: Int?
+    /// The logged set whose Edit set / Delete set prompt is up.
+    @State private var editPromptIndex: Int?
     @State private var plateauDismissed = false
     @State private var restZone: CutRestZone?
     @State private var restZoneWork: DispatchWorkItem?
     /// While resting: the next set's steppers are open ("Change").
     @State private var editingNext = false
-    /// The RPE values under the pills are open. Collapsed again whenever the active set changes.
-    @State private var rpeOpen = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("rest_rec_strength_dismiss_count") private var strengthDismissCount = 0
     @AppStorage("rest_rec_pump_dismiss_count") private var pumpDismissCount = 0
 
@@ -111,12 +111,11 @@ struct CutSetLoggingView: View {
         .onChange(of: activeSetIndex) { _, _ in
             restZoneWork?.cancel()
             editingNext = false
-            rpeOpen = false
             withAnimation(.easeInOut(duration: 0.2)) { restZone = nil }
         }
         .onAppear {
             if let initialRestZone { restZone = initialRestZone }
-            if initiallyOpensRPE { rpeOpen = true }
+            if let initialEditPrompt { editPromptIndex = initialEditPrompt }
         }
         .onDisappear { stopHold() }
         .alert("Delete set", isPresented: Binding(
@@ -238,23 +237,18 @@ struct CutSetLoggingView: View {
         .accessibilityAddTraits(.isHeader)
     }
 
-    /// The inputs for the active set, then one row of small pills: the set type and, on weighted
-    /// working sets, RPE. The RPE values open under the pills.
+    /// The inputs for the active set, then one row of two identical menu pills: the set type and,
+    /// on weighted working sets, RPE.
     private var editors: some View {
         VStack(alignment: .leading, spacing: 0) {
             inputs
             if let set = activeSet {
                 let showsRPE = CutSetLoggingLogic.showsRPE(mode: model.mode, set: set)
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { setTypeMenu; if showsRPE { rpePill(set) } }
-                    VStack(alignment: .leading, spacing: 8) { setTypeMenu; if showsRPE { rpePill(set) } }
+                    HStack(spacing: 8) { setTypeMenu; if showsRPE { rpeMenu(set) } }
+                    VStack(alignment: .leading, spacing: 8) { setTypeMenu; if showsRPE { rpeMenu(set) } }
                 }
                 .padding(.top, 24)
-                if showsRPE && rpeOpen {
-                    rpeValues(set)
-                        .padding(.top, 12)
-                        .transition(reduceMotion ? .identity : .opacity.combined(with: .move(edge: .top)))
-                }
             }
         }
     }
@@ -522,129 +516,56 @@ struct CutSetLoggingView: View {
 
     // MARK: RPE
 
-    /// "RPE" as an outline pill, or "RPE 8" filled white once a value is chosen. Opens and closes
-    /// the values under the pills.
-    private func rpePill(_ set: SetInput) -> some View {
-        Button {
-            focus = nil
-            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { rpeOpen.toggle() }
+    /// The same pill as the set type: "RPE" until a value is chosen, then "RPE 8". A system menu
+    /// lists No RPE and the legacy values, with a checkmark on the current one.
+    private func rpeMenu(_ set: SetInput) -> some View {
+        Menu {
+            ForEach(CutSetEditing.rpeOptions, id: \.self) { value in
+                Button {
+                    CutSetEditing.setRPE(&sets[activeSetIndex], value)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                } label: {
+                    if value == set.rpe {
+                        Label(CutSetLoggingLogic.rpeOptionTitle(value), systemImage: "checkmark")
+                    } else {
+                        Text(CutSetLoggingLogic.rpeOptionTitle(value))
+                    }
+                }
+            }
         } label: {
-            CutPillLabel(title: CutSetLoggingLogic.rpePillTitle(set.rpe),
-                         systemImage: rpeOpen ? "chevron.up" : "chevron.down", isFilled: set.rpe != nil)
+            CutPillLabel(title: CutSetLoggingLogic.rpePillTitle(set.rpe), systemImage: "chevron.down")
         }
-        .buttonStyle(.plain)
         .fixedSize()
         .accessibilityLabel("RPE")
         .accessibilityValue(CutSetLoggingLogic.rpeAccessibilityValue(set.rpe))
-        .accessibilityHint(rpeOpen ? "Hides the RPE values" : "Shows the RPE values")
-    }
-
-    /// Every RPE value as an equal capsule, in one row inside the gutters (two or more rows at
-    /// the largest text sizes, never a scroll).
-    private func rpeValues(_ set: SetInput) -> some View {
-        CutEqualCellsLayout(spacing: 6, rowSpacing: 8) {
-            ForEach(CutSetEditing.rpeValues, id: \.self) { value in
-                let selected = set.rpe == value
-                Button {
-                    CutSetEditing.toggleRPE(&sets[activeSetIndex], value)
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                } label: {
-                    Text(CutSetLoggingLogic.formatRPE(value))
-                        .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                        .lineLimit(1)
-                        .foregroundStyle(selected ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
-                        .padding(.horizontal, 6)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .background(Capsule().fill(selected ? DS.Cut.Colors.textPrimary : .clear))
-                        .overlay(Capsule().strokeBorder(selected ? .clear : DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("RPE \(CutSetLoggingLogic.formatRPE(value))")
-                .accessibilityAddTraits(selected ? .isSelected : [])
-            }
-        }
     }
 
     // MARK: Segments
 
-    /// The segments with "Add set" beside them (see CutSetLoggingLogic.addSetPlacement), the same
-    /// whether or not a rest runs.
-    @ViewBuilder
+    /// The set segments with "Add set" as the cell after the last set, the same whether or not a
+    /// rest runs. Many sets wrap onto more rows (CutSetLoggingLogic.segmentRows).
     private func segmentsRow(isResting: Bool) -> some View {
-        let segments = CutSetSegments(sets: sets, activeSetIndex: activeSetIndex, mode: model.mode, unit: model.unit,
-                                      isResting: isResting, onActivate: activate)
-            .cutColumnSpan(sets.count)
-        switch CutSetLoggingLogic.addSetPlacement(setCount: sets.count, isResting: isResting) {
-        case .none:
-            EmptyView()
-        case .freeColumns(let columns, let span):
-            CutColumnsLayout(columns: columns, spacing: 8) {
-                segments
-                addSetSegment
-                    .cutColumnSpan(span)
-            }
-        case .underRow(let columns):
-            VStack(alignment: .leading, spacing: 4) {
-                CutColumnsLayout(columns: columns, spacing: 8) { segments }
-                addSetButton
-            }
-        }
-    }
-
-    /// "Add set" drawn as one more segment: an outlined bar level with the others and its
-    /// label on their label line.
-    private var addSetSegment: some View {
-        Button(action: actions.addSet) {
-            VStack(alignment: .leading, spacing: 8) {
-                SlantedSegmentShape()
-                    .strokeBorder(DS.Cut.Colors.hairlineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                    .frame(maxWidth: 96)
-                    .frame(height: 8)
-                    .accessibilityHidden(true)
-                Label("Add set", systemImage: "plus")
-                    .labelStyle(.titleAndIcon)
-                    .font(DS.Cut.Typography.font(.secondary).weight(.bold))
-                    .foregroundStyle(DS.Cut.Colors.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var addSetButton: some View {
-        Button(action: actions.addSet) {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .bold))
-                    .accessibilityHidden(true)
-                Text("Add set")
-                    .cutFont(.buttonCompact)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .foregroundStyle(DS.Cut.Colors.textPrimary)
-            .padding(.horizontal, 8)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .offset(y: -10)
+        CutSetSegmentGrid(
+            sets: sets, activeSetIndex: activeSetIndex, mode: model.mode, unit: model.unit, isResting: isResting,
+            holdRunning: holdStart != nil, editPromptIndex: $editPromptIndex,
+            onActivate: activate, onEdit: edit, onDelete: deleteFromPrompt, onRequestDelete: requestDelete,
+            onAddSet: actions.addSet)
     }
 
     // MARK: Lists
 
     /// `showsRestTip` is false while the rest tip sits in the line over the pill instead.
+    /// The logged sets are no longer listed here: the segments carry them. Nothing is drawn
+    /// (not even the top hairline) when there is no row.
+    @ViewBuilder
     private func lists(showsRestTip: Bool) -> some View {
+        let showsPlateau = model.plateauSessions >= 3 && !plateauDismissed
+        if (showsRestTip && restZone != nil) || showsPlateau || model.canSuperset {
         CutHairlineList {
             if showsRestTip, let zone = restZone {
                 CutAdviceRow(text: zone.tip, actionTitle: nil, action: nil) { dismissRestZone(zone) }
             }
-            if model.plateauSessions >= 3 && !plateauDismissed {
+            if showsPlateau {
                 CutAdviceRow(
                     text: "\(model.plateauSessions) sessions at the same weight. Try increasing the load.",
                     actionTitle: CutSetLoggingLogic.plateauButtonTitle(stepKg: model.weightStepKg, unit: model.unit),
@@ -653,15 +574,10 @@ struct CutSetLoggingView: View {
                     withAnimation(.easeInOut(duration: 0.2)) { plateauDismissed = true }
                 }
             }
-            ForEach(Array(sets.indices), id: \.self) { index in
-                CutSetRow(index: index, set: sets[index], isActive: index == activeSetIndex, mode: model.mode, unit: model.unit,
-                          onTap: { activate(index) },
-                          onToggleComplete: { actions.toggleComplete(index) },
-                          onDelete: { requestDelete(index) })
-            }
             if model.canSuperset {
                 CutSupersetRow(isOn: model.isInSuperset, onToggle: actions.toggleSuperset)
             }
+        }
         }
     }
 
@@ -671,6 +587,20 @@ struct CutSetLoggingView: View {
         focus = nil
         sets[index].isAutoGeneratedPlaceholder = false
         actions.activate(index)
+    }
+
+    /// "Edit set" from a logged segment's prompt.
+    private func edit(_ index: Int) {
+        guard sets[safe: index]?.isCompleted == true else { return }
+        focus = nil
+        actions.editSet(index)
+    }
+
+    /// "Delete set" from a logged segment's prompt: the prompt was the confirmation (the view
+    /// model still asks itself before removing the last set).
+    private func deleteFromPrompt(_ index: Int) {
+        focus = nil
+        actions.deleteSet(index)
     }
 
     private func requestDelete(_ index: Int) {
@@ -928,12 +858,11 @@ private struct CutHoldClock: View {
 
 // MARK: - Pills
 
-/// The small pill under the inputs: a title and a chevron in an outline capsule (44 pt high), or
-/// filled white with ink text.
+/// The small pill under the inputs: a title and a chevron in an outline capsule (44 pt high).
+/// The set type and RPE menus both use it, so the two read as one kind of control.
 private struct CutPillLabel: View {
     let title: String
     let systemImage: String
-    var isFilled = false
 
     var body: some View {
         HStack(spacing: 6) {
@@ -943,223 +872,161 @@ private struct CutPillLabel: View {
                 .accessibilityHidden(true)
         }
         .font(DS.Cut.Typography.font(.buttonCompact))
-        .foregroundStyle(isFilled ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
+        .foregroundStyle(DS.Cut.Colors.textPrimary)
         .padding(.horizontal, 16)
         .padding(.vertical, 6)
         .frame(minHeight: 44)
-        .background(Capsule().fill(isFilled ? DS.Cut.Colors.textPrimary : .clear))
-        .overlay(Capsule().strokeBorder(isFilled ? .clear : DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
+        .overlay(Capsule().strokeBorder(DS.Cut.Colors.hairlineStrong, lineWidth: 1.5))
         .contentShape(Capsule())
-    }
-}
-
-/// Equal cells across the width: all in one row while the widest fits its share, otherwise the
-/// fewest rows that hold it (CutSetLoggingLogic.rpeColumns). Each row is as tall as its tallest cell.
-private struct CutEqualCellsLayout: Layout {
-    let spacing: CGFloat
-    let rowSpacing: CGFloat
-
-    private func grid(width: CGFloat, subviews: Subviews) -> (columns: Int, cell: CGFloat, rowHeights: [CGFloat]) {
-        let widest = subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
-        let columns = CutSetLoggingLogic.rpeColumns(count: subviews.count, widestValue: widest,
-                                                    width: width, spacing: spacing)
-        let cell = max(0, (width - spacing * CGFloat(columns - 1)) / CGFloat(columns))
-        var heights: [CGFloat] = []
-        for start in stride(from: 0, to: subviews.count, by: columns) {
-            let row = subviews[start..<min(start + columns, subviews.count)]
-            heights.append(row.map { $0.sizeThatFits(ProposedViewSize(width: cell, height: nil)).height }.max() ?? 0)
-        }
-        return (columns, cell, heights)
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.replacingUnspecifiedDimensions().width
-        let heights = grid(width: width, subviews: subviews).rowHeights
-        return CGSize(width: width, height: heights.reduce(0, +) + rowSpacing * CGFloat(max(0, heights.count - 1)))
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let (columns, cell, heights) = grid(width: bounds.width, subviews: subviews)
-        var y = bounds.minY
-        for (row, height) in heights.enumerated() {
-            for column in 0..<columns {
-                let index = row * columns + column
-                guard index < subviews.count else { break }
-                subviews[index].place(at: CGPoint(x: bounds.minX + CGFloat(column) * (cell + spacing), y: y),
-                                      anchor: .topLeading, proposal: ProposedViewSize(width: cell, height: height))
-            }
-            y += height + rowSpacing
-        }
     }
 }
 
 // MARK: - Set segments
 
-struct CutSetSegments: View {
+/// The sets as slanted segments on a grid that wraps (four columns, two at accessibility sizes),
+/// with "Add set" as the cell after the last set. Each segment with its label is one button:
+/// an open set becomes active on tap and offers Delete set on long press; a logged set asks
+/// first (Edit set, Delete set) in a dialog anchored to it.
+private struct CutSetSegmentGrid: View {
     let sets: [SetInput]
     let activeSetIndex: Int
     let mode: CutSetMode
     let unit: WeightUnit
-    var isResting = false
+    let isResting: Bool
+    let holdRunning: Bool
+    @Binding var editPromptIndex: Int?
     let onActivate: (Int) -> Void
+    let onEdit: (Int) -> Void
+    let onDelete: (Int) -> Void
+    let onRequestDelete: (Int) -> Void
+    let onAddSet: () -> Void
 
-    /// Labels fit under up to six segments; beyond that the set rows carry them.
-    private var showsLabels: Bool { sets.count <= 6 }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            ForEach(Array(sets.enumerated()), id: \.offset) { index, set in
-                let isActive = index == activeSetIndex && !set.isCompleted
-                Button { onActivate(index) } label: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        SlantedSegmentShape()
-                            .fill(set.isCompleted ? DS.Cut.Colors.lime : isActive ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.segmentTrack)
-                            .frame(height: 8)
-                        if showsLabels {
-                            Text(CutSetLoggingLogic.segmentLabel(set, index: index, isActive: isActive, mode: mode, unit: unit,
-                                                                 isResting: isResting))
-                                .font(DS.Cut.Typography.font(.secondary).weight(isActive ? .bold : .medium))
-                                .foregroundStyle(isActive ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.textSecondary)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.8)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityHidden(true)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Sets")
-        .accessibilityValue(CutSetLoggingLogic.segmentsAccessibilityValue(sets: sets, activeSetIndex: activeSetIndex))
-    }
-}
-
-// MARK: - Column grid
-
-private struct CutColumnSpanKey: LayoutValueKey {
-    static let defaultValue = 1
-}
-
-private extension View {
-    /// How many columns of a `CutColumnsLayout` this view spans.
-    func cutColumnSpan(_ span: Int) -> some View {
-        layoutValue(key: CutColumnSpanKey.self, value: max(1, span))
-    }
-}
-
-/// Lays its views left to right on a grid of equal columns, each spanning
-/// `cutColumnSpan` columns, top aligned. Columns left over stay empty.
-private struct CutColumnsLayout: Layout {
-    let columns: Int
-    let spacing: CGFloat
-
-    private func width(span: Int, total: CGFloat) -> CGFloat {
-        let count = CGFloat(max(1, columns))
-        let column = max(0, (total - spacing * (count - 1)) / count)
-        let span = CGFloat(min(max(1, span), columns))
-        return column * span + spacing * (span - 1)
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let total = proposal.replacingUnspecifiedDimensions().width
-        let height = subviews.map { view in
-            view.sizeThatFits(ProposedViewSize(width: width(span: view[CutColumnSpanKey.self], total: total), height: nil)).height
-        }.max() ?? 0
-        return CGSize(width: total, height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX
-        for view in subviews {
-            let w = width(span: view[CutColumnSpanKey.self], total: bounds.width)
-            view.place(at: CGPoint(x: x, y: bounds.minY), anchor: .topLeading,
-                       proposal: ProposedViewSize(width: w, height: nil))
-            x += w + spacing
-        }
-    }
-}
-
-// MARK: - Rows
-
-private struct CutSetRow: View {
-    @Environment(\.cutSheetDepth) private var sheetDepth
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    private var wraps: Bool { sheetDepth > 0 && dynamicTypeSize.isAccessibilitySize }
-    let index: Int
-    let set: SetInput
-    let isActive: Bool
-    let mode: CutSetMode
-    let unit: WeightUnit
-    let onTap: () -> Void
-    let onToggleComplete: () -> Void
-    let onDelete: () -> Void
-
-    private var title: String {
-        self.set.tag == .working ? "Set \(index + 1)" : "Set \(index + 1), \(set.tag.label.lowercased())"
-    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                Group {
-                    if set.isCompleted {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(DS.Cut.Colors.lime)
-                    } else {
-                        SlantedSegmentShape()
-                            .fill(isActive ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.segmentTrack)
-                            .frame(width: 14, height: 10)
+        let rows = CutSetLoggingLogic.segmentRows(
+            setCount: sets.count, columns: CutSetLoggingLogic.segmentColumns(isAccessibilitySize: dynamicTypeSize.isAccessibilitySize))
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(rows.indices, id: \.self) { row in
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(rows[row].indices, id: \.self) { column in
+                        cell(rows[row][column])
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
                     }
                 }
-                .frame(width: 18)
-                .accessibilityHidden(true)
-                let layout = wraps ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
-                    : AnyLayout(HStackLayout(spacing: 12))
-                layout {
-                    Text(title)
-                        .cutFont(.title)
-                        .foregroundStyle(isActive ? DS.Cut.Colors.textPrimary : set.isCompleted ? DS.Cut.Colors.textSecondary : DS.Cut.Colors.textPrimary)
-                    Spacer(minLength: 8)
-                    Text(CutSetLoggingLogic.rowValue(set, mode: mode, unit: unit))
-                        .font(DS.Cut.Typography.font(.secondary, monospacedDigits: true).weight(.semibold))
-                        .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .lineLimit(wraps ? nil : 1)
-                    if let rpe = set.rpe, set.isCompleted {
-                        Text("RPE \(CutSetLoggingLogic.formatRPE(rpe))")
-                            .font(DS.Cut.Typography.font(.secondary).weight(.semibold))
-                            .foregroundStyle(DS.Cut.Colors.lime)
-                            .lineLimit(wraps ? nil : 1)
-                    }
-                }.frame(maxWidth: .infinity, alignment: .leading)
-                Menu {
-                    Button(set.isCompleted ? "Mark incomplete" : "Mark complete",
-                           systemImage: set.isCompleted ? "xmark.circle" : "checkmark.circle",
-                           action: onToggleComplete)
-                    Button("Delete set", systemImage: "trash", role: .destructive, action: onDelete)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Set \(index + 1) options")
             }
-            .frame(minHeight: 50)
-            .padding(.vertical, 4)
-            CutHairline()
         }
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onTap)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { onTap() }
-        .accessibilityAction(named: set.isCompleted ? "Mark incomplete" : "Mark complete", onToggleComplete)
-        .accessibilityAction(named: "Delete set", onDelete)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Sets")
+    }
+
+    @ViewBuilder
+    private func cell(_ cell: CutSegmentCell) -> some View {
+        switch cell {
+        case .set(let index): segment(index)
+        case .addSet: addSet
+        case .empty: Color.clear.frame(height: 1).accessibilityHidden(true)
+        }
+    }
+
+    private func segment(_ index: Int) -> some View {
+        let set = sets[index]
+        let state = CutSetLoggingLogic.segmentState(sets: sets, index: index, activeSetIndex: activeSetIndex)
+        let tap = CutSetLoggingLogic.segmentTap(sets: sets, index: index, activeSetIndex: activeSetIndex,
+                                                holdRunning: holdRunning)
+        let isLogged = state == .logged
+        return Button {
+            switch tap {
+            case .activate:
+                Haptics.light()
+                onActivate(index)
+            case .askEditOrDelete:
+                Haptics.light()
+                editPromptIndex = index
+            case .none:
+                break
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                SlantedSegmentShape()
+                    .fill(state == .logged ? DS.Cut.Colors.lime : state == .current ? DS.Cut.Colors.textPrimary
+                          : DS.Cut.Colors.segmentTrack)
+                    .frame(height: 11)
+                Text(CutSetLoggingLogic.segmentLabel(set, index: index, isActive: state == .current, mode: mode, unit: unit,
+                                                     isResting: isResting))
+                    .font(DS.Cut.Typography.font(.secondary).weight(state == .current ? .bold : .medium))
+                    .foregroundStyle(state == .current ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, minHeight: DS.Cut.Metrics.minTouchTarget, alignment: .topLeading)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if isLogged {
+                Button("Edit set", systemImage: "pencil") { onEdit(index) }
+                Button("Delete set", systemImage: "trash", role: .destructive) { onDelete(index) }
+            } else {
+                Button("Delete set", systemImage: "trash", role: .destructive) { onRequestDelete(index) }
+            }
+        }
+        .confirmationDialog(
+            CutSetLoggingLogic.segmentMenuTitle(set, index: index, mode: mode, unit: unit),
+            isPresented: Binding(get: { editPromptIndex == index }, set: { if !$0 { editPromptIndex = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Edit set") { onEdit(index) }
+            Button("Delete set", role: .destructive) { onDelete(index) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Editing opens the set again with its values.")
+        }
+        .accessibilityLabel(CutSetLoggingLogic.segmentAccessibilityLabel(set, index: index, state: state, mode: mode, unit: unit))
+        .accessibilityAddTraits(state == .current ? .isSelected : [])
+        .accessibilityHint(isLogged ? "Edit or delete this set" : state == .current ? "" : "Makes this the set to log")
+        .modifier(CutSegmentActions(isLogged: isLogged, edit: { onEdit(index) },
+                                    delete: { isLogged ? onDelete(index) : onRequestDelete(index) }))
+    }
+
+    /// "Add set" as one more segment: a dashed bar level with the others, its label on their line.
+    private var addSet: some View {
+        Button(action: onAddSet) {
+            VStack(alignment: .leading, spacing: 8) {
+                SlantedSegmentShape()
+                    .strokeBorder(DS.Cut.Colors.hairlineStrong, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .frame(height: 11)
+                    .accessibilityHidden(true)
+                Label("Add set", systemImage: "plus")
+                    .labelStyle(.titleAndIcon)
+                    .font(DS.Cut.Typography.font(.secondary).weight(.bold))
+                    .foregroundStyle(DS.Cut.Colors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity, minHeight: DS.Cut.Metrics.minTouchTarget, alignment: .topLeading)
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// VoiceOver's custom actions on a segment: Edit set on logged sets, Delete set on every set.
+private struct CutSegmentActions: ViewModifier {
+    let isLogged: Bool
+    let edit: () -> Void
+    let delete: () -> Void
+
+    func body(content: Content) -> some View {
+        if isLogged {
+            content
+                .accessibilityAction(named: "Edit set", edit)
+                .accessibilityAction(named: "Delete set", delete)
+        } else {
+            content.accessibilityAction(named: "Delete set", delete)
+        }
     }
 }
 
@@ -1242,8 +1109,8 @@ enum CutSetLoggingFixtures {
         var rest: CutRestSource = .none
         /// A rest tip already showing.
         var restZone: CutRestZone?
-        /// The RPE values already open.
-        var rpeOpen = false
+        /// The Edit set / Delete set prompt already up for this set.
+        var editPrompt: Int?
     }
 
     static let target = "Target 87.5\u{00A0}kg\u{00A0}x\u{00A0}6"
@@ -1284,6 +1151,7 @@ enum CutSetLoggingFixtures {
         let highRep = [SetInput(reps: 20, weight: 30, autoWeight: false, didSeedFromMemory: true)]
         var rpePicked = weighted(done: 2)
         rpePicked[2].rpe = 8
+        let eight = weighted(done: 5, count: 8)
         var ghost = weighted(done: 2)
         ghost[2].isGhost = true
         ghost[3].isGhost = true
@@ -1295,9 +1163,12 @@ enum CutSetLoggingFixtures {
             State(name: "tip", model: model("Barbell Bench Press", sets: highRep, active: 0, detail: nil,
                                             pr: "PR 93\u{00A0}kg", restSeconds: 105),
                   sets: highRep, active: 0, restZone: .pump),
-            State(name: "rpe-open", model: model("Barbell Bench Press", sets: rpePicked, active: 2, detail: nil,
-                                                 pr: "PR 93\u{00A0}kg", restSeconds: 105),
-                  sets: rpePicked, active: 2, rpeOpen: true),
+            State(name: "rpe-set", model: model("Barbell Bench Press", sets: rpePicked, active: 2, detail: nil,
+                                                pr: "PR 93\u{00A0}kg", restSeconds: 105),
+                  sets: rpePicked, active: 2),
+            State(name: "edit-prompt", model: model(sets: mid, active: 2), sets: mid, active: 2, editPrompt: 1),
+            State(name: "eight-sets", model: model(sets: eight, active: 5), sets: eight, active: 5),
+            State(name: "eight-sets-resting", model: model(sets: eight, active: 5), sets: eight, active: 5, rest: .fixed(92)),
             State(name: "bodyweight", model: model("Pull-ups", mode: .bodyweight, sets: bodyweight, active: 2,
                                                   detail: "Record 15 reps, last 12 reps", pr: nil), sets: bodyweight, active: 2),
             State(name: "timed", model: model("Plank", mode: .timed, sets: timed, active: 1, detail: nil, pr: nil),

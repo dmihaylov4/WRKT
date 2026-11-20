@@ -28,6 +28,8 @@ struct CutLiveRow: Equatable, Identifiable {
 struct CutLiveSection: Equatable, Identifiable {
     let title: String
     let rows: [CutLiveRow]
+    /// The section ends with the Add exercise row (Up next only).
+    var endsWithAddExercise = false
     var id: String { title }
 }
 
@@ -109,7 +111,12 @@ enum CutLiveOverviewLogic {
         var sections: [CutLiveSection] = []
         for (title, state) in [("In progress", CutLiveRow.State.inProgress), ("Up next", .upNext), ("Completed", .finished)] {
             let list = rows(state)
-            if !list.isEmpty { sections.append(CutLiveSection(title: title, rows: list)) }
+            // Up next is always there, so Add exercise has one place: the end of that list.
+            if state == .upNext {
+                sections.append(CutLiveSection(title: title, rows: list, endsWithAddExercise: true))
+            } else if !list.isEmpty {
+                sections.append(CutLiveSection(title: title, rows: list))
+            }
         }
 
         let allDone = !entries.isEmpty && entries.allSatisfy { state($0) == .finished }

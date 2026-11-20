@@ -16,6 +16,8 @@ struct CutLiveOverviewActions {
     var swap: (UUID) -> Void = { _ in }
     var remove: (UUID) -> Void = { _ in }
     var removeFromSuperset: (UUID) -> Void = { _ in }
+    /// Opens the exercise picker; the chosen exercise joins the workout.
+    var addExercise: () -> Void = {}
     var minimise: () -> Void = {}
     /// Runs after the finish dialog is confirmed.
     var finish: () -> Void = {}
@@ -64,6 +66,9 @@ struct CutLiveOverviewView: View {
                         CutHairlineList {
                             ForEach(section.rows) { row in
                                 exerciseRow(row)
+                            }
+                            if section.endsWithAddExercise {
+                                addExerciseRow
                             }
                         }
                     }
@@ -141,10 +146,17 @@ struct CutLiveOverviewView: View {
                 .padding(.top, 30)
                 .padding(.bottom, 10)
             CutHairline()
+            // One row, one button: the marker column the rows below use, the name (room for two
+            // lines) with its set line, and a round lime arrow on the trailing edge, centred.
             Button {
                 actions.open(now.id)
             } label: {
-                HStack(alignment: .center, spacing: 16) {
+                HStack(alignment: .center, spacing: CutLiveRowMetrics.markerSpacing) {
+                    SlantedSegmentShape()
+                        .fill(DS.Cut.Colors.textPrimary)
+                        .frame(width: 14, height: 10)
+                        .frame(width: CutLiveRowMetrics.markerWidth)
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 8) {
                         let lines = CutHeroText.balancedLines(now.name)
                         CutHeroText(lines, hero: CutTrainLogic.heroSize(forLines: lines) == .xl ? .m : .s,
@@ -154,9 +166,10 @@ struct CutLiveOverviewView: View {
                             .foregroundStyle(DS.Cut.Colors.textSecondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    CutTile(systemImage: "arrow.right", side: 60)
+                    CutRoundArrow()
+                        .padding(.leading, 4)
                 }
-                .padding(.vertical, 18)
+                .padding(.vertical, 20)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -189,7 +202,7 @@ struct CutLiveOverviewView: View {
             actions.open(row.id)
         } label: {
             VStack(spacing: 0) {
-                HStack(spacing: 14) {
+                HStack(spacing: CutLiveRowMetrics.markerSpacing) {
                     Group {
                         if row.state == .finished {
                             Image(systemName: "checkmark")
@@ -201,7 +214,7 @@ struct CutLiveOverviewView: View {
                                 .frame(width: 14, height: 10)
                         }
                     }
-                    .frame(width: 18)
+                    .frame(width: CutLiveRowMetrics.markerWidth)
                     .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.name)
@@ -229,6 +242,33 @@ struct CutLiveOverviewView: View {
         .accessibilityLabel(Text("\(row.name). \(row.line)"))
         .accessibilityAction(named: "Swap exercise") { actions.swap(row.id) }
         .accessibilityAction(named: "Remove exercise") { actions.remove(row.id) }
+    }
+
+    /// The last row of Up next: a plus in the marker column, then "Add exercise".
+    private var addExerciseRow: some View {
+        Button {
+            Haptics.light()
+            actions.addExercise()
+        } label: {
+            VStack(spacing: 0) {
+                HStack(spacing: CutLiveRowMetrics.markerSpacing) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(DS.Cut.Colors.lime)
+                        .frame(width: CutLiveRowMetrics.markerWidth)
+                        .accessibilityHidden(true)
+                    Text("Add exercise")
+                        .cutFont(.title)
+                        .foregroundStyle(DS.Cut.Colors.textPrimary)
+                    Spacer(minLength: 8)
+                }
+                .frame(minHeight: 50)
+                .padding(.vertical, 10)
+                CutHairline()
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -296,6 +336,30 @@ struct CutLiveOverviewView: View {
                 onCancel: { withAnimation(.easeOut(duration: 0.2)) { dialog = nil } }
             )
         }
+    }
+}
+
+// MARK: - Row metrics
+
+/// The marker column every exercise row starts with, so the Now row and the rows under it share
+/// one text edge.
+enum CutLiveRowMetrics {
+    static let markerWidth: CGFloat = 18
+    static let markerSpacing: CGFloat = 14
+}
+
+/// The Now row's trailing control: a 56 pt round lime button with a dark arrow, drawn as part
+/// of the row's own label (the row is the one button), in the look of CutIconButtonStyle(.lime).
+private struct CutRoundArrow: View {
+    private let diameter: CGFloat = 56
+
+    var body: some View {
+        Image(systemName: "arrow.right")
+            .font(.system(size: diameter * 0.42, weight: .semibold))
+            .foregroundStyle(DS.Cut.Colors.ink)
+            .frame(width: diameter, height: diameter)
+            .background(Circle().fill(DS.Cut.Colors.lime))
+            .accessibilityHidden(true)
     }
 }
 

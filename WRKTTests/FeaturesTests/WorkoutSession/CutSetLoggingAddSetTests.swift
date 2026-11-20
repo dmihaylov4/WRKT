@@ -13,30 +13,16 @@ struct CutSetLoggingAddSetTests {
 
     // MARK: Placement
 
-    @Test(arguments: [false, true])
-    func oneSetLeavesThreeFreeColumns(isResting: Bool) {
-        #expect(CutSetLoggingLogic.addSetPlacement(setCount: 1, isResting: isResting) == .freeColumns(columns: 4, span: 3))
+    @Test func oneSetPutsAddSetInTheNextCell() {
+        #expect(CutSetLoggingLogic.segmentRows(setCount: 1, columns: 4) == [[.set(0), .addSet, .empty, .empty]])
     }
 
-    @Test(arguments: [false, true])
-    func fourSetsFillTheRowSoAddSetGoesUnder(isResting: Bool) {
-        #expect(CutSetLoggingLogic.addSetPlacement(setCount: 4, isResting: isResting) == .underRow(columns: 4))
-    }
-
-    @Test(arguments: [false, true])
-    func fiveSetsWidenTheGridAndAddSetGoesUnder(isResting: Bool) {
-        #expect(CutSetLoggingLogic.addSetPlacement(setCount: 5, isResting: isResting) == .underRow(columns: 5))
-    }
-
-    @Test func restingDoesNotMoveAddSet() {
-        for count in 0...8 {
-            #expect(CutSetLoggingLogic.addSetPlacement(setCount: count, isResting: true)
-                    == CutSetLoggingLogic.addSetPlacement(setCount: count, isResting: false))
-        }
+    @Test func fourSetsFillTheRowSoAddSetStartsTheNext() {
+        #expect(CutSetLoggingLogic.segmentRows(setCount: 4, columns: 4).last == [.addSet, .empty, .empty, .empty])
     }
 
     @Test func noSetsDrawNoSegments() {
-        #expect(CutSetLoggingLogic.addSetPlacement(setCount: 0, isResting: false) == .none)
+        #expect(CutSetLoggingLogic.segmentRows(setCount: 0, columns: 4).isEmpty)
     }
 
     // MARK: Bottom pill
@@ -69,11 +55,11 @@ struct CutSetLoggingAddSetTests {
                 for isResting in [false, true] {
                     for next in [nil, "Row"] as [String?] {
                         let list = sets(done: done, of: count)
-                        let placement = CutSetLoggingLogic.addSetPlacement(setCount: count, isResting: isResting)
+                        let rows = CutSetLoggingLogic.segmentRows(setCount: count, columns: 4)
                         let bar = CutSetLoggingLogic.bar(sets: list, activeSetIndex: min(done, max(0, count - 1)),
                                                          restSeconds: 90, nextExerciseName: next,
                                                          holdRunning: false, isResting: isResting)
-                        #expect(placement != .none || bar == .addSet,
+                        #expect(rows.flatMap { $0 }.contains(.addSet) || bar == .addSet,
                                 "count \(count), done \(done), resting \(isResting), next \(next ?? "none")")
                     }
                 }
