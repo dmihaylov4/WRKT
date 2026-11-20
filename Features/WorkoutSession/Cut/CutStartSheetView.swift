@@ -57,19 +57,7 @@ struct CutStartSheetView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text(model.title)
-                .cutFont(.title)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 12)
-            Button("Cancel", action: onCancel)
-                .font(DS.Cut.Typography.font(.title))
-                .foregroundStyle(DS.Cut.Colors.lime)
-                .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
-        }
-        .padding(.horizontal, DS.Cut.Metrics.gutter)
-        .padding(.top, 14)
-        .padding(.bottom, 6)
+        CutStartSheetHeader(title: model.title, onCancel: onCancel)
     }
 
     private func planRow(_ plan: CutStartSheetPlan) -> some View {
@@ -122,6 +110,29 @@ struct CutStartSheetView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(CutStartSheetLogic.choiceTitle(type)))
+    }
+}
+
+/// The start sheet's small title row: a 17 pt title and a lime Cancel. Shared with the
+/// past workouts sheet, which is presented the same way.
+struct CutStartSheetHeader: View {
+    let title: String
+    let onCancel: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text(title)
+                .cutFont(.title)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 12)
+            Button("Cancel", action: onCancel)
+                .font(DS.Cut.Typography.font(.title))
+                .foregroundStyle(DS.Cut.Colors.lime)
+                .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
+        }
+        .padding(.horizontal, DS.Cut.Metrics.gutter)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
     }
 }
 

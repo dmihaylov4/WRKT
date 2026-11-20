@@ -27,6 +27,9 @@ struct CutTrainHost: View {
     @AppStorage("weight_unit") private var weightUnitRaw: String = WeightUnit.kg.rawValue
 
     @State private var planSetup: PlanSetupDestination?
+    /// The past workouts sheet's values, built when the Last workout row opens it.
+    @State private var pastWorkouts: CutPastWorkoutsModel?
+    @State private var showsPastWorkouts = false
 
     private enum PlanSetupDestination: Hashable {
         case create, library
@@ -38,6 +41,11 @@ struct CutTrainHost: View {
                 switch destination {
                 case .create: PlannerSetupCarouselView(launchMode: .create)
                 case .library: ProgramLibraryView()
+                }
+            }
+            .sheet(isPresented: $showsPastWorkouts) {
+                if let pastWorkouts {
+                    CutPastWorkoutsView(model: pastWorkouts, onStart: startPastWorkout, onCancel: { showsPastWorkouts = false })
                 }
             }
     }
@@ -66,9 +74,53 @@ struct CutTrainHost: View {
             rows: CutTrainLogic.rows(
                 battle: competition.map { ($0.name, $0.status) },
                 streakWeeks: stats?.currentStreak,
-                lastWorkout: lastWorkout.map { (CutTrainLogic.displayName(for: $0), $0.date) }
+                lastWorkout: lastWorkout.map { (CutTrainLogic.displayName(for: $0), $0.date) },
+                lastWorkoutOpensPastWorkouts: opensPastWorkouts
             )
         )
+    }
+
+    // MARK: Past workouts
+
+    /// A workout with exercises is running: starting another would replace it.
+    private var hasActiveWorkout: Bool {
+        !(store.currentWorkout?.entries.isEmpty ?? true)
+    }
+
+    private func isInLibrary(_ exerciseID: String) -> Bool {
+        ExerciseRepository.shared.exercise(byID: exerciseID) != nil
+    }
+
+    private var repeatableWorkouts: [CompletedWorkout] {
+        CutPastWorkoutsLogic.repeatable(store.completedWorkouts, isAvailable: isInLibrary)
+    }
+
+    /// The Last workout row opens the past workouts sheet when there is a workout to repeat
+    /// and none is running; otherwise it keeps opening the last workout's record.
+    private var opensPastWorkouts: Bool {
+        !hasActiveWorkout && !repeatableWorkouts.isEmpty
+    }
+
+    private func openPastWorkouts() {
+        pastWorkouts = CutPastWorkoutsLogic.model(repeatableWorkouts,
+                                                  unit: WeightUnit(rawValue: weightUnitRaw) ?? .kg,
+                                                  isAvailable: isInLibrary)
+        showsPastWorkouts = true
+    }
+
+    /// Closes the sheet, then starts the workout the way a planned one starts (HomeViewNew's
+    /// handleHeroTap): the store builds the pre-filled workout and the live workout opens.
+    /// A workout that started meanwhile is never replaced; it is shown instead.
+    private func startPastWorkout(_ id: UUID) {
+        showsPastWorkouts = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            guard let workout = store.completedWorkouts.first(where: { $0.id == id }) else { return }
+            if store.startRepeatedWorkout(workout) {
+                NotificationCenter.default.post(name: .openLiveWorkoutTab, object: nil)
+            } else if hasActiveWorkout {
+                NotificationCenter.default.post(name: .openLiveOverlay, object: nil)
+            }
+        }
     }
 
     private var runningRest: CutTrainLogic.RunningRest? {
@@ -98,7 +150,10 @@ struct CutTrainHost: View {
             extendRest: { RestTimerManager.shared.adjustTime(by: 15) },
             skipRest: { RestTimerManager.shared.skipTimer() },
             openRow: { kind in
-                if kind == .lastWorkout, let workout = viewModel.getLastWorkout() {
+                guard kind == .lastWorkout else { return }
+                if opensPastWorkouts {
+                    openPastWorkouts()
+                } else if let workout = viewModel.getLastWorkout() {
                     openWorkoutDetail(workout)
                 }
             },

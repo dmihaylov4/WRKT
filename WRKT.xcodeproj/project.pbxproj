@@ -383,6 +383,8 @@
 		C17CB7000000000000000109 /* RunsV3Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000209 /* RunsV3Store.swift */; };
 		C17CB7000000000000000111 /* RunsV3Migration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000211 /* RunsV3Migration.swift */; };
 		C17CB7000000000000000112 /* RunsV3Merge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000212 /* RunsV3Merge.swift */; };
+		C17CB7000000000000000113 /* CutPastWorkoutsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000213 /* CutPastWorkoutsModel.swift */; };
+		C17CB7000000000000000114 /* CutPastWorkoutsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000214 /* CutPastWorkoutsView.swift */; };
 		2EC99E6E2EA8D202006B875E /* WorkoutStoreV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */; };
 		C17CB7000000000000000110 /* RunsV3History.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000210 /* RunsV3History.swift */; };
 		2EC99E782EAA2794006B875E /* ExerciseSessionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC99E732EAA2794006B875E /* ExerciseSessionModels.swift */; };
@@ -1053,6 +1055,8 @@
 		C17CB7000000000000000209 /* RunsV3Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Store.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000211 /* RunsV3Migration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Migration.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000212 /* RunsV3Merge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3Merge.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000213 /* CutPastWorkoutsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPastWorkoutsModel.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000214 /* CutPastWorkoutsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutPastWorkoutsView.swift; sourceTree = "<group>"; };
 		2EC99E6D2EA8D202006B875E /* WorkoutStoreV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutStoreV2.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000210 /* RunsV3History.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunsV3History.swift; sourceTree = "<group>"; };
 		2EC99E712EAA2794006B875E /* ExerciseCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseCache.swift; sourceTree = "<group>"; };
@@ -2787,6 +2791,8 @@
 				C17CB7000000000000000202 /* CutYearAwardObjectView.swift */,
 				C17CB7000000000000000203 /* CutYearAwardShare.swift */,
 				C17CA1000000000000000024 /* CutTrainStatusBar.swift */,
+				C17CB7000000000000000213 /* CutPastWorkoutsModel.swift */,
+				C17CB7000000000000000214 /* CutPastWorkoutsView.swift */,
 				D1D6E7000000000000000021 /* HomeWidgetPublisher.swift */,
 			);
 			path = Cut;
@@ -3473,6 +3479,8 @@
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */,
 				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
+				C17CB7000000000000000113 /* CutPastWorkoutsModel.swift in Sources */,
+				C17CB7000000000000000114 /* CutPastWorkoutsView.swift in Sources */,
 				C17CA2000000000000000109 /* CutWinView.swift in Sources */,
 				C17CA2000000000000000108 /* CutWinModel.swift in Sources */,
 				C17CA2000000000000000107 /* CutRestPanel.swift in Sources */,
