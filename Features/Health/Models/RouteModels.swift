@@ -10,14 +10,14 @@ import CoreLocation
 
 // MARK: - Enhanced Route Point (future: timestamps + per-point HR)
 
-struct Coordinate: Codable, Hashable {
+nonisolated struct Coordinate: Codable, Hashable {
     let lat: Double
     let lon: Double
 }
 
 // MARK: - Kilometer Split
 
-struct KilometerSplit: Codable, Hashable, Identifiable {
+nonisolated struct KilometerSplit: Codable, Hashable, Identifiable {
     var id: Int { number }
     let number: Int          // Split number (1, 2, 3...)
     let distanceKm: Double   // Distance covered in this split (usually 1.0, but may be less for final split)
@@ -37,7 +37,7 @@ struct KilometerSplit: Codable, Hashable, Identifiable {
     }
 }
 
-struct Run: Identifiable, Codable, Hashable {
+nonisolated struct Run: Identifiable, Codable, Hashable {
     var id = UUID()
     var date: Date
     var distanceKm: Double
@@ -128,7 +128,7 @@ struct RunLog: Identifiable, Codable, Hashable {
     }
 }
 
-struct RoutePoint: Hashable, Codable {
+nonisolated struct RoutePoint: Hashable, Codable {
     let lat: Double
     let lon: Double
     let t: Date           // Timestamp

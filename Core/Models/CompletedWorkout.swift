@@ -8,7 +8,7 @@
 import Foundation
 
 // Heart rate sample for time-series graphing
-struct HeartRateSample: Codable, Hashable {
+nonisolated struct HeartRateSample: Codable, Hashable {
     let timestamp: Date      // When this sample was recorded
     let bpm: Double          // Beats per minute
 }

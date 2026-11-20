@@ -14,7 +14,7 @@ import Foundation
 ///
 /// The coding keys are explicit and stable: renaming or removing one changes a stored format
 /// that a later version may depend on.
-struct RunSummary: Identifiable, Hashable, Codable {
+nonisolated struct RunSummary: Identifiable, Hashable, Codable {
     let id: UUID
 
     // Light fields: the same names, types and meaning as on `Run`.
