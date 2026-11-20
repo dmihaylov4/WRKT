@@ -9,6 +9,7 @@ final class RunsV3IsolationPolicyTests: XCTestCase {
         "Core/Persistence/RunsV3Format.swift": "The module: layout, names, schemas and the presence check.",
         "Core/Persistence/RunsV3Store.swift": "The module: reader, repair, drain, purge and wipe.",
         "Core/Persistence/RunsV3Migration.swift": "The module: the migration from runs_v2.json (off unless the gate opens).",
+        "Core/Persistence/RunsV3Merge.swift": "The module: the three-way merge of an older build's runs_v2.json into runs_v3 (plans only).",
         "Core/Persistence/WorkoutStorage.swift":
             "The switch (openRunHistory: runs_v3 only when its entry exists), validation skipping runs_v2.json, the storage actor's entry points, and the development wipe.",
         "Features/WorkoutSession/Services/RunsV3History.swift":

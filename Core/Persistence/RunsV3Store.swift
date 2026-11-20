@@ -796,6 +796,36 @@ nonisolated final class RunsV3Store {
         return trashedRevisions?[id] ?? 0
     }
 
+    // MARK: - Baseline (spec 2.6, 8)
+
+    /// The v2 reconciliation point; nil when there is none (a history not made by the migration)
+    /// or it cannot be read.
+    func readBaseline() -> RunsV3BaselineV1? {
+        guard let data = try? fileSystem.readFile(layout.baseline) else { return nil }
+        return try? decoder.decode(RunsV3BaselineV1.self, from: data)
+    }
+
+    /// Replaces baseline.json and makes it durable (write, then the barrier). The merge calls
+    /// this only after the drain that applied it was durable.
+    func writeBaseline(_ baseline: RunsV3BaselineV1) throws {
+        guard let mode else { throw RunsV3StoreError.notOpen }
+        guard mode == .writable else { throw RunsV3StoreError.readOnly }
+        try writer.write(try encoder.encode(baseline), to: layout.baseline, protection: RunsV3.protection)
+        try writer.barrier(directories: [layout.root])
+    }
+
+    /// Ids with a deletion recorded in trash (any revision).
+    func deletedIDs() -> Set<UUID> {
+        let names = (try? fileSystem.contentsOfDirectory(layout.trash)) ?? []
+        return Set(names.compactMap(RunsV3TrashName.parse).filter { $0.reason == .deleted || $0.reason == .merged }.map(\.id))
+    }
+
+    /// What a migrated history records about where it came from (format.json), or nil.
+    func migratedFrom() -> RunsV3FormatV1.Source? {
+        guard let data = try? fileSystem.readFile(layout.format) else { return nil }
+        return (try? decoder.decode(RunsV3FormatV1.self, from: data))?.migratedFrom
+    }
+
     private func writeIndex() throws {
         let ordered = history
         let index = RunsV3IndexV1(
