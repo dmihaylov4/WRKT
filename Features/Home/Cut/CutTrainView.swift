@@ -115,24 +115,29 @@ private struct CutTrainField: View {
         }
     }
 
+    /// Only the states with a control up here get a row: the elapsed clock while a workout is
+    /// live, Add exercise while resting. The small mark that used to sit on the left is gone
+    /// (the field's cut and the weekly V already carry the brand), so every other state starts
+    /// with its headline and the field is 44 pt shorter.
+    @ViewBuilder
     private var topRow: some View {
-        HStack(alignment: .center) {
-            VMarkShape()
-                .fill(tone == .lime ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
-                .frame(width: 40, height: 24)
-                .accessibilityHidden(true)
-            Spacer(minLength: 12)
-            switch hero {
-            case .live(_, _, _, let startDate):
+        switch hero {
+        case .live(_, _, _, let startDate):
+            HStack(alignment: .center) {
+                Spacer(minLength: 12)
                 CutTrainElapsedClock(startDate: startDate)
-            case .resting:
+            }
+            .frame(minHeight: 44)
+        case .resting:
+            HStack(alignment: .center) {
+                Spacer(minLength: 12)
                 Button("Add exercise", systemImage: "plus", action: actions.addExercise)
                     .buttonStyle(CutIconButtonStyle(tone: .outline, diameter: 44))
-            default:
-                EmptyView()
             }
+            .frame(minHeight: 44)
+        default:
+            EmptyView()
         }
-        .frame(minHeight: 44)
     }
 
     private var isResting: Bool {
