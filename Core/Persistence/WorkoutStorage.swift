@@ -5,6 +5,7 @@
 //  Unified, robust storage system for workout data
 //
 
+import CryptoKit
 import Foundation
 import OSLog
 
@@ -162,6 +163,24 @@ nonisolated struct StoredRun: Codable {
     }
 }
 
+extension StoredRun {
+    /// The normal form the v2 merge compares by (spec 8.1): a `route` that is absent, or that
+    /// only repeats `routeWithHR`, counts as absent. An older app version that rewrote
+    /// runs_v2.json without the `routeFromRouteWithHR` marker then still compares equal.
+    static func normalForm(_ run: Run) -> Run {
+        var normal = run
+        if normal.route == nil || routeRepeatsRouteWithHR(normal) { normal.route = nil }
+        return normal
+    }
+
+    /// Lowercase hex SHA-256 of the normal form's stored encoding (the history files' encoder).
+    /// Recorded per workout in runs_v3's baseline.json.
+    static func normalHash(_ run: Run) -> String {
+        let data = (try? RunsV3.makeEncoder().encode(StoredRun(normalForm(run)))) ?? Data()
+        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
 // MARK: - Validated History
 
 /// Identifies one version of a file: an atomic replace changes the file number, an in-place
@@ -259,6 +278,8 @@ actor WorkoutStorage {
     private let runsV3Environment: RunsV3Store.Environment
     /// The open runs_v3 history, when it is the active one (decided by `openRunHistory`).
     private var runsV3: RunsV3Store?
+    /// Free space for important data on the storage volume; injectable for tests.
+    private let availableCapacity: @Sendable (URL) -> Int64?
     /// The files this actor writes, by name. Only this actor writes them, so a temporary file
     /// beside one of them that exists before this actor's first write is a leftover of a killed
     /// process.
@@ -274,7 +295,11 @@ actor WorkoutStorage {
     // MARK: - Initialization
 
     init(directory: URL? = nil, fileSystem: DurableFileSystem = POSIXDurableFileSystem(),
-         runsV3Environment: RunsV3Store.Environment? = nil) {
+         runsV3Environment: RunsV3Store.Environment? = nil,
+         availableCapacity: (@Sendable (URL) -> Int64?)? = nil) {
+        self.availableCapacity = availableCapacity ?? { url in
+            (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?.volumeAvailableCapacityForImportantUsage
+        }
         self.writer = DurableFileWriter(fileSystem: fileSystem)
         self.fileSystem = fileSystem
         self.runsV3Environment = runsV3Environment ?? Self.productionRunsV3Environment(fileSystem)
@@ -523,6 +548,13 @@ actor WorkoutStorage {
     /// Returns the stamp of the file it wrote.
     @discardableResult
     func saveRuns(_ runs: [Run]) async throws -> FileStamp? {
+        // Once runs_v3 exists, runs_v2.json is frozen (spec INV-12): a session that is still on
+        // the whole-file history in memory (the migrated history could not be opened after the
+        // switch) must not write it. The change stays unsaved, the Health anchor does not move,
+        // and the next launch opens runs_v3.
+        guard runsV3 == nil, !RunsV3Presence.exists(in: storageDirectory, fileSystem: fileSystem) else {
+            throw StorageError.runHistoryReadOnly
+        }
         do {
             try await createRunsBackupIfNeeded()
         } catch {
@@ -660,6 +692,88 @@ actor WorkoutStorage {
         }
         runsV3 = store
         return .v3(RunsV3Opened(mode: store.mode ?? .readOnly, entries: store.history, nextSeq: store.nextSeq, report: store.report))
+    }
+
+    // MARK: - Migration to runs_v3 (spec 7.1)
+
+    enum MigrationRefusal: Error, Equatable {
+        case runsV3Exists
+        case notEnoughSpace(needed: Int64, available: Int64?)
+    }
+
+    /// Whether the migration may start here: no runs_v3 entry, and free space of twice
+    /// runs_v2.json plus 100 MB (owner's decision).
+    func migrationPreconditions() -> MigrationRefusal? {
+        if runsV3 != nil || RunsV3Presence.exists(in: storageDirectory, fileSystem: fileSystem) { return .runsV3Exists }
+        let size = Int64(FileStamp(runsFileURL)?.size ?? 0)
+        let needed = 2 * size + 100 * 1024 * 1024
+        let available = availableCapacity(storageDirectory)
+        guard let available, available >= needed else { return .notEnoughSpace(needed: needed, available: available) }
+        return nil
+    }
+
+    struct MigrationResult {
+        let opened: RunsV3Opened
+        let outcome: RunsV3Migration.Outcome
+        let excludedFromBackup: Bool
+    }
+
+    /// Migrates `runs`, which must be exactly what runs_v2.json holds (the caller flushed first,
+    /// inside the save queue), and opens the new history. runs_v2.json is read for its checksum,
+    /// never written; afterwards it is excluded from backups (non-fatal). Throws before the
+    /// switch, leaving runs_v2.json the history.
+    func migrateRunHistoryToV3(_ runs: [Run]) throws -> MigrationResult {
+        if let refusal = migrationPreconditions() { throw refusal }
+        let stamp = FileStamp(runsFileURL)
+        let v2: RunsV3BaselineV1.V2State
+        if let stamp {
+            v2 = .init(present: true, size: stamp.size, modified: stamp.modified, fileNumber: stamp.number,
+                       sha256: try Self.streamingSHA256(of: runsFileURL), decodable: true)
+        } else {
+            v2 = .init(present: false, size: nil, modified: nil, fileNumber: nil, sha256: nil, decodable: true)
+        }
+        let runsFile = runsFileURL
+        let outcome = try RunsV3Migration.migrate(.init(runs: runs, v2: v2), storage: storageDirectory,
+                                                  environment: runsV3Environment,
+                                                  sourceUnchanged: { FileStamp(runsFile) == stamp })
+        let store = RunsV3Store(storage: storageDirectory, environment: runsV3Environment)
+        guard case .active(.writable) = store.open(isProtectedDataAvailable: true) else {
+            // The switch happened: the next launch opens runs_v3. This session stays on v2.
+            throw StorageError.runHistoryInvalidLayout("the migrated history could not be opened in this session")
+        }
+        runsV3 = store
+        let excluded = stamp != nil && excludeFrozenV2FromBackup()
+        AppLogger.success("Run history migrated to runs_v3: \(outcome.workoutCount) workouts, \(outcome.bytesWritten) bytes",
+                          category: AppLogger.storage)
+        return MigrationResult(opened: RunsV3Opened(mode: .writable, entries: store.history, nextSeq: store.nextSeq, report: store.report),
+                               outcome: outcome, excludedFromBackup: excluded)
+    }
+
+    /// Owner's decision: the frozen runs_v2.json leaves iCloud backups after the migration.
+    /// Sets and reads back the resource value; a failure is logged, never fatal. Contents and
+    /// modification date are untouched.
+    private func excludeFrozenV2FromBackup() -> Bool {
+        var url = runsFileURL
+        do {
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try url.setResourceValues(values)
+            url.removeAllCachedResourceValues()
+            let excluded = try url.resourceValues(forKeys: [.isExcludedFromBackupKey]).isExcludedFromBackup == true
+            if !excluded { AppLogger.warning("runs_v2.json is still included in backups", category: AppLogger.storage) }
+            return excluded
+        } catch {
+            AppLogger.warning("Could not exclude runs_v2.json from backups: \(error)", category: AppLogger.storage)
+            return false
+        }
+    }
+
+    private static func streamingSHA256(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let chunk = try handle.read(upToCount: 4 * 1024 * 1024), !chunk.isEmpty { hasher.update(data: chunk) }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     /// One workout's full record from runs_v3.

@@ -25,6 +25,8 @@ struct CutSettingsHost: View {
     private var useCut = DS.Redesign.cutDefault
     @AppStorage(CutYearAwardRendering.objectKey)
     private var yearAward3D = true
+    @AppStorage(RunHistoryConfiguration.debugOptInKey)
+    private var runHistoryMigrationOptIn = false
     @Environment(\.dependencies) private var dependencies
     #endif
 
@@ -87,7 +89,8 @@ struct CutSettingsHost: View {
     private var content: some View {
         #if DEBUG
         CutSettingsView(model: model, roundedShapes: $useRoundedShapes, cutDesign: $useCut,
-                        yearAward3D: $yearAward3D, actions: actions)
+                        yearAward3D: $yearAward3D, runHistoryMigration: $runHistoryMigrationOptIn,
+                        runHistoryMigrationStatus: runHistoryMigrationStatus, actions: actions)
         #else
         CutSettingsView(model: model, actions: actions)
         #endif
@@ -146,11 +149,21 @@ struct CutSettingsHost: View {
         }
     }
 
+    #if DEBUG
+    private var runHistoryMigrationStatus: String {
+        let store = dependencies.workoutStore
+        return RunHistoryMigrationStatus.describe(
+            migrated: store.isOnPerWorkoutHistory, optIn: runHistoryMigrationOptIn,
+            argumentPresent: ProcessInfo.processInfo.arguments.contains(RunHistoryConfiguration.debugOptInArgument),
+            attempts: store.runHistoryMigrationAttempts, last: store.lastRunHistoryMigration)
+    }
+    #endif
+
     /// The legacy Debug buttons, unchanged.
     private func runDebug(_ row: CutSettingsModel.DebugRow) {
         #if DEBUG
         switch row {
-        case .roundedShapes, .cutDesign, .yearAward3D:
+        case .roundedShapes, .cutDesign, .yearAward3D, .runHistoryMigration:
             break
         case .replayLaunch:
             var transaction = Transaction()

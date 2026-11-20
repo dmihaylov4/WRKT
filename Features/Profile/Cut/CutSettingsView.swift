@@ -35,6 +35,9 @@ struct CutSettingsView: View {
     var roundedShapes: Binding<Bool> = .constant(false)
     var cutDesign: Binding<Bool> = .constant(true)
     var yearAward3D: Binding<Bool> = .constant(true)
+    var runHistoryMigration: Binding<Bool> = .constant(false)
+    /// The migration's state for its Debug row: not migrated, migrated, the last attempt.
+    var runHistoryMigrationStatus: String = ""
     var actions = CutSettingsActions()
 
     var body: some View {
@@ -89,6 +92,9 @@ struct CutSettingsView: View {
             CutSettingsToggleRow(row.title, subtitle: row.subtitle, isOn: cutDesign)
         case .yearAward3D:
             CutSettingsToggleRow(row.title, subtitle: row.subtitle, isOn: yearAward3D)
+        case .runHistoryMigration:
+            CutSettingsToggleRow(row.title, subtitle: [runHistoryMigrationStatus, row.subtitle ?? ""].filter { !$0.isEmpty }.joined(separator: "\n"),
+                                 isOn: runHistoryMigration)
         default:
             if row.pushes {
                 CutSettingsLinkRow(row.title, subtitle: row.subtitle) { actions.debug(row) }
