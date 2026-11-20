@@ -54,7 +54,7 @@ struct CutRestoreConfirmation: Equatable {
 }
 
 enum CutDataPortabilityLogic {
-    static let exportFooter = "Saves strength workouts and earned plates to a JSON file. Cardio runs are excluded: re-sync them from Apple Health."
+    static let exportFooter = "Saves your workouts, including those from Apple Health, and earned plates to a JSON file. Without routes and heart rate the file is much smaller."
     static let importFooter = "Merge adds only items not already present. Replace overwrites all existing data: a snapshot is saved automatically so you can undo."
 
     static let strategyOptions = [
@@ -70,16 +70,17 @@ enum CutDataPortabilityLogic {
         CutDataPortabilityModel(
             exportBusyLine: isExporting ? "Preparing export" : nil,
             importBusyLine: isImporting ? "Importing" : nil,
-            lastImport: last.map { lastImport(strategy: $0.record.strategy, workouts: $0.workoutsAdded, plates: $0.platesAdded) } ?? []
+            lastImport: last.map { lastImport(strategy: $0.record.strategy, workouts: $0.workoutsAdded, plates: $0.platesAdded,
+                                              runs: $0.runsAdded) } ?? []
         )
     }
 
-    static func lastImport(strategy: String, workouts: Int, plates: Int) -> [CutDataPortabilityModel.Count] {
+    static func lastImport(strategy: String, workouts: Int, plates: Int, runs: Int = 0) -> [CutDataPortabilityModel.Count] {
         let replaced = strategy == "replace"
         return [
             .init(title: replaced ? "Workouts imported" : "Workouts added", value: "\(workouts)"),
             .init(title: replaced ? "Plates imported" : "Plates added", value: "\(plates)")
-        ]
+        ] + (runs > 0 ? [.init(title: "Health workouts added", value: "\(runs)")] : [])
     }
 
     // MARK: Import confirmation

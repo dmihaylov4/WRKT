@@ -44,6 +44,7 @@ struct DataPortabilityView: View {
     @State private var importStrategy: ImportStrategy = .merge
 
     @State private var lastSummary: ImportSummary?
+    @State private var includeRoutes = true
     @State private var errorMessage: String?
 
     var body: some View {
@@ -72,10 +73,11 @@ struct DataPortabilityView: View {
                         Label("Export Backup", systemImage: "square.and.arrow.up")
                     }
                 }
+                Toggle("Include routes and heart rate", isOn: $includeRoutes)
             } header: {
                 Text("Export")
             } footer: {
-                Text("Saves strength workouts and earned plates to a JSON file. Cardio runs are excluded -- re-sync them from Apple Health.")
+                Text(CutDataPortabilityLogic.exportFooter)
             }
 
             // MARK: Import
@@ -115,6 +117,9 @@ struct DataPortabilityView: View {
                         s.record.strategy == "replace" ? "Plates imported" : "Plates added",
                         value: "\(s.platesAdded)"
                     )
+                    if s.runsAdded > 0 {
+                        LabeledContent("Health workouts added", value: "\(s.runsAdded)")
+                    }
                 }
             }
 
@@ -129,7 +134,7 @@ struct DataPortabilityView: View {
         }
         .navigationTitle("Data Portability")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { service.configure(context: modelContext) }
+        .onAppear { service.configure(context: modelContext, store: store) }
         .sheet(isPresented: $showShare) {
             if let url = exportURL { DataPortabilityShareSheet(url: url) }
         }
@@ -174,7 +179,7 @@ struct DataPortabilityView: View {
 
     private func runExport() async {
         do {
-            exportURL = try await service.makeExportURL()
+            exportURL = try await service.makeExportURL(includeRoutes: includeRoutes)
             showShare = true
         } catch {
             errorMessage = error.localizedDescription

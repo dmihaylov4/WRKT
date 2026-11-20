@@ -34,6 +34,8 @@ struct ImportSummary {
     let record: ImportRecord
     let workoutsAdded: Int
     let platesAdded: Int
+    /// Workouts from Apple Health added; never replaced or removed by an import.
+    var runsAdded: Int = 0
 }
 
 // MARK: - Service
@@ -60,18 +62,24 @@ final class DataPortabilityService {
 
     private let maxSnapshots = 10
 
-    func configure(context: ModelContext) {
+    /// The history store: runs are exported from it, one workout at a time, and imported
+    /// through it (addRun), on either history format.
+    private weak var workoutStore: WorkoutStoreV2?
+
+    func configure(context: ModelContext, store: WorkoutStoreV2? = nil) {
         self.context = context
+        if let store { self.workoutStore = store }
     }
 
     // MARK: - Export
 
-    func makeExportURL() async throws -> URL {
+    func makeExportURL(includeRoutes: Bool = true) async throws -> URL {
         isExporting = true
         defer { isExporting = false }
         guard let context else { throw PortabilityError.notConfigured }
 
-        let bundle = try await buildBundle(context: context)
+        var bundle = try await buildBundle(context: context)
+        if workoutStore != nil { bundle.runsWithoutDetail = !includeRoutes }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
@@ -81,8 +89,34 @@ final class DataPortabilityService {
         formatter.dateFormat = "yyyy-MM-dd"
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("volia-backup-\(formatter.string(from: Date())).json")
-        try data.write(to: url)
+        guard let store = workoutStore else {
+            try data.write(to: url)
+            return url
+        }
+        try await Self.writeStreaming(head: data, to: url, encoder: encoder) { emit in
+            _ = try await store.exportRuns { run in try emit(StoredRun(includeRoutes ? run : ExportBundle.withoutDetail(run))) }
+        }
         return url
+    }
+
+    /// Writes `head` (the bundle without runs) with a "runs" array appended, one workout at a
+    /// time, so the export's memory stays flat however large the history is.
+    static func writeStreaming(head: Data, to url: URL, encoder: JSONEncoder,
+                               runs: ((StoredRun) throws -> Void) async throws -> Void) async throws {
+        guard let close = head.lastIndex(of: UInt8(ascii: "}")) else { throw PortabilityError.notConfigured }
+        _ = FileManager.default.createFile(atPath: url.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+        try handle.truncate(atOffset: 0)
+        try handle.write(contentsOf: head[..<close])
+        try handle.write(contentsOf: Data(",\n  \"runs\" : [\n".utf8))
+        var first = true
+        try await runs { run in
+            if !first { try handle.write(contentsOf: Data(",\n".utf8)) }
+            first = false
+            try handle.write(contentsOf: try encoder.encode(run))
+        }
+        try handle.write(contentsOf: Data("\n  ]\n}\n".utf8))
     }
 
     private func buildBundle(context: ModelContext) async throws -> ExportBundle {
@@ -130,8 +164,14 @@ final class DataPortabilityService {
         // Apply import -- clean up orphaned snapshot if it fails
         let workoutsAdded: Int
         let platesAdded: Int
+        var runsAdded = 0
         do {
             (workoutsAdded, platesAdded) = try await applyBundle(bundle, strategy: strategy, context: context)
+            // Runs are only ever added, through the store (dedupe by Health id; refused when the
+            // history is read-only), whatever the strategy: they come from Apple Health.
+            if let runs = bundle.runs, !runs.isEmpty, let store = workoutStore {
+                runsAdded = try await store.importRuns(runs.map(\.run))
+            }
         } catch {
             try? FileManager.default.removeItem(
                 at: snapshotDirectory.appendingPathComponent(snapshotFileName)
@@ -147,12 +187,13 @@ final class DataPortabilityService {
             strategy: strategy.rawValue,
             workoutsAdded: workoutsAdded,
             platesAdded: platesAdded,
-            snapshotFileName: snapshotFileName
+            snapshotFileName: snapshotFileName,
+            runsAdded: runsAdded
         )
         try await appendImportRecord(record)
         try await pruneSnapshotsIfNeeded()
 
-        return ImportSummary(record: record, workoutsAdded: workoutsAdded, platesAdded: platesAdded)
+        return ImportSummary(record: record, workoutsAdded: workoutsAdded, platesAdded: platesAdded, runsAdded: runsAdded)
     }
 
     private func applyBundle(
