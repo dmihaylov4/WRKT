@@ -44,6 +44,29 @@ nonisolated final class FaultyFileSystem: DurableFileSystem, @unchecked Sendable
     private var _readDelay: TimeInterval = 0
     private var _failFlushes = 0
     private var _flushes = 0
+    private var _calls = 0
+    private var _killAfter: Int?
+    private var _failReadsContaining: String?
+    private var _failWritesContaining: String?
+    private var _createDelay: TimeInterval = 0
+
+    /// Every call counted, as a kill point.
+    var calls: Int { lock.withLock { _calls } }
+    /// After this many calls every call throws, as after a kill.
+    var killAfter: Int? { get { lock.withLock { _killAfter } } set { lock.withLock { _killAfter = newValue } } }
+    /// Reads of paths containing this fail with EIO.
+    var failReadsContaining: String? { get { lock.withLock { _failReadsContaining } } set { lock.withLock { _failReadsContaining = newValue } } }
+    /// Creating files whose path contains this fails with EIO.
+    var failWritesContaining: String? { get { lock.withLock { _failWritesContaining } } set { lock.withLock { _failWritesContaining = newValue } } }
+    /// Each file creation waits this long: a slow disk, to act while a migration runs.
+    var createDelay: TimeInterval { get { lock.withLock { _createDelay } } set { lock.withLock { _createDelay = newValue } } }
+
+    private func count(_ url: URL? = nil) throws {
+        try lock.withLock {
+            _calls += 1
+            if let limit = _killAfter, _calls > limit { throw DurableFileError(operation: "killed", path: url?.path ?? "", code: EIO) }
+        }
+    }
 
     /// Reads of workout files (under runs/) wait this long: a slow disk.
     var readDelay: TimeInterval { get { lock.withLock { _readDelay } } set { lock.withLock { _readDelay = newValue } } }
@@ -51,14 +74,21 @@ nonisolated final class FaultyFileSystem: DurableFileSystem, @unchecked Sendable
     var failFlushes: Int { get { lock.withLock { _failFlushes } } set { lock.withLock { _failFlushes = newValue } } }
     var flushes: Int { lock.withLock { _flushes } }
 
-    func createExclusive(_ url: URL) throws -> Int32 { try real.createExclusive(url) }
-    func setProtection(_ protection: FileProtectionType, at url: URL) throws { try real.setProtection(protection, at: url) }
-    func write(_ data: Data, to descriptor: Int32) throws { try real.write(data, to: descriptor) }
-    func synchronize(_ descriptor: Int32) throws { try real.synchronize(descriptor) }
-    func close(_ descriptor: Int32) throws { try real.close(descriptor) }
-    func rename(_ source: URL, to destination: URL) throws { try real.rename(source, to: destination) }
-    func synchronizeDirectory(_ url: URL) throws { try real.synchronizeDirectory(url) }
+    func createExclusive(_ url: URL) throws -> Int32 {
+        try count(url)
+        let delay = createDelay
+        if delay > 0 { Thread.sleep(forTimeInterval: delay) }
+        if let part = failWritesContaining, url.path.contains(part) { throw DurableFileError(operation: "open", path: url.path, code: EIO) }
+        return try real.createExclusive(url)
+    }
+    func setProtection(_ protection: FileProtectionType, at url: URL) throws { try count(url); try real.setProtection(protection, at: url) }
+    func write(_ data: Data, to descriptor: Int32) throws { try count(); try real.write(data, to: descriptor) }
+    func synchronize(_ descriptor: Int32) throws { try count(); try real.synchronize(descriptor) }
+    func close(_ descriptor: Int32) throws { try count(); try real.close(descriptor) }
+    func rename(_ source: URL, to destination: URL) throws { try count(destination); try real.rename(source, to: destination) }
+    func synchronizeDirectory(_ url: URL) throws { try count(url); try real.synchronizeDirectory(url) }
     func flushDevice(at url: URL) throws {
+        try count(url)
         let fail: Bool = lock.withLock {
             _flushes += 1
             guard _failFlushes > 0 else { return false }
@@ -68,15 +98,17 @@ nonisolated final class FaultyFileSystem: DurableFileSystem, @unchecked Sendable
         if fail { throw DurableFileError(operation: "F_FULLFSYNC", path: url.path, code: EIO) }
         try real.flushDevice(at: url)
     }
-    func remove(_ url: URL) { real.remove(url) }
-    func renameExclusive(_ source: URL, to destination: URL) throws { try real.renameExclusive(source, to: destination) }
-    func contentsOfDirectory(_ url: URL) throws -> [String] { try real.contentsOfDirectory(url) }
+    func remove(_ url: URL) { if (try? count(url)) != nil { real.remove(url) } }
+    func renameExclusive(_ source: URL, to destination: URL) throws { try count(destination); try real.renameExclusive(source, to: destination) }
+    func contentsOfDirectory(_ url: URL) throws -> [String] { try count(url); return try real.contentsOfDirectory(url) }
     func readFile(_ url: URL) throws -> Data {
+        try count(url)
+        if let part = failReadsContaining, url.path.contains(part) { throw DurableFileError(operation: "read", path: url.path, code: EIO) }
         let delay = readDelay
         if delay > 0, url.path.contains("/runs_v3/runs/") { Thread.sleep(forTimeInterval: delay) }
         return try real.readFile(url)
     }
-    func itemInfo(_ url: URL) throws -> DurableItemInfo? { try real.itemInfo(url) }
-    func createDirectory(_ url: URL, protection: FileProtectionType?) throws { try real.createDirectory(url, protection: protection) }
-    func removeTree(_ url: URL) throws { try real.removeTree(url) }
+    func itemInfo(_ url: URL) throws -> DurableItemInfo? { try count(url); return try real.itemInfo(url) }
+    func createDirectory(_ url: URL, protection: FileProtectionType?) throws { try count(url); try real.createDirectory(url, protection: protection) }
+    func removeTree(_ url: URL) throws { try count(url); try real.removeTree(url) }
 }

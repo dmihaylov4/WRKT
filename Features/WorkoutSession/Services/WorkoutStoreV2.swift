@@ -33,6 +33,13 @@ final class WorkoutStoreV2: ObservableObject {
     private var runsV3Observers: [NSObjectProtocol] = []
     private var protectedDataObserver: NSObjectProtocol?
     private let protectedDataAvailable: @MainActor () -> Bool
+    /// Whether a migration to runs_v3 may start (RunHistoryConfiguration.migrationMayStart:
+    /// false in every Release build). Injectable for tests only.
+    private let migrationGate: @MainActor () -> Bool
+    private let isHealthImportRunning: @MainActor () -> Bool
+    private var migrationTask: Task<Void, Never>?
+    /// Seconds after a clean load before a permitted migration starts.
+    var migrationDelay: Duration = .seconds(20)
     /// Stored summaries that did not match memory after a drain (tests expect none).
     private(set) var runsV3SummaryMismatches = 0
     /// Full runs held in memory by the per-workout history (0 on today's path, which holds them all).
@@ -188,13 +195,17 @@ final class WorkoutStoreV2: ObservableObject {
         storage: WorkoutStorage = .shared,
         defaults: UserDefaults = .standard,
         rewardsEngine: RewardsEngine = .shared,
-        protectedDataAvailable: (@MainActor () -> Bool)? = nil
+        protectedDataAvailable: (@MainActor () -> Bool)? = nil,
+        migrationGate: (@MainActor () -> Bool)? = nil,
+        isHealthImportRunning: (@MainActor () -> Bool)? = nil
     ) {
         self.repo = repo
         self.storage = storage
         self.defaults = defaults
         self.rewardsEngine = rewardsEngine
         self.protectedDataAvailable = protectedDataAvailable ?? { UIApplication.shared.isProtectedDataAvailable }
+        self.migrationGate = migrationGate ?? { RunHistoryConfiguration.migrationMayStart }
+        self.isHealthImportRunning = isHealthImportRunning ?? { HealthKitManager.shared.isSyncing }
 
         retryStorageLoad()
 
@@ -271,6 +282,9 @@ final class WorkoutStoreV2: ObservableObject {
 
                 // Match workouts with HealthKit data if available
                 matchAllWorkoutsWithHealthKit()
+
+                // Off unless the migration is permitted (never in Release): then nothing happens.
+                scheduleRunHistoryMigration()
 
             } catch StorageError.runHistoryDeferred {
                 // Before the first unlock: nothing was concluded. Load again once protected data
@@ -1454,6 +1468,9 @@ final class WorkoutStoreV2: ObservableObject {
     // writes the latest state, which also lets a burst of queued saves collapse into one write.
 
     private func saveRunsIfChanged(to storage: WorkoutStorage) async throws {
+        // A whole-file save queued before the migration switched the history: dropped. The
+        // change it would have saved was carried over to runs_v3 at the switch.
+        guard runsV3 == nil else { return }
         // Read the stamp first so the revision is compared after the suspension, not before.
         let onDisk = await storage.runsFileStamp()
         if runsSave.isSaved(asOnDisk: onDisk) { return }
@@ -1964,6 +1981,127 @@ extension WorkoutStoreV2 {
 }
 
 // MARK: - Save Tracking
+
+// MARK: - Migration to the per-workout history (spec 7.1)
+
+enum RunHistoryMigrationResult: Equatable {
+    /// The gate is closed (every Release build, and Debug without the opt-in).
+    case notAllowed
+    /// A precondition does not hold; not an attempt.
+    case skipped(String)
+    case migrated
+    /// An attempt that failed before the switch; the app stays on runs_v2.json.
+    case failed(String)
+}
+
+extension WorkoutStoreV2 {
+    /// Whether the history is the per-workout one (for the Debug row).
+    var isOnPerWorkoutHistory: Bool { runsV3 != nil }
+
+    fileprivate func scheduleRunHistoryMigration() {
+        guard migrationGate(), migrationTask == nil else { return }
+        let delay = migrationDelay
+        migrationTask = Task(priority: .background) { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            let result = await self.migrateRunHistoryIfAllowed()
+            AppLogger.info("Run history migration: \(result)", category: AppLogger.storage)
+            self.migrationTask = nil
+        }
+    }
+
+    private final class MigrationBox { var result: RunHistoryMigrationResult = .skipped("did not run") }
+
+    /// Spec 7.1. Checks every precondition, then runs as one operation of the save queue: any
+    /// unsaved run change is saved first (or the migration is skipped), the history is taken in
+    /// that same turn, the storage actor migrates it, and the store switches to runs_v3 in the
+    /// main-actor turn the migration returns in. Changes made while it ran are carried over;
+    /// whole-file saves queued meanwhile are dropped.
+    @discardableResult
+    func migrateRunHistoryIfAllowed() async -> RunHistoryMigrationResult {
+        guard migrationGate() else { return .notAllowed }
+        if let reason = migrationBlocker() { return .skipped(reason) }
+        if let refusal = await storage.migrationPreconditions() { return .skipped("\(refusal)") }
+        let box = MigrationBox()
+        let task = enqueueSave { storage in
+            if let reason = self.migrationBlocker() { box.result = .skipped(reason); return }
+            let onDisk = await storage.runsFileStamp()
+            if !self.runsSave.isSaved(asOnDisk: onDisk) {
+                do { try await self.saveRunsIfChanged(to: storage) } catch {
+                    box.result = .skipped("unsaved run changes could not be saved: \(error)")
+                    return
+                }
+            }
+            let snapshot = self.runs
+            let build = RunHistoryConfiguration.currentBuild
+            let key = RunHistoryConfiguration.attemptsKey(build: build)
+            self.defaults.set(self.defaults.integer(forKey: key) + 1, forKey: key)
+            self.recordMigration("started", build: build)
+            do {
+                let result = try await storage.migrateRunHistoryToV3(snapshot)
+                self.switchToRunsV3(result.opened, migrated: snapshot)
+                self.defaults.removeObject(forKey: key)
+                self.recordMigration("migrated", build: build)
+                box.result = .migrated
+            } catch {
+                self.recordMigration("failed: \(error)", build: build)
+                AppLogger.error("Run history migration failed; staying on runs_v2.json: \(error)", category: AppLogger.storage)
+                box.result = .failed("\(error)")
+            }
+        }
+        _ = try? await task.value
+        return box.result
+    }
+
+    /// Why a migration may not start now (spec 7.1), or nil.
+    private func migrationBlocker() -> String? {
+        guard isStorageLoaded, storageLoadError == nil else { return "history not loaded" }
+        guard runsV3 == nil else { return "already on runs_v3" }
+        guard protectedDataAvailable() else { return "protected data unavailable" }
+        guard !isHealthImportRunning() else { return "a Health import is running" }
+        guard currentWorkout == nil else { return "a workout is in progress" }
+        let attempts = defaults.integer(forKey: RunHistoryConfiguration.attemptsKey(build: RunHistoryConfiguration.currentBuild))
+        guard attempts < RunHistoryConfiguration.maximumAttempts else { return "attempt limit reached for this build" }
+        guard Set(runs.map(\.id)).count == runs.count else { return "duplicate workout ids" }
+        return nil
+    }
+
+    private func recordMigration(_ result: String, build: String) {
+        let record = RunHistoryMigrationRecord(date: .now, build: build, result: result)
+        defaults.set(try? JSONEncoder().encode(record), forKey: RunHistoryConfiguration.lastAttemptKey)
+    }
+
+    /// The last attempt, for the Debug row.
+    var lastRunHistoryMigration: RunHistoryMigrationRecord? {
+        defaults.data(forKey: RunHistoryConfiguration.lastAttemptKey).flatMap { try? JSONDecoder().decode(RunHistoryMigrationRecord.self, from: $0) }
+    }
+
+    var runHistoryMigrationAttempts: Int {
+        defaults.integer(forKey: RunHistoryConfiguration.attemptsKey(build: RunHistoryConfiguration.currentBuild))
+    }
+
+    /// The switch, in one main-actor turn: the store continues on runs_v3, carrying every change
+    /// made to the in-memory history since `migrated` was taken (adds, edits, deletes), then
+    /// lets the full runs go.
+    fileprivate func switchToRunsV3(_ opened: WorkoutStorage.RunsV3Opened, migrated: [Run]) {
+        let current = runs
+        activateRunsV3(opened)
+        guard let history = runsV3 else { return }
+        let before = Dictionary(migrated.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let now = Dictionary(current.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for run in migrated where now[run.id] == nil { history.enqueue(.delete, for: run.id) }
+        for run in current { if let old = before[run.id], old != run { history.enqueue(.replace(run), for: run.id) } }
+        // Oldest addition first, so the newest gets the highest position, as addRun inserts.
+        for run in current.reversed() where before[run.id] == nil { history.enqueue(.add(run, seq: history.takeSeq()), for: run.id) }
+        for (id, handle) in runDetailHandles where handle.detail != nil {
+            if let run = now[id] { history.remember(run) }
+        }
+        runSummaries = current.map(RunSummary.init)
+        runs = []
+        refreshRunDetails(nil)
+        persistRuns()
+    }
+}
 
 // MARK: - Per-workout history (runs_v3)
 

@@ -18,6 +18,8 @@ final class RunsV3History {
     /// One queued change to one workout, in the order the store made it.
     enum Change {
         case add(Run, seq: Int64)
+        /// The whole run of a workout that exists (a change carried over by the migration).
+        case replace(Run)
         case edit(RunEdit)
         case delete
     }
@@ -94,6 +96,8 @@ final class RunsV3History {
         case .add(let run, let seq):
             nextSeq = max(nextSeq, seq + 1)
             remember(run)
+        case .replace(let run):
+            remember(run)
         case .edit(let edit):
             if let run = cache[id] { cache[id] = edit.applied(to: run) }
         case .delete:
@@ -110,7 +114,7 @@ final class RunsV3History {
         var state = base
         for change in changes {
             switch change {
-            case .add(let run, _): state = run
+            case .add(let run, _), .replace(let run): state = run
             case .edit(let edit): state = state.map(edit.applied(to:))
             case .delete: state = nil
             }
@@ -140,7 +144,7 @@ final class RunsV3History {
             return .removed
         case .unreadable, .temporarilyUnavailable:
             // Added since, or deleted since, decides without the file.
-            if changes.contains(where: { if case .add = $0 { return true }; if case .delete = $0 { return true }; return false }),
+            if changes.contains(where: { if case .edit = $0 { return false }; return true }),
                let current = Self.apply(changes, to: nil) {
                 remember(current)
                 return .loaded(current)
@@ -178,8 +182,11 @@ final class RunsV3History {
             guard cachedTargets[id] == nil else { return nil }
             // A base is needed only when an edit comes before any add.
             for item in items {
-                if case .add = item.change { return nil }
-                if case .edit = item.change { return id }
+                switch item.change {
+                case .add, .replace: return nil
+                case .edit: return id
+                case .delete: continue
+                }
             }
             return nil
         }
