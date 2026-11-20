@@ -96,10 +96,10 @@ private struct CutTrainField: View {
 
     var body: some View {
         CutField(tone: tone == .lime ? .lime : .dark,
-                 // 84 at the bottom keeps a two-pill row ("New workout", "Set up a plan")
-                 // clear of the 112 pt cut on a 402 pt wide screen.
-                 padding: EdgeInsets(top: topInset + 2, leading: DS.Cut.Metrics.gutter,
-                                     bottom: 84, trailing: DS.Cut.Metrics.gutter)) {
+                 // 72 at the bottom is as low as a two-pill row ("New workout", "Set up a plan")
+                 // can sit and stay clear of the 112 pt cut on a 393 pt wide screen.
+                 padding: EdgeInsets(top: topInset - 4, leading: DS.Cut.Metrics.gutter,
+                                     bottom: 72, trailing: DS.Cut.Metrics.gutter)) {
             topRow
             heroBlock
             CutTrainHeroActions(hero: hero, actions: actions)
@@ -123,11 +123,11 @@ private struct CutTrainField: View {
     private var topRow: some View {
         switch hero {
         case .live(_, _, _, let startDate):
-            HStack(alignment: .center) {
-                Spacer(minLength: 12)
-                CutTrainElapsedClock(startDate: startDate)
-            }
-            .frame(minHeight: 44)
+            // On the leading edge, above the headline it belongs to, in a row only as tall
+            // as the clock: a trailing clock in a 44 pt row read as detached.
+            CutTrainElapsedClock(startDate: startDate)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
         case .resting:
             HStack(alignment: .center) {
                 Spacer(minLength: 12)
