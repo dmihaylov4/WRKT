@@ -38,6 +38,11 @@ final class WorkoutStoreV2: ObservableObject {
     private let migrationGate: @MainActor () -> Bool
     private let isHealthImportRunning: @MainActor () -> Bool
     private var migrationTask: Task<Void, Never>?
+    private var mergeTask: Task<Void, Never>?
+    /// Seconds after a runs_v3 load before the merge with an older build's writes is checked.
+    var mergeDelay: Duration = .seconds(2)
+    /// How many 5-second waits the merge allows for a Health import to finish.
+    var mergeImportWaitLimit = 60
     /// Seconds after a clean load before a permitted migration starts.
     var migrationDelay: Duration = .seconds(20)
     /// Stored summaries that did not match memory after a drain (tests expect none).
@@ -285,6 +290,8 @@ final class WorkoutStoreV2: ObservableObject {
 
                 // Off unless the migration is permitted (never in Release): then nothing happens.
                 scheduleRunHistoryMigration()
+                // On runs_v3 only: fold in what an older app version wrote to runs_v2.json.
+                scheduleRunHistoryMerge()
 
             } catch StorageError.runHistoryDeferred {
                 // Before the first unlock: nothing was concluded. Load again once protected data
@@ -2100,6 +2107,151 @@ extension WorkoutStoreV2 {
         runs = []
         refreshRunDetails(nil)
         persistRuns()
+    }
+}
+
+// MARK: - Export and import of runs (spec 9)
+
+extension WorkoutStoreV2 {
+    /// Hands every workout's full record to `body`, in history order, one at a time: on runs_v3
+    /// each is read from its file and let go, so memory stays flat. Returns how many could not
+    /// be read (left out).
+    @discardableResult
+    func exportRuns(_ body: (Run) throws -> Void) async throws -> Int {
+        try await waitForStorage()
+        guard runsV3 != nil else {
+            for run in runs { try body(run) }
+            return 0
+        }
+        var unreadable = 0
+        for summary in runSummaries {
+            if case .loaded(let run) = try await loadRun(id: summary.id) { try body(run) } else { unreadable += 1 }
+        }
+        return unreadable
+    }
+
+    /// Adds the runs of an imported backup through `addRun`, keeping their order at the front:
+    /// a workout already present (same id or same Health id) is skipped, and nothing is added
+    /// when the history is read-only. Returns how many were added.
+    func importRuns(_ imported: [Run]) async throws -> Int {
+        try await waitForStorage()
+        var added = 0
+        for run in imported.reversed() {
+            guard runSummary(id: run.id) == nil else { continue }
+            let before = runSummaries.count
+            addRun(run)
+            if runSummaries.count > before { added += 1 }
+        }
+        try await flushPendingSaves()
+        return added
+    }
+}
+
+// MARK: - Merge with an older build's writes (spec 8)
+
+/// What the merge check did at a launch, kept for the Debug row.
+nonisolated struct RunHistoryMergeRecord: Codable, Equatable {
+    var date: Date
+    /// "unchanged: ...", "recorded: ...", "merged", "applied, not yet durable", "skipped: ...".
+    var outcome: String
+    var counts: RunsV3Merge.Counts?
+}
+
+extension WorkoutStoreV2 {
+    static let mergeRecordKey = "runsV3.merge.last"
+
+    var lastRunHistoryMerge: RunHistoryMergeRecord? {
+        defaults.data(forKey: Self.mergeRecordKey).flatMap { try? JSONDecoder().decode(RunHistoryMergeRecord.self, from: $0) }
+    }
+
+    fileprivate func scheduleRunHistoryMerge() {
+        guard runsV3 != nil, mergeTask == nil else { return }
+        let delay = mergeDelay
+        mergeTask = Task(priority: .utility) { [weak self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled, let self else { return }
+            _ = await self.mergeOlderBuildChangesIfNeeded()
+            self.mergeTask = nil
+        }
+    }
+
+    private final class MergeBox { var record: RunHistoryMergeRecord? }
+
+    /// Spec 8: on a writable runs_v3, folds into it what an older app version wrote to the
+    /// frozen runs_v2.json. Runs as one save-queue operation after the pending changes are
+    /// durable; waits while a Health import runs. The user sees the v3 history at once and the
+    /// merged result when this returns. Never puts the app on the recovery screen.
+    @discardableResult
+    func mergeOlderBuildChangesIfNeeded() async -> RunHistoryMergeRecord? {
+        guard let history = runsV3, history.isWritable else { return nil }
+        var waited = 0
+        while isHealthImportRunning() && waited < mergeImportWaitLimit {
+            try? await Task.sleep(for: .seconds(5))
+            waited += 1
+        }
+        guard !isHealthImportRunning() else { return saveMergeRecord("skipped: a Health import is running", nil) }
+        let box = MergeBox()
+        let task = enqueueSave { storage in
+            do {
+                try await self.drainRunsV3(requireDurable: true)
+            } catch {
+                box.record = self.saveMergeRecord("skipped: changes pending: \(error)", nil)
+                return
+            }
+            switch await storage.runsV3MergeCheck() {
+            case .unchanged(let reason):
+                box.record = self.saveMergeRecord("unchanged: \(reason)", nil)
+            case .recorded(let reason):
+                box.record = self.saveMergeRecord("recorded: \(reason)", nil)
+            case .changed(let input):
+                self.applyMerge(input.plan, history: history)
+                do {
+                    try await self.drainRunsV3(requireDurable: true)
+                    try await storage.runsV3WriteMergedBaseline(input)
+                    box.record = self.saveMergeRecord(input.plan.valveTripped ? "merged, deletions held back by the valve" : "merged",
+                                                      input.plan.counts)
+                    AppLogger.info("Merged an older build's runs_v2.json: \(input.plan.counts)", category: AppLogger.storage)
+                } catch {
+                    // Applied in memory; the next launch finishes it (planning again changes nothing more).
+                    box.record = self.saveMergeRecord("applied, not yet durable: \(error)", input.plan.counts)
+                }
+            }
+        }
+        _ = try? await task.value
+        return box.record
+    }
+
+    @discardableResult
+    private func saveMergeRecord(_ outcome: String, _ counts: RunsV3Merge.Counts?) -> RunHistoryMergeRecord {
+        let record = RunHistoryMergeRecord(date: .now, outcome: outcome, counts: counts)
+        defaults.set(try? JSONEncoder().encode(record), forKey: Self.mergeRecordKey)
+        return record
+    }
+
+    /// The plan through the store's own per-workout path, in one main-actor turn.
+    private func applyMerge(_ plan: RunsV3Merge.Plan, history: RunsV3History) {
+        var summaries = runSummaries
+        var touched: [UUID] = []
+        for run in plan.replaces {
+            guard let index = summaries.firstIndex(where: { $0.id == run.id }) else { continue }
+            history.enqueue(.replace(run), for: run.id)
+            summaries[index] = RunSummary(run)
+            touched.append(run.id)
+        }
+        let deleted = Set(plan.deletes)
+        for id in plan.deletes where summaries.contains(where: { $0.id == id }) {
+            history.enqueue(.delete, for: id)
+            touched.append(id)
+        }
+        summaries.removeAll { deleted.contains($0.id) }
+        // Oldest addition first, so the front-most in runs_v2.json gets the highest position.
+        for run in plan.adds.reversed() where !summaries.contains(where: { $0.id == run.id }) {
+            history.enqueue(.add(run, seq: history.takeSeq()), for: run.id)
+            touched.append(run.id)
+        }
+        let added = plan.adds.filter { run in touched.contains(run.id) && !summaries.contains(where: { $0.id == run.id }) }
+        runSummaries = added.map(RunSummary.init) + summaries
+        refreshRunDetails(touched)
     }
 }
 
