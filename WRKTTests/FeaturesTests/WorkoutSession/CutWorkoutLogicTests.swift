@@ -386,6 +386,25 @@ struct CutLiveOverviewLogicTests {
         #expect(done.canFinish && done.allDone && done.now == nil)
     }
 
+    /// Adding an exercise is offered once, at the end of Up next, even when nothing is up next
+    /// (the Train hero's resting state no longer carries it).
+    @Test func addExerciseEndsUpNextInEveryState() {
+        let finished = entry("A", done: 2, of: 2)
+        let started = entry("B", done: 1, of: 3)
+        let fresh = entry("C", done: 0, of: 3)
+        for entries in [[finished, started, fresh], [finished, started], [finished], [fresh]] {
+            let model = CutLiveOverviewLogic.model(title: "Live workout", startDate: .now, entries: entries,
+                                                   activeEntryID: nil, unit: .kg)
+            let carriers = model.sections.filter(\.endsWithAddExercise)
+            #expect(carriers.map(\.title) == ["Up next"], "\(entries.map(\.exerciseName))")
+            // Before Completed, after In progress.
+            let titles = model.sections.map(\.title)
+            if let completed = titles.firstIndex(of: "Completed") {
+                #expect(titles.firstIndex(of: "Up next")! < completed)
+            }
+        }
+    }
+
     @Test func supersetPartnersStayWithTheHero() {
         let group = UUID()
         let first = entry("A", done: 1, of: 3, superset: group, order: 0)
