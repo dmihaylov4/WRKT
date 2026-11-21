@@ -19,4 +19,11 @@ import Testing
         let direct = try? await EnvironmentResource(named: "IndoorHDRI")
         #expect((a == nil) == (direct == nil), "the shared lookup matches a direct one")
     }
+
+    @Test func barKnurlingTextureIsGeneratedOnceAndShared() throws {
+        let first = try #require(sharedBarKnurlingRoughnessTexture())
+        #expect(sharedBarKnurlingRoughnessTexture() === first)
+        #expect(makeBarMaterial(skinID: 0).roughness.texture?.resource === first)
+        #expect(makeBarMaterial(skinID: 1).roughness.texture?.resource === first)
+    }
 }

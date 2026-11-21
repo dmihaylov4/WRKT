@@ -1798,10 +1798,20 @@ func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> Physicall
 func makeBarMaterial(skinID: Int = 0) -> PhysicallyBasedMaterial {
     let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
     var mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
-    if let roughnessTex = generateBarKnurlingRoughnessTexture() {
+    if let roughnessTex = sharedBarKnurlingRoughnessTexture() {
         mat.roughness = .init(texture: .init(roughnessTex))
     }
     return mat
+}
+
+// The knurling texture is the same for every bar skin: generate it once per process.
+private nonisolated(unsafe) var _barKnurlingRoughnessTexture: TextureResource?
+
+func sharedBarKnurlingRoughnessTexture() -> TextureResource? {
+    if let cached = _barKnurlingRoughnessTexture { return cached }
+    let texture = generateBarKnurlingRoughnessTexture()
+    _barKnurlingRoughnessTexture = texture
+    return texture
 }
 
 // Generates a 256x1 linear-greyscale roughness texture encoding knurling zones along
