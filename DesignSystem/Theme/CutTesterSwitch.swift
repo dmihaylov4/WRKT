@@ -156,9 +156,9 @@ nonisolated enum CutTesterSwitch {
             return "You can change this after your workout."
         }
         if chosen != runningNewDesign {
-            return "Restart the app to switch: close it from the app switcher and open it again."
+            return "Close and reopen the app to switch."
         }
-        return "Unfinished and still changing. You can turn it off here at any time."
+        return "Unfinished: you can turn it off again here."
     }
 }
 

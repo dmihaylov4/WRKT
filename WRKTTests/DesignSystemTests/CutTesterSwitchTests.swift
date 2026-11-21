@@ -175,13 +175,13 @@ struct CutTesterSwitchTests {
     @Test func noteExplainsTheState() {
         #expect(CutTesterSwitch.title == "Try the new design")
         #expect(CutTesterSwitch.note(chosen: false, runningNewDesign: false, workoutActive: false)
-                == "Unfinished and still changing. You can turn it off here at any time.")
+                == "Unfinished: you can turn it off again here.")
         #expect(CutTesterSwitch.note(chosen: true, runningNewDesign: true, workoutActive: false)
-                == "Unfinished and still changing. You can turn it off here at any time.")
+                == "Unfinished: you can turn it off again here.")
         #expect(CutTesterSwitch.note(chosen: true, runningNewDesign: false, workoutActive: false)
-                == "Restart the app to switch: close it from the app switcher and open it again.")
+                == "Close and reopen the app to switch.")
         #expect(CutTesterSwitch.note(chosen: false, runningNewDesign: true, workoutActive: false)
-                == "Restart the app to switch: close it from the app switcher and open it again.")
+                == "Close and reopen the app to switch.")
         #expect(CutTesterSwitch.note(chosen: true, runningNewDesign: false, workoutActive: true)
                 == "You can change this after your workout.")
         for note in [CutTesterSwitch.note(chosen: false, runningNewDesign: false, workoutActive: false),
@@ -196,7 +196,7 @@ struct CutTesterSwitchTests {
         let shown = CutSettingsLogic.model(CutSettingsFacts(isLoggedIn: true, showsTesterSwitch: true,
                                                             testerChoice: true, runningNewDesign: true))
         #expect(shown.testerSwitch == CutSettingsModel.TesterSwitch(
-            note: "Unfinished and still changing. You can turn it off here at any time.", isEnabled: true))
+            note: "Unfinished: you can turn it off again here.", isEnabled: true))
         let duringWorkout = CutSettingsLogic.model(CutSettingsFacts(showsTesterSwitch: true, workoutActive: true))
         #expect(duringWorkout.testerSwitch?.isEnabled == false)
     }
