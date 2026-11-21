@@ -122,16 +122,17 @@ struct CutSettingsHost: View {
     @ViewBuilder
     private func destinationView(_ destination: Destination) -> some View {
         switch destination {
+        // The social rows wait until a made-up name is replaced, as the Social tab does.
         case .myProfile(let id):
-            SocialProfileView(userId: id)
+            SocialNameGate(.socialSettings, authService: authService) { SocialProfileView(userId: id) }
         case .activity:
-            ActivityFeedView()
+            SocialNameGate(.socialSettings, authService: authService) { ActivityFeedView() }
         case .friends:
-            FriendsListView()
+            SocialNameGate(.socialSettings, authService: authService) { FriendsListView() }
         case .friendRequests:
-            FriendRequestsView()
+            SocialNameGate(.socialSettings, authService: authService) { FriendRequestsView() }
         case .findFriends:
-            UserSearchView()
+            SocialNameGate(.socialSettings, authService: authService) { UserSearchView() }
         case .preferences:
             PreferencesView()
         case .health:
