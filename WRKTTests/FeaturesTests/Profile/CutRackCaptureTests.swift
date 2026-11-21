@@ -118,10 +118,11 @@ struct CutRackCaptureTests {
         if name.hasPrefix("rack") {
             let model = CutRackLogic.model(CutRackFacts(
                 plates: facts,
-                occupiedSlots: name == "rack-empty" ? 1 : facts.filter(\.isLoaded).count,
+                occupiedSlots: facts.filter(\.isLoaded).count,
                 unit: unit,
                 notice: name == "rack-full-lb" ? .barFull : nil
             ), locale: locale)
+            // rack-empty passes an old starter row still racked at slot 3: the scene must not show it.
             let racked = name == "rack-empty" ? [EarnedPlate.makeStarter(position: 3)] : source.filter(\.isRacked)
             return AnyView(CutRackView(
                 model: model,

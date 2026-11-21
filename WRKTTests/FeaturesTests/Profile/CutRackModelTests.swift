@@ -37,8 +37,8 @@ import Testing
         let facts = [CutRackPlateFacts(id: "earned", tierName: "Lime Bumper", engraving: "", weightKg: 20, isLoaded: true,
                                        rackPosition: 0, displayOrder: 0, earnedAt: Self.day)]
         #expect(CutRackLogic.totalKg(facts) == plateWallTotalWeight(rackedPlates: [starter, earned]))
-        // The starter takes a slot but is not a tray plate: one plate loaded, three slots left.
-        let m = Self.model(facts, occupied: 2)
+        // The starter is never a tray plate and never takes a slot: one plate loaded, three slots left.
+        let m = Self.model(facts, occupied: 1)
         #expect(m.summary == "1 plate loaded")
         #expect(m.tiles.count == 1)
     }

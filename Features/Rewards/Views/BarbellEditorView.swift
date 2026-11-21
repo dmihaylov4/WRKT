@@ -9,6 +9,8 @@ func configuredBarbellDisplayPlates(
     maximumBarPlateCount: Int = 4
 ) -> [EarnedPlate]? {
     guard let loadout else { return nil }
+    // A saved loadout may still list the starter: it is never a bar plate.
+    let earnedPlates = earnedPlates.filter { !$0.isStarterPlate }
     let sanitizedLoadout = loadout.sanitized(
         earnedPlateIDs: Set(earnedPlates.map(\.id)),
         maximumBarPlateCount: maximumBarPlateCount
@@ -635,21 +637,13 @@ struct BarbellEditorView: View {
             return configured
         }
 
-        let racked = earnedPlates
-            .filter(\.isRacked)
-            .sorted {
-                let leftPosition = $0.rackPosition ?? Int.max
-                let rightPosition = $1.rackPosition ?? Int.max
-                if leftPosition != rightPosition { return leftPosition < rightPosition }
-                return $0.earnedAt > $1.earnedAt
-            }
+        let racked = BarbellBarSlots.barPlates(earnedPlates)
         if !racked.isEmpty { return racked }
 
-        let nonStarter = earnedPlates
-            .filter { $0.earnedByEvent != "starter" }
+        // Never falls back to the starter: with no earned plate the bar is empty.
+        return earnedPlates
+            .filter { !$0.isStarterPlate }
             .sorted { $0.earnedAt > $1.earnedAt }
-        if !nonStarter.isEmpty { return nonStarter }
-        return earnedPlates.sorted { $0.earnedAt > $1.earnedAt }
     }
 
     private var configuredBarPlates: [EarnedPlate]? {

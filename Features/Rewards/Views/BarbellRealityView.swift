@@ -1579,8 +1579,9 @@ struct BarbellRealityView: View {
         return []
     }
 
+    /// The starter plate is never shown or counted as a bar plate, even if a caller passes it.
     private var allRackedPlates: [EarnedPlate] {
-        if case .rackRoom(let racked, _, _, _) = mode { return racked }
+        if case .rackRoom(let racked, _, _, _) = mode { return racked.filter { !$0.isStarterPlate } }
         return []
     }
 
@@ -2787,7 +2788,9 @@ struct BarbellRealityView: View {
         // Mirror entity (xSign=-1): visual only -- interaction/physics components stripped
         //   to prevent hit-testing on the mirror and match snapToBar behavior.
         //   barMirrorMap populated here so finishUnrack can remove it.
-        let sorted = racked.sorted { ($0.rackPosition ?? 999) < ($1.rackPosition ?? 999) }
+        let sorted = racked
+            .filter { !$0.isStarterPlate }
+            .sorted { ($0.rackPosition ?? 999) < ($1.rackPosition ?? 999) }
         var occupiedRackSlots = Set<Int>()
         for plate in sorted {
             guard let rackPosition = plate.rackPosition,

@@ -67,15 +67,8 @@ final class BarbellProgressService {
     private func updateDisplayLoadoutFromRackedPlates(context: ModelContext) {
         let plateDescriptor = FetchDescriptor<EarnedPlate>()
         let plates = (try? context.fetch(plateDescriptor)) ?? []
-        let rackedIDs = plates
-            .filter(\.isRacked)
-            .sorted {
-                let leftPosition = $0.rackPosition ?? Int.max
-                let rightPosition = $1.rackPosition ?? Int.max
-                if leftPosition != rightPosition { return leftPosition < rightPosition }
-                return $0.earnedAt > $1.earnedAt
-            }
-            .map(\.id)
+        // The starter row is never a bar plate, even when it still claims a slot locally.
+        let rackedIDs = BarbellBarSlots.barPlates(plates).map(\.id)
 
         let wallIDs = plates
             .filter { !$0.isRacked && $0.earnedByEvent != "starter" }
@@ -145,11 +138,14 @@ final class BarbellProgressService {
     private func addToBar(plate: EarnedPlate, replacing existing: EarnedPlate?, requestedSlot: Int?) throws {
         guard let context else { throw RackError.notConfigured }
         guard !plate.isRacked else { throw RackError.plateAlreadyRacked }
+        // The starter plate is never shown and never takes a bar slot.
+        guard !plate.isStarterPlate else { throw RackError.invalidSlot }
 
-        let validPositions = [0, 1, 2, 3]   // innermost to outermost
+        let validPositions = BarbellBarSlots.positions   // innermost to outermost
         let fd = FetchDescriptor<EarnedPlate>(predicate: #Predicate { $0.isRacked == true })
         let racked = (try? context.fetch(fd)) ?? []
-        let occupied = racked.compactMap(\.rackPosition).filter { validPositions.contains($0) }
+        // Earned plates only: an old starter row still racked at its slot does not block it.
+        let occupied = BarbellBarSlots.occupiedSlots(racked)
 
         let nextSlot: Int
         if let existing {
@@ -165,7 +161,7 @@ final class BarbellProgressService {
             nextSlot = requestedSlot
         } else {
             guard occupied.count < 4 else { throw RackError.barIsFull }
-            nextSlot = validPositions.filter { !occupied.contains($0) }.min()!
+            nextSlot = BarbellBarSlots.nextFreeSlot(racked)!
         }
         if existing == nil, occupied.contains(nextSlot) {
             throw RackError.slotOccupied
@@ -309,7 +305,7 @@ final class BarbellProgressService {
         guard (0...3).contains(newSlot) else { throw RackError.invalidSlot }
 
         let fd = FetchDescriptor<EarnedPlate>(predicate: #Predicate { $0.isRacked == true })
-        let racked = (try? context.fetch(fd)) ?? []
+        let racked = BarbellBarSlots.barPlates((try? context.fetch(fd)) ?? [])
         guard !racked.contains(where: { $0.id != plate.id && $0.rackPosition == newSlot }) else {
             throw RackError.slotOccupied
         }

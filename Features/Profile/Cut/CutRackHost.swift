@@ -19,7 +19,7 @@ struct CutRackHost: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var dependencies
 
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var rackedPlates: [EarnedPlate]
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" })
     private var ownedPlates: [EarnedPlate]
@@ -290,7 +290,7 @@ struct CutRackPlateDetailHost: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var dependencies
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var rackedPlates: [EarnedPlate]
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" })
     private var ownedPlates: [EarnedPlate]

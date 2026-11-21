@@ -70,7 +70,7 @@ private struct OwnBarbellCard: View {
     @State private var showingCollection = false
     @EnvironmentObject private var store: WorkoutStoreV2
 
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var ownRackedPlates: [EarnedPlate]
 
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" })

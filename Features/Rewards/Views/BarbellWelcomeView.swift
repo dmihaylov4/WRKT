@@ -23,18 +23,9 @@ struct BarbellWelcomeView: View {
                                    engravingText: $0.engravingText, earnedByEvent: $0.earnedByEvent) }
     }
 
+    /// The earned plates only: with none, the welcome bar is empty (no starter plate).
     private var welcomeScenePlates: [EarnedPlateInfo] {
-        if showcasePlateInfos.isEmpty {
-            return [
-                EarnedPlateInfo(
-                    tierID: 7,
-                    weightKg: 0,
-                    engravingText: "Starter",
-                    earnedByEvent: "starter"
-                )
-            ]
-        }
-        return showcasePlateInfos
+        showcasePlateInfos
     }
 
     private var strongestPlate: EarnedPlate? {

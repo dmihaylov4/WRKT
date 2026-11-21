@@ -181,8 +181,9 @@ struct BarbellPreviewView: View {
     private let plateThickness: Float = 0.03
     private let maxExtraPairs = 2
 
+    /// The starter plate is never shown, on the user's own bar or a friend's.
     private var showcasePlates: [EarnedPlateInfo]? {
-        if case .showcase(let plates) = mode { return plates }
+        if case .showcase(let plates) = mode { return plates.filter { !$0.isStarterPlate } }
         return nil
     }
 

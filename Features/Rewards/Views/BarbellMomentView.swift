@@ -8,7 +8,7 @@ struct BarbellMomentView: View {
     let plates: [EarnedPlateInfo]
     let onDismiss: () -> Void
 
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var rackedPlates: [EarnedPlate]
 
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" && $0.isRacked == false })

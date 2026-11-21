@@ -820,6 +820,59 @@ struct BarbellFriendShowcase: Equatable, Sendable {
 // Not in the earn table. Awarded at account creation.
 // Visual: small radius, matte rubber, bright solid color. No weight stamp.
 
+// MARK: - Starter plate is never shown
+// Existing installs keep their starter row (racked at slot 3, and on the server when it was ever
+// moved). It is filtered out wherever plates are read for display or for slot assignment, so a
+// user never sees it and it never takes a bar slot. The row itself is left untouched.
+
+enum BarbellStarterPlate {
+    static let earnedByEvent = "starter"
+    static let tierID = 7
+
+    static func isStarter(earnedByEvent: String, tierID: Int) -> Bool {
+        earnedByEvent == Self.earnedByEvent || tierID == Self.tierID
+    }
+}
+
+extension EarnedPlate {
+    var isStarterPlate: Bool {
+        BarbellStarterPlate.isStarter(earnedByEvent: earnedByEvent, tierID: tierID)
+    }
+}
+
+extension EarnedPlateInfo {
+    var isStarterPlate: Bool {
+        BarbellStarterPlate.isStarter(earnedByEvent: earnedByEvent, tierID: tierID)
+    }
+}
+
+/// The four bar slots (0 innermost to 3 outermost), counted over earned plates only.
+enum BarbellBarSlots {
+    static let positions = [0, 1, 2, 3]
+
+    /// Racked earned plates in bar order (innermost first). The starter is never a bar plate.
+    static func barPlates(_ plates: [EarnedPlate]) -> [EarnedPlate] {
+        plates
+            .filter { $0.isRacked && !$0.isStarterPlate }
+            .sorted {
+                let left = $0.rackPosition ?? Int.max, right = $1.rackPosition ?? Int.max
+                if left != right { return left < right }
+                return $0.earnedAt > $1.earnedAt
+            }
+    }
+
+    /// Valid slots held by earned plates. A starter row that still claims a slot holds nothing.
+    static func occupiedSlots(_ plates: [EarnedPlate]) -> Set<Int> {
+        Set(barPlates(plates).compactMap(\.rackPosition).filter { positions.contains($0) })
+    }
+
+    /// The innermost free slot, nil when four earned plates are loaded.
+    static func nextFreeSlot(_ plates: [EarnedPlate]) -> Int? {
+        let occupied = occupiedSlots(plates)
+        return positions.first { !occupied.contains($0) }
+    }
+}
+
 extension EarnedPlate {
     static func makeStarter(position: Int) -> EarnedPlate {
         EarnedPlate(

@@ -38,7 +38,7 @@ enum CutRackNotice: Equatable {
 struct CutRackFacts {
     /// Earned plates only (no starter).
     var plates: [CutRackPlateFacts]
-    /// Bar slots in use, the starter plate included (the bar holds four).
+    /// Bar slots in use by earned plates (the bar holds four). The starter plate is never counted.
     var occupiedSlots: Int
     var unit: WeightUnit
     var notice: CutRackNotice?
