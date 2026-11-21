@@ -607,6 +607,7 @@
 		C17CB6000000000000000108 /* CutExerciseStatsModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000208 /* CutExerciseStatsModel.swift */; };
 		C17CB6000000000000000109 /* CutExerciseStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB6000000000000000209 /* CutExerciseStatsView.swift */; };
 		C17CB600000000000000010A /* CutExerciseStatsHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB600000000000000020A /* CutExerciseStatsHost.swift */; };
+		C17CB7000000000000000115 /* ProfileNamePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000215 /* ProfileNamePolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1271,6 +1272,7 @@
 		C17CB6000000000000000208 /* CutExerciseStatsModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseStatsModel.swift; sourceTree = "<group>"; };
 		C17CB6000000000000000209 /* CutExerciseStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseStatsView.swift; sourceTree = "<group>"; };
 		C17CB600000000000000020A /* CutExerciseStatsHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutExerciseStatsHost.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000215 /* ProfileNamePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileNamePolicy.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -2696,6 +2698,7 @@
 				2ECA00012FC000000000001 /* BattlePostStats.swift */,
 				2EA7D9922EE9D30B0017683B /* Friendship.swift */,
 				2EE8A0962EE9A10B00A74A3C /* UserProfile.swift */,
+				C17CB7000000000000000215 /* ProfileNamePolicy.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -3334,6 +3337,7 @@
 				C17CB4000000000000000108 /* CutSignupModel.swift in Sources */,
 				C17CB4000000000000000109 /* CutSignupView.swift in Sources */,
 				C17CB400000000000000010A /* CutSignupHost.swift in Sources */,
+				C17CB7000000000000000115 /* ProfileNamePolicy.swift in Sources */,
 				C17CB400000000000000010B /* CutPasswordModel.swift in Sources */,
 				C17CB400000000000000010C /* CutPasswordView.swift in Sources */,
 				C17CB400000000000000010D /* CutPasswordHost.swift in Sources */,
