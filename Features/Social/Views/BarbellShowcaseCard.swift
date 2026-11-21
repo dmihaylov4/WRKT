@@ -44,6 +44,8 @@ struct BarbellShowcasePreviewSurface: View {
     let selectedRoomThemeID: String
     let selectedRackStyleID: String
     let showPlateEngravings: Bool
+    /// False while a sheet covers the card: the preview's frame loop pauses.
+    var isActive = true
 
     var body: some View {
         switch barbellShowcasePreviewRenderer(for: context) {
@@ -53,7 +55,8 @@ struct BarbellShowcasePreviewSurface: View {
                 selectedBarID: selectedBarID,
                 selectedRoomThemeID: selectedRoomThemeID,
                 selectedRackStyleID: selectedRackStyleID,
-                showPlateEngravings: showPlateEngravings
+                showPlateEngravings: showPlateEngravings,
+                isActive: isActive
             )
         }
     }
@@ -67,7 +70,7 @@ private struct OwnBarbellCard: View {
     @State private var showingCollection = false
     @EnvironmentObject private var store: WorkoutStoreV2
 
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var ownRackedPlates: [EarnedPlate]
 
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" })
@@ -165,7 +168,8 @@ private struct OwnBarbellCard: View {
                     selectedBarID: selectedBarSkinIndex,
                     selectedRoomThemeID: selectedRoomThemeID,
                     selectedRackStyleID: selectedRackStyleID,
-                    showPlateEngravings: showPlateEngravings
+                    showPlateEngravings: showPlateEngravings,
+                    isActive: !showingPlateWall && !showingCollection
                 )
                     .id(previewIdentity)
                     .frame(height: 240)
@@ -276,7 +280,8 @@ private struct FriendBarbellCard: View {
                     selectedBarID: selectedBarSkinIndex,
                     selectedRoomThemeID: selectedRoomThemeID,
                     selectedRackStyleID: selectedRackStyleID,
-                    showPlateEngravings: showPlateEngravings
+                    showPlateEngravings: showPlateEngravings,
+                    isActive: !showingFriendRoom
                 )
                     .frame(height: 240)
                     .clipped()

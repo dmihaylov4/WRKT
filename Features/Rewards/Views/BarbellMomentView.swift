@@ -8,7 +8,7 @@ struct BarbellMomentView: View {
     let plates: [EarnedPlateInfo]
     let onDismiss: () -> Void
 
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var rackedPlates: [EarnedPlate]
 
     @Query(filter: #Predicate<EarnedPlate> { $0.earnedByEvent != "starter" && $0.isRacked == false })
@@ -89,13 +89,6 @@ struct BarbellMomentView: View {
 
     private var subtitle: String {
         return "\(plates.count) new plate\(plates.count == 1 ? "" : "s")"
-    }
-
-    private var sceneSignature: String {
-        (rackedPlates + floorPlates)
-            .map { "\($0.id):\($0.isRacked):\($0.rackPosition ?? -1)" }
-            .sorted()
-            .joined(separator: "|")
     }
 
     private var momentFloorPlates: [EarnedPlate] {

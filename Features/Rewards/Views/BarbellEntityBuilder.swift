@@ -733,6 +733,23 @@ func loadPlateTexturesAsync(forTierID tierID: Int) async -> PlateTextures {
     return textures
 }
 
+// MARK: - Image-based light
+
+// One IndoorHDRI lookup per process, shared by every RealityView make, preview, spinning plate
+// and thumbnail render. Each caller still builds its own ImageBasedLightComponent with its own
+// intensity. Concurrent first callers await the same load. The result is kept either way: the
+// lookup is deterministic, and today it fails with resourceNotFound because IndoorHDRI.exr ships
+// as a plain bundle file, not in a .skybox folder, so every caller already ran without IBL.
+@MainActor private var _indoorEnvironmentTask: Task<EnvironmentResource?, Never>?
+
+@MainActor
+func sharedIndoorEnvironmentResource() async -> EnvironmentResource? {
+    if let task = _indoorEnvironmentTask { return await task.value }
+    let task = Task { @MainActor in try? await EnvironmentResource(named: "IndoorHDRI") }
+    _indoorEnvironmentTask = task
+    return await task.value
+}
+
 // MARK: - Per-style plate helpers
 
 private func makeRaisedOuterRim(profile: PlateVisualProfile, material: PhysicallyBasedMaterial) -> ModelEntity {
@@ -1087,7 +1104,8 @@ private func makeBumperEntity(
         addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_outer", outerRadius: ringSpecs[0].outerRadius, innerRadius: ringSpecs[0].innerRadius, profile: profile, material: shadowMat), to: plate, profile: profile)
         addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_inner", outerRadius: ringSpecs[1].outerRadius, innerRadius: ringSpecs[1].innerRadius, profile: profile, material: shadowMat), to: plate, profile: profile)
     }
-    addFaceDetailPair(makeBoreRing(profile: profile), to: plate, profile: profile)
+    // The bore ring is added once for every style by makePlateEntity. A face pair here only
+    // stacked two more identical rings at the same transform (the ring sits at y = 0).
     addFaceDetailPair(makeCenterBoss(profile: profile, material: BumperPlateSurface.centerHub(for: tier).material), to: plate, profile: profile)
     return plate
 }
@@ -1780,10 +1798,20 @@ func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> Physicall
 func makeBarMaterial(skinID: Int = 0) -> PhysicallyBasedMaterial {
     let skin = BarSkin.all[max(0, min(skinID, BarSkin.all.count - 1))]
     var mat = pbrMaterial(color: skin.barColor, metallic: skin.metallic, roughness: skin.roughness)
-    if let roughnessTex = generateBarKnurlingRoughnessTexture() {
+    if let roughnessTex = sharedBarKnurlingRoughnessTexture() {
         mat.roughness = .init(texture: .init(roughnessTex))
     }
     return mat
+}
+
+// The knurling texture is the same for every bar skin: generate it once per process.
+private nonisolated(unsafe) var _barKnurlingRoughnessTexture: TextureResource?
+
+func sharedBarKnurlingRoughnessTexture() -> TextureResource? {
+    if let cached = _barKnurlingRoughnessTexture { return cached }
+    let texture = generateBarKnurlingRoughnessTexture()
+    _barKnurlingRoughnessTexture = texture
+    return texture
 }
 
 // Generates a 256x1 linear-greyscale roughness texture encoding knurling zones along

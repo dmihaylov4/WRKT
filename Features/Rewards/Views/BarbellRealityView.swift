@@ -1254,7 +1254,7 @@ struct BarbellRealityView: View {
                 // IBL: load async after sceneRoot is wired to content.
                 // Nested Task so make{} is not blocked -- IBL enhances lighting when available.
                 Task { @MainActor in
-                    if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
+                    if let ibl = await sharedIndoorEnvironmentResource() {
                         let iblEntity = Entity()
                         iblEntity.components.set(ImageBasedLightComponent(
                             source: .single(ibl),
@@ -1579,8 +1579,9 @@ struct BarbellRealityView: View {
         return []
     }
 
+    /// The starter plate is never shown or counted as a bar plate, even if a caller passes it.
     private var allRackedPlates: [EarnedPlate] {
-        if case .rackRoom(let racked, _, _, _) = mode { return racked }
+        if case .rackRoom(let racked, _, _, _) = mode { return racked.filter { !$0.isStarterPlate } }
         return []
     }
 
@@ -2787,7 +2788,9 @@ struct BarbellRealityView: View {
         // Mirror entity (xSign=-1): visual only -- interaction/physics components stripped
         //   to prevent hit-testing on the mirror and match snapToBar behavior.
         //   barMirrorMap populated here so finishUnrack can remove it.
-        let sorted = racked.sorted { ($0.rackPosition ?? 999) < ($1.rackPosition ?? 999) }
+        let sorted = racked
+            .filter { !$0.isStarterPlate }
+            .sorted { ($0.rackPosition ?? 999) < ($1.rackPosition ?? 999) }
         var occupiedRackSlots = Set<Int>()
         for plate in sorted {
             guard let rackPosition = plate.rackPosition,
@@ -2947,43 +2950,6 @@ struct BarbellRealityView: View {
         for (idx, _) in sceneState.storageSlotByIndex {
             guard idx < sceneState.storageSlotRings.count else { continue }
             sceneState.setStorageSlotRingEnabled(false, atIndex: idx)
-        }
-    }
-}
-
-// MARK: - ShaderWarmUpView
-//
-// Renders one entity per material variant in a 1x1 invisible RealityView.
-// Metal compiles and caches shader PSOs on first render -- warming up here prevents
-// hitch on first plate drag. Self-destructs after 1 second (shaders stay compiled).
-
-private struct ShaderWarmUpView: View {
-    @State private var visible = true
-
-    var body: some View {
-        if visible {
-            RealityView { content in
-                // One entity per shader variant used in the barbell scene
-                let variants: [(MeshResource, any RealityKit.Material)] = [
-                    (.generateBox(size: .init(repeating: 0.001)), {
-                        var m = PhysicallyBasedMaterial()
-                        m.baseColor = .init(tint: .clear)
-                        return m
-                    }()),
-                    (.generateCylinder(height: 0.001, radius: 0.001), chromeMaterial()),
-                    (.generateBox(size: .init(repeating: 0.001)), UnlitMaterial()),
-                ]
-                let root = Entity()
-                root.position = SIMD3(0, 0, -500)  // far off-screen
-                for (mesh, mat) in variants {
-                    root.addChild(ModelEntity(mesh: mesh, materials: [mat]))
-                }
-                content.add(root)
-            }
-            .task {
-                try? await Task.sleep(for: .seconds(1))
-                visible = false
-            }
         }
     }
 }

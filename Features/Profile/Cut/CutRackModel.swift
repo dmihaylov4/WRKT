@@ -38,7 +38,7 @@ enum CutRackNotice: Equatable {
 struct CutRackFacts {
     /// Earned plates only (no starter).
     var plates: [CutRackPlateFacts]
-    /// Bar slots in use, the starter plate included (the bar holds four).
+    /// Bar slots in use by earned plates (the bar holds four). The starter plate is never counted.
     var occupiedSlots: Int
     var unit: WeightUnit
     var notice: CutRackNotice?
@@ -66,6 +66,8 @@ struct CutRackModel: Equatable {
     var totalAccessibilityLabel: String
     /// "8 plates loaded, 4 in storage"
     var summary: String
+    /// VoiceOver value of the 3D scene: the loaded plates, innermost first, or "Empty bar".
+    var sceneAccessibilityValue: String
     /// One quiet line under the scene; nil when there is nothing to do.
     var hint: String?
     var trayTitle = "Your plates"
@@ -93,6 +95,7 @@ enum CutRackLogic {
             totalUnit: "\(unitWord) on the bar",
             totalAccessibilityLabel: "\(totalValue) \(spokenUnit(facts.unit)) on the bar",
             summary: summary(loaded: loaded, storage: tray.count - loaded),
+            sceneAccessibilityValue: sceneAccessibilityValue(tray.filter(\.isLoaded), unit: facts.unit, locale: locale),
             hint: hint(facts, loaded: loaded),
             allTitle: tray.isEmpty ? nil : "All \(tray.count)",
             allAccessibilityLabel: "Show all \(tray.count) plates",
@@ -130,6 +133,14 @@ enum CutRackLogic {
         case (0, _): return "Nothing loaded, \(storage) in storage"
         default: return "\(plates(loaded)) loaded, \(storage) in storage"
         }
+    }
+
+    /// "Each side, inside out: Lime Bumper 20 kilograms, Bench 100 35 kilograms". Takes the
+    /// loaded plates in bar order; every plate shows as a pair, one on each sleeve.
+    static func sceneAccessibilityValue(_ loaded: [CutRackPlateFacts], unit: WeightUnit, locale: Locale) -> String {
+        guard !loaded.isEmpty else { return "Empty bar" }
+        let plates = loaded.map { "\(name($0)) \(spokenWeight($0.weightKg, unit: unit, locale: locale))" }
+        return "Each side, inside out: " + plates.joined(separator: ", ")
     }
 
     static func hint(_ facts: CutRackFacts, loaded: Int) -> String? {

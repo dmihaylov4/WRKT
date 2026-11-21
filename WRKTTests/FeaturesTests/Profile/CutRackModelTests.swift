@@ -37,8 +37,8 @@ import Testing
         let facts = [CutRackPlateFacts(id: "earned", tierName: "Lime Bumper", engraving: "", weightKg: 20, isLoaded: true,
                                        rackPosition: 0, displayOrder: 0, earnedAt: Self.day)]
         #expect(CutRackLogic.totalKg(facts) == plateWallTotalWeight(rackedPlates: [starter, earned]))
-        // The starter takes a slot but is not a tray plate: one plate loaded, three slots left.
-        let m = Self.model(facts, occupied: 2)
+        // The starter is never a tray plate and never takes a slot: one plate loaded, three slots left.
+        let m = Self.model(facts, occupied: 1)
         #expect(m.summary == "1 plate loaded")
         #expect(m.tiles.count == 1)
     }
@@ -157,6 +157,23 @@ import Testing
         #expect(m.allAccessibilityLabel == "Show all 2 plates")
     }
 
+    @Test func sceneValueListsLoadedPlatesInsideOut() {
+        let plates = [Self.plate("store", tier: "Gold", kg: 45), Self.plate("outer", tier: "Dark Chrome", engraving: "Bench 100", kg: 35, slot: 2),
+                      Self.plate("inner", kg: 20, slot: 0), Self.plate("mid", tier: "Blue Bumper", kg: 20, slot: 1)]
+        #expect(Self.model(plates).sceneAccessibilityValue
+            == "Each side, inside out: Lime Bumper 20 kilograms, Blue Bumper 20 kilograms, Bench 100 35 kilograms")
+    }
+
+    @Test func sceneValueUsesTheUserUnit() {
+        let m = Self.model([Self.plate("a", kg: 20, slot: 0)], unit: .lb)
+        #expect(m.sceneAccessibilityValue.hasSuffix("Lime Bumper 44.1 pounds"))
+    }
+
+    @Test func sceneValueForAnEmptyBar() {
+        #expect(Self.model([]).sceneAccessibilityValue == "Empty bar")
+        #expect(Self.model([Self.plate("store")]).sceneAccessibilityValue == "Empty bar")
+    }
+
     @Test func blankEngravingFallsBackToTheTierName() {
         #expect(CutRackLogic.name(Self.plate("a", engraving: "   ")) == "Lime Bumper")
     }
@@ -220,7 +237,7 @@ import Testing
 
     @Test func copyHasNoEmDashes() {
         let m = Self.model([Self.plate("a", slot: 0), Self.plate("b")], notice: .barFull)
-        let text = [m.title, m.totalUnit, m.summary, m.hint ?? "", m.trayTitle, m.emptyTray] + m.tiles.map(\.accessibilityLabel)
+        let text = [m.title, m.totalUnit, m.summary, m.hint ?? "", m.trayTitle, m.emptyTray, m.sceneAccessibilityValue] + m.tiles.map(\.accessibilityLabel)
         #expect(!text.joined().contains("\u{2014}"))
     }
 }

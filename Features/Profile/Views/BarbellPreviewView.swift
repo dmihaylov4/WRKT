@@ -126,6 +126,14 @@ func barbellPreviewSceneIdentity(
     ].joined(separator: "|")
 }
 
+/// The preview spin counts as at rest below this speed (radians per second): about a tenth of a
+/// degree per second, invisible on screen.
+let barbellPreviewSettledSpinVelocity: Float = 0.002
+
+func barbellPreviewSpinIsSettled(velocity: Float) -> Bool {
+    abs(velocity) < barbellPreviewSettledSpinVelocity
+}
+
 // MARK: - View
 
 struct BarbellPreviewView: View {
@@ -133,7 +141,10 @@ struct BarbellPreviewView: View {
     private let selectedRoomThemeID: String
     private let selectedRackStyleID: String
     private let showPlateEngravings: Bool
+    /// False while a host covers the preview (a sheet over it): the frame loop pauses.
+    private let isActive: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var scene = BarbellSceneState()
     @State private var isDragging = false
     @State private var lastTranslationX: CGFloat = 0
@@ -146,15 +157,20 @@ struct BarbellPreviewView: View {
     @State private var selectedSticker = 0
     @State private var addedPairs = 0
     @State private var isViewVisible = false
+    /// True once the spin has decayed to rest with no drag: the frame loop pauses until the next
+    /// drag or scene rebuild.
+    @State private var isSpinSettled = false
 
     init(
         mode: BarbellDisplayMode = .editor,
         selectedBarID: Int = 0,
         selectedRoomThemeID: String = BarbellCustomizationDefaults.roomThemeID,
         selectedRackStyleID: String = BarbellCustomizationDefaults.rackStyleID,
-        showPlateEngravings: Bool = BarbellCustomizationDefaults.showPlateEngravings
+        showPlateEngravings: Bool = BarbellCustomizationDefaults.showPlateEngravings,
+        isActive: Bool = true
     ) {
         self.mode = mode
+        self.isActive = isActive
         self.selectedRoomThemeID = selectedRoomThemeID
         self.selectedRackStyleID = selectedRackStyleID
         self.showPlateEngravings = showPlateEngravings
@@ -165,8 +181,9 @@ struct BarbellPreviewView: View {
     private let plateThickness: Float = 0.03
     private let maxExtraPairs = 2
 
+    /// The starter plate is never shown, on the user's own bar or a friend's.
     private var showcasePlates: [EarnedPlateInfo]? {
-        if case .showcase(let plates) = mode { return plates }
+        if case .showcase(let plates) = mode { return plates.filter { !$0.isStarterPlate } }
         return nil
     }
 
@@ -185,13 +202,17 @@ struct BarbellPreviewView: View {
                 Color.black
                     .overlay(roomBackgroundColor)
 
-                TimelineView(.animation(minimumInterval: nil, paused: !isViewVisible)) { timeline in
+                TimelineView(.animation(minimumInterval: nil, paused: isFrameLoopPaused)) { timeline in
                     RealityView { content in
+                        if reduceMotion { scene.spinVelocity = 0 }
                         setupLights(in: &content)
                         installSceneRoot(content: &content)
                     } update: { content in
                         _ = assetRevision
-                        rebuildIfNeeded(content: &content)
+                        if rebuildIfNeeded(content: &content), isSpinSettled, scene.spinVelocity != 0 {
+                            // A rebuild restarted the showcase spin: run the frame loop again.
+                            Task { @MainActor in isSpinSettled = false }
+                        }
 
                         let now = timeline.date.timeIntervalSinceReferenceDate
                         let dt = scene.lastTime > 0 ? Float(now - scene.lastTime) : 0
@@ -204,6 +225,13 @@ struct BarbellPreviewView: View {
                             // Momentum decay: velocity * 0.92 per frame
                             scene.spinVelocity *= 0.92
                             scene.rotAngle += scene.spinVelocity * dt
+                            if !isSpinSettled, barbellPreviewSpinIsSettled(velocity: scene.spinVelocity) {
+                                // At rest: stop asking for frames. lastTime resets so the first
+                                // frame after a resume does not jump by the paused time.
+                                scene.spinVelocity = 0
+                                scene.lastTime = 0
+                                Task { @MainActor in isSpinSettled = true }
+                            }
                         }
                         scene.root?.orientation = simd_quatf(angle: scene.rotAngle, axis: SIMD3(0, 1, 0))
                     }
@@ -212,6 +240,7 @@ struct BarbellPreviewView: View {
                             .targetedToAnyEntity()
                             .onChanged { value in
                                 isDragging = true
+                                if isSpinSettled { isSpinSettled = false }
                                 let delta = Float(value.translation.width - lastTranslationX) * 0.012
                                 scene.spinVelocity = scene.lastDt > 0 ? (delta / scene.lastDt) : delta * 60
                                 scene.rotAngle += delta
@@ -347,6 +376,7 @@ struct BarbellPreviewView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { isViewVisible = true }
         .onDisappear { isViewVisible = false }
+        .onChange(of: isActive) { _, _ in scene.lastTime = 0 }
         .task {
             await preloadTextures()
         }
@@ -404,7 +434,13 @@ struct BarbellPreviewView: View {
         content.add(frontWash)
     }
 
-    private func rebuildIfNeeded(content: inout RealityViewCameraContent) {
+    private var isFrameLoopPaused: Bool {
+        !isViewVisible || !isActive || isSpinSettled
+    }
+
+    /// Returns true when the scene was rebuilt.
+    @discardableResult
+    private func rebuildIfNeeded(content: inout RealityViewCameraContent) -> Bool {
         guard scene.appliedTier != selectedTier
             || scene.appliedBar != selectedBar
             || scene.appliedSticker != selectedSticker
@@ -413,10 +449,11 @@ struct BarbellPreviewView: View {
             || scene.appliedShowPlateEngravings != showPlateEngravings
             || scene.appliedShowcaseSignature != showcaseSignature
             || scene.root == nil
-        else { return }
+        else { return false }
 
         scene.root?.removeFromParent()
         installSceneRoot(content: &content)
+        return true
     }
 
     private func installSceneRoot(content: inout RealityViewCameraContent) {
@@ -426,7 +463,7 @@ struct BarbellPreviewView: View {
         let root: Entity
         if let plates = showcasePlates {
             root = makeBarbellShowcase(plates: plates, skin: BarSkin.all[selectedBar])
-            scene.spinVelocity = 0.35
+            scene.spinVelocity = reduceMotion ? 0 : 0.35
         } else {
             guard let selectedPlateTier = barbellPreviewTier(forSelection: selectedTier) else { return }
             root = makeBarbell(
@@ -842,13 +879,16 @@ struct BarbellPreviewView: View {
         // uploads. Tier IDs 1=CastIron, 2=Rubber, 3=Brass map to the same source files used by
         // PlateWallView; sharing TextureResource objects halves GPU memory for PBR textures.
         for tierID in [1, 2, 3] where scene.plateTextures[tierID] == nil {
-            scene.plateTextures[tierID] = loadPlateTextures(forTierID: tierID)
+            let textures = await loadPlateTexturesAsync(forTierID: tierID)
+            // A cancelled load may be partial: keep the slot empty so the next appearance retries.
+            guard !Task.isCancelled else { return }
+            scene.plateTextures[tierID] = textures
             didLoadAsset = true
         }
 
         // IBL from HDRI
         if scene.iblResource == nil {
-            scene.iblResource = try? await EnvironmentResource(named: "IndoorHDRI")
+            scene.iblResource = await sharedIndoorEnvironmentResource()
             didLoadAsset = scene.iblResource != nil || didLoadAsset
         }
 

@@ -23,18 +23,9 @@ struct BarbellWelcomeView: View {
                                    engravingText: $0.engravingText, earnedByEvent: $0.earnedByEvent) }
     }
 
+    /// The earned plates only: with none, the welcome bar is empty (no starter plate).
     private var welcomeScenePlates: [EarnedPlateInfo] {
-        if showcasePlateInfos.isEmpty {
-            return [
-                EarnedPlateInfo(
-                    tierID: 7,
-                    weightKg: 0,
-                    engravingText: "Starter",
-                    earnedByEvent: "starter"
-                )
-            ]
-        }
-        return showcasePlateInfos
+        showcasePlateInfos
     }
 
     private var strongestPlate: EarnedPlate? {
@@ -98,12 +89,14 @@ struct BarbellWelcomeView: View {
         .task { @MainActor in
             guard !assetsReady else { return }
             for tierID in PlateTier.all.map(\.id) {
-                sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+                sceneState.plateTextureCache[tierID] = await loadPlateTexturesAsync(forTierID: tierID)
                 sceneState.materialCache[tierID] = buildMaterial(
                     forTierID: tierID,
                     textures: sceneState.plateTextureCache[tierID]
                 )
             }
+            // A cancelled load may be partial: leave assetsReady false so the next appearance reloads.
+            guard !Task.isCancelled else { return }
             assetsReady = true
         }
     }

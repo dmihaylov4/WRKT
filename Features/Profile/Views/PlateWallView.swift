@@ -177,7 +177,7 @@ struct BarbellPlaygroundRackState {
 
 struct PlateWallView: View {
     @Environment(\.dismiss) private var dismiss
-    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true })
+    @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var rackedPlates: [EarnedPlate]
     @Query(
         filter: #Predicate<EarnedPlate> { plate in plate.earnedByEvent != "starter" && plate.isRacked == false },
@@ -1478,12 +1478,14 @@ struct BarbellPlaygroundView: View {
     private func loadAssetsIfNeeded() async {
         guard !assetsReady else { return }
         for tierID in PlateTier.all.map(\.id) {
-            sceneState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+            sceneState.plateTextureCache[tierID] = await loadPlateTexturesAsync(forTierID: tierID)
             sceneState.materialCache[tierID] = buildMaterial(
                 forTierID: tierID,
                 textures: sceneState.plateTextureCache[tierID]
             )
         }
+        // A cancelled load may be partial: leave assetsReady false so the next appearance reloads.
+        guard !Task.isCancelled else { return }
         assetsReady = true
     }
 
