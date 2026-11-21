@@ -4,7 +4,8 @@
 //
 //  What the Cut Settings hub shows, as plain values. The rules are SettingsView's: the Social
 //  group only when signed in outside local mode, badge counts only when above zero, Log in in
-//  local mode, Log out when signed in, and the Debug group only in DEBUG builds.
+//  local mode, Log out when signed in, the Debug group only in DEBUG builds, and the Testing
+//  group (the new design switch) only for TestFlight installs of Release builds.
 //
 
 import Foundation
@@ -15,6 +16,13 @@ struct CutSettingsFacts: Equatable {
     var isLoggedIn = false
     var activityCount = 0
     var friendRequestCount = 0
+    /// TestFlight installs in Release only (CutTesterSwitch.showsSwitch).
+    var showsTesterSwitch = false
+    /// The tester's latest choice, what the switch shows.
+    var testerChoice = false
+    /// The design this launch is running.
+    var runningNewDesign = false
+    var workoutActive = false
 }
 
 struct CutSettingsModel: Equatable {
@@ -25,6 +33,14 @@ struct CutSettingsModel: Equatable {
         case logOut
         /// Neither: no account row at all.
         case none
+    }
+
+    /// The TestFlight "Try the new design" switch.
+    struct TesterSwitch: Equatable {
+        var title = CutTesterSwitch.title
+        var note: String
+        /// Off while a workout runs: the design never changes in the middle of one.
+        var isEnabled: Bool
     }
 
     /// The Debug group's rows, in the legacy order.
@@ -83,6 +99,8 @@ struct CutSettingsModel: Equatable {
     var account: Account
     /// Empty outside DEBUG builds.
     var debugRows: [DebugRow]
+    /// Nil unless this is a TestFlight install of a Release build.
+    var testerSwitch: TesterSwitch? = nil
 }
 
 enum CutSettingsLogic {
@@ -92,8 +110,17 @@ enum CutSettingsLogic {
             activityBadge: badge(facts.activityCount),
             friendRequestBadge: badge(facts.friendRequestCount),
             account: account(facts),
-            debugRows: debugRows
+            debugRows: debugRows,
+            testerSwitch: testerSwitch(facts)
         )
+    }
+
+    static func testerSwitch(_ facts: CutSettingsFacts) -> CutSettingsModel.TesterSwitch? {
+        guard facts.showsTesterSwitch else { return nil }
+        return CutSettingsModel.TesterSwitch(
+            note: CutTesterSwitch.note(chosen: facts.testerChoice, runningNewDesign: facts.runningNewDesign,
+                                       workoutActive: facts.workoutActive),
+            isEnabled: !facts.workoutActive)
     }
 
     /// The legacy pill showed the plain count, and nothing at zero.

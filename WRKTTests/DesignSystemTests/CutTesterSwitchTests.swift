@@ -170,7 +170,7 @@ struct CutTesterSwitchTests {
         #expect(defaults.object(forKey: CutTesterSwitch.appliedKey) == nil)
     }
 
-    // MARK: Copy
+    // MARK: Copy and Settings
 
     @Test func noteExplainsTheState() {
         #expect(CutTesterSwitch.title == "Try the new design")
@@ -189,6 +189,16 @@ struct CutTesterSwitchTests {
                      CutTesterSwitch.note(chosen: true, runningNewDesign: false, workoutActive: true)] {
             #expect(!note.contains("\u{2014}"))
         }
+    }
+
+    @Test func cutSettingsShowsTheSwitchOnlyWhenAllowed() {
+        #expect(CutSettingsLogic.model(CutSettingsFacts(isLoggedIn: true)).testerSwitch == nil)
+        let shown = CutSettingsLogic.model(CutSettingsFacts(isLoggedIn: true, showsTesterSwitch: true,
+                                                            testerChoice: true, runningNewDesign: true))
+        #expect(shown.testerSwitch == CutSettingsModel.TesterSwitch(
+            note: "Unfinished and still changing. You can turn it off here at any time.", isEnabled: true))
+        let duringWorkout = CutSettingsLogic.model(CutSettingsFacts(showsTesterSwitch: true, workoutActive: true))
+        #expect(duringWorkout.testerSwitch?.isEnabled == false)
     }
 
     // MARK: Source policy
