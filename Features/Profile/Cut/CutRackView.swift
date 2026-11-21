@@ -133,6 +133,7 @@ struct CutRackView<SceneContent: View, Thumbnail: View>: View {
     private func sceneArea(height: CGFloat?) -> some View {
         VStack(spacing: 12) {
             scene()
+                .accessibilityValue(Text(model.sceneAccessibilityValue))
                 .frame(maxWidth: .infinity, maxHeight: height == nil ? .infinity : nil)
                 .frame(height: height)
                 .clipped()
