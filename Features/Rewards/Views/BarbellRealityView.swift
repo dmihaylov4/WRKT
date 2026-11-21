@@ -136,6 +136,11 @@ func barbellBarOnlyCameraPosition(aspect: Float) -> SIMD3<Float> {
     return SIMD3(0, -0.52, 1.79 - 1.75 * clamped)
 }
 
+/// The rack room floor's lines: four strips running back from the camera and four seams across.
+let barbellRackRoomFloorLineWidth: Float = 0.025
+let barbellRackRoomFloorStripXs: [Float] = [-0.72, -0.24, 0.24, 0.72]
+let barbellRackRoomFloorSeamZs: [Float] = [-1.75, -0.95, -0.15, 0.65]
+
 func clampFloorPlateX(_ x: Float, maxAbsX: Float = 0.64) -> Float {
     max(-maxAbsX, min(maxAbsX, x))
 }
@@ -997,44 +1002,87 @@ final class SceneState {
 
 // MARK: - BarbellRealityView
 
-struct RackRoomLightingPreset {
-    let keyIntensity: Float
-    let keyPosition: SIMD3<Float>
-    let fillIntensity: Float
-    let fillPosition: SIMD3<Float>
-    let frontWashIntensity: Float
-    let frontWashPosition: SIMD3<Float>
-    let barWashIntensity: Float
-    let barSideWashIntensity: Float
-    let storageWashIntensity: Float
-    let imageBasedLightIntensityExponent: Float
-    let castsObjectShadows: Bool
-    let usesDirectionalKey: Bool
-
-    var barSideWashX: Float { 0.72 }
-    var storageWashY: Float { 1.60 }
-    var storageFaceWashIntensity: Float { 4_800 }
-    var storageFaceWashX: Float { 0.72 }
-    var storageSideWashIntensity: Float { 4_900 }
-    var storageSideWashX: Float { 0.92 }
-    var storageSideWashY: Float { 1.50 }
-    var rimWashIntensity: Float { 1_300 }
-    var rimWashPosition: SIMD3<Float> { SIMD3(0, 0.88, 0.36) }
+/// The rack room's light rig: one key spot, high and well in front of the bar, aimed at the floor
+/// just in front of it, plus the room's light probe for fill and reflections. Being high, it
+/// grazes the back wall (darker) while the floor and the tops of plates face it.
+///
+/// Why this shape: the wall is only 24 cm behind the plates, so any light near the bar that
+/// reaches the plates also reaches the wall, and a cone boundary there reads as a stage light
+/// dome. Narrow cones close to the plates drew a hard terminator across them. Far away and soft
+/// (inner cone well inside the outer), plates, the falling path and the visible wall all sit in
+/// the smooth falloff, never on a cone edge. Positions are in the scene root's space (bar at
+/// y 0.6, z 0.12; floor at y 0; back wall face at z -0.12). Angles are RealityKit's spot cone
+/// angles in degrees.
+struct RackRoomLightingPreset: Equatable {
+    var keyIntensity: Float
+    var keyPosition: SIMD3<Float>
+    var keyTarget: SIMD3<Float>
+    var keyInnerAngle: Float
+    var keyOuterAngle: Float
+    var keyAttenuationRadius: Float
+    var imageBasedLightIntensityExponent: Float
+    /// A shadow map for the key spot (bar, plates and stands throw real shadows on the floor
+    /// and wall). Off: grounding shadows carry the contact cue; see the stage 1 report.
+    var keyCastsShadow: Bool
+    /// The legacy wall storage only (never built in the Cut bar-only rack): a soft wash on the
+    /// plates hanging above the bar, which the overhead key barely reaches.
+    var storageWashIntensity: Float
+    var storageWashPosition: SIMD3<Float>
 
     static let readability = RackRoomLightingPreset(
-        keyIntensity: 6_200,
-        keyPosition: SIMD3(0, 2.10, 1.90),
-        fillIntensity: 3_400,
-        fillPosition: SIMD3(0, 0.42, 0.88),
-        frontWashIntensity: 3_800,
-        frontWashPosition: SIMD3(0, 0.92, 0.88),
-        barWashIntensity: 6_800,
-        barSideWashIntensity: 4_800,
-        storageWashIntensity: 7_800,
-        imageBasedLightIntensityExponent: 1.95,
-        castsObjectShadows: false,
-        usesDirectionalKey: false
+        keyIntensity: 450_000,
+        keyPosition: SIMD3(0, 5.0, 1.6),
+        keyTarget: SIMD3(0, 0, 0.30),
+        keyInnerAngle: 16,
+        keyOuterAngle: 74,
+        keyAttenuationRadius: 10,
+        imageBasedLightIntensityExponent: -0.25,
+        keyCastsShadow: false,
+        storageWashIntensity: 7_000,
+        storageWashPosition: SIMD3(0, 1.60, 1.0)
     )
+
+    /// Light rooms (pale floor or wall) would blow out under the dark gym's key: scale the key
+    /// down by how much brighter the room's brightest surface is than the dark gym's floor.
+    /// Dark rooms keep the full key so plates stay lit.
+    static func keyScale(brightestSurfaceLuminance luminance: CGFloat) -> Float {
+        let reference: CGFloat = 0.40
+        guard luminance > reference else { return 1 }
+        return Float(pow(reference / luminance, 0.75))
+    }
+
+    /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="key=40000,ibl=1.2" in the
+    /// launch environment overrides values for tuning on a device or in simulator captures. Names:
+    /// key, keyY, keyZ, targetZ, inner, outer, atten, ibl, wash, shadow (0 or 1).
+    static var current: RackRoomLightingPreset {
+        var preset = readability
+        #if DEBUG
+        let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
+        if let value = overrides["key"] { preset.keyIntensity = value }
+        if let value = overrides["keyY"] { preset.keyPosition.y = value }
+        if let value = overrides["keyZ"] { preset.keyPosition.z = value }
+        if let value = overrides["targetZ"] { preset.keyTarget.z = value }
+        if let value = overrides["inner"] { preset.keyInnerAngle = value }
+        if let value = overrides["outer"] { preset.keyOuterAngle = value }
+        if let value = overrides["atten"] { preset.keyAttenuationRadius = value }
+        if let value = overrides["ibl"] { preset.imageBasedLightIntensityExponent = value }
+        if let value = overrides["wash"] { preset.storageWashIntensity = value }
+        if let value = overrides["shadow"] { preset.keyCastsShadow = value != 0 }
+        #endif
+        return preset
+    }
+}
+
+/// "name=value,name=value" into a dictionary; malformed pairs are skipped.
+func rackRoomLightingOverrides(_ text: String?) -> [String: Float] {
+    guard let text else { return [:] }
+    var result: [String: Float] = [:]
+    for pair in text.split(separator: ",") {
+        let parts = pair.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count == 2, let value = Float(parts[1]) else { continue }
+        result[parts[0]] = value
+    }
+    return result
 }
 
 let barbellRoomWallTextMaximumLength = 12
@@ -1241,6 +1289,10 @@ struct BarbellRealityView: View {
     var body: some View {
         ZStack {
             RealityView { content in
+                // The room's light probe is awaited before anything is built, so the first frame
+                // is already lit by it (no pop-in) and the build below runs without a suspension.
+                // Built once per process; later scenes get it at once.
+                let environment = await sharedRackRoomEnvironmentResource()
                 let interval = barbellSignposter.beginInterval("SceneBuild", id: barbellSignposter.makeSignpostID())
                 defer { barbellSignposter.endInterval("SceneBuild", interval) }
                 sceneState.sceneRoot   = Entity()
@@ -1249,22 +1301,24 @@ struct BarbellRealityView: View {
                 sceneState.sceneRoot.addChild(sceneState.floorAnchor)
                 sceneState.sceneRoot.addChild(sceneState.barAnchor)
                 content.add(sceneState.sceneRoot)
+                // Edges: 4x multisampling for the bar, plate rims and floor lines. No camera
+                // effects: motion blur, depth of field and grain only soften a still room.
+                content.renderingEffects.antialiasing = .multisample4X
+                content.renderingEffects.motionBlur = .disabled
+                content.renderingEffects.depthOfField = .disabled
+                content.renderingEffects.cameraGrain = .disabled
                 setupLighting(in: sceneState.sceneRoot)
 
-                // IBL: load async after sceneRoot is wired to content.
-                // Nested Task so make{} is not blocked -- IBL enhances lighting when available.
-                Task { @MainActor in
-                    if let ibl = await sharedIndoorEnvironmentResource() {
-                        let iblEntity = Entity()
-                        iblEntity.components.set(ImageBasedLightComponent(
-                            source: .single(ibl),
-                            intensityExponent: RackRoomLightingPreset.readability.imageBasedLightIntensityExponent
-                        ))
-                        sceneState.sceneRoot.addChild(iblEntity)
-                        sceneState.sceneRoot.components.set(
-                            ImageBasedLightReceiverComponent(imageBasedLight: iblEntity)
-                        )
-                    }
+                if let environment {
+                    let iblEntity = Entity()
+                    iblEntity.name = "rackRoomEnvironment"
+                    iblEntity.components.set(ImageBasedLightComponent(
+                        source: .single(environment),
+                        intensityExponent: RackRoomLightingPreset.current.imageBasedLightIntensityExponent
+                    ))
+                    sceneState.sceneRoot.addChild(iblEntity)
+                    // The receiver applies to the whole subtree, including plates added later.
+                    sceneState.sceneRoot.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
                 }
 
                 switch mode {
@@ -1441,68 +1495,40 @@ struct BarbellRealityView: View {
     // MARK: Lighting
 
     private func setupLighting(in sceneRoot: Entity) {
-        let lighting = RackRoomLightingPreset.readability
+        let lighting = RackRoomLightingPreset.current
+        let theme = RoomThemePreset.preset(for: roomThemeID)
+        let keyScale = RackRoomLightingPreset.keyScale(
+            brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
 
-        // Match BarbellPreviewView's camera-side point light rig so storage plates are lit
-        // from the user's viewing direction instead of by a wall-casting directional key.
-        let keyEntity = Entity()
-        if lighting.usesDirectionalKey {
-            var keyLight = DirectionalLightComponent()
-            keyLight.color = .white
-            keyLight.intensity = lighting.keyIntensity
-            keyEntity.components.set(keyLight)
-            keyEntity.components.set(DirectionalLightComponent.Shadow(maximumDistance: 2.6, depthBias: 4.5))
-            keyEntity.orientation = simd_quatf(angle: -.pi / 4, axis: SIMD3(1, 0, 0))
-                * simd_quatf(angle: .pi / 6, axis: SIMD3(0, 1, 0))
-        } else {
-            keyEntity.components[PointLightComponent.self] = PointLightComponent(
-                color: .white, intensity: lighting.keyIntensity, attenuationRadius: 10
-            )
-            keyEntity.position = lighting.keyPosition
+        // Key: high and well in front of the bar, aimed at the floor just in front of it.
+        let key = Entity()
+        key.name = "rackRoomKey"
+        key.components.set(SpotLightComponent(
+            color: UIColor(red: 1.0, green: 0.985, blue: 0.96, alpha: 1),
+            intensity: lighting.keyIntensity * keyScale,
+            innerAngleInDegrees: lighting.keyInnerAngle,
+            outerAngleInDegrees: lighting.keyOuterAngle,
+            attenuationRadius: lighting.keyAttenuationRadius
+        ))
+        if lighting.keyCastsShadow {
+            var shadow = SpotLightComponent.Shadow()
+            shadow.depthBias = 2
+            key.components.set(shadow)
         }
-        sceneRoot.addChild(keyEntity)
+        sceneRoot.addChild(key)
+        key.look(at: lighting.keyTarget, from: lighting.keyPosition, relativeTo: sceneRoot)
 
-        // Fill light -- point, no shadow, reduces harsh key-side darkness
-        let fillEntity = Entity()
-        fillEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 0.92, alpha: 1), intensity: lighting.fillIntensity, attenuationRadius: 8
-        )
-        fillEntity.position = lighting.fillPosition
-        sceneRoot.addChild(fillEntity)
-
-        let frontWashEntity = Entity()
-        frontWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 1.0, alpha: 1), intensity: lighting.frontWashIntensity, attenuationRadius: 7
-        )
-        frontWashEntity.position = lighting.frontWashPosition
-        sceneRoot.addChild(frontWashEntity)
-
-        // Bar wash -- dedicated light at barbell height so racked plates match storage vibrancy.
-        // Positioned above and camera-side of the bar (sceneRoot-local y=1.0, z=0.95).
-        let barWashEntity = Entity()
-        barWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: .white, intensity: lighting.barWashIntensity, attenuationRadius: 4.5
-        )
-        barWashEntity.position = SIMD3(0, 1.0, 0.95)
-        sceneRoot.addChild(barWashEntity)
-
-        let barSideWashEntity = Entity()
-        barSideWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 1.0, alpha: 1),
-            intensity: lighting.barSideWashIntensity,
-            attenuationRadius: 3.5
-        )
-        barSideWashEntity.position = SIMD3(0, 0.92, 0.72)
-        sceneRoot.addChild(barSideWashEntity)
-
-        let storageWashEntity = Entity()
-        storageWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 1.0, alpha: 1),
-            intensity: lighting.storageWashIntensity,
-            attenuationRadius: 4.5
-        )
-        storageWashEntity.position = SIMD3(0, 1.60, 1.0)
-        sceneRoot.addChild(storageWashEntity)
+        // The legacy wall storage hangs plates above the key's reach: give them a soft wash. The
+        // Cut bar-only rack builds no storage and gets no wash.
+        if case .rackRoom = mode, showsStorage, !barOnly {
+            let wash = Entity()
+            wash.name = "rackRoomStorageWash"
+            wash.components.set(PointLightComponent(
+                color: .white, intensity: lighting.storageWashIntensity, attenuationRadius: 3
+            ))
+            wash.position = lighting.storageWashPosition
+            sceneRoot.addChild(wash)
+        }
     }
 
     // MARK: Welcome scene setup
@@ -2494,6 +2520,15 @@ struct BarbellRealityView: View {
 
     // MARK: RackRoom scene setup
 
+    /// Grounding shadows apply to the entity's own mesh, not its descendants: a stand is a few
+    /// separate parts, so each casts its own.
+    private func castGroundingShadows(fromModelsIn root: Entity) {
+        if root.components[ModelComponent.self] != nil {
+            root.components.set(GroundingShadowComponent(castsShadow: true))
+        }
+        for child in root.children { castGroundingShadows(fromModelsIn: child) }
+    }
+
     private func makeRoomWallText(_ text: String?, theme: RoomThemePreset) -> Entity? {
         guard let normalized = barbellNormalizedRoomWallText(text) else { return nil }
 
@@ -2561,10 +2596,10 @@ struct BarbellRealityView: View {
         baseboard.position = SIMD3(0, 0.049, -0.122)
         sceneState.sceneRoot.addChild(baseboard)
 
-        // Pilasters: narrow vertical accents flanking the sign zone
+        // Pilasters: vertical accents flanking the sign zone (5 cm: 2 cm shimmered)
         for xPos: Float in [-0.62, 0.62] {
             let pilaster = ModelEntity(
-                mesh: cachedBox(size: SIMD3(0.020, 1.52, 0.018)),
+                mesh: cachedBox(size: SIMD3(0.050, 1.52, 0.018)),
                 materials: [pilMat]
             )
             pilaster.position = SIMD3(xPos, 0.74, -0.122)
@@ -2640,22 +2675,24 @@ struct BarbellRealityView: View {
         floorLine.position = SIMD3(0, -0.006, -0.5)
         sceneState.sceneRoot.addChild(floorLine)
 
-        // Subtle platform strips make sliding/falling easier to read against the floor.
+        // Subtle platform strips make sliding/falling easier to read against the floor. Half as
+        // many as before and a few centimetres wide: 1 cm strips and 8 mm seams were a pixel or
+        // two on screen and shimmered as the camera framing changed.
         let stripMat = pbrMaterial(color: theme.stripColor, metallic: 0.03, roughness: 0.9)
-        for x in stride(from: -0.72, through: 0.72, by: 0.24) {
+        for x in barbellRackRoomFloorStripXs {
             let strip = ModelEntity(
-                mesh: cachedBox(size: SIMD3(0.010, 0.004, 3.2)),
+                mesh: cachedBox(size: SIMD3(barbellRackRoomFloorLineWidth, 0.004, 3.2)),
                 materials: [stripMat]
             )
-            strip.position = SIMD3(Float(x), 0.0005, -0.5)
+            strip.position = SIMD3(x, 0.0005, -0.5)
             sceneState.sceneRoot.addChild(strip)
         }
-        for z in stride(from: -1.75, through: 0.65, by: 0.40) {
+        for z in barbellRackRoomFloorSeamZs {
             let seam = ModelEntity(
-                mesh: cachedBox(size: SIMD3(1.7, 0.004, 0.008)),
+                mesh: cachedBox(size: SIMD3(1.7, 0.004, barbellRackRoomFloorLineWidth)),
                 materials: [stripMat]
             )
-            seam.position = SIMD3(0, 0.001, Float(z))
+            seam.position = SIMD3(0, 0.001, z)
             sceneState.sceneRoot.addChild(seam)
         }
 
@@ -2730,12 +2767,14 @@ struct BarbellRealityView: View {
         // Rack stands
         for xSign: Float in [-1, 1] {
             let stand = makeRackStandEntity(rackStyleID: rackStyleID)
+            castGroundingShadows(fromModelsIn: stand)
             stand.position = SIMD3(xSign * 0.40, 0.3, barbellZ)
             sceneState.sceneRoot.addChild(stand)
         }
 
         // Bar
         let bar = makeBarEntity(skinID: barSkinID)
+        bar.components.set(GroundingShadowComponent(castsShadow: true))
         bar.position = SIMD3(0, 0.6, barbellZ)
         sceneState.sceneRoot.addChild(bar)
         sceneState.barAnchor.position = SIMD3(0, 0.6, barbellZ)
@@ -2746,6 +2785,7 @@ struct BarbellRealityView: View {
         // 5.2 cm slot spacing accommodates the thickest bumper plates (46 mm) with a 6 mm gap.
         for xSign: Float in [-1, 1] {
             let collar = makeCollarEntity(skinID: barSkinID)
+            collar.components.set(GroundingShadowComponent(castsShadow: true))
             collar.position = SIMD3(xSign * 0.54, 0.6, barbellZ)
             sceneState.sceneRoot.addChild(collar)
         }
@@ -2773,7 +2813,7 @@ struct BarbellRealityView: View {
             var mat = UnlitMaterial()
             mat.color = .init(tint: UIColor(white: 1, alpha: 0.7))
             let ring = ModelEntity(
-                mesh: cachedCylinder(height: 0.003, radius: 0.25),
+                mesh: cachedCylinder(height: 0.006, radius: 0.25),
                 materials: [mat]
             )
             ring.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))

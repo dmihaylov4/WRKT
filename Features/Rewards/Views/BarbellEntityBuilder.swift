@@ -69,6 +69,9 @@ struct PlateEntityBuildOptions {
     var includesPhysics: Bool
     var includesAudio: Bool
     var role: PlateRoleComponent.Role
+    /// A grounding shadow from the plate's body (the root ring mesh only: the component does not
+    /// apply to descendants, and the body is the plate's footprint). Scene plates only.
+    var castsGroundingShadow = false
 
     static func interactive(role: PlateRoleComponent.Role = .floor) -> PlateEntityBuildOptions {
         PlateEntityBuildOptions(
@@ -76,7 +79,8 @@ struct PlateEntityBuildOptions {
             includesCollision: true,
             includesPhysics: true,
             includesAudio: true,
-            role: role
+            role: role,
+            castsGroundingShadow: true
         )
     }
 
@@ -97,7 +101,8 @@ struct PlateEntityBuildOptions {
             includesCollision: true,
             includesPhysics: false,
             includesAudio: false,
-            role: .bar
+            role: .bar,
+            castsGroundingShadow: true
         )
     }
 }
@@ -354,7 +359,7 @@ struct PlateSidewallSurface: Equatable {
             color: color,
             metallic: tier.style == .bumper ? 0 : max(0, tier.metallic * 0.75),
             roughness: min(1, max(0.50, tier.roughness + 0.10)),
-            clearcoat: max(0.14, tier.clearcoat * 0.72),
+            clearcoat: PlateDisplaySurface.clearcoat(for: tier) * 0.72,
             clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.20)
         )
     }
@@ -364,7 +369,9 @@ struct PlateSidewallSurface: Equatable {
             return PlateSidewallSurface(
                 color: PlateDisplaySurface.lipColor(for: tier),
                 metallic: min(0.72, max(0.42, PlateDisplaySurface.metallic(for: tier) + 0.04)),
-                roughness: max(0.18, min(0.30, tier.roughness + 0.17)),
+                roughness: tier.style == .rawIron
+                    ? PlateDisplaySurface.sidewallRoughness(for: tier)
+                    : max(0.18, min(0.30, tier.roughness + 0.17)),
                 clearcoat: PlateDisplaySurface.clearcoat(for: tier),
                 clearcoatRoughness: min(0.06, tier.clearcoatRoughness)
             )
@@ -389,7 +396,7 @@ struct PlateSidewallSurface: Equatable {
             color: lipColor,
             metallic: tier.style == .bumper ? 0 : tier.metallic,
             roughness: min(1, max(0.52, tier.roughness + 0.10)),
-            clearcoat: tier.clearcoat * 0.62,
+            clearcoat: PlateDisplaySurface.clearcoat(for: tier) * 0.62,
             clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.22)
         )
     }
@@ -426,19 +433,36 @@ struct PlateDisplaySurface {
         return min(0.58, max(0.38, tier.metallic * 0.58))
     }
 
+    /// Painted cast iron and raw (rusty) iron: no lacquer, and raw iron is not polished.
+    static func isIron(_ tier: PlateTier) -> Bool {
+        tier.style == .rawIron || tier.style == .castIron
+    }
+
+    /// Clearcoat on iron stays at or under this, so iron never reads as lacquered plastic.
+    static let ironClearcoatCap: Float = 0.10
+    /// Clearcoat on rubber bumpers stays at or under this, so rubber reads matte.
+    static let rubberClearcoatCap: Float = 0.12
+    /// Raw iron's roughness: a dull forged surface, not a polished one.
+    static let rawIronRoughness: Float = 0.46
+
     static func roughness(for tier: PlateTier) -> Float {
+        if tier.style == .rawIron { return rawIronRoughness }
         guard usesReadableMetal(tier) else { return tier.roughness }
         return max(0.18, min(0.34, tier.roughness + 0.18))
     }
 
     static func sidewallRoughness(for tier: PlateTier) -> Float {
+        if tier.style == .rawIron { return rawIronRoughness + 0.04 }
         guard usesReadableMetal(tier) else { return tier.roughness }
         return max(0.20, min(0.34, tier.roughness + 0.18))
     }
 
     static func clearcoat(for tier: PlateTier) -> Float {
+        if isIron(tier) { return min(tier.clearcoat, ironClearcoatCap) }
+        if tier.style == .bumper { return min(tier.clearcoat, rubberClearcoatCap) }
         guard usesReadableMetal(tier) else { return tier.clearcoat }
-        return min(0.72, max(0.48, tier.clearcoat * 0.70))
+        // Polished metals: a light coat only. The environment now gives them real reflections.
+        return min(0.36, max(0.24, tier.clearcoat * 0.35))
     }
 
     private static func saturationBoost(for tier: PlateTier) -> CGFloat {
@@ -740,6 +764,11 @@ func loadPlateTexturesAsync(forTierID tierID: Int) async -> PlateTextures {
 // intensity. Concurrent first callers await the same load. The result is kept either way: the
 // lookup is deterministic, and today it fails with resourceNotFound because IndoorHDRI.exr ships
 // as a plain bundle file, not in a .skybox folder, so every caller already ran without IBL.
+// Kept that way on purpose for its remaining callers (profile preview, spinning plate, plate
+// snapshots): their intensities (exponents up to 8) were tuned with no IBL, and the snapshots
+// are cached on disk by look. Moving one of them to sharedRackRoomEnvironmentResource() means
+// retuning its intensity and, for snapshots, bumping the cache version. The rack room scene
+// (Cut rack, legacy rack, finish moment, welcome) uses the rack room environment below.
 @MainActor private var _indoorEnvironmentTask: Task<EnvironmentResource?, Never>?
 
 @MainActor
@@ -747,6 +776,119 @@ func sharedIndoorEnvironmentResource() async -> EnvironmentResource? {
     if let task = _indoorEnvironmentTask { return await task.value }
     let task = Task { @MainActor in try? await EnvironmentResource(named: "IndoorHDRI") }
     _indoorEnvironmentTask = task
+    return await task.value
+}
+
+/// The rack room's own light probe: a dim gym seen from the bar. Overhead strip lamps run
+/// parallel to the bar, so the chrome bar and polished plates show long clean highlight lines; a
+/// broad soft glow behind the viewer gives flat metal faces something to reflect; the floor is a
+/// little brighter right under the bar where the lamps pool. Built in code like the year award's
+/// studio (an outdoor panorama in a gym made chrome reflect sky and paving).
+///
+/// Directions: x to the viewer's right, y up, z toward the viewer (the camera looks down -z).
+enum RackRoomEnvironment {
+    static let width = 512
+
+    /// A lamp running along x at `pitch` degrees from straight up, positive toward the viewer.
+    struct Strip: Equatable {
+        var pitch: Float
+        var halfWidth: Float
+        var halfLength: Float
+        var radiance: Float
+    }
+
+    static let strips: [Strip] = [
+        Strip(pitch: 32, halfWidth: 4.5, halfLength: 58, radiance: 7.0),   // over the floor in front of the bar
+        Strip(pitch: -4, halfWidth: 3.5, halfLength: 58, radiance: 5.0),   // over the bar
+        Strip(pitch: -42, halfWidth: 3.0, halfLength: 58, radiance: 3.2),  // over the back wall
+    ]
+
+    /// Radiance seen along a unit direction. Pure, so it can be tested and sampled anywhere.
+    nonisolated static func radiance(_ d: SIMD3<Float>) -> Float {
+        let elevation = asin(max(-1, min(1, d.y))) * 180 / .pi
+        // Walls a touch lighter high up, the floor lightest straight down where the lamps pool.
+        var value: Float = elevation >= 0
+            ? 0.05 + 0.03 * elevation / 90
+            : 0.045 + 0.075 * smooth(-elevation / 90)
+        // Soft glow behind the viewer: the open room and its lit side.
+        let behind = max(0, d.z)
+        if elevation > -10 && elevation < 45 {
+            let vertical = edge(abs(elevation - 16), half: 22, feather: 18)
+            value += 0.55 * vertical * smooth(behind)
+        }
+        // Overhead strips: bands in the y-z plane, limited along x.
+        if d.y > 0 {
+            let crossLength = (d.y * d.y + d.z * d.z).squareRoot()
+            let pitch = atan2(d.z, d.y) * 180 / .pi
+            let along = atan2(abs(d.x), crossLength) * 180 / .pi
+            for strip in strips {
+                let across = edge(abs(pitch - strip.pitch), half: strip.halfWidth, feather: 2.5)
+                guard across > 0 else { continue }
+                value += strip.radiance * across * edge(along, half: strip.halfLength, feather: 12)
+            }
+        }
+        return value
+    }
+
+    /// The panorama as a linear float image, `width` by `width / 2`. RealityKit's panorama runs
+    /// right to left seen from inside (see CutYearAwardStudio), so columns are mirrored.
+    nonisolated static func panorama() -> CGImage? {
+        let w = width, h = width / 2
+        let pixels = UnsafeMutablePointer<Float>.allocate(capacity: w * h * 4)
+        for y in 0..<h {
+            let elevation = (0.5 - (Float(y) + 0.5) / Float(h)) * .pi
+            for x in 0..<w {
+                // Azimuth 0 is behind the viewer (+z), positive to the viewer's right (+x).
+                let azimuth = (1 - (Float(x) + 0.5) / Float(w)) * 2 * .pi
+                let d = SIMD3<Float>(sin(azimuth) * cos(elevation), sin(elevation), cos(azimuth) * cos(elevation))
+                let value = radiance(d)
+                let out = pixels + (y * w + x) * 4
+                // Lamps a hair cool, the room a hair warm: both close to neutral so plate colours stay true.
+                let lamp = min(1, max(0, value - 0.6))
+                out[0] = value * (1.0 - 0.02 * lamp)
+                out[1] = value
+                out[2] = value * (0.97 + 0.05 * lamp)
+                out[3] = 1
+            }
+        }
+        let size = w * h * 16
+        let data = Data(bytesNoCopy: pixels, count: size, deallocator: .custom { pointer, _ in pointer.deallocate() })
+        guard let space = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
+              let provider = CGDataProvider(data: data as CFData) else { return nil }
+        let info = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.floatComponents.rawValue
+            | CGBitmapInfo.byteOrder32Little.rawValue
+        return CGImage(width: w, height: h, bitsPerComponent: 32, bitsPerPixel: 128, bytesPerRow: w * 16,
+                       space: space, bitmapInfo: CGBitmapInfo(rawValue: info), provider: provider, decode: nil,
+                       shouldInterpolate: true, intent: .defaultIntent)
+    }
+
+    nonisolated private static func smooth(_ t: Float) -> Float {
+        let c = min(1, max(0, t))
+        return c * c * (3 - 2 * c)
+    }
+
+    /// 1 inside `half`, 0 past `half + feather / 2`, smooth between.
+    nonisolated private static func edge(_ distance: Float, half: Float, feather: Float) -> Float {
+        smooth((half + feather / 2 - distance) / feather)
+    }
+}
+
+// One rack room environment per process: the panorama is built off the main thread, then
+// prefiltered by RealityKit. Concurrent first callers await the same build.
+@MainActor private var _rackRoomEnvironmentTask: Task<EnvironmentResource?, Never>?
+
+@MainActor
+func sharedRackRoomEnvironmentResource() async -> EnvironmentResource? {
+    if let task = _rackRoomEnvironmentTask { return await task.value }
+    let task = Task { @MainActor () -> EnvironmentResource? in
+        let interval = barbellSignposter.beginInterval("RackRoomEnvironment", id: barbellSignposter.makeSignpostID())
+        defer { barbellSignposter.endInterval("RackRoomEnvironment", interval) }
+        guard let panorama = await Task.detached(priority: .userInitiated, operation: {
+            RackRoomEnvironment.panorama()
+        }).value else { return nil }
+        return try? await EnvironmentResource(equirectangular: panorama, withName: "RackRoomEnvironment")
+    }
+    _rackRoomEnvironmentTask = task
     return await task.value
 }
 
@@ -828,9 +970,13 @@ private func makeGlossAccentRing(profile: PlateVisualProfile, tier: PlateTier) -
         materials: [pbrMaterial(
             color: highlight,
             metallic: tier.style == .bumper ? 0 : max(0.25, tier.metallic),
-            roughness: tier.style == .bumper ? max(0.74, tier.roughness) : max(0.018, min(0.12, tier.roughness * 0.38)),
-            clearcoat: tier.style == .bumper ? min(0.18, tier.clearcoat) : max(0.68, tier.clearcoat),
-            clearcoatRoughness: tier.style == .bumper ? max(0.55, tier.clearcoatRoughness) : min(0.08, tier.clearcoatRoughness),
+            roughness: tier.style == .bumper ? max(0.74, tier.roughness)
+                : PlateDisplaySurface.isIron(tier) ? PlateDisplaySurface.roughness(for: tier) * 0.85
+                : max(0.018, min(0.12, tier.roughness * 0.38)),
+            clearcoat: tier.style == .bumper || PlateDisplaySurface.isIron(tier)
+                ? PlateDisplaySurface.clearcoat(for: tier) : max(0.68, tier.clearcoat),
+            clearcoatRoughness: tier.style == .bumper || PlateDisplaySurface.isIron(tier)
+                ? max(0.55, tier.clearcoatRoughness) : min(0.08, tier.clearcoatRoughness),
             doubleSided: true
         )]
     )
@@ -954,7 +1100,7 @@ private func makeEdgeBevel(profile: PlateVisualProfile, tier: PlateTier) -> Mode
             color: surface.color,
             metallic: isRubber ? 0 : max(surface.metallic, 0.22),
             roughness: isRubber ? max(0.62, surface.roughness) : max(0.10, surface.roughness - 0.20),
-            clearcoat: isRubber ? surface.clearcoat : min(1.0, surface.clearcoat + 0.30),
+            clearcoat: isRubber || PlateDisplaySurface.isIron(tier) ? surface.clearcoat : min(1.0, surface.clearcoat + 0.30),
             clearcoatRoughness: isRubber ? surface.clearcoatRoughness : min(0.09, surface.clearcoatRoughness),
             doubleSided: true
         )]
@@ -1646,6 +1792,10 @@ func makePlateEntity(
         physicsBody.mode = .kinematic
         entity.components.set(physicsBody)
         entity.components.set(PhysicsMotionComponent())
+    }
+
+    if buildOptions.castsGroundingShadow {
+        entity.components.set(GroundingShadowComponent(castsShadow: true))
     }
 
     // Metadata components

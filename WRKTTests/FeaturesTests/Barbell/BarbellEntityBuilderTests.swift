@@ -1,4 +1,5 @@
 import RealityKit
+import simd
 import Testing
 import CoreFoundation
 import UIKit
@@ -94,7 +95,9 @@ struct BarbellEntityBuilderTests {
             #expect(sidewall.metallic >= 0.42, "\(name) side should still read as metal")
             #expect(sidewall.metallic <= 0.68, "\(name) side should keep enough diffuse color for storage")
             #expect(sidewall.roughness >= 0.20, "\(name) side should avoid mirror-black reflections")
-            #expect(sidewall.roughness <= 0.34, "\(name) side should not become flat plastic")
+            if tier.style != .rawIron {
+                #expect(sidewall.roughness <= 0.34, "\(name) side should not become flat plastic")
+            }
             #expect(sidewall.clearcoat <= 0.78, "\(name) side should avoid blown-out glare")
             #expect(lip.metallic >= 0.42, "\(name) lip should still read as metal")
             #expect(lip.metallic <= 0.72, "\(name) lip should keep enough diffuse color for storage")
@@ -110,7 +113,9 @@ struct BarbellEntityBuilderTests {
             #expect(PlateDisplaySurface.metallic(for: tier) >= 0.38, "\(name) should still read metallic")
             #expect(PlateDisplaySurface.metallic(for: tier) <= 0.58, "\(name) should not mirror the dark room")
             #expect(PlateDisplaySurface.roughness(for: tier) >= 0.18, "\(name) should keep labels and color readable")
-            #expect(PlateDisplaySurface.roughness(for: tier) <= 0.34, "\(name) should retain a polished finish")
+            if tier.style != .rawIron {
+                #expect(PlateDisplaySurface.roughness(for: tier) <= 0.34, "\(name) should retain a polished finish")
+            }
             #expect(PlateDisplaySurface.clearcoat(for: tier) <= 0.72, "\(name) should avoid blown-out glare")
         }
     }
@@ -166,34 +171,61 @@ struct BarbellEntityBuilderTests {
         }
     }
 
-    @Test func rackRoomLightingIncludesSubjectAndRimSeparation() {
-        let lighting = RackRoomLightingPreset.readability
+    /// The angle in degrees between the key's axis and the direction from the key to `point`.
+    private func keyAngle(to point: SIMD3<Float>, _ lighting: RackRoomLightingPreset) -> Float {
+        let axis = simd_normalize(lighting.keyTarget - lighting.keyPosition)
+        let ray = simd_normalize(point - lighting.keyPosition)
+        return acos(min(1, simd_dot(axis, ray))) * 180 / .pi
+    }
 
-        #expect(lighting.keyIntensity >= 6_000)
-        #expect(lighting.keyPosition.y >= 1.8)
-        #expect(lighting.keyPosition.z >= 1.85)
-        #expect(lighting.fillIntensity >= 2_600)
-        #expect(abs(lighting.fillPosition.x) <= 0.05)
-        #expect(lighting.fillPosition.z < 1.0)
-        #expect(lighting.frontWashIntensity >= 3_600)
-        #expect(abs(lighting.frontWashPosition.x) <= 0.05)
-        #expect(lighting.frontWashPosition.z < 1.0)
-        #expect(lighting.barWashIntensity >= 6_600)
-        #expect(lighting.barSideWashIntensity >= 4_400)
-        #expect(lighting.barSideWashX >= 0.72)
-        #expect(lighting.storageWashIntensity >= 6_200)
-        #expect(lighting.storageWashY >= 1.55)
-        #expect(lighting.storageFaceWashIntensity >= 4_600)
-        #expect(lighting.storageFaceWashX >= 0.70)
-        #expect(lighting.storageSideWashIntensity >= 4_800)
-        #expect(lighting.storageSideWashX >= 0.9)
-        #expect(lighting.storageSideWashY >= 1.45)
-        #expect(lighting.rimWashIntensity <= 1_600)
-        #expect(abs(lighting.rimWashPosition.x) <= 0.05)
-        #expect(lighting.rimWashPosition.z <= 0.40)
-        #expect(lighting.imageBasedLightIntensityExponent >= 1.2)
-        #expect(lighting.castsObjectShadows == false)
-        #expect(lighting.usesDirectionalKey == false)
+    @Test func rackRoomKeyIsHighInFrontOfTheBarAimedAtTheFloor() {
+        let lighting = RackRoomLightingPreset.readability
+        let barY: Float = 0.6, barZ: Float = 0.12
+
+        #expect(lighting.keyPosition.y > barY + 1.8, "well above the bar")
+        #expect(lighting.keyPosition.z > barZ + 1.0, "well in front, so the wall is not the nearest surface")
+        #expect(abs(lighting.keyPosition.x) <= 0.05)
+        #expect(lighting.keyTarget.y == 0, "aimed at the floor")
+        #expect(lighting.keyTarget.z > barZ && lighting.keyTarget.z < lighting.keyPosition.z)
+        #expect(lighting.keyAttenuationRadius > simd_distance(lighting.keyPosition, SIMD3(0.8, 0, -0.12)),
+                "the attenuation window does not draw its own edge in the frame")
+        #expect((-1...1).contains(lighting.imageBasedLightIntensityExponent), "fill, not the key")
+    }
+
+    /// No plate at rest, and none along its drop path, may sit on a cone boundary: every such
+    /// point stays clear of the outer edge, so the falloff over a plate is smooth, never a line.
+    @Test func rackRoomPlatesAndDropPathNeverCrossTheKeyConeEdge() {
+        let lighting = RackRoomLightingPreset.readability
+        let outerHalf = lighting.keyOuterAngle / 2
+        #expect(lighting.keyOuterAngle - lighting.keyInnerAngle >= 40, "a soft, wide falloff band")
+        var points: [SIMD3<Float>] = []
+        // Bar plates: the discs on both sleeves (x 0.60 to 0.76), 0.22 m radius round the bar.
+        for x: Float in [0.60, 0.76] {
+            for angle in stride(from: Float(0), to: 2 * .pi, by: .pi / 8) {
+                points.append(SIMD3(x, 0.6 + 0.22 * sin(angle), 0.12 + 0.22 * cos(angle)))
+            }
+        }
+        // Drop path and moment plates: from 1.5 m above the floor down to resting on it, across
+        // the floor's playable width.
+        for x: Float in [-0.74, 0, 0.74] {
+            for y: Float in [0.22, 0.6, 1.0, 1.5] {
+                for z: Float in [-0.10, 0.4, 0.82] { points.append(SIMD3(x, y, z)) }
+            }
+        }
+        for point in points {
+            #expect(keyAngle(to: point, lighting) < outerHalf - 8, "\(point) is near the cone edge")
+        }
+    }
+
+    @Test func rackRoomBackWallInFrameIsInsideTheSoftFalloff() {
+        let lighting = RackRoomLightingPreset.readability
+        // The wall the bar-only camera sees: about 1.2 m either side (the rails are at 0.82), floor to 1.6 m.
+        for x: Float in [-1.2, 0, 1.2] {
+            for y: Float in [0, 0.8, 1.6] {
+                let angle = keyAngle(to: SIMD3(x, y, -0.12), lighting)
+                #expect(angle < lighting.keyOuterAngle / 2 - 5, "wall at (\(x), \(y)) shows no cone edge")
+            }
+        }
     }
 
     @Test func roomThemesProvidePlateZoneContrast() {
