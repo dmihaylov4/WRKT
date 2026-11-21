@@ -145,3 +145,24 @@ import Testing
         #expect(material.clearcoat.scale <= 0.15)
     }
 }
+
+/// Light rooms get a gentler key so the floor and wall do not blow out; dark rooms keep it all.
+@Suite struct RackRoomKeyScaleTests {
+    @Test func darkRoomsKeepTheFullKey() {
+        for id in ["dark_gym", "neon_garage", "iron_basement", "brick_powerhouse"] {
+            let theme = RoomThemePreset.preset(for: id)
+            #expect(RackRoomLightingPreset.keyScale(
+                brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance)) == 1, "\(id)")
+        }
+    }
+
+    @Test func lightRoomsDimTheKeyButNotToDarkness() {
+        for id in ["daylight_studio", "competition_platform", "concrete_room"] {
+            let theme = RoomThemePreset.preset(for: id)
+            let scale = RackRoomLightingPreset.keyScale(
+                brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
+            #expect(scale < 1, "\(id)")
+            #expect(scale > 0.4, "\(id)")
+        }
+    }
+}

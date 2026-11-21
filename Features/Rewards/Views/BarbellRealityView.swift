@@ -1045,6 +1045,15 @@ struct RackRoomLightingPreset: Equatable {
         storageWashPosition: SIMD3(0, 1.60, 1.0)
     )
 
+    /// Light rooms (pale floor or wall) would blow out under the dark gym's key: scale the key
+    /// down by how much brighter the room's brightest surface is than the dark gym's floor.
+    /// Dark rooms keep the full key so plates stay lit.
+    static func keyScale(brightestSurfaceLuminance luminance: CGFloat) -> Float {
+        let reference: CGFloat = 0.40
+        guard luminance > reference else { return 1 }
+        return Float(pow(reference / luminance, 0.75))
+    }
+
     /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="key=40000,ibl=1.2" in the
     /// launch environment overrides values for tuning on a device or in simulator captures. Names:
     /// key, keyY, keyZ, targetZ, inner, outer, rim, rimY, rimOuter, ibl, wash, shadow (0 or 1).
@@ -1492,13 +1501,16 @@ struct BarbellRealityView: View {
 
     private func setupLighting(in sceneRoot: Entity) {
         let lighting = RackRoomLightingPreset.current
+        let theme = RoomThemePreset.preset(for: roomThemeID)
+        let keyScale = RackRoomLightingPreset.keyScale(
+            brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
 
         // Key: overhead, a little in front of the bar, aimed at the floor just in front of it.
         let key = Entity()
         key.name = "rackRoomKey"
         key.components.set(SpotLightComponent(
             color: UIColor(red: 1.0, green: 0.985, blue: 0.96, alpha: 1),
-            intensity: lighting.keyIntensity,
+            intensity: lighting.keyIntensity * keyScale,
             innerAngleInDegrees: lighting.keyInnerAngle,
             outerAngleInDegrees: lighting.keyOuterAngle,
             attenuationRadius: lighting.keyAttenuationRadius
