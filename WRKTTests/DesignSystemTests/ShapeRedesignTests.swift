@@ -99,9 +99,12 @@ struct ShapeRedesignTests {
         #expect(DS.Redesign.roundedShapesDefault)
         #else
         #expect(!DS.Redesign.roundedShapesDefault)
-        #expect(!DS.Redesign.roundedShapesEnabled)
-        for (path, baseline) in zip(actual, mainPaths(cut: 16, rect: rect)) {
-            #expect(bytes(path) == bytes(baseline))
+        // Release: off for App Store installs; only a TestFlight tester's choice turns it on.
+        #expect(DS.Redesign.roundedShapesEnabled == CutTesterSwitch.launch.newDesign)
+        if !CutTesterSwitch.launch.newDesign {
+            for (path, baseline) in zip(actual, mainPaths(cut: 16, rect: rect)) {
+                #expect(bytes(path) == bytes(baseline))
+            }
         }
         #endif
     }
