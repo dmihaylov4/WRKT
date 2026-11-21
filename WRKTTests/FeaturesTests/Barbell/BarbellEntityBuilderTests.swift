@@ -95,7 +95,9 @@ struct BarbellEntityBuilderTests {
             #expect(sidewall.metallic >= 0.42, "\(name) side should still read as metal")
             #expect(sidewall.metallic <= 0.68, "\(name) side should keep enough diffuse color for storage")
             #expect(sidewall.roughness >= 0.20, "\(name) side should avoid mirror-black reflections")
-            #expect(sidewall.roughness <= 0.34, "\(name) side should not become flat plastic")
+            if tier.style != .rawIron {
+                #expect(sidewall.roughness <= 0.34, "\(name) side should not become flat plastic")
+            }
             #expect(sidewall.clearcoat <= 0.78, "\(name) side should avoid blown-out glare")
             #expect(lip.metallic >= 0.42, "\(name) lip should still read as metal")
             #expect(lip.metallic <= 0.72, "\(name) lip should keep enough diffuse color for storage")
@@ -111,7 +113,9 @@ struct BarbellEntityBuilderTests {
             #expect(PlateDisplaySurface.metallic(for: tier) >= 0.38, "\(name) should still read metallic")
             #expect(PlateDisplaySurface.metallic(for: tier) <= 0.58, "\(name) should not mirror the dark room")
             #expect(PlateDisplaySurface.roughness(for: tier) >= 0.18, "\(name) should keep labels and color readable")
-            #expect(PlateDisplaySurface.roughness(for: tier) <= 0.34, "\(name) should retain a polished finish")
+            if tier.style != .rawIron {
+                #expect(PlateDisplaySurface.roughness(for: tier) <= 0.34, "\(name) should retain a polished finish")
+            }
             #expect(PlateDisplaySurface.clearcoat(for: tier) <= 0.72, "\(name) should avoid blown-out glare")
         }
     }

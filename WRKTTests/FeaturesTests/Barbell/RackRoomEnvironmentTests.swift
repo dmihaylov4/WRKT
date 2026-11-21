@@ -107,3 +107,41 @@ import Testing
         #expect(barbellRackRoomFloorStripXs.map { -$0 }.sorted() == barbellRackRoomFloorStripXs, "symmetric about the bar")
     }
 }
+
+/// Iron is not lacquered, rubber is matte, polished metal keeps only a light coat.
+@Suite struct PlateSurfaceFinishTests {
+    @Test func ironCarriesAlmostNoClearcoatAnywhere() {
+        for tier in PlateTier.all where tier.style == .rawIron || tier.style == .castIron {
+            #expect(PlateDisplaySurface.clearcoat(for: tier) <= 0.15, "\(tier.name) face")
+            #expect(PlateSidewallSurface.sidewall(for: tier).clearcoat <= 0.15, "\(tier.name) side")
+            #expect(PlateSidewallSurface.lip(for: tier).clearcoat <= 0.15, "\(tier.name) lip")
+        }
+    }
+
+    @Test func rawIronIsDullNotPolished() throws {
+        let rusty = try #require(PlateTier.all.first { $0.style == .rawIron })
+        #expect(PlateDisplaySurface.roughness(for: rusty) >= 0.40)
+        #expect(PlateSidewallSurface.sidewall(for: rusty).roughness >= 0.40)
+        #expect(PlateSidewallSurface.lip(for: rusty).roughness >= 0.40)
+    }
+
+    @Test func rubberBumpersReadMatte() {
+        for tier in PlateTier.all where tier.style == .bumper {
+            #expect(PlateDisplaySurface.clearcoat(for: tier) <= 0.15, "\(tier.name) face")
+            #expect(PlateSidewallSurface.sidewall(for: tier).clearcoat <= 0.15, "\(tier.name) side")
+            #expect(PlateSidewallSurface.lip(for: tier).clearcoat <= 0.15, "\(tier.name) lip")
+        }
+    }
+
+    @Test func polishedMetalsKeepALightCoatOnly() {
+        for tier in PlateTier.all where PlateDisplaySurface.usesReadableMetal(tier) && tier.style != .rawIron {
+            #expect((0.2...0.4).contains(PlateDisplaySurface.clearcoat(for: tier)), "\(tier.name)")
+        }
+    }
+
+    @MainActor @Test func sceneBodyMaterialFollowsThePolicy() throws {
+        let castIron = try #require(PlateTier.all.first { $0.style == .castIron })
+        let material = buildMaterial(forTierID: castIron.id, textures: nil)
+        #expect(material.clearcoat.scale <= 0.15)
+    }
+}

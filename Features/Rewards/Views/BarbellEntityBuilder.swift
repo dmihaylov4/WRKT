@@ -359,7 +359,7 @@ struct PlateSidewallSurface: Equatable {
             color: color,
             metallic: tier.style == .bumper ? 0 : max(0, tier.metallic * 0.75),
             roughness: min(1, max(0.50, tier.roughness + 0.10)),
-            clearcoat: max(0.14, tier.clearcoat * 0.72),
+            clearcoat: PlateDisplaySurface.clearcoat(for: tier) * 0.72,
             clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.20)
         )
     }
@@ -369,7 +369,9 @@ struct PlateSidewallSurface: Equatable {
             return PlateSidewallSurface(
                 color: PlateDisplaySurface.lipColor(for: tier),
                 metallic: min(0.72, max(0.42, PlateDisplaySurface.metallic(for: tier) + 0.04)),
-                roughness: max(0.18, min(0.30, tier.roughness + 0.17)),
+                roughness: tier.style == .rawIron
+                    ? PlateDisplaySurface.sidewallRoughness(for: tier)
+                    : max(0.18, min(0.30, tier.roughness + 0.17)),
                 clearcoat: PlateDisplaySurface.clearcoat(for: tier),
                 clearcoatRoughness: min(0.06, tier.clearcoatRoughness)
             )
@@ -394,7 +396,7 @@ struct PlateSidewallSurface: Equatable {
             color: lipColor,
             metallic: tier.style == .bumper ? 0 : tier.metallic,
             roughness: min(1, max(0.52, tier.roughness + 0.10)),
-            clearcoat: tier.clearcoat * 0.62,
+            clearcoat: PlateDisplaySurface.clearcoat(for: tier) * 0.62,
             clearcoatRoughness: min(1, tier.clearcoatRoughness + 0.22)
         )
     }
@@ -431,19 +433,36 @@ struct PlateDisplaySurface {
         return min(0.58, max(0.38, tier.metallic * 0.58))
     }
 
+    /// Painted cast iron and raw (rusty) iron: no lacquer, and raw iron is not polished.
+    static func isIron(_ tier: PlateTier) -> Bool {
+        tier.style == .rawIron || tier.style == .castIron
+    }
+
+    /// Clearcoat on iron stays at or under this, so iron never reads as lacquered plastic.
+    static let ironClearcoatCap: Float = 0.10
+    /// Clearcoat on rubber bumpers stays at or under this, so rubber reads matte.
+    static let rubberClearcoatCap: Float = 0.12
+    /// Raw iron's roughness: a dull forged surface, not a polished one.
+    static let rawIronRoughness: Float = 0.46
+
     static func roughness(for tier: PlateTier) -> Float {
+        if tier.style == .rawIron { return rawIronRoughness }
         guard usesReadableMetal(tier) else { return tier.roughness }
         return max(0.18, min(0.34, tier.roughness + 0.18))
     }
 
     static func sidewallRoughness(for tier: PlateTier) -> Float {
+        if tier.style == .rawIron { return rawIronRoughness + 0.04 }
         guard usesReadableMetal(tier) else { return tier.roughness }
         return max(0.20, min(0.34, tier.roughness + 0.18))
     }
 
     static func clearcoat(for tier: PlateTier) -> Float {
+        if isIron(tier) { return min(tier.clearcoat, ironClearcoatCap) }
+        if tier.style == .bumper { return min(tier.clearcoat, rubberClearcoatCap) }
         guard usesReadableMetal(tier) else { return tier.clearcoat }
-        return min(0.72, max(0.48, tier.clearcoat * 0.70))
+        // Polished metals: a light coat only. The environment now gives them real reflections.
+        return min(0.36, max(0.24, tier.clearcoat * 0.35))
     }
 
     private static func saturationBoost(for tier: PlateTier) -> CGFloat {
@@ -951,9 +970,13 @@ private func makeGlossAccentRing(profile: PlateVisualProfile, tier: PlateTier) -
         materials: [pbrMaterial(
             color: highlight,
             metallic: tier.style == .bumper ? 0 : max(0.25, tier.metallic),
-            roughness: tier.style == .bumper ? max(0.74, tier.roughness) : max(0.018, min(0.12, tier.roughness * 0.38)),
-            clearcoat: tier.style == .bumper ? min(0.18, tier.clearcoat) : max(0.68, tier.clearcoat),
-            clearcoatRoughness: tier.style == .bumper ? max(0.55, tier.clearcoatRoughness) : min(0.08, tier.clearcoatRoughness),
+            roughness: tier.style == .bumper ? max(0.74, tier.roughness)
+                : PlateDisplaySurface.isIron(tier) ? PlateDisplaySurface.roughness(for: tier) * 0.85
+                : max(0.018, min(0.12, tier.roughness * 0.38)),
+            clearcoat: tier.style == .bumper || PlateDisplaySurface.isIron(tier)
+                ? PlateDisplaySurface.clearcoat(for: tier) : max(0.68, tier.clearcoat),
+            clearcoatRoughness: tier.style == .bumper || PlateDisplaySurface.isIron(tier)
+                ? max(0.55, tier.clearcoatRoughness) : min(0.08, tier.clearcoatRoughness),
             doubleSided: true
         )]
     )
@@ -1077,7 +1100,7 @@ private func makeEdgeBevel(profile: PlateVisualProfile, tier: PlateTier) -> Mode
             color: surface.color,
             metallic: isRubber ? 0 : max(surface.metallic, 0.22),
             roughness: isRubber ? max(0.62, surface.roughness) : max(0.10, surface.roughness - 0.20),
-            clearcoat: isRubber ? surface.clearcoat : min(1.0, surface.clearcoat + 0.30),
+            clearcoat: isRubber || PlateDisplaySurface.isIron(tier) ? surface.clearcoat : min(1.0, surface.clearcoat + 0.30),
             clearcoatRoughness: isRubber ? surface.clearcoatRoughness : min(0.09, surface.clearcoatRoughness),
             doubleSided: true
         )]
