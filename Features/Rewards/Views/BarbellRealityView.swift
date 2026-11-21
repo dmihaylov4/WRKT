@@ -1002,12 +1002,17 @@ final class SceneState {
 
 // MARK: - BarbellRealityView
 
-/// The rack room's light rig: one overhead key spot a little in front of the bar, aimed at the
-/// floor just in front of it, so the bar, plates and stands are lit from above and the floor gets
-/// a pool of light that falls off toward the walls; two faint rim spots from above and behind the
-/// plate stacks (at plus and minus `rimPosition.x`), toward the viewer, so plate edges separate
-/// from the wall; the room's light probe for fill and reflections. Positions are in the scene root's space (bar at y 0.6, z 0.12; floor at y 0;
-/// back wall face at z -0.12). Angles are RealityKit's spot cone angles in degrees.
+/// The rack room's light rig: one key spot, high and well in front of the bar, aimed at the floor
+/// just in front of it, plus the room's light probe for fill and reflections. Being high, it
+/// grazes the back wall (darker) while the floor and the tops of plates face it.
+///
+/// Why this shape: the wall is only 24 cm behind the plates, so any light near the bar that
+/// reaches the plates also reaches the wall, and a cone boundary there reads as a stage light
+/// dome. Narrow cones close to the plates drew a hard terminator across them. Far away and soft
+/// (inner cone well inside the outer), plates, the falling path and the visible wall all sit in
+/// the smooth falloff, never on a cone edge. Positions are in the scene root's space (bar at
+/// y 0.6, z 0.12; floor at y 0; back wall face at z -0.12). Angles are RealityKit's spot cone
+/// angles in degrees.
 struct RackRoomLightingPreset: Equatable {
     var keyIntensity: Float
     var keyPosition: SIMD3<Float>
@@ -1015,10 +1020,6 @@ struct RackRoomLightingPreset: Equatable {
     var keyInnerAngle: Float
     var keyOuterAngle: Float
     var keyAttenuationRadius: Float
-    var rimIntensity: Float
-    var rimPosition: SIMD3<Float>
-    var rimTarget: SIMD3<Float>
-    var rimOuterAngle: Float
     var imageBasedLightIntensityExponent: Float
     /// A shadow map for the key spot (bar, plates and stands throw real shadows on the floor
     /// and wall). Off: grounding shadows carry the contact cue; see the stage 1 report.
@@ -1029,16 +1030,12 @@ struct RackRoomLightingPreset: Equatable {
     var storageWashPosition: SIMD3<Float>
 
     static let readability = RackRoomLightingPreset(
-        keyIntensity: 170_000,
-        keyPosition: SIMD3(0, 2.40, 0.85),
+        keyIntensity: 450_000,
+        keyPosition: SIMD3(0, 5.0, 1.6),
         keyTarget: SIMD3(0, 0, 0.30),
         keyInnerAngle: 16,
-        keyOuterAngle: 48,
-        keyAttenuationRadius: 6,
-        rimIntensity: 30_000,
-        rimPosition: SIMD3(0.68, 1.25, -0.04),
-        rimTarget: SIMD3(0.68, 0.55, 0.32),
-        rimOuterAngle: 44,
+        keyOuterAngle: 74,
+        keyAttenuationRadius: 10,
         imageBasedLightIntensityExponent: -0.25,
         keyCastsShadow: false,
         storageWashIntensity: 7_000,
@@ -1056,7 +1053,7 @@ struct RackRoomLightingPreset: Equatable {
 
     /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="key=40000,ibl=1.2" in the
     /// launch environment overrides values for tuning on a device or in simulator captures. Names:
-    /// key, keyY, keyZ, targetZ, inner, outer, rim, rimY, rimOuter, ibl, wash, shadow (0 or 1).
+    /// key, keyY, keyZ, targetZ, inner, outer, atten, ibl, wash, shadow (0 or 1).
     static var current: RackRoomLightingPreset {
         var preset = readability
         #if DEBUG
@@ -1067,9 +1064,7 @@ struct RackRoomLightingPreset: Equatable {
         if let value = overrides["targetZ"] { preset.keyTarget.z = value }
         if let value = overrides["inner"] { preset.keyInnerAngle = value }
         if let value = overrides["outer"] { preset.keyOuterAngle = value }
-        if let value = overrides["rim"] { preset.rimIntensity = value }
-        if let value = overrides["rimY"] { preset.rimPosition.y = value }
-        if let value = overrides["rimOuter"] { preset.rimOuterAngle = value }
+        if let value = overrides["atten"] { preset.keyAttenuationRadius = value }
         if let value = overrides["ibl"] { preset.imageBasedLightIntensityExponent = value }
         if let value = overrides["wash"] { preset.storageWashIntensity = value }
         if let value = overrides["shadow"] { preset.keyCastsShadow = value != 0 }
@@ -1505,7 +1500,7 @@ struct BarbellRealityView: View {
         let keyScale = RackRoomLightingPreset.keyScale(
             brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
 
-        // Key: overhead, a little in front of the bar, aimed at the floor just in front of it.
+        // Key: high and well in front of the bar, aimed at the floor just in front of it.
         let key = Entity()
         key.name = "rackRoomKey"
         key.components.set(SpotLightComponent(
@@ -1522,23 +1517,6 @@ struct BarbellRealityView: View {
         }
         sceneRoot.addChild(key)
         key.look(at: lighting.keyTarget, from: lighting.keyPosition, relativeTo: sceneRoot)
-
-        // Rim: two faint spots, one behind and above each plate stack, aimed forward and down so
-        // plate rims and tops separate from the wall. Their cones never include the wall.
-        for side: Float in [-1, 1] {
-            let rim = Entity()
-            rim.name = "rackRoomRim"
-            rim.components.set(SpotLightComponent(
-                color: UIColor(red: 0.94, green: 0.97, blue: 1.0, alpha: 1),
-                intensity: lighting.rimIntensity,
-                innerAngleInDegrees: lighting.rimOuterAngle * 0.5,
-                outerAngleInDegrees: lighting.rimOuterAngle,
-                attenuationRadius: 3
-            ))
-            sceneRoot.addChild(rim)
-            let mirror = SIMD3<Float>(side, 1, 1)
-            rim.look(at: lighting.rimTarget * mirror, from: lighting.rimPosition * mirror, relativeTo: sceneRoot)
-        }
 
         // The legacy wall storage hangs plates above the key's reach: give them a soft wash. The
         // Cut bar-only rack builds no storage and gets no wash.

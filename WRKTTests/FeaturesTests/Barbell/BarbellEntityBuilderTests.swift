@@ -171,35 +171,61 @@ struct BarbellEntityBuilderTests {
         }
     }
 
-    @Test func rackRoomKeyIsOverheadInFrontOfTheBarAimedAtTheFloor() {
+    /// The angle in degrees between the key's axis and the direction from the key to `point`.
+    private func keyAngle(to point: SIMD3<Float>, _ lighting: RackRoomLightingPreset) -> Float {
+        let axis = simd_normalize(lighting.keyTarget - lighting.keyPosition)
+        let ray = simd_normalize(point - lighting.keyPosition)
+        return acos(min(1, simd_dot(axis, ray))) * 180 / .pi
+    }
+
+    @Test func rackRoomKeyIsHighInFrontOfTheBarAimedAtTheFloor() {
         let lighting = RackRoomLightingPreset.readability
         let barY: Float = 0.6, barZ: Float = 0.12
 
-        #expect(lighting.keyPosition.y > barY + 1.2, "the key hangs well above the bar")
-        #expect(lighting.keyPosition.z > barZ, "slightly in front of the bar")
-        #expect(lighting.keyPosition.z < barZ + 1.2, "not a frontal camera light")
+        #expect(lighting.keyPosition.y > barY + 1.8, "well above the bar")
+        #expect(lighting.keyPosition.z > barZ + 1.0, "well in front, so the wall is not the nearest surface")
         #expect(abs(lighting.keyPosition.x) <= 0.05)
         #expect(lighting.keyTarget.y == 0, "aimed at the floor")
         #expect(lighting.keyTarget.z > barZ && lighting.keyTarget.z < lighting.keyPosition.z)
-        #expect(lighting.keyInnerAngle < lighting.keyOuterAngle, "the pool has a soft edge")
-        #expect(lighting.keyAttenuationRadius > simd_distance(lighting.keyPosition, lighting.keyTarget))
+        #expect(lighting.keyAttenuationRadius > simd_distance(lighting.keyPosition, SIMD3(0.8, 0, -0.12)),
+                "the attenuation window does not draw its own edge in the frame")
+        #expect((-1...1).contains(lighting.imageBasedLightIntensityExponent), "fill, not the key")
     }
 
-    @Test func rackRoomRimIsFaintAndComesFromBehindTheBar() {
+    /// No plate at rest, and none along its drop path, may sit on a cone boundary: every such
+    /// point stays clear of the outer edge, so the falloff over a plate is smooth, never a line.
+    @Test func rackRoomPlatesAndDropPathNeverCrossTheKeyConeEdge() {
         let lighting = RackRoomLightingPreset.readability
+        let outerHalf = lighting.keyOuterAngle / 2
+        #expect(lighting.keyOuterAngle - lighting.keyInnerAngle >= 40, "a soft, wide falloff band")
+        var points: [SIMD3<Float>] = []
+        // Bar plates: the discs on both sleeves (x 0.60 to 0.76), 0.22 m radius round the bar.
+        for x: Float in [0.60, 0.76] {
+            for angle in stride(from: Float(0), to: 2 * .pi, by: .pi / 8) {
+                points.append(SIMD3(x, 0.6 + 0.22 * sin(angle), 0.12 + 0.22 * cos(angle)))
+            }
+        }
+        // Drop path and moment plates: from 1.5 m above the floor down to resting on it, across
+        // the floor's playable width.
+        for x: Float in [-0.74, 0, 0.74] {
+            for y: Float in [0.22, 0.6, 1.0, 1.5] {
+                for z: Float in [-0.10, 0.4, 0.82] { points.append(SIMD3(x, y, z)) }
+            }
+        }
+        for point in points {
+            #expect(keyAngle(to: point, lighting) < outerHalf - 8, "\(point) is near the cone edge")
+        }
+    }
 
-        #expect(lighting.rimIntensity < lighting.keyIntensity * 0.3)
-        #expect((0.60...0.80).contains(lighting.rimPosition.x), "behind a plate stack (mirrored for the other)")
-        #expect(lighting.rimTarget.x == lighting.rimPosition.x)
-        #expect(lighting.rimPosition.z < 0.12, "behind the bar")
-        #expect(lighting.rimPosition.z > -0.12, "in front of the back wall, so it does not light it")
-        #expect(lighting.rimTarget.z > lighting.rimPosition.z, "pointing toward the viewer")
-        #expect(lighting.rimTarget.y < lighting.rimPosition.y)
-        // The cone's edge stays forward of straight down, so the back wall is never in it.
-        let aim = simd_normalize(lighting.rimTarget - lighting.rimPosition)
-        let forwardOfDown = atan2(aim.z, -aim.y) * 180 / .pi
-        #expect(forwardOfDown > lighting.rimOuterAngle / 2)
-        #expect((-1...1).contains(lighting.imageBasedLightIntensityExponent), "fill, not the key")
+    @Test func rackRoomBackWallInFrameIsInsideTheSoftFalloff() {
+        let lighting = RackRoomLightingPreset.readability
+        // The wall the bar-only camera sees: about 1.2 m either side (the rails are at 0.82), floor to 1.6 m.
+        for x: Float in [-1.2, 0, 1.2] {
+            for y: Float in [0, 0.8, 1.6] {
+                let angle = keyAngle(to: SIMD3(x, y, -0.12), lighting)
+                #expect(angle < lighting.keyOuterAngle / 2 - 5, "wall at (\(x), \(y)) shows no cone edge")
+            }
+        }
     }
 
     @Test func roomThemesProvidePlateZoneContrast() {
