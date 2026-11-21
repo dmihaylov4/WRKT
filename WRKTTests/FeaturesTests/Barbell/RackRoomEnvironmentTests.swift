@@ -73,3 +73,26 @@ import Testing
                 == RackRoomLightingPreset.readability.imageBasedLightIntensityExponent)
     }
 }
+
+/// Grounding shadows: on the scene's plate bodies only, never on previews, spinning plates or snapshots.
+@MainActor
+@Suite struct PlateGroundingShadowTests {
+    @Test func scenePlatesCastFromTheirBodyOnly() {
+        for options in [PlateEntityBuildOptions.interactive(role: .bar), .interactive(role: .floor), .barMirror()] {
+            let plate = makePlateEntity(tierID: 22, weightKg: 20, options: options)
+            #expect(plate.components[GroundingShadowComponent.self]?.castsShadow == true)
+            #expect(plate.components[ModelComponent.self] != nil, "the root is the body ring mesh")
+            #expect(plate.children.allSatisfy { $0.components[GroundingShadowComponent.self] == nil },
+                    "one caster per plate, not one per part")
+        }
+    }
+
+    @Test func visualOnlyPlatesCastNone() {
+        let plate = makePlateEntity(tierID: 22, weightKg: 20, options: .visualOnly())
+        #expect(plate.components[GroundingShadowComponent.self] == nil)
+    }
+
+    @Test func theKeySpotShadowIsOffByDefault() {
+        #expect(RackRoomLightingPreset.readability.keyCastsShadow == false)
+    }
+}

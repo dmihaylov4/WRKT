@@ -1015,6 +1015,9 @@ struct RackRoomLightingPreset: Equatable {
     var rimTarget: SIMD3<Float>
     var rimOuterAngle: Float
     var imageBasedLightIntensityExponent: Float
+    /// A shadow map for the key spot (bar, plates and stands throw real shadows on the floor
+    /// and wall). Off: grounding shadows carry the contact cue; see the stage 1 report.
+    var keyCastsShadow: Bool
     /// The legacy wall storage only (never built in the Cut bar-only rack): a soft wash on the
     /// plates hanging above the bar, which the overhead key barely reaches.
     var storageWashIntensity: Float
@@ -1032,13 +1035,14 @@ struct RackRoomLightingPreset: Equatable {
         rimTarget: SIMD3(0.68, 0.55, 0.32),
         rimOuterAngle: 44,
         imageBasedLightIntensityExponent: -0.25,
+        keyCastsShadow: false,
         storageWashIntensity: 7_000,
         storageWashPosition: SIMD3(0, 1.60, 1.0)
     )
 
     /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="key=40000,ibl=1.2" in the
     /// launch environment overrides values for tuning on a device or in simulator captures. Names:
-    /// key, keyY, keyZ, targetZ, inner, outer, rim, rimY, rimOuter, ibl, wash.
+    /// key, keyY, keyZ, targetZ, inner, outer, rim, rimY, rimOuter, ibl, wash, shadow (0 or 1).
     static var current: RackRoomLightingPreset {
         var preset = readability
         #if DEBUG
@@ -1054,6 +1058,7 @@ struct RackRoomLightingPreset: Equatable {
         if let value = overrides["rimOuter"] { preset.rimOuterAngle = value }
         if let value = overrides["ibl"] { preset.imageBasedLightIntensityExponent = value }
         if let value = overrides["wash"] { preset.storageWashIntensity = value }
+        if let value = overrides["shadow"] { preset.keyCastsShadow = value != 0 }
         #endif
         return preset
     }
@@ -1487,6 +1492,11 @@ struct BarbellRealityView: View {
             outerAngleInDegrees: lighting.keyOuterAngle,
             attenuationRadius: lighting.keyAttenuationRadius
         ))
+        if lighting.keyCastsShadow {
+            var shadow = SpotLightComponent.Shadow()
+            shadow.depthBias = 2
+            key.components.set(shadow)
+        }
         sceneRoot.addChild(key)
         key.look(at: lighting.keyTarget, from: lighting.keyPosition, relativeTo: sceneRoot)
 
@@ -2509,6 +2519,15 @@ struct BarbellRealityView: View {
 
     // MARK: RackRoom scene setup
 
+    /// Grounding shadows apply to the entity's own mesh, not its descendants: a stand is a few
+    /// separate parts, so each casts its own.
+    private func castGroundingShadows(fromModelsIn root: Entity) {
+        if root.components[ModelComponent.self] != nil {
+            root.components.set(GroundingShadowComponent(castsShadow: true))
+        }
+        for child in root.children { castGroundingShadows(fromModelsIn: child) }
+    }
+
     private func makeRoomWallText(_ text: String?, theme: RoomThemePreset) -> Entity? {
         guard let normalized = barbellNormalizedRoomWallText(text) else { return nil }
 
@@ -2745,12 +2764,14 @@ struct BarbellRealityView: View {
         // Rack stands
         for xSign: Float in [-1, 1] {
             let stand = makeRackStandEntity(rackStyleID: rackStyleID)
+            castGroundingShadows(fromModelsIn: stand)
             stand.position = SIMD3(xSign * 0.40, 0.3, barbellZ)
             sceneState.sceneRoot.addChild(stand)
         }
 
         // Bar
         let bar = makeBarEntity(skinID: barSkinID)
+        bar.components.set(GroundingShadowComponent(castsShadow: true))
         bar.position = SIMD3(0, 0.6, barbellZ)
         sceneState.sceneRoot.addChild(bar)
         sceneState.barAnchor.position = SIMD3(0, 0.6, barbellZ)
@@ -2761,6 +2782,7 @@ struct BarbellRealityView: View {
         // 5.2 cm slot spacing accommodates the thickest bumper plates (46 mm) with a 6 mm gap.
         for xSign: Float in [-1, 1] {
             let collar = makeCollarEntity(skinID: barSkinID)
+            collar.components.set(GroundingShadowComponent(castsShadow: true))
             collar.position = SIMD3(xSign * 0.54, 0.6, barbellZ)
             sceneState.sceneRoot.addChild(collar)
         }

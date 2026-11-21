@@ -69,6 +69,9 @@ struct PlateEntityBuildOptions {
     var includesPhysics: Bool
     var includesAudio: Bool
     var role: PlateRoleComponent.Role
+    /// A grounding shadow from the plate's body (the root ring mesh only: the component does not
+    /// apply to descendants, and the body is the plate's footprint). Scene plates only.
+    var castsGroundingShadow = false
 
     static func interactive(role: PlateRoleComponent.Role = .floor) -> PlateEntityBuildOptions {
         PlateEntityBuildOptions(
@@ -76,7 +79,8 @@ struct PlateEntityBuildOptions {
             includesCollision: true,
             includesPhysics: true,
             includesAudio: true,
-            role: role
+            role: role,
+            castsGroundingShadow: true
         )
     }
 
@@ -97,7 +101,8 @@ struct PlateEntityBuildOptions {
             includesCollision: true,
             includesPhysics: false,
             includesAudio: false,
-            role: .bar
+            role: .bar,
+            castsGroundingShadow: true
         )
     }
 }
@@ -1764,6 +1769,10 @@ func makePlateEntity(
         physicsBody.mode = .kinematic
         entity.components.set(physicsBody)
         entity.components.set(PhysicsMotionComponent())
+    }
+
+    if buildOptions.castsGroundingShadow {
+        entity.components.set(GroundingShadowComponent(castsShadow: true))
     }
 
     // Metadata components
