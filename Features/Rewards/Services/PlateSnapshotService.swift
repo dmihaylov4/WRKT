@@ -121,7 +121,9 @@ final class PlateSnapshotService {
 
         defer { arView.removeFromSuperview() }
 
-        let textures = loadPlateTextures(forTierID: tierID)
+        let textures = await loadPlateTexturesAsync(forTierID: tierID)
+        // A cancelled load may be partial; never cache a thumbnail rendered from it.
+        guard !Task.isCancelled else { return nil }
         let material = buildMaterial(forTierID: tierID, textures: textures)
         let entity = makePlateEntity(
             tierID: tierID,

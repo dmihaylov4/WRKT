@@ -16,7 +16,7 @@ struct SpinningPlateView: View {
     var body: some View {
         RealityView { content in
             // Build plate entity (visual only: no physics, no interaction)
-            let textures = loadPlateTextures(forTierID: plate.tierID)
+            let textures = await loadPlateTexturesAsync(forTierID: plate.tierID)
             let material = buildMaterial(forTierID: plate.tierID, textures: textures)
             let plateEntity = makePlateEntity(
                 tierID: plate.tierID,

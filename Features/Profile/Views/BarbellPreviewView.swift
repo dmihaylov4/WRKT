@@ -878,7 +878,10 @@ struct BarbellPreviewView: View {
         // uploads. Tier IDs 1=CastIron, 2=Rubber, 3=Brass map to the same source files used by
         // PlateWallView; sharing TextureResource objects halves GPU memory for PBR textures.
         for tierID in [1, 2, 3] where scene.plateTextures[tierID] == nil {
-            scene.plateTextures[tierID] = loadPlateTextures(forTierID: tierID)
+            let textures = await loadPlateTexturesAsync(forTierID: tierID)
+            // A cancelled load may be partial: keep the slot empty so the next appearance retries.
+            guard !Task.isCancelled else { return }
+            scene.plateTextures[tierID] = textures
             didLoadAsset = true
         }
 
