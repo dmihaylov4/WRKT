@@ -3929,7 +3929,7 @@
 				CODE_SIGN_ENTITLEMENTS = "WRKT Watch Watch App/WRKT Watch Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -3945,7 +3945,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.4.3;
+				MARKETING_VERSION = 5.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -3969,7 +3969,7 @@
 				CODE_SIGN_ENTITLEMENTS = "WRKT Watch Watch App/WRKT Watch Watch App.entitlements";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -3985,7 +3985,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.4.3;
+				MARKETING_VERSION = 5.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
@@ -4221,7 +4221,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/WRKT.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -4245,7 +4245,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.4.3;
+				MARKETING_VERSION = 5.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -4272,7 +4272,7 @@
 				CODE_SIGN_ENTITLEMENTS = App/WRKT.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -4296,7 +4296,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 5.4.3;
+				MARKETING_VERSION = 5.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -4321,7 +4321,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = WRKTWidgetsExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WRKTWidgets/Info.plist;
@@ -4332,7 +4332,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.4.3;
+				MARKETING_VERSION = 5.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -4353,7 +4353,7 @@
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
 				CODE_SIGN_ENTITLEMENTS = WRKTWidgetsExtension.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = DB7FM5537W;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WRKTWidgets/Info.plist;
@@ -4364,7 +4364,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 5.4.3;
+				MARKETING_VERSION = 5.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.dmihaylov.trak.WRKTWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
