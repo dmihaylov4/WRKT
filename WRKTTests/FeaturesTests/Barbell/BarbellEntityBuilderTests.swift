@@ -426,6 +426,15 @@ struct BarbellEntityBuilderTests {
         }
     }
 
+    @Test func everyPlateHasExactlyOneBoreRing() {
+        for tier in PlateTier.all {
+            let entity = makePlateEntity(tierID: tier.id, weightKg: 20)
+            let rings = entity.children.filter { $0.name.hasPrefix("boreRing") }
+            #expect(rings.count == 1, "Tier \(tier.id) has \(rings.count) bore rings")
+            #expect(rings.first?.position == .zero, "Tier \(tier.id) bore ring sits at the plate center")
+        }
+    }
+
     @Test func faceDetailLayersSitOnPlateFacesNotCenterline() {
         let faceDetailNames = [
             "moldedFaceRing_outer",

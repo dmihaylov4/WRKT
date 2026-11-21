@@ -1087,7 +1087,8 @@ private func makeBumperEntity(
         addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_outer", outerRadius: ringSpecs[0].outerRadius, innerRadius: ringSpecs[0].innerRadius, profile: profile, material: shadowMat), to: plate, profile: profile)
         addFaceDetailPair(makeMoldedFaceRing(name: "moldedFaceRing_inner", outerRadius: ringSpecs[1].outerRadius, innerRadius: ringSpecs[1].innerRadius, profile: profile, material: shadowMat), to: plate, profile: profile)
     }
-    addFaceDetailPair(makeBoreRing(profile: profile), to: plate, profile: profile)
+    // The bore ring is added once for every style by makePlateEntity. A face pair here only
+    // stacked two more identical rings at the same transform (the ring sits at y = 0).
     addFaceDetailPair(makeCenterBoss(profile: profile, material: BumperPlateSurface.centerHub(for: tier).material), to: plate, profile: profile)
     return plate
 }
