@@ -1,4 +1,5 @@
 import Foundation
+import RealityKit
 import SwiftUI
 import Testing
 import UIKit
@@ -10,16 +11,21 @@ import UIKit
 /// TEST_RUNNER_VOLIA_CAPTURE_RACK=1, TEST_RUNNER_VOLIA_CAPTURE_DIR=<directory>.
 /// TEST_RUNNER_VOLIA_CAPTURE_HOLD=<seconds> keeps each window up after writing <name>.ready so an
 /// outside screenshot (simctl io screenshot) can record the Metal layer, which drawHierarchy skips.
+/// TEST_RUNNER_VOLIA_CAPTURE_STATE=<name>[,<name>...] runs only those fixtures.
+/// TEST_RUNNER_VOLIA_CAPTURE_ROOM=<room theme id> builds the rack scene in that room (default dark_gym).
+/// Each rack fixture also writes <name>.stats.txt: the scene's entity, model and material slot counts.
 @MainActor
 @Suite(.serialized)
 struct CutRackCaptureTests {
     nonisolated static let names = [
-        "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "detail", "detail-ax5", "collection", "collection-ax5"
+        "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "detail", "detail-ax5", "collection", "collection-ax5",
+        "scene-legacy", "scene-moment", "scene-welcome"
     ]
     nonisolated static var selectedNames: [String] {
-        guard let name = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
-        precondition(names.contains(name), "Unknown capture fixture")
-        return [name]
+        guard let value = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
+        let selected = value.split(separator: ",").map(String.init)
+        precondition(selected.allSatisfy(names.contains), "Unknown capture fixture")
+        return selected
     }
     private var root: URL {
         URL(fileURLWithPath: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_DIR"] ?? "/private/tmp/volia-cut-rack")
@@ -35,7 +41,7 @@ struct CutRackCaptureTests {
         let window = UIWindow(windowScene: scene)
         let content = fixture(name).environment(\.dynamicTypeSize, name.contains("-ax5") ? .accessibility5 : .large)
         window.rootViewController = UIHostingController(rootView: Group {
-            if name.hasPrefix("rack") { content }
+            if name.hasPrefix("rack") || name.hasPrefix("scene") { content }
             else { Color.black.sheet(isPresented: .constant(true)) { content } }
         }.preferredColorScheme(.dark))
         window.overrideUserInterfaceStyle = .dark
@@ -59,6 +65,10 @@ struct CutRackCaptureTests {
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
         try #require(image.pngData()).write(to: root.appendingPathComponent(name + ".png"))
+        if name.hasPrefix("rack") || name.hasPrefix("scene"), let sceneRoot = CutRackFixtureScene.lastSceneState?.sceneRoot {
+            try CutRackFixtureScene.stats(sceneRoot).write(to: root.appendingPathComponent(name + ".stats.txt"),
+                                                           atomically: true, encoding: .utf8)
+        }
         if hold > 0 {
             try Data().write(to: root.appendingPathComponent(name + ".ready"))
             try await Task.sleep(for: .seconds(hold))
@@ -106,6 +116,7 @@ struct CutRackCaptureTests {
     ]
 
     private func fixture(_ name: String) -> AnyView {
+        if name.hasPrefix("scene") { return AnyView(SharedSceneFixture(name: name, plates: Self.plates)) }
         let locale = Locale(identifier: "en_US")
         let unit: WeightUnit = name.hasSuffix("-lb") ? .lb : .kg
         let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates : Self.plates
@@ -146,9 +157,58 @@ struct CutRackCaptureTests {
     }
 }
 
+/// The other callers of the same scene: the legacy wall-storage rack, the finish screen moment
+/// (no storage, earned plates hanging above the floor) and the welcome spin.
+private struct SharedSceneFixture: View {
+    let name: String
+    let plates: [EarnedPlate]
+    @State private var sceneState: SceneState = {
+        let state = SceneState()
+        for tierID in PlateTier.all.map(\.id) where tierID != 7 {
+            state.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
+            state.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: state.plateTextureCache[tierID])
+        }
+        return state
+    }()
+
+    var body: some View {
+        Group {
+            switch name {
+            case "scene-welcome":
+                VStack {
+                    Spacer()
+                    BarbellRealityView(
+                        mode: .welcome(plates: plates.prefix(3).map {
+                            EarnedPlateInfo(tierID: $0.tierID, weightKg: $0.weightKg, engravingText: "", earnedByEvent: "fixture")
+                        }),
+                        sceneState: sceneState
+                    )
+                    .frame(height: 300)
+                    .padding(.horizontal, 8)
+                    Spacer()
+                }
+                .background(Color.black)
+            default:
+                BarbellRealityView(
+                    mode: .rackRoom(rackedPlates: plates.filter(\.isRacked),
+                                    floorPlates: name == "scene-moment" ? Array(plates.filter { !$0.isRacked }.prefix(2))
+                                                                         : plates.filter { !$0.isRacked },
+                                    onRack: { _ in }, onUnrack: { _ in }),
+                    sceneState: sceneState,
+                    roomThemeID: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_ROOM"] ?? "dark_gym",
+                    allowsInteraction: false,
+                    showsStorage: name == "scene-legacy"
+                )
+            }
+        }
+        .onAppear { CutRackFixtureScene.lastSceneState = sceneState }
+    }
+}
+
 /// The real bar-only scene, built from fixture plates with the legacy preload done up front.
 private struct CutRackFixtureScene: View {
     let racked: [EarnedPlate]
+    @MainActor static var lastSceneState: SceneState?
     @State private var sceneState: SceneState = {
         let state = SceneState()
         for tierID in PlateTier.all.map(\.id) where tierID != 7 {
@@ -162,8 +222,41 @@ private struct CutRackFixtureScene: View {
         BarbellRealityView(
             mode: .rackRoom(rackedPlates: racked, floorPlates: [], onRack: { _ in }, onUnrack: { _ in }),
             sceneState: sceneState,
+            roomThemeID: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_ROOM"] ?? "dark_gym",
             allowsInteraction: false,
             barOnly: true
         )
+        .onAppear { Self.lastSceneState = sceneState }
+    }
+
+    /// Enabled entities, model entities, material slots (about one draw each), lights, and which
+    /// parts carry a grounding shadow or receive the image based light.
+    @MainActor static func stats(_ root: Entity) -> String {
+        var entities = 0, models = 0, slots = 0, points = 0, spots = 0, directional = 0, grounding = 0
+        var shadowedLights = 0, iblReceivers = 0, iblSources = 0
+        func visit(_ entity: Entity) {
+            guard entity.isEnabled else { return }
+            entities += 1
+            if let model = entity.components[ModelComponent.self] {
+                models += 1
+                slots += model.materials.count
+            }
+            if entity.components[PointLightComponent.self] != nil { points += 1 }
+            if entity.components[SpotLightComponent.self] != nil { spots += 1 }
+            if entity.components[DirectionalLightComponent.self] != nil { directional += 1 }
+            if entity.components[SpotLightComponent.Shadow.self] != nil
+                || entity.components[DirectionalLightComponent.Shadow.self] != nil { shadowedLights += 1 }
+            if entity.components[GroundingShadowComponent.self]?.castsShadow == true { grounding += 1 }
+            if entity.components[ImageBasedLightReceiverComponent.self] != nil { iblReceivers += 1 }
+            if entity.components[ImageBasedLightComponent.self] != nil { iblSources += 1 }
+            entity.children.forEach(visit)
+        }
+        visit(root)
+        return """
+        entities=\(entities) models=\(models) materialSlots=\(slots)
+        pointLights=\(points) spotLights=\(spots) directionalLights=\(directional) shadowedLights=\(shadowedLights)
+        groundingShadowCasters=\(grounding) iblSources=\(iblSources) iblReceivers=\(iblReceivers)
+
+        """
     }
 }
