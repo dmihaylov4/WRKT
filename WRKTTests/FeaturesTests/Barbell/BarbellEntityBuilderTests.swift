@@ -191,7 +191,7 @@ struct BarbellEntityBuilderTests {
         #expect(lighting.rimWashIntensity <= 1_600)
         #expect(abs(lighting.rimWashPosition.x) <= 0.05)
         #expect(lighting.rimWashPosition.z <= 0.40)
-        #expect(lighting.imageBasedLightIntensityExponent >= 1.2)
+        #expect((0.5...2).contains(lighting.imageBasedLightIntensityExponent))
         #expect(lighting.castsObjectShadows == false)
         #expect(lighting.usesDirectionalKey == false)
     }

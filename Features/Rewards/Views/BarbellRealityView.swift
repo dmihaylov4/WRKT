@@ -1007,7 +1007,7 @@ struct RackRoomLightingPreset {
     let barWashIntensity: Float
     let barSideWashIntensity: Float
     let storageWashIntensity: Float
-    let imageBasedLightIntensityExponent: Float
+    var imageBasedLightIntensityExponent: Float
     let castsObjectShadows: Bool
     let usesDirectionalKey: Bool
 
@@ -1031,10 +1031,33 @@ struct RackRoomLightingPreset {
         barWashIntensity: 6_800,
         barSideWashIntensity: 4_800,
         storageWashIntensity: 7_800,
-        imageBasedLightIntensityExponent: 1.95,
+        imageBasedLightIntensityExponent: 1,
         castsObjectShadows: false,
         usesDirectionalKey: false
     )
+
+    /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="ibl=1.2" in the launch
+    /// environment overrides values for tuning on a device or in simulator captures.
+    static var current: RackRoomLightingPreset {
+        var preset = readability
+        #if DEBUG
+        let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
+        if let value = overrides["ibl"] { preset.imageBasedLightIntensityExponent = value }
+        #endif
+        return preset
+    }
+}
+
+/// "name=value,name=value" into a dictionary; malformed pairs are skipped.
+func rackRoomLightingOverrides(_ text: String?) -> [String: Float] {
+    guard let text else { return [:] }
+    var result: [String: Float] = [:]
+    for pair in text.split(separator: ",") {
+        let parts = pair.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard parts.count == 2, let value = Float(parts[1]) else { continue }
+        result[parts[0]] = value
+    }
+    return result
 }
 
 let barbellRoomWallTextMaximumLength = 12
@@ -1241,6 +1264,10 @@ struct BarbellRealityView: View {
     var body: some View {
         ZStack {
             RealityView { content in
+                // The room's light probe is awaited before anything is built, so the first frame
+                // is already lit by it (no pop-in) and the build below runs without a suspension.
+                // Built once per process; later scenes get it at once.
+                let environment = await sharedRackRoomEnvironmentResource()
                 let interval = barbellSignposter.beginInterval("SceneBuild", id: barbellSignposter.makeSignpostID())
                 defer { barbellSignposter.endInterval("SceneBuild", interval) }
                 sceneState.sceneRoot   = Entity()
@@ -1251,20 +1278,16 @@ struct BarbellRealityView: View {
                 content.add(sceneState.sceneRoot)
                 setupLighting(in: sceneState.sceneRoot)
 
-                // IBL: load async after sceneRoot is wired to content.
-                // Nested Task so make{} is not blocked -- IBL enhances lighting when available.
-                Task { @MainActor in
-                    if let ibl = await sharedIndoorEnvironmentResource() {
-                        let iblEntity = Entity()
-                        iblEntity.components.set(ImageBasedLightComponent(
-                            source: .single(ibl),
-                            intensityExponent: RackRoomLightingPreset.readability.imageBasedLightIntensityExponent
-                        ))
-                        sceneState.sceneRoot.addChild(iblEntity)
-                        sceneState.sceneRoot.components.set(
-                            ImageBasedLightReceiverComponent(imageBasedLight: iblEntity)
-                        )
-                    }
+                if let environment {
+                    let iblEntity = Entity()
+                    iblEntity.name = "rackRoomEnvironment"
+                    iblEntity.components.set(ImageBasedLightComponent(
+                        source: .single(environment),
+                        intensityExponent: RackRoomLightingPreset.current.imageBasedLightIntensityExponent
+                    ))
+                    sceneState.sceneRoot.addChild(iblEntity)
+                    // The receiver applies to the whole subtree, including plates added later.
+                    sceneState.sceneRoot.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
                 }
 
                 switch mode {
@@ -1441,7 +1464,7 @@ struct BarbellRealityView: View {
     // MARK: Lighting
 
     private func setupLighting(in sceneRoot: Entity) {
-        let lighting = RackRoomLightingPreset.readability
+        let lighting = RackRoomLightingPreset.current
 
         // Match BarbellPreviewView's camera-side point light rig so storage plates are lit
         // from the user's viewing direction instead of by a wall-casting directional key.
