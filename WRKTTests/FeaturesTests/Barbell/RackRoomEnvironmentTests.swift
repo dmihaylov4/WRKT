@@ -96,3 +96,14 @@ import Testing
         #expect(RackRoomLightingPreset.readability.keyCastsShadow == false)
     }
 }
+
+/// Thin floor geometry shimmered: the lines are fewer and wide enough to cover several pixels.
+@Suite struct RackRoomFloorLineTests {
+    @Test func linesAreFewWideAndInsideTheRails() {
+        #expect(barbellRackRoomFloorLineWidth >= 0.02)
+        #expect(barbellRackRoomFloorStripXs.count == 4)
+        #expect(barbellRackRoomFloorSeamZs.count == 4)
+        #expect(barbellRackRoomFloorStripXs.allSatisfy { abs($0) < 0.82 }, "inside the side rails")
+        #expect(barbellRackRoomFloorStripXs.map { -$0 }.sorted() == barbellRackRoomFloorStripXs, "symmetric about the bar")
+    }
+}

@@ -136,6 +136,11 @@ func barbellBarOnlyCameraPosition(aspect: Float) -> SIMD3<Float> {
     return SIMD3(0, -0.52, 1.79 - 1.75 * clamped)
 }
 
+/// The rack room floor's lines: four strips running back from the camera and four seams across.
+let barbellRackRoomFloorLineWidth: Float = 0.025
+let barbellRackRoomFloorStripXs: [Float] = [-0.72, -0.24, 0.24, 0.72]
+let barbellRackRoomFloorSeamZs: [Float] = [-1.75, -0.95, -0.15, 0.65]
+
 func clampFloorPlateX(_ x: Float, maxAbsX: Float = 0.64) -> Float {
     max(-maxAbsX, min(maxAbsX, x))
 }
@@ -1292,6 +1297,12 @@ struct BarbellRealityView: View {
                 sceneState.sceneRoot.addChild(sceneState.floorAnchor)
                 sceneState.sceneRoot.addChild(sceneState.barAnchor)
                 content.add(sceneState.sceneRoot)
+                // Edges: 4x multisampling for the bar, plate rims and floor lines. No camera
+                // effects: motion blur, depth of field and grain only soften a still room.
+                content.renderingEffects.antialiasing = .multisample4X
+                content.renderingEffects.motionBlur = .disabled
+                content.renderingEffects.depthOfField = .disabled
+                content.renderingEffects.cameraGrain = .disabled
                 setupLighting(in: sceneState.sceneRoot)
 
                 if let environment {
@@ -2595,10 +2606,10 @@ struct BarbellRealityView: View {
         baseboard.position = SIMD3(0, 0.049, -0.122)
         sceneState.sceneRoot.addChild(baseboard)
 
-        // Pilasters: narrow vertical accents flanking the sign zone
+        // Pilasters: vertical accents flanking the sign zone (5 cm: 2 cm shimmered)
         for xPos: Float in [-0.62, 0.62] {
             let pilaster = ModelEntity(
-                mesh: cachedBox(size: SIMD3(0.020, 1.52, 0.018)),
+                mesh: cachedBox(size: SIMD3(0.050, 1.52, 0.018)),
                 materials: [pilMat]
             )
             pilaster.position = SIMD3(xPos, 0.74, -0.122)
@@ -2674,22 +2685,24 @@ struct BarbellRealityView: View {
         floorLine.position = SIMD3(0, -0.006, -0.5)
         sceneState.sceneRoot.addChild(floorLine)
 
-        // Subtle platform strips make sliding/falling easier to read against the floor.
+        // Subtle platform strips make sliding/falling easier to read against the floor. Half as
+        // many as before and a few centimetres wide: 1 cm strips and 8 mm seams were a pixel or
+        // two on screen and shimmered as the camera framing changed.
         let stripMat = pbrMaterial(color: theme.stripColor, metallic: 0.03, roughness: 0.9)
-        for x in stride(from: -0.72, through: 0.72, by: 0.24) {
+        for x in barbellRackRoomFloorStripXs {
             let strip = ModelEntity(
-                mesh: cachedBox(size: SIMD3(0.010, 0.004, 3.2)),
+                mesh: cachedBox(size: SIMD3(barbellRackRoomFloorLineWidth, 0.004, 3.2)),
                 materials: [stripMat]
             )
-            strip.position = SIMD3(Float(x), 0.0005, -0.5)
+            strip.position = SIMD3(x, 0.0005, -0.5)
             sceneState.sceneRoot.addChild(strip)
         }
-        for z in stride(from: -1.75, through: 0.65, by: 0.40) {
+        for z in barbellRackRoomFloorSeamZs {
             let seam = ModelEntity(
-                mesh: cachedBox(size: SIMD3(1.7, 0.004, 0.008)),
+                mesh: cachedBox(size: SIMD3(1.7, 0.004, barbellRackRoomFloorLineWidth)),
                 materials: [stripMat]
             )
-            seam.position = SIMD3(0, 0.001, Float(z))
+            seam.position = SIMD3(0, 0.001, z)
             sceneState.sceneRoot.addChild(seam)
         }
 
@@ -2810,7 +2823,7 @@ struct BarbellRealityView: View {
             var mat = UnlitMaterial()
             mat.color = .init(tint: UIColor(white: 1, alpha: 0.7))
             let ring = ModelEntity(
-                mesh: cachedCylinder(height: 0.003, radius: 0.25),
+                mesh: cachedCylinder(height: 0.006, radius: 0.25),
                 materials: [mat]
             )
             ring.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
