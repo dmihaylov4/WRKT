@@ -341,7 +341,6 @@ final class SupabaseAuthService: ObservableObject {
                 isPrivate: false,
                 autoPostPRs: true,
                 autoPostCardio: true,
-                autoPostWatchWorkouts: false,
                 updatedAt: Date()
             )
 
@@ -719,6 +718,8 @@ final class SupabaseAuthService: ObservableObject {
 
 /// Encodable payload for the OAuth profile upsert.
 /// Excludes createdAt so an update on conflict does not overwrite the original timestamp.
+/// Excludes auto_post_watch_workouts: the deployed profiles table has no such column (PostgREST
+/// rejects the whole upsert with 42703), and the app reads a missing value as off.
 private struct OAuthProfilePayload: Encodable {
     let id: UUID
     let username: String
@@ -726,7 +727,6 @@ private struct OAuthProfilePayload: Encodable {
     let isPrivate: Bool
     let autoPostPRs: Bool
     let autoPostCardio: Bool
-    let autoPostWatchWorkouts: Bool
     let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -736,7 +736,6 @@ private struct OAuthProfilePayload: Encodable {
         case isPrivate = "is_private"
         case autoPostPRs = "auto_post_prs"
         case autoPostCardio = "auto_post_cardio"
-        case autoPostWatchWorkouts = "auto_post_watch_workouts"
         case updatedAt = "updated_at"
     }
 }
