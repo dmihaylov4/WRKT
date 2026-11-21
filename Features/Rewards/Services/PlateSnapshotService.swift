@@ -146,7 +146,7 @@ final class PlateSnapshotService {
         cameraAnchor.addChild(camera)
         arView.scene.addAnchor(cameraAnchor)
 
-        if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
+        if let ibl = await sharedIndoorEnvironmentResource() {
             let iblEntity = Entity()
             iblEntity.components.set(ImageBasedLightComponent(
                 source: .single(ibl),

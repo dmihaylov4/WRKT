@@ -733,6 +733,23 @@ func loadPlateTexturesAsync(forTierID tierID: Int) async -> PlateTextures {
     return textures
 }
 
+// MARK: - Image-based light
+
+// One IndoorHDRI lookup per process, shared by every RealityView make, preview, spinning plate
+// and thumbnail render. Each caller still builds its own ImageBasedLightComponent with its own
+// intensity. Concurrent first callers await the same load. The result is kept either way: the
+// lookup is deterministic, and today it fails with resourceNotFound because IndoorHDRI.exr ships
+// as a plain bundle file, not in a .skybox folder, so every caller already ran without IBL.
+@MainActor private var _indoorEnvironmentTask: Task<EnvironmentResource?, Never>?
+
+@MainActor
+func sharedIndoorEnvironmentResource() async -> EnvironmentResource? {
+    if let task = _indoorEnvironmentTask { return await task.value }
+    let task = Task { @MainActor in try? await EnvironmentResource(named: "IndoorHDRI") }
+    _indoorEnvironmentTask = task
+    return await task.value
+}
+
 // MARK: - Per-style plate helpers
 
 private func makeRaisedOuterRim(profile: PlateVisualProfile, material: PhysicallyBasedMaterial) -> ModelEntity {

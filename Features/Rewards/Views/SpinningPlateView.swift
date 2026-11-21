@@ -39,7 +39,7 @@ struct SpinningPlateView: View {
 
             // IBL for proper PBR material rendering: same resource as BarbellRealityView
             Task { @MainActor in
-                if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
+                if let ibl = await sharedIndoorEnvironmentResource() {
                     let iblEntity = Entity()
                     iblEntity.components.set(ImageBasedLightComponent(
                         source: .single(ibl),

@@ -1254,7 +1254,7 @@ struct BarbellRealityView: View {
                 // IBL: load async after sceneRoot is wired to content.
                 // Nested Task so make{} is not blocked -- IBL enhances lighting when available.
                 Task { @MainActor in
-                    if let ibl = try? await EnvironmentResource(named: "IndoorHDRI") {
+                    if let ibl = await sharedIndoorEnvironmentResource() {
                         let iblEntity = Entity()
                         iblEntity.components.set(ImageBasedLightComponent(
                             source: .single(ibl),

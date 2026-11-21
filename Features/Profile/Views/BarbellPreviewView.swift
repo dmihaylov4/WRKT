@@ -884,7 +884,7 @@ struct BarbellPreviewView: View {
 
         // IBL from HDRI
         if scene.iblResource == nil {
-            scene.iblResource = try? await EnvironmentResource(named: "IndoorHDRI")
+            scene.iblResource = await sharedIndoorEnvironmentResource()
             didLoadAsset = scene.iblResource != nil || didLoadAsset
         }
 
