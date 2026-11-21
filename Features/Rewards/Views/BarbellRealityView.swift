@@ -997,52 +997,63 @@ final class SceneState {
 
 // MARK: - BarbellRealityView
 
-struct RackRoomLightingPreset {
-    let keyIntensity: Float
-    let keyPosition: SIMD3<Float>
-    let fillIntensity: Float
-    let fillPosition: SIMD3<Float>
-    let frontWashIntensity: Float
-    let frontWashPosition: SIMD3<Float>
-    let barWashIntensity: Float
-    let barSideWashIntensity: Float
-    let storageWashIntensity: Float
+/// The rack room's light rig: one overhead key spot a little in front of the bar, aimed at the
+/// floor just in front of it, so the bar, plates and stands are lit from above and the floor gets
+/// a pool of light that falls off toward the walls; two faint rim spots from above and behind the
+/// plate stacks (at plus and minus `rimPosition.x`), toward the viewer, so plate edges separate
+/// from the wall; the room's light probe for fill and reflections. Positions are in the scene root's space (bar at y 0.6, z 0.12; floor at y 0;
+/// back wall face at z -0.12). Angles are RealityKit's spot cone angles in degrees.
+struct RackRoomLightingPreset: Equatable {
+    var keyIntensity: Float
+    var keyPosition: SIMD3<Float>
+    var keyTarget: SIMD3<Float>
+    var keyInnerAngle: Float
+    var keyOuterAngle: Float
+    var keyAttenuationRadius: Float
+    var rimIntensity: Float
+    var rimPosition: SIMD3<Float>
+    var rimTarget: SIMD3<Float>
+    var rimOuterAngle: Float
     var imageBasedLightIntensityExponent: Float
-    let castsObjectShadows: Bool
-    let usesDirectionalKey: Bool
-
-    var barSideWashX: Float { 0.72 }
-    var storageWashY: Float { 1.60 }
-    var storageFaceWashIntensity: Float { 4_800 }
-    var storageFaceWashX: Float { 0.72 }
-    var storageSideWashIntensity: Float { 4_900 }
-    var storageSideWashX: Float { 0.92 }
-    var storageSideWashY: Float { 1.50 }
-    var rimWashIntensity: Float { 1_300 }
-    var rimWashPosition: SIMD3<Float> { SIMD3(0, 0.88, 0.36) }
+    /// The legacy wall storage only (never built in the Cut bar-only rack): a soft wash on the
+    /// plates hanging above the bar, which the overhead key barely reaches.
+    var storageWashIntensity: Float
+    var storageWashPosition: SIMD3<Float>
 
     static let readability = RackRoomLightingPreset(
-        keyIntensity: 6_200,
-        keyPosition: SIMD3(0, 2.10, 1.90),
-        fillIntensity: 3_400,
-        fillPosition: SIMD3(0, 0.42, 0.88),
-        frontWashIntensity: 3_800,
-        frontWashPosition: SIMD3(0, 0.92, 0.88),
-        barWashIntensity: 6_800,
-        barSideWashIntensity: 4_800,
-        storageWashIntensity: 7_800,
-        imageBasedLightIntensityExponent: 1,
-        castsObjectShadows: false,
-        usesDirectionalKey: false
+        keyIntensity: 170_000,
+        keyPosition: SIMD3(0, 2.40, 0.85),
+        keyTarget: SIMD3(0, 0, 0.30),
+        keyInnerAngle: 16,
+        keyOuterAngle: 48,
+        keyAttenuationRadius: 6,
+        rimIntensity: 30_000,
+        rimPosition: SIMD3(0.68, 1.25, -0.04),
+        rimTarget: SIMD3(0.68, 0.55, 0.32),
+        rimOuterAngle: 44,
+        imageBasedLightIntensityExponent: -0.25,
+        storageWashIntensity: 7_000,
+        storageWashPosition: SIMD3(0, 1.60, 1.0)
     )
 
-    /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="ibl=1.2" in the launch
-    /// environment overrides values for tuning on a device or in simulator captures.
+    /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="key=40000,ibl=1.2" in the
+    /// launch environment overrides values for tuning on a device or in simulator captures. Names:
+    /// key, keyY, keyZ, targetZ, inner, outer, rim, rimY, rimOuter, ibl, wash.
     static var current: RackRoomLightingPreset {
         var preset = readability
         #if DEBUG
         let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
+        if let value = overrides["key"] { preset.keyIntensity = value }
+        if let value = overrides["keyY"] { preset.keyPosition.y = value }
+        if let value = overrides["keyZ"] { preset.keyPosition.z = value }
+        if let value = overrides["targetZ"] { preset.keyTarget.z = value }
+        if let value = overrides["inner"] { preset.keyInnerAngle = value }
+        if let value = overrides["outer"] { preset.keyOuterAngle = value }
+        if let value = overrides["rim"] { preset.rimIntensity = value }
+        if let value = overrides["rimY"] { preset.rimPosition.y = value }
+        if let value = overrides["rimOuter"] { preset.rimOuterAngle = value }
         if let value = overrides["ibl"] { preset.imageBasedLightIntensityExponent = value }
+        if let value = overrides["wash"] { preset.storageWashIntensity = value }
         #endif
         return preset
     }
@@ -1466,66 +1477,47 @@ struct BarbellRealityView: View {
     private func setupLighting(in sceneRoot: Entity) {
         let lighting = RackRoomLightingPreset.current
 
-        // Match BarbellPreviewView's camera-side point light rig so storage plates are lit
-        // from the user's viewing direction instead of by a wall-casting directional key.
-        let keyEntity = Entity()
-        if lighting.usesDirectionalKey {
-            var keyLight = DirectionalLightComponent()
-            keyLight.color = .white
-            keyLight.intensity = lighting.keyIntensity
-            keyEntity.components.set(keyLight)
-            keyEntity.components.set(DirectionalLightComponent.Shadow(maximumDistance: 2.6, depthBias: 4.5))
-            keyEntity.orientation = simd_quatf(angle: -.pi / 4, axis: SIMD3(1, 0, 0))
-                * simd_quatf(angle: .pi / 6, axis: SIMD3(0, 1, 0))
-        } else {
-            keyEntity.components[PointLightComponent.self] = PointLightComponent(
-                color: .white, intensity: lighting.keyIntensity, attenuationRadius: 10
-            )
-            keyEntity.position = lighting.keyPosition
+        // Key: overhead, a little in front of the bar, aimed at the floor just in front of it.
+        let key = Entity()
+        key.name = "rackRoomKey"
+        key.components.set(SpotLightComponent(
+            color: UIColor(red: 1.0, green: 0.985, blue: 0.96, alpha: 1),
+            intensity: lighting.keyIntensity,
+            innerAngleInDegrees: lighting.keyInnerAngle,
+            outerAngleInDegrees: lighting.keyOuterAngle,
+            attenuationRadius: lighting.keyAttenuationRadius
+        ))
+        sceneRoot.addChild(key)
+        key.look(at: lighting.keyTarget, from: lighting.keyPosition, relativeTo: sceneRoot)
+
+        // Rim: two faint spots, one behind and above each plate stack, aimed forward and down so
+        // plate rims and tops separate from the wall. Their cones never include the wall.
+        for side: Float in [-1, 1] {
+            let rim = Entity()
+            rim.name = "rackRoomRim"
+            rim.components.set(SpotLightComponent(
+                color: UIColor(red: 0.94, green: 0.97, blue: 1.0, alpha: 1),
+                intensity: lighting.rimIntensity,
+                innerAngleInDegrees: lighting.rimOuterAngle * 0.5,
+                outerAngleInDegrees: lighting.rimOuterAngle,
+                attenuationRadius: 3
+            ))
+            sceneRoot.addChild(rim)
+            let mirror = SIMD3<Float>(side, 1, 1)
+            rim.look(at: lighting.rimTarget * mirror, from: lighting.rimPosition * mirror, relativeTo: sceneRoot)
         }
-        sceneRoot.addChild(keyEntity)
 
-        // Fill light -- point, no shadow, reduces harsh key-side darkness
-        let fillEntity = Entity()
-        fillEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 0.92, alpha: 1), intensity: lighting.fillIntensity, attenuationRadius: 8
-        )
-        fillEntity.position = lighting.fillPosition
-        sceneRoot.addChild(fillEntity)
-
-        let frontWashEntity = Entity()
-        frontWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 1.0, alpha: 1), intensity: lighting.frontWashIntensity, attenuationRadius: 7
-        )
-        frontWashEntity.position = lighting.frontWashPosition
-        sceneRoot.addChild(frontWashEntity)
-
-        // Bar wash -- dedicated light at barbell height so racked plates match storage vibrancy.
-        // Positioned above and camera-side of the bar (sceneRoot-local y=1.0, z=0.95).
-        let barWashEntity = Entity()
-        barWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: .white, intensity: lighting.barWashIntensity, attenuationRadius: 4.5
-        )
-        barWashEntity.position = SIMD3(0, 1.0, 0.95)
-        sceneRoot.addChild(barWashEntity)
-
-        let barSideWashEntity = Entity()
-        barSideWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 1.0, alpha: 1),
-            intensity: lighting.barSideWashIntensity,
-            attenuationRadius: 3.5
-        )
-        barSideWashEntity.position = SIMD3(0, 0.92, 0.72)
-        sceneRoot.addChild(barSideWashEntity)
-
-        let storageWashEntity = Entity()
-        storageWashEntity.components[PointLightComponent.self] = PointLightComponent(
-            color: UIColor(white: 1.0, alpha: 1),
-            intensity: lighting.storageWashIntensity,
-            attenuationRadius: 4.5
-        )
-        storageWashEntity.position = SIMD3(0, 1.60, 1.0)
-        sceneRoot.addChild(storageWashEntity)
+        // The legacy wall storage hangs plates above the key's reach: give them a soft wash. The
+        // Cut bar-only rack builds no storage and gets no wash.
+        if case .rackRoom = mode, showsStorage, !barOnly {
+            let wash = Entity()
+            wash.name = "rackRoomStorageWash"
+            wash.components.set(PointLightComponent(
+                color: .white, intensity: lighting.storageWashIntensity, attenuationRadius: 3
+            ))
+            wash.position = lighting.storageWashPosition
+            sceneRoot.addChild(wash)
+        }
     }
 
     // MARK: Welcome scene setup

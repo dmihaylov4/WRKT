@@ -1,4 +1,5 @@
 import RealityKit
+import simd
 import Testing
 import CoreFoundation
 import UIKit
@@ -166,34 +167,35 @@ struct BarbellEntityBuilderTests {
         }
     }
 
-    @Test func rackRoomLightingIncludesSubjectAndRimSeparation() {
+    @Test func rackRoomKeyIsOverheadInFrontOfTheBarAimedAtTheFloor() {
+        let lighting = RackRoomLightingPreset.readability
+        let barY: Float = 0.6, barZ: Float = 0.12
+
+        #expect(lighting.keyPosition.y > barY + 1.2, "the key hangs well above the bar")
+        #expect(lighting.keyPosition.z > barZ, "slightly in front of the bar")
+        #expect(lighting.keyPosition.z < barZ + 1.2, "not a frontal camera light")
+        #expect(abs(lighting.keyPosition.x) <= 0.05)
+        #expect(lighting.keyTarget.y == 0, "aimed at the floor")
+        #expect(lighting.keyTarget.z > barZ && lighting.keyTarget.z < lighting.keyPosition.z)
+        #expect(lighting.keyInnerAngle < lighting.keyOuterAngle, "the pool has a soft edge")
+        #expect(lighting.keyAttenuationRadius > simd_distance(lighting.keyPosition, lighting.keyTarget))
+    }
+
+    @Test func rackRoomRimIsFaintAndComesFromBehindTheBar() {
         let lighting = RackRoomLightingPreset.readability
 
-        #expect(lighting.keyIntensity >= 6_000)
-        #expect(lighting.keyPosition.y >= 1.8)
-        #expect(lighting.keyPosition.z >= 1.85)
-        #expect(lighting.fillIntensity >= 2_600)
-        #expect(abs(lighting.fillPosition.x) <= 0.05)
-        #expect(lighting.fillPosition.z < 1.0)
-        #expect(lighting.frontWashIntensity >= 3_600)
-        #expect(abs(lighting.frontWashPosition.x) <= 0.05)
-        #expect(lighting.frontWashPosition.z < 1.0)
-        #expect(lighting.barWashIntensity >= 6_600)
-        #expect(lighting.barSideWashIntensity >= 4_400)
-        #expect(lighting.barSideWashX >= 0.72)
-        #expect(lighting.storageWashIntensity >= 6_200)
-        #expect(lighting.storageWashY >= 1.55)
-        #expect(lighting.storageFaceWashIntensity >= 4_600)
-        #expect(lighting.storageFaceWashX >= 0.70)
-        #expect(lighting.storageSideWashIntensity >= 4_800)
-        #expect(lighting.storageSideWashX >= 0.9)
-        #expect(lighting.storageSideWashY >= 1.45)
-        #expect(lighting.rimWashIntensity <= 1_600)
-        #expect(abs(lighting.rimWashPosition.x) <= 0.05)
-        #expect(lighting.rimWashPosition.z <= 0.40)
-        #expect((0.5...2).contains(lighting.imageBasedLightIntensityExponent))
-        #expect(lighting.castsObjectShadows == false)
-        #expect(lighting.usesDirectionalKey == false)
+        #expect(lighting.rimIntensity < lighting.keyIntensity * 0.3)
+        #expect((0.60...0.80).contains(lighting.rimPosition.x), "behind a plate stack (mirrored for the other)")
+        #expect(lighting.rimTarget.x == lighting.rimPosition.x)
+        #expect(lighting.rimPosition.z < 0.12, "behind the bar")
+        #expect(lighting.rimPosition.z > -0.12, "in front of the back wall, so it does not light it")
+        #expect(lighting.rimTarget.z > lighting.rimPosition.z, "pointing toward the viewer")
+        #expect(lighting.rimTarget.y < lighting.rimPosition.y)
+        // The cone's edge stays forward of straight down, so the back wall is never in it.
+        let aim = simd_normalize(lighting.rimTarget - lighting.rimPosition)
+        let forwardOfDown = atan2(aim.z, -aim.y) * 180 / .pi
+        #expect(forwardOfDown > lighting.rimOuterAngle / 2)
+        #expect((-1...1).contains(lighting.imageBasedLightIntensityExponent), "fill, not the key")
     }
 
     @Test func roomThemesProvidePlateZoneContrast() {
