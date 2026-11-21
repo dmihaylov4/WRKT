@@ -43,7 +43,7 @@ struct SettingsView: View {
                         if let currentUser = authService.currentUser {
                             settingsRow {
                                 NavigationLink {
-                                    SocialProfileView(userId: currentUser.id)
+                                    SocialNameGate(.socialSettings, authService: authService) { SocialProfileView(userId: currentUser.id) }
                                 } label: {
                                     Label("My Profile", systemImage: "person.circle")
                                 }
@@ -52,7 +52,7 @@ struct SettingsView: View {
 
                         settingsRow {
                             NavigationLink {
-                                ActivityFeedView()
+                                SocialNameGate(.socialSettings, authService: authService) { ActivityFeedView() }
                             } label: {
                                 HStack {
                                     Label("Activity", systemImage: "bell.fill")
@@ -66,7 +66,7 @@ struct SettingsView: View {
 
                         settingsRow {
                             NavigationLink {
-                                FriendsListView()
+                                SocialNameGate(.socialSettings, authService: authService) { FriendsListView() }
                             } label: {
                                 Label("Friends", systemImage: "person.2.fill")
                             }
@@ -74,7 +74,7 @@ struct SettingsView: View {
 
                         settingsRow {
                             NavigationLink {
-                                FriendRequestsView()
+                                SocialNameGate(.socialSettings, authService: authService) { FriendRequestsView() }
                             } label: {
                                 HStack {
                                     Label("Friend Requests", systemImage: "person.badge.plus")
@@ -88,7 +88,7 @@ struct SettingsView: View {
 
                         settingsRow(showsDivider: false) {
                             NavigationLink {
-                                UserSearchView()
+                                SocialNameGate(.socialSettings, authService: authService) { UserSearchView() }
                             } label: {
                                 Label("Find Friends", systemImage: "magnifyingglass")
                             }

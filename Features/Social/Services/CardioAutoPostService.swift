@@ -33,10 +33,10 @@ final class CardioAutoPostService {
     /// Create a post for a non-run Watch workout (HIIT, Functional Training, etc.) if enabled.
     /// Called immediately after the workout is imported — no route queue involved.
     func handleWatchWorkoutIfNeeded(run: Run) async {
+        // A placeholder account (no name chosen yet) never auto-posts: see ProfileNamePolicy.
         guard let user = authService.currentUser,
-              let profile = user.profile,
-              profile.autoPostWatchWorkouts else {
-            AppLogger.info("Watch workout auto-post disabled or user not logged in", category: AppLogger.social)
+              AutoPostSetting.watchWorkouts.allowsPosting(for: user.profile) else {
+            AppLogger.info("Watch workout auto-post disabled, no name chosen yet, or user not logged in", category: AppLogger.social)
             return
         }
 
@@ -81,10 +81,10 @@ final class CardioAutoPostService {
     ///   - routeWithHR: Optional route data with heart rate samples
     func handleRunIfNeeded(run: Run, route: [Coordinate]? = nil, routeWithHR: [RoutePoint]? = nil) async {
         // Check if user has auto-posting enabled
+        // A placeholder account (no name chosen yet) never auto-posts: see ProfileNamePolicy.
         guard let user = authService.currentUser,
-              let profile = user.profile,
-              profile.autoPostCardio else {
-            AppLogger.info("⏭️ Cardio auto-post disabled or user not logged in", category: AppLogger.social)
+              AutoPostSetting.runs.allowsPosting(for: user.profile) else {
+            AppLogger.info("Cardio auto-post disabled, no name chosen yet, or user not logged in", category: AppLogger.social)
             return
         }
 

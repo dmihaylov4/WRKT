@@ -62,6 +62,11 @@ struct PostCreationView: View {
     }
 
     var body: some View {
+        // Every composer, wherever it opens from, asks for a real name first.
+        SocialNameGate(.posting, authService: deps.authService, close: { dismiss() }) { composer }
+    }
+
+    @ViewBuilder private var composer: some View {
         if DS.Redesign.cutEnabled { CutPostComposeHost(initialWorkout: initialWorkout, initialWorkouts: initialWorkouts, initialMapImage: initialMapImage, initialCaption: initialCaption, navigationTitle: navigationTitle, weeklyStats: weeklyStats, attachedImage: attachedImage) }
         else { legacyBody }
     }

@@ -37,6 +37,8 @@ final class BattleShareCoordinator {
               let userId = pendingUserId,
               !isAlreadyShared,
               !isSharing else { return }
+        // No sharing to friends until the account has chosen a name: see ProfileNamePolicy.
+        guard ProfileNamePolicy.allowsPosting(SupabaseAuthService.shared.currentUser?.profile) else { return }
 
         isSharing = true
 

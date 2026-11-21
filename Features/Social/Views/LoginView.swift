@@ -349,7 +349,10 @@ struct LoginFieldStyle: ViewModifier {
             .foregroundStyle(DS.Semantic.textPrimary)
             .tint(DS.Theme.accent)
             .padding(.horizontal, 18)
-            .frame(height: 58)
+            // A minimum, not a fixed height: at the largest text sizes the text grows the field
+            // instead of being clipped. At the default size it is still 58 pt.
+            .padding(.vertical, 12)
+            .frame(minHeight: 58)
             .background(DS.Semantic.card, in: DS.RoleShape(.card, legacy: ChamferedRectangle(.large)))
             .overlay(
                 DS.RoleShape(.card, legacy: ChamferedRectangle(.large))
