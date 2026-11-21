@@ -97,7 +97,8 @@ struct BarbellEditorView: View {
                     selectedBarID: selectedBarSkinIndex,
                     selectedRoomThemeID: config?.effectiveSelectedRoomThemeID ?? BarbellCustomizationDefaults.roomThemeID,
                     selectedRackStyleID: config?.effectiveSelectedRackStyleID ?? BarbellCustomizationDefaults.rackStyleID,
-                    showPlateEngravings: config?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings
+                    showPlateEngravings: config?.showPlateEngravings ?? BarbellCustomizationDefaults.showPlateEngravings,
+                    isActive: selectedPlateForDetail == nil
                 )
                 .id(previewIdentity)
                     .frame(height: 220)
