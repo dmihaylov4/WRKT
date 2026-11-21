@@ -12,6 +12,9 @@ struct SettingsView: View {
     @StateObject private var settings = AppSettings.shared
     @State private var badgeManager = NotificationBadgeManager.shared
     @State private var showLoginSheet = false
+    @ObservedObject private var workoutStore: WorkoutStoreV2 = AppDependencies.shared.workoutStore
+    /// TestFlight tester switch: the latest choice, applied at the next launch.
+    @State private var testerChoice = CutTesterSwitch.chosen()
     #if DEBUG
     @State private var showLaunchReplay = false
     @AppStorage(DS.Redesign.roundedShapesPreferenceKey)
@@ -118,6 +121,14 @@ struct SettingsView: View {
                             DiagnosticsLogView()
                         } label: {
                             Label("Diagnostics", systemImage: "doc.text.magnifyingglass")
+                        }
+                    }
+                }
+
+                if CutTesterSwitch.showsSwitch {
+                    settingsCard(title: "Testing") {
+                        settingsRow(showsDivider: false) {
+                            testerToggle
                         }
                     }
                 }
@@ -260,6 +271,27 @@ struct SettingsView: View {
                 settings.disableLocalMode()
             }
         }
+    }
+
+    /// The TestFlight tester switch, styled like the Debug switches.
+    private var testerToggle: some View {
+        let workoutActive = workoutStore.currentWorkout != nil
+        return Toggle(isOn: Binding(
+            get: { testerChoice },
+            set: { on in
+                testerChoice = on
+                CutTesterSwitch.choose(on, workoutActive: workoutActive)
+            }
+        )) {
+            VStack(alignment: .leading) {
+                Text(CutTesterSwitch.title)
+                Text(CutTesterSwitch.note(chosen: testerChoice, runningNewDesign: DS.Redesign.cutEnabled,
+                                          workoutActive: workoutActive))
+                    .dsFont(.caption)
+                    .foregroundStyle(DS.Semantic.textSecondary)
+            }
+        }
+        .disabled(workoutActive)
     }
 
     @ViewBuilder

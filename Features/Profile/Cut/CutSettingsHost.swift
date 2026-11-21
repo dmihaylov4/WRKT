@@ -17,6 +17,9 @@ struct CutSettingsHost: View {
     @State private var badgeManager = NotificationBadgeManager.shared
     @State private var showLoginSheet = false
     @State private var destination: Destination?
+    @ObservedObject private var workoutStore: WorkoutStoreV2 = AppDependencies.shared.workoutStore
+    /// TestFlight tester switch: the latest choice, applied at the next launch.
+    @State private var testerChoice = CutTesterSwitch.chosen()
     #if DEBUG
     @State private var showLaunchReplay = false
     @AppStorage(DS.Redesign.roundedShapesPreferenceKey)
@@ -48,8 +51,22 @@ struct CutSettingsHost: View {
             isLocalMode: settings.isLocalMode,
             isLoggedIn: isLoggedIn,
             activityCount: badgeManager.notificationCount,
-            friendRequestCount: badgeManager.friendRequestCount
+            friendRequestCount: badgeManager.friendRequestCount,
+            showsTesterSwitch: CutTesterSwitch.showsSwitch,
+            testerChoice: testerChoice,
+            runningNewDesign: DS.Redesign.cutEnabled,
+            workoutActive: workoutStore.currentWorkout != nil
         ))
+    }
+
+    private var testerDesign: Binding<Bool> {
+        Binding(
+            get: { testerChoice },
+            set: { on in
+                testerChoice = on
+                CutTesterSwitch.choose(on, workoutActive: workoutStore.currentWorkout != nil)
+            }
+        )
     }
 
     var body: some View {
@@ -90,9 +107,10 @@ struct CutSettingsHost: View {
         #if DEBUG
         CutSettingsView(model: model, roundedShapes: $useRoundedShapes, cutDesign: $useCut,
                         yearAward3D: $yearAward3D, runHistoryMigration: $runHistoryMigrationOptIn,
-                        runHistoryMigrationStatus: runHistoryMigrationStatus, actions: actions)
+                        runHistoryMigrationStatus: runHistoryMigrationStatus, testerDesign: testerDesign,
+                        actions: actions)
         #else
-        CutSettingsView(model: model, actions: actions)
+        CutSettingsView(model: model, testerDesign: testerDesign, actions: actions)
         #endif
     }
 

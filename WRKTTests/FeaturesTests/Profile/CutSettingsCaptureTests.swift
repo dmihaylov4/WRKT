@@ -15,10 +15,18 @@ struct CutSettingsCaptureTests {
         let states: [(String, CutSettingsFacts)] = [
             ("settings-signed-in", CutSettingsFacts(isLocalMode: false, isLoggedIn: true, activityCount: 3, friendRequestCount: 2)),
             ("settings-local", CutSettingsFacts(isLocalMode: true, isLoggedIn: false)),
-            ("settings-signed-out", CutSettingsFacts(isLocalMode: false, isLoggedIn: false))
+            ("settings-signed-out", CutSettingsFacts(isLocalMode: false, isLoggedIn: false)),
+            // TestFlight tester switch: on and running, chosen but not yet restarted, during a workout.
+            ("settings-tester-on", CutSettingsFacts(isLocalMode: true, showsTesterSwitch: true,
+                                                    testerChoice: true, runningNewDesign: true)),
+            ("settings-tester-restart", CutSettingsFacts(isLocalMode: true, showsTesterSwitch: true,
+                                                         testerChoice: false, runningNewDesign: true)),
+            ("settings-tester-workout", CutSettingsFacts(isLocalMode: true, showsTesterSwitch: true,
+                                                         testerChoice: true, runningNewDesign: true, workoutActive: true))
         ]
         for (name, facts) in states {
-            try await settingsCapture(CutSettingsView(model: CutSettingsLogic.model(facts)), name: name)
+            try await settingsCapture(CutSettingsView(model: CutSettingsLogic.model(facts),
+                                                      testerDesign: .constant(facts.testerChoice)), name: name)
         }
         try await settingsCapture(
             CutSettingsView(model: CutSettingsLogic.model(states[0].1)),

@@ -83,7 +83,9 @@ public enum DS {
         }()
         #else
         public static let roundedShapesDefault = false
-        public static let roundedShapesEnabled = roundedShapesDefault
+        // Off for App Store installs. A TestFlight tester who chose the new design gets the
+        // rounded shapes and system shell it was built and tested on in Debug.
+        public static let roundedShapesEnabled = CutTesterSwitch.launch.newDesign
         #endif
 
         // Release switch for the Cut design language (DesignSystem/Cut).
@@ -97,7 +99,9 @@ public enum DS {
         }()
         #else
         public static let cutDefault = false
-        public static let cutEnabled = cutDefault
+        // False for App Store installs whatever is stored; a TestFlight tester's choice from
+        // Settings, read once at launch (CutTesterSwitch).
+        public static let cutEnabled = CutTesterSwitch.launch.newDesign
         #endif
 
         // System shell: the system tab bar and Liquid Glass bars on iOS 26 and later.

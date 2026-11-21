@@ -3,7 +3,7 @@
 //  WRKT
 //
 //  The Settings hub in the Cut language ("Settings A"): the title beside the back button, then
-//  Social, Preferences, Support, Debug (DEBUG builds only) and the account row, each headed by a
+//  Social, Preferences, Support, Testing (TestFlight only), Debug (DEBUG builds only) and the account row, each headed by a
 //  lime condensed title over hairline rows. Counts are small lime badges; Log out is red text. Takes plain values,
 //  bindings for the two Debug switches, and closures, so every state renders without services.
 //
@@ -38,6 +38,8 @@ struct CutSettingsView: View {
     var runHistoryMigration: Binding<Bool> = .constant(false)
     /// The migration's state for its Debug row: not migrated, migrated, the last attempt.
     var runHistoryMigrationStatus: String = ""
+    /// The TestFlight new design switch, shown when the model has one.
+    var testerDesign: Binding<Bool> = .constant(false)
     var actions = CutSettingsActions()
 
     var body: some View {
@@ -62,6 +64,12 @@ struct CutSettingsView: View {
 
             CutSettingsSectionHeader("Support")
             CutSettingsLinkRow("Diagnostics", action: actions.openDiagnostics)
+
+            if let tester = model.testerSwitch {
+                CutSettingsSectionHeader("Testing")
+                CutSettingsToggleRow(tester.title, subtitle: tester.note, isOn: testerDesign)
+                    .disabled(!tester.isEnabled)
+            }
 
             if !model.debugRows.isEmpty {
                 CutSettingsSectionHeader("Debug")

@@ -13,7 +13,8 @@ struct RoleShapeTests {
             : MainChamferedRectangle(chamferSize: 12).path(in: rect)
         #expect(shape.path(in: rect).cgPath == expected.cgPath)
         #if !DEBUG
-        #expect(!DS.Redesign.roundedShapesEnabled)
+        // Release: off for App Store installs; only a TestFlight tester's choice turns it on.
+        #expect(DS.Redesign.roundedShapesEnabled == CutTesterSwitch.launch.newDesign)
         #endif
     }
 

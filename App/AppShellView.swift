@@ -293,6 +293,11 @@ struct AppShellView: View {
             .onReceive(NotificationCenter.default.publisher(for: .openLiveWorkoutTab)) { _ in
                 handleOpenLiveWorkoutTab()
             }
+            // TestFlight tester switch: a relaunch during a workout keeps the design it started under.
+            .onChange(of: store.currentWorkout != nil) { _, active in
+                guard CutTesterSwitch.showsSwitch else { return }
+                CutTesterSwitch.workoutActivityChanged(active: active, runningNewDesign: DS.Redesign.cutEnabled)
+            }
     }
 
     private var baseContent: some View {
