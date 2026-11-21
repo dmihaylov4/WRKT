@@ -91,13 +91,6 @@ struct BarbellMomentView: View {
         return "\(plates.count) new plate\(plates.count == 1 ? "" : "s")"
     }
 
-    private var sceneSignature: String {
-        (rackedPlates + floorPlates)
-            .map { "\($0.id):\($0.isRacked):\($0.rackPosition ?? -1)" }
-            .sorted()
-            .joined(separator: "|")
-    }
-
     private var momentFloorPlates: [EarnedPlate] {
         var usedIDs = Set<String>()
         return plates.compactMap { info in

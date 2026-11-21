@@ -2951,43 +2951,6 @@ struct BarbellRealityView: View {
     }
 }
 
-// MARK: - ShaderWarmUpView
-//
-// Renders one entity per material variant in a 1x1 invisible RealityView.
-// Metal compiles and caches shader PSOs on first render -- warming up here prevents
-// hitch on first plate drag. Self-destructs after 1 second (shaders stay compiled).
-
-private struct ShaderWarmUpView: View {
-    @State private var visible = true
-
-    var body: some View {
-        if visible {
-            RealityView { content in
-                // One entity per shader variant used in the barbell scene
-                let variants: [(MeshResource, any RealityKit.Material)] = [
-                    (.generateBox(size: .init(repeating: 0.001)), {
-                        var m = PhysicallyBasedMaterial()
-                        m.baseColor = .init(tint: .clear)
-                        return m
-                    }()),
-                    (.generateCylinder(height: 0.001, radius: 0.001), chromeMaterial()),
-                    (.generateBox(size: .init(repeating: 0.001)), UnlitMaterial()),
-                ]
-                let root = Entity()
-                root.position = SIMD3(0, 0, -500)  // far off-screen
-                for (mesh, mat) in variants {
-                    root.addChild(ModelEntity(mesh: mesh, materials: [mat]))
-                }
-                content.add(root)
-            }
-            .task {
-                try? await Task.sleep(for: .seconds(1))
-                visible = false
-            }
-        }
-    }
-}
-
 #if DEBUG
 struct BarbellRealityStressScene_Previews: PreviewProvider {
     static var previews: some View {
