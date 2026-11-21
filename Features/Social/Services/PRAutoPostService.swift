@@ -21,10 +21,10 @@ final class PRAutoPostService {
 
     /// Check if user has auto-posting enabled and create PR posts if needed
     func handlePRsIfNeeded(prAchievements: [PRAchievement], workout: CompletedWorkout) async {
+        // A placeholder account (no name chosen yet) never auto-posts: see ProfileNamePolicy.
         guard let user = authService.currentUser,
-              let profile = user.profile,
-              profile.autoPostPRs else {
-            AppLogger.info("⏭️ PR auto-post disabled or user not logged in", category: AppLogger.social)
+              AutoPostSetting.prs.allowsPosting(for: user.profile) else {
+            AppLogger.info("PR auto-post disabled, no name chosen yet, or user not logged in", category: AppLogger.social)
             return
         }
 

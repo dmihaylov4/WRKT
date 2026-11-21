@@ -54,6 +54,11 @@ struct SocialView: View {
     }
 
     var body: some View {
+        // Feed, likes, comments, battles and friends wait until a made-up name is replaced.
+        SocialNameGate(.socialTab, authService: deps.authService) { socialBody }
+    }
+
+    private var socialBody: some View {
         NavigationStack(path: $navigationPath) {
             // The one Cut branch point: same path, destinations, badges and notification routing.
             Group {

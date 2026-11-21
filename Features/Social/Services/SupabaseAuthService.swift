@@ -254,9 +254,44 @@ final class SupabaseAuthService: ObservableObject {
             idToken: appleResult.idToken,
             nonce: appleResult.nonce
         )
-        try await client.auth.signInWithIdToken(credentials: credentials)
+        let session = try await client.auth.signInWithIdToken(credentials: credentials)
+
+        // Apple sends the name only on the first authorization. Keep it on the device before
+        // anything else can fail, so the Choose your name step can still offer it.
+        if let appleName = ProfileNamePolicy.displayName(from: appleResult.fullName) {
+            PendingAppleName.save(appleName, for: session.user.id)
+        }
 
         try await finishOAuthSignIn()
+        await applyPendingAppleNameIfNeeded()
+    }
+
+    /// Puts Apple's name on a profile that still has the made-up display name. A real display
+    /// name is never overwritten. On failure the name stays pending for the Choose your name step.
+    private func applyPendingAppleNameIfNeeded() async {
+        guard let user = currentUser, let profile = user.profile,
+              let appleName = PendingAppleName.value(for: user.id) else { return }
+        guard ProfileNamePolicy.isPlaceholderDisplayName(profile.displayName, username: profile.username) else {
+            PendingAppleName.clear(for: user.id)
+            return
+        }
+        do {
+            try await updateProfile(displayName: appleName)
+            if let saved = currentUser?.profile { CacheManager.shared.cacheProfile(saved) }
+            PendingAppleName.clear(for: user.id)
+        } catch {
+            AppLogger.warning("Could not save the name from Sign in with Apple: \(error.localizedDescription)", category: AppLogger.app)
+        }
+    }
+
+    /// Saves the Choose your name step: the username and display name in one update. A taken
+    /// username comes back as `SupabaseError.usernameTaken`, as in sign up.
+    func chooseName(username: String, displayName: String) async throws {
+        try await updateProfile(username: username, displayName: displayName)
+        if let user = currentUser {
+            if let saved = user.profile { CacheManager.shared.cacheProfile(saved) }
+            PendingAppleName.clear(for: user.id)
+        }
     }
 
     func signInWithGoogle(presenting viewController: UIViewController) async throws {
@@ -331,7 +366,8 @@ final class SupabaseAuthService: ObservableObject {
             let userId = session.user.id
             let resolvedDisplayName: String = {
                 let trimmed = displayName?.trimmingCharacters(in: .whitespaces) ?? ""
-                return trimmed.isEmpty ? username : trimmed
+                if !trimmed.isEmpty { return trimmed }
+                return PendingAppleName.value(for: userId) ?? username
             }()
 
             let payload = OAuthProfilePayload(
@@ -341,7 +377,6 @@ final class SupabaseAuthService: ObservableObject {
                 isPrivate: false,
                 autoPostPRs: true,
                 autoPostCardio: true,
-                autoPostWatchWorkouts: false,
                 updatedAt: Date()
             )
 
@@ -355,6 +390,7 @@ final class SupabaseAuthService: ObservableObject {
                 .value
 
             CacheManager.shared.cacheProfile(savedProfile)
+            PendingAppleName.clear(for: userId)
             await assignCurrentUser(AuthUser(id: userId, email: session.user.email ?? "", profile: savedProfile))
             needsUsernameSetup = false
             await PushNotificationService.shared.uploadTokenToServer()
@@ -719,6 +755,8 @@ final class SupabaseAuthService: ObservableObject {
 
 /// Encodable payload for the OAuth profile upsert.
 /// Excludes createdAt so an update on conflict does not overwrite the original timestamp.
+/// Excludes auto_post_watch_workouts: the deployed profiles table has no such column (PostgREST
+/// rejects the whole upsert with 42703), and the app reads a missing value as off.
 private struct OAuthProfilePayload: Encodable {
     let id: UUID
     let username: String
@@ -726,7 +764,6 @@ private struct OAuthProfilePayload: Encodable {
     let isPrivate: Bool
     let autoPostPRs: Bool
     let autoPostCardio: Bool
-    let autoPostWatchWorkouts: Bool
     let updatedAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -736,7 +773,6 @@ private struct OAuthProfilePayload: Encodable {
         case isPrivate = "is_private"
         case autoPostPRs = "auto_post_prs"
         case autoPostCardio = "auto_post_cardio"
-        case autoPostWatchWorkouts = "auto_post_watch_workouts"
         case updatedAt = "updated_at"
     }
 }
