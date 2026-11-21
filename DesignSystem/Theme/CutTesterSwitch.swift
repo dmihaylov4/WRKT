@@ -5,8 +5,8 @@
 //  The tester switch for the Cut redesign in Release builds.
 //
 //  App Store installs always get the old design and never see the switch: any stored choice is
-//  ignored. TestFlight installs get the old design by default and a "Try the new design" switch
-//  in Settings. Debug builds keep their own Debug switches and never read this one.
+//  ignored. TestFlight installs get the new design by default and a "Try the new design" switch
+//  in Settings to turn it off. Debug builds keep their own Debug switches and never read this one.
 //
 //  The install source is read once per launch from the name of the App Store receipt file,
 //  which is "sandboxReceipt" for builds signed for the sandbox environment (TestFlight, and also
@@ -63,6 +63,9 @@ nonisolated enum CutTesterSwitch {
         return CutInstallKind(rawValue: arguments[index + 1])
     }
 
+    /// What a TestFlight install shows before the tester has touched the switch.
+    static let testFlightDefault = true
+
     /// The decision table. `applied` is the stored choice (nil when never set or not a Bool);
     /// `debugNewDesign` is what the Debug switches resolved to and is used only in Debug.
     static func resolve(build: CutBuildConfiguration, install: CutInstallKind, applied: Bool?,
@@ -73,7 +76,7 @@ nonisolated enum CutTesterSwitch {
         case (.release, .appStore):
             CutDesignResolution(newDesign: false, showsTesterSwitch: false)
         case (.release, .testFlight):
-            CutDesignResolution(newDesign: applied ?? false, showsTesterSwitch: true)
+            CutDesignResolution(newDesign: applied ?? testFlightDefault, showsTesterSwitch: true)
         }
     }
 
@@ -120,9 +123,10 @@ nonisolated enum CutTesterSwitch {
 
     // MARK: The switch
 
-    /// What the switch shows: the latest choice, else what is applied, else off.
+    /// What the switch shows: the latest choice, else what is applied, else the TestFlight
+    /// default (the switch is only ever shown there).
     static func chosen(in defaults: UserDefaults = .standard) -> Bool {
-        storedBool(chosenKey, in: defaults) ?? storedBool(appliedKey, in: defaults) ?? false
+        storedBool(chosenKey, in: defaults) ?? storedBool(appliedKey, in: defaults) ?? testFlightDefault
     }
 
     /// The tester flips the switch. It applies at the next launch unless a workout is running,

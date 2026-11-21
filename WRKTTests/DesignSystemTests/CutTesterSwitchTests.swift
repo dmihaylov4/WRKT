@@ -18,9 +18,9 @@ struct CutTesterSwitchTests {
         }
     }
 
-    @Test func testFlightDefaultsToOldDesignAndShowsTheSwitch() {
+    @Test func testFlightDefaultsToNewDesignAndShowsTheSwitch() {
         let resolution = CutTesterSwitch.resolve(build: .release, install: .testFlight, applied: nil, debugNewDesign: true)
-        #expect(resolution == CutDesignResolution(newDesign: false, showsTesterSwitch: true))
+        #expect(resolution == CutDesignResolution(newDesign: true, showsTesterSwitch: true))
     }
 
     @Test func testFlightFollowsTheStoredChoice() {
@@ -133,12 +133,13 @@ struct CutTesterSwitchTests {
 
     @Test func choiceAppliesAtOnceWithoutAWorkout() throws {
         let defaults = try scratchDefaults()
+        #expect(CutTesterSwitch.chosen(in: defaults))
+        CutTesterSwitch.choose(false, workoutActive: false, in: defaults)
         #expect(!CutTesterSwitch.chosen(in: defaults))
+        #expect(CutTesterSwitch.storedBool(CutTesterSwitch.appliedKey, in: defaults) == false)
         CutTesterSwitch.choose(true, workoutActive: false, in: defaults)
         #expect(CutTesterSwitch.chosen(in: defaults))
         #expect(CutTesterSwitch.storedBool(CutTesterSwitch.appliedKey, in: defaults) == true)
-        CutTesterSwitch.choose(false, workoutActive: false, in: defaults)
-        #expect(CutTesterSwitch.storedBool(CutTesterSwitch.appliedKey, in: defaults) == false)
     }
 
     @Test func choiceDuringAWorkoutWaitsForItsEnd() throws {
