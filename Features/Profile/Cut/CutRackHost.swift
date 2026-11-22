@@ -151,7 +151,7 @@ struct CutRackHost: View {
         guard sceneState.materialCache[tierID] == nil else { return }
         let textures = await loadPlateTexturesAsync(forTierID: tierID)
         sceneState.plateTextureCache[tierID] = textures
-        sceneState.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: textures)
+        sceneState.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: textures, inRackRoom: true)
     }
 
     /// A saved bar change, from the tray, a sheet, the editor or the scene itself. Plates newly on

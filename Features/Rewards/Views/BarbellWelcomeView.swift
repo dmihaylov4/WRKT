@@ -92,7 +92,8 @@ struct BarbellWelcomeView: View {
                 sceneState.plateTextureCache[tierID] = await loadPlateTexturesAsync(forTierID: tierID)
                 sceneState.materialCache[tierID] = buildMaterial(
                     forTierID: tierID,
-                    textures: sceneState.plateTextureCache[tierID]
+                    textures: sceneState.plateTextureCache[tierID],
+                    inRackRoom: true
                 )
             }
             // A cancelled load may be partial: leave assetsReady false so the next appearance reloads.

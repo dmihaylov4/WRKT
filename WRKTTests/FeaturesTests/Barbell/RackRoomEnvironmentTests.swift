@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import RealityKit
 import Testing
+import UIKit
 @testable import WRKT
 
 /// The rack room's procedural light probe: a dim gym with overhead strip lamps along the bar.
@@ -39,7 +40,25 @@ import Testing
         let behind = RackRoomEnvironment.radiance(simd_normalize(SIMD3(0, 0.27, 1)))
         let ahead = RackRoomEnvironment.radiance(simd_normalize(SIMD3(0, 0.27, -1)))
         #expect(behind > ahead * 4)
-        #expect(behind < 1)
+        #expect(behind < 3, "a soft box, not a lamp")
+    }
+
+    /// The ceiling panel over the back wall lights the tops of plates. The back wall faces the
+    /// viewer (+z), so it only receives light from directions with z >= 0: the panel must add
+    /// nothing there, only above and ahead of the viewer.
+    @Test func ceilingPanelSitsOnlyWhereTheBackWallCannotReceiveIt() {
+        let noPanel = RackRoomEnvironment.Strip(pitch: 0, halfWidth: 0, halfLength: 0, radiance: 0)
+        for elevation in stride(from: Float(0), through: 90, by: 10) {
+            for azimuth in stride(from: Float(-90), through: 90, by: 15) {
+                let e = elevation * .pi / 180, a = azimuth * .pi / 180
+                let d = SIMD3<Float>(sin(a) * cos(e), sin(e), cos(a) * cos(e))
+                guard d.z >= 0.001 else { continue }
+                #expect(abs(RackRoomEnvironment.radiance(d) - RackRoomEnvironment.radiance(d, panel: noPanel)) < 0.0001,
+                        "no panel light at elevation \(elevation), azimuth \(azimuth)")
+            }
+        }
+        let overBackWall = simd_normalize(SIMD3<Float>(0, 1, -1))
+        #expect(RackRoomEnvironment.radiance(overBackWall) > 2, "the panel is bright where plate tops look")
     }
 
     @Test func panoramaIsTwoToOneLinearFloat() throws {
@@ -164,5 +183,52 @@ import Testing
             #expect(scale < 1, "\(id)")
             #expect(scale > 0.4, "\(id)")
         }
+    }
+}
+
+
+/// Cast iron in the rack room: plain iron grey instead of the dark colour map, on the body and on
+/// the panel and band that used to stay black. Everything else keeps the shared material.
+@MainActor
+@Suite struct RackRoomIronSurfaceTests {
+    /// The tint's mean of red, green and blue (works for grey and colour tints alike).
+    private func tint(_ material: PhysicallyBasedMaterial) -> CGFloat {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        let ok = material.baseColor.tint.getRed(&r, green: &g, blue: &b, alpha: &a)
+        #expect(ok)
+        return (r + g + b) / 3
+    }
+
+    @Test func rackRoomCastIronIsIronGreyAndKeepsItsMetalMaps() {
+        let textures = loadPlateTextures(forTierID: 1)
+        let room = buildMaterial(forTierID: 1, textures: textures, inRackRoom: true)
+        let shared = buildMaterial(forTierID: 1, textures: textures)
+        #expect(room.baseColor.texture == nil)
+        #expect(tint(room) >= 0.6)
+        #expect(room.metallic.texture != nil && room.roughness.texture != nil && room.normal.texture != nil)
+        #expect(shared.baseColor.texture != nil, "previews, spinning plates and snapshots keep the colour map")
+    }
+
+    @Test func scenePlatePanelAndBandFollowTheBody() throws {
+        let body = buildMaterial(forTierID: 1, textures: loadPlateTextures(forTierID: 1), inRackRoom: true)
+        let plate = makePlateEntity(tierID: 1, material: body, weightKg: 25, options: .interactive(role: .bar))
+        let panel = try #require(plate.children.first { $0.name == "recessedFacePanel" } as? ModelEntity)
+        let material = try #require(panel.model?.materials.first as? PhysicallyBasedMaterial)
+        #expect(tint(material) >= 0.45)
+        #expect(material.metallic.texture != nil)
+    }
+
+    @Test func untexturedCastIronAndPreviewPlatesAreUntouched() throws {
+        let untextured = buildMaterial(forTierID: 25, textures: nil, inRackRoom: true)
+        let plate = makePlateEntity(tierID: 25, material: untextured, weightKg: 20, options: .interactive(role: .bar))
+        let panel = try #require(plate.children.first { $0.name == "recessedFacePanel" } as? ModelEntity)
+        let material = try #require(panel.model?.materials.first as? PhysicallyBasedMaterial)
+        #expect(tint(material) < 0.4, "Iron Circuit keeps its dark finish")
+
+        let body = buildMaterial(forTierID: 1, textures: loadPlateTextures(forTierID: 1), inRackRoom: true)
+        let preview = makePlateEntity(tierID: 1, material: body, weightKg: 25, options: .visualOnly())
+        let previewPanel = try #require(preview.children.first { $0.name == "recessedFacePanel" } as? ModelEntity)
+        let previewMaterial = try #require(previewPanel.model?.materials.first as? PhysicallyBasedMaterial)
+        #expect(tint(previewMaterial) < 0.4)
     }
 }

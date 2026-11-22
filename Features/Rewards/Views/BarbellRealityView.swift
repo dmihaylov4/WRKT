@@ -1003,16 +1003,20 @@ final class SceneState {
 // MARK: - BarbellRealityView
 
 /// The rack room's light rig: one key spot, high and well in front of the bar, aimed at the floor
-/// just in front of it, plus the room's light probe for fill and reflections. Being high, it
-/// grazes the back wall (darker) while the floor and the tops of plates face it.
+/// just in front of it, plus the room's light probe.
 ///
-/// Why this shape: the wall is only 24 cm behind the plates, so any light near the bar that
-/// reaches the plates also reaches the wall, and a cone boundary there reads as a stage light
-/// dome. Narrow cones close to the plates drew a hard terminator across them. Far away and soft
-/// (inner cone well inside the outer), plates, the falling path and the visible wall all sit in
-/// the smooth falloff, never on a cone edge. Positions are in the scene root's space (bar at
-/// y 0.6, z 0.12; floor at y 0; back wall face at z -0.12). Angles are RealityKit's spot cone
-/// angles in degrees.
+/// Who lights what: the plates' visible surfaces are vertical faces and rims that face the
+/// camera or tilt up and away from it, so a high key only grazes them; it mostly sets the floor
+/// pool and the wall, and is kept low. The plates take their light from the environment: the
+/// soft glow behind the viewer (faces toward the camera) and a broad ceiling panel over the back
+/// wall (the tops of plates, which the back wall, facing the viewer, never receives). See
+/// RackRoomEnvironment.
+///
+/// Why the key's shape: the wall is only 24 cm behind the plates, so a cone boundary near the bar
+/// draws a dome on the wall or a terminator across the plates. Far away and soft (inner cone
+/// well inside the outer), plates, the falling path and the visible wall all sit in the smooth
+/// falloff. Positions are in the scene root's space (bar at y 0.6, z 0.12; floor at y 0; back
+/// wall face at z -0.12). Angles are RealityKit's spot cone angles in degrees.
 struct RackRoomLightingPreset: Equatable {
     var keyIntensity: Float
     var keyPosition: SIMD3<Float>
@@ -1030,7 +1034,7 @@ struct RackRoomLightingPreset: Equatable {
     var storageWashPosition: SIMD3<Float>
 
     static let readability = RackRoomLightingPreset(
-        keyIntensity: 450_000,
+        keyIntensity: 70_000,
         keyPosition: SIMD3(0, 5.0, 1.6),
         keyTarget: SIMD3(0, 0, 0.30),
         keyInnerAngle: 16,
@@ -1053,7 +1057,8 @@ struct RackRoomLightingPreset: Equatable {
 
     /// The preset the scene uses. In debug builds, VOLIA_RACK_LIGHT="key=40000,ibl=1.2" in the
     /// launch environment overrides values for tuning on a device or in simulator captures. Names:
-    /// key, keyY, keyZ, targetZ, inner, outer, atten, ibl, wash, shadow (0 or 1).
+    /// key, keyY, keyZ, targetZ, inner, outer, atten, ibl, wash, shadow (0 or 1); the environment
+    /// reads glow, glowCentre, glowHalf, panel, panelPitch and panelHalf (RackRoomEnvironment).
     static var current: RackRoomLightingPreset {
         var preset = readability
         #if DEBUG
@@ -1074,7 +1079,7 @@ struct RackRoomLightingPreset: Equatable {
 }
 
 /// "name=value,name=value" into a dictionary; malformed pairs are skipped.
-func rackRoomLightingOverrides(_ text: String?) -> [String: Float] {
+nonisolated func rackRoomLightingOverrides(_ text: String?) -> [String: Float] {
     guard let text else { return [:] }
     var result: [String: Float] = [:]
     for pair in text.split(separator: ",") {
@@ -3010,7 +3015,8 @@ struct BarbellRealityStressScene_Previews: PreviewProvider {
                     state.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
                     state.materialCache[tierID] = buildMaterial(
                         forTierID: tierID,
-                        textures: state.plateTextureCache[tierID]
+                        textures: state.plateTextureCache[tierID],
+                        inRackRoom: true
                     )
                 }
                 return state

@@ -107,7 +107,8 @@ struct BarbellMomentView: View {
             newState.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
             newState.materialCache[tierID] = buildMaterial(
                 forTierID: tierID,
-                textures: newState.plateTextureCache[tierID]
+                textures: newState.plateTextureCache[tierID],
+                inRackRoom: true
             )
         }
         for tierID in PlateTier.all.map(\.id) {
