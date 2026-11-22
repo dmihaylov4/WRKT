@@ -72,6 +72,9 @@ struct PlateEntityBuildOptions {
     /// A grounding shadow from the plate's body (the root ring mesh only: the component does not
     /// apply to descendants, and the body is the plate's footprint). Scene plates only.
     var castsGroundingShadow = false
+    /// The rack room's lighter iron parts (see PlateDisplaySurface.rackRoomTexturedMetalColor).
+    /// Scene plates only.
+    var usesRackRoomSurfaces = false
 
     static func interactive(role: PlateRoleComponent.Role = .floor) -> PlateEntityBuildOptions {
         PlateEntityBuildOptions(
@@ -80,7 +83,8 @@ struct PlateEntityBuildOptions {
             includesPhysics: true,
             includesAudio: true,
             role: role,
-            castsGroundingShadow: true
+            castsGroundingShadow: true,
+            usesRackRoomSurfaces: true
         )
     }
 
@@ -102,7 +106,8 @@ struct PlateEntityBuildOptions {
             includesPhysics: false,
             includesAudio: false,
             role: .bar,
-            castsGroundingShadow: true
+            castsGroundingShadow: true,
+            usesRackRoomSurfaces: true
         )
     }
 }
@@ -432,6 +437,18 @@ struct PlateDisplaySurface {
         guard usesReadableMetal(tier) else { return tier.metallic }
         return min(0.58, max(0.38, tier.metallic * 0.58))
     }
+
+    /// The cast iron textures are mostly metal (metalness about 0.83) with a dark colour map
+    /// (about 0.24) under a dark tint (about 0.34). A metal's reflection takes its base colour,
+    /// so in a lit room the plate read as nearly black metal. In the rack room it gets a plain
+    /// iron grey instead of that colour map; its metalness, roughness and normal maps stay, so it
+    /// keeps the cast surface and the metallic look. nil keeps the textured colour.
+    static func rackRoomTexturedMetalColor(for tier: PlateTier) -> UIColor? {
+        tier.style == .castIron ? UIColor(white: 0.72, alpha: 1) : nil
+    }
+    /// The recessed face panel and outer band of rack room cast iron: a deeper grey than the body.
+    static let rackRoomIronPanelWhite: CGFloat = 0.52
+    static let rackRoomIronBandWhite: CGFloat = 0.58
 
     /// Painted cast iron and raw (rusty) iron: no lacquer, and raw iron is not polished.
     static func isIron(_ tier: PlateTier) -> Bool {
@@ -790,7 +807,7 @@ enum RackRoomEnvironment {
     static let width = 512
 
     /// A lamp running along x at `pitch` degrees from straight up, positive toward the viewer.
-    struct Strip: Equatable {
+    struct Strip: Equatable, Sendable {
         var pitch: Float
         var halfWidth: Float
         var halfLength: Float
@@ -803,8 +820,48 @@ enum RackRoomEnvironment {
         Strip(pitch: -42, halfWidth: 3.0, halfLength: 58, radiance: 3.2),  // over the back wall
     ]
 
+    /// The soft glow behind the viewer: the lit side of the room. Metallic plate faces and rims,
+    /// which face the camera, mostly reflect this region, so it sets how bright they read.
+    struct Glow: Equatable, Sendable {
+        var radiance: Float
+        /// Centre and half height in degrees of elevation, feathered at both edges.
+        var centre: Float
+        var halfHeight: Float
+    }
+
+    nonisolated static let glow = Glow(radiance: 2.0, centre: 25, halfHeight: 30)
+
+    /// A broad soft ceiling panel high over the back wall. The tops of plates, which tilt up and
+    /// away from the camera, reflect this region; the back wall faces the other way and never
+    /// receives it. Same geometry as a strip (pitch from straight up, positive toward the viewer).
+    nonisolated static let panel = Strip(pitch: -45, halfWidth: 25, halfLength: 70, radiance: 4.0)
+
+    nonisolated static var currentPanel: Strip {
+        var value = panel
+        #if DEBUG
+        let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
+        if let v = overrides["panel"] { value.radiance = v }
+        if let v = overrides["panelPitch"] { value.pitch = v }
+        if let v = overrides["panelHalf"] { value.halfWidth = v }
+        #endif
+        return value
+    }
+
+    /// The glow the panorama uses. In debug builds VOLIA_RACK_LIGHT's glow, glowCentre and
+    /// glowHalf override it (read once, when the environment is first built).
+    nonisolated static var currentGlow: Glow {
+        var value = glow
+        #if DEBUG
+        let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
+        if let v = overrides["glow"] { value.radiance = v }
+        if let v = overrides["glowCentre"] { value.centre = v }
+        if let v = overrides["glowHalf"] { value.halfHeight = v }
+        #endif
+        return value
+    }
+
     /// Radiance seen along a unit direction. Pure, so it can be tested and sampled anywhere.
-    nonisolated static func radiance(_ d: SIMD3<Float>) -> Float {
+    nonisolated static func radiance(_ d: SIMD3<Float>, glow: Glow = glow, panel: Strip = panel) -> Float {
         let elevation = asin(max(-1, min(1, d.y))) * 180 / .pi
         // Walls a touch lighter high up, the floor lightest straight down where the lamps pool.
         var value: Float = elevation >= 0
@@ -812,15 +869,19 @@ enum RackRoomEnvironment {
             : 0.045 + 0.075 * smooth(-elevation / 90)
         // Soft glow behind the viewer: the open room and its lit side.
         let behind = max(0, d.z)
-        if elevation > -10 && elevation < 45 {
-            let vertical = edge(abs(elevation - 16), half: 22, feather: 18)
-            value += 0.55 * vertical * smooth(behind)
+        let vertical = edge(abs(elevation - glow.centre), half: glow.halfHeight, feather: 18)
+        if vertical > 0 {
+            value += glow.radiance * vertical * smooth(behind)
         }
         // Overhead strips: bands in the y-z plane, limited along x.
         if d.y > 0 {
             let crossLength = (d.y * d.y + d.z * d.z).squareRoot()
             let pitch = atan2(d.z, d.y) * 180 / .pi
             let along = atan2(abs(d.x), crossLength) * 180 / .pi
+            if panel.radiance > 0 {
+                let across = edge(abs(pitch - panel.pitch), half: panel.halfWidth, feather: 16)
+                value += panel.radiance * across * edge(along, half: panel.halfLength, feather: 20)
+            }
             for strip in strips {
                 let across = edge(abs(pitch - strip.pitch), half: strip.halfWidth, feather: 2.5)
                 guard across > 0 else { continue }
@@ -832,7 +893,7 @@ enum RackRoomEnvironment {
 
     /// The panorama as a linear float image, `width` by `width / 2`. RealityKit's panorama runs
     /// right to left seen from inside (see CutYearAwardStudio), so columns are mirrored.
-    nonisolated static func panorama() -> CGImage? {
+    nonisolated static func panorama(glow: Glow = currentGlow, panel: Strip = currentPanel) -> CGImage? {
         let w = width, h = width / 2
         let pixels = UnsafeMutablePointer<Float>.allocate(capacity: w * h * 4)
         for y in 0..<h {
@@ -841,7 +902,7 @@ enum RackRoomEnvironment {
                 // Azimuth 0 is behind the viewer (+z), positive to the viewer's right (+x).
                 let azimuth = (1 - (Float(x) + 0.5) / Float(w)) * 2 * .pi
                 let d = SIMD3<Float>(sin(azimuth) * cos(elevation), sin(elevation), cos(azimuth) * cos(elevation))
-                let value = radiance(d)
+                let value = radiance(d, glow: glow, panel: panel)
                 let out = pixels + (y * w + x) * 4
                 // Lamps a hair cool, the room a hair warm: both close to neutral so plate colours stay true.
                 let lamp = min(1, max(0, value - 0.6))
@@ -890,6 +951,30 @@ func sharedRackRoomEnvironmentResource() async -> EnvironmentResource? {
     }
     _rackRoomEnvironmentTask = task
     return await task.value
+}
+
+/// Cast iron's recessed face panel and outer band are separate parts with their own very dark
+/// colours (0.18 to 0.28), so in the lit rack room they stayed black after the body turned
+/// iron grey. Give them the body's textured iron at a slightly deeper grey, so the face reads as
+/// one cast piece with depth.
+@MainActor
+private func applyRackRoomIronSurfaces(to plate: ModelEntity, tier: PlateTier, body: PhysicallyBasedMaterial?) {
+    // Only the textured cast iron (its body took the iron grey in buildMaterial); untextured
+    // cast iron tiers keep their own dark finish on every part.
+    guard let body, body.metallic.texture != nil,
+          PlateDisplaySurface.rackRoomTexturedMetalColor(for: tier) != nil else { return }
+    var panel = body
+    panel.baseColor = .init(tint: UIColor(white: PlateDisplaySurface.rackRoomIronPanelWhite, alpha: 1))
+    var band = body
+    band.baseColor = .init(tint: UIColor(white: PlateDisplaySurface.rackRoomIronBandWhite, alpha: 1))
+    for child in plate.children {
+        guard let model = child as? ModelEntity else { continue }
+        if child.name.hasPrefix("recessedFacePanel") {
+            model.model?.materials = [panel]
+        } else if child.name.hasPrefix("outerSidewallBand") || child.name.hasPrefix("outerSidewallLip") {
+            model.model?.materials = [band]
+        }
+    }
 }
 
 // MARK: - Per-style plate helpers
@@ -1797,6 +1882,9 @@ func makePlateEntity(
     if buildOptions.castsGroundingShadow {
         entity.components.set(GroundingShadowComponent(castsShadow: true))
     }
+    if buildOptions.usesRackRoomSurfaces {
+        applyRackRoomIronSurfaces(to: entity, tier: tier, body: material)
+    }
 
     // Metadata components
     entity.components.set(PlateRoleComponent(role: buildOptions.role))
@@ -1922,7 +2010,9 @@ private func addProgressionDetails(
 /// Store the result in SceneState.materialCache[tierID] and pass it into
 /// makePlateEntity(material:) to share one GPU material object across all plates
 /// of the same tier rather than creating one per entity.
-func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> PhysicallyBasedMaterial {
+/// `inRackRoom`: the rack room scene's variant (Cut rack, legacy rack, finish moment, welcome).
+/// Previews, spinning plates and snapshots keep the default.
+func buildMaterial(forTierID tierID: Int, textures: PlateTextures?, inRackRoom: Bool = false) -> PhysicallyBasedMaterial {
     guard let tier = PlateTier.all.first(where: { $0.id == tierID }) else {
         return PhysicallyBasedMaterial()
     }
@@ -1939,6 +2029,9 @@ func buildMaterial(forTierID tierID: Int, textures: PlateTextures?) -> Physicall
         if let n = tex.normal    { mat.normal     = .init(texture: .init(n)) }
         if let r = tex.roughness { mat.roughness  = .init(texture: .init(r)) }
         if let m = tex.metalness { mat.metallic   = .init(texture: .init(m)) }
+        if inRackRoom, let color = PlateDisplaySurface.rackRoomTexturedMetalColor(for: tier) {
+            mat.baseColor = .init(tint: color)
+        }
     }
     return mat
 }

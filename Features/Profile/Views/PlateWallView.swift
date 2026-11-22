@@ -304,7 +304,8 @@ struct PlateWallView: View {
                     sceneState.plateTextureCache[tierID] = await loadPlateTexturesAsync(forTierID: tierID)
                     sceneState.materialCache[tierID] = buildMaterial(
                         forTierID: tierID,
-                        textures: sceneState.plateTextureCache[tierID]
+                        textures: sceneState.plateTextureCache[tierID],
+                        inRackRoom: true
                     )
                 }
                 // Preload audio into process-level cache so first interaction has no latency
@@ -325,7 +326,7 @@ struct PlateWallView: View {
                         if sceneState.materialCache[newPlate.tierID] == nil {
                             let textures = await loadPlateTexturesAsync(forTierID: newPlate.tierID)
                             sceneState.plateTextureCache[newPlate.tierID] = textures
-                            sceneState.materialCache[newPlate.tierID] = buildMaterial(forTierID: newPlate.tierID, textures: textures)
+                            sceneState.materialCache[newPlate.tierID] = buildMaterial(forTierID: newPlate.tierID, textures: textures, inRackRoom: true)
                         }
                         guard !sceneState.isPaused else { return }
                         sceneState.addPlate(newPlate)
@@ -398,7 +399,7 @@ struct PlateWallView: View {
                     Task { @MainActor in
                         let textures = await loadPlateTexturesAsync(forTierID: plate.tierID)
                         sceneState.plateTextureCache[plate.tierID] = textures
-                        sceneState.materialCache[plate.tierID] = buildMaterial(forTierID: plate.tierID, textures: textures)
+                        sceneState.materialCache[plate.tierID] = buildMaterial(forTierID: plate.tierID, textures: textures, inRackRoom: true)
                         guard !sceneState.isPaused else { return }
                         sceneState.addPlate(plate)
                     }
@@ -1481,7 +1482,8 @@ struct BarbellPlaygroundView: View {
             sceneState.plateTextureCache[tierID] = await loadPlateTexturesAsync(forTierID: tierID)
             sceneState.materialCache[tierID] = buildMaterial(
                 forTierID: tierID,
-                textures: sceneState.plateTextureCache[tierID]
+                textures: sceneState.plateTextureCache[tierID],
+                inRackRoom: true
             )
         }
         // A cancelled load may be partial: leave assetsReady false so the next appearance reloads.

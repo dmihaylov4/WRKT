@@ -18,7 +18,7 @@ import UIKit
 @Suite(.serialized)
 struct CutRackCaptureTests {
     nonisolated static let names = [
-        "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "detail", "detail-ax5", "collection", "collection-ax5",
+        "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "rack-owner", "detail", "detail-ax5", "collection", "collection-ax5",
         "scene-legacy", "scene-moment", "scene-welcome"
     ]
     nonisolated static var selectedNames: [String] {
@@ -107,6 +107,13 @@ struct CutRackCaptureTests {
         plate("comp", tier: 4, kg: 2.5, order: 1)
     ]
 
+    /// The owner's own bar when the lighting looked worst on the phone: a grey cast iron 25 kg
+    /// inside a bronze-looking raw iron 15 kg, on the lime VOLIA bar.
+    private static let ownerPlates: [EarnedPlate] = [
+        plate("castiron", tier: 1, kg: 25, slot: 0, order: 2),
+        plate("rawiron", tier: 0, kg: 15, slot: 1, order: 1)
+    ]
+
     private static let fullPlates: [EarnedPlate] = [
         plate("lime", tier: 22, kg: 20, slot: 0, order: 8),
         plate("blue", tier: 15, kg: 20, slot: 1, order: 7),
@@ -119,7 +126,8 @@ struct CutRackCaptureTests {
         if name.hasPrefix("scene") { return AnyView(SharedSceneFixture(name: name, plates: Self.plates)) }
         let locale = Locale(identifier: "en_US")
         let unit: WeightUnit = name.hasSuffix("-lb") ? .lb : .kg
-        let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates : Self.plates
+        let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates
+            : name == "rack-owner" ? Self.ownerPlates : Self.plates
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
@@ -138,7 +146,7 @@ struct CutRackCaptureTests {
             return AnyView(CutRackView(
                 model: model,
                 actions: CutRackActions(back: {}, edit: {}, showAll: {}, toggle: { _ in }, details: { _ in }),
-                scene: { CutRackFixtureScene(racked: racked) },
+                scene: { CutRackFixtureScene(racked: racked, barSkinID: name == "rack-owner" ? 4 : 0) },
                 thumbnail: thumbnail
             ))
         }
@@ -166,7 +174,7 @@ private struct SharedSceneFixture: View {
         let state = SceneState()
         for tierID in PlateTier.all.map(\.id) where tierID != 7 {
             state.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
-            state.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: state.plateTextureCache[tierID])
+            state.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: state.plateTextureCache[tierID], inRackRoom: true)
         }
         return state
     }()
@@ -208,12 +216,13 @@ private struct SharedSceneFixture: View {
 /// The real bar-only scene, built from fixture plates with the legacy preload done up front.
 private struct CutRackFixtureScene: View {
     let racked: [EarnedPlate]
+    var barSkinID = 0
     @MainActor static var lastSceneState: SceneState?
     @State private var sceneState: SceneState = {
         let state = SceneState()
         for tierID in PlateTier.all.map(\.id) where tierID != 7 {
             state.plateTextureCache[tierID] = loadPlateTextures(forTierID: tierID)
-            state.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: state.plateTextureCache[tierID])
+            state.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: state.plateTextureCache[tierID], inRackRoom: true)
         }
         return state
     }()
@@ -222,6 +231,7 @@ private struct CutRackFixtureScene: View {
         BarbellRealityView(
             mode: .rackRoom(rackedPlates: racked, floorPlates: [], onRack: { _ in }, onUnrack: { _ in }),
             sceneState: sceneState,
+            barSkinID: barSkinID,
             roomThemeID: ProcessInfo.processInfo.environment["VOLIA_CAPTURE_ROOM"] ?? "dark_gym",
             allowsInteraction: false,
             barOnly: true
