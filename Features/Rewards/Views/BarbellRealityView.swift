@@ -1303,6 +1303,8 @@ struct BarbellRealityView: View {
     /// start of make. Lets the host show the scene at once instead of a placeholder: RealityKit
     /// sets up while the preload runs. nil for every other caller.
     var prepare: (@MainActor () async -> Void)?
+    /// Called once make has built the scene. nil for every other caller.
+    var onSceneBuilt: (@MainActor () -> Void)?
     /// Floor plates use a 0.38m wide box collider. Keep their centers comfortably inside the
     /// wall inner faces at x=±0.85 so they don't spawn wedged into the side walls.
     private let floorPlateMaxAbsX: Float = 0.64
@@ -1381,6 +1383,7 @@ struct BarbellRealityView: View {
                 installFrameUpdates(content: content)
                 RackOpenTrace.mark("make.built")
                 RackOpenTrace.markNextFrame("firstFrame", content: content)
+                onSceneBuilt?()
                 if style == .lathe {
                     let later = latheLaterSceneRequests
                     Task(priority: .utility) { await prepareLathePlates(later, priority: .utility) }

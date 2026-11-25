@@ -67,7 +67,10 @@ struct CutRackHost: View {
             showsScene = true
             await preload.value
         }
-        .onDisappear { if !assetsReady { preload.task?.cancel() } }
+        .onDisappear {
+            if !assetsReady { preload.task?.cancel() }
+            preload.releaseThumbnails()
+        }
         .onChange(of: sceneSyncKey) { old, new in syncScene(from: old, to: new) }
         .onChange(of: cosmeticKey) { _, _ in rebuildScene() }
         .sheet(isPresented: $showsEditor) {
@@ -120,7 +123,8 @@ struct CutRackHost: View {
             roomThemeID: configs.first?.effectiveSelectedRoomThemeID ?? "dark_gym",
             roomWallText: configs.first?.roomName,
             barOnly: true,
-            prepare: { await startPreload().value }
+            prepare: { await startPreload().value },
+            onSceneBuilt: { [preload] in preload.releaseThumbnails(after: .milliseconds(500)) }
         )
         .id(sceneRevision)
         .accessibilityElement(children: .ignore)
@@ -154,6 +158,8 @@ struct CutRackHost: View {
     @MainActor
     private func startPreload() -> Task<Void, Never> {
         if let task = preload.task, !task.isCancelled { return task }
+        // Tray thumbnails that still need rendering wait until the scene is up.
+        preload.holdThumbnails()
         let task = Task { @MainActor in await preloadAssets() }
         preload.task = task
         return task
@@ -290,10 +296,33 @@ enum CutRackPreloader {
     }
 }
 
-/// The screen's running preload, kept across body updates.
+/// The screen's running preload, kept across body updates, and its hold on thumbnail renders
+/// (PlateSnapshotService.holdRenders) while the scene opens.
 @MainActor
 final class CutRackPreload {
     var task: Task<Void, Never>?
+    private var holdsThumbnails = false
+
+    func holdThumbnails() {
+        guard !holdsThumbnails else { return }
+        holdsThumbnails = true
+        PlateSnapshotService.shared.holdRenders()
+        // Never hold for long, whatever happens to the scene.
+        releaseThumbnails(after: .seconds(5))
+    }
+
+    func releaseThumbnails(after delay: Duration? = nil) {
+        guard let delay else {
+            guard holdsThumbnails else { return }
+            holdsThumbnails = false
+            PlateSnapshotService.shared.releaseRenders()
+            return
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            self?.releaseThumbnails()
+        }
+    }
 }
 
 /// Identifies the plate whose detail sheet is open.

@@ -182,4 +182,21 @@ struct RackOpenWorkTests {
         #expect(changed.roughness.scale == 0.9)
         #expect(rgb(changed.baseColor.tint) == rgb(.blue))
     }
+
+    // MARK: Thumbnails
+
+    @Test func thumbnailRendersWaitWhileARackSceneOpens() async throws {
+        let service = PlateSnapshotService.shared
+        let engraving = "Hold \(UUID().uuidString.prefix(6))"
+        let rendered = RackWorkCounters.count(.thumbnailsRendered)
+        service.holdRenders()
+        let task = Task { await service.renderIfNeeded(tierID: 14, weightKg: 20, engravingText: engraving) }
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(RackWorkCounters.count(.thumbnailsRendered) == rendered)
+        #expect(!service.hasCached(tierID: 14, weightKg: 20, engravingText: engraving))
+        service.releaseRenders()
+        await task.value
+        let key = PlateSnapshotService.cacheKey(tierID: 14, weightKg: 20, engravingText: engraving)
+        try? FileManager.default.removeItem(at: service.cacheURL(for: key))
+    }
 }
