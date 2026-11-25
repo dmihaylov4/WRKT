@@ -3,15 +3,38 @@
 //  WRKT
 //
 //  What the Cut rack ("Your bar") shows, as plain values: the total on the bar in the user's
-//  unit, one summary line, the hint under the 3D scene and the tray of earned plates (loaded
-//  first, in bar order, then storage in the legacy wall order). Also the plate detail sheet,
-//  the full collection sheet and the scene reconciliation the host runs when the saved bar
-//  changes. The starter plate is never a tray plate and adds no weight, as in the legacy rack.
+//  unit, one summary line, the hint under the 3D scene and the tray of earned plates. The tray
+//  shows the loaded plates first, one tile each in bar order, then the stored plates grouped by
+//  look: identical plates (CutRackLogic.look) share one tile with a count, in family sections
+//  (engraved, metal, bumpers, iron). Also the play action (drop every stored plate into the
+//  room, then tidy up), the plate detail sheet, the full collection sheet and the scene
+//  reconciliation the host runs when the saved bar changes. The starter plate is never a tray
+//  plate and adds no weight, as in the legacy rack.
 //
 
 import Foundation
 
 // MARK: - Facts
+
+/// The tray's sections for stored plates, rarest first: one-off engraved plates, then metal
+/// (brass, steel, chrome, gold), rubber bumpers and competition plates, and iron.
+enum CutRackPlateFamily: Int, CaseIterable, Comparable {
+    case engraved
+    case metal
+    case bumper
+    case iron
+
+    var title: String {
+        switch self {
+        case .engraved: return "Engraved"
+        case .metal: return "Metal"
+        case .bumper: return "Bumpers"
+        case .iron: return "Iron"
+        }
+    }
+
+    static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+}
 
 /// One earned plate, reduced to what the rack needs.
 struct CutRackPlateFacts: Equatable {
@@ -27,6 +50,49 @@ struct CutRackPlateFacts: Equatable {
     /// The legacy wall order: higher shows first.
     var displayOrder: Int
     var earnedAt: Date
+    /// PlateTier.id.
+    var tierID: Int = 0
+    /// The plate's progression tier ("iron" to "cosmic"): its face rings and thumbnail differ.
+    var progressionTier: String = BarbellPlateProgressionTier.iron.rawValue
+    /// The lift a lift plate was earned for; nil and "global" are the same.
+    var liftTypeID: String?
+    /// The tier's material family, used when the plate has no engraving.
+    var material: CutRackPlateFamily = .bumper
+    /// The tier's rarity, 0 (common) to 4 (legendary).
+    var rarity: Int = 0
+}
+
+/// Everything that makes two plates look the same in the tray and in the scene: the tier, the
+/// weight, the engraving (case and spacing aside), the progression tier and the lift. Plates
+/// with equal looks are interchangeable copies; anything else stays its own tile.
+struct CutRackPlateLook: Hashable {
+    var tierID: Int
+    var tierName: String
+    var weightKg: Double
+    var engraving: String
+    var progressionTier: String
+    var liftTypeID: String
+
+    /// Stable text for SwiftUI identity.
+    var key: String {
+        "\(tierID)|\(tierName)|\(weightKg)|\(engraving)|\(progressionTier)|\(liftTypeID)"
+    }
+}
+
+/// The stored copies of one look, in the order they load (the legacy wall order), plus how many
+/// copies of the same look are on the bar.
+struct CutRackPlateGroup: Equatable {
+    var look: CutRackPlateLook
+    var family: CutRackPlateFamily
+    var stored: [CutRackPlateFacts]
+    var loadedCount: Int
+}
+
+/// The room's play state: idle, plates raining in, or dropped plates lying loose.
+enum CutRackPlayPhase: Equatable {
+    case idle
+    case raining
+    case loose
 }
 
 /// A notice the host raises after a failed load; it replaces the hint until the next change.
@@ -42,19 +108,45 @@ struct CutRackFacts {
     var occupiedSlots: Int
     var unit: WeightUnit
     var notice: CutRackNotice?
+    var playPhase: CutRackPlayPhase = .idle
 }
 
 // MARK: - Model
 
 struct CutRackModel: Equatable {
     struct Tile: Identifiable, Equatable {
+        /// A loaded plate's id, or "look:" and the look's key for a stored group (stable while
+        /// copies come and go).
         var id: String
+        /// The plate a tap acts on: the loaded plate (takes it off) or the group's next copy (loads it).
+        var plateID: String
         /// "20 kg"
         var weight: String
         var isLoaded: Bool
+        /// Copies in storage this tile stands for (1 for a single plate, 0 for a loaded plate).
+        var storedCount: Int
+        /// "×12" on a group of more than one, nil otherwise.
+        var badge: String?
+        /// Copies of this look on the bar, shown as a small lime mark on a stored group.
+        var onBarCount: Int
         /// "Lime Bumper, 20 kg, on the bar"
         var accessibilityLabel: String
         var accessibilityHint: String
+    }
+
+    struct Section: Identifiable, Equatable {
+        var id: String
+        /// "On the bar", "Bumpers"; nil when the tray has one section only.
+        var title: String?
+        var tiles: [Tile]
+    }
+
+    /// Drop every stored plate into the room, or tidy the dropped plates away.
+    struct PlayAction: Equatable {
+        var title: String
+        var accessibilityLabel: String
+        var accessibilityHint: String
+        var isTidy: Bool
     }
 
     var title = "Your bar"
@@ -66,17 +158,23 @@ struct CutRackModel: Equatable {
     var totalAccessibilityLabel: String
     /// "8 plates loaded, 4 in storage"
     var summary: String
+    /// The header read as one: "150 kilograms on the bar. 3 plates loaded, 87 in storage"
+    var headerAccessibilityLabel: String
     /// VoiceOver value of the 3D scene: the loaded plates, innermost first, or "Empty bar".
     var sceneAccessibilityValue: String
     /// One quiet line under the scene; nil when there is nothing to do.
     var hint: String?
     var trayTitle = "Your plates"
-    /// "All 12", nil when no plate has been earned.
+    /// "All 12", nil when no plate has been earned. Opens the full list.
     var allTitle: String?
     var allAccessibilityLabel: String
-    var tiles: [Tile]
+    var playAction: PlayAction?
+    var sections: [Section]
     /// Shown in the tray when no plate has been earned.
     var emptyTray: String
+
+    /// Every tile, in tray order.
+    var tiles: [Tile] { sections.flatMap(\.tiles) }
 }
 
 enum CutRackLogic {
@@ -86,22 +184,134 @@ enum CutRackLogic {
 
     static func model(_ facts: CutRackFacts, locale: Locale = .current) -> CutRackModel {
         let tray = trayOrder(facts.plates)
-        let loaded = tray.filter(\.isLoaded).count
+        let loadedPlates = tray.filter(\.isLoaded)
+        let loaded = loadedPlates.count
+        let storage = tray.count - loaded
         let total = totalKg(facts.plates)
         let unitWord = facts.unit.rawValue
         let totalValue = number(facts.unit.displayValue(total), locale: locale)
+        let totalLabel = "\(totalValue) \(spokenUnit(facts.unit)) on the bar"
+        let summary = summary(loaded: loaded, storage: storage)
         return CutRackModel(
             totalValue: totalValue,
             totalUnit: "\(unitWord) on the bar",
-            totalAccessibilityLabel: "\(totalValue) \(spokenUnit(facts.unit)) on the bar",
-            summary: summary(loaded: loaded, storage: tray.count - loaded),
-            sceneAccessibilityValue: sceneAccessibilityValue(tray.filter(\.isLoaded), unit: facts.unit, locale: locale),
+            totalAccessibilityLabel: totalLabel,
+            summary: summary,
+            headerAccessibilityLabel: "\(totalLabel). \(summary)",
+            sceneAccessibilityValue: sceneAccessibilityValue(loadedPlates, unit: facts.unit, locale: locale),
             hint: hint(facts, loaded: loaded),
             allTitle: tray.isEmpty ? nil : "All \(tray.count)",
             allAccessibilityLabel: "Show all \(tray.count) plates",
-            tiles: tray.map { tile($0, unit: facts.unit, locale: locale) },
+            playAction: playAction(phase: facts.playPhase, storage: storage),
+            sections: sections(facts.plates, unit: facts.unit, locale: locale),
             emptyTray: emptyTrayLine
         )
+    }
+
+    // MARK: Identical plates and groups
+
+    /// The one definition of "identical": two plates with the same look are interchangeable
+    /// copies (same tier, weight, engraving, progression tier and lift). The engraving is
+    /// compared trimmed, with runs of spaces folded and case ignored, the way the plate face
+    /// prints it in capitals.
+    static func look(_ plate: CutRackPlateFacts) -> CutRackPlateLook {
+        let engraving = plate.engraving
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+            .uppercased()
+        return CutRackPlateLook(
+            tierID: plate.tierID,
+            tierName: plate.tierName,
+            weightKg: plate.weightKg,
+            engraving: engraving,
+            progressionTier: plate.progressionTier,
+            liftTypeID: BarbellPlateProgressionScope.normalizedLiftTypeID(plate.liftTypeID)
+        )
+    }
+
+    static func areIdentical(_ a: CutRackPlateFacts, _ b: CutRackPlateFacts) -> Bool {
+        look(a) == look(b)
+    }
+
+    /// An engraved plate (a milestone, a lift, a record) sits with the engraved plates; any
+    /// other plate in its material's section.
+    static func family(_ plate: CutRackPlateFacts) -> CutRackPlateFamily {
+        look(plate).engraving.isEmpty ? plate.material : .engraved
+    }
+
+    /// The stored plates grouped by look. Order: family (engraved, metal, bumpers, iron), then
+    /// heaviest, then rarest, then the bigger pile, then name, then the higher progression tier.
+    /// Heaviest first because a heavy plate is what someone browsing to load the bar looks for,
+    /// and within a family weight is the plain thing that tells similar plates apart. Inside a
+    /// group, copies load in the legacy wall order (newest first).
+    static func storageGroups(_ plates: [CutRackPlateFacts]) -> [CutRackPlateGroup] {
+        let ordered = trayOrder(plates)
+        var groups: [CutRackPlateLook: CutRackPlateGroup] = [:]
+        var loadedByLook: [CutRackPlateLook: Int] = [:]
+        for plate in ordered {
+            let key = look(plate)
+            if plate.isLoaded {
+                loadedByLook[key, default: 0] += 1
+            } else if groups[key] != nil {
+                groups[key]?.stored.append(plate)
+            } else {
+                groups[key] = CutRackPlateGroup(look: key, family: family(plate), stored: [plate], loadedCount: 0)
+            }
+        }
+        for key in groups.keys { groups[key]?.loadedCount = loadedByLook[key] ?? 0 }
+        return groups.values.sorted(by: groupPrecedes)
+    }
+
+    private static func groupPrecedes(_ a: CutRackPlateGroup, _ b: CutRackPlateGroup) -> Bool {
+        if a.family != b.family { return a.family < b.family }
+        if a.look.weightKg != b.look.weightKg { return a.look.weightKg > b.look.weightKg }
+        let rarityA = a.stored.first?.rarity ?? 0, rarityB = b.stored.first?.rarity ?? 0
+        if rarityA != rarityB { return rarityA > rarityB }
+        if a.stored.count != b.stored.count { return a.stored.count > b.stored.count }
+        let nameA = name(a.stored[0]), nameB = name(b.stored[0])
+        if nameA != nameB { return nameA < nameB }
+        let rankA = BarbellPlateProgressionTier(rawValue: a.look.progressionTier)?.rank ?? 0
+        let rankB = BarbellPlateProgressionTier(rawValue: b.look.progressionTier)?.rank ?? 0
+        if rankA != rankB { return rankA > rankB }
+        return a.look.key < b.look.key
+    }
+
+    /// The tray: "On the bar" (one tile per loaded plate, in bar order), then one section per
+    /// family with a tile per look. Titles only when there is more than one section.
+    static func sections(_ plates: [CutRackPlateFacts], unit: WeightUnit, locale: Locale) -> [CutRackModel.Section] {
+        var sections: [CutRackModel.Section] = []
+        let loaded = trayOrder(plates).filter(\.isLoaded)
+        if !loaded.isEmpty {
+            sections.append(.init(id: "bar", title: "On the bar", tiles: loaded.map { tile($0, unit: unit, locale: locale) }))
+        }
+        let groups = storageGroups(plates)
+        for family in CutRackPlateFamily.allCases {
+            let tiles = groups.filter { $0.family == family }.map { tile($0, unit: unit, locale: locale) }
+            if !tiles.isEmpty { sections.append(.init(id: "family-\(family.rawValue)", title: family.title, tiles: tiles)) }
+        }
+        if sections.count == 1 { sections[0].title = nil }
+        return sections
+    }
+
+    /// The plate a tap on a stored group loads: its first copy in load order.
+    static func nextToLoad(_ group: CutRackPlateGroup) -> CutRackPlateFacts? {
+        group.stored.first
+    }
+
+    // MARK: Play: drop them all
+
+    static func playAction(phase: CutRackPlayPhase, storage: Int) -> CutRackModel.PlayAction? {
+        switch phase {
+        case .raining, .loose:
+            return .init(title: "Tidy up", accessibilityLabel: "Tidy up",
+                         accessibilityHint: "Clears the dropped plates from the floor. Nothing is taken off your bar.",
+                         isTidy: true)
+        case .idle:
+            guard storage > 0 else { return nil }
+            return .init(title: "Drop all", accessibilityLabel: "Drop all \(storage == 1 ? "1 stored plate" : "\(storage) stored plates")",
+                         accessibilityHint: "Drops your stored plates onto the floor to play with. Drag one to a sleeve end to load it.",
+                         isTidy: false)
+        }
     }
 
     /// The legacy formula (plateWallTotalWeight): the 20 kg bar plus every loaded plate on both sides.
@@ -152,6 +362,7 @@ enum CutRackLogic {
         // Keyed on earned plates only: the starter alone never asks for a swipe, and with no
         // plates earned the tray already says how to earn one.
         if facts.plates.isEmpty { return nil }
+        if facts.playPhase != .idle { return "Drag a plate to a sleeve end to load it." }
         if loaded == 0 { return "Tap a plate below to load it." }
         return "Swipe the bar to drop the outer plate."
     }
@@ -160,14 +371,39 @@ enum CutRackLogic {
         occupiedSlots >= barCapacity
     }
 
+    /// A loaded plate's tile: tapping it takes it off.
     static func tile(_ plate: CutRackPlateFacts, unit: WeightUnit, locale: Locale) -> CutRackModel.Tile {
         let weight = weight(plate.weightKg, unit: unit, locale: locale)
         return CutRackModel.Tile(
             id: plate.id,
+            plateID: plate.id,
             weight: weight,
             isLoaded: plate.isLoaded,
+            storedCount: plate.isLoaded ? 0 : 1,
+            badge: nil,
+            onBarCount: 0,
             accessibilityLabel: "\(name(plate)), \(spokenWeight(plate.weightKg, unit: unit, locale: locale)), \(status(plate))",
             accessibilityHint: plate.isLoaded ? "Takes it off the bar." : "Loads it onto the bar."
+        )
+    }
+
+    /// A stored group's tile: tapping it loads its next copy.
+    static func tile(_ group: CutRackPlateGroup, unit: WeightUnit, locale: Locale) -> CutRackModel.Tile {
+        let first = group.stored[0]
+        let count = group.stored.count
+        let spoken = "\(name(first)), \(spokenWeight(first.weightKg, unit: unit, locale: locale))"
+        var label = count == 1 ? "\(spoken), in storage" : "\(spoken), \(count) in storage"
+        if group.loadedCount > 0 { label += ", \(group.loadedCount) on the bar" }
+        return CutRackModel.Tile(
+            id: "look:" + group.look.key,
+            plateID: first.id,
+            weight: weight(first.weightKg, unit: unit, locale: locale),
+            isLoaded: false,
+            storedCount: count,
+            badge: count > 1 ? "×\(count)" : nil,
+            onBarCount: group.loadedCount,
+            accessibilityLabel: label,
+            accessibilityHint: count == 1 ? "Loads it onto the bar." : "Loads one onto the bar."
         )
     }
 
@@ -219,6 +455,49 @@ enum CutRackLogic {
                               barEntities: Set<String>, unloading: Set<String>) -> [String] {
         previouslyLoaded.subtracting(loaded).intersection(barEntities).subtracting(unloading).sorted()
     }
+}
+
+// MARK: - Drop them all
+
+/// Which stored plates fall into the room when the owner drops them all, and what VoiceOver
+/// says once they have. The scene caps how many plates and distinct faces it shows at once
+/// (RackPlateRain.limits); this picks within the caps.
+enum CutRackRainLogic {
+    /// Variety first: the first `maxLooks` looks in tray order (engraved, metal, bumpers, iron;
+    /// heaviest first), one plate of each, then a second copy of each, and so on, up to `cap`.
+    /// Plates already lying in the room (`exclude`) are skipped. Identical copies share a face,
+    /// so the faces drawn never exceed `maxLooks`.
+    static func selection(_ plates: [CutRackPlateFacts], cap: Int, maxLooks: Int, exclude: Set<String> = []) -> [String] {
+        let groups = CutRackLogic.storageGroups(plates)
+            .map { $0.stored.filter { !exclude.contains($0.id) } }
+            .filter { !$0.isEmpty }
+            .prefix(max(0, maxLooks))
+        var picked: [String] = []
+        var round = 0
+        while picked.count < cap {
+            var added = false
+            for copies in groups where round < copies.count {
+                picked.append(copies[round].id)
+                added = true
+                if picked.count == cap { break }
+            }
+            guard added else { break }
+            round += 1
+        }
+        return picked
+    }
+
+    /// Read once when the plates have landed.
+    static func announcement(dropped: Int, stored: Int) -> String {
+        guard dropped > 0 else { return "No plates to drop." }
+        let plates = dropped == 1 ? "1 plate" : "\(dropped) plates"
+        if dropped < stored {
+            return "Dropped \(plates) of \(stored) onto the floor. Drag one to a sleeve end to load it."
+        }
+        return "Dropped \(plates) onto the floor. Drag one to a sleeve end to load it."
+    }
+
+    static let tidyAnnouncement = "Floor tidied."
 }
 
 // MARK: - Plate detail

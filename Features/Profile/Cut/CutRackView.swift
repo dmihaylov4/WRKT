@@ -2,11 +2,15 @@
 //  CutRackView.swift
 //  WRKT
 //
-//  The Cut rack ("Your bar"), direction A: the back button, title and Edit on one row, the total
-//  on the bar with one lime summary line, the live 3D bar (a slot the host fills) with one quiet
-//  hint, and a raised tray of earned plates pinned at the bottom. Tapping a tray plate loads it
-//  or takes it off; holding it (or the VoiceOver action) opens its detail. Also the plate detail
-//  (a choice sheet) and the full collection (a browser sheet). Plain values and closures only.
+//  The Cut rack ("Your bar"), direction A: the back button, title and Edit on one row, a compact
+//  total (the numeral with "kg on the bar" and the lime summary beside it), the live 3D bar (a
+//  slot the host fills, given every spare point of height) with one quiet hint over its lower
+//  edge, and a raised tray of earned plates pinned at the bottom. The tray shows the loaded
+//  plates, then the stored plates grouped by look in family sections, one tile per look with a
+//  count. Tapping a tile loads a copy or takes a loaded plate off; holding it (or the VoiceOver
+//  action) opens its detail. "Drop all" drops the stored plates into the room to play with and
+//  becomes "Tidy up" while they lie there. Also the plate detail (a choice sheet) and the full
+//  collection (a browser sheet). Plain values and closures only.
 //
 
 import SwiftUI
@@ -17,6 +21,8 @@ struct CutRackActions {
     var showAll: () -> Void
     var toggle: (String) -> Void
     var details: (String) -> Void
+    /// Drop all or tidy up, as the model's play action says.
+    var play: () -> Void = {}
 }
 
 struct CutRackView<SceneContent: View, Thumbnail: View>: View {
@@ -77,7 +83,7 @@ struct CutRackView<SceneContent: View, Thumbnail: View>: View {
             }
             total
                 .padding(.horizontal, DS.Cut.Metrics.gutter)
-                .padding(.top, 14)
+                .padding(.top, 6)
         }
     }
 
@@ -95,92 +101,140 @@ struct CutRackView<SceneContent: View, Thumbnail: View>: View {
             .accessibilityHint(Text("Bar, collars and room."))
     }
 
+    /// One compact row: the numeral, and beside it "kg on the bar" over the lime summary, the
+    /// summary's last line on the numeral's baseline. When that does not fit (a long pound total
+    /// on a small phone, large text) the unit stays beside the numeral and the summary wraps
+    /// under it; at accessibility sizes everything stacks.
     private var total: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) { totalNumeral; totalUnit }
-                VStack(alignment: .leading, spacing: 0) { totalNumeral; totalUnit }
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .lastTextBaseline, spacing: 10) {
+                totalNumeral
+                VStack(alignment: .leading, spacing: 1) {
+                    totalUnit
+                    totalSummary
+                }
+                .fixedSize()
+                Spacer(minLength: 0)
             }
-            Text(model.summary)
-                .font(DS.Typography.custom(size: 17, weight: .semibold, relativeTo: .body))
-                .foregroundStyle(DS.Cut.Colors.lime)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    totalNumeral
+                    totalUnit.fixedSize()
+                }
+                totalSummary.fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                totalNumeral
+                totalUnit.fixedSize(horizontal: false, vertical: true)
+                totalSummary.fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("\(model.totalAccessibilityLabel). \(model.summary)"))
+        .accessibilityLabel(Text(model.headerAccessibilityLabel))
     }
 
     private var totalNumeral: some View {
         Text(model.totalValue)
-            .font(DS.Cut.Typography.condensed(size: 72, relativeTo: .largeTitle, monospacedDigits: true))
+            .font(DS.Cut.Typography.condensed(size: 48, relativeTo: .largeTitle, monospacedDigits: true))
             .lineLimit(1)
-            .minimumScaleFactor(0.5)
+            .minimumScaleFactor(0.6)
             .contentTransition(.numericText())
             .animation(.easeOut(duration: 0.25), value: model.totalValue)
     }
 
     private var totalUnit: some View {
         Text(model.totalUnit)
-            .font(DS.Typography.custom(size: 22, weight: .semibold, relativeTo: .title3))
+            .font(DS.Typography.custom(size: 16, weight: .semibold, relativeTo: .callout))
             .foregroundStyle(DS.Cut.Colors.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+    }
+
+    private var totalSummary: some View {
+        Text(model.summary)
+            .font(DS.Typography.custom(size: 15, weight: .semibold, relativeTo: .subheadline))
+            .foregroundStyle(DS.Cut.Colors.lime)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
     }
 
     // MARK: Scene
 
     /// - Parameter height: a fixed scene height (large text, where the page scrolls); nil fills the space.
+    /// The hint sits over the scene's faded lower edge (it never takes touches), so the band keeps
+    /// that height. With large text the page scrolls and the hint gets its own line under it.
     private func sceneArea(height: CGFloat?) -> some View {
-        VStack(spacing: 12) {
+        let hintBelow = height != nil
+        return VStack(spacing: 12) {
             scene()
                 .accessibilityValue(Text(model.sceneAccessibilityValue))
                 .frame(maxWidth: .infinity, maxHeight: height == nil ? .infinity : nil)
                 .frame(height: height)
                 .clipped()
-                .overlay { edgeFades.allowsHitTesting(false) }
-            if let hint = model.hint {
-                Text(hint)
-                    .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, DS.Cut.Metrics.gutter)
-                    .accessibilityAddTraits(.updatesFrequently)
-            }
+                .overlay { edgeFades(tall: !hintBelow && model.hint != nil).allowsHitTesting(false) }
+                .overlay(alignment: .bottom) {
+                    if !hintBelow { hintText.padding(.bottom, 6).allowsHitTesting(false) }
+                }
+            if hintBelow { hintText }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.top, 2)
+        .padding(.bottom, hintBelow ? 12 : 6)
+    }
+
+    @ViewBuilder
+    private var hintText: some View {
+        if let hint = model.hint {
+            Text(hint)
+                .font(DS.Typography.custom(size: 15, weight: .medium, relativeTo: .callout))
+                .foregroundStyle(DS.Cut.Colors.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, DS.Cut.Metrics.gutter)
+                .accessibilityAddTraits(.updatesFrequently)
+        }
     }
 
     /// Soft top and bottom edges so the room melts into the black page instead of ending in a line.
-    private var edgeFades: some View {
+    /// Taller at the bottom when the hint sits there, so the line reads on the page colour.
+    private func edgeFades(tall: Bool) -> some View {
         VStack(spacing: 0) {
             LinearGradient(colors: [DS.Cut.Colors.background, DS.Cut.Colors.background.opacity(0)],
                            startPoint: .top, endPoint: .bottom)
-                .frame(height: 28)
+                .frame(height: 24)
             Spacer(minLength: 0)
-            LinearGradient(colors: [DS.Cut.Colors.background.opacity(0), DS.Cut.Colors.background],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 28)
+            LinearGradient(stops: [
+                .init(color: DS.Cut.Colors.background.opacity(0), location: 0),
+                .init(color: DS.Cut.Colors.background.opacity(tall ? 0.85 : 1), location: tall ? 0.55 : 1),
+                .init(color: DS.Cut.Colors.background, location: 1)
+            ], startPoint: .top, endPoint: .bottom)
+                .frame(height: tall ? 48 : 28)
         }
     }
 
     // MARK: Tray
 
     private var tray: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             CutPanelHeader(model.trayTitle) {
-                if let all = model.allTitle {
-                    Button(all, action: actions.showAll)
-                        .font(DS.Typography.custom(size: 17, weight: .bold, relativeTo: .body))
-                        .foregroundStyle(DS.Cut.Colors.textPrimary)
-                        .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
-                        .contentShape(Rectangle())
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(model.allAccessibilityLabel))
+                HStack(spacing: 14) {
+                    if let play = model.playAction {
+                        Button(play.title, action: actions.play)
+                            .buttonStyle(CutPillButtonStyle(play.isTidy ? .outlineLime : .outline))
+                            .accessibilityLabel(Text(play.accessibilityLabel))
+                            .accessibilityHint(Text(play.accessibilityHint))
+                    }
+                    if let all = model.allTitle {
+                        Button(all, action: actions.showAll)
+                            .font(DS.Typography.custom(size: 17, weight: .bold, relativeTo: .body))
+                            .foregroundStyle(DS.Cut.Colors.textPrimary)
+                            .frame(minHeight: DS.Cut.Metrics.minTouchTarget)
+                            .contentShape(Rectangle())
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text(model.allAccessibilityLabel))
+                    }
                 }
             }
-            if model.tiles.isEmpty {
+            if model.sections.isEmpty {
                 Text(model.emptyTray)
                     .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout))
                     .foregroundStyle(DS.Cut.Colors.textSecondary)
@@ -189,18 +243,20 @@ struct CutRackView<SceneContent: View, Thumbnail: View>: View {
                     .padding(.bottom, 4)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 10) {
-                        ForEach(model.tiles) { tile in
-                            tileButton(tile)
+                    LazyHStack(alignment: .top, spacing: 18) {
+                        ForEach(model.sections) { section in
+                            sectionView(section)
                         }
                     }
                     .padding(.horizontal, 20)
+                    // Room for the count badges that sit over the tiles' top corners.
+                    .padding(.top, 4)
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.top, 16)
-        .padding(.bottom, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(Self.traySurface))
         .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).strokeBorder(Color.white.opacity(0.12), lineWidth: 1))
@@ -209,10 +265,31 @@ struct CutRackView<SceneContent: View, Thumbnail: View>: View {
         .environment(\.cutSheetLevel, .base)
     }
 
+    /// A section of the tray's one horizontal row: a small caption over its tiles.
+    private func sectionView(_ section: CutRackModel.Section) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let title = section.title {
+                Text(title)
+                    .font(DS.Typography.custom(size: 13, weight: .semibold, relativeTo: .footnote))
+                    .textCase(.uppercase)
+                    .foregroundStyle(section.id == "bar" ? DS.Cut.Colors.lime : DS.Cut.Colors.textSecondary)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.leading, 4)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            HStack(spacing: 10) {
+                ForEach(section.tiles) { tile in
+                    tileButton(tile)
+                }
+            }
+        }
+    }
+
     private func tileButton(_ tile: CutRackModel.Tile) -> some View {
-        Button { actions.toggle(tile.id) } label: {
+        Button { actions.toggle(tile.plateID) } label: {
             VStack(spacing: 6) {
-                thumbnail(tile.id)
+                thumbnail(tile.plateID)
                     .frame(width: 48, height: 48)
                     .accessibilityHidden(true)
                 Text(tile.weight)
@@ -228,16 +305,43 @@ struct CutRackView<SceneContent: View, Thumbnail: View>: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(tile.isLoaded ? DS.Cut.Colors.lime : .clear, lineWidth: 2)
             )
+            .overlay(alignment: .topTrailing) { tileMarks(tile) }
             .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(CutRackTileButtonStyle())
         .contextMenu {
-            Button("Show details", systemImage: "info.circle") { actions.details(tile.id) }
+            Button("Show details", systemImage: "info.circle") { actions.details(tile.plateID) }
         }
         .accessibilityLabel(Text(tile.accessibilityLabel))
         .accessibilityHint(Text(tile.accessibilityHint))
         .accessibilityAddTraits(tile.isLoaded ? .isSelected : [])
-        .accessibilityAction(named: Text("Show details")) { actions.details(tile.id) }
+        .accessibilityAction(named: Text("Show details")) { actions.details(tile.plateID) }
+    }
+
+    /// The count of stored copies ("×12") and, when copies of the same plate are on the bar, a
+    /// small lime dot. Both are in the tile's VoiceOver label already.
+    @ViewBuilder
+    private func tileMarks(_ tile: CutRackModel.Tile) -> some View {
+        if tile.badge != nil || tile.onBarCount > 0 {
+            HStack(spacing: 3) {
+                if tile.onBarCount > 0 {
+                    Circle().fill(DS.Cut.Colors.lime).frame(width: 7, height: 7)
+                }
+                if let badge = tile.badge {
+                    Text(badge)
+                        .font(DS.Typography.custom(size: 12, weight: .bold, relativeTo: .caption))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
+            .foregroundStyle(DS.Cut.Colors.textPrimary)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(DS.Cut.Colors.panelControl))
+            .offset(x: 4, y: -4)
+            .accessibilityHidden(true)
+        }
     }
 }
 
