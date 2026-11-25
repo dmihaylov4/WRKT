@@ -59,6 +59,9 @@ struct CutRackHost: View {
             thumbnail: { id in thumbnail(id) }
         )
         .task {
+            #if DEBUG
+            Self.testToggle = { id in toggle(id) }
+            #endif
             let preload = startPreload()
             // The screen's first frame (header, summary, tray) is drawn before RealityKit sets
             // up, which is the longest main-thread step of an open; the preload already runs.
@@ -184,6 +187,7 @@ struct CutRackHost: View {
     /// moved (a swipe or a drag) are bar or floor entities already and are left alone.
     private func syncScene(from old: [BarbellRackSceneSyncPlate], to new: [BarbellRackSceneSyncPlate]) {
         notice = nil
+        RackOpenTrace.mark("sync")
         guard assetsReady, !sceneState.isPaused else { return }
         let state = sceneState
         let barEntities = Set(state.entityMap.compactMap { id, entity in
@@ -213,12 +217,14 @@ struct CutRackHost: View {
             }
             guard let plate = rackedPlates.first(where: { $0.id == plateID }) else { continue }
             Task { @MainActor in
+                RackOpenTrace.mark("load.task")
                 if state.plateStyle == .lathe {
                     // Both faces: as loaded, and the mirror's blank one a later reload builds.
                     await prepareLathePlates(latheFirstFrameRequests([plate]) + latheLaterRequests([plate]))
                 } else if plate.tierID != 7 {
                     await cacheMaterial(tierID: plate.tierID)
                 }
+                RackOpenTrace.mark("load.prepared")
                 guard !state.isPaused else { return }
                 await state.loadPlateOntoBar(plate, rackSlot: slot)
             }
@@ -237,9 +243,16 @@ struct CutRackHost: View {
 
     // MARK: Tray
 
+    #if DEBUG
+    /// Tests: the tray's toggle of the most recently shown rack (the harness taps through it).
+    static var testToggle: ((String) -> Void)?
+    #endif
+
     private func toggle(_ id: String) {
+        RackOpenTrace.mark("tap")
         guard let plate = ownedPlates.first(where: { $0.id == id }) else { return }
         let result = CutRackSaving.toggle(plate)
+        RackOpenTrace.mark("tap.saved")
         notice = result
         if result != nil {
             AccessibilityNotification.Announcement(CutRackLogic.hint(

@@ -563,10 +563,12 @@ final class BarbellProgressService {
     // MARK: - Haptic + Sound
 
     func playClinkHaptic() {
+        RackOpenTrace.mark("tap.haptic")
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         clinkPlayer?.stop()
         clinkPlayer?.currentTime = 0
         clinkPlayer?.play()
+        RackOpenTrace.mark("tap.sound")
     }
 
     func playCosmeticEquipFeedback() {
@@ -591,7 +593,24 @@ final class BarbellProgressService {
 
     // MARK: - Supabase sync
 
+    #if DEBUG
+    private var remoteSyncDisabledForTesting = false
+
+    /// Tests only: runs the service on `context` (an in-memory container) with remote sync off,
+    /// and returns the context it used before. Pass the returned context back to restore it.
+    func swapContextForTesting(_ newContext: ModelContext?, remoteSyncOff: Bool) -> ModelContext? {
+        let previous = context
+        context = newContext
+        remoteSyncDisabledForTesting = remoteSyncOff
+        if clinkPlayer == nil { preloadClinkSound() }
+        return previous
+    }
+    #endif
+
     private func enqueueRemoteSync(_ operation: @escaping @MainActor (UUID) async -> Void) {
+        #if DEBUG
+        guard !remoteSyncDisabledForTesting else { return }
+        #endif
         guard let userID = SupabaseAuthService.shared.currentUser?.id else { return }
         let previousTask = remoteSyncTask
         remoteSyncTask = Task { @MainActor [weak self, previousTask, userID] in

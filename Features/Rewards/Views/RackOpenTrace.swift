@@ -6,6 +6,7 @@
 // counts the expensive work (face images drawn, panoramas built, thumbnails rendered) so tests can
 // guard the open's cost by counting work instead of timing it. Nothing here runs per frame.
 
+import Combine
 import Foundation
 import os
 import QuartzCore
@@ -80,6 +81,23 @@ enum RackOpenTrace {
     /// The time of the latest mark with this name, if any.
     static func time(of name: String) -> CFTimeInterval? {
         marks.last { $0.name == name }?.time
+    }
+
+    private static var sceneFrameSubscriptions: [UUID: any Cancellable] = [:]
+
+    /// Marks `name` on the scene's next update, then stops listening (one event, not per frame).
+    /// For work started outside make (a tray load, a release).
+    static func markNextFrame(_ name: StaticString, scene: RealityKit.Scene?) {
+        #if DEBUG
+        guard let scene else { return }
+        let id = UUID()
+        sceneFrameSubscriptions[id] = scene.subscribe(to: SceneEvents.Update.self) { _ in
+            MainActor.assumeIsolated {
+                mark(name)
+                sceneFrameSubscriptions.removeValue(forKey: id)?.cancel()
+            }
+        }
+        #endif
     }
 
     /// Marks `name` on the scene's next update, then stops listening (one event, not per frame).

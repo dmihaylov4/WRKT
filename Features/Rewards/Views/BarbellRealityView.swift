@@ -788,6 +788,7 @@ final class SceneState {
             sceneRoot.addChild(entity)
             entityMap[plate.id] = entity
         }
+        RackOpenTrace.mark("load.entity")
         let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
         guard slotOffsets.indices.contains(rackSlot), let entity = entityMap[plate.id] else { return false }
         let offset = slotOffsets[rackSlot]
@@ -807,6 +808,8 @@ final class SceneState {
         barAnchor.addChild(mirror)
         barPositionMap[plate.id] = SIMD3(offset, 0, 0)
         barMirrorMap[plate.id] = mirror
+        RackOpenTrace.mark("load.mirror")
+        RackOpenTrace.markNextFrame("load.moving", scene: entity.scene)
 
         if !isReduceMotionEnabled {
             let steps: [(SIMD3<Float>, TimeInterval, AnimationTimingFunction)] = [
@@ -837,9 +840,11 @@ final class SceneState {
                 seated.orientation = plateBarOrientation
             }
         }
+        RackOpenTrace.mark("load.seated")
         if let audio = entity.components[PlateAudioCategoryComponent.self] {
             playClinkSound(on: entity, category: audio.category)
         }
+        RackOpenTrace.mark("load.clink")
         return true
     }
 
@@ -855,6 +860,8 @@ final class SceneState {
         if case .draggingPlate(let dragging, _, _) = dragPhase, dragging === entity { return false }
         platesBeingUnracked.insert(plateID)
         defer { platesBeingUnracked.remove(plateID) }
+        RackOpenTrace.mark("release.start")
+        RackOpenTrace.markNextFrame("release.moving", scene: entity.scene)
 
         let mirror = barMirrorMap[plateID]
         if !isReduceMotionEnabled {
@@ -902,6 +909,7 @@ final class SceneState {
                 guard entity.components[PlateRoleComponent.self]?.role == .floor else { return }
                 playDropSound(on: entity, category: audio.category)
                 playDropHaptic(category: audio.category)
+                RackOpenTrace.mark("release.drop")
             }
         }
         return true
