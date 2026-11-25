@@ -127,8 +127,10 @@ nonisolated enum RackStudioEnvironment {
     /// photo has one big soft box off to a side; unmirrored, one sleeve's plates read lighter.
     /// Columns run right to left seen from inside (see RackRoomEnvironment.panorama), with column
     /// 0 behind the viewer and the middle column ahead, so the mirror is a horizontal flip.
+    ///
+    /// `hex` paints the mood's honeycomb light into it (RackHexReflection), so metal reflects it.
     static func panorama(_ radiance: Radiance, clamp: Float = radianceClamp, yawDegrees: Float = 0,
-                         symmetric: Bool = true) -> CGImage? {
+                         symmetric: Bool = true, hex: RackHexPlacement? = nil) -> CGImage? {
         let w = radiance.width, h = radiance.height
         let balance = whiteBalance(radiance, clamp: clamp)
         let shift = ((Int((yawDegrees / 360 * Float(w)).rounded()) % w) + w) % w
@@ -144,6 +146,7 @@ nonisolated enum RackStudioEnvironment {
                 }
             }
         }
+        if let hex { RackHexReflection.paint(hex, into: &pixels, width: w, height: h) }
         let data = pixels.withUnsafeBufferPointer { Data(buffer: $0) }
         guard let space = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
               let provider = CGDataProvider(data: data as CFData) else { return nil }
@@ -181,7 +184,7 @@ nonisolated enum RackStudioEnvironment {
         #else
         let symmetric = true
         #endif
-        return panorama(radiance, clamp: clamp, yawDegrees: yaw, symmetric: symmetric)
+        return panorama(radiance, clamp: clamp, yawDegrees: yaw, symmetric: symmetric, hex: RackHexPlacement.currentForEnvironment)
     }
 }
 
