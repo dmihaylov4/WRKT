@@ -137,6 +137,15 @@ struct CutRackHost: View {
         for tierID in Set((rackedPlates + ownedPlates).map(\.tierID)).sorted() where tierID != 7 {
             await cacheMaterial(tierID: tierID)
         }
+        if sceneState.plateStyle == .lathe {
+            // Every owned plate's lathe face, so a tray load never draws on the main thread.
+            await prepareLathePlates((rackedPlates + ownedPlates).filter { !$0.isStarterPlate }.flatMap { plate in
+                Set([plate.engravingText, ""]).map {
+                    LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg, engravingText: $0,
+                                      projection: BarbellPlateRenderProjection(plate: plate))
+                }
+            })
+        }
         for tierID in PlateTier.all.map(\.id) {
             let category = PlateAudioCategory.from(tierID: tierID)
             _ = loadAudioResource(named: category.clinkSoundName)
