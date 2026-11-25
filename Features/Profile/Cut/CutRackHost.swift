@@ -129,31 +129,10 @@ struct CutRackHost: View {
             .sorted { $0.id < $1.id }
     }
 
-    /// The legacy preload: plate textures and materials for every owned tier, then the clink and
-    /// drop sounds, before the scene is first built.
     @MainActor
     private func preloadAssets() async {
         guard !assetsReady else { return }
-        RackOpenTrace.mark("host.preload")
-        for tierID in Set((rackedPlates + ownedPlates).map(\.tierID)).sorted() where tierID != 7 {
-            await cacheMaterial(tierID: tierID)
-        }
-        RackOpenTrace.mark("host.materials")
-        if sceneState.plateStyle == .lathe {
-            // Every owned plate's lathe face, so a tray load never draws on the main thread.
-            await prepareLathePlates((rackedPlates + ownedPlates).filter { !$0.isStarterPlate }.flatMap { plate in
-                Set([plate.engravingText, ""]).map {
-                    LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg, engravingText: $0,
-                                      projection: BarbellPlateRenderProjection(plate: plate))
-                }
-            })
-        }
-        RackOpenTrace.mark("host.lathe")
-        for tierID in PlateTier.all.map(\.id) {
-            let category = PlateAudioCategory.from(tierID: tierID)
-            _ = loadAudioResource(named: category.clinkSoundName)
-            _ = loadAudioResource(named: category.dropSoundName)
-        }
+        await CutRackPreloader.preload(racked: rackedPlates, into: sceneState)
         guard !Task.isCancelled else { return }
         RackOpenTrace.mark("host.ready")
         assetsReady = true
@@ -161,10 +140,7 @@ struct CutRackHost: View {
 
     @MainActor
     private func cacheMaterial(tierID: Int) async {
-        guard sceneState.materialCache[tierID] == nil else { return }
-        let textures = await loadPlateTexturesAsync(forTierID: tierID)
-        sceneState.plateTextureCache[tierID] = textures
-        sceneState.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: textures, inRackRoom: true)
+        await CutRackPreloader.cacheMaterial(tierID: tierID, in: sceneState)
     }
 
     /// A saved bar change, from the tray, a sheet, the editor or the scene itself. Plates newly on
@@ -201,7 +177,12 @@ struct CutRackHost: View {
             }
             guard let plate = rackedPlates.first(where: { $0.id == plateID }) else { continue }
             Task { @MainActor in
-                if plate.tierID != 7 { await cacheMaterial(tierID: plate.tierID) }
+                if state.plateStyle == .lathe {
+                    // Both faces: as loaded, and the mirror's blank one a later reload builds.
+                    await prepareLathePlates(latheFirstFrameRequests([plate]) + latheLaterRequests([plate]))
+                } else if plate.tierID != 7 {
+                    await cacheMaterial(tierID: plate.tierID)
+                }
                 guard !state.isPaused else { return }
                 await state.loadPlateOntoBar(plate, rackSlot: slot)
             }
@@ -236,6 +217,43 @@ struct CutRackHost: View {
         if let plate = ownedPlates.first(where: { $0.id == id }) {
             CutRackThumbnail(plate: plate)
         }
+    }
+}
+
+/// What the rack scene's first frame needs, before it is first built: legacy plate materials for
+/// the bar's tiers (lathe plates do not use them), the bar plates' lathe faces, then the clink and
+/// drop sounds. Tray plates are prepared when they are loaded (CutRackHost.syncScene), never up
+/// front: an earlier version prepared every owned plate's faces here (128 face image sets for a
+/// 90-plate inventory).
+enum CutRackPreloader {
+    @MainActor
+    static func preload(racked: [EarnedPlate], into sceneState: SceneState) async {
+        RackOpenTrace.mark("host.preload")
+        let lathe = sceneState.plateStyle == .lathe
+        if !lathe {
+            for tierID in Set(racked.map(\.tierID)).sorted() where tierID != 7 {
+                await cacheMaterial(tierID: tierID, in: sceneState)
+            }
+        }
+        RackOpenTrace.mark("host.materials")
+        if lathe {
+            await prepareLathePlates(latheFirstFrameRequests(racked))
+        }
+        RackOpenTrace.mark("host.lathe")
+        for tierID in PlateTier.all.map(\.id) {
+            let category = PlateAudioCategory.from(tierID: tierID)
+            _ = loadAudioResource(named: category.clinkSoundName)
+            _ = loadAudioResource(named: category.dropSoundName)
+        }
+    }
+
+    /// A legacy plate tier's textures and material in the scene's caches.
+    @MainActor
+    static func cacheMaterial(tierID: Int, in sceneState: SceneState) async {
+        guard sceneState.materialCache[tierID] == nil else { return }
+        let textures = await loadPlateTexturesAsync(forTierID: tierID)
+        sceneState.plateTextureCache[tierID] = textures
+        sceneState.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: textures, inRackRoom: true)
     }
 }
 

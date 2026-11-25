@@ -650,6 +650,26 @@ func prepareLathePlates(_ requests: [LathePlateRequest]) async {
     RackOpenTrace.mark("lathe.uploaded")
 }
 
+/// The faces a scene shows in its first frame: each plate as built, with its engraving (bar
+/// plates and their mirrors alike). See latheLaterRequests for the rest.
+@MainActor
+func latheFirstFrameRequests(_ plates: [EarnedPlate]) -> [LathePlateRequest] {
+    plates.filter { !$0.isStarterPlate }.map {
+        LathePlateRequest(tierID: $0.tierID, weightKg: $0.weightKg, engravingText: $0.engravingText,
+                          projection: BarbellPlateRenderProjection(plate: $0))
+    }
+}
+
+/// The faces the same plates need later: mirrors rebuilt after a load or a drag back onto the bar
+/// carry no engraving.
+@MainActor
+func latheLaterRequests(_ plates: [EarnedPlate]) -> [LathePlateRequest] {
+    plates.filter { !$0.isStarterPlate }.map {
+        LathePlateRequest(tierID: $0.tierID, weightKg: $0.weightKg, engravingText: "",
+                          projection: BarbellPlateRenderProjection(plate: $0))
+    }
+}
+
 /// The lathe plate's visual: one ModelEntity, the shared mesh, body, hub and face materials, turned
 /// so its axis lies along the bar (the legacy plate's orientation). makePlateEntity adds the same
 /// collision, physics, audio and metadata components as for a legacy plate.
