@@ -22,11 +22,21 @@ struct CutTrainActions {
     var openRow: (CutTrainRow.Kind) -> Void = { _ in }
     /// Rows that navigate; the others are plain text, as their legacy elements were.
     var tappableRows: Set<CutTrainRow.Kind> = []
+    /// The page started or stopped scrolling (the hex portal renders nothing while it scrolls).
+    var scrollingChanged: (Bool) -> Void = { _ in }
 }
 
-struct CutTrainView: View {
+struct CutTrainView<Corner: View>: View {
     let model: CutTrainModel
     var actions = CutTrainActions()
+    /// What sits in the field's cut corner: the hex portal, or nothing.
+    private let corner: Corner
+
+    init(model: CutTrainModel, actions: CutTrainActions = CutTrainActions(), @ViewBuilder corner: () -> Corner) {
+        self.model = model
+        self.actions = actions
+        self.corner = corner()
+    }
 
     @State private var fieldHeight: CGFloat = 0
     /// The lime part of the field is still behind the status bar (scrolled to, or near, the top).
@@ -35,13 +45,14 @@ struct CutTrainView: View {
     @State private var contentFits = false
 
     var body: some View {
+        let _ = HomeHexPortalDiagnostics.countTrainBody()
         // The reader keeps the safe area, so it reports the status bar height the field's
         // content has to clear once the scroll view runs under it.
         GeometryReader { proxy in
             let topInset = proxy.safeAreaInsets.top
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    CutTrainField(hero: model.hero, topInset: topInset, actions: actions)
+                    CutTrainField(hero: model.hero, topInset: topInset, actions: actions, corner: corner)
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { fieldHeight = $0 }
                     if let goal = model.weeklyGoal {
                         CutTrainWeeklyGoalView(goal: goal)
@@ -53,6 +64,9 @@ struct CutTrainView: View {
                 }
             }
             .scrollIndicators(.hidden)
+            .onScrollPhaseChange { old, new in
+                if old.isScrolling != new.isScrolling { actions.scrollingChanged(new.isScrolling) }
+            }
             // A screen that fits stays put: it scrolls only when a row's text would sit under the
             // tab bar. The slack is the empty lower part of the last row, which may run under it.
             .scrollBounceBehavior(.basedOnSize)
@@ -79,12 +93,19 @@ struct CutTrainView: View {
     }
 }
 
+extension CutTrainView where Corner == EmptyView {
+    init(model: CutTrainModel, actions: CutTrainActions = CutTrainActions()) {
+        self.init(model: model, actions: actions) { EmptyView() }
+    }
+}
+
 // MARK: - Field
 
-private struct CutTrainField: View {
+private struct CutTrainField<Corner: View>: View {
     let hero: CutTrainHero
     let topInset: CGFloat
     let actions: CutTrainActions
+    let corner: Corner
 
     private var tone: CutField<EmptyView>.Tone {
         CutTrainLogic.fieldIsLime(hero) ? .lime : .dark
@@ -112,6 +133,12 @@ private struct CutTrainField: View {
                 .frame(height: 600)
                 .offset(y: -600)
                 .accessibilityHidden(true)
+        }
+        // The hex portal sits in the dark notch the cut leaves (HomeHexGeometry).
+        .overlay(alignment: .bottomTrailing) {
+            corner
+                .padding(.trailing, HomeHexGeometry.trailingPadding)
+                .offset(y: HomeHexGeometry.bottomOverhang)
         }
     }
 

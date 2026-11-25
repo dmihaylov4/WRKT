@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E4C0A1F00000000000000101 /* HomeHexPortalModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C0A1F00000000000000201 /* HomeHexPortalModel.swift */; };
+		E4C0A1F00000000000000102 /* HomeHexPortalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C0A1F00000000000000202 /* HomeHexPortalView.swift */; };
+		E4C0A1F00000000000000103 /* HomeHexPortalHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C0A1F00000000000000203 /* HomeHexPortalHost.swift */; };
+		E4C0A1F00000000000000104 /* RackRoomStillService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C0A1F00000000000000204 /* RackRoomStillService.swift */; };
+		E4C0A1F00000000000000105 /* CutRackPortalHooks.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4C0A1F00000000000000205 /* CutRackPortalHooks.swift */; };
 		E3B8D2F00000000000000103 /* RackRailSpriteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B8D2F00000000000000203 /* RackRailSpriteService.swift */; };
 		E3B8D2F00000000000000102 /* CutRackViewRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B8D2F00000000000000202 /* CutRackViewRail.swift */; };
 		E3B8D2F00000000000000101 /* CutRackModelRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B8D2F00000000000000201 /* CutRackModelRail.swift */; };
@@ -693,6 +698,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E4C0A1F00000000000000201 /* HomeHexPortalModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHexPortalModel.swift; sourceTree = "<group>"; };
+		E4C0A1F00000000000000202 /* HomeHexPortalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHexPortalView.swift; sourceTree = "<group>"; };
+		E4C0A1F00000000000000203 /* HomeHexPortalHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeHexPortalHost.swift; sourceTree = "<group>"; };
+		E4C0A1F00000000000000204 /* RackRoomStillService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRoomStillService.swift; sourceTree = "<group>"; };
+		E4C0A1F00000000000000205 /* CutRackPortalHooks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackPortalHooks.swift; sourceTree = "<group>"; };
 		E3B8D2F00000000000000203 /* RackRailSpriteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRailSpriteService.swift; sourceTree = "<group>"; };
 		E3B8D2F00000000000000202 /* CutRackViewRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackViewRail.swift; sourceTree = "<group>"; };
 		E3B8D2F00000000000000201 /* CutRackModelRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackModelRail.swift; sourceTree = "<group>"; };
@@ -2065,6 +2075,7 @@
 				2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */,
 				2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */,
 				E3B8D2F00000000000000203 /* RackRailSpriteService.swift */,
+				E4C0A1F00000000000000204 /* RackRoomStillService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2837,6 +2848,9 @@
 			isa = PBXGroup;
 			children = (
 				C17CA1000000000000000021 /* CutTrainModel.swift */,
+				E4C0A1F00000000000000201 /* HomeHexPortalModel.swift */,
+				E4C0A1F00000000000000202 /* HomeHexPortalView.swift */,
+				E4C0A1F00000000000000203 /* HomeHexPortalHost.swift */,
 				C17CA1000000000000000022 /* CutTrainView.swift */,
 				C17CA1000000000000000023 /* CutTrainHost.swift */,
 				C17CAF000000000000000202 /* CutYearReviewView.swift */,
@@ -2996,6 +3010,7 @@
 				C17CB5000000000000000203 /* CutRackHost.swift */,
 				E3B8D2F00000000000000202 /* CutRackViewRail.swift */,
 				E3B8D2F00000000000000201 /* CutRackModelRail.swift */,
+				E4C0A1F00000000000000205 /* CutRackPortalHooks.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3484,6 +3499,7 @@
 				C17CB5000000000000000103 /* CutRackHost.swift in Sources */,
 				E3B8D2F00000000000000102 /* CutRackViewRail.swift in Sources */,
 				E3B8D2F00000000000000101 /* CutRackModelRail.swift in Sources */,
+				E4C0A1F00000000000000105 /* CutRackPortalHooks.swift in Sources */,
 				C17CAE000000000000000203 /* CutWeeklyGoalHost.swift in Sources */,
 				C17CAE000000000000000204 /* CutWeeklyGoalSetupModel.swift in Sources */,
 				C17CAE000000000000000205 /* CutWeeklyGoalSetupView.swift in Sources */,
@@ -3548,6 +3564,9 @@
 				2E510B562E9793720089EE2C /* Haptics.swift in Sources */,
 				2EC202A42EF2A60200D6BAEF /* HomeViewNew.swift in Sources */,
 				C17CA1000000000000000011 /* CutTrainModel.swift in Sources */,
+				E4C0A1F00000000000000101 /* HomeHexPortalModel.swift in Sources */,
+				E4C0A1F00000000000000102 /* HomeHexPortalView.swift in Sources */,
+				E4C0A1F00000000000000103 /* HomeHexPortalHost.swift in Sources */,
 				C17CB7000000000000000113 /* CutPastWorkoutsModel.swift in Sources */,
 				C17CB7000000000000000114 /* CutPastWorkoutsView.swift in Sources */,
 				C17CA2000000000000000109 /* CutWinView.swift in Sources */,
@@ -3743,6 +3762,7 @@
 				2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */,
 				2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */,
 				E3B8D2F00000000000000103 /* RackRailSpriteService.swift in Sources */,
+				E4C0A1F00000000000000104 /* RackRoomStillService.swift in Sources */,
 				2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */,
 				2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */,
 				2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */,
