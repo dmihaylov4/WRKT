@@ -1378,7 +1378,7 @@ struct BarbellRealityView: View {
                 RackOpenTrace.markNextFrame("firstFrame", content: content)
                 if style == .lathe {
                     let later = latheLaterSceneRequests
-                    Task(priority: .utility) { await prepareLathePlates(later) }
+                    Task(priority: .utility) { await prepareLathePlates(later, priority: .utility) }
                 }
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-BarbellSceneStats") {
