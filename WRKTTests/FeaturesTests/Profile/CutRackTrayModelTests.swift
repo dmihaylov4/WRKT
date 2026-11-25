@@ -118,8 +118,9 @@ import Testing
             Self.plate("first", tier: 0, name: "Rusty Iron", engraving: "First Lift", kg: 2.5, material: .iron, rarity: 0)
         ]
         let m = Self.model(plates)
-        #expect(m.sections.map(\.title) == ["Engraved", "Metal", "Bumpers", "Iron"])
-        #expect(m.tiles.map(\.plateID) == ["bench", "first", "gold", "bump20-epic", "bump20-rare", "bump10", "iron"])
+        // Everyday plates first (where the piles are), the one-off engraved plates last.
+        #expect(m.sections.map(\.title) == ["Bumpers", "Iron", "Metal", "Engraved"])
+        #expect(m.tiles.map(\.plateID) == ["bump20-epic", "bump20-rare", "bump10", "iron", "gold", "bench", "first"])
     }
 
     @Test func aBiggerPileComesFirstAmongEquals() {
@@ -167,6 +168,18 @@ import Testing
         #expect(Self.model([]).playAction == nil)
     }
 
+    @Test func aCappedDropSaysHowManyFall() {
+        let stored = (0..<20).map { Self.plate("red\($0)") }
+        let capped = CutRackLogic.model(CutRackFacts(plates: stored, occupiedSlots: 0, unit: .kg, notice: nil, rainCap: 16),
+                                        locale: Self.locale)
+        #expect(capped.playAction?.title == "Drop 16")
+        #expect(capped.playAction?.accessibilityLabel == "Drop 16 of 20 stored plates")
+        #expect(capped.playAction?.accessibilityHint.hasPrefix("Up to 16 fit on the floor at once.") == true)
+        let fits = CutRackLogic.model(CutRackFacts(plates: Array(stored.prefix(16)), occupiedSlots: 0, unit: .kg, notice: nil,
+                                                   rainCap: 16), locale: Self.locale)
+        #expect(fits.playAction?.title == "Drop all")
+    }
+
     @Test func tidyUpReplacesDropAllWhilePlatesAreDownAndTheHintTeachesTheLoad() {
         for phase in [CutRackPlayPhase.raining, .loose] {
             let m = Self.model([Self.plate("a", slot: 0), Self.plate("b")], phase: phase)
@@ -184,9 +197,9 @@ import Testing
             + [Self.plate("gold", tier: 6, name: "Gold", kg: 45, material: .metal, rarity: 4),
                Self.plate("loaded", tier: 6, name: "Gold", kg: 45, slot: 0, material: .metal, rarity: 4)]
         // One of each look, then second copies, up to the plate cap.
-        #expect(CutRackRainLogic.selection(plates, cap: 5, maxLooks: 10) == ["gold", "red0", "blue0", "red1", "blue1"])
-        // At most two distinct looks (faces): only gold and red fall.
-        #expect(CutRackRainLogic.selection(plates, cap: 4, maxLooks: 2) == ["gold", "red0", "red1", "red2"])
+        #expect(CutRackRainLogic.selection(plates, cap: 5, maxLooks: 10) == ["red0", "blue0", "gold", "red1", "blue1"])
+        // At most two distinct looks (faces): only red and blue fall.
+        #expect(CutRackRainLogic.selection(plates, cap: 4, maxLooks: 2) == ["red0", "blue0", "red1", "blue1"])
         // Everything fits: every stored plate once, never a loaded one.
         let all = CutRackRainLogic.selection(plates, cap: 100, maxLooks: 100)
         #expect(all.count == 9)

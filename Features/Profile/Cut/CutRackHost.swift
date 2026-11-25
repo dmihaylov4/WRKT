@@ -50,7 +50,8 @@ struct CutRackHost: View {
                 occupiedSlots: rackedPlates.count,
                 unit: unit,
                 notice: notice,
-                playPhase: playPhase
+                playPhase: playPhase,
+                rainCap: RackPlateRain.limits(for: sceneState.plateStyle).plates
             )),
             actions: CutRackActions(
                 back: { dismiss() },
@@ -64,6 +65,9 @@ struct CutRackHost: View {
             thumbnail: { id in thumbnail(id) }
         )
         .task {
+            #if DEBUG
+            Self.testToggle = { id in toggle(id) }
+            #endif
             let preload = startPreload()
             // The screen's first frame (header, summary, tray) is drawn before RealityKit sets
             // up, which is the longest main-thread step of an open; the preload already runs.
@@ -75,6 +79,7 @@ struct CutRackHost: View {
         .onDisappear {
             if !assetsReady { preload.task?.cancel() }
             preload.releaseThumbnails()
+            CutRackWarmUp.sceneIsUp = false
             // Dropped plates are play only: leaving the screen clears them.
             if playPhase != .idle { tidyUp(announce: false) }
         }
@@ -131,7 +136,10 @@ struct CutRackHost: View {
             roomWallText: configs.first?.roomName,
             barOnly: true,
             prepare: { await startPreload().value },
-            onSceneBuilt: { [preload] in preload.releaseThumbnails(after: .milliseconds(500)) }
+            onSceneBuilt: { [preload, sceneState, ownedPlates] in
+                preload.releaseThumbnails(after: .milliseconds(500))
+                CutRackWarmUp.afterSceneBuilt(owned: ownedPlates, in: sceneState)
+            }
         )
         .id(sceneRevision)
         .accessibilityElement(children: .ignore)
@@ -191,6 +199,7 @@ struct CutRackHost: View {
     /// moved (a swipe or a drag) are bar or floor entities already and are left alone.
     private func syncScene(from old: [BarbellRackSceneSyncPlate], to new: [BarbellRackSceneSyncPlate]) {
         notice = nil
+        RackOpenTrace.mark("sync")
         guard assetsReady, !sceneState.isPaused else { return }
         let state = sceneState
         let barEntities = Set(state.entityMap.compactMap { id, entity in
@@ -220,14 +229,17 @@ struct CutRackHost: View {
             }
             guard let plate = rackedPlates.first(where: { $0.id == plateID }) else { continue }
             Task { @MainActor in
-                if state.plateStyle == .lathe {
-                    // Both faces: as loaded, and the mirror's blank one a later reload builds.
-                    await prepareLathePlates(latheFirstFrameRequests([plate]) + latheLaterRequests([plate]))
-                } else if plate.tierID != 7 {
+                RackOpenTrace.mark("load.task")
+                // Lathe plates never wait for their faces (the lettering arrives mid-flight);
+                // legacy plates need their tier's material first.
+                if state.plateStyle != .lathe, plate.tierID != 7 {
                     await cacheMaterial(tierID: plate.tierID)
                 }
+                RackOpenTrace.mark("load.prepared")
                 guard !state.isPaused else { return }
+                PlateSnapshotService.shared.holdRenders()
                 await state.loadPlateOntoBar(plate, rackSlot: slot)
+                PlateSnapshotService.shared.releaseRenders()
             }
         }
     }
@@ -281,14 +293,24 @@ struct CutRackHost: View {
 
     // MARK: Tray
 
+    #if DEBUG
+    /// Tests: the tray's toggle of the most recently shown rack (the harness taps through it).
+    static var testToggle: ((String) -> Void)?
+    #endif
+
     private func toggle(_ id: String) {
+        RackOpenTrace.mark("tap")
         guard let plate = ownedPlates.first(where: { $0.id == id }) else { return }
-        let result = CutRackSaving.toggle(plate)
-        notice = result
-        if result != nil {
-            AccessibilityNotification.Announcement(CutRackLogic.hint(
-                CutRackFacts(plates: [], occupiedSlots: 0, unit: unit, notice: result), loaded: 0) ?? ""
-            ).post()
+        let live = assetsReady && !sceneState.isPaused ? sceneState : nil
+        let unit = unit
+        CutRackTap.perform(plate, racked: rackedPlates, scene: live) { result in
+            RackOpenTrace.mark("tap.saved")
+            notice = result
+            if result != nil {
+                AccessibilityNotification.Announcement(CutRackLogic.hint(
+                    CutRackFacts(plates: [], occupiedSlots: 0, unit: unit, notice: result), loaded: 0) ?? ""
+                ).post()
+            }
         }
     }
 
@@ -383,13 +405,26 @@ struct CutRackPlateID: Identifiable, Hashable {
 /// The legacy rack's save path for one plate, nothing more.
 enum CutRackSaving {
     @MainActor
-    static func toggle(_ plate: EarnedPlate) -> CutRackNotice? {
+    /// Saves a load into the slot the scene swung the plate to.
+    static func load(_ plate: EarnedPlate, slot: Int) -> CutRackNotice? {
+        guard !plate.isRacked else { return nil }
+        do {
+            try BarbellProgressService.shared.rackPlate(plate, at: slot, playsFeedback: false)
+            return nil
+        } catch BarbellProgressService.RackError.barIsFull {
+            return .barFull
+        } catch {
+            return .loadFailed
+        }
+    }
+
+    static func toggle(_ plate: EarnedPlate, playsFeedback: Bool = true) -> CutRackNotice? {
         if plate.isRacked {
             BarbellProgressService.shared.removeFromBar(plate: plate)
             return nil
         }
         do {
-            try BarbellProgressService.shared.addToBar(plate: plate, replacing: nil)
+            try BarbellProgressService.shared.addToBar(plate: plate, replacing: nil, playsFeedback: playsFeedback)
             return nil
         } catch BarbellProgressService.RackError.barIsFull {
             return .barFull
@@ -411,6 +446,142 @@ struct CutRackThumbnail: View {
             weightKg: plate.weightKg,
             engravingText: plate.engravingText
         )
+        // A plate shown in the tray gets its lathe faces ready, so a tap swings it in lettered.
+        .task(id: plate.id) { await CutRackWarmUp.prefetchFaces(for: plate) }
+    }
+}
+
+/// Work done after the rack scene is up, at low priority, so a tap rarely waits for anything:
+/// legacy plate materials for every owned tier, lathe meshes for every owned tier, and the lathe
+/// faces of plates the tray shows (prefetchFaces, one at a time, cancelled when the tile goes,
+/// and never past LatheFaceCache's bound).
+@MainActor
+enum CutRackWarmUp {
+    /// The rack scene is built and shown; prefetching may start.
+    static var sceneIsUp = false
+    private static var lastPrefetch: Task<Void, Never>?
+
+    static func afterSceneBuilt(owned: [EarnedPlate], in sceneState: SceneState) {
+        sceneIsUp = true
+        let tiers = Set(owned.map(\.tierID)).subtracting([7]).sorted()
+        Task(priority: .utility) { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            BarbellProgressService.shared.warmRackPath()
+            if sceneState.plateStyle == .lathe {
+                await prepareLathePlates(tiers.map {
+                    LathePlateRequest(tierID: $0, weightKg: 0, engravingText: "", projection: BarbellPlateRenderProjection())
+                }, priority: .utility, faces: false)
+            } else {
+                for tierID in tiers where !sceneState.isPaused {
+                    await CutRackPreloader.cacheMaterial(tierID: tierID, in: sceneState)
+                }
+            }
+        }
+    }
+
+    /// Prepares one tray plate's two faces (as loaded, and the blank mirror face), after the
+    /// scene is up and the tile has stayed a moment. Returns at once for legacy plates.
+    static func prefetchFaces(for plate: EarnedPlate) async {
+        guard RackPlateStyle.current == .lathe, !plate.isRacked, !plate.isStarterPlate else { return }
+        try? await Task.sleep(for: .milliseconds(400))
+        while !sceneIsUp {
+            guard !Task.isCancelled else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+        let previous = lastPrefetch
+        let requests = latheFirstFrameRequests([plate]) + latheLaterRequests([plate])
+        let task = Task { @MainActor in
+            await previous?.value
+            // Leave room for the bar's own faces: never evict for a prefetch.
+            guard !Task.isCancelled, LatheFaceCache.count + 2 <= LatheFaceCache.limit else { return }
+            await prepareLathePlates(requests, priority: .utility)
+        }
+        lastPrefetch = task
+        await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+    }
+}
+
+/// A tray tap, in the order that makes it feel immediate: the haptic and pick-up sound first,
+/// then the plate starts moving in this frame. Persistence follows the motion: an unload saves
+/// after the plate's first frame; a load saves when the plate seats (to the slot it swung to),
+/// so the SwiftData change and the screen's re-layout it causes never land while the plate is in
+/// flight. Slots of loads still in flight count as taken. A load whose save fails is dropped
+/// back to the floor; the scene's resync then finds every plate already where it belongs, so the
+/// bar is never rebuilt. The save's notice (bar full, save failed) arrives through `done`.
+enum CutRackTap {
+    /// How long an unload's save waits, so the plate's first moving frame is drawn before it.
+    static let saveDelay: Duration = .milliseconds(20)
+
+    /// Loads in flight and not saved yet: plate ID to bar slot.
+    @MainActor private(set) static var pendingSlots: [String: Int] = [:]
+
+    /// The innermost slot neither loaded nor taken by a load in flight.
+    @MainActor
+    static func freeSlot(racked: [EarnedPlate]) -> Int? {
+        let taken = BarbellBarSlots.occupiedSlots(racked).union(pendingSlots.values)
+        return BarbellBarSlots.positions.first { !taken.contains($0) }
+    }
+
+    @MainActor
+    static func perform(
+        _ plate: EarnedPlate,
+        racked: [EarnedPlate],
+        scene: SceneState?,
+        feedback: ((Bool) -> Void)? = nil,
+        save: ((EarnedPlate) -> CutRackNotice?)? = nil,
+        saveToSlot: ((EarnedPlate, Int) -> CutRackNotice?)? = nil,
+        done: @escaping (CutRackNotice?) -> Void = { _ in }
+    ) {
+        let feedback = feedback ?? { BarbellProgressService.shared.playTapFeedback(loading: $0) }
+        let save = save ?? { CutRackSaving.toggle($0, playsFeedback: false) }
+        let saveToSlot = saveToSlot ?? { CutRackSaving.load($0, slot: $1) }
+        // A load still in flight: the plate is already on its way.
+        guard pendingSlots[plate.id] == nil else { return }
+        guard !plate.isRacked else {
+            // Already sliding off from an earlier tap: nothing more to do.
+            if let scene, scene.platesBeingUnracked.contains(plate.id) { return }
+            feedback(false)
+            if let scene { Task { @MainActor in await scene.releaseBarPlateToFloor(plateID: plate.id) } }
+            Task { @MainActor in
+                try? await Task.sleep(for: saveDelay)
+                done(save(plate))
+            }
+            return
+        }
+        guard let slot = freeSlot(racked: racked) else {
+            done(.barFull)
+            return
+        }
+        feedback(true)
+        guard let scene, canStartAtOnce(plate, in: scene) else {
+            // No live scene, or a legacy tier whose material is not loaded yet: save now and let
+            // the resync swing it in once the material is ready.
+            done(saveToSlot(plate, slot))
+            return
+        }
+        PlateSnapshotService.shared.holdRenders()
+        guard let load = scene.beginLoadPlateOntoBar(plate, rackSlot: slot) else {
+            PlateSnapshotService.shared.releaseRenders()
+            done(saveToSlot(plate, slot))
+            return
+        }
+        pendingSlots[plate.id] = slot
+        Task { @MainActor in
+            let seated = await scene.finishLoadPlateOntoBar(load)
+            // Seated, or still on the sleeve (the screen went away mid-swing): keep it.
+            let onBar = seated || scene.barMirrorMap[plate.id] === load.mirror
+            let notice = onBar ? saveToSlot(plate, slot) : nil
+            pendingSlots[plate.id] = nil
+            if notice != nil { await scene.releaseBarPlateToFloor(plateID: load.plateID) }
+            PlateSnapshotService.shared.releaseRenders()
+            done(notice)
+        }
+    }
+
+    /// Lathe plates always start at once; a legacy plate needs its tier's material in memory.
+    @MainActor
+    static func canStartAtOnce(_ plate: EarnedPlate, in scene: SceneState) -> Bool {
+        scene.plateStyle == .lathe || plate.tierID == 7 || scene.materialCache[plate.tierID] != nil
     }
 }
 

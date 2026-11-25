@@ -16,13 +16,14 @@ import Foundation
 
 // MARK: - Facts
 
-/// The tray's sections for stored plates, rarest first: one-off engraved plates, then metal
-/// (brass, steel, chrome, gold), rubber bumpers and competition plates, and iron.
+/// The tray's sections for stored plates: the everyday plates first, where the piles of identical
+/// copies are (rubber bumpers and competition plates, iron, then metal: brass, steel, chrome and
+/// gold), and the one-off engraved plates last, so the plates loaded most are a short swipe away.
 enum CutRackPlateFamily: Int, CaseIterable, Comparable {
-    case engraved
-    case metal
     case bumper
     case iron
+    case metal
+    case engraved
 
     var title: String {
         switch self {
@@ -109,6 +110,8 @@ struct CutRackFacts {
     var unit: WeightUnit
     var notice: CutRackNotice?
     var playPhase: CutRackPlayPhase = .idle
+    /// The most plates "Drop all" puts in the room at once (RackPlateRain.limits); nil for no cap.
+    var rainCap: Int?
 }
 
 // MARK: - Model
@@ -202,7 +205,7 @@ enum CutRackLogic {
             hint: hint(facts, loaded: loaded),
             allTitle: tray.isEmpty ? nil : "All \(tray.count)",
             allAccessibilityLabel: "Show all \(tray.count) plates",
-            playAction: playAction(phase: facts.playPhase, storage: storage),
+            playAction: playAction(phase: facts.playPhase, storage: storage, cap: facts.rainCap),
             sections: sections(facts.plates, unit: facts.unit, locale: locale),
             emptyTray: emptyTrayLine
         )
@@ -239,7 +242,7 @@ enum CutRackLogic {
         look(plate).engraving.isEmpty ? plate.material : .engraved
     }
 
-    /// The stored plates grouped by look. Order: family (engraved, metal, bumpers, iron), then
+    /// The stored plates grouped by look. Order: family (bumpers, iron, metal, engraved), then
     /// heaviest, then rarest, then the bigger pile, then name, then the higher progression tier.
     /// Heaviest first because a heavy plate is what someone browsing to load the bar looks for,
     /// and within a family weight is the plain thing that tells similar plates apart. Inside a
@@ -300,7 +303,9 @@ enum CutRackLogic {
 
     // MARK: Play: drop them all
 
-    static func playAction(phase: CutRackPlayPhase, storage: Int) -> CutRackModel.PlayAction? {
+    /// "Drop all", or "Drop 16" when the scene's cap is below the stored count, so a partial
+    /// drop reads as intended; "Tidy up" while dropped plates lie in the room.
+    static func playAction(phase: CutRackPlayPhase, storage: Int, cap: Int? = nil) -> CutRackModel.PlayAction? {
         switch phase {
         case .raining, .loose:
             return .init(title: "Tidy up", accessibilityLabel: "Tidy up",
@@ -308,9 +313,13 @@ enum CutRackLogic {
                          isTidy: true)
         case .idle:
             guard storage > 0 else { return nil }
+            let hint = "Drops stored plates onto the floor to play with. Drag one to a sleeve end to load it."
+            if let cap, cap > 0, cap < storage {
+                return .init(title: "Drop \(cap)", accessibilityLabel: "Drop \(cap) of \(storage) stored plates",
+                             accessibilityHint: "Up to \(cap) fit on the floor at once. " + hint, isTidy: false)
+            }
             return .init(title: "Drop all", accessibilityLabel: "Drop all \(storage == 1 ? "1 stored plate" : "\(storage) stored plates")",
-                         accessibilityHint: "Drops your stored plates onto the floor to play with. Drag one to a sleeve end to load it.",
-                         isTidy: false)
+                         accessibilityHint: hint, isTidy: false)
         }
     }
 
@@ -432,13 +441,24 @@ enum CutRackLogic {
 
     /// Whole numbers stay whole; otherwise one decimal ("2.5", "44.1").
     static func number(_ value: Double, locale: Locale) -> String {
+        formatter(for: locale).string(from: NSNumber(value: value.isFinite ? value : 0)) ?? "0"
+    }
+
+    /// One formatter per locale: building a NumberFormatter for every number made each layout of
+    /// the screen spend about 11 ms here. NSCache is thread safe.
+    nonisolated(unsafe) private static let formatters = NSCache<NSString, NumberFormatter>()
+
+    private static func formatter(for locale: Locale) -> NumberFormatter {
+        let key = locale.identifier as NSString
+        if let cached = formatters.object(forKey: key) { return cached }
         let formatter = NumberFormatter()
         formatter.locale = locale
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 1
         formatter.usesGroupingSeparator = false
-        return formatter.string(from: NSNumber(value: value.isFinite ? value : 0)) ?? "0"
+        formatters.setObject(formatter, forKey: key)
+        return formatter
     }
 
     private static func plates(_ count: Int) -> String {
@@ -463,7 +483,7 @@ enum CutRackLogic {
 /// says once they have. The scene caps how many plates and distinct faces it shows at once
 /// (RackPlateRain.limits); this picks within the caps.
 enum CutRackRainLogic {
-    /// Variety first: the first `maxLooks` looks in tray order (engraved, metal, bumpers, iron;
+    /// Variety first: the first `maxLooks` looks in tray order (bumpers, iron, metal, engraved;
     /// heaviest first), one plate of each, then a second copy of each, and so on, up to `cap`.
     /// Plates already lying in the room (`exclude`) are skipped. Identical copies share a face,
     /// so the faces drawn never exceed `maxLooks`.

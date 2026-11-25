@@ -160,8 +160,10 @@ extension SceneState {
         let fresh = plates.filter { entityMap[$0.id] == nil && !$0.isRacked && !$0.isStarterPlate }
         guard !fresh.isEmpty, !isPaused else { return 0 }
         if plateStyle == .lathe {
-            // One face per distinct look; copies reuse it.
-            await prepareLathePlates(latheFirstFrameRequests(fresh))
+            // Meshes and body materials only: a plate never waits for its face. It falls with its
+            // body finish and is lettered when the face is ready (one face per distinct look,
+            // shared by every copy; LatheFaceCache keeps faces in use).
+            await prepareLathePlates(latheFirstFrameRequests(fresh), faces: false)
         } else {
             for tierID in Set(fresh.map(\.tierID)).sorted() where materialCache[tierID] == nil {
                 let textures = await loadPlateTexturesAsync(forTierID: tierID)
@@ -254,8 +256,12 @@ extension SceneState {
             preparedMirrors[id] = nil
             removed += 1
         }
-        // Anything that was resting on a removed plate falls into the gap and settles again.
-        if removed > 0 { wakeLoosePlates() }
+        // Anything that was resting on a removed plate falls into the gap and settles again, and
+        // faces nobody shows any more may go.
+        if removed > 0 {
+            wakeLoosePlates()
+            if plateStyle == .lathe { LatheFaceCache.evictIfNeeded() }
+        }
         return removed
     }
 }
