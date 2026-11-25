@@ -310,14 +310,43 @@ private func makePlateRingMesh(height: Float, outerRadius: Float, innerRadius: F
     return (try? MeshResource.generate(from: [descriptor])) ?? MeshResource.generateCylinder(height: height, radius: outerRadius)
 }
 
-private func plateRingCollisionShapes(outerRadius: Float, innerRadius: Float, thickness: Float) -> [ShapeResource] {
-    // Single box covering the full plate diameter. The old ring segments had a 34-46 mm thin
-    // axis that, after plateBarOrientation, aligned with world X. Simultaneously-dropped plates
-    // spawning at the same X produced 100 % overlap → explosive separation forces → tunneling.
-    // A solid box eliminates the inter-segment gaps and the 100 mm minimum Y gives the solver
-    // a detection margin well above the ~57 mm/frame travel at peak fall speed (~3.4 m/s).
-    let collisionHeight: Float = thickness < 0.10 ? 0.10 : thickness
-    return [ShapeResource.generateBox(size: SIMD3(outerRadius * 2, collisionHeight, outerRadius * 2))]
+/// The physics shape of a plate: a solid disc (a convex prism with `plateDiscColliderSides` sides)
+/// as thick as the plate, its axis the plate's local y. A disc rolls, slides off other plates and
+/// the bar and lies flat; the earlier collider, a 10 cm thick square slab, rested on corners that
+/// stick out 9 cm past the rim, bridged gaps and held plates 3 to 7 cm apart, so piles hung in the
+/// air. The disc is solid across the bore, like the slab was, so plates spawned overlapping push
+/// apart smoothly (the old ring segments exploded). Tunnelling is handled by continuous collision
+/// detection on the plate bodies (makePlateEntity), not by thickness.
+let plateDiscColliderSides = 16
+let plateLinearDamping: Float = 0.15
+let plateAngularDamping: Float = 1.2
+
+/// The disc's corner points. The polygon circumscribes the rim (its flat sides touch the circle),
+/// so a plate standing on a side stands at its real radius.
+func plateDiscColliderPoints(radius: Float, thickness: Float, sides: Int = plateDiscColliderSides) -> [SIMD3<Float>] {
+    let corner = radius / cos(.pi / Float(sides))
+    let half = thickness / 2
+    var points: [SIMD3<Float>] = []
+    points.reserveCapacity(sides * 2)
+    for i in 0..<sides {
+        let angle = (Float(i) + 0.5) / Float(sides) * 2 * .pi
+        let x = corner * cos(angle), z = corner * sin(angle)
+        points.append(SIMD3(x, half, z))
+        points.append(SIMD3(x, -half, z))
+    }
+    return points
+}
+
+/// One shape per plate size, shared by every plate of that size.
+@MainActor private var plateDiscShapeCache: [String: ShapeResource] = [:]
+
+@MainActor
+func plateDiscCollisionShape(radius: Float, thickness: Float) -> ShapeResource {
+    let key = "\(radius)x\(thickness)"
+    if let cached = plateDiscShapeCache[key] { return cached }
+    let shape = ShapeResource.generateConvex(from: plateDiscColliderPoints(radius: radius, thickness: thickness))
+    plateDiscShapeCache[key] = shape
+    return shape
 }
 
 // MARK: - PlateTextures
@@ -1921,19 +1950,13 @@ func makePlateEntity(
         }
     }
 
-    // Gesture + physics collider. Use four ring segments instead of one solid box so the
-    // barbell can occupy the real center hole instead of colliding with an invisible plug.
+    // Gesture + physics collider: a solid disc the size of the plate (see plateDiscCollisionShape).
     if buildOptions.includesInput {
         entity.components.set(InputTargetComponent())
     }
     if buildOptions.includesCollision {
-        let collisionRadius = profile.outerRadius
-        let collisionShapes = plateRingCollisionShapes(
-            outerRadius: collisionRadius,
-            innerRadius: plateBoreRadius,
-            thickness: plateThickness
-        )
-        entity.components.set(CollisionComponent(shapes: collisionShapes, filter: plateCollisionFilter))
+        let shape = plateDiscCollisionShape(radius: profile.outerRadius, thickness: plateThickness)
+        entity.components.set(CollisionComponent(shapes: [shape], filter: plateCollisionFilter))
     }
 
     // Physics -- kinematic by default; gesture handlers switch to .dynamic on release
@@ -1942,6 +1965,13 @@ func makePlateEntity(
         var physicsBody = PhysicsBodyComponent()
         physicsBody.massProperties = .init(mass: Float(max(weightKg, 1.25)))
         physicsBody.material = audioCategory.physicsMaterial
+        // A plate is 3 to 5 cm thick and falls at up to about 6 m/s (10 cm a frame): swept
+        // collision keeps it from passing through another plate, the floor or a wall.
+        physicsBody.isContinuousCollisionDetectionEnabled = true
+        // Thin discs stacked in a pile keep trembling in the solver; a little damping lets a
+        // heap come to rest in a couple of seconds while a throw still flies and tumbles.
+        physicsBody.linearDamping = plateLinearDamping
+        physicsBody.angularDamping = plateAngularDamping
         physicsBody.mode = .kinematic
         entity.components.set(physicsBody)
         entity.components.set(PhysicsMotionComponent())

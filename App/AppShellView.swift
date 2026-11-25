@@ -152,6 +152,9 @@ struct AppShellView: View {
             // Push registration waits so the system's permission prompt cannot cover the clap.
             // Initial: after a failed open and a retry the splash is already dismissed.
             guard dismissed else { return }
+            // Not when the app only hosts unit tests: the prompt would cover every scene they show
+            // and take the app out of the foreground on a fresh simulator.
+            guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else { return }
             Task { await PushNotificationService.shared.registerForPushNotifications() }
         }
         .background(DS.Semantic.surface.ignoresSafeArea())

@@ -5,24 +5,25 @@ import RealityKit
 
 struct BarbellViewLogicTests {
 
-    @Test func settleRequiresDelayAndBothSpeedsBelowThreshold() {
+    @Test func settleRequiresDelayBothSpeedsBelowThresholdAndAMomentOfStillness() {
         var settle = BarbellFloorSettleState(delay: 0.1)
-        let result1 = settle.advance(deltaTime: 0.05, linearSpeed: 0, angularSpeed: 0)
-        #expect(!result1)
-        let result2 = settle.advance(deltaTime: 0.05, linearSpeed: 0.02, angularSpeed: 0)
-        #expect(!result2)
-        let result3 = settle.advance(deltaTime: 0.01, linearSpeed: 0, angularSpeed: 0.05)
-        #expect(!result3)
-        let result4 = settle.advance(deltaTime: 0.01, linearSpeed: 0.019, angularSpeed: 0.049)
-        #expect(result4)
+        #expect(settle.advance(deltaTime: 0.05, linearSpeed: 0, angularSpeed: 0) == .moving)
+        // Past the delay, a plate moving or spinning is not still.
+        #expect(settle.advance(deltaTime: 0.05, linearSpeed: BarbellFloorSettleState.linearRest, angularSpeed: 0) == .moving)
+        #expect(settle.advance(deltaTime: 0.01, linearSpeed: 0, angularSpeed: BarbellFloorSettleState.angularRest) == .moving)
+        // One slow frame (the top of a rocking swing) is not rest.
+        #expect(settle.advance(deltaTime: 0.016, linearSpeed: 0.01, angularSpeed: 0.02) == .moving)
+        // A burst of speed starts the stillness over.
+        _ = settle.advance(deltaTime: 0.2, linearSpeed: 0.01, angularSpeed: 0.02)
+        #expect(settle.advance(deltaTime: 0.016, linearSpeed: 0.5, angularSpeed: 0) == .moving)
+        #expect(settle.advance(deltaTime: 0.2, linearSpeed: 0.01, angularSpeed: 0.02) == .moving)
+        #expect(settle.advance(deltaTime: 0.06, linearSpeed: 0.01, angularSpeed: 0.02) == .resting)
     }
 
     @Test func settleHardCapUsesElapsedTime() {
         var settle = BarbellFloorSettleState(delay: 0.1)
-        let result5 = settle.advance(deltaTime: 3.09, linearSpeed: 1, angularSpeed: 1)
-        #expect(!result5)
-        let result6 = settle.advance(deltaTime: 0.02, linearSpeed: 1, angularSpeed: 1)
-        #expect(result6)
+        #expect(settle.advance(deltaTime: 0.1 + BarbellFloorSettleState.giveUpAfter - 0.01, linearSpeed: 1, angularSpeed: 1) == .moving)
+        #expect(settle.advance(deltaTime: 0.02, linearSpeed: 1, angularSpeed: 1) == .resting)
     }
 
     @Test func spinSpeedIsIndependentOfFrameRate() {

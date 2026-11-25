@@ -180,7 +180,9 @@ struct CutRackPlayHarnessTests {
                 #expect(entity.parent !== state.barAnchor, "\(release.name) went onto the bar")
                 // Inside the room the whole time, and back on the floor at the end.
                 #expect(flight.maxAbsX <= 0.80, "\(release.name) \(flight.text)")
-                #expect(flight.minY >= -0.02 && flight.maxY <= 1.90, "\(release.name) \(flight.text)")
+                // A 3 cm disc landing at 5 m/s from a flick can sink a couple of centimetres into the
+                // floor for one physics step before the contact pushes it out (the 10 cm slab hid this).
+                #expect(flight.minY >= -0.035 && flight.maxY <= 1.90, "\(release.name) \(flight.text)")
                 #expect(flight.minZ >= -0.15 && flight.maxZ <= 0.90, "\(release.name) \(flight.text)")
                 // On the floor (lying, or standing on its rim against a rail) and in full view.
                 #expect(rest.y < 0.40, "\(release.name) did not come to rest on the floor: \(rest)")

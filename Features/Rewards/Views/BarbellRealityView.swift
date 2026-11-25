@@ -21,14 +21,56 @@ func barbellSpinIncrement(deltaTime: TimeInterval) -> Float {
     Float(deltaTime) * (0.03 / 0.016)
 }
 
+/// The rest check for one loose plate. A plate counts as resting only when it has been still for
+/// a moment (not just slow in one frame, which a rocking plate is at the top of every swing) and
+/// lies in a pose a real plate would stay in: near flat, low on the floor or the pile. A plate
+/// that stops on its edge, leaning steeply, or propped up high (on the bar, a stand, the pile
+/// against them) is tipped over instead, at most `maxNudges` times; after that it is accepted as
+/// it is (a genuine lean against a rail or a post). Nothing stays awake longer than
+/// `giveUpAfter`, so a plate wedged somewhere cannot jitter forever.
 struct BarbellFloorSettleState {
+    enum Verdict: Equatable {
+        case moving
+        case resting
+        /// Still, but balanced in a pose a real plate would fall out of: tip it over.
+        case nudge
+    }
+
+    static let linearRest: Float = 0.05
+    static let angularRest: Float = 0.25
+    /// How long a plate must stay below both speeds to count as still.
+    static let stillFor: TimeInterval = 0.25
+    /// Tilt from flat (degrees) and centre height (metres above the floor) a resting plate may have.
+    static let stableTilt: Float = 30
+    static let stableMaxHeight: Float = 0.30
+    static let maxNudges = 2
+    static let giveUpAfter: TimeInterval = 4.5
+
     var elapsed: TimeInterval = 0
     let delay: TimeInterval
+    private(set) var still: TimeInterval = 0
+    private(set) var nudges = 0
 
-    mutating func advance(deltaTime: TimeInterval, linearSpeed: Float, angularSpeed: Float) -> Bool {
+    static func isStablePose(tiltDegrees: Float, height: Float) -> Bool {
+        tiltDegrees <= stableTilt && height <= stableMaxHeight
+    }
+
+    mutating func advance(deltaTime: TimeInterval, linearSpeed: Float, angularSpeed: Float,
+                          tiltDegrees: Float = 0, height: Float = 0) -> Verdict {
         elapsed += deltaTime
-        guard elapsed >= delay else { return false }
-        return (linearSpeed < 0.02 && angularSpeed < 0.05) || elapsed >= delay + 3
+        guard elapsed >= delay else { return .moving }
+        if elapsed >= delay + Self.giveUpAfter { return .resting }
+        guard linearSpeed < Self.linearRest, angularSpeed < Self.angularRest else {
+            still = 0
+            return .moving
+        }
+        still += deltaTime
+        guard still >= Self.stillFor else { return .moving }
+        if Self.isStablePose(tiltDegrees: tiltDegrees, height: height) { return .resting }
+        guard nudges < Self.maxNudges else { return .resting }
+        nudges += 1
+        still = 0
+        return .nudge
     }
 }
 
@@ -302,6 +344,10 @@ final class SceneState {
     // MARK: Frame-driven work
     /// Pending floor settles are cancelled when a drag takes ownership of the plate.
     var floorSettles: [String: BarbellFloorSettleState] = [:]
+    /// Rained plates on their way out after Tidy up (RackPlateRain): no longer in entityMap, removed
+    /// when their exit ends or at once when a new drop starts.
+    var leavingPlates: [Entity] = []
+    var tidyTask: Task<Void, Never>?
     var cancelFrameUpdates: (() -> Void)?
     var boundaryElapsed: TimeInterval = 0
     var showcaseElapsed: TimeInterval = 0

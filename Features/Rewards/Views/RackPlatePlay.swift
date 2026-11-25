@@ -117,6 +117,14 @@ enum RackPlatePlay {
     /// A loose plate is checked for rest this long after the room last moved.
     static let settleDelay: TimeInterval = 0.5
 
+    /// How far a plate is from lying flat, in degrees: 0 flat on either face, 90 on its edge.
+    /// A plate's disc axis is its local y (the lathe and legacy meshes and the collider share it).
+    static func tiltDegrees(_ orientation: simd_quatf) -> Float {
+        let axis = orientation.act(SIMD3<Float>(0, 1, 0))
+        let cosine = min(1, abs(axis.y) / max(simd_length(axis), 1e-6))
+        return acos(cosine) * 180 / .pi
+    }
+
     // MARK: Rules
 
     /// What a touch on this entity drags. Loaded plates and the bar keep the swipe.
@@ -223,6 +231,22 @@ enum RackPlatePlay {
         if position.x < -frameMaxAbsX, result.x < frameReturnSpeed { result.x = frameReturnSpeed; changed = true }
         if position.z > frameMaxZ, result.z > -frameReturnSpeed { result.z = -frameReturnSpeed; changed = true }
         return changed ? result : nil
+    }
+
+    /// The push that tips a plate out of a pose it should not rest in (on its edge, leaning, or
+    /// propped up on the bar or a stand): a roll about the horizontal axis that turns its face
+    /// toward the nearer of up or down, a small hop to unwedge it, and a slide away from the bar
+    /// (z 0.12) and in from the sides so it comes down on open floor.
+    static func tipOver(orientation: simd_quatf, position: SIMD3<Float>) -> (linear: SIMD3<Float>, angular: SIMD3<Float>) {
+        let normal = orientation.act(SIMD3<Float>(0, 1, 0))
+        let target = SIMD3<Float>(0, normal.y >= 0 ? 1 : -1, 0)
+        var axis = simd_cross(normal, target)
+        if simd_length(axis) < 1e-3 { axis = SIMD3(1, 0, 0) }
+        let angular = simd_normalize(axis) * 3.2
+        var linear = SIMD3<Float>(0, 0.35, 0)
+        if position.z < 0.45 { linear.z = 0.45 }
+        if abs(position.x) > 0.45 { linear.x = position.x > 0 ? -0.25 : 0.25 }
+        return (linear, angular)
     }
 
     /// The plates to put to sleep this frame. Loose plates sleep together, once every one of them
@@ -369,7 +393,8 @@ extension SceneState {
         }
     }
 
-    /// The per-frame rest check: loose plates go kinematic (asleep) together once all are at rest.
+    /// The per-frame rest check: loose plates go kinematic (asleep) together once all are resting in
+    /// a stable pose. A plate balanced on its edge or propped up high is tipped over first.
     func advanceFloorSettles(deltaTime: TimeInterval) {
         var readiness: [String: Bool] = [:]
         for id in Array(floorSettles.keys) {
@@ -380,10 +405,21 @@ extension SceneState {
                 floorSettles[id] = nil
                 continue
             }
-            let motion = entity.components[PhysicsMotionComponent.self] ?? PhysicsMotionComponent()
-            readiness[id] = floorSettles[id]?.advance(deltaTime: deltaTime,
-                                                      linearSpeed: simd_length(motion.linearVelocity),
-                                                      angularSpeed: simd_length(motion.angularVelocity)) ?? true
+            var motion = entity.components[PhysicsMotionComponent.self] ?? PhysicsMotionComponent()
+            let orientation = entity.orientation(relativeTo: sceneRoot)
+            let position = entity.position(relativeTo: sceneRoot)
+            let verdict = floorSettles[id]?.advance(deltaTime: deltaTime,
+                                                    linearSpeed: simd_length(motion.linearVelocity),
+                                                    angularSpeed: simd_length(motion.angularVelocity),
+                                                    tiltDegrees: RackPlatePlay.tiltDegrees(orientation),
+                                                    height: position.y) ?? .resting
+            if verdict == .nudge {
+                let push = RackPlatePlay.tipOver(orientation: orientation, position: position)
+                motion.linearVelocity += push.linear
+                motion.angularVelocity += push.angular
+                entity.components[PhysicsMotionComponent.self] = motion
+            }
+            readiness[id] = verdict == .resting
         }
         for id in RackPlatePlay.platesToSleep(readiness: readiness, isHoldingPlate: heldPlate != nil) {
             guard let entity = entityMap[id] else { continue }
