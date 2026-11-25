@@ -127,15 +127,18 @@ final class BarbellProgressService {
     /// The scene builder is responsible for rendering every racked plate on BOTH sides of the
     /// bar simultaneously. There is no separate right-side position: one EarnedPlate row = one
     /// visual pair. Positions 4-7 are reserved and unused.
-    func rackPlate(_ plate: EarnedPlate, at requestedSlot: Int? = nil) throws {
-        try addToBar(plate: plate, replacing: nil, requestedSlot: requestedSlot)
+    func rackPlate(_ plate: EarnedPlate, at requestedSlot: Int? = nil, playsFeedback: Bool = true) throws {
+        try addToBar(plate: plate, replacing: nil, requestedSlot: requestedSlot, playsFeedback: playsFeedback)
     }
 
-    func addToBar(plate: EarnedPlate, replacing existing: EarnedPlate?) throws {
-        try addToBar(plate: plate, replacing: existing, requestedSlot: nil)
+    /// `playsFeedback: false` is for callers that already acknowledged the tap (playTapFeedback)
+    /// before saving, so the feedback does not wait for the save.
+    func addToBar(plate: EarnedPlate, replacing existing: EarnedPlate?, playsFeedback: Bool = true) throws {
+        try addToBar(plate: plate, replacing: existing, requestedSlot: nil, playsFeedback: playsFeedback)
     }
 
-    private func addToBar(plate: EarnedPlate, replacing existing: EarnedPlate?, requestedSlot: Int?) throws {
+    private func addToBar(plate: EarnedPlate, replacing existing: EarnedPlate?, requestedSlot: Int?,
+                          playsFeedback: Bool = true) throws {
         guard let context else { throw RackError.notConfigured }
         guard !plate.isRacked else { throw RackError.plateAlreadyRacked }
         // The starter plate is never shown and never takes a bar slot.
@@ -186,7 +189,7 @@ final class BarbellProgressService {
             throw error
         }
         updateDisplayLoadoutFromRackedPlates(context: context)
-        playClinkHaptic()
+        if playsFeedback { playClinkHaptic() }
         let plateSnapshot = RackedPlateMutation(
             earnedByEvent: plate.earnedByEvent,
             tierID: plate.tierID,
@@ -241,6 +244,15 @@ final class BarbellProgressService {
                 userID: userID
             )
         }
+    }
+
+    /// Runs addToBar's fetches once without changing anything, so the first tray tap of a session
+    /// does not pay SwiftData's first-fetch setup while its plate is swinging in.
+    func warmRackPath() {
+        guard let context else { return }
+        _ = try? context.fetch(FetchDescriptor<EarnedPlate>(predicate: #Predicate { $0.isRacked == true }))
+        _ = try? context.fetch(FetchDescriptor<EarnedPlate>())
+        _ = try? context.fetch(FetchDescriptor<BarbellConfig>(predicate: #Predicate { $0.id == "global" }))
     }
 
     func unrackPlate(_ plate: EarnedPlate) {
@@ -563,24 +575,49 @@ final class BarbellProgressService {
     // MARK: - Haptic + Sound
 
     func playClinkHaptic() {
+        RackOpenTrace.mark("tap.haptic")
         UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        clinkPlayer?.stop()
-        clinkPlayer?.currentTime = 0
-        clinkPlayer?.play()
+        playClink(volume: 1)
+        RackOpenTrace.mark("tap.sound")
+    }
+
+    /// The tray's instant acknowledgement of a tap, before anything is saved or moved: a haptic
+    /// (firmer for a plate going on than coming off) and the clink, quieter, as the pick-up sound.
+    /// The full clink plays from the plate itself when it seats on the sleeve.
+    func playTapFeedback(loading: Bool) {
+        RackOpenTrace.mark("tap.haptic")
+        UIImpactFeedbackGenerator(style: loading ? .medium : .light).impactOccurred()
+        if clinkPlayer == nil { preloadClinkSound() }
+        playClink(volume: loading ? 0.45 : 0.3)
+        RackOpenTrace.mark("tap.sound")
+    }
+
+    /// Restarts the clink. Starting an AVAudioPlayer costs 10 to 20 ms, so it runs on a serial
+    /// queue (every use of the player goes through it) and never holds the main thread.
+    private func playClink(volume: Float) {
+        guard let player = clinkPlayer.map(TapSoundPlayer.init) else { return }
+        Self.tapSoundQueue.async {
+            player.player.stop()
+            player.player.currentTime = 0
+            player.player.volume = volume
+            player.player.play()
+        }
+    }
+
+    private static let tapSoundQueue = DispatchQueue(label: "rack.tap-sound", qos: .userInteractive)
+
+    private struct TapSoundPlayer: @unchecked Sendable {
+        let player: AVAudioPlayer
     }
 
     func playCosmeticEquipFeedback() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        clinkPlayer?.stop()
-        clinkPlayer?.currentTime = 0
-        clinkPlayer?.play()
+        playClink(volume: 1)
     }
 
     func playTierUpFeedback() {
         UINotificationFeedbackGenerator().notificationOccurred(.success)
-        clinkPlayer?.stop()
-        clinkPlayer?.currentTime = 0
-        clinkPlayer?.play()
+        playClink(volume: 1)
     }
 
     private func preloadClinkSound() {
@@ -591,7 +628,24 @@ final class BarbellProgressService {
 
     // MARK: - Supabase sync
 
+    #if DEBUG
+    private var remoteSyncDisabledForTesting = false
+
+    /// Tests only: runs the service on `context` (an in-memory container) with remote sync off,
+    /// and returns the context it used before. Pass the returned context back to restore it.
+    func swapContextForTesting(_ newContext: ModelContext?, remoteSyncOff: Bool) -> ModelContext? {
+        let previous = context
+        context = newContext
+        remoteSyncDisabledForTesting = remoteSyncOff
+        if clinkPlayer == nil { preloadClinkSound() }
+        return previous
+    }
+    #endif
+
     private func enqueueRemoteSync(_ operation: @escaping @MainActor (UUID) async -> Void) {
+        #if DEBUG
+        guard !remoteSyncDisabledForTesting else { return }
+        #endif
         guard let userID = SupabaseAuthService.shared.currentUser?.id else { return }
         let previousTask = remoteSyncTask
         remoteSyncTask = Task { @MainActor [weak self, previousTask, userID] in
