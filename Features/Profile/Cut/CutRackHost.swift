@@ -80,8 +80,10 @@ struct CutRackHost: View {
             if !assetsReady { preload.task?.cancel() }
             preload.releaseThumbnails()
             CutRackWarmUp.sceneIsUp = false
-            // Dropped plates are play only: leaving the screen clears them.
-            if playPhase != .idle { tidyUp(announce: false) }
+            // Dropped plates are play only: leaving the screen clears them at once (an exit
+            // animation would only play behind the navigation).
+            if playPhase != .idle { tidyUp(animated: false, announce: false) }
+            sceneState.finishTidy()
         }
         .onChange(of: sceneSyncKey) { old, new in syncScene(from: old, to: new) }
         .onChange(of: cosmeticKey) { _, _ in rebuildScene() }
@@ -249,6 +251,7 @@ struct CutRackHost: View {
     private func rebuildScene() {
         guard assetsReady else { return }
         rain.task?.cancel()
+        sceneState.finishTidy()
         playPhase = .idle
         let fresh = SceneState()
         fresh.materialCache = sceneState.materialCache
@@ -283,10 +286,10 @@ struct CutRackHost: View {
         }
     }
 
-    private func tidyUp(announce: Bool = true) {
+    private func tidyUp(animated: Bool = true, announce: Bool = true) {
         rain.task?.cancel()
         rain.task = nil
-        sceneState.tidyRainedPlates()
+        sceneState.tidyRainedPlates(exit: animated ? RackTidyStyle.current : nil, reduceMotion: reduceMotion)
         playPhase = .idle
         if announce { AccessibilityNotification.Announcement(CutRackRainLogic.tidyAnnouncement).post() }
     }
