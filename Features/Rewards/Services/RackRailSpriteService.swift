@@ -24,8 +24,18 @@ import UIKit
 final class RackRailSpriteService {
     static let shared = RackRailSpriteService()
 
-    /// Bumped whenever a new picture is in memory, so rail views look again.
-    private(set) var revision = 0
+    /// Bumped whenever a new picture is in memory. Rail views do not observe it (every picture
+    /// view would re-evaluate for every new picture); each observes its own key's slot.
+    @ObservationIgnored private(set) var revision = 0
+    @ObservationIgnored private var slots: [String: RackRailSpriteSlot] = [:]
+
+    /// The observable change count of one picture.
+    func slot(for key: String) -> RackRailSpriteSlot {
+        if let slot = slots[key] { return slot }
+        let slot = RackRailSpriteSlot()
+        slots[key] = slot
+        return slot
+    }
 
     /// Stand pictures share one framing so a plate's real diameter maps to the same scale (a
     /// 0.15 m iron plate stands lower than a 0.22 m bumper) and every plate's lowest point sits on
@@ -82,6 +92,18 @@ final class RackRailSpriteService {
 
     func memoryStand(_ request: LathePlateRequest) -> UIImage? {
         memory.object(forKey: Self.standKey(request) as NSString)
+    }
+
+    /// The stand picture with the row's floor darkening baked in (RackRailFlatArt.shaded), so the
+    /// row composites one plain image per plate over the live scene instead of a gradient masked
+    /// by the picture, which Core Animation redrew offscreen every frame.
+    func shadedStand(_ request: LathePlateRequest) -> UIImage? {
+        let key = "shaded_" + Self.standKey(request)
+        if let shaded = memory.object(forKey: key as NSString) { return shaded }
+        guard let stand = memoryStand(request), let shaded = RackRailFlatArt.shaded(stand) else { return nil }
+        let pixels = (shaded.cgImage?.width ?? 100) * (shaded.cgImage?.height ?? 100)
+        memory.setObject(shaded, forKey: key as NSString, cost: pixels * 4)
+        return shaded
     }
 
     /// Asks for a stand picture: read from disk, or rendered in the background. A later revision
@@ -234,18 +256,25 @@ final class RackRailSpriteService {
         let pixels = (image.cgImage?.width ?? 100) * (image.cgImage?.height ?? 100)
         memory.setObject(image, forKey: key as NSString, cost: pixels * 4)
         revision += 1
+        slots[key]?.version += 1
         guard write, let data = image.pngData() else { return }
         let url = directory.appendingPathComponent(key + ".png")
         Task.detached(priority: .utility) { try? data.write(to: url, options: .atomic) }
     }
 
     #if DEBUG
+    /// Tests: puts a stand picture in memory as a finished render would.
+    func storeForTesting(_ image: UIImage, request: LathePlateRequest) {
+        store(image, key: Self.standKey(request), write: false)
+    }
+
     /// Tests: nothing queued or rendering.
     var isIdleForTesting: Bool { missing.isEmpty && batch == nil }
 
     /// Tests: forget every picture in memory and on disk.
     func removeAllForTesting() {
         memory.removeAllObjects()
+        for slot in slots.values { slot.version += 1 }
         for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? [] {
             try? FileManager.default.removeItem(at: file)
         }
@@ -262,6 +291,85 @@ final class RackRailSpriteService {
         return requests.map { memoryStand($0) }
     }
     #endif
+}
+
+/// The rail's art flattened into plain images, so nothing in the row needs an offscreen pass when
+/// Core Animation composites it over the live 3D scene every frame: the floor darkening baked into
+/// each plate picture, and the contact shadow (two blurred ellipses) rendered once per plate size.
+@MainActor
+enum RackRailFlatArt {
+    /// The plate darkening toward the floor as the room does: clear down to 45 % of its height,
+    /// then to black at 32 % at its feet.
+    static let shadeStops: [Gradient.Stop] = [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.32), location: 1)]
+    static var floorShade: LinearGradient {
+        LinearGradient(stops: shadeStops, startPoint: .top, endPoint: .bottom)
+    }
+
+    /// `image` with floorShade drawn over it where it is opaque (the same as the gradient masked by
+    /// the picture, composited over it).
+    nonisolated static func shaded(_ image: UIImage) -> UIImage? {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = image.scale
+        format.opaque = false
+        let rect = CGRect(origin: .zero, size: image.size)
+        // The gradient where the picture is (destination in: gradient times the picture's alpha),
+        // then that over the picture.
+        let overlay = UIGraphicsImageRenderer(size: image.size, format: format).image { context in
+            let colors = [UIColor.clear.cgColor, UIColor.black.withAlphaComponent(0.32).cgColor] as CFArray
+            if let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB), colors: colors, locations: [0.45, 1]) {
+                context.cgContext.drawLinearGradient(gradient, start: .zero, end: CGPoint(x: 0, y: rect.height),
+                                                     options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
+            }
+            image.draw(in: rect, blendMode: .destinationIn, alpha: 1)
+        }
+        return UIGraphicsImageRenderer(size: image.size, format: format).image { _ in
+            image.draw(in: rect)
+            overlay.draw(in: rect)
+        }
+    }
+
+    private static var shadows: [String: UIImage] = [:]
+    /// Room around the shadow for its blur, in points.
+    static let shadowMargin: CGFloat = 32
+
+    /// The contact shadow for a plate `side` points wide, as one image with `shadowMargin` around
+    /// it, rendered once by SwiftUI itself so its blur is exactly the live one's.
+    static func contactShadow(side: CGFloat, scale: CGFloat) -> UIImage? {
+        let key = "\(side)@\(scale)"
+        if let cached = shadows[key] { return cached }
+        let renderer = ImageRenderer(content: RackRailContactShadow(side: side).padding(shadowMargin))
+        renderer.scale = scale
+        guard let image = renderer.uiImage else { return nil }
+        if shadows.count > 8 { shadows.removeAll() }
+        shadows[key] = image
+        return image
+    }
+}
+
+/// Where a plate meets the floor: a soft pool spreading past both sides of the plate and a tight
+/// dark core under its rim, so it stands on the floor instead of floating over it.
+struct RackRailContactShadow: View {
+    let side: CGFloat
+
+    var body: some View {
+        ZStack {
+            Ellipse().fill(Color.black.opacity(0.7))
+                .frame(width: side * 1.2, height: side * 0.22)
+                .blur(radius: 10)
+            Ellipse().fill(Color.black.opacity(0.9))
+                .frame(width: side * 0.7, height: side * 0.07)
+                .blur(radius: 2.5)
+                .offset(y: -side * 0.02)
+        }
+        .frame(width: side)
+    }
+}
+
+/// One picture's change count, observed by the views that show it.
+@MainActor
+@Observable
+final class RackRailSpriteSlot {
+    var version = 0
 }
 
 /// One offscreen ARView lit like the rack room (neutral white from above, darker toward the
@@ -358,8 +466,8 @@ struct RackRailStandArt: View {
     var body: some View {
         let _ = RackWorkCounters.debugTick(.railPictureBodies)
         let service = RackRailSpriteService.shared
-        _ = service.revision
-        let image = service.memoryStand(request)
+        _ = service.slot(for: RackRailSpriteService.standKey(request)).version
+        let image = service.shadedStand(request)
         return ZStack {
             if let image {
                 Image(uiImage: image)
@@ -367,7 +475,12 @@ struct RackRailStandArt: View {
                     .interpolation(.high)
                     .transition(.opacity)
             } else {
+                // Until the picture is ready: the drawn stand-in, darkened toward the floor live.
                 RackRailDrawnStand(tierID: request.tierID)
+                    .overlay {
+                        RackRailFlatArt.floorShade
+                            .mask { RackRailDrawnStand(tierID: request.tierID) }
+                    }
             }
         }
         .animation(.easeOut(duration: 0.25), value: image != nil)

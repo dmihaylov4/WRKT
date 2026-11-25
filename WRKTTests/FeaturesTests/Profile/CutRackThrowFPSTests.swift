@@ -113,6 +113,11 @@ struct CutRackThrowFPSTests {
         report += "asleep after the throw: " + (asleepAfter.map { String(format: "%.2f s", $0) } ?? "not within 8 s") + "\n"
         report += "renders: railSprites=\(delta(.railSpritesRendered)) thumbnails=\(delta(.thumbnailsRendered)) busyAtStart=\(spriteBusyAtStart) busyAtEnd=\(!RackRailSpriteService.shared.isIdleForTesting)\n"
         print(report)
+        // Nothing in the screen re-evaluates per frame while a plate is held and thrown, and no
+        // offscreen render starts during it.
+        #expect(delta(.hostBodies) + delta(.railScreenBodies) + delta(.railRowBodies) <= 4)
+        #expect(delta(.railPictureBodies) <= 8)
+        #expect(delta(.railSpritesRendered) == 0 && delta(.thumbnailsRendered) == 0)
         if let out = environment["VOLIA_RACK_OPEN_OUT"] {
             let name = "throw-\(Int(Date().timeIntervalSince1970 * 10)).txt"
             try report.write(to: URL(fileURLWithPath: out).appendingPathComponent(name), atomically: true, encoding: .utf8)

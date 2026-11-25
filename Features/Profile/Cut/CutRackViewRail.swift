@@ -443,30 +443,30 @@ struct CutRackPlateRow<Stand: View>: View {
         }
     }
 
-    /// One plate: its picture, darkening toward the floor as the room does.
+    /// One plate: its picture, darkening toward the floor as the room does (the stand view bakes
+    /// the darkening into its picture: RackRailFlatArt).
     private func plate(_ group: CutRackRailModel.Group) -> some View {
         stand(group)
             .frame(width: side, height: side)
-            .overlay {
-                LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.32), location: 1)],
-                               startPoint: .top, endPoint: .bottom)
-                    .mask { stand(group).frame(width: side, height: side) }
-            }
     }
 
-    /// Where the plate meets the floor: a soft pool spreading past both sides of the plate and a
-    /// tight dark core under its rim, so it stands on the floor instead of floating over it.
+    @Environment(\.displayScale) private var displayScale
+
+    /// Where the plate meets the floor (RackRailContactShadow), as one image rendered once per
+    /// size: live blurs over the 3D scene were redrawn offscreen every frame.
+    @ViewBuilder
     private var contactShadow: some View {
-        ZStack {
-            Ellipse().fill(Color.black.opacity(0.7))
-                .frame(width: side * 1.2, height: side * 0.22)
-                .blur(radius: 10)
-            Ellipse().fill(Color.black.opacity(0.9))
-                .frame(width: side * 0.7, height: side * 0.07)
-                .blur(radius: 2.5)
-                .offset(y: -side * 0.02)
+        let margin = RackRailFlatArt.shadowMargin
+        Group {
+            if let image = RackRailFlatArt.contactShadow(side: side, scale: displayScale) {
+                Image(uiImage: image)
+                    .resizable()
+                    .frame(width: image.size.width, height: image.size.height)
+                    .padding(-margin)
+            } else {
+                RackRailContactShadow(side: side)
+            }
         }
-        .frame(width: side)
         .offset(y: side * 0.03)
     }
 
