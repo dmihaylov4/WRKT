@@ -28,23 +28,21 @@ nonisolated enum RackStudioEnvironment {
     static let resourceName = "RackStudio_studio_small_09_1k"
     static let resourceExtension = "hdr"
 
-    /// Turns the studio about the vertical so its two soft boxes sit to either side of the bar,
-    /// where the plate faces (which face along the bar) and the rims reflect them.
-    static let yawDegrees: Float = 90
-
-    /// The light entity's orientation (an ImageBasedLightComponent follows its entity's transform).
-    /// In debug builds VOLIA_RACK_LIGHT's studioYaw overrides the turn (degrees).
-    static var orientation: simd_quatf {
-        var yaw = yawDegrees
-        #if DEBUG
-        if let value = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])["studioYaw"] { yaw = value }
-        #endif
-        return simd_quatf(angle: yaw * .pi / 180, axis: SIMD3(0, 1, 0))
-    }
-
     /// Clamp for the brightest texels: the bare bulbs in the photo reach several hundred, which
     /// prefiltering turns into sparkle on rough metal. The soft boxes sit around 10 to 40.
     static let radianceClamp: Float = 48
+
+    /// Turn of the studio about the vertical, baked into the panorama's columns (see
+    /// panorama(_:clamp:yawDegrees:)). 0 is the orientation every capture was tuned in: plate
+    /// faces on the bar then match a plate lying on the floor within about 5 % (rack-mixed
+    /// capture), and the room stays as it was. 120 gives a richer gold on the floor but a darker
+    /// floor. In debug builds VOLIA_RACK_LIGHT's studioBake overrides it, studioClamp the clamp.
+    ///
+    /// Why baked: the first prototype turned the light entity instead (90 degrees). The simulator
+    /// ignores that transform (captures with and without it are identical), so every capture was
+    /// tuned unturned, while the phone appears to apply it: there the soft boxes swung round to
+    /// face the plates on the bar, which then read far brighter and paler than plates on the floor.
+    static let bakedYawDegrees: Float = 0
 
     struct Radiance: Sendable {
         let width: Int
@@ -121,14 +119,20 @@ nonisolated enum RackStudioEnvironment {
     }
 
     /// A linear float RGBA panorama for EnvironmentResource(equirectangular:), clamped.
-    static func panorama(_ radiance: Radiance, clamp: Float = radianceClamp) -> CGImage? {
+    /// `yawDegrees` turns the studio by shifting columns, so the turn is in the pixels themselves
+    /// and does not depend on how a renderer treats the light entity's transform.
+    static func panorama(_ radiance: Radiance, clamp: Float = radianceClamp, yawDegrees: Float = 0) -> CGImage? {
         let w = radiance.width, h = radiance.height
         let balance = whiteBalance(radiance, clamp: clamp)
+        let shift = ((Int((yawDegrees / 360 * Float(w)).rounded()) % w) + w) % w
         var pixels = [Float](repeating: 1, count: w * h * 4)
-        for p in 0..<(w * h) {
-            pixels[p * 4] = min(clamp, radiance.rgb[p * 3] * balance.x)
-            pixels[p * 4 + 1] = min(clamp, radiance.rgb[p * 3 + 1] * balance.y)
-            pixels[p * 4 + 2] = min(clamp, radiance.rgb[p * 3 + 2] * balance.z)
+        for y in 0..<h {
+            for x in 0..<w {
+                let p = y * w + x, source = y * w + (x + shift) % w
+                pixels[p * 4] = min(clamp, radiance.rgb[source * 3] * balance.x)
+                pixels[p * 4 + 1] = min(clamp, radiance.rgb[source * 3 + 1] * balance.y)
+                pixels[p * 4 + 2] = min(clamp, radiance.rgb[source * 3 + 2] * balance.z)
+            }
         }
         let data = pixels.withUnsafeBufferPointer { Data(buffer: $0) }
         guard let space = CGColorSpace(name: CGColorSpace.extendedLinearSRGB),
@@ -158,7 +162,13 @@ nonisolated enum RackStudioEnvironment {
         guard let url = bundle.url(forResource: resourceName, withExtension: resourceExtension),
               let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let radiance = decode(data) else { return nil }
-        return panorama(radiance)
+        var clamp = radianceClamp, yaw = bakedYawDegrees
+        #if DEBUG
+        let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
+        if let value = overrides["studioClamp"] { clamp = value }
+        if let value = overrides["studioBake"] { yaw = value }
+        #endif
+        return panorama(radiance, clamp: clamp, yawDegrees: yaw)
     }
 }
 

@@ -199,6 +199,29 @@ import UIKit
         #expect(environment != nil)
     }
 
+    @Test func rubberIsMatteSoEdgeOnFacesKeepTheirColour() {
+        for tier in Self.liveTiers where tier.style == .bumper {
+            let body = LatheFinish.body(for: tier)
+            #expect(body.specular <= 0.2, "tier \(tier.id) has a weak sheen")
+            #expect(body.roughness >= 0.8, "tier \(tier.id) is matte")
+        }
+    }
+
+    @Test func studioTurnIsBakedIntoThePixels() throws {
+        // Four columns, one bright: a quarter turn moves the bright column by one.
+        let radiance = RackStudioEnvironment.Radiance(width: 4, height: 1, rgb: [8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        func brightColumn(_ yaw: Float) throws -> Int {
+            let image = try #require(RackStudioEnvironment.panorama(radiance, clamp: 48, yawDegrees: yaw))
+            let data = try #require(image.dataProvider?.data as Data?)
+            let values = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
+            return try #require((0..<4).max { values[$0 * 4] < values[$1 * 4] })
+        }
+        #expect(try brightColumn(0) == 0)
+        #expect(try brightColumn(90) == 3)
+        #expect(try brightColumn(-90) == 1)
+        #expect(try brightColumn(360) == 0)
+    }
+
     @Test func malformedHDRIsRejected() {
         #expect(RackStudioEnvironment.decode(Data("not an image".utf8)) == nil)
         #expect(RackStudioEnvironment.decode(Data("#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 4 +X 4\n".utf8)) == nil)

@@ -38,6 +38,20 @@ struct LatheFinish: Equatable {
     var clearcoat: Float = 0
     var clearcoatRoughness: Float = 0
     var surface: LatheSurface
+    /// Dielectric reflectance scale (RealityKit's default 0.5 is F0 0.04). Metals ignore it.
+    var specular: Float = 0.5
+
+    static let rubberRoughness: Float = 0.85
+    static let rubberSpecular: Float = 0.15
+
+    /// Debug tuning from VOLIA_RACK_LIGHT: rubberSpec, rubberRough.
+    static func rubberOverride(_ name: String) -> Float? {
+        #if DEBUG
+        return rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])[name]
+        #else
+        return nil
+        #endif
+    }
 
     var isMetal: Bool { metallic >= 0.5 }
 
@@ -81,7 +95,11 @@ struct LatheFinish: Equatable {
             return LatheFinish(color: PlateDisplaySurface.faceColor(for: tier), metallic: 0, roughness: 0.44,
                                clearcoat: 0.35, clearcoatRoughness: 0.22, surface: .smooth)
         case .bumper, .starter:
-            return LatheFinish(color: rubberColor(for: tier), metallic: 0, roughness: 0.70, surface: .smooth)
+            // Matte rubber with a weak sheen. At the default reflectance, faces seen edge on (as
+            // every face on the bar is) picked up a white Fresnel sheen from the bright studio
+            // and turned pale and bright: red read pink, magenta pastel.
+            return LatheFinish(color: rubberColor(for: tier), metallic: 0, roughness: rubberOverride("rubberRough") ?? rubberRoughness,
+                               surface: .smooth, specular: rubberOverride("rubberSpec") ?? rubberSpecular)
         default:
             return metal(PlateDisplaySurface.faceColor(for: tier), roughness: 0.18)
         }
@@ -504,6 +522,9 @@ private func latheMaterial(_ finish: LatheFinish, detail: Bool) -> PhysicallyBas
     material.clearcoatRoughness = .init(floatLiteral: finish.clearcoatRoughness)
     // A closed mesh: back faces are never seen.
     material.faceCulling = .back
+    if !finish.isMetal {
+        material.specular = .init(floatLiteral: finish.specular)
+    }
     if detail, let normal = surfaceNormalTexture(finish.surface) {
         material.normal = .init(texture: latheTexture(normal))
         if finish.surface == .cast {

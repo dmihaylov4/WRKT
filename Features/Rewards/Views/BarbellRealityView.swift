@@ -1355,9 +1355,7 @@ struct BarbellRealityView: View {
                         source: .single(environment),
                         intensityExponent: iblExponent
                     ))
-                    if studio != nil {
-                        iblEntity.orientation = RackStudioEnvironment.orientation
-                    }
+                    // The studio's turn is baked into its pixels; the light entity stays unrotated.
                     sceneState.sceneRoot.addChild(iblEntity)
                     // The receiver applies to the whole subtree, including plates added later.
                     sceneState.sceneRoot.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
