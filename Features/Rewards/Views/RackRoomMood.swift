@@ -79,14 +79,14 @@ struct RackRoomMood: Equatable {
     static let darkRoom: CGFloat = 0.42
 
     /// The sign's centre on the back wall, in front of the plate zone panel (face at z -0.103).
-    static let signPosition = RackHexFixture.signCentre
+    static var signPosition: SIMD3<Float> { RackHexFixture.signCentre }
 
     static func preset(_ variant: Variant, sign: SignStyle = defaultSignStyle) -> RackRoomMood {
         RackRoomMood(
             variant: variant,
             roomBrightness: darkRoom,
             floorBrightness: 0.30,
-            floorRoughness: 0.30,
+            floorRoughness: 0.85,
             imageBasedLightIntensityExponent: -1.6,
             fixtures: RackHexFixture.fixtures(for: variant),
             lightColor: coolWhite,
@@ -155,24 +155,100 @@ struct RackRoomMood: Equatable {
         addSign(to: root, text: signText)
     }
 
+    /// The sign's width: this share of the sign cell's inner width (between its tubes).
+    static let signWidthFraction: Float = 0.55
+
+    /// The sign's width in metres: inside the big grid's middle cell, or the earlier fixtures'
+    /// open wall.
+    var signWidth: Float {
+        guard let wall = fixtures.first(where: { !$0.onCeiling && $0.glowHalfWidth > 0 }) else { return 0.34 }
+        return Self.signWidthFraction * 2 * (wall.grid.radius - wall.tubeRadius)
+    }
+
+    /// The VOLIA logo mark (two chamfered arms, VMarkShape) as a flat lit sign; a custom room
+    /// name is shown instead, as text fitted to the same width.
     @MainActor
     private func addSign(to root: Entity, text signText: String) {
-        let font = UIFont(name: "BarlowSemiCondensed-Black", size: 0.20) ?? .systemFont(ofSize: 0.20, weight: .heavy)
-        let text = MeshResource.generateText(signText, extrusionDepth: 0.008, font: font,
-                                             containerFrame: CGRect(x: -0.8, y: -0.13, width: 1.6, height: 0.26),
-                                             alignment: .center, lineBreakMode: .byClipping)
-        let sign = ModelEntity(mesh: text, materials: [signStyle == .lime ? Self.glow(Self.lime) : RackHexLight.tubeMaterial()])
+        let width = signWidth
+        let mesh: MeshResource?
+        let scale: Float
+        if signText == "VOLIA" {
+            mesh = Self.cachedLogoMesh()
+            scale = width
+        } else {
+            let font = UIFont(name: "BarlowSemiCondensed-Black", size: 0.20) ?? .systemFont(ofSize: 0.20, weight: .heavy)
+            let text = MeshResource.generateText(signText, extrusionDepth: 0.006, font: font,
+                                                 containerFrame: CGRect(x: -0.8, y: -0.13, width: 1.6, height: 0.26),
+                                                 alignment: .center, lineBreakMode: .byClipping)
+            mesh = text
+            // Fit to the width, and to a height that keeps long and short names inside the cell.
+            let extent = text.bounds.extents
+            scale = min(width / max(extent.x, 0.001), (width * 0.45) / max(extent.y, 0.001))
+        }
+        guard let mesh else { return }
+        let sign = ModelEntity(mesh: mesh, materials: [signStyle == .lime ? Self.glow(Self.lime) : RackHexLight.tubeMaterial()])
         sign.name = "moodSign"
-        sign.position = Self.signPosition
+        sign.scale = SIMD3(scale, scale, 1)
+        // Centred on the cell: the text mesh's own centre may sit off its origin.
+        let centre = mesh.bounds.center * SIMD3(scale, scale, 1)
+        sign.position = Self.signPosition - SIMD3(centre.x, centre.y, 0)
         root.addChild(sign)
         if signStyle == .white {
-            // The lime edge: the same letters a touch larger, dim lime, just behind the white.
-            let edge = ModelEntity(mesh: text, materials: [Self.glow(Self.lime.withBrightness(0.55))])
+            // The lime edge: the same shape a touch larger, dim lime, just behind the white.
+            let edge = ModelEntity(mesh: mesh, materials: [Self.glow(Self.lime.withBrightness(0.55))])
             edge.name = "moodSignEdge"
-            edge.scale = SIMD3(1.03, 1.06, 1)
-            edge.position = Self.signPosition + SIMD3(0, 0, -0.003)
+            edge.scale = SIMD3(scale * 1.04, scale * 1.06, 1)
+            edge.position = sign.position + SIMD3(0, 0, -0.003)
             root.addChild(edge)
         }
+    }
+
+    /// The logo mark one unit wide, centred on its origin, facing +z, 1 cm deep (in units of
+    /// its width, so scaled with it). Built once.
+    @MainActor
+    static func cachedLogoMesh() -> MeshResource? {
+        if let mesh = _logoMesh { return mesh }
+        let geometry = logoGeometry()
+        var descriptor = MeshDescriptor(name: "RackLogoMark")
+        descriptor.positions = MeshBuffers.Positions(geometry.positions)
+        descriptor.normals = MeshBuffers.Normals(geometry.normals)
+        descriptor.primitives = .triangles(geometry.indices)
+        let mesh = try? MeshResource.generate(from: [descriptor])
+        _logoMesh = mesh
+        return mesh
+    }
+
+    @MainActor private static var _logoMesh: MeshResource?
+
+    /// The two arms of VMarkShape (each a convex hexagon in the logo's viewBox, y down), mapped to
+    /// a mark one unit wide with y up: a front face fanned from the first corner and side walls.
+    static func logoGeometry(depth: Float = 0.03) -> (positions: [SIMD3<Float>], normals: [SIMD3<Float>], indices: [UInt32]) {
+        let box = VMarkShape.viewBox
+        let unit = Float(1 / box.width)
+        func point(_ p: CGPoint) -> SIMD2<Float> {
+            SIMD2(Float(p.x - box.midX) * unit, -Float(p.y - box.midY) * unit)
+        }
+        var positions: [SIMD3<Float>] = [], normals: [SIMD3<Float>] = [], indices: [UInt32] = []
+        for arm in [VMarkShape.leftArm, VMarkShape.rightArm] {
+            var corners = arm.map(point)
+            // Counter-clockwise seen from the front (+z), so the fan faces the viewer.
+            var area: Float = 0
+            for i in corners.indices { let a = corners[i], b = corners[(i + 1) % corners.count]; area += a.x * b.y - b.x * a.y }
+            if area < 0 { corners.reverse() }
+            let base = UInt32(positions.count)
+            for c in corners { positions.append(SIMD3(c.x, c.y, 0)); normals.append(SIMD3(0, 0, 1)) }
+            for i in 1..<(corners.count - 1) { indices += [base, base + UInt32(i), base + UInt32(i + 1)] }
+            for i in corners.indices {
+                let a = corners[i], b = corners[(i + 1) % corners.count]
+                let edge = b - a
+                let n = simd_normalize(SIMD3(edge.y, -edge.x, 0))
+                let s = UInt32(positions.count)
+                positions += [SIMD3(a.x, a.y, 0), SIMD3(b.x, b.y, 0), SIMD3(b.x, b.y, -depth), SIMD3(a.x, a.y, -depth)]
+                normals += [n, n, n, n]
+                indices += [s, s + 2, s + 1, s, s + 3, s + 2]
+            }
+        }
+        return (positions, normals, indices)
     }
 
     /// A light source's surface: unlit, so it reads as the brightest thing in its colour.

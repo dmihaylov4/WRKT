@@ -79,13 +79,52 @@ import UIKit
         }
     }
 
-    @Test func roomStaysDarkSurfacedWithAGlossierFloor() {
+    @Test func roomStaysDarkSurfacedWithAMatteFloor() {
         let theme = RoomThemePreset.preset(for: "dark_gym")
         let mood = RackRoomMood.preset(.wall)
         let dark = theme.dimmed(by: mood.roomBrightness, floor: mood.floorBrightness, floorRoughness: mood.floorRoughness)
         #expect(dark.backdropColor.barbellHSB.brightness < 0.15)
         #expect(dark.floorColor.barbellHSB.brightness < 0.25)
-        #expect(dark.floorRoughness < theme.floorRoughness && dark.floorRoughness >= 0.3, "a sheen, not a mirror")
+        #expect(dark.floorRoughness >= 0.8, "rubber is matte: no mirror sheen")
+    }
+
+    @Test(arguments: RackRoomMood.Variant.allCases)
+    func signIsTheLogoMarkInsideTheMiddleCell(_ variant: RackRoomMood.Variant) throws {
+        let mood = RackRoomMood.preset(variant)
+        let root = Entity()
+        mood.addFixtures(to: root, signText: "VOLIA", keyScale: 1)
+        let sign = try #require(root.children.first { $0.name == "moodSign" } as? ModelEntity)
+        let bounds = sign.visualBounds(relativeTo: root)
+        // The logo's proportions, not a word's.
+        let aspect = bounds.extents.x / bounds.extents.y
+        #expect(abs(aspect - Float(VMarkShape.aspectRatio)) < 0.05)
+        // About half the cell's inner width, centred on the cell.
+        #expect(abs(bounds.extents.x - mood.signWidth) < 0.005)
+        #expect(simd_distance(SIMD2(bounds.center.x, bounds.center.y),
+                              SIMD2(RackRoomMood.signPosition.x, RackRoomMood.signPosition.y)) < 0.01)
+        guard let wall = mood.fixtures.first(where: { $0.glowHalfWidth > 0 }) else { return }
+        let inner = 2 * (wall.grid.radius - wall.tubeRadius)
+        #expect(mood.signWidth >= 0.5 * inner && mood.signWidth <= 0.6 * inner)
+        // Every corner of the sign's box sits inside the hexagon, clear of the tube and its glow.
+        let c30: Float = Float(3).squareRoot() / 2
+        let clear = wall.grid.apothem - wall.tubeRadius - wall.glowHalfWidth
+        for sx: Float in [-1, 1] {
+            for sy: Float in [-1, 1] {
+                let p = SIMD2(sx * bounds.extents.x / 2, sy * bounds.extents.y / 2)
+                let d = max(abs(p.y), abs(p.x * c30 + p.y * 0.5), abs(-p.x * c30 + p.y * 0.5))
+                #expect(d < clear, "\(variant)")
+            }
+        }
+    }
+
+    @Test func customRoomNameFitsTheSameCell() throws {
+        let mood = RackRoomMood.preset(.wallHigh)
+        let root = Entity()
+        mood.addFixtures(to: root, signText: "IRON CAVE GYM", keyScale: 1)
+        let sign = try #require(root.children.first { $0.name == "moodSign" } as? ModelEntity)
+        let bounds = sign.visualBounds(relativeTo: root)
+        #expect(bounds.extents.x <= mood.signWidth + 0.005)
+        #expect(abs(bounds.center.x) < 0.01 && abs(bounds.center.y - RackRoomMood.signPosition.y) < 0.01)
     }
 
     @Test func lightIsNeutralToCoolWhite() {
