@@ -8,10 +8,23 @@ struct PlateSnapshotServiceTests {
     @Test("cacheKey is stable for same inputs")
     @MainActor
     func cacheKeyStable() {
-        let k1 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion")
-        let k2 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion")
+        let k1 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion", style: .legacy)
+        let k2 = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion", style: .legacy)
         #expect(k1 == k2)
+        // The legacy thumbnails keep the key they had before the lathe plates, so they are reused.
         #expect(k1 == "v3_e475445974e3ad2950faba3a936863e858675b794c9dd8d9fb638abb8bde7c27")
+    }
+
+    @Test("lathe thumbnails never share a key with legacy ones")
+    @MainActor
+    func cacheKeyVariesByPlateStyle() {
+        let legacy = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion", style: .legacy)
+        let lathe = PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion", style: .lathe)
+        #expect(lathe == "l1_e475445974e3ad2950faba3a936863e858675b794c9dd8d9fb638abb8bde7c27")
+        #expect(lathe != legacy)
+        // The key a launch uses is its plate style's.
+        #expect(PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion")
+                == PlateSnapshotService.cacheKey(tierID: 5, weightKg: 35, engravingText: "Volume Champion", style: RackPlateStyle.current))
     }
 
     @Test("cacheKey differs when tierID changes")
@@ -75,13 +88,15 @@ struct PlateSnapshotServiceTests {
         let child = nested.appendingPathComponent("old.png")
         let legacy = cache.appendingPathComponent("v2_p5_350_1234.png")
         let current = cache.appendingPathComponent(PlateSnapshotService.cacheKey(
-            tierID: 5, weightKg: 35, engravingText: "A") + ".png")
-        for url in [outside, child, legacy, current] { try Data([42]).write(to: url) }
+            tierID: 5, weightKg: 35, engravingText: "A", style: .legacy) + ".png")
+        let lathe = cache.appendingPathComponent(PlateSnapshotService.cacheKey(
+            tierID: 5, weightKg: 35, engravingText: "A", style: .lathe) + ".png")
+        for url in [outside, child, legacy, current, lathe] { try Data([42]).write(to: url) }
         let link = cache.appendingPathComponent("link.png")
         try manager.createSymbolicLink(at: link, withDestinationURL: outside)
         try PlateSnapshotService.removeLegacyCacheFiles(in: cache)
         #expect(!manager.fileExists(atPath: legacy.path))
-        for url in [outside, child, current] { #expect(try Data(contentsOf: url) == Data([42])) }
+        for url in [outside, child, current, lathe] { #expect(try Data(contentsOf: url) == Data([42])) }
         #expect(try link.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink == true)
         #expect(manager.fileExists(atPath: cache.appendingPathComponent(".v3-cleanup-complete").path))
     }

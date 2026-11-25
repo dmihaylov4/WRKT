@@ -7,8 +7,9 @@ import UIKit
 /// The rack rail's plate pictures, rendered with the rack scene's own plates and cached on disk:
 /// one "stand" picture per plate look (the plate standing on the floor, face toward the viewer,
 /// leaning back a little and turned a little so its rim and thickness show, lettered as in the
-/// scene) and one larger face-on picture for the plate lifted out of the row. Lathe plates in
-/// debug builds, legacy plates otherwise (RackPlateStyle.current).
+/// scene) and one larger face-on picture for the plate lifted out of the row. The plates the rack
+/// room draws this launch (RackPlateStyle.current). Also renders the lathe thumbnails for
+/// PlateSnapshotService (renderThumbnail).
 ///
 /// Lettered faces are built for each picture alone (makeLatheSnapshotPlate): they never enter the
 /// scene's LatheFaceCache, and their textures are released with the picture's plate. Pictures are
@@ -229,6 +230,28 @@ final class RackRailSpriteService {
         let image = await task.value
         liftedRenders[key] = nil
         return image
+    }
+
+    // MARK: Thumbnail
+
+    /// The world square a thumbnail shows: the lifted picture's framing, so a 0.45 m bumper
+    /// fills the thumbnail's circle as the legacy thumbnails' wide lens did.
+    static let thumbnailWorld: Float = 0.47
+
+    /// A lathe plate face on, lettered, for PlateSnapshotService's thumbnails. Not queued:
+    /// PlateSnapshotService calls it from inside its own render queue. Nil when a hold started
+    /// while the plate settled (the caller shows the drawn stand-in and renders another time).
+    static func renderThumbnail(tierID: Int, weightKg: Double, engravingText: String, side: CGFloat) async -> UIImage? {
+        guard let tier = PlateTier.all.first(where: { $0.id == tierID }) else { return nil }
+        let request = LathePlateRequest(tierID: tierID, weightKg: weightKg, engravingText: engravingText,
+                                        projection: BarbellPlateRenderProjection())
+        guard let stage = await RackRailStage(side: side, style: .lathe) else { return nil }
+        defer { stage.tearDown() }
+        guard !Task.isCancelled, let plate = await plateEntity(tier: tier, style: .lathe, request: request) else { return nil }
+        stage.frame(world: thumbnailWorld, centerY: 0, pitchDegrees: 0)
+        plate.transform = Transform(scale: .one, rotation: simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0)),
+                                    translation: .zero)
+        return await stage.snapshot(plate)
     }
 
     // MARK: Shared

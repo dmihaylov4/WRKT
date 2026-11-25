@@ -3,7 +3,10 @@ import RealityKit
 import Foundation
 import CryptoKit
 
-/// Plate thumbnails rendered once per plate look with RealityKit, then read from Caches.
+/// Plate thumbnails rendered once per plate look with RealityKit, then read from Caches. The
+/// plates are the ones the rack room draws this launch (RackPlateStyle.current): legacy plates
+/// under "v3_" keys, lathe plates under "l1_" keys, so a launch never shows a thumbnail of the
+/// other style and both sets stay valid when a tester switches the new design off and on.
 /// Renders run one at a time (each one is an offscreen ARView on the main thread) and wait while
 /// a rack scene is opening (holdRenders), so a tray of uncached plates never competes with the
 /// scene's first frame. Disk reads and PNG decoding run off the main thread; decoded images are
@@ -37,11 +40,20 @@ final class PlateSnapshotService {
 
     // MARK: - Cache Key
 
-    static func cacheKey(tierID: Int, weightKg: Double, engravingText: String) -> String {
+    static func cacheKey(tierID: Int, weightKg: Double, engravingText: String,
+                         style: RackPlateStyle = RackPlateStyle.current) -> String {
         var input = Data("\(tierID)|\(weightKg.bitPattern)|".utf8)
         input.append(contentsOf: engravingText.utf8)
         let digest = SHA256.hash(data: input).map { String(format: "%02x", $0) }.joined()
-        return "v3_" + digest
+        return keyPrefix(style) + digest
+    }
+
+    /// "v3_" is the legacy thumbnails' key since before the lathe plates, so they are reused.
+    static func keyPrefix(_ style: RackPlateStyle) -> String {
+        switch style {
+        case .legacy: "v3_"
+        case .lathe: "l1_"
+        }
     }
 
     static func removeLegacyCacheFiles(in directory: URL) throws {
@@ -53,7 +65,7 @@ final class PlateSnapshotService {
         for entry in entries {
             let values = try entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
             guard values.isRegularFile == true, values.isSymbolicLink != true else { continue }
-            guard entry.lastPathComponent.range(of: "^v3_[0-9a-f]{64}\\.png$",
+            guard entry.lastPathComponent.range(of: "^(v3|l1)_[0-9a-f]{64}\\.png$",
                                                  options: .regularExpression) == nil else { continue }
             try manager.removeItem(at: entry)
         }
@@ -177,6 +189,9 @@ final class PlateSnapshotService {
         }
     }
 
+    /// Points of a rendered thumbnail (at the screen's scale).
+    static let thumbnailSide: CGFloat = 300
+
     func renderIfNeeded(tierID: Int, weightKg: Double, engravingText: String) async {
         let key = Self.cacheKey(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
         guard !hasCached(tierID: tierID, weightKg: weightKg, engravingText: engravingText),
@@ -212,12 +227,19 @@ final class PlateSnapshotService {
     }
 
     private func renderPlate(tierID: Int, weightKg: Double, engravingText: String) async -> UIImage? {
+        if RackPlateStyle.current == .lathe {
+            let image = await RackRailSpriteService.renderThumbnail(tierID: tierID, weightKg: weightKg,
+                                                                    engravingText: engravingText,
+                                                                    side: Self.thumbnailSide)
+            if image != nil { RackWorkCounters.add(.thumbnailsRendered) }
+            return image
+        }
         guard let window = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap({ $0.windows })
             .first(where: { $0.isKeyWindow }) else { return nil }
 
-        let size = CGSize(width: 300, height: 300)
+        let size = CGSize(width: Self.thumbnailSide, height: Self.thumbnailSide)
         let arView = ARView(
             frame: CGRect(x: -size.width - 10, y: -size.height - 10, width: size.width, height: size.height),
             cameraMode: .nonAR,
