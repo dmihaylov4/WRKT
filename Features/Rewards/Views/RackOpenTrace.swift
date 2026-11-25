@@ -37,11 +37,31 @@ nonisolated enum RackWork: String, CaseIterable, Sendable {
     case faceSwaps
     /// A face dropped from the in-memory cache (LatheFaceCache).
     case faceTexturesEvicted
+    /// SwiftUI body evaluations (DEBUG builds): the rack host, the rail screen, its plate row
+    /// and the plate pictures in it. A drag or throw should cause a few, not one per frame.
+    case hostBodies
+    case railScreenBodies
+    case railRowBodies
+    case railPictureBodies
+    /// The rack scene's frame updates, and the main-thread microseconds they took (DEBUG builds).
+    case sceneFrameUpdates
+    /// A wait of a queued offscreen render because the rack scene was in play.
+    case rendersDeferredForPlay
+    case sceneFrameUpdateMicros
 }
 
 /// Process-wide counts of RackWork. One locked increment per expensive call.
 nonisolated enum RackWorkCounters {
     private static let counts = OSAllocatedUnfairLock<[RackWork: Int]>(initialState: [:])
+
+    /// A DEBUG-only count, usable inside a view body as `let _ = RackWorkCounters.debugTick(.x)`.
+    @discardableResult
+    static func debugTick(_ work: RackWork) -> Bool {
+        #if DEBUG
+        add(work)
+        #endif
+        return true
+    }
 
     static func add(_ work: RackWork, _ amount: Int = 1) {
         counts.withLock { $0[work, default: 0] += amount }

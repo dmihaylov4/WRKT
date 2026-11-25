@@ -272,7 +272,16 @@ struct RackHeldPlate {
 
 // MARK: - Applying the rules
 
-extension SceneState {
+extension SceneState: RackPlayActivity {
+    /// A touch down in the scene, a plate held, dragged or awake, a rain or a tidy: offscreen
+    /// renders wait (PlateSnapshotService.playActivity).
+    var isPlayActive: Bool {
+        let touching = touchIsDown && ProcessInfo.processInfo.systemUptime - touchMovedAt < 3
+        if touching || heldPlate != nil || isRaining || tidyTask != nil || !floorSettles.isEmpty { return true }
+        if case .idle = dragPhase { return false }
+        return true
+    }
+
     /// Picks a plate up: it stays a dynamic body (so it collides with the room) and is steered by
     /// velocity toward the finger every frame. Other loose plates wake so it can push them.
     func beginHold(entity: Entity, plateID: String, barSlot: Int?) {

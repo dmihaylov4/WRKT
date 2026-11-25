@@ -266,6 +266,8 @@ extension SceneState {
     func rainPlates(_ plates: [EarnedPlate], gentle: Bool, onLanded: (@MainActor (Int) -> Void)? = nil) async -> Int {
         // A tidy still playing ends now: its plates go at once, so the new ones fall into a clear room.
         finishTidy()
+        isRaining = true
+        defer { isRaining = false }
         let fresh = plates.filter { entityMap[$0.id] == nil && !$0.isRacked && !$0.isStarterPlate }
         guard !fresh.isEmpty, !isPaused else { return 0 }
         if plateStyle == .lathe {

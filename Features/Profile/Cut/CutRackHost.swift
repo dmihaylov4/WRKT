@@ -53,9 +53,11 @@ struct CutRackHost: View {
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     var body: some View {
+        let _ = RackWorkCounters.debugTick(.hostBodies)
         screen
         .task {
             #if DEBUG
+            Self.testScene = sceneState
             Self.testToggle = { id in trayStyle == .rail ? railToggle(id) : toggle(id) }
             Self.testRail = CutRackRailTestHooks(
                 lift: { id in lifted = id },
@@ -270,6 +272,8 @@ struct CutRackHost: View {
             barOnly: true,
             prepare: { await startPreload().value },
             onSceneBuilt: { [preload, sceneState, ownedPlates] in
+                // Offscreen plate renders (rail pictures, thumbnails) wait while this scene is in play.
+                PlateSnapshotService.shared.playActivity = sceneState
                 preload.releaseThumbnails(after: .milliseconds(500))
                 CutRackWarmUp.afterSceneBuilt(owned: ownedPlates, in: sceneState)
             }
@@ -432,6 +436,8 @@ struct CutRackHost: View {
     // MARK: Tray
 
     #if DEBUG
+    /// Tests: the scene of the most recently shown rack (the throw harness drives it).
+    static var testScene: SceneState?
     /// Tests: the tray's toggle of the most recently shown rack (the harness taps through it).
     static var testToggle: ((String) -> Void)?
     /// Tests: the rail of the most recently shown rack (the capture harness lifts and drops).
