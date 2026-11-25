@@ -43,42 +43,49 @@ import UIKit
 
     @Test(arguments: RackRoomMood.Variant.allCases, RackRoomMood.SignStyle.allCases)
     func fixturesStayInsideTheLightAndEntityBudget(_ variant: RackRoomMood.Variant, _ sign: RackRoomMood.SignStyle) {
-        let c = counts(RackRoomMood.preset(variant, sign: sign))
-        // One honeycomb model for every panel, the sign, and the white sign's lime edge.
-        #expect(c.models == (sign == .white ? 3 : 2))
+        let mood = RackRoomMood.preset(variant, sign: sign)
+        let c = counts(mood)
+        let glows = mood.fixtures.contains { $0.glowHalfWidth > 0 }
+        // Tubes, glow (big grids), the sign, and the white sign's lime edge.
+        #expect(c.models == 2 + (glows ? 1 : 0) + (sign == .white ? 1 : 0))
         #expect(c.slots == c.models, "one material each")
         #expect(c.names.filter { $0 == "moodHexLight" }.count == 1)
+        #expect(c.names.filter { $0 == "moodHexGlow" }.count == (glows ? 1 : 0))
         #expect(c.spots == 1 && c.shadowed == 1, "one shadowed light")
         #expect(c.points <= 3)
-        #expect(c.entities <= 6)
-        // The old floating tube lamp and the floor strip are gone.
-        #expect(!c.names.contains("moodLampTube") && !c.names.contains("moodStrip"))
+        #expect(c.entities <= 9)
+        // The old floating tube lamp, the floor strip and the sign's coloured light are gone.
+        #expect(!c.names.contains("moodLampTube") && !c.names.contains("moodStrip") && !c.names.contains("moodSignHalo"))
     }
 
-    @Test func keyIsSoftCentredAndAtTheFixture() {
+    @Test func lightsAreSoftAndMirrored() {
         for variant in RackRoomMood.Variant.allCases {
             let mood = RackRoomMood.preset(variant)
-            // Left and right sleeves stay mirror images: every light on the centre line.
-            #expect(mood.keyPosition.x == 0 && mood.keyTarget.x == 0 && mood.washPosition.x == 0)
-            #expect(mood.fixtures.allSatisfy { $0.centre.x == 0 && $0.grid.columns % 2 == 1 })
+            // Left and right sleeves stay mirror images: the key on the centre line, points on it
+            // or in mirrored pairs.
+            #expect(mood.keyPosition.x == 0 && mood.keyTarget.x == 0)
+            let xs = mood.points.map(\.position.x)
+            for (point, x) in zip(mood.points, xs) {
+                #expect(x == 0 || mood.points.contains { $0.position.x == -x && $0.position.y == point.position.y
+                    && $0.position.z == point.position.z && $0.intensity == point.intensity }, "\(variant)")
+            }
+            #expect(mood.fixtures.allSatisfy { $0.centre.x == 0 })
             // A soft edge: the inner cone well inside the outer, so no hard disc on a plate.
             #expect(mood.keyOuterAngle - mood.keyInnerAngle >= 40)
-            // The shadows are motivated: the key hangs at one of the panels.
-            let nearest = mood.fixtures.map { simd_distance($0.centre, mood.keyPosition) }.min() ?? .infinity
-            #expect(nearest < 0.15, "\(variant)")
-            // The wash lights the fixture's surround, not the plates on the bar (y 0.6, x 0.68).
-            #expect(simd_distance(mood.washPosition, SIMD3(0.55, 0.6, 0.12)) > mood.washRadius)
+            // High and in front of the bar (bar at y 0.6, z 0.12), aimed down past it.
+            #expect(mood.keyPosition.y > 1.5 && mood.keyPosition.z > 0.12)
+            // Rims sit against the wall behind the bar, the wash in front of the wall.
+            #expect(mood.points.filter { $0.name == "moodRim" }.allSatisfy { $0.position.z < 0.12 })
         }
     }
 
-    @Test func signHaloStaysOffTheBarAndStands() {
-        for variant in RackRoomMood.Variant.allCases {
-            let mood = RackRoomMood.preset(variant)
-            // The sign's colour must not reach the bar (y 0.6) or the plates.
-            let halo = RackRoomMood.signPosition + SIMD3(0, 0, 0.06)
-            #expect(halo.y - mood.signHaloRadius > 0.6 + 0.05)
-            #expect(mood.signHaloRadius <= 0.35)
-        }
+    @Test func roomStaysDarkSurfacedWithAGlossierFloor() {
+        let theme = RoomThemePreset.preset(for: "dark_gym")
+        let mood = RackRoomMood.preset(.wall)
+        let dark = theme.dimmed(by: mood.roomBrightness, floor: mood.floorBrightness, floorRoughness: mood.floorRoughness)
+        #expect(dark.backdropColor.barbellHSB.brightness < 0.15)
+        #expect(dark.floorColor.barbellHSB.brightness < 0.25)
+        #expect(dark.floorRoughness < theme.floorRoughness && dark.floorRoughness >= 0.3, "a sheen, not a mirror")
     }
 
     @Test func lightIsNeutralToCoolWhite() {
@@ -93,7 +100,6 @@ import UIKit
         let dark = theme.dimmed(by: mood.roomBrightness, floor: mood.floorBrightness)
         #expect(dark.backdropColor.barbellHSB.brightness < theme.backdropColor.barbellHSB.brightness * 0.5)
         #expect(abs(dark.backdropColor.barbellHSB.hue - theme.backdropColor.barbellHSB.hue) < 0.01)
-        #expect(dark.floorColor.barbellHSB.brightness > dark.backdropColor.barbellHSB.brightness)
     }
 
     @Test func signAccentIsTheBrandLime() {
