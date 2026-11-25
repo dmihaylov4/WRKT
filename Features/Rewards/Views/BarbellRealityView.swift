@@ -1299,6 +1299,10 @@ struct BarbellRealityView: View {
     /// in the mode only so a plate dropped on the floor can be dragged back and saved. Off by
     /// default, so every other caller builds the scene exactly as before.
     var barOnly = false
+    /// Work the host needs done before the scene is built (the Cut rack's preload), awaited at the
+    /// start of make. Lets the host show the scene at once instead of a placeholder: RealityKit
+    /// sets up while the preload runs. nil for every other caller.
+    var prepare: (@MainActor () async -> Void)?
     /// Floor plates use a 0.38m wide box collider. Keep their centers comfortably inside the
     /// wall inner faces at x=±0.85 so they don't spawn wedged into the side walls.
     private let floorPlateMaxAbsX: Float = 0.64
@@ -1319,6 +1323,7 @@ struct BarbellRealityView: View {
                 // Lathe plates: the photographic studio (procedural room if it fails to load), and
                 // every plate's mesh, materials and face textures, all before the first frame.
                 RackOpenTrace.mark("make.start")
+                if let prepare { await prepare() }
                 let style = sceneState.plateStyle
                 let studio = style == .lathe ? await sharedRackStudioEnvironmentResource() : nil
                 let environment: EnvironmentResource?
