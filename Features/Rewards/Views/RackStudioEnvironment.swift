@@ -202,7 +202,7 @@ nonisolated enum RackStudioEnvironment {
     }
 
     /// The bundled file's panorama, or nil when it is missing or unreadable. A copy processed by
-    /// an earlier launch of the same build is read back from Caches (RackAssetDiskCache) instead
+    /// an earlier launch (same art version) is read back from Caches (RackAssetDiskCache) instead
     /// of decoding the .hdr again; a fresh one is stored there in the background.
     static func loadPanorama(bundle: Bundle = .main, diskCache: Bool = true, storeInBackground: Bool = true) -> CGImage? {
         guard let url = bundle.url(forResource: resourceName, withExtension: resourceExtension),
@@ -234,9 +234,9 @@ nonisolated enum RackStudioEnvironment {
 // A running prewarm (prewarmRackStudioPanorama); the first load waits for it instead of decoding twice.
 @MainActor private var _rackStudioPrewarmTask: Task<Void, Never>?
 
-/// Makes sure the processed studio panorama is on disk, so the first rack open of this build
-/// reads it back instead of decoding the .hdr while the user waits. Lathe plates only (debug
-/// builds); once per process; a background task at utility priority, and nothing at all when the
+/// Makes sure the processed studio panorama is on disk, so the first rack open with this art version
+/// reads it back instead of decoding the .hdr while the user waits. Lathe plates only (the new
+/// rack room); once per process; a background task at utility priority, and nothing at all when the
 /// file is already there. Called when the Me tab appears.
 @MainActor
 func prewarmRackStudioPanorama() {
