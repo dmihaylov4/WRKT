@@ -211,15 +211,18 @@ import UIKit
 
     // MARK: Switch
 
-    @Test func releaseAlwaysResolvesToLegacy() {
-        #expect(RackPlateStyle.resolve(isDebugBuild: false, environment: [:]) == .legacy)
-        #expect(RackPlateStyle.resolve(isDebugBuild: false, environment: [RackPlateStyle.overrideKey: "lathe"]) == .legacy)
+    /// Release builds: the plates follow the new rack room switch and never read the override.
+    @Test func releaseFollowsTheNewRoomAndIgnoresTheOverride() {
+        for environment in [[:], [RackPlateStyle.overrideKey: "lathe"], [RackPlateStyle.overrideKey: "legacy"]] {
+            #expect(RackPlateStyle.resolve(newRoom: false, allowsOverrides: false, environment: environment) == .legacy)
+            #expect(RackPlateStyle.resolve(newRoom: true, allowsOverrides: false, environment: environment) == .lathe)
+        }
     }
 
     @Test func debugDefaultsToLatheAndHonoursTheOverride() {
-        #expect(RackPlateStyle.resolve(isDebugBuild: true, environment: [:]) == .lathe)
-        #expect(RackPlateStyle.resolve(isDebugBuild: true, environment: [RackPlateStyle.overrideKey: "legacy"]) == .legacy)
-        #expect(RackPlateStyle.resolve(isDebugBuild: true, environment: [RackPlateStyle.overrideKey: "nonsense"]) == .lathe)
+        #expect(RackPlateStyle.resolve(newRoom: true, allowsOverrides: true, environment: [:]) == .lathe)
+        #expect(RackPlateStyle.resolve(newRoom: true, allowsOverrides: true, environment: [RackPlateStyle.overrideKey: "legacy"]) == .legacy)
+        #expect(RackPlateStyle.resolve(newRoom: true, allowsOverrides: true, environment: [RackPlateStyle.overrideKey: "nonsense"]) == .lathe)
     }
 
     // MARK: Studio environment

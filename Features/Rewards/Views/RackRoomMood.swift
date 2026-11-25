@@ -18,9 +18,10 @@
 // The studio environment stays for reflections on metal but is turned well down, and carries a
 // painted copy of the honeycomb (RackHexReflection).
 //
-// Debug builds with lathe plates only (RackPlateStyle). In the launch environment,
-// VOLIA_RACK_MOOD=wall|wallHigh|panel|ceiling|off picks the honeycomb (default `wallHigh`) and
-// VOLIA_RACK_SIGN=lime|white the sign's letters (default `white`).
+// Lathe plates only (RackPlateStyle, which follows RackRoomRelease). In Debug builds the launch
+// environment's VOLIA_RACK_MOOD=wall|wallHigh|panel|ceiling|off picks the honeycomb (default
+// `wallHigh`) and VOLIA_RACK_SIGN=lime|white the sign's letters (default `lime`); Release builds
+// always take the defaults.
 
 import RealityKit
 import SwiftUI
@@ -105,11 +106,11 @@ struct RackRoomMood: Equatable {
         )
     }
 
-    /// The mood for a scene: lathe plates in the rack room only, nil otherwise (legacy plates and
-    /// Release builds never get here: RackPlateStyle is legacy there).
+    /// The mood for a scene: lathe plates in the rack room only, nil otherwise. The launch
+    /// environment is read in Debug builds only.
     static func current(for style: RackPlateStyle) -> RackRoomMood? {
         guard style == .lathe else { return nil }
-        let environment = ProcessInfo.processInfo.environment
+        let environment = RackRoomRelease.overrideEnvironment
         return resolve(environment["VOLIA_RACK_MOOD"], sign: environment["VOLIA_RACK_SIGN"])
     }
 
@@ -266,14 +267,11 @@ extension RackHexPlacement {
         return value.flatMap(RackHexPlacement.init(rawValue:)) ?? defaultPlacement
     }
 
-    /// The placement the studio panorama paints, read once where the panorama is built. nil
-    /// outside debug builds and when the mood is off.
+    /// The placement the studio panorama paints, read once where the panorama is built: the
+    /// mood's, so the honeycomb's reflection in metal matches the room in every build. nil when
+    /// the mood is off (VOLIA_RACK_MOOD=off, Debug builds only).
     nonisolated static var currentForEnvironment: RackHexPlacement? {
-        #if DEBUG
-        return resolve(ProcessInfo.processInfo.environment["VOLIA_RACK_MOOD"])
-        #else
-        return nil
-        #endif
+        resolve(RackRoomRelease.overrideEnvironment["VOLIA_RACK_MOOD"])
     }
 }
 

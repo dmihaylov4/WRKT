@@ -227,6 +227,7 @@
 		C17CB70000000000000001A2 /* RackAssetDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB70000000000000002A2 /* RackAssetDiskCache.swift */; };
 		C17CB7000000000000000126 /* RackHexLight.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000226 /* RackHexLight.swift */; };
 		C17CB7000000000000000127 /* RackRoomFloor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000227 /* RackRoomFloor.swift */; };
+		C17CB7000000000000000128 /* RackRoomRelease.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000228 /* RackRoomRelease.swift */; };
 		C17CB7000000000000000123 /* RackStudioEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000223 /* RackStudioEnvironment.swift */; };
 		C17CB7000000000000000122 /* LathePlateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000222 /* LathePlateBuilder.swift */; };
 		C17CB7000000000000000121 /* LathePlateGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000221 /* LathePlateGeometry.swift */; };
@@ -919,6 +920,7 @@
 		C17CB70000000000000002A2 /* RackAssetDiskCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackAssetDiskCache.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000226 /* RackHexLight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackHexLight.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000227 /* RackRoomFloor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRoomFloor.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000228 /* RackRoomRelease.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRoomRelease.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000223 /* RackStudioEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackStudioEnvironment.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000222 /* LathePlateBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LathePlateBuilder.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000221 /* LathePlateGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LathePlateGeometry.swift; sourceTree = "<group>"; };
@@ -2029,6 +2031,7 @@
 				C17CB70000000000000002A2 /* RackAssetDiskCache.swift */,
 				C17CB7000000000000000226 /* RackHexLight.swift */,
 				C17CB7000000000000000227 /* RackRoomFloor.swift */,
+				C17CB7000000000000000228 /* RackRoomRelease.swift */,
 				C17CB7000000000000000223 /* RackStudioEnvironment.swift */,
 				C17CB7000000000000000222 /* LathePlateBuilder.swift */,
 				C17CB7000000000000000221 /* LathePlateGeometry.swift */,
@@ -3751,6 +3754,7 @@
 				C17CB70000000000000001A2 /* RackAssetDiskCache.swift in Sources */,
 				C17CB7000000000000000126 /* RackHexLight.swift in Sources */,
 				C17CB7000000000000000127 /* RackRoomFloor.swift in Sources */,
+				C17CB7000000000000000128 /* RackRoomRelease.swift in Sources */,
 				C17CB7000000000000000123 /* RackStudioEnvironment.swift in Sources */,
 				C17CB7000000000000000122 /* LathePlateBuilder.swift in Sources */,
 				C17CB7000000000000000121 /* LathePlateGeometry.swift in Sources */,

@@ -13,10 +13,11 @@ import simd
 
 // MARK: - Switch
 
-/// Which plates the rack room scene builds. `.lathe` is the one-mesh prototype (real bevels, true
-/// metal, studio environment, one shadowed key); `.legacy` is the shipped many-part plate. Debug
-/// builds default to `.lathe` so the owner sees it on a development phone; Release builds always
-/// resolve to `.legacy`, so TestFlight and the App Store are untouched.
+/// Which plates the rack room scene builds. `.lathe` is the one-mesh plate (real bevels, true
+/// metal, studio environment, one shadowed key); `.legacy` is the many-part plate the App Store
+/// build ships. Follows the new rack room switch (RackRoomRelease): lathe in Debug builds and for
+/// TestFlight testers on the new design, legacy for App Store installs and testers who switched
+/// the new design off.
 nonisolated enum RackPlateStyle: String, Equatable, Sendable {
     case legacy
     case lathe
@@ -24,21 +25,17 @@ nonisolated enum RackPlateStyle: String, Equatable, Sendable {
     /// Launch-environment key that forces a style in debug builds: VOLIA_RACK_PLATES=legacy|lathe.
     static let overrideKey = "VOLIA_RACK_PLATES"
 
-    /// The rule, separated from the build flag so tests can pin both configurations.
-    static func resolve(isDebugBuild: Bool, environment: [String: String]) -> RackPlateStyle {
-        guard isDebugBuild else { return .legacy }
-        if let raw = environment[overrideKey], let forced = RackPlateStyle(rawValue: raw) { return forced }
-        return .lathe
+    /// The rule, separated from the build flag so tests can pin every case. The override is read
+    /// only when `allowsOverrides` (Debug builds).
+    static func resolve(newRoom: Bool, allowsOverrides: Bool, environment: [String: String]) -> RackPlateStyle {
+        if allowsOverrides, let raw = environment[overrideKey], let forced = RackPlateStyle(rawValue: raw) { return forced }
+        return newRoom ? .lathe : .legacy
     }
 
-    /// The style this build uses. Release compiles to `.legacy` without reading the environment.
-    static var current: RackPlateStyle {
-        #if DEBUG
-        return resolve(isDebugBuild: true, environment: ProcessInfo.processInfo.environment)
-        #else
-        return .legacy
-        #endif
-    }
+    /// The style this launch uses, resolved once.
+    static let current: RackPlateStyle = resolve(newRoom: RackRoomRelease.isNewRoomEnabled,
+                                                 allowsOverrides: RackRoomRelease.allowsLaunchOverrides,
+                                                 environment: RackRoomRelease.overrideEnvironment)
 }
 
 // MARK: - Profile

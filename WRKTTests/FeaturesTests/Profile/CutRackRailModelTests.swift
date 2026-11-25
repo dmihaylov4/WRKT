@@ -27,15 +27,18 @@ import Testing
 
     // MARK: Switch
 
-    @Test func releaseBuildsAlwaysShowTheCardTray() {
-        #expect(CutRackTrayStyle.resolve(isDebugBuild: false, environment: [:]) == .card)
-        #expect(CutRackTrayStyle.resolve(isDebugBuild: false, environment: [CutRackTrayStyle.overrideKey: "rail"]) == .card)
+    /// Release builds: the tray follows the new rack room switch and never reads the override.
+    @Test func releaseBuildsFollowTheNewRoomAndIgnoreTheOverride() {
+        for environment in [[:], [CutRackTrayStyle.overrideKey: "rail"], [CutRackTrayStyle.overrideKey: "card"]] {
+            #expect(CutRackTrayStyle.resolve(newRoom: false, allowsOverrides: false, environment: environment) == .card)
+            #expect(CutRackTrayStyle.resolve(newRoom: true, allowsOverrides: false, environment: environment) == .rail)
+        }
     }
 
     @Test func debugBuildsShowTheRailUnlessTheLaunchEnvironmentAsksForTheCard() {
-        #expect(CutRackTrayStyle.resolve(isDebugBuild: true, environment: [:]) == .rail)
-        #expect(CutRackTrayStyle.resolve(isDebugBuild: true, environment: [CutRackTrayStyle.overrideKey: "card"]) == .card)
-        #expect(CutRackTrayStyle.resolve(isDebugBuild: true, environment: [CutRackTrayStyle.overrideKey: "bogus"]) == .rail)
+        #expect(CutRackTrayStyle.resolve(newRoom: true, allowsOverrides: true, environment: [:]) == .rail)
+        #expect(CutRackTrayStyle.resolve(newRoom: true, allowsOverrides: true, environment: [CutRackTrayStyle.overrideKey: "card"]) == .card)
+        #expect(CutRackTrayStyle.resolve(newRoom: true, allowsOverrides: true, environment: [CutRackTrayStyle.overrideKey: "bogus"]) == .rail)
     }
 
     @Test func aTapLoadsUnlessTheLaunchEnvironmentAsksForThePreviewFirst() {
