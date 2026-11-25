@@ -16,28 +16,28 @@ import Foundation
 
 // MARK: - Flag
 
-/// On in debug builds, off in Release (TestFlight and the App Store are unchanged).
-/// VOLIA_HOME_HEX_PORTAL=0 turns it off in a debug build, =1 keeps it on.
+/// Ships with the new rack room (RackRoomRelease): on in Debug builds and for TestFlight testers
+/// on the new design, off for App Store installs and testers who switched the new design off.
+/// VOLIA_HOME_HEX_PORTAL=0 turns it off in a Debug build, =1 keeps it on; Release builds never
+/// read it.
 enum HomeHexPortalFlag {
     static let overrideKey = "VOLIA_HOME_HEX_PORTAL"
 
-    /// The rule, separated from the build flag so tests can pin both configurations.
-    static func resolve(isDebugBuild: Bool, environment: [String: String]) -> Bool {
-        guard isDebugBuild else { return false }
+    /// The rule, separated from the build flag so tests can pin every case. The override is read
+    /// only when `allowsOverrides` (Debug builds), and can only turn the portal off or keep it on.
+    static func resolve(newRoom: Bool, allowsOverrides: Bool, environment: [String: String]) -> Bool {
+        guard newRoom else { return false }
+        guard allowsOverrides else { return true }
         switch environment[overrideKey]?.lowercased() {
         case "0", "off", "false", "no": return false
         default: return true
         }
     }
 
-    /// This build's value. Release compiles to false without reading the environment.
-    static var isEnabled: Bool {
-        #if DEBUG
-        return resolve(isDebugBuild: true, environment: ProcessInfo.processInfo.environment)
-        #else
-        return false
-        #endif
-    }
+    /// This launch's value, resolved once.
+    static let isEnabled: Bool = resolve(newRoom: RackRoomRelease.isNewRoomEnabled,
+                                         allowsOverrides: RackRoomRelease.allowsLaunchOverrides,
+                                         environment: RackRoomRelease.overrideEnvironment)
 }
 
 // MARK: - Window

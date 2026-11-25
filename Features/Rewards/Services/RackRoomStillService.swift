@@ -268,7 +268,7 @@ final class RackRoomStillService {
     /// The scene band's colour behind the room (the room view's own background).
     static func background(_ roomTheme: String, style: RackPlateStyle) -> UIColor {
         let theme = RoomThemePreset.preset(for: roomTheme)
-        let mood = RackRoomMood.current(for: style)
+        let mood = RackRoomMood.current(for: style, roomThemeID: roomTheme)
         let shown = mood.map { theme.dimmed(by: $0.roomBrightness, floor: $0.floorBrightness, floorRoughness: $0.floorRoughness) } ?? theme
         return UIColor(shown.swiftUIBackground)
     }

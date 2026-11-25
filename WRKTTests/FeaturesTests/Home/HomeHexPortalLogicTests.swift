@@ -5,24 +5,42 @@ import Testing
 
 @Suite("Home hex portal: flag")
 struct HomeHexPortalFlagTests {
-    @Test func releaseIsOffWhateverTheEnvironmentSays() {
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: false, environment: [:]) == false)
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: false, environment: [HomeHexPortalFlag.overrideKey: "1"]) == false)
+    /// A Release launch's portal for an install and stored tester choice, with every override a
+    /// launch could pass.
+    private static func releasePortal(install: CutInstallKind, applied: Bool?) -> [Bool] {
+        let design = CutTesterSwitch.resolve(build: .release, install: install, applied: applied, debugNewDesign: true)
+        let newRoom = RackRoomRelease.resolve(build: .release, newDesign: design.newDesign)
+        return [[:], [HomeHexPortalFlag.overrideKey: "1"], [HomeHexPortalFlag.overrideKey: "0"]].map {
+            HomeHexPortalFlag.resolve(newRoom: newRoom, allowsOverrides: false, environment: $0)
+        }
+    }
+
+    @Test func appStoreReleaseNeverShowsThePortal() {
+        for applied in [nil, true, false] as [Bool?] {
+            #expect(Self.releasePortal(install: .appStore, applied: applied).allSatisfy { !$0 })
+        }
+    }
+
+    @Test func testFlightOnTheNewDesignShowsThePortal() {
+        for applied in [nil, true] as [Bool?] {
+            #expect(Self.releasePortal(install: .testFlight, applied: applied).allSatisfy { $0 })
+        }
+    }
+
+    @Test func testFlightWithTheNewDesignSwitchedOffHasNoPortal() {
+        #expect(Self.releasePortal(install: .testFlight, applied: false).allSatisfy { !$0 })
     }
 
     @Test func debugIsOnUnlessTurnedOff() {
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [:]))
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [HomeHexPortalFlag.overrideKey: "1"]))
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [HomeHexPortalFlag.overrideKey: "0"]) == false)
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [HomeHexPortalFlag.overrideKey: "off"]) == false)
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [:]))
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "1"]))
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "0"]) == false)
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "off"]) == false)
+        #expect(HomeHexPortalFlag.resolve(newRoom: false, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "1"]) == false)
     }
 
     @Test func thisBuildMatchesItsConfiguration() {
-        #if DEBUG
         let expected = ProcessInfo.processInfo.environment[HomeHexPortalFlag.overrideKey] != "0"
-        #else
-        let expected = false
-        #endif
         #expect(HomeHexPortalFlag.isEnabled == expected)
     }
 }
