@@ -59,6 +59,22 @@ struct CutRackHostCaptureTests {
             try Data().write(to: root.appendingPathComponent(name + ".ready"))
             try await Task.sleep(for: .seconds(hold))
         }
+        // TEST_RUNNER_VOLIA_CAPTURE_TRAY=<points,...>: the tray scrolled to each offset, as <name>-tray-<n>.
+        for (index, value) in (ProcessInfo.processInfo.environment["VOLIA_CAPTURE_TRAY"] ?? "").split(separator: ",").enumerated() {
+            guard let x = Double(value), let tray = Self.horizontalScroll(in: window) else { continue }
+            tray.setContentOffset(CGPoint(x: min(x, max(0, tray.contentSize.width - tray.bounds.width)), y: 0), animated: false)
+            try await Task.sleep(for: .seconds(2))
+            if hold > 0 {
+                try Data().write(to: root.appendingPathComponent("\(name)-tray-\(index + 1).ready"))
+                try await Task.sleep(for: .seconds(hold))
+            }
+        }
+    }
+
+    private static func horizontalScroll(in view: UIView) -> UIScrollView? {
+        if let scroll = view as? UIScrollView, scroll.contentSize.width > scroll.bounds.width + 1 { return scroll }
+        for child in view.subviews { if let found = horizontalScroll(in: child) { return found } }
+        return nil
     }
 }
 
