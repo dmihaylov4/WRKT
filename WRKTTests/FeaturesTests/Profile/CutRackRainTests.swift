@@ -52,6 +52,18 @@ import UserNotifications
         #expect(!results[1].sound)
     }
 
+    @Test func barOnlyFramingIsUnchangedUpToTheCalibratedShapeAndCloserOnTallBands() {
+        // At and below 0.81 the original calibration holds.
+        for aspect: Float in [0.5, 0.75, 0.81] {
+            #expect(abs(barbellBarOnlyCameraPosition(aspect: aspect).z - (1.79 - 1.75 * aspect)) < 0.0001)
+        }
+        // Taller bands still move the camera back, but less, so the bar keeps its width.
+        let tall = barbellBarOnlyCameraPosition(aspect: 1.2).z
+        #expect(tall > 1.79 - 1.75 * 1.2)
+        #expect(tall < barbellBarOnlyCameraPosition(aspect: 1.0).z)
+        #expect(barbellBarOnlyCameraPosition(aspect: .nan) == barbellBarOnlyCameraPosition(aspect: 0.75))
+    }
+
     @Test func fallTimeGrowsWithHeight() {
         #expect(RackPlateRain.fallTime(fromY: 1.7) > RackPlateRain.fallTime(fromY: 0.5))
         #expect(RackPlateRain.fallTime(fromY: 1.7) < 0.8)
@@ -264,7 +276,7 @@ struct CutRackRainHarnessTests {
         let limits = RackPlateRain.limits(for: state.plateStyle)
         let chosen = Self.order(plates, cap: limits.plates, looks: limits.looks)
         let rain = Task { @MainActor in await state.rainPlates(chosen, gentle: false) }
-        try await Task.sleep(for: .seconds(1.6))
+        try await Task.sleep(for: .seconds(Double(env["VOLIA_CAPTURE_MID"] ?? "") ?? 0.9))
         if hold > 0 {
             // The stream mid-fall: pause physics updates are not possible from here, so the
             // screenshot is taken as soon as possible after the marker.
