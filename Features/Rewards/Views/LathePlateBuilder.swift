@@ -914,6 +914,34 @@ func makeLathePlateBlankVisual(tier: PlateTier) -> ModelEntity? {
     return ModelEntity(mesh: mesh, materials: [slots.body, slots.hub, lathePlaceholderFace(for: tier)])
 }
 
+/// A lettered lathe plate for an offscreen picture, axis along y, built without the scene's face
+/// caches: the face images come from the disk cache or are drawn off the main thread, the three
+/// textures are made for this plate only and are released with it, and nothing enters
+/// LatheFaceCache (which is bounded for the live scene).
+@MainActor
+func makeLatheSnapshotPlate(tier: PlateTier, weightKg: Double, engravingText: String,
+                            projection: BarbellPlateRenderProjection) async -> ModelEntity? {
+    guard let mesh = cachedLatheMesh(for: latheProfile(for: tier)) else { return nil }
+    let spec = latheFaceSpec(tier: tier, weightKg: weightKg, engravingText: engravingText,
+                             projection: projection, showEngravings: true)
+    let images = await Task.detached(priority: .utility) { () -> LatheFaceArt.Images? in
+        if let cached = LatheFaceDiskCache.images(for: spec) { return cached }
+        guard let drawn = LatheFaceArt.images(for: spec) else { return nil }
+        LatheFaceDiskCache.store(drawn, for: spec)
+        return drawn
+    }.value
+    guard let images, !Task.isCancelled,
+          let color = try? await TextureResource(image: images.color, options: .init(semantic: .color)),
+          let normal = try? await TextureResource(image: images.normal, options: .init(semantic: .normal)),
+          let roughness = try? await TextureResource(image: images.roughness, options: .init(semantic: .raw)) else { return nil }
+    let slots = latheSlotMaterials(for: tier)
+    var face = latheMaterial(LatheFinish.body(for: tier), detail: false)
+    face.baseColor = .init(tint: .white, texture: latheTexture(color))
+    face.normal = .init(texture: latheTexture(normal))
+    face.roughness = .init(scale: 1, texture: latheTexture(roughness))
+    return ModelEntity(mesh: mesh, materials: [slots.body, slots.hub, face])
+}
+
 /// Prepares one face in the background and puts it on every plate built with the placeholder.
 @MainActor
 private func applyLatheFaceWhenReady(_ spec: LatheFaceSpec, tier: PlateTier, request: LathePlateRequest) {

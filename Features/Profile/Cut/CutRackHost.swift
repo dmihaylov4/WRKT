@@ -175,7 +175,7 @@ struct CutRackHost: View {
                 closeLift: { lifted = nil }
             ),
             scene: { scene },
-            edge: { group in RackRailEdgeArt(tierID: group.tierID) },
+            stand: { group in standArt(group.plateID) },
             face: { group in faceArt(group.plateID) },
             groupShown: { group in await prefetch(group.nextToLoad) }
         )
@@ -211,12 +211,23 @@ struct CutRackHost: View {
     }
 
     @ViewBuilder
+    private func standArt(_ id: String) -> some View {
+        if let plate = ownedPlates.first(where: { $0.id == id }) {
+            RackRailStandArt(request: Self.pictureRequest(plate))
+        }
+    }
+
+    @ViewBuilder
     private func faceArt(_ id: String) -> some View {
         if let plate = ownedPlates.first(where: { $0.id == id }) {
-            RackRailFaceArt(request: LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg,
-                                                       engravingText: plate.engravingText,
-                                                       projection: BarbellPlateRenderProjection(plate: plate)))
+            RackRailFaceArt(request: Self.pictureRequest(plate))
         }
+    }
+
+    /// A rail picture's plate: its tier, weight, engraving and progression rings.
+    static func pictureRequest(_ plate: EarnedPlate) -> LathePlateRequest {
+        LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg, engravingText: plate.engravingText,
+                          projection: BarbellPlateRenderProjection(plate: plate))
     }
 
     // MARK: Scene

@@ -18,7 +18,7 @@ import Testing
 
     private static func rail(_ plates: [CutRackPlateFacts], unit: WeightUnit = .kg, phase: CutRackPlayPhase = .idle,
                              inFlight: Set<String> = [], onFloor: Set<String> = [], notice: CutRackNotice? = nil,
-                             tap: CutRackRailTap = .preview) -> CutRackRailModel {
+                             tap: CutRackRailTap = .load) -> CutRackRailModel {
         CutRackRailLogic.model(CutRackRailFacts(plates: plates, unit: unit, notice: notice, playPhase: phase,
                                                 inFlight: inFlight, onFloor: onFloor, tap: tap), locale: locale)
     }
@@ -38,9 +38,10 @@ import Testing
         #expect(CutRackTrayStyle.resolve(isDebugBuild: true, environment: [CutRackTrayStyle.overrideKey: "bogus"]) == .rail)
     }
 
-    @Test func aTapLiftsThePlateOutUnlessTheLaunchEnvironmentAsksForLoad() {
-        #expect(CutRackRailTap.resolve(environment: [:]) == .preview)
-        #expect(CutRackRailTap.resolve(environment: [CutRackRailTap.overrideKey: "load"]) == .load)
+    @Test func aTapLoadsUnlessTheLaunchEnvironmentAsksForThePreviewFirst() {
+        #expect(CutRackRailTap.resolve(environment: [:]) == .load)
+        #expect(CutRackRailTap.resolve(environment: [CutRackRailTap.overrideKey: "preview"]) == .preview)
+        #expect(CutRackRailTap.resolve(environment: [CutRackRailTap.overrideKey: "bogus"]) == .load)
     }
 
     // MARK: Groups
@@ -50,13 +51,15 @@ import Testing
         #expect(m.groups.count == 2)
         let red = try! #require(m.groups.first { $0.tierID == 14 })
         #expect(red.stored == 12)
-        #expect(red.platesShown == CutRackRailLogic.maxPlatesShown)
+        #expect(red.copiesBehind == CutRackRailLogic.maxCopiesBehind)
+        #expect(!red.isGhost)
         #expect(red.numeral == "20")
         #expect(red.count == "×12")
+        #expect(red.onBarTag == nil)
         #expect(red.accessibilityLabel == "Red Bumper, 20 kilograms, 12 in storage")
         let blue = try! #require(m.groups.first { $0.tierID == 15 })
         #expect(blue.count == nil)
-        #expect(blue.platesShown == 1)
+        #expect(blue.copiesBehind == 0)
         #expect(blue.accessibilityLabel == "Blue Bumper, 20 kilograms, in storage")
         #expect(m.status == "13 in storage")
     }
@@ -76,14 +79,24 @@ import Testing
         #expect(Self.rail(Self.reds).sections.map(\.title) == [nil])
     }
 
-    @Test func aLoadedCopyLeavesALimeSlotWhereItStoodAndTheCountDrops() {
+    @Test func aPileOf63ShowsTwoCopiesBehindAndItsCount() {
+        let pile = (0..<63).map { Self.plate("r\($0)", order: $0) }
+        let red = try! #require(Self.rail(pile).groups.first)
+        #expect(red.copiesBehind == 2)
+        #expect(red.count == "×63")
+        // Two copies: one behind. One: none.
+        #expect(Self.rail(Array(pile.prefix(2))).groups.first?.copiesBehind == 1)
+    }
+
+    @Test func aLoadedCopyLeavesTheRowAndTheCountDropsWithAnOnBarTag() {
         var plates = Self.reds
         plates[11] = Self.plate("red11", slot: 0, order: 11)
         plates[10] = Self.plate("red10", slot: 1, order: 10)
         let red = try! #require(Self.rail(plates).groups.first)
         #expect(red.stored == 10)
         #expect(red.loaded == 2)
-        #expect(red.loadedSlots == 2)
+        #expect(red.onBarTag == "2 on bar")
+        #expect(!red.isGhost)
         #expect(red.count == "×10")
         #expect(red.accessibilityLabel == "Red Bumper, 20 kilograms, 10 in storage, 2 on the bar")
         // The next load takes the newest stored copy; take-off takes the outermost loaded one.
@@ -91,14 +104,15 @@ import Testing
         #expect(red.nextToUnload == "red10")
     }
 
-    @Test func aLookWhoseCopiesAreAllOnTheBarKeepsItsPlaceAsSlotsOnly() {
+    @Test func aLookWhoseCopiesAreAllOnTheBarKeepsItsPlaceAsAGhost() {
         let plates = [Self.plate("eng", tier: 8, name: "Rose Gold", engraving: "75 Workouts", kg: 25, slot: 0,
                                  material: .metal)] + Self.reds
         let m = Self.rail(plates)
         let engraved = try! #require(m.groups.first { $0.tierID == 8 })
         #expect(engraved.stored == 0)
-        #expect(engraved.platesShown == 0)
-        #expect(engraved.loadedSlots == 1)
+        #expect(engraved.isGhost)
+        #expect(engraved.copiesBehind == 0)
+        #expect(engraved.onBarTag == "On bar")
         #expect(engraved.nextToLoad == nil)
         #expect(engraved.nextToUnload == "eng")
         #expect(engraved.count == nil)
@@ -110,17 +124,20 @@ import Testing
         let id = Self.reds[11].id
         let red = try! #require(Self.rail(Self.reds, inFlight: [id]).groups.first)
         #expect(red.stored == 11)
-        #expect(red.loadedSlots == 1)
+        #expect(red.onBarTag == "1 on bar")
         #expect(red.nextToLoad != id)
     }
 
-    @Test func droppedPlatesLeaveWhiteSlotsAndTheFooterCountsTheFloor() {
+    @Test func droppedPlatesLeaveTheRowWithATagAndTheFooterCountsTheFloor() {
         let floor = Set(Self.reds.prefix(5).map(\.id))
         let m = Self.rail(Self.reds, phase: .loose, onFloor: floor)
         let red = try! #require(m.groups.first)
         #expect(red.stored == 7)
         #expect(red.onFloor == 5)
-        #expect(red.floorSlots == CutRackRailLogic.maxFloorSlots)
+        #expect(red.onFloorTag == "5 on floor")
+        let lone = try! #require(Self.rail([Self.plate("one")], phase: .loose, onFloor: ["one"]).groups.first)
+        #expect(lone.isGhost)
+        #expect(lone.onFloorTag == "On floor")
         #expect(red.accessibilityLabel == "Red Bumper, 20 kilograms, 7 in storage, 5 on the floor")
         #expect(!floor.contains(red.nextToLoad ?? ""))
         #expect(m.status == "5 on the floor")
@@ -138,8 +155,8 @@ import Testing
     }
 
     @Test func theHintSaysWhatATapDoesUntilSomethingIsLoaded() {
-        #expect(Self.rail(Self.reds).hint == "Tap a plate on the rack to lift it out.")
-        #expect(Self.rail(Self.reds, tap: .load).hint == "Tap a plate on the rack to load it.")
+        #expect(Self.rail(Self.reds).hint == "Tap a plate to load it. Hold it to look closer.")
+        #expect(Self.rail(Self.reds, tap: .preview).hint == "Tap a plate to lift it out.")
         #expect(Self.rail([Self.plate("a", slot: 0)] + Self.reds).hint == nil)
         #expect(Self.rail(Self.reds, notice: .barFull).hint == "The bar is full. Take a plate off first.")
         #expect(Self.rail(Self.reds, phase: .loose).hint == "Drag a plate to a sleeve end to load it.")
