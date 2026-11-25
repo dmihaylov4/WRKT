@@ -736,7 +736,8 @@ struct LathePlateRequest {
 /// main actor only creates the RealityKit resources. Later calls with the same plates return at
 /// once. Cancelling leaves whatever finished cached.
 @MainActor
-func prepareLathePlates(_ requests: [LathePlateRequest], priority: TaskPriority = .userInitiated) async {
+/// `faces: false` prepares only the meshes and the body and hub materials (a warm-up).
+func prepareLathePlates(_ requests: [LathePlateRequest], priority: TaskPriority = .userInitiated, faces: Bool = true) async {
     let interval = barbellSignposter.beginInterval("PrepareLathePlates", id: barbellSignposter.makeSignpostID())
     defer { barbellSignposter.endInterval("PrepareLathePlates", interval) }
     var pending: [LatheFaceSpec] = []
@@ -756,7 +757,7 @@ func prepareLathePlates(_ requests: [LathePlateRequest], priority: TaskPriority 
         }
         let spec = latheFaceSpec(tier: tier, weightKg: request.weightKg, engravingText: request.engravingText,
                                  projection: request.projection, showEngravings: request.showEngravings)
-        if _latheFaceTextureCache[spec] == nil, !pending.contains(spec) { pending.append(spec) }
+        if faces, _latheFaceTextureCache[spec] == nil, !pending.contains(spec) { pending.append(spec) }
     }
     // A face another call is already preparing is waited for, not drawn twice.
     var others: [Task<Void, Never>] = []

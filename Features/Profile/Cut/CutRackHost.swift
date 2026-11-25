@@ -73,6 +73,7 @@ struct CutRackHost: View {
         .onDisappear {
             if !assetsReady { preload.task?.cancel() }
             preload.releaseThumbnails()
+            CutRackWarmUp.sceneIsUp = false
         }
         .onChange(of: sceneSyncKey) { old, new in syncScene(from: old, to: new) }
         .onChange(of: cosmeticKey) { _, _ in rebuildScene() }
@@ -127,7 +128,10 @@ struct CutRackHost: View {
             roomWallText: configs.first?.roomName,
             barOnly: true,
             prepare: { await startPreload().value },
-            onSceneBuilt: { [preload] in preload.releaseThumbnails(after: .milliseconds(500)) }
+            onSceneBuilt: { [preload, sceneState, ownedPlates] in
+                preload.releaseThumbnails(after: .milliseconds(500))
+                CutRackWarmUp.afterSceneBuilt(owned: ownedPlates, in: sceneState)
+            }
         )
         .id(sceneRevision)
         .accessibilityElement(children: .ignore)
@@ -391,6 +395,58 @@ struct CutRackThumbnail: View {
             weightKg: plate.weightKg,
             engravingText: plate.engravingText
         )
+        // A plate shown in the tray gets its lathe faces ready, so a tap swings it in lettered.
+        .task(id: plate.id) { await CutRackWarmUp.prefetchFaces(for: plate) }
+    }
+}
+
+/// Work done after the rack scene is up, at low priority, so a tap rarely waits for anything:
+/// legacy plate materials for every owned tier, lathe meshes for every owned tier, and the lathe
+/// faces of plates the tray shows (prefetchFaces, one at a time, cancelled when the tile goes,
+/// and never past LatheFaceCache's bound).
+@MainActor
+enum CutRackWarmUp {
+    /// The rack scene is built and shown; prefetching may start.
+    static var sceneIsUp = false
+    private static var lastPrefetch: Task<Void, Never>?
+
+    static func afterSceneBuilt(owned: [EarnedPlate], in sceneState: SceneState) {
+        sceneIsUp = true
+        let tiers = Set(owned.map(\.tierID)).subtracting([7]).sorted()
+        Task(priority: .utility) { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))
+            BarbellProgressService.shared.warmRackPath()
+            if sceneState.plateStyle == .lathe {
+                await prepareLathePlates(tiers.map {
+                    LathePlateRequest(tierID: $0, weightKg: 0, engravingText: "", projection: BarbellPlateRenderProjection())
+                }, priority: .utility, faces: false)
+            } else {
+                for tierID in tiers where !sceneState.isPaused {
+                    await CutRackPreloader.cacheMaterial(tierID: tierID, in: sceneState)
+                }
+            }
+        }
+    }
+
+    /// Prepares one tray plate's two faces (as loaded, and the blank mirror face), after the
+    /// scene is up and the tile has stayed a moment. Returns at once for legacy plates.
+    static func prefetchFaces(for plate: EarnedPlate) async {
+        guard RackPlateStyle.current == .lathe, !plate.isRacked, !plate.isStarterPlate else { return }
+        try? await Task.sleep(for: .milliseconds(400))
+        while !sceneIsUp {
+            guard !Task.isCancelled else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+        }
+        let previous = lastPrefetch
+        let requests = latheFirstFrameRequests([plate]) + latheLaterRequests([plate])
+        let task = Task { @MainActor in
+            await previous?.value
+            // Leave room for the bar's own faces: never evict for a prefetch.
+            guard !Task.isCancelled, LatheFaceCache.count + 2 <= LatheFaceCache.limit else { return }
+            await prepareLathePlates(requests, priority: .utility)
+        }
+        lastPrefetch = task
+        await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
     }
 }
 

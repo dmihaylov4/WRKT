@@ -246,6 +246,15 @@ final class BarbellProgressService {
         }
     }
 
+    /// Runs addToBar's fetches once without changing anything, so the first tray tap of a session
+    /// does not pay SwiftData's first-fetch setup while its plate is swinging in.
+    func warmRackPath() {
+        guard let context else { return }
+        _ = try? context.fetch(FetchDescriptor<EarnedPlate>(predicate: #Predicate { $0.isRacked == true }))
+        _ = try? context.fetch(FetchDescriptor<EarnedPlate>())
+        _ = try? context.fetch(FetchDescriptor<BarbellConfig>(predicate: #Predicate { $0.id == "global" }))
+    }
+
     func unrackPlate(_ plate: EarnedPlate) {
         removeFromBar(plate: plate)
     }
