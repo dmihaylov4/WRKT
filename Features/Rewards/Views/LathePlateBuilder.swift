@@ -509,13 +509,16 @@ func latheProfile(for tier: PlateTier) -> LatheProfile {
 @MainActor
 func cachedLatheMesh(for profile: LatheProfile) -> MeshResource? {
     if let cached = _latheMeshCache[profile.key] { return cached }
-    guard let mesh = makeLatheMesh(LatheMeshData.revolve(profile), name: "LathePlate_\(profile.family.rawValue)") else { return nil }
+    guard let mesh = makeLatheMesh(LatheMeshData.revolve(profile), name: latheMeshName(profile)) else { return nil }
     _latheMeshCache[profile.key] = mesh
     return mesh
 }
 
-@MainActor
-func makeLatheMesh(_ data: LatheMeshData, name: String) -> MeshResource? {
+nonisolated func latheMeshName(_ profile: LatheProfile) -> String {
+    "LathePlate_\(profile.family.rawValue)"
+}
+
+nonisolated func latheMeshDescriptor(_ data: LatheMeshData, name: String) -> MeshDescriptor {
     var descriptor = MeshDescriptor(name: name)
     descriptor.positions = MeshBuffers.Positions(data.positions)
     descriptor.normals = MeshBuffers.Normals(data.normals)
@@ -524,7 +527,12 @@ func makeLatheMesh(_ data: LatheMeshData, name: String) -> MeshResource? {
     descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(data.uvs)
     descriptor.primitives = .triangles(data.indices)
     descriptor.materials = .perFace(data.triangleSlots)
-    return try? MeshResource.generate(from: [descriptor])
+    return descriptor
+}
+
+@MainActor
+func makeLatheMesh(_ data: LatheMeshData, name: String) -> MeshResource? {
+    try? MeshResource.generate(from: [latheMeshDescriptor(data, name: name)])
 }
 
 /// Repeat addressing, trilinear filtering and anisotropy for every lathe texture.
@@ -542,10 +550,10 @@ private func latheTexture(_ resource: TextureResource) -> MaterialParameters.Tex
 }
 
 @MainActor
-private func surfaceNormalTexture(_ surface: LatheSurface) -> TextureResource? {
+private func surfaceNormalTexture(_ surface: LatheSurface, image: CGImage? = nil) -> TextureResource? {
     let key = "\(surface)"
     if let cached = _latheSurfaceNormalCache[key] { return cached }
-    guard let image = LatheFaceArt.surfaceNormal(surface),
+    guard let image = image ?? LatheFaceArt.surfaceNormal(surface),
           let texture = try? TextureResource(image: image, options: .init(semantic: .normal)) else { return nil }
     _latheSurfaceNormalCache[key] = texture
     return texture
@@ -598,12 +606,19 @@ private func latheFaceMaterial(for spec: LatheFaceSpec, tier: PlateTier) -> Phys
 @MainActor
 private func latheFaceTextures(for spec: LatheFaceSpec, images: LatheFaceArt.Images? = nil) -> (color: TextureResource, normal: TextureResource, roughness: TextureResource)? {
     if let cached = _latheFaceTextureCache[spec] { return cached }
-    guard let images = images ?? LatheFaceArt.images(for: spec),
+    guard let images = images ?? countedFaceImages(for: spec),
           let color = try? TextureResource(image: images.color, options: .init(semantic: .color)),
           let normal = try? TextureResource(image: images.normal, options: .init(semantic: .normal)),
           let roughness = try? TextureResource(image: images.roughness, options: .init(semantic: .raw)) else { return nil }
+    RackWorkCounters.add(.faceTexturesUploaded)
     _latheFaceTextureCache[spec] = (color, normal, roughness)
     return (color, normal, roughness)
+}
+
+/// LatheFaceArt.images, counted.
+nonisolated func countedFaceImages(for spec: LatheFaceSpec) -> LatheFaceArt.Images? {
+    RackWorkCounters.add(.faceImagesDrawn)
+    return LatheFaceArt.images(for: spec)
 }
 
 /// A plate the scene is about to show, for prepareLathePlates.
@@ -615,28 +630,118 @@ struct LathePlateRequest {
     var showEngravings = true
 }
 
-/// Builds meshes, shared textures and every face the requests need before the scene is built:
-/// face images are drawn off the main thread, then uploaded. Later calls with the same plates
-/// return at once. Cancelling leaves whatever finished cached.
+/// Builds meshes, shared textures and every face the requests need before the scene is built.
+/// The pure work runs off the main thread: face images (from the disk cache, RackAssetDiskCache,
+/// or drawn, several at once), the revolved mesh data and the shared surface normal images. The
+/// main actor only creates the RealityKit resources. Later calls with the same plates return at
+/// once. Cancelling leaves whatever finished cached.
 @MainActor
-func prepareLathePlates(_ requests: [LathePlateRequest]) async {
+func prepareLathePlates(_ requests: [LathePlateRequest], priority: TaskPriority = .userInitiated) async {
     let interval = barbellSignposter.beginInterval("PrepareLathePlates", id: barbellSignposter.makeSignpostID())
     defer { barbellSignposter.endInterval("PrepareLathePlates", interval) }
     var pending: [LatheFaceSpec] = []
+    var profiles: [LatheProfile] = []
+    var surfaces: [LatheSurface] = []
+    var tiers: [PlateTier] = []
     for request in requests {
         guard let tier = PlateTier.all.first(where: { $0.id == request.tierID }) else { continue }
-        _ = cachedLatheMesh(for: latheProfile(for: tier))
-        _ = latheSlotMaterials(for: tier)
+        let profile = latheProfile(for: tier)
+        if _latheMeshCache[profile.key] == nil, !profiles.contains(where: { $0.key == profile.key }) { profiles.append(profile) }
+        if _latheSlotMaterialCache[tier.id] == nil, !tiers.contains(where: { $0.id == tier.id }) {
+            tiers.append(tier)
+            for surface in [LatheFinish.body(for: tier).surface, LatheFinish.hub(for: tier).surface]
+            where surface != .smooth && _latheSurfaceNormalCache["\(surface)"] == nil && !surfaces.contains(surface) {
+                surfaces.append(surface)
+            }
+        }
         let spec = latheFaceSpec(tier: tier, weightKg: request.weightKg, engravingText: request.engravingText,
                                  projection: request.projection, showEngravings: request.showEngravings)
         if _latheFaceTextureCache[spec] == nil, !pending.contains(spec) { pending.append(spec) }
     }
-    guard !pending.isEmpty else { return }
-    let drawn = await Task.detached(priority: .userInitiated) { () -> [(LatheFaceSpec, LatheFaceArt.Images)] in
-        pending.compactMap { spec in LatheFaceArt.images(for: spec).map { (spec, $0) } }
+    guard !(pending.isEmpty && profiles.isEmpty && tiers.isEmpty) else { return }
+    RackOpenTrace.mark("lathe.draw")
+    let specs = pending, meshProfiles = profiles, normalSurfaces = surfaces
+    let work = await Task.detached(priority: priority) { () -> LathePreparedWork in
+        async let faces = latheFaceImages(for: specs)
+        let meshes = meshProfiles.map { (profile: $0, data: LatheMeshData.revolve($0)) }
+        let normals = normalSurfaces.compactMap { surface in LatheFaceArt.surfaceNormal(surface).map { (surface, $0) } }
+        return LathePreparedWork(faces: await faces, meshes: meshes, surfaceNormals: normals)
     }.value
-    for (spec, images) in drawn {
-        _ = latheFaceTextures(for: spec, images: images)
+    RackOpenTrace.mark("lathe.drawn")
+    for (profile, data) in work.meshes where _latheMeshCache[profile.key] == nil {
+        _latheMeshCache[profile.key] = makeLatheMesh(data, name: latheMeshName(profile))
+    }
+    for (surface, image) in work.surfaceNormals {
+        _ = surfaceNormalTexture(surface, image: image)
+    }
+    for tier in tiers {
+        _ = latheSlotMaterials(for: tier)
+    }
+    for (spec, images) in work.faces where _latheFaceTextureCache[spec] == nil {
+        // The async initialiser leaves the main thread while RealityKit imports the image.
+        guard let color = try? await TextureResource(image: images.color, options: .init(semantic: .color)),
+              let normal = try? await TextureResource(image: images.normal, options: .init(semantic: .normal)),
+              let roughness = try? await TextureResource(image: images.roughness, options: .init(semantic: .raw)),
+              _latheFaceTextureCache[spec] == nil else { continue }
+        RackWorkCounters.add(.faceTexturesUploaded)
+        _latheFaceTextureCache[spec] = (color, normal, roughness)
+    }
+    RackOpenTrace.mark("lathe.uploaded")
+}
+
+/// prepareLathePlates' off-main results.
+private struct LathePreparedWork: @unchecked Sendable {
+    var faces: [(LatheFaceSpec, LatheFaceArt.Images)]
+    var meshes: [(profile: LatheProfile, data: LatheMeshData)]
+    var surfaceNormals: [(LatheSurface, CGImage)]
+}
+
+/// Each spec's images, read from disk or drawn, a few at a time. Newly drawn faces are written to
+/// disk in the background.
+nonisolated func latheFaceImages(for specs: [LatheFaceSpec]) async -> [(LatheFaceSpec, LatheFaceArt.Images)] {
+    let width = max(1, min(specs.count, ProcessInfo.processInfo.activeProcessorCount - 1))
+    return await withTaskGroup(of: (LatheFaceSpec, LatheFaceArt.Images)?.self) { group in
+        var results: [(LatheFaceSpec, LatheFaceArt.Images)] = []
+        var next = 0
+        func add() {
+            let spec = specs[next]
+            next += 1
+            group.addTask {
+                if let cached = LatheFaceDiskCache.images(for: spec) {
+                    RackWorkCounters.add(.faceImagesReadFromDisk)
+                    return (spec, cached)
+                }
+                guard let images = countedFaceImages(for: spec) else { return nil }
+                Task.detached(priority: .utility) { LatheFaceDiskCache.store(images, for: spec) }
+                return (spec, images)
+            }
+        }
+        while next < min(width, specs.count) { add() }
+        while let result = await group.next() {
+            if let result { results.append(result) }
+            if next < specs.count { add() }
+        }
+        return results
+    }
+}
+
+/// The faces a scene shows in its first frame: each plate as built, with its engraving (bar
+/// plates and their mirrors alike). See latheLaterRequests for the rest.
+@MainActor
+func latheFirstFrameRequests(_ plates: [EarnedPlate]) -> [LathePlateRequest] {
+    plates.filter { !$0.isStarterPlate }.map {
+        LathePlateRequest(tierID: $0.tierID, weightKg: $0.weightKg, engravingText: $0.engravingText,
+                          projection: BarbellPlateRenderProjection(plate: $0))
+    }
+}
+
+/// The faces the same plates need later: mirrors rebuilt after a load or a drag back onto the bar
+/// carry no engraving.
+@MainActor
+func latheLaterRequests(_ plates: [EarnedPlate]) -> [LathePlateRequest] {
+    plates.filter { !$0.isStarterPlate }.map {
+        LathePlateRequest(tierID: $0.tierID, weightKg: $0.weightKg, engravingText: "",
+                          projection: BarbellPlateRenderProjection(plate: $0))
     }
 }
 

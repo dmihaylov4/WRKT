@@ -119,6 +119,9 @@ struct CutMeHost: View {
                 )
             }
             .task {
+                // The rack's light probe, ready on disk before "Your barbell" is tapped (debug
+                // builds with lathe plates; a no-op once this build stored it).
+                prewarmRackStudioPanorama()
                 await viewModel.loadExercises(using: repo)
                 viewModel.rebuildDexPreview(stamps: stamps)
                 await badgeManager.refreshBadges()

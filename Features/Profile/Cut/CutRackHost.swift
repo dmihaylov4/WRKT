@@ -30,6 +30,8 @@ struct CutRackHost: View {
 
     @State private var sceneState = SceneState()
     @State private var assetsReady = false
+    @State private var preload = CutRackPreload()
+    @State private var showsScene = false
     @State private var sceneRevision = 0
     @State private var notice: CutRackNotice?
     @State private var showsEditor = false
@@ -56,7 +58,19 @@ struct CutRackHost: View {
             scene: { scene },
             thumbnail: { id in thumbnail(id) }
         )
-        .task { await preloadAssets() }
+        .task {
+            let preload = startPreload()
+            // The screen's first frame (header, summary, tray) is drawn before RealityKit sets
+            // up, which is the longest main-thread step of an open; the preload already runs.
+            try? await Task.sleep(for: .milliseconds(1))
+            guard !Task.isCancelled else { return }
+            showsScene = true
+            await preload.value
+        }
+        .onDisappear {
+            if !assetsReady { preload.task?.cancel() }
+            preload.releaseThumbnails()
+        }
         .onChange(of: sceneSyncKey) { old, new in syncScene(from: old, to: new) }
         .onChange(of: cosmeticKey) { _, _ in rebuildScene() }
         .sheet(isPresented: $showsEditor) {
@@ -73,37 +87,48 @@ struct CutRackHost: View {
 
     // MARK: Scene
 
+    /// The scene follows the screen's first frame: RealityKit sets up while the preload runs, and
+    /// the scene's make awaits the preload before it builds the room.
     @ViewBuilder
     private var scene: some View {
-        if assetsReady {
-            BarbellRealityView(
-                mode: .rackRoom(
-                    rackedPlates: rackedPlates,
-                    // Not built in bar-only mode; kept so a plate dropped on the floor can be
-                    // dragged back onto the bar and saved, as in the legacy rack.
-                    floorPlates: ownedPlates.filter { !$0.isRacked },
-                    onRack: { plate in
-                        try? BarbellProgressService.shared.addToBar(plate: plate, replacing: nil)
-                    },
-                    onUnrack: { plate in
-                        BarbellProgressService.shared.removeFromBar(plate: plate)
-                    }
-                ),
-                sceneState: sceneState,
-                barSkinID: configs.first?.barSkinIndex ?? 0,
-                rackStyleID: configs.first?.effectiveSelectedRackStyleID ?? "matte_black",
-                roomThemeID: configs.first?.effectiveSelectedRoomThemeID ?? "dark_gym",
-                roomWallText: configs.first?.roomName,
-                barOnly: true
-            )
-            .id(sceneRevision)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Your bar in 3D"))
-        } else {
-            ProgressView()
-                .tint(DS.Cut.Colors.textPrimary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ZStack {
+            if showsScene {
+                realityScene
+            }
+            if !assetsReady {
+                ProgressView()
+                    .tint(DS.Cut.Colors.textPrimary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
+    }
+
+    private var realityScene: some View {
+        BarbellRealityView(
+            mode: .rackRoom(
+                rackedPlates: rackedPlates,
+                // Not built in bar-only mode; kept so a plate dropped on the floor can be
+                // dragged back onto the bar and saved, as in the legacy rack.
+                floorPlates: ownedPlates.filter { !$0.isRacked },
+                onRack: { plate in
+                    try? BarbellProgressService.shared.addToBar(plate: plate, replacing: nil)
+                },
+                onUnrack: { plate in
+                    BarbellProgressService.shared.removeFromBar(plate: plate)
+                }
+            ),
+            sceneState: sceneState,
+            barSkinID: configs.first?.barSkinIndex ?? 0,
+            rackStyleID: configs.first?.effectiveSelectedRackStyleID ?? "matte_black",
+            roomThemeID: configs.first?.effectiveSelectedRoomThemeID ?? "dark_gym",
+            roomWallText: configs.first?.roomName,
+            barOnly: true,
+            prepare: { await startPreload().value },
+            onSceneBuilt: { [preload] in preload.releaseThumbnails(after: .milliseconds(500)) }
+        )
+        .id(sceneRevision)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Your bar in 3D"))
     }
 
     private struct CosmeticKey: Equatable {
@@ -129,38 +154,29 @@ struct CutRackHost: View {
             .sorted { $0.id < $1.id }
     }
 
-    /// The legacy preload: plate textures and materials for every owned tier, then the clink and
-    /// drop sounds, before the scene is first built.
+    /// One preload per screen, shared by the screen's task and the scene's make.
+    @MainActor
+    private func startPreload() -> Task<Void, Never> {
+        if let task = preload.task, !task.isCancelled { return task }
+        // Tray thumbnails that still need rendering wait until the scene is up.
+        preload.holdThumbnails()
+        let task = Task { @MainActor in await preloadAssets() }
+        preload.task = task
+        return task
+    }
+
     @MainActor
     private func preloadAssets() async {
         guard !assetsReady else { return }
-        for tierID in Set((rackedPlates + ownedPlates).map(\.tierID)).sorted() where tierID != 7 {
-            await cacheMaterial(tierID: tierID)
-        }
-        if sceneState.plateStyle == .lathe {
-            // Every owned plate's lathe face, so a tray load never draws on the main thread.
-            await prepareLathePlates((rackedPlates + ownedPlates).filter { !$0.isStarterPlate }.flatMap { plate in
-                Set([plate.engravingText, ""]).map {
-                    LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg, engravingText: $0,
-                                      projection: BarbellPlateRenderProjection(plate: plate))
-                }
-            })
-        }
-        for tierID in PlateTier.all.map(\.id) {
-            let category = PlateAudioCategory.from(tierID: tierID)
-            _ = loadAudioResource(named: category.clinkSoundName)
-            _ = loadAudioResource(named: category.dropSoundName)
-        }
+        await CutRackPreloader.preload(racked: rackedPlates, into: sceneState)
         guard !Task.isCancelled else { return }
+        RackOpenTrace.mark("host.ready")
         assetsReady = true
     }
 
     @MainActor
     private func cacheMaterial(tierID: Int) async {
-        guard sceneState.materialCache[tierID] == nil else { return }
-        let textures = await loadPlateTexturesAsync(forTierID: tierID)
-        sceneState.plateTextureCache[tierID] = textures
-        sceneState.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: textures, inRackRoom: true)
+        await CutRackPreloader.cacheMaterial(tierID: tierID, in: sceneState)
     }
 
     /// A saved bar change, from the tray, a sheet, the editor or the scene itself. Plates newly on
@@ -197,7 +213,12 @@ struct CutRackHost: View {
             }
             guard let plate = rackedPlates.first(where: { $0.id == plateID }) else { continue }
             Task { @MainActor in
-                if plate.tierID != 7 { await cacheMaterial(tierID: plate.tierID) }
+                if state.plateStyle == .lathe {
+                    // Both faces: as loaded, and the mirror's blank one a later reload builds.
+                    await prepareLathePlates(latheFirstFrameRequests([plate]) + latheLaterRequests([plate]))
+                } else if plate.tierID != 7 {
+                    await cacheMaterial(tierID: plate.tierID)
+                }
                 guard !state.isPaused else { return }
                 await state.loadPlateOntoBar(plate, rackSlot: slot)
             }
@@ -231,6 +252,75 @@ struct CutRackHost: View {
     private func thumbnail(_ id: String) -> some View {
         if let plate = ownedPlates.first(where: { $0.id == id }) {
             CutRackThumbnail(plate: plate)
+        }
+    }
+}
+
+/// What the rack scene's first frame needs, before it is first built: the light probe (started
+/// at once, in parallel), legacy plate materials for the bar's tiers (lathe plates do not use
+/// them), the bar plates' lathe faces, then the clink and drop sounds. Tray plates are prepared
+/// when they are loaded (CutRackHost.syncScene), never up front: an earlier version prepared
+/// every owned plate's faces here (128 face image sets for a 90-plate inventory).
+enum CutRackPreloader {
+    @MainActor
+    static func preload(racked: [EarnedPlate], into sceneState: SceneState) async {
+        RackOpenTrace.mark("host.preload")
+        let lathe = sceneState.plateStyle == .lathe
+        Task { @MainActor in
+            if lathe { _ = await sharedRackStudioEnvironmentResource() } else { _ = await sharedRackRoomEnvironmentResource() }
+        }
+        if !lathe {
+            for tierID in Set(racked.map(\.tierID)).sorted() where tierID != 7 {
+                await cacheMaterial(tierID: tierID, in: sceneState)
+            }
+        }
+        RackOpenTrace.mark("host.materials")
+        if lathe {
+            await prepareLathePlates(latheFirstFrameRequests(racked))
+        }
+        RackOpenTrace.mark("host.lathe")
+        for tierID in PlateTier.all.map(\.id) {
+            let category = PlateAudioCategory.from(tierID: tierID)
+            _ = loadAudioResource(named: category.clinkSoundName)
+            _ = loadAudioResource(named: category.dropSoundName)
+        }
+    }
+
+    /// A legacy plate tier's textures and material in the scene's caches.
+    @MainActor
+    static func cacheMaterial(tierID: Int, in sceneState: SceneState) async {
+        guard sceneState.materialCache[tierID] == nil else { return }
+        let textures = await loadPlateTexturesAsync(forTierID: tierID)
+        sceneState.plateTextureCache[tierID] = textures
+        sceneState.materialCache[tierID] = buildMaterial(forTierID: tierID, textures: textures, inRackRoom: true)
+    }
+}
+
+/// The screen's running preload, kept across body updates, and its hold on thumbnail renders
+/// (PlateSnapshotService.holdRenders) while the scene opens.
+@MainActor
+final class CutRackPreload {
+    var task: Task<Void, Never>?
+    private var holdsThumbnails = false
+
+    func holdThumbnails() {
+        guard !holdsThumbnails else { return }
+        holdsThumbnails = true
+        PlateSnapshotService.shared.holdRenders()
+        // Never hold for long, whatever happens to the scene.
+        releaseThumbnails(after: .seconds(5))
+    }
+
+    func releaseThumbnails(after delay: Duration? = nil) {
+        guard let delay else {
+            guard holdsThumbnails else { return }
+            holdsThumbnails = false
+            PlateSnapshotService.shared.releaseRenders()
+            return
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            self?.releaseThumbnails()
         }
     }
 }

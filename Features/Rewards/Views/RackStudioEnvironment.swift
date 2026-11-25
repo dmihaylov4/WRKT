@@ -167,11 +167,24 @@ nonisolated enum RackStudioEnvironment {
         return SIMD3(grey / sum.x, grey / sum.y, grey / sum.z)
     }
 
-    /// The bundled file's panorama, or nil when it is missing or unreadable.
-    static func loadPanorama(bundle: Bundle = .main) -> CGImage? {
+    /// Decodes and stores the panorama unless this build already stored it.
+    static func storePanoramaIfMissing(bundle: Bundle = .main) {
+        guard let identity = panoramaIdentity(bundle: bundle),
+              !FileManager.default.fileExists(atPath: RackStudioPanoramaDiskCache.url(identity: identity).path) else { return }
+        _ = loadPanorama(bundle: bundle, storeInBackground: false)
+    }
+
+    /// The disk cache identity of the bundled file with this build's settings.
+    static func panoramaIdentity(bundle: Bundle = .main) -> String? {
         guard let url = bundle.url(forResource: resourceName, withExtension: resourceExtension),
-              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-              let radiance = decode(data) else { return nil }
+              let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? NSNumber else { return nil }
+        let settings = panoramaSettings()
+        return RackStudioPanoramaDiskCache.identity(sourceBytes: size.intValue, clamp: settings.clamp,
+                                                    yawDegrees: settings.yaw, symmetric: settings.symmetric)
+    }
+
+    /// Clamp, baked yaw and mirroring, with the debug overrides applied.
+    static func panoramaSettings() -> (clamp: Float, yaw: Float, symmetric: Bool) {
         var clamp = radianceClamp, yaw = bakedYawDegrees
         #if DEBUG
         let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
@@ -181,23 +194,68 @@ nonisolated enum RackStudioEnvironment {
         #else
         let symmetric = true
         #endif
-        return panorama(radiance, clamp: clamp, yawDegrees: yaw, symmetric: symmetric)
+        return (clamp, yaw, symmetric)
+    }
+
+    /// The bundled file's panorama, or nil when it is missing or unreadable. A copy processed by
+    /// an earlier launch of the same build is read back from Caches (RackAssetDiskCache) instead
+    /// of decoding the .hdr again; a fresh one is stored there in the background.
+    static func loadPanorama(bundle: Bundle = .main, diskCache: Bool = true, storeInBackground: Bool = true) -> CGImage? {
+        guard let url = bundle.url(forResource: resourceName, withExtension: resourceExtension),
+              let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
+        let (clamp, yaw, symmetric) = panoramaSettings()
+        let identity = RackStudioPanoramaDiskCache.identity(sourceBytes: data.count, clamp: clamp, yawDegrees: yaw, symmetric: symmetric)
+        if diskCache, let cached = RackStudioPanoramaDiskCache.image(identity: identity) {
+            RackWorkCounters.add(.studioPanoramasReadFromDisk)
+            return cached
+        }
+        guard let radiance = decode(data) else { return nil }
+        RackWorkCounters.add(.studioPanoramasBuilt)
+        let image = panorama(radiance, clamp: clamp, yawDegrees: yaw, symmetric: symmetric)
+        if diskCache, let image {
+            if storeInBackground {
+                let box = RackStudioPanoramaBox(image: image)
+                Task.detached(priority: .utility) { RackStudioPanoramaDiskCache.store(box.image, identity: identity) }
+            } else {
+                RackStudioPanoramaDiskCache.store(image, identity: identity)
+            }
+        }
+        return image
     }
 }
 
 // One studio environment per process. Concurrent first callers await the same load.
 @MainActor private var _rackStudioEnvironmentTask: Task<EnvironmentResource?, Never>?
+// A running prewarm (prewarmRackStudioPanorama); the first load waits for it instead of decoding twice.
+@MainActor private var _rackStudioPrewarmTask: Task<Void, Never>?
+
+/// Makes sure the processed studio panorama is on disk, so the first rack open of this build
+/// reads it back instead of decoding the .hdr while the user waits. Lathe plates only (debug
+/// builds); once per process; a background task at utility priority, and nothing at all when the
+/// file is already there. Called when the Me tab appears.
+@MainActor
+func prewarmRackStudioPanorama() {
+    guard RackPlateStyle.current == .lathe, _rackStudioPrewarmTask == nil, _rackStudioEnvironmentTask == nil else { return }
+    _rackStudioPrewarmTask = Task.detached(priority: .utility) {
+        RackStudioEnvironment.storePanoramaIfMissing()
+    }
+}
 
 @MainActor
 func sharedRackStudioEnvironmentResource() async -> EnvironmentResource? {
     if let task = _rackStudioEnvironmentTask { return await task.value }
+    let prewarm = _rackStudioPrewarmTask
     let task = Task { @MainActor () -> EnvironmentResource? in
         let interval = barbellSignposter.beginInterval("RackStudioEnvironment", id: barbellSignposter.makeSignpostID())
         defer { barbellSignposter.endInterval("RackStudioEnvironment", interval) }
+        await prewarm?.value
         guard let panorama = await Task.detached(priority: .userInitiated, operation: {
             RackStudioEnvironment.loadPanorama()
         }).value else { return nil }
-        return try? await EnvironmentResource(equirectangular: panorama, withName: "RackStudioEnvironment")
+        RackOpenTrace.mark("studio.panorama")
+        let resource = try? await EnvironmentResource(equirectangular: panorama, withName: "RackStudioEnvironment")
+        RackOpenTrace.mark("studio.resource")
+        return resource
     }
     _rackStudioEnvironmentTask = task
     return await task.value

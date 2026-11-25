@@ -1299,6 +1299,12 @@ struct BarbellRealityView: View {
     /// in the mode only so a plate dropped on the floor can be dragged back and saved. Off by
     /// default, so every other caller builds the scene exactly as before.
     var barOnly = false
+    /// Work the host needs done before the scene is built (the Cut rack's preload), awaited at the
+    /// start of make. Lets the host show the scene at once instead of a placeholder: RealityKit
+    /// sets up while the preload runs. nil for every other caller.
+    var prepare: (@MainActor () async -> Void)?
+    /// Called once make has built the scene. nil for every other caller.
+    var onSceneBuilt: (@MainActor () -> Void)?
     /// Floor plates use a 0.38m wide box collider. Keep their centers comfortably inside the
     /// wall inner faces at x=±0.85 so they don't spawn wedged into the side walls.
     private let floorPlateMaxAbsX: Float = 0.64
@@ -1318,6 +1324,8 @@ struct BarbellRealityView: View {
                 // Built once per process; later scenes get it at once.
                 // Lathe plates: the photographic studio (procedural room if it fails to load), and
                 // every plate's mesh, materials and face textures, all before the first frame.
+                RackOpenTrace.mark("make.start")
+                if let prepare { await prepare() }
                 let style = sceneState.plateStyle
                 let studio = style == .lathe ? await sharedRackStudioEnvironmentResource() : nil
                 let environment: EnvironmentResource?
@@ -1326,9 +1334,11 @@ struct BarbellRealityView: View {
                 } else {
                     environment = await sharedRackRoomEnvironmentResource()
                 }
+                RackOpenTrace.mark("make.environment")
                 if style == .lathe {
                     await prepareLathePlates(latheRequests)
                 }
+                RackOpenTrace.mark("make.prepared")
                 let iblExponent = studio != nil
                     ? (mood?.imageBasedLightIntensityExponent
                        ?? RackRoomLightingPreset.current(for: .lathe).imageBasedLightIntensityExponent)
@@ -1371,6 +1381,13 @@ struct BarbellRealityView: View {
 
                 sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass, barOnly: barOnly)
                 installFrameUpdates(content: content)
+                RackOpenTrace.mark("make.built")
+                RackOpenTrace.markNextFrame("firstFrame", content: content)
+                onSceneBuilt?()
+                if style == .lathe {
+                    let later = latheLaterSceneRequests
+                    Task(priority: .utility) { await prepareLathePlates(later, priority: .utility) }
+                }
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-BarbellSceneStats") {
                     var entities = 0, models = 0, plates = 0
@@ -1432,8 +1449,13 @@ struct BarbellRealityView: View {
         .background(realityBackgroundColor)
     }
 
-    /// Every plate the scene builds at first, for prepareLathePlates.
+    /// Every face the scene's first frame shows, for prepareLathePlates. The bar-only Cut rack
+    /// builds no floor plates (its mode's floor list is the whole tray), so it prepares none.
     private var latheRequests: [LathePlateRequest] {
+        Self.latheFirstFrameRequests(mode: mode, barOnly: barOnly)
+    }
+
+    static func latheFirstFrameRequests(mode: BarbellRealityMode, barOnly: Bool) -> [LathePlateRequest] {
         switch mode {
         case .welcome(let plates):
             return plates.prefix(4).map {
@@ -1441,14 +1463,19 @@ struct BarbellRealityView: View {
                                   projection: BarbellPlateRenderProjection())
             }
         case .rackRoom(let racked, let floor, _, _):
-            // Mirrors and later loads build without the engraving: prepare both faces.
-            return (racked + floor).filter { !$0.isStarterPlate }.flatMap { plate in
-                Set([plate.engravingText, ""]).map {
-                    LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg, engravingText: $0,
-                                      projection: BarbellPlateRenderProjection(plate: plate))
-                }
-            }
+            return WRKT.latheFirstFrameRequests(racked + (barOnly ? [] : floor))
         }
+    }
+
+    /// The faces the scene's plates need after the first frame: blank mirrors for a reload or a
+    /// drag back onto the bar. Prepared in the background once the scene is built.
+    private var latheLaterSceneRequests: [LathePlateRequest] {
+        Self.latheLaterRequests(mode: mode, barOnly: barOnly)
+    }
+
+    static func latheLaterRequests(mode: BarbellRealityMode, barOnly: Bool) -> [LathePlateRequest] {
+        guard case .rackRoom(let racked, let floor, _, _) = mode else { return [] }
+        return WRKT.latheLaterRequests(racked + (barOnly ? [] : floor))
     }
 
     private var realityBackgroundColor: Color {

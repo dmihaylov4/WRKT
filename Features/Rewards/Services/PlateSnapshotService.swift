@@ -3,11 +3,21 @@ import RealityKit
 import Foundation
 import CryptoKit
 
+/// Plate thumbnails rendered once per plate look with RealityKit, then read from Caches.
+/// Renders run one at a time (each one is an offscreen ARView on the main thread) and wait while
+/// a rack scene is opening (holdRenders), so a tray of uncached plates never competes with the
+/// scene's first frame. Disk reads and PNG decoding run off the main thread; decoded images are
+/// kept in a cost-bounded memory cache.
 @MainActor
 final class PlateSnapshotService {
     static let shared = PlateSnapshotService()
 
-    private var memoryCache: [String: UIImage] = [:]
+    private let memoryCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        // About 20 full-size (900 px) decoded thumbnails.
+        cache.totalCostLimit = 64 * 1024 * 1024
+        return cache
+    }()
 
     private init() {
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
@@ -54,22 +64,50 @@ final class PlateSnapshotService {
 
     func cachedImage(tierID: Int, weightKg: Double, engravingText: String) -> UIImage? {
         let key = Self.cacheKey(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
-        if let mem = memoryCache[key] { return mem }
+        if let mem = memoryImage(key: key) { return mem }
         return loadFromDisk(key: key)
+    }
+
+    /// The decoded image if it is in memory; never touches the disk.
+    func memoryImage(tierID: Int, weightKg: Double, engravingText: String) -> UIImage? {
+        memoryImage(key: Self.cacheKey(tierID: tierID, weightKg: weightKg, engravingText: engravingText))
+    }
+
+    /// cachedImage with the file read and the PNG decode off the main thread.
+    func cachedImageAsync(tierID: Int, weightKg: Double, engravingText: String) async -> UIImage? {
+        let key = Self.cacheKey(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
+        if let mem = memoryImage(key: key) { return mem }
+        let url = cacheURL(for: key)
+        let decoded = await Task.detached(priority: .userInitiated) { () -> PlateSnapshotImageBox? in
+            guard let data = try? Data(contentsOf: url), let image = UIImage(data: data) else { return nil }
+            return PlateSnapshotImageBox(image: image.preparingForDisplay() ?? image)
+        }.value
+        guard let image = decoded?.image else { return nil }
+        storeInMemory(image, key: key)
+        return image
     }
 
     func loadFromDisk(key: String) -> UIImage? {
         let url = cacheURL(for: key)
         guard let data = try? Data(contentsOf: url),
               let image = UIImage(data: data) else { return nil }
-        memoryCache[key] = image
+        storeInMemory(image, key: key)
         return image
+    }
+
+    private func memoryImage(key: String) -> UIImage? {
+        memoryCache.object(forKey: key as NSString)
+    }
+
+    private func storeInMemory(_ image: UIImage, key: String) {
+        let pixels = (image.cgImage?.width ?? 300) * (image.cgImage?.height ?? 300)
+        memoryCache.setObject(image, forKey: key as NSString, cost: pixels * 4)
     }
 
     // MARK: - Write
 
     func writeToDisk(image: UIImage, key: String) async {
-        memoryCache[key] = image
+        storeInMemory(image, key: key)
         let url = cacheURL(for: key)
         if let data = image.pngData() {
             try? data.write(to: url, options: .atomic)
@@ -80,13 +118,37 @@ final class PlateSnapshotService {
 
     func hasCached(tierID: Int, weightKg: Double, engravingText: String) -> Bool {
         let key = Self.cacheKey(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
-        if memoryCache[key] != nil { return true }
+        if memoryImage(key: key) != nil { return true }
         return FileManager.default.fileExists(atPath: cacheURL(for: key).path)
     }
 
     // MARK: - Render
 
     private var renderingKeys: Set<String> = []
+    /// The render running now; the next one starts after it.
+    private var lastRender: Task<Void, Never>?
+    private var holds = 0
+    private var holdWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// Renders wait until every hold is released. Rack scenes hold renders while they open.
+    func holdRenders() {
+        holds += 1
+    }
+
+    func releaseRenders() {
+        guard holds > 0 else { return }
+        holds -= 1
+        guard holds == 0 else { return }
+        let waiters = holdWaiters
+        holdWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func waitForRelease() async {
+        while holds > 0 {
+            await withCheckedContinuation { holdWaiters.append($0) }
+        }
+    }
 
     func renderIfNeeded(tierID: Int, weightKg: Double, engravingText: String) async {
         let key = Self.cacheKey(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
@@ -96,9 +158,16 @@ final class PlateSnapshotService {
         renderingKeys.insert(key)
         defer { renderingKeys.remove(key) }
 
-        guard let image = await renderPlate(tierID: tierID, weightKg: weightKg, engravingText: engravingText) else {
-            return
+        // One at a time, after any rack scene that is opening.
+        let previous = lastRender
+        let render = Task { @MainActor () -> UIImage? in
+            await previous?.value
+            await waitForRelease()
+            guard !hasCached(tierID: tierID, weightKg: weightKg, engravingText: engravingText) else { return nil }
+            return await renderPlate(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
         }
+        lastRender = Task { _ = await render.value }
+        guard let image = await render.value else { return }
         await writeToDisk(image: image, key: key)
     }
 
@@ -160,10 +229,16 @@ final class PlateSnapshotService {
 
         try? await Task.sleep(for: .milliseconds(150))
 
+        RackWorkCounters.add(.thumbnailsRendered)
         return await withCheckedContinuation { continuation in
             arView.snapshot(saveToHDR: false) { image in
                 continuation.resume(returning: image)
             }
         }
     }
+}
+
+/// A decoded thumbnail handed from the decoding task to the main actor.
+nonisolated struct PlateSnapshotImageBox: @unchecked Sendable {
+    let image: UIImage
 }
