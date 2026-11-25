@@ -18,6 +18,8 @@ import SwiftUI
 struct CutRackHost: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dependencies) private var dependencies
+    /// Set when the Home hex portal hosts the screen (CutRackPortalHooks); nil from Me.
+    @Environment(\.cutRackPortal) private var portal
 
     @Query(filter: #Predicate<EarnedPlate> { $0.isRacked == true && $0.earnedByEvent != "starter" })
     private var rackedPlates: [EarnedPlate]
@@ -94,6 +96,10 @@ struct CutRackHost: View {
         }
     }
 
+    private func back() {
+        if let portal { portal.back() } else { dismiss() }
+    }
+
     /// A load or take-off from the detail or collection sheet.
     private func sheetToggle(_ id: String) {
         trayStyle == .rail ? railToggle(id) : toggle(id)
@@ -118,7 +124,7 @@ struct CutRackHost: View {
             CutRackView(
                 model: model,
                 actions: CutRackActions(
-                    back: { dismiss() },
+                    back: { back() },
                     edit: { showsEditor = true },
                     showAll: { showsCollection = true },
                     toggle: { id in toggle(id) },
@@ -157,7 +163,7 @@ struct CutRackHost: View {
             lifted: preview,
             tapMode: railTap,
             actions: CutRackRailActions(
-                back: { dismiss() },
+                back: { back() },
                 edit: { showsEditor = true },
                 showAll: { showsCollection = true },
                 play: { playPhase == .idle ? dropAll() : tidyUp() },
@@ -246,6 +252,7 @@ struct CutRackHost: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(CutRackPortalHooks.space)) } action: { portal?.sceneFrame($0) }
     }
 
     private var realityScene: some View {
@@ -269,9 +276,10 @@ struct CutRackHost: View {
             roomWallText: configs.first?.roomName,
             barOnly: true,
             prepare: { await startPreload().value },
-            onSceneBuilt: { [preload, sceneState, ownedPlates] in
+            onSceneBuilt: { [preload, sceneState, ownedPlates, portal] in
                 preload.releaseThumbnails(after: .milliseconds(500))
                 CutRackWarmUp.afterSceneBuilt(owned: ownedPlates, in: sceneState)
+                portal?.sceneBuilt(sceneState)
             }
         )
         .id(sceneRevision)

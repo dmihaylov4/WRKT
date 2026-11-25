@@ -31,6 +31,8 @@ struct CutTrainHost: View {
     /// values it was opened with: a Boolean flag beside a separate optional showed an empty,
     /// full-height sheet the first time, because the content was built before the values arrived.
     @State private var pastWorkouts: PastWorkoutsSheet?
+    /// The hex portal in the field's cut corner (HomeHexPortalFlag: debug builds only).
+    @State private var portal = HomeHexPortalCoordinator()
 
     private struct PastWorkoutsSheet: Identifiable {
         let id = UUID()
@@ -42,7 +44,12 @@ struct CutTrainHost: View {
     }
 
     var body: some View {
-        CutTrainView(model: model, actions: actions)
+        let model = model
+        CutTrainView(model: model, actions: actions) {
+            if HomeHexPortalLogic.isShown(for: model.hero) {
+                HomeHexPortalHost(coordinator: portal, workoutBusy: hasActiveWorkout)
+            }
+        }
             .navigationDestination(item: $planSetup) { destination in
                 switch destination {
                 case .create: PlannerSetupCarouselView(launchMode: .create)
@@ -144,7 +151,10 @@ struct CutTrainHost: View {
 
     private var actions: CutTrainActions {
         CutTrainActions(
-            startWorkout: startWorkout,
+            startWorkout: {
+                portal.workoutStartedAt = .now
+                startWorkout()
+            },
             chooseWorkout: chooseWorkout,
             browseExercises: browseExercises,
             setUpPlan: openPlanSetup,
@@ -161,7 +171,8 @@ struct CutTrainHost: View {
                 }
             },
             // Battle and streak were informational on the legacy tab and stay so.
-            tappableRows: [.lastWorkout]
+            tappableRows: [.lastWorkout],
+            scrollingChanged: { portal.isScrolling = $0 }
         )
     }
 
