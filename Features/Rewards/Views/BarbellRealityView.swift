@@ -249,6 +249,11 @@ final class SceneState {
     /// Tracks whether the dragged plate was in the snap zone on the previous frame.
     /// Prevents snap zone entry haptic from firing every frame.
     var wasInSnapZone: Bool = false
+    /// The plate under the finger during a drag (RackPlatePlay): steered every frame.
+    var heldPlate: RackHeldPlate?
+    /// Plates lying loose in the room. They sleep (kinematic) at rest and wake together when one
+    /// of them is picked up, nudged or hit by a dropped plate, so they can be pushed around.
+    var loosePlateIDs: Set<String> = []
 
     // MARK: Caches
     /// One PhysicallyBasedMaterial per tierID -- shared across all plates of the same tier.
@@ -481,6 +486,7 @@ final class SceneState {
             setStorageSlotRingEnabled(true, atIndex: slotIdx)
         }
         floorSettles.removeValue(forKey: id)
+        loosePlateIDs.remove(id)
         preparedMirrors.removeValue(forKey: id)
     }
 
@@ -517,6 +523,7 @@ final class SceneState {
         cancelFrameUpdates?()
         cancelFrameUpdates = nil
         floorSettles.removeAll()
+        endHold()
         showcaseToken = nil
         for task in unloadTraceTasks.values { task.cancel() }
         unloadTraceTasks.removeAll()
@@ -759,6 +766,7 @@ final class SceneState {
                 showcaseToken = nil
             }
             floorSettles[plate.id] = nil
+            loosePlateIDs.remove(plate.id)
             existing.stopAllAnimations(recursive: true)
         } else {
             let entity = makePlateEntity(
@@ -884,6 +892,9 @@ final class SceneState {
         entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
         entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
         floorSettles[plateID] = BarbellFloorSettleState(delay: 0.1)
+        // Wake the plates already lying there, so the falling plate can knock them about.
+        loosePlateIDs.insert(plateID)
+        wakeLoosePlates(except: plateID)
 
         if let audio = entity.components[PlateAudioCategoryComponent.self] {
             Task { @MainActor in
@@ -1523,23 +1534,9 @@ struct BarbellRealityView: View {
                 sceneState.boundaryElapsed.formTruncatingRemainder(dividingBy: 0.033)
                 recoverDynamicFloorPlates()
             }
-            for id in Array(sceneState.floorSettles.keys) {
-                guard let entity = sceneState.entityMap[id],
-                      entity.components[PlateRoleComponent.self]?.role == .floor,
-                      entity.components[PhysicsBodyComponent.self]?.mode == .dynamic else {
-                    sceneState.floorSettles[id] = nil
-                    continue
-                }
-                let motion = entity.components[PhysicsMotionComponent.self] ?? PhysicsMotionComponent()
-                if sceneState.floorSettles[id]?.advance(deltaTime: deltaTime,
-                    linearSpeed: simd_length(motion.linearVelocity),
-                    angularSpeed: simd_length(motion.angularVelocity)) == true {
-                    entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
-                    entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
-                    sceneState.originalTransforms[id] = Transform(matrix: entity.transformMatrix(relativeTo: nil))
-                    sceneState.floorSettles[id] = nil
-                }
-            }
+            // A held plate follows the finger by velocity, so it still collides with the room.
+            if sceneState.heldPlate != nil { sceneState.stepHeldPlate(deltaTime: deltaTime) }
+            if !sceneState.floorSettles.isEmpty { sceneState.advanceFloorSettles(deltaTime: deltaTime) }
             if let token = sceneState.showcaseSpinToken, sceneState.showcaseToken == token,
                let entity = sceneState.showcaseEntity {
                 let previous = sceneState.showcaseElapsed
@@ -1559,7 +1556,8 @@ struct BarbellRealityView: View {
         guard case .rackRoom = mode else { return }
         for entity in sceneState.entityMap.values {
             guard entity.components[PlateRoleComponent.self]?.role == .floor,
-                  entity.components[PhysicsBodyComponent.self]?.mode == .dynamic else { continue }
+                  entity.components[PhysicsBodyComponent.self]?.mode == .dynamic,
+                  entity !== sceneState.heldPlate?.entity else { continue }
 
             let scenePos = entity.position(relativeTo: sceneState.sceneRoot)
             let recoveredY: Float
@@ -1575,7 +1573,16 @@ struct BarbellRealityView: View {
                 recoveredY,
                 max(floorPhysicsMinZ, min(floorPhysicsMaxZ, scenePos.z))
             )
-            guard clamped != scenePos else { continue }
+            guard clamped != scenePos else {
+                // Inside the room but resting where the framing cuts it off: slide it back into view.
+                if let motion = entity.components[PhysicsMotionComponent.self],
+                   let back = RackPlatePlay.frameReturnVelocity(position: scenePos, velocity: motion.linearVelocity) {
+                    var returning = motion
+                    returning.linearVelocity = back
+                    entity.components[PhysicsMotionComponent.self] = returning
+                }
+                continue
+            }
 
             // Write in floorAnchor-local space: floorAnchor is a child of sceneRoot with
             // identity rotation and only X translation, so local = sceneRoot_local - floorAnchor.position.
@@ -1847,10 +1854,11 @@ struct BarbellRealityView: View {
                     let dx = abs(value.translation.width)
                     let dy = abs(value.translation.height)
                     // Minimum movement guard for all floor plates: short touches (< 8pt) stay
-                    // in .idle so onEnded treats them as taps (tap → showcase).
-                    // DragGesture(minimumDistance: 1) fires onChanged for any finger wobble,
+                    // in .idle so onEnded treats them as taps (a hop for a loose plate, the
+                    // showcase for a stored one; a tap never loads a plate).
+                    // DragGesture(minimumDistance: 0) fires onChanged for any finger wobble,
                     // so without this guard taps commit a drag and skip the tap path entirely.
-                    guard (dx + dy) > 8 else { break }
+                    guard (dx + dy) > RackPlatePlay.tapTolerance else { break }
                     // Stored plates additionally require vertical-dominant intent -- a horizontal-
                     // dominant gesture is almost certainly a bar swipe that bled onto this entity.
                     if sceneState.storageSlotByPlate[entity.name] != nil && sceneState.showcaseEntity !== entity {
@@ -1881,57 +1889,37 @@ struct BarbellRealityView: View {
                             sceneState.setSlotMaterial(mat, atIndex: slotIdx)
                             sceneState.setStorageSlotRingEnabled(true, atIndex: slotIdx)
                         }
-                        // Lock kinematic before reparenting so a plate that is still
-                        // settling from a previous freeDrop doesn't fight the gesture.
-                        entity.components[PhysicsBodyComponent.self]?.mode = .kinematic
-                        entity.setParent(sceneState.sceneRoot, preservingWorldTransform: true)
+                        // Picked up: a dynamic body steered toward the finger every frame
+                        // (RackPlatePlay), so it has weight and collides with the room.
+                        sceneState.beginHold(entity: entity, plateID: entity.name, barSlot: nextFreeBarSlot())
                         sceneState.dragStartEntityPosition = entity.position
                         #if DEBUG
                         barbellLog("DRAG_START", "id=\(entity.name) role=floor local=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil)))")
                         #endif
                     }
-                    // Guard: ensure we own this drag before updating position each frame.
+                    // Guard: ensure we own this drag before updating the target.
                     // originRole: .bar drags are slide-and-release -- suppress continued drag so
                     // the 200ms slide animation never fights a concurrent position update loop.
                     guard case .draggingPlate(let dragging, _, let originRole) = sceneState.dragPhase,
                           dragging === entity,
                           originRole == .floor else { return }
 
-                    // Map cumulative screen-space drag to sceneRoot-local world offset.
-                    // Scale ~0.004 m/pt: sceneRoot at z=-1.4, ~60deg FOV -> 1.62m visible/~393pt.
-                    // Screen Y is inverted relative to world Y.
-                    let s: Float = 0.004
-                    let rawPos = sceneState.dragStartEntityPosition
-                        + SIMD3(Float(value.translation.width) * s,
-                                Float(-value.translation.height) * s, 0)
-                    // Clamp to physics-safe zone: keep the current floor-plate collider width
-                    // clear of the side walls so dragged plates don't get pinned at release.
-                    // Y clamped above floor and below top wall.
-                    entity.position = SIMD3(
-                        clampFloorPlateX(rawPos.x, maxAbsX: floorPlateMaxAbsX),
-                        max(0.05, min(1.85, rawPos.y)),
-                        rawPos.z
-                    )
+                    // The finger sets a target; the frame update moves the plate toward it and
+                    // shows the sleeve cue when the plate itself is in a drop zone.
+                    sceneState.updateHold(translation: value.translation, maxAbsX: floorPlateMaxAbsX)
+                    let targetY = sceneState.heldPlate?.target.y ?? entity.position.y
+                    let targetX = sceneState.heldPlate?.target.x ?? entity.position.x
 
-                    // Zone detection: storage (above bar) takes priority over bar zone.
-                    // barAnchor.position is in sceneRoot-local space (its parent).
+                    // Wall storage (legacy rack only): Y above the bar by 0.50m (midpoint between
+                    // bar ~0.60 and slots ~1.60). barAnchor.position is in sceneRoot-local space.
                     let barLocalY = sceneState.barAnchor.position.y
-                    let entityLocalY = entity.position.y
-                    // Storage zone: Y above bar by 0.50m (midpoint between bar ~0.60 and slots ~1.60).
-                    let inStorageZone = !barOnly && entityLocalY > barLocalY + 0.50
-                    // Bar zone: Y within 0.2m below the bar, but not in storage zone above.
-                    let inBarZone = !inStorageZone && entityLocalY > barLocalY - 0.2
+                    let inStorageZone = !barOnly && targetY > barLocalY + 0.50
 
                     if inStorageZone {
-                        // Show storage slot hover; hide bar highlights.
-                        sceneState.slotHighlights.forEach { $0.isEnabled = false }
-                        sceneState.wasInSnapZone = false
-
-                        let entityX = entity.position.x
                         var newHovered: Int? = nil
                         for (i, pos) in sceneState.storageSlotPositions.enumerated() {
                             guard sceneState.storageSlotByIndex[i] == nil else { continue }
-                            if abs(entityX - pos.x) < 0.16 {
+                            if abs(targetX - pos.x) < 0.16 {
                                 newHovered = i
                                 break
                             }
@@ -1950,36 +1938,14 @@ struct BarbellRealityView: View {
                             }
                             sceneState.hoveredStorageSlotIndex = newHovered
                         }
-                    } else if inBarZone {
-                        let occupiedSlots = allRackedPlates.compactMap(\.rackPosition)
-                        if let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }),
-                           nextSlot < sceneState.slotHighlights.count {
-                            sceneState.slotHighlights.forEach { $0.isEnabled = false }
-                            sceneState.slotHighlights[nextSlot].isEnabled = true
-                        }
-                        if !sceneState.wasInSnapZone {
-                            playSnapZoneEntryHaptic()
-                            sceneState.wasInSnapZone = true
-                        }
-                        // Clear any storage slot hover when plate enters bar zone.
-                        if let prev = sceneState.hoveredStorageSlotIndex,
-                           sceneState.storageSlotByIndex[prev] == nil {
+                    } else if let prev = sceneState.hoveredStorageSlotIndex {
+                        // Clear the storage slot hover when the plate leaves the storage zone.
+                        if sceneState.storageSlotByIndex[prev] == nil {
                             var mat = UnlitMaterial()
                             mat.color = .init(tint: UIColor(white: 0.50, alpha: 1))
                             sceneState.setSlotMaterial(mat, atIndex: prev)
-                            sceneState.hoveredStorageSlotIndex = nil
                         }
-                    } else {
-                        sceneState.slotHighlights.forEach { $0.isEnabled = false }
-                        sceneState.wasInSnapZone = false
-                        // Clear storage slot hover when plate is in neither zone.
-                        if let prev = sceneState.hoveredStorageSlotIndex,
-                           sceneState.storageSlotByIndex[prev] == nil {
-                            var mat = UnlitMaterial()
-                            mat.color = .init(tint: UIColor(white: 0.50, alpha: 1))
-                            sceneState.setSlotMaterial(mat, atIndex: prev)
-                            sceneState.hoveredStorageSlotIndex = nil
-                        }
+                        sceneState.hoveredStorageSlotIndex = nil
                     }
 
                 case .bar:
@@ -2091,22 +2057,18 @@ struct BarbellRealityView: View {
             }
             .onEnded { value in
                 guard allowsInteraction else { return }
-                let tapped = value.entity
-                // Tap detection: dragPhase stayed .idle means onChanged never committed a drag
-                // (storage plate movement < 8pt threshold). Treat as info-card tap.
+                // Tap: dragPhase stayed .idle, so onChanged never picked anything up (movement
+                // under the tap tolerance, or a vertical touch on the bar).
                 if case .rackRoom = mode, case .idle = sceneState.dragPhase {
-                    let tapID = tapped.name.replacingOccurrences(of: "_mirror", with: "")
-                    if let roleComp = tapped.components[PlateRoleComponent.self],
-                       roleComp.role == .floor,
-                       tapped.name != "barHitZone",
-                       let entity = sceneState.entityMap[tapID] {
-                        startShowcase(entity: entity)
-                        return
-                    }
+                    handleTap(on: value.entity)
+                    return
                 }
 
                 guard case .draggingPlate(let entity, let plateID, let originRole) = sceneState.dragPhase else { return }
                 sceneState.transition(to: .idle)
+                // The plate as it was at release: whether it was in a sleeve drop zone, and the
+                // bar slot that zone would load.
+                let held = originRole == .floor ? sceneState.endHold() : nil
                 sceneState.slotHighlights.forEach { $0.isEnabled = false }
                 sceneState.wasInSnapZone = false
 
@@ -2124,39 +2086,32 @@ struct BarbellRealityView: View {
 
                 // Use originRole captured at drag-start -- not re-querying allFloorPlates,
                 // which could reflect a concurrent model mutation.
-                let isFromFloor = originRole == .floor
-                // Bar-origin plates stay on barAnchor through the slide animation (setParent
-                // deferred to snapToFloor). Use world-space Y for the snap-zone check so
-                // comparison is coordinate-space-independent regardless of parent.
-                let entityY = entity.position(relativeTo: nil).y
-                let barWorldY = sceneState.barAnchor.position(relativeTo: nil).y
+                let release = RackPlatePlay.releaseDecision(RackPlateReleaseFacts(
+                    origin: originRole == .bar ? .bar : (capturedOriginSlot != nil ? .storedPlate : .loosePlate),
+                    didDrag: true,
+                    sleeveSide: held?.sleeveSide,
+                    barHasFreeSlot: held?.barSlot != nil,
+                    releaseSpeed: hypot(value.velocity.width, value.velocity.height),
+                    hoveredStorageSlot: pendingSlot,
+                    originStorageSlot: capturedOriginSlot
+                ))
 
                 #if DEBUG
-                let decision = isFromFloor && entityY > barWorldY - 0.15 ? "snapToBar"
-                    : !isFromFloor ? "snapToFloor"
-                    : "freeDrop"
-                barbellLog("DRAG_END", "id=\(plateID) fromFloor=\(isFromFloor) entityY=\(String(format:"%.3f",entityY)) barWorldY=\(String(format:"%.3f",barWorldY)) -> \(decision)")
+                barbellLog("DRAG_END", "id=\(plateID) origin=\(originRole) sleeve=\(held?.sleeveSide.map { String($0) } ?? "nil") -> \(release)")
                 barbellLog("DRAG_END", "  entity.pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil))) phys=\(String(describing:entity.components[PhysicsBodyComponent.self]?.mode))")
                 #endif
-                let diagnosticDecision: String
-                if isFromFloor, pendingSlot != nil {
-                    diagnosticDecision = "snapToStorage"
-                } else if isFromFloor && entityY > barWorldY - 0.15 && entityY < barWorldY + 0.50 {
-                    diagnosticDecision = "snapToBar"
-                } else if !isFromFloor {
-                    diagnosticDecision = "snapToFloor"
-                } else {
-                    diagnosticDecision = "freeDrop"
-                }
                 barbellDiagnosticsLog(
                     "DRAG_END",
-                    "id=\(plateID) origin=\(originRole) decision=\(diagnosticDecision) translation=(\(String(format: "%.1f", value.translation.width)),\(String(format: "%.1f", value.translation.height))) velocity=(\(String(format: "%.1f", value.velocity.width)),\(String(format: "%.1f", value.velocity.height))) entityY=\(String(format: "%.3f", entityY)) barY=\(String(format: "%.3f", barWorldY)) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) physics=\(String(describing: entity.components[PhysicsBodyComponent.self]?.mode)) pendingSlot=\(pendingSlot.map(String.init) ?? "nil")"
+                    "id=\(plateID) origin=\(originRole) decision=\(release) translation=(\(String(format: "%.1f", value.translation.width)),\(String(format: "%.1f", value.translation.height))) velocity=(\(String(format: "%.1f", value.velocity.width)),\(String(format: "%.1f", value.velocity.height))) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil))) physics=\(String(describing: entity.components[PhysicsBodyComponent.self]?.mode)) pendingSlot=\(pendingSlot.map(String.init) ?? "nil")"
                 )
-                if isFromFloor, let slotIdx = pendingSlot {
-                    snapToStorageSlot(entity: entity, plateID: plateID, slotIndex: slotIdx)
-                } else if isFromFloor && entityY > barWorldY - 0.15 && entityY < barWorldY + 0.50 {
+                switch release {
+                case .rack:
+                    sceneState.freezeForSnap(entity)
                     snapToBar(entity: entity, plateID: plateID, gestureVelocity: value.velocity)
-                } else if !isFromFloor {
+                case .store(let slotIdx), .returnToStorage(let slotIdx):
+                    sceneState.freezeForSnap(entity)
+                    snapToStorageSlot(entity: entity, plateID: plateID, slotIndex: slotIdx)
+                case .swipeOff:
                     // Swipe direction encodes intent:
                     //   Upward swipe (height < -60 pt, negative = up in UIKit coords) → storage.
                     //   Sideways/downward swipe → physics floor for freeplay.
@@ -2195,16 +2150,46 @@ struct BarbellRealityView: View {
                             // snapToFloor clears platesBeingUnracked after the scripted fall animation
                         }
                     }
-                } else if let slotIdx = capturedOriginSlot {
-                    // Storage plate not racked and not hovered over a different slot:
-                    // return it to its original storage slot.
-                    snapToStorageSlot(entity: entity, plateID: plateID, slotIndex: slotIdx)
-                } else {
-                    // True floor plate (unracked from bar): drop wherever released.
-                    // Fling velocity is applied so fast releases travel across the scene.
+                case .loose, .ignore, .nudge, .showcase:
+                    // Released anywhere but a drop zone: it stays loose and keeps the throw.
                     freeDrop(entity: entity, plateID: plateID, gestureVelocity: value.velocity)
                 }
             }
+    }
+
+    /// A tap in the rack room. A loose plate hops (nothing under Reduce Motion); a stored plate
+    /// shows itself off. A tap never loads a plate: the tray and a drop at a sleeve end do that.
+    private func handleTap(on tapped: Entity) {
+        let tapID = tapped.name.replacingOccurrences(of: "_mirror", with: "")
+        guard tapped.name != "barHitZone", let entity = sceneState.entityMap[tapID] else { return }
+        let kind = RackPlatePlay.classifyTouch(
+            role: tapped.components[PlateRoleComponent.self]?.role,
+            isStored: sceneState.storageSlotByPlate[tapID] != nil || sceneState.showcaseEntity === entity
+        )
+        let release = RackPlatePlay.releaseDecision(RackPlateReleaseFacts(
+            origin: kind, didDrag: false, sleeveSide: nil, barHasFreeSlot: false, releaseSpeed: 0,
+            hoveredStorageSlot: nil, originStorageSlot: nil
+        ))
+        switch release {
+        case .showcase:
+            startShowcase(entity: entity)
+        case .nudge:
+            if !sceneState.isReduceMotionEnabled { sceneState.nudgeLoosePlate(entity) }
+        default:
+            break
+        }
+    }
+
+    /// The bar slot a plate would load into now (innermost free), or nil when the bar is full:
+    /// the saved bar plus any plate the scene has put on the bar and not saved yet.
+    private func nextFreeBarSlot() -> Int? {
+        let slotOffsets = RackPlatePlay.slotOffsets
+        let occupiedSlots = Set(allRackedPlates.compactMap(\.rackPosition)).union(
+            sceneState.barPositionMap.values.compactMap { position in
+                slotOffsets.firstIndex { abs($0 - position.x) < 0.001 }
+            }
+        )
+        return (0..<slotOffsets.count).first { !occupiedSlots.contains($0) }
     }
 
     private var welcomeLookGesture: some Gesture {
@@ -2278,13 +2263,8 @@ struct BarbellRealityView: View {
         barbellLog("SNAP_BAR", "id=\(plateID) pos=\(v3(entity.position)) world=\(v3(entity.position(relativeTo: nil)))")
         #endif
         barbellDiagnosticsLog("SNAP_BAR", "id=\(plateID) local=\(barbellDiagnosticsV3(entity.position)) world=\(barbellDiagnosticsV3(entity.position(relativeTo: nil)))")
-        let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
-        let occupiedSlots = Set(allRackedPlates.compactMap(\.rackPosition)).union(
-            sceneState.barPositionMap.values.compactMap { position in
-                slotOffsets.firstIndex { abs($0 - position.x) < 0.001 }
-            }
-        )
-        guard let nextSlot = (0..<4).first(where: { !occupiedSlots.contains($0) }) else {
+        let slotOffsets = RackPlatePlay.slotOffsets
+        guard let nextSlot = nextFreeBarSlot() else {
             #if DEBUG
             barbellLog("SNAP_BAR", "id=\(plateID) NO SLOT AVAILABLE -> freeDrop")
             #endif
@@ -2297,6 +2277,7 @@ struct BarbellRealityView: View {
 
         entity.setParent(sceneState.barAnchor, preservingWorldTransform: true)
         entity.components.set(PlateRoleComponent(role: .bar))
+        sceneState.loosePlateIDs.remove(plateID)
 
         // Bilateral mirror entity for the opposite side of the bar.
         // Stored in barMirrorMap so finishUnrack / snapBack can remove it without a scene search.
@@ -2410,12 +2391,15 @@ struct BarbellRealityView: View {
         sceneState.floorSettles[plateID] = nil
         let plateToUnrack = allRackedPlates.first(where: { $0.id == plateID })
         sceneState.platesBeingUnracked.remove(plateID)
+        // Loose from here on; the plates already on the floor wake so it can knock them about.
+        sceneState.loosePlateIDs.insert(plateID)
+        sceneState.wakeLoosePlates(except: plateID)
         finishUnrack(plateID: plateID, plate: plateToUnrack)
         finishUnloadTrace(plateID: plateID, entity: entity, reason: "dynamic_released")
 
         if let audio = entity.components[PlateAudioCategoryComponent.self] {
             // 0.42 s ≈ fall time (0.32 s) + first-bounce settling
-            scheduleDropFeedback(on: entity, category: audio.category, delay: 0.42)
+            sceneState.scheduleDropFeedback(on: entity, category: audio.category, delay: 0.42)
         }
         // 1.2 s: fall (~320 ms) + bounces (restitution 0.18, ~2 bounces) + settle margin.
         settleUnloadedFloorPlate(entity: entity, plateID: plateID, delayMs: 100)
@@ -2477,6 +2461,7 @@ struct BarbellRealityView: View {
         }
 
         // Record occupancy and hide the ring.
+        sceneState.loosePlateIDs.remove(plateID)
         sceneState.storageSlotByIndex[slotIndex] = plateID
         sceneState.storageSlotByPlate[plateID] = slotIndex
         sceneState.setStorageSlotRingEnabled(false, atIndex: slotIndex)
@@ -2519,69 +2504,12 @@ struct BarbellRealityView: View {
         }
     }
 
-    /// Drops a floor plate wherever the user released it, applying gesture fling velocity.
-    /// Used instead of snapBack when the bar is full or the plate was not dragged high enough.
-    /// The plate physics-settles and its originalTransform is updated to the new resting position.
+    /// Lets a plate go wherever it was released, loose, with the finger's fling velocity (or its
+    /// own, for a gentle let-go). Used for every release outside a drop zone, and when the bar
+    /// filled up or a storage slot went stale under the finger.
     private func freeDrop(entity: Entity, plateID: String, gestureVelocity: CGSize = .zero) {
-        entity.setParent(sceneState.floorAnchor, preservingWorldTransform: true)
-        entity.components.set(PlateRoleComponent(role: .floor))
-
-        // Physics path: preserve orientation at release so the plate tumbles naturally.
-        // Angular velocity is applied below when fling speed is significant.
-        // Clamp in sceneRoot space, where floor/walls actually exist.
-        let scenePos = entity.position(relativeTo: sceneState.sceneRoot)
-        let clampedScene = SIMD3<Float>(
-            clampFloorPlateX(scenePos.x, maxAbsX: floorPlateMaxAbsX),
-            max(0.10, min(1.5, scenePos.y)),
-            scenePos.z
-        )
-        if clampedScene != scenePos {
-            entity.setPosition(clampedScene, relativeTo: sceneState.sceneRoot)
-        }
-
-        // Kinematic bodies accumulate implicit velocity from direct entity.position writes
-        // during drag. Switching to .dynamic without clearing it causes the plate to shoot
-        // upward (bleed from the last drag frame), hang in the air, then get locked kinematic
-        // by the settle timer before gravity can pull it back down.
-        entity.components[PhysicsMotionComponent.self] = PhysicsMotionComponent()
-        entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
-
-        // Apply fling velocity from the gesture so fast releases travel across the scene.
-        let hasFling = abs(gestureVelocity.width) > 30 || abs(gestureVelocity.height) > 30
-        if hasFling {
-            let vScale: Float = 0.0025   // pt/s -> m/s approximation at sceneRoot z=-1.4
-            let worldVx = Float(gestureVelocity.width)  * vScale
-            let worldVy = Float(-gestureVelocity.height) * vScale
-            var motion = PhysicsMotionComponent()
-            motion.linearVelocity = SIMD3(worldVx, worldVy, 0)
-            // Tumble axis: cross(throwDir, Z-axis) = (vy, -vx, 0).
-            // Throw right -> tumble axis points in -Y -> plate cartwheels outward.
-            // Throw up   -> tumble axis points in +X -> plate tumbles forward.
-            // Scale: 4 rad/s per 1 m/s throw speed feels natural for a heavy disc.
-            let throwSpeed = sqrt(worldVx * worldVx + worldVy * worldVy)
-            if throwSpeed > 0.05 {
-                let tumbleAxis = SIMD3<Float>(worldVy, -worldVx, 0) / throwSpeed
-                motion.angularVelocity = tumbleAxis * throwSpeed * 4.0
-            }
-            entity.components[PhysicsMotionComponent.self] = motion
-        }
-
-        if let audio = entity.components[PlateAudioCategoryComponent.self] {
-            let releaseY = max(entity.position(relativeTo: sceneState.sceneRoot).y, 0.10)
-            let approxFallTime = sqrt(max(releaseY, 0.10) * 2 / 9.8)
-            scheduleDropFeedback(on: entity, category: audio.category, delay: TimeInterval(min(max(approxFallTime, 0.18), 0.65)))
-        }
-
-        sceneState.floorSettles[plateID] = nil
-    }
-
-    private func scheduleDropFeedback(on entity: Entity, category: PlateAudioCategory, delay: TimeInterval) {
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(Int(delay * 1000)))
-            guard entity.components[PlateRoleComponent.self]?.role == .floor else { return }
-            playDropSound(on: entity, category: category)
-            playDropHaptic(category: category)
-        }
+        sceneState.releaseLoose(entity: entity, plateID: plateID, fingerVelocity: gestureVelocity,
+                                maxAbsX: floorPlateMaxAbsX)
     }
 
     // MARK: - Plate showcase
@@ -2624,6 +2552,8 @@ struct BarbellRealityView: View {
         sceneState.showcaseEntity = nil
         sceneState.showcaseToken  = nil
         entity.components[PhysicsBodyComponent.self]?.mode = .dynamic
+        // A loose plate falls back into play and sleeps again once the room is still.
+        if sceneState.loosePlateIDs.contains(entity.name) { sceneState.wakeLoosePlates() }
     }
 
     // MARK: RackRoom scene setup
@@ -2914,13 +2844,16 @@ struct BarbellRealityView: View {
         barHitZone.position = SIMD3(0, 0, 0)
         sceneState.barAnchor.addChild(barHitZone)
 
-        // Slot highlight rings -- one per bar slot, hidden until plate is dragged near bar.
+        // Slot highlight rings -- one per bar slot, hidden until a held plate is in a sleeve drop
+        // zone (RackPlatePlay.showSleeveCue moves the ring to that side).
         // UnlitMaterial so they always appear bright regardless of scene lighting.
         let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
         sceneState.slotHighlights.removeAll()
         for offset in slotOffsets {
+            // A pale ghost of a plate on the sleeve: the drop-zone cue while a held plate is there.
             var mat = UnlitMaterial()
-            mat.color = .init(tint: UIColor(white: 1, alpha: 0.7))
+            mat.color = .init(tint: UIColor(white: 1, alpha: 1))
+            mat.blending = .transparent(opacity: .init(floatLiteral: 0.32))
             let ring = ModelEntity(
                 mesh: cachedCylinder(height: 0.006, radius: 0.25),
                 materials: [mat]
