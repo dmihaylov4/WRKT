@@ -19,7 +19,7 @@ import UIKit
 struct CutRackCaptureTests {
     nonisolated static let names = [
         "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "rack-owner", "detail", "detail-ax5", "collection", "collection-ax5",
-        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed"
+        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right"
     ]
     nonisolated static var selectedNames: [String] {
         guard let value = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
@@ -108,8 +108,12 @@ struct CutRackCaptureTests {
 
     private func zoomIn(_ name: String) {
         guard let root = CutRackFixtureScene.lastSceneState?.sceneRoot else { return }
-        let target = SIMD3<Float>(name == "zoom-stack" ? 0.70 : 0.62, 0.60, 0.12)
-        let turn = simd_quatf(angle: -0.62, axis: SIMD3(0, 1, 0)) * simd_quatf(angle: 0.12, axis: SIMD3(1, 0, 0))
+        // zoom-left and zoom-right: straight in front of each sleeve, unturned, so the two stacks are
+        // seen as mirror images.
+        let sleeve: Float? = name == "zoom-left" ? -0.68 : name == "zoom-right" ? 0.68 : nil
+        let target = SIMD3<Float>(sleeve ?? (name == "zoom-stack" ? 0.70 : 0.62), 0.60, 0.12)
+        let turn = sleeve != nil ? simd_quatf(angle: 0, axis: SIMD3(0, 1, 0))
+            : simd_quatf(angle: -0.62, axis: SIMD3(0, 1, 0)) * simd_quatf(angle: 0.12, axis: SIMD3(1, 0, 0))
         // Put the stack where the bar's centre was framed, turned, then bring it toward the camera.
         let barCentre = SIMD3<Float>(0, 0.60, 0.12)
         let framed = CutRackFixtureScene.framedRootPosition ?? root.position
@@ -163,6 +167,7 @@ struct CutRackCaptureTests {
         switch name {
         case "zoom-stack": return "rack-full-lb"
         case "zoom-owner": return "rack-owner"
+        case "zoom-left", "zoom-right": return "rack-owner-reds"
         default: return "rack-chrome"
         }
     }
@@ -173,6 +178,19 @@ struct CutRackCaptureTests {
         plate("red", tier: 14, kg: 20, slot: 0, order: 3),
         plate("pink", tier: 18, kg: 25, slot: 1, order: 2),
         plate("gold", tier: 6, kg: 20, slot: 2, order: 1)
+    ]
+
+    /// The owner's 25 kg plate (earned at 75 workouts: tier 8, its thumbnail deep magenta) inside a
+    /// red 20 kg bumper, and the same plate with three red bumpers.
+    static let owner25Plates: [EarnedPlate] = [
+        plate("rose", tier: 8, kg: 25, slot: 0, engraving: "75 Workouts", order: 2),
+        plate("red1", tier: 14, kg: 20, slot: 1, order: 1)
+    ]
+    static let ownerRedPlates: [EarnedPlate] = [
+        plate("rose", tier: 8, kg: 25, slot: 0, engraving: "75 Workouts", order: 4),
+        plate("red1", tier: 14, kg: 20, slot: 1, order: 3),
+        plate("red2", tier: 14, kg: 20, slot: 2, order: 2),
+        plate("red3", tier: 14, kg: 20, slot: 3, order: 1)
     ]
 
     private static let chromePlates: [EarnedPlate] = [
@@ -193,7 +211,8 @@ struct CutRackCaptureTests {
         let unit: WeightUnit = name.hasSuffix("-lb") ? .lb : .kg
         let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates
             : name == "rack-owner" ? Self.ownerPlates : name == "rack-chrome" ? Self.chromePlates
-            : name == "rack-mixed" ? Self.mixedPlates : Self.plates
+            : name == "rack-mixed" ? Self.mixedPlates : name == "rack-owner25" ? Self.owner25Plates
+            : name == "rack-owner-reds" ? Self.ownerRedPlates : Self.plates
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
