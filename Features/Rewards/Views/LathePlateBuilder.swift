@@ -598,12 +598,19 @@ private func latheFaceMaterial(for spec: LatheFaceSpec, tier: PlateTier) -> Phys
 @MainActor
 private func latheFaceTextures(for spec: LatheFaceSpec, images: LatheFaceArt.Images? = nil) -> (color: TextureResource, normal: TextureResource, roughness: TextureResource)? {
     if let cached = _latheFaceTextureCache[spec] { return cached }
-    guard let images = images ?? LatheFaceArt.images(for: spec),
+    guard let images = images ?? countedFaceImages(for: spec),
           let color = try? TextureResource(image: images.color, options: .init(semantic: .color)),
           let normal = try? TextureResource(image: images.normal, options: .init(semantic: .normal)),
           let roughness = try? TextureResource(image: images.roughness, options: .init(semantic: .raw)) else { return nil }
+    RackWorkCounters.add(.faceTexturesUploaded)
     _latheFaceTextureCache[spec] = (color, normal, roughness)
     return (color, normal, roughness)
+}
+
+/// LatheFaceArt.images, counted.
+nonisolated func countedFaceImages(for spec: LatheFaceSpec) -> LatheFaceArt.Images? {
+    RackWorkCounters.add(.faceImagesDrawn)
+    return LatheFaceArt.images(for: spec)
 }
 
 /// A plate the scene is about to show, for prepareLathePlates.
@@ -632,12 +639,15 @@ func prepareLathePlates(_ requests: [LathePlateRequest]) async {
         if _latheFaceTextureCache[spec] == nil, !pending.contains(spec) { pending.append(spec) }
     }
     guard !pending.isEmpty else { return }
+    RackOpenTrace.mark("lathe.draw")
     let drawn = await Task.detached(priority: .userInitiated) { () -> [(LatheFaceSpec, LatheFaceArt.Images)] in
-        pending.compactMap { spec in LatheFaceArt.images(for: spec).map { (spec, $0) } }
+        pending.compactMap { spec in countedFaceImages(for: spec).map { (spec, $0) } }
     }.value
+    RackOpenTrace.mark("lathe.drawn")
     for (spec, images) in drawn {
         _ = latheFaceTextures(for: spec, images: images)
     }
+    RackOpenTrace.mark("lathe.uploaded")
 }
 
 /// The lathe plate's visual: one ModelEntity, the shared mesh, body, hub and face materials, turned

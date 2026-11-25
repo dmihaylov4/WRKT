@@ -134,9 +134,11 @@ struct CutRackHost: View {
     @MainActor
     private func preloadAssets() async {
         guard !assetsReady else { return }
+        RackOpenTrace.mark("host.preload")
         for tierID in Set((rackedPlates + ownedPlates).map(\.tierID)).sorted() where tierID != 7 {
             await cacheMaterial(tierID: tierID)
         }
+        RackOpenTrace.mark("host.materials")
         if sceneState.plateStyle == .lathe {
             // Every owned plate's lathe face, so a tray load never draws on the main thread.
             await prepareLathePlates((rackedPlates + ownedPlates).filter { !$0.isStarterPlate }.flatMap { plate in
@@ -146,12 +148,14 @@ struct CutRackHost: View {
                 }
             })
         }
+        RackOpenTrace.mark("host.lathe")
         for tierID in PlateTier.all.map(\.id) {
             let category = PlateAudioCategory.from(tierID: tierID)
             _ = loadAudioResource(named: category.clinkSoundName)
             _ = loadAudioResource(named: category.dropSoundName)
         }
         guard !Task.isCancelled else { return }
+        RackOpenTrace.mark("host.ready")
         assetsReady = true
     }
 

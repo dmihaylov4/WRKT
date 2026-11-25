@@ -894,6 +894,7 @@ enum RackRoomEnvironment {
     /// The panorama as a linear float image, `width` by `width / 2`. RealityKit's panorama runs
     /// right to left seen from inside (see CutYearAwardStudio), so columns are mirrored.
     nonisolated static func panorama(glow: Glow = currentGlow, panel: Strip = currentPanel) -> CGImage? {
+        RackWorkCounters.add(.roomPanoramasBuilt)
         let w = width, h = width / 2
         let pixels = UnsafeMutablePointer<Float>.allocate(capacity: w * h * 4)
         for y in 0..<h {

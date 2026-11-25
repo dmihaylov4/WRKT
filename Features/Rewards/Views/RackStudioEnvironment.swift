@@ -172,6 +172,7 @@ nonisolated enum RackStudioEnvironment {
         guard let url = bundle.url(forResource: resourceName, withExtension: resourceExtension),
               let data = try? Data(contentsOf: url, options: .mappedIfSafe),
               let radiance = decode(data) else { return nil }
+        RackWorkCounters.add(.studioPanoramasBuilt)
         var clamp = radianceClamp, yaw = bakedYawDegrees
         #if DEBUG
         let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
@@ -197,7 +198,10 @@ func sharedRackStudioEnvironmentResource() async -> EnvironmentResource? {
         guard let panorama = await Task.detached(priority: .userInitiated, operation: {
             RackStudioEnvironment.loadPanorama()
         }).value else { return nil }
-        return try? await EnvironmentResource(equirectangular: panorama, withName: "RackStudioEnvironment")
+        RackOpenTrace.mark("studio.panorama")
+        let resource = try? await EnvironmentResource(equirectangular: panorama, withName: "RackStudioEnvironment")
+        RackOpenTrace.mark("studio.resource")
+        return resource
     }
     _rackStudioEnvironmentTask = task
     return await task.value

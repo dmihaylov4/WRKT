@@ -1318,6 +1318,7 @@ struct BarbellRealityView: View {
                 // Built once per process; later scenes get it at once.
                 // Lathe plates: the photographic studio (procedural room if it fails to load), and
                 // every plate's mesh, materials and face textures, all before the first frame.
+                RackOpenTrace.mark("make.start")
                 let style = sceneState.plateStyle
                 let studio = style == .lathe ? await sharedRackStudioEnvironmentResource() : nil
                 let environment: EnvironmentResource?
@@ -1326,9 +1327,11 @@ struct BarbellRealityView: View {
                 } else {
                     environment = await sharedRackRoomEnvironmentResource()
                 }
+                RackOpenTrace.mark("make.environment")
                 if style == .lathe {
                     await prepareLathePlates(latheRequests)
                 }
+                RackOpenTrace.mark("make.prepared")
                 let iblExponent = studio != nil
                     ? (mood?.imageBasedLightIntensityExponent
                        ?? RackRoomLightingPreset.current(for: .lathe).imageBasedLightIntensityExponent)
@@ -1371,6 +1374,8 @@ struct BarbellRealityView: View {
 
                 sceneState.configureCameraPosition(for: mode, sizeClass: sizeClass, barOnly: barOnly)
                 installFrameUpdates(content: content)
+                RackOpenTrace.mark("make.built")
+                RackOpenTrace.markNextFrame("firstFrame", content: content)
                 #if DEBUG
                 if ProcessInfo.processInfo.arguments.contains("-BarbellSceneStats") {
                     var entities = 0, models = 0, plates = 0
