@@ -1798,7 +1798,8 @@ func makePlateEntity(
     showEngravings: Bool = true,
     renderProjection: BarbellPlateRenderProjection = BarbellPlateRenderProjection(),
     role: PlateRoleComponent.Role = .floor,
-    options: PlateEntityBuildOptions? = nil
+    options: PlateEntityBuildOptions? = nil,
+    plateStyle: RackPlateStyle = .legacy
 ) -> ModelEntity {
     let interval = barbellSignposter.beginInterval("makePlateEntity", id: barbellSignposter.makeSignpostID())
     defer { barbellSignposter.endInterval("makePlateEntity", interval) }
@@ -1812,45 +1813,55 @@ func makePlateEntity(
     let materialCache = PlateMaterialCache()
     let entity: ModelEntity
 
-    switch tier.style {
-    case .rawIron:
-        entity = makeRawIronEntity(tier: tier, textures: textures, material: material)
-    case .castIron:
-        entity = makeCastIronEntity(tier: tier, textures: textures, material: material)
-    case .bumper:
-        entity = makeBumperEntity(tier: tier, textures: textures, material: material, cache: materialCache)
-    case .brass:
-        entity = makeBrassEntity(tier: tier, textures: textures, material: material)
-    case .starter:
-        entity = makeStarterEntity(tier: tier)
-    case .competition:
-        entity = makeCompetitionEntity(tier: tier, material: material, cache: materialCache)
-    case .polishedSteel, .gold:
-        // High-tier plates use the base cylinder shape with their own PBR properties;
-        // chrome rings are competition-specific and must not appear on these tiers.
-        entity = makeRawIronEntity(tier: tier, textures: textures, material: material)
-    }
+    // The rack room's lathe plate: one mesh and three material slots carry everything the
+    // legacy parts and decals drew. Same orientation, collision, physics and metadata below.
+    let lathe = plateStyle == .lathe
+        ? makeLathePlateVisual(tier: tier, weightKg: weightKg, engravingText: engravingText,
+                               showEngravings: showEngravings, projection: renderProjection)
+        : nil
+    if let lathe {
+        entity = lathe
+    } else {
+        switch tier.style {
+        case .rawIron:
+            entity = makeRawIronEntity(tier: tier, textures: textures, material: material)
+        case .castIron:
+            entity = makeCastIronEntity(tier: tier, textures: textures, material: material)
+        case .bumper:
+            entity = makeBumperEntity(tier: tier, textures: textures, material: material, cache: materialCache)
+        case .brass:
+            entity = makeBrassEntity(tier: tier, textures: textures, material: material)
+        case .starter:
+            entity = makeStarterEntity(tier: tier)
+        case .competition:
+            entity = makeCompetitionEntity(tier: tier, material: material, cache: materialCache)
+        case .polishedSteel, .gold:
+            // High-tier plates use the base cylinder shape with their own PBR properties;
+            // chrome rings are competition-specific and must not appear on these tiers.
+            entity = makeRawIronEntity(tier: tier, textures: textures, material: material)
+        }
 
-    // Chrome bore ring: full-height sleeve at the center hole on every plate style.
-    entity.addChild(makeBoreRing(profile: profile))
+        // Chrome bore ring: full-height sleeve at the center hole on every plate style.
+        entity.addChild(makeBoreRing(profile: profile))
 
-    // Weight disc
-    // Note: the chrome hub ring is now added by each style builder via makeCenterBoss.
-    // Adding a second hub disc here at the same radius caused z-fighting with the boss geometry.
-    let artwork = PlateVisualDesign.faceArtwork(for: tier.style, showEngravings: showEngravings)
-    if artwork.showsWeightText && weightKg > 0 && tierID != 7 {
-        addFaceDetailPair(makeWeightDisc(weightKg: weightKg, tier: tier), to: entity, profile: profile)
-    }
-    if tierID != 7 {
-        addFaceDetailPair(makeGlossAccentRing(profile: profile, tier: tier), to: entity, profile: profile)
-        addFaceDetailPair(makeEdgeBevel(profile: profile, tier: tier), to: entity, profile: profile)
-    }
-    if showEngravings && !engravingText.isEmpty && tierID != 7 {
-        entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving, mirrored: false))
-        entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving, mirrored: true))
-    }
-    if tierID != 7 {
-        addProgressionDetails(to: entity, projection: renderProjection, plateThickness: plateThickness)
+        // Weight disc
+        // Note: the chrome hub ring is now added by each style builder via makeCenterBoss.
+        // Adding a second hub disc here at the same radius caused z-fighting with the boss geometry.
+        let artwork = PlateVisualDesign.faceArtwork(for: tier.style, showEngravings: showEngravings)
+        if artwork.showsWeightText && weightKg > 0 && tierID != 7 {
+            addFaceDetailPair(makeWeightDisc(weightKg: weightKg, tier: tier), to: entity, profile: profile)
+        }
+        if tierID != 7 {
+            addFaceDetailPair(makeGlossAccentRing(profile: profile, tier: tier), to: entity, profile: profile)
+            addFaceDetailPair(makeEdgeBevel(profile: profile, tier: tier), to: entity, profile: profile)
+        }
+        if showEngravings && !engravingText.isEmpty && tierID != 7 {
+            entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving, mirrored: false))
+            entity.addChild(makeEngravingDisc(engravingText: engravingText, tier: tier, prominent: prominentEngraving, mirrored: true))
+        }
+        if tierID != 7 {
+            addProgressionDetails(to: entity, projection: renderProjection, plateThickness: plateThickness)
+        }
     }
 
     // Gesture + physics collider. Use four ring segments instead of one solid box so the
