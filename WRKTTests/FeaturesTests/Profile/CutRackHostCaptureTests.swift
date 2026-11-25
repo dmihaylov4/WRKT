@@ -29,7 +29,11 @@ struct CutRackHostCaptureTests {
         // Provisional notification permission is granted without a prompt, so the app's own
         // request on launch does not put a system alert over the capture (on later runs).
         _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.provisional])
-        let inventory = try CutRackRealisticInventory()
+        // TEST_RUNNER_VOLIA_CAPTURE_INVENTORY=owner: the owner's kind of inventory (63 identical red
+        // bumpers in storage).
+        let inventory = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_INVENTORY"] == "owner"
+            ? try CutRackRealisticInventory(specs: CutRackRealisticInventory.ownerSpecs)
+            : try CutRackRealisticInventory()
         // Rail states load and drop plates: saves go to the in-memory inventory, never the store.
         let previous = BarbellProgressService.shared.swapContextForTesting(inventory.container.mainContext, remoteSyncOff: true)
         defer { _ = BarbellProgressService.shared.swapContextForTesting(previous, remoteSyncOff: false) }
@@ -199,13 +203,39 @@ struct CutRackRealisticInventory {
         Spec(tier: 6, kg: 45, engraving: "90-Day Streak")
     ]
 
-    init() throws {
+    /// Like the owner's phone: 65 red 20 kg bumpers (two on the bar, 63 in storage), the Rose Gold
+    /// "75 Workouts" on the bar, a green 30, two different 25 kg metal plates, a pile of grey
+    /// battle plates and a handful of iron, engraved and gold plates: 90 in all.
+    static let ownerSpecs: [Spec] = [
+        Spec(tier: 8, kg: 25, engraving: "75 Workouts", progression: .steel, slots: [0]),
+        Spec(tier: 14, kg: 20, count: 65, slots: [1, 2]),
+        Spec(tier: 16, kg: 30),
+        Spec(tier: 26, kg: 25, engraving: "Volume Champion"),
+        Spec(tier: 5, kg: 25, engraving: "50 Workouts"),
+        Spec(tier: 25, kg: 20, engraving: "Volume Battle", count: 4),
+        Spec(tier: 0, kg: 5, engraving: "Session 3"),
+        Spec(tier: 0, kg: 5, engraving: "Session 6"),
+        Spec(tier: 0, kg: 5, engraving: "Session 9"),
+        Spec(tier: 0, kg: 5, engraving: "Session 12"),
+        Spec(tier: 0, kg: 5, engraving: "Squat", lift: "squat"),
+        Spec(tier: 0, kg: 5, engraving: "Bench Press", lift: "bench-press"),
+        Spec(tier: 0, kg: 5, engraving: "Deadlift", lift: "deadlift"),
+        Spec(tier: 0, kg: 5, engraving: "Overhead Press", lift: "overhead-press"),
+        Spec(tier: 4, kg: 20, engraving: "Personal Record", count: 3, progression: .steel),
+        Spec(tier: 16, kg: 10, engraving: "15 Workouts", progression: .steel),
+        Spec(tier: 3, kg: 15, engraving: "25 Workouts", progression: .steel),
+        Spec(tier: 0, kg: 2.5, engraving: "First Lift"),
+        Spec(tier: 6, kg: 45, engraving: "90-Day Streak"),
+        Spec(tier: 15, kg: 20, count: 2)
+    ]
+
+    init(specs: [Spec]? = nil) throws {
         container = try ModelContainer(for: EarnedPlate.self, BarbellConfig.self,
                                        configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let day = Date(timeIntervalSince1970: 1_780_000_000)
         var made: [EarnedPlate] = []
         var index = 0
-        for spec in Self.specs {
+        for spec in specs ?? Self.specs {
             for copy in 0..<spec.count {
                 let slot = copy < spec.slots.count ? spec.slots[copy] : nil
                 let plate = EarnedPlate(id: "real-\(index)", tierID: spec.tier, weightKg: spec.kg, engravingText: spec.engraving,
