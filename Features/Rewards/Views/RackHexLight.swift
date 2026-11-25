@@ -55,8 +55,10 @@ nonisolated struct RackHexGrid: Hashable, Sendable {
         }
     }
 
-    /// Every cell whose centre lies inside the box, with a cell centred on the origin.
-    init(radius: Float, covering box: (min: SIMD2<Float>, max: SIMD2<Float>)) {
+    /// Every cell whose centre lies inside the box, with a cell centred on the origin, less any
+    /// cell `excluding` rejects (given the cell's centre).
+    init(radius: Float, covering box: (min: SIMD2<Float>, max: SIMD2<Float>),
+         excluding: (SIMD2<Float>) -> Bool = { _ in false }) {
         self.radius = radius
         let a = radius * Float(3).squareRoot() / 2
         let qMax = Int32((max(abs(box.min.x), abs(box.max.x)) / (1.5 * radius)).rounded(.up))
@@ -65,7 +67,7 @@ nonisolated struct RackHexGrid: Hashable, Sendable {
         for q in -qMax...qMax {
             for r in -rReach...rReach {
                 let c = Self.lattice(SIMD2(q, r), radius: radius)
-                if c.x >= box.min.x, c.x <= box.max.x, c.y >= box.min.y, c.y <= box.max.y { cells.append(SIMD2(q, r)) }
+                if c.x >= box.min.x, c.x <= box.max.x, c.y >= box.min.y, c.y <= box.max.y, !excluding(c) { cells.append(SIMD2(q, r)) }
             }
         }
         self.cells = cells
@@ -185,9 +187,26 @@ nonisolated struct RackHexFixture: Hashable, Sendable {
 
     var normal: SIMD3<Float> { onCeiling ? SIMD3(0, -1, 0) : SIMD3(0, 0, 1) }
 
+    /// Height of the cell the big grids centre on the sign: low on the wall, the sign cell's
+    /// bottom tubes just under the bar's height between the stands. Debug builds can move it with
+    /// VOLIA_RACK_LIGHT="hexY=<metres>".
+    static let defaultSignHeight: Float = 0.90
+
+    static var signHeight: Float {
+        #if DEBUG
+        if let value = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])["hexY"] { return value }
+        #endif
+        return defaultSignHeight
+    }
+
     /// The sign's centre on the back wall (RackRoomMood.signPosition), which the big grid
     /// centres a cell on.
-    static let signCentre = SIMD3<Float>(0, 1.00, -0.098)
+    static var signCentre: SIMD3<Float> { SIMD3(0, signHeight, -0.098) }
+
+    /// Where plates on the bar sit (both sleeves, up to the top of the largest plate, with a
+    /// margin): the high grid keeps every tube out of it so no plate face has a bright tube
+    /// right behind it.
+    static let plateZone = (innerX: Float(0.40), outerX: Float(1.05), top: Float(0.87))
     /// Tubes hang just in front of the plate zone panel (face at z -0.103).
     static let wallDepth: Float = -0.084
 
@@ -198,9 +217,17 @@ nonisolated struct RackHexFixture: Hashable, Sendable {
     static func fixtures(for placement: RackHexPlacement) -> [RackHexFixture] {
         switch placement {
         case .wall, .wallHigh:
-            let bottom: Float = placement == .wall ? 0.35 : 0.98
+            let anchor = signCentre.y
+            let radius: Float = 0.32, apothem = radius * Float(3).squareRoot() / 2
+            let bottom: Float = placement == .wall ? 0.35 : anchor - 0.02
+            let keepOut: (SIMD2<Float>) -> Bool = { c in
+                guard placement == .wallHigh else { return false }
+                let x = abs(c.x)
+                return x + radius > plateZone.innerX && x - radius < plateZone.outerX && c.y + anchor - apothem < plateZone.top
+            }
             // Box in the grid's coordinates, about the sign.
-            let grid = RackHexGrid(radius: 0.32, covering: (SIMD2(-1.50, bottom - signCentre.y), SIMD2(1.50, 2.20 - signCentre.y)))
+            let grid = RackHexGrid(radius: radius, covering: (SIMD2(-1.50, bottom - anchor), SIMD2(1.50, 2.20 - anchor)),
+                                   excluding: keepOut)
             return [RackHexFixture(grid: grid, centre: SIMD3(0, signCentre.y, wallDepth), onCeiling: false,
                                    tubeRadius: 0.015, glowHalfWidth: 0.034)]
         case .panel:

@@ -48,15 +48,25 @@ import UniformTypeIdentifiers
         // Past both sleeves (plates reach x 0.9) and from behind the stands to above the frame.
         let centres = fixture.grid.centres.map { $0 + SIMD2(fixture.centre.x, fixture.centre.y) }
         #expect(centres.map(\.x).max()! > 1.0 && centres.map(\.x).min()! < -1.0)
-        #expect(centres.map(\.y).min()! < 0.6 && centres.map(\.y).max()! > 1.9)
+        #expect(centres.map(\.y).min()! < 0.7 && centres.map(\.y).max()! > 1.9)
         // A cell centred on the sign, wide enough for the 0.5 m lettering.
         #expect(centres.contains { simd_distance($0, SIMD2(RackRoomMood.signPosition.x, RackRoomMood.signPosition.y)) < 1e-4 })
         #expect(fixture.grid.apothem * 2 > 0.5)
         // In front of the plate zone panel (face at z -0.103), behind the bar.
         #expect(fixture.centre.z - fixture.tubeRadius > -0.103 && fixture.centre.z < 0.0)
-        // The high variant keeps every cell above the plates (top at 0.83).
+        // The high variant keeps every tube out of the plate zone on both sleeves, so no plate face
+        // on the bar has a bright tube right behind it.
         let high = try #require(RackHexFixture.fixtures(for: .wallHigh).first)
-        #expect(high.grid.centres.allSatisfy { $0.y + high.centre.y - high.grid.apothem > 0.6 })
+        let zone = RackHexFixture.plateZone
+        for (a, b) in high.segments {
+            for t: Float in stride(from: 0, through: 1, by: 0.1) {
+                let p = a + (b - a) * t
+                let inZone = abs(p.x) > zone.innerX && abs(p.x) < zone.outerX && p.y < zone.top
+                #expect(!inZone, "tube at \(p)")
+            }
+        }
+        // Lower than before: the sign cell sits below 1 m, its bottom tubes near bar height.
+        #expect(high.centre.y < 1.0 && high.centre.y - high.grid.apothem < 0.70)
     }
 
     @Test(arguments: RackHexPlacement.allCases)
