@@ -120,7 +120,7 @@ struct RackRoomMood: Equatable {
     }
 
     static let defaultVariant: Variant = RackHexPlacement.defaultPlacement
-    static let defaultSignStyle: SignStyle = .white
+    static let defaultSignStyle: SignStyle = .lime
 
     // MARK: Building
 

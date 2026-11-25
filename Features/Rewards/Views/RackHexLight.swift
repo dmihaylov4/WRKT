@@ -202,7 +202,7 @@ nonisolated struct RackHexFixture: Hashable, Sendable {
             // Box in the grid's coordinates, about the sign.
             let grid = RackHexGrid(radius: 0.32, covering: (SIMD2(-1.50, bottom - signCentre.y), SIMD2(1.50, 2.20 - signCentre.y)))
             return [RackHexFixture(grid: grid, centre: SIMD3(0, signCentre.y, wallDepth), onCeiling: false,
-                                   tubeRadius: 0.017, glowHalfWidth: 0.075)]
+                                   tubeRadius: 0.015, glowHalfWidth: 0.034)]
         case .panel:
             return [RackHexFixture(grid: RackHexGrid(columns: 11, rows: 2, radius: 0.075),
                                    centre: SIMD3(0, 1.31, -0.094), onCeiling: false, tubeRadius: 0.0065)]
@@ -290,7 +290,7 @@ enum RackHexLight {
     }
 
     /// Peak opacity of the glow right at a tube.
-    static let glowPeak: Float = 0.55
+    static let glowPeak: Float = 0.42
 
     /// The glow's texture: white, its brightness and alpha a soft falloff across the quad
     /// (gaussian about the middle) times a ramp in from each end over the overhang. `along` is

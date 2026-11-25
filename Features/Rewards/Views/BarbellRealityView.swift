@@ -2735,17 +2735,14 @@ struct BarbellRealityView: View {
             sceneState.sceneRoot.addChild(seam)
         }
 
-        // Low visible bumpers communicate the playable area.
-        let bumperMat = pbrMaterial(color: theme.bumperColor, metallic: theme.bumperMetallic, roughness: theme.bumperRoughness)
+        // Low bumpers bound the playable area. They are collision only: drawn as raised rails
+        // and a front lip they read as a frame on the floor that someone would trip over.
         var bumperBody = PhysicsBodyComponent()
         bumperBody.mode = .static
         bumperBody.material = PhysicsMaterialResource.generate(friction: 0.34, restitution: 0.18)
         for xSign: Float in [-1, 1] {
             let railSize = SIMD3<Float>(0.018, 0.055, 2.65)
-            let sideRail = ModelEntity(
-                mesh: cachedBox(size: railSize),
-                materials: [bumperMat]
-            )
+            let sideRail = Entity()
             sideRail.position = SIMD3(xSign * 0.82, 0.025, -0.48)
             sideRail.components.set(CollisionComponent(
                 shapes: [ShapeResource.generateBox(size: railSize)],
@@ -2755,10 +2752,7 @@ struct BarbellRealityView: View {
             sceneState.sceneRoot.addChild(sideRail)
         }
         let lipSize = SIMD3<Float>(1.66, 0.045, 0.018)
-        let frontLip = ModelEntity(
-            mesh: cachedBox(size: lipSize),
-            materials: [bumperMat]
-        )
+        let frontLip = Entity()
         frontLip.position = SIMD3(0, 0.022, 0.86)
         frontLip.components.set(CollisionComponent(
             shapes: [ShapeResource.generateBox(size: lipSize)],
