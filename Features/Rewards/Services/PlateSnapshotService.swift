@@ -135,8 +135,25 @@ final class PlateSnapshotService {
         holds += 1
     }
 
-    /// A rack scene is opening or swinging a plate in.
-    var isHeld: Bool { holds > 0 }
+    /// The open rack scene, while its owner plays: a touch down in the scene, a plate held or
+    /// awake, a rain or a tidy. Renders wait for it to go quiet, and for `quietAfterPlay` after,
+    /// so an offscreen render never competes with a thrown plate for the main thread or the GPU.
+    weak var playActivity: (any RackPlayActivity)?
+    static let quietAfterPlay: TimeInterval = 1.0
+    private var quietUntil: TimeInterval = 0
+
+    /// True while the scene is in play or was within the last `quietAfterPlay` seconds.
+    var isPlayBusy: Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        if playActivity?.isPlayActive == true {
+            quietUntil = now + Self.quietAfterPlay
+            return true
+        }
+        return now < quietUntil
+    }
+
+    /// A rack scene is opening, swinging a plate in, or in play.
+    var isHeld: Bool { holds > 0 || isPlayBusy }
 
     func releaseRenders() {
         guard holds > 0 else { return }
@@ -148,8 +165,15 @@ final class PlateSnapshotService {
     }
 
     private func waitForRelease() async {
-        while holds > 0 {
-            await withCheckedContinuation { holdWaiters.append($0) }
+        while holds > 0 || isPlayBusy {
+            if holds > 0 {
+                await withCheckedContinuation { holdWaiters.append($0) }
+            } else {
+                // Play has no end event of its own (plates fall asleep on their own): look again
+                // a few times a second, only while a render is waiting.
+                RackWorkCounters.add(.rendersDeferredForPlay)
+                try? await Task.sleep(for: .milliseconds(250))
+            }
         }
     }
 
@@ -257,4 +281,10 @@ final class PlateSnapshotService {
 /// A decoded thumbnail handed from the decoding task to the main actor.
 nonisolated struct PlateSnapshotImageBox: @unchecked Sendable {
     let image: UIImage
+}
+
+/// Whether a rack scene is in play (see PlateSnapshotService.playActivity).
+@MainActor
+protocol RackPlayActivity: AnyObject {
+    var isPlayActive: Bool { get }
 }

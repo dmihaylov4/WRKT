@@ -45,6 +45,8 @@ nonisolated enum RackWork: String, CaseIterable, Sendable {
     case railPictureBodies
     /// The rack scene's frame updates, and the main-thread microseconds they took (DEBUG builds).
     case sceneFrameUpdates
+    /// A wait of a queued offscreen render because the rack scene was in play.
+    case rendersDeferredForPlay
     case sceneFrameUpdateMicros
 }
 

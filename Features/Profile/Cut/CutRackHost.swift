@@ -272,6 +272,8 @@ struct CutRackHost: View {
             barOnly: true,
             prepare: { await startPreload().value },
             onSceneBuilt: { [preload, sceneState, ownedPlates] in
+                // Offscreen plate renders (rail pictures, thumbnails) wait while this scene is in play.
+                PlateSnapshotService.shared.playActivity = sceneState
                 preload.releaseThumbnails(after: .milliseconds(500))
                 CutRackWarmUp.afterSceneBuilt(owned: ownedPlates, in: sceneState)
             }

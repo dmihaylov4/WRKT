@@ -300,6 +300,12 @@ final class SceneState {
     /// Plates lying loose in the room. They sleep (kinematic) at rest and wake together when one
     /// of them is picked up, nudged or hit by a dropped plate, so they can be pushed around.
     var loosePlateIDs: Set<String> = []
+    /// A finger is down on the scene (set by the drag gesture, cleared when it ends) and when it
+    /// last moved: a gesture cancelled without an end stops counting 3 s after its last move.
+    var touchIsDown = false
+    var touchMovedAt: TimeInterval = 0
+    /// Plates are falling in a rain.
+    var isRaining = false
 
     // MARK: Caches
     /// One PhysicallyBasedMaterial per tierID -- shared across all plates of the same tier.
@@ -1950,6 +1956,8 @@ struct BarbellRealityView: View {
             .onChanged { value in
                 guard allowsInteraction else { return }
                 guard case .rackRoom = mode else { return }
+                sceneState.touchIsDown = true
+                sceneState.touchMovedAt = ProcessInfo.processInfo.systemUptime
                 let entity = value.entity
                 guard let roleComp = entity.components[PlateRoleComponent.self] else { return }
 
@@ -2160,6 +2168,7 @@ struct BarbellRealityView: View {
                 }
             }
             .onEnded { value in
+                sceneState.touchIsDown = false
                 guard allowsInteraction else { return }
                 // Tap: dragPhase stayed .idle, so onChanged never picked anything up (movement
                 // under the tap tolerance, or a vertical touch on the bar).
