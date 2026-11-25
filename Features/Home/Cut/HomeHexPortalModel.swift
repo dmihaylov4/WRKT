@@ -141,18 +141,24 @@ enum HomeHexPortalLogic {
 
     /// The refresh rule. A still is rendered only when it is missing or stale, and never while Home
     /// is not on screen, is scrolling, a workout is running or starting, or the room is open (the
-    /// room's own frame replaces the still when it closes).
+    /// room's own frame replaces the still when it closes). Nor before the room has been drawn once
+    /// in this install (`roomDrawnBefore`): the first room drawn compiles RealityKit's shaders,
+    /// seconds of main-thread stalls on a fresh install, which belong to the first visit to the
+    /// room (behind its loading state), not to Home. Until then the window keeps its placeholder,
+    /// and the first visit's last frame becomes the still.
     static func stillAction(cachedKey: String?, currentKey: String, homeVisible: Bool, scrolling: Bool,
-                            workoutBusy: Bool, portalIdle: Bool) -> StillAction {
+                            workoutBusy: Bool, portalIdle: Bool, roomDrawnBefore: Bool = true) -> StillAction {
         if cachedKey == currentKey { return .show }
-        guard homeVisible, !scrolling, !workoutBusy, portalIdle else { return .wait }
+        guard homeVisible, !scrolling, !workoutBusy, portalIdle, roomDrawnBefore else { return .wait }
         return .render
     }
 
-    /// After a visit: the live scene's last frame becomes the still when the bar changed and the
-    /// frame shows the room as it opens next time (no plates lying on the floor, none moving).
-    static func capturesLiveFrameOnClose(keyAtOpen: String?, keyAtClose: String, floorPlates: Int, platesMoving: Int) -> Bool {
-        keyAtOpen != keyAtClose && floorPlates == 0 && platesMoving == 0
+    /// After a visit: the live scene's last frame becomes the still when the bar changed or there
+    /// is no still for it yet, and the frame shows the room as it opens next time (no plates lying
+    /// on the floor, none moving).
+    static func capturesLiveFrameOnClose(keyAtOpen: String?, keyAtClose: String, floorPlates: Int, platesMoving: Int,
+                                         stillCached: Bool = true) -> Bool {
+        (keyAtOpen != keyAtClose || !stillCached) && floorPlates == 0 && platesMoving == 0
     }
 }
 

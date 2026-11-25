@@ -283,6 +283,7 @@ struct CutRackHost: View {
                 PlateSnapshotService.shared.playActivity = sceneState
                 preload.releaseThumbnails(after: .milliseconds(500))
                 CutRackWarmUp.afterSceneBuilt(owned: ownedPlates, in: sceneState)
+                RackRoomStillService.shared.noteRoomDrawn()
                 portal?.sceneBuilt(sceneState)
             }
         )

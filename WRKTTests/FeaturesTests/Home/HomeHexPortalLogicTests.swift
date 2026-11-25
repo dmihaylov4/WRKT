@@ -122,6 +122,11 @@ struct HomeHexPortalStillTests {
         #expect(action(cached: nil, scrolling: true) == .wait)
         #expect(action(cached: nil, busy: true) == .wait)
         #expect(action(cached: nil, idle: false) == .wait)
+        // A fresh install renders no still before the room has been drawn once.
+        #expect(HomeHexPortalLogic.stillAction(cachedKey: nil, currentKey: "k", homeVisible: true, scrolling: false,
+                                               workoutBusy: false, portalIdle: true, roomDrawnBefore: false) == .wait)
+        #expect(HomeHexPortalLogic.stillAction(cachedKey: "k", currentKey: "k", homeVisible: true, scrolling: false,
+                                               workoutBusy: false, portalIdle: true, roomDrawnBefore: false) == .show)
     }
 
     @Test func liveFrameBecomesTheStillOnlyWhenTheBarChangedAndTheRoomIsTidy() {
@@ -129,6 +134,11 @@ struct HomeHexPortalStillTests {
         #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "a", floorPlates: 0, platesMoving: 0))
         #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "b", floorPlates: 2, platesMoving: 0))
         #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "b", floorPlates: 0, platesMoving: 1))
+        // No still yet (the first visit of a fresh install): the visit's last frame becomes it.
+        #expect(HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "a", floorPlates: 0, platesMoving: 0,
+                                                            stillCached: false))
+        #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "a", floorPlates: 1, platesMoving: 0,
+                                                             stillCached: false))
     }
 }
 

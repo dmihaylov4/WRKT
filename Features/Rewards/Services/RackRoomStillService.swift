@@ -48,6 +48,19 @@ final class RackRoomStillService {
     func fullURL(_ key: String) -> URL { directory.appendingPathComponent("\(key).jpg") }
     func restURL(_ key: String) -> URL { directory.appendingPathComponent("\(key)-rest.png") }
     private var metricsURL: URL { directory.appendingPathComponent("scene-band-v2.json") }
+    /// Present once a rack room has been drawn in this install (HomeHexPortalLogic.stillAction).
+    private static let drawnMarker = "room-drawn"
+    private var drawnMarkerURL: URL { directory.appendingPathComponent(Self.drawnMarker) }
+
+    /// A rack room has been drawn on screen in this install (so RealityKit's shaders are compiled).
+    var roomHasBeenDrawn: Bool { FileManager.default.fileExists(atPath: drawnMarkerURL.path) }
+
+    /// Called when the rack screen's scene is built.
+    func noteRoomDrawn() {
+        guard !roomHasBeenDrawn else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: drawnMarkerURL.path, contents: Data())
+    }
 
     func hasStill(_ key: String) -> Bool {
         FileManager.default.fileExists(atPath: fullURL(key).path) && FileManager.default.fileExists(atPath: restURL(key).path)
@@ -125,7 +138,7 @@ final class RackRoomStillService {
             } catch {
                 return false
             }
-            let keep: Set<String> = [fullURL.lastPathComponent, restURL.lastPathComponent, "scene-band-v2.json"]
+            let keep: Set<String> = [fullURL.lastPathComponent, restURL.lastPathComponent, "scene-band-v2.json", Self.drawnMarker]
             for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
             where !keep.contains(file.lastPathComponent) {
                 try? FileManager.default.removeItem(at: file)
