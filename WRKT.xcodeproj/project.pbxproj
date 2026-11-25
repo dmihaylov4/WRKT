@@ -412,14 +412,10 @@
 		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
 		2ECA00062FC000000000001 /* BattlePostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00052FC000000000001 /* BattlePostCard.swift */; };
 		2ECC7B892F7BF973009119BF /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */; };
-		2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */; };
-		2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */; };
 		2ECC7D0D2F7C21C3009119BF /* CastIron_Color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D022F7C21C3009119BF /* CastIron_Color.jpg */; };
 		2ECC7D0E2F7C21C3009119BF /* CastIron_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D052F7C21C3009119BF /* CastIron_Roughness.jpg */; };
-		2ECC7D0F2F7C21C3009119BF /* RustyIron_Normal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D082F7C21C3009119BF /* RustyIron_Normal.jpg */; };
 		2ECC7D102F7C21C3009119BF /* CastIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */; };
 		2ECC7D112F7C21C3009119BF /* CastIron_Normal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D042F7C21C3009119BF /* CastIron_Normal.jpg */; };
-		2ECC7D122F7C21C3009119BF /* RustyIron_Color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D062F7C21C3009119BF /* RustyIron_Color.jpg */; };
 		2ECC7D1B2F7C21C3009119BF /* Rubber_Color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D132F7C21C3009119BF /* Rubber_Color.jpg */; };
 		2ECC7D1C2F7C21C3009119BF /* Rubber_Normal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D142F7C21C3009119BF /* Rubber_Normal.jpg */; };
 		2ECC7D1D2F7C21C3009119BF /* Rubber_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D152F7C21C3009119BF /* Rubber_Roughness.jpg */; };
@@ -1109,10 +1105,6 @@
 		2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Metalness.jpg; sourceTree = "<group>"; };
 		2ECC7D042F7C21C3009119BF /* CastIron_Normal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Normal.jpg; sourceTree = "<group>"; };
 		2ECC7D052F7C21C3009119BF /* CastIron_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Roughness.jpg; sourceTree = "<group>"; };
-		2ECC7D062F7C21C3009119BF /* RustyIron_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Color.jpg; sourceTree = "<group>"; };
-		2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Metalness.jpg; sourceTree = "<group>"; };
-		2ECC7D082F7C21C3009119BF /* RustyIron_Normal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Normal.jpg; sourceTree = "<group>"; };
-		2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Roughness.jpg; sourceTree = "<group>"; };
 		2ECC7D132F7C21C3009119BF /* Rubber_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Rubber_Color.jpg; sourceTree = "<group>"; };
 		2ECC7D142F7C21C3009119BF /* Rubber_Normal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Rubber_Normal.jpg; sourceTree = "<group>"; };
 		2ECC7D152F7C21C3009119BF /* Rubber_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Rubber_Roughness.jpg; sourceTree = "<group>"; };
@@ -2716,10 +2708,6 @@
 				2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */,
 				2ECC7D042F7C21C3009119BF /* CastIron_Normal.jpg */,
 				2ECC7D052F7C21C3009119BF /* CastIron_Roughness.jpg */,
-				2ECC7D062F7C21C3009119BF /* RustyIron_Color.jpg */,
-				2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */,
-				2ECC7D082F7C21C3009119BF /* RustyIron_Normal.jpg */,
-				2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */,
 				2ECC7D132F7C21C3009119BF /* Rubber_Color.jpg */,
 				2ECC7D142F7C21C3009119BF /* Rubber_Normal.jpg */,
 				2ECC7D152F7C21C3009119BF /* Rubber_Roughness.jpg */,
@@ -3252,14 +3240,10 @@
 				2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */,
 				C1A900000000000000000004 /* LaunchScreen.storyboard in Resources */,
 				2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */,
-				2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */,
-				2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */,
 				2ECC7D0D2F7C21C3009119BF /* CastIron_Color.jpg in Resources */,
 				2ECC7D0E2F7C21C3009119BF /* CastIron_Roughness.jpg in Resources */,
-				2ECC7D0F2F7C21C3009119BF /* RustyIron_Normal.jpg in Resources */,
 				2ECC7D102F7C21C3009119BF /* CastIron_Metalness.jpg in Resources */,
 				2ECC7D112F7C21C3009119BF /* CastIron_Normal.jpg in Resources */,
-				2ECC7D122F7C21C3009119BF /* RustyIron_Color.jpg in Resources */,
 				2ECC7D1B2F7C21C3009119BF /* Rubber_Color.jpg in Resources */,
 				2ECC7D1C2F7C21C3009119BF /* Rubber_Normal.jpg in Resources */,
 				2ECC7D1D2F7C21C3009119BF /* Rubber_Roughness.jpg in Resources */,
