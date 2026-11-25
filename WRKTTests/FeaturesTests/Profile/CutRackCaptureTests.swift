@@ -239,6 +239,12 @@ struct CutRackCaptureTests {
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
+            // TEST_RUNNER_VOLIA_CAPTURE_THUMBS=cached: the app's rendered thumbnails (PlateSnapshotService).
+            if ProcessInfo.processInfo.environment["VOLIA_CAPTURE_THUMBS"] == "cached" {
+                return AnyView(CachedPlateThumbnail(tierID: plate.tierID, progressionTier: plate.currentTier,
+                                                    liftTypeID: plate.liftTypeID, weightKg: plate.weightKg,
+                                                    engravingText: plate.engravingText))
+            }
             return AnyView(PlateFaceView(tierID: plate.tierID, progressionTier: plate.currentTier,
                                          liftTypeID: plate.liftTypeID, weightKg: plate.weightKg))
         }

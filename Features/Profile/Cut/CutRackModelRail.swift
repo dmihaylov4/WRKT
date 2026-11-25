@@ -17,8 +17,9 @@ import Foundation
 // MARK: - Switches
 
 /// Which tray the rack shows under its scene: the card of tiles, or the storage rail. The rail
-/// also hides the total at rest and flashes it when the load changes. Debug builds show the rail
-/// unless VOLIA_RACK_TRAY=card; Release builds always show the card.
+/// also hides the total at rest and flashes it when the load changes. Follows the new rack room
+/// switch (RackRoomRelease): the rail in Debug builds (unless VOLIA_RACK_TRAY=card) and for
+/// TestFlight testers on the new design, the card otherwise.
 enum CutRackTrayStyle: String, Equatable, Sendable {
     case card
     case rail
@@ -26,21 +27,17 @@ enum CutRackTrayStyle: String, Equatable, Sendable {
     /// Launch-environment key that forces a style in debug builds: VOLIA_RACK_TRAY=card|rail.
     static let overrideKey = "VOLIA_RACK_TRAY"
 
-    /// The rule, separated from the build flag so tests can pin both configurations.
-    static func resolve(isDebugBuild: Bool, environment: [String: String]) -> CutRackTrayStyle {
-        guard isDebugBuild else { return .card }
-        if let raw = environment[overrideKey], let forced = CutRackTrayStyle(rawValue: raw) { return forced }
-        return .rail
+    /// The rule, separated from the build flag so tests can pin every case. The override is read
+    /// only when `allowsOverrides` (Debug builds).
+    static func resolve(newRoom: Bool, allowsOverrides: Bool, environment: [String: String]) -> CutRackTrayStyle {
+        if allowsOverrides, let raw = environment[overrideKey], let forced = CutRackTrayStyle(rawValue: raw) { return forced }
+        return newRoom ? .rail : .card
     }
 
-    /// The style this build uses. Release compiles to `.card` without reading the environment.
-    static var current: CutRackTrayStyle {
-        #if DEBUG
-        return resolve(isDebugBuild: true, environment: ProcessInfo.processInfo.environment)
-        #else
-        return .card
-        #endif
-    }
+    /// The style this launch uses, resolved once.
+    static let current: CutRackTrayStyle = resolve(newRoom: RackRoomRelease.isNewRoomEnabled,
+                                                   allowsOverrides: RackRoomRelease.allowsLaunchOverrides,
+                                                   environment: RackRoomRelease.overrideEnvironment)
 }
 
 /// What a tap on a rail group does. `.load` (the default) loads on a tap, as the card tray does,

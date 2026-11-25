@@ -232,6 +232,7 @@
 		C17CB70000000000000001A2 /* RackAssetDiskCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB70000000000000002A2 /* RackAssetDiskCache.swift */; };
 		C17CB7000000000000000126 /* RackHexLight.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000226 /* RackHexLight.swift */; };
 		C17CB7000000000000000127 /* RackRoomFloor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000227 /* RackRoomFloor.swift */; };
+		C17CB7000000000000000128 /* RackRoomRelease.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000228 /* RackRoomRelease.swift */; };
 		C17CB7000000000000000123 /* RackStudioEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000223 /* RackStudioEnvironment.swift */; };
 		C17CB7000000000000000122 /* LathePlateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000222 /* LathePlateBuilder.swift */; };
 		C17CB7000000000000000121 /* LathePlateGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000221 /* LathePlateGeometry.swift */; };
@@ -416,14 +417,10 @@
 		2ECA00022FC000000000001 /* BattlePostStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00012FC000000000001 /* BattlePostStats.swift */; };
 		2ECA00062FC000000000001 /* BattlePostCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECA00052FC000000000001 /* BattlePostCard.swift */; };
 		2ECC7B892F7BF973009119BF /* BarbellPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ECC7B882F7BF973009119BF /* BarbellPreviewView.swift */; };
-		2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */; };
-		2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */; };
 		2ECC7D0D2F7C21C3009119BF /* CastIron_Color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D022F7C21C3009119BF /* CastIron_Color.jpg */; };
 		2ECC7D0E2F7C21C3009119BF /* CastIron_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D052F7C21C3009119BF /* CastIron_Roughness.jpg */; };
-		2ECC7D0F2F7C21C3009119BF /* RustyIron_Normal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D082F7C21C3009119BF /* RustyIron_Normal.jpg */; };
 		2ECC7D102F7C21C3009119BF /* CastIron_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */; };
 		2ECC7D112F7C21C3009119BF /* CastIron_Normal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D042F7C21C3009119BF /* CastIron_Normal.jpg */; };
-		2ECC7D122F7C21C3009119BF /* RustyIron_Color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D062F7C21C3009119BF /* RustyIron_Color.jpg */; };
 		2ECC7D1B2F7C21C3009119BF /* Rubber_Color.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D132F7C21C3009119BF /* Rubber_Color.jpg */; };
 		2ECC7D1C2F7C21C3009119BF /* Rubber_Normal.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D142F7C21C3009119BF /* Rubber_Normal.jpg */; };
 		2ECC7D1D2F7C21C3009119BF /* Rubber_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D152F7C21C3009119BF /* Rubber_Roughness.jpg */; };
@@ -929,6 +926,7 @@
 		C17CB70000000000000002A2 /* RackAssetDiskCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackAssetDiskCache.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000226 /* RackHexLight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackHexLight.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000227 /* RackRoomFloor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRoomFloor.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000228 /* RackRoomRelease.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRoomRelease.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000223 /* RackStudioEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackStudioEnvironment.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000222 /* LathePlateBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LathePlateBuilder.swift; sourceTree = "<group>"; };
 		C17CB7000000000000000221 /* LathePlateGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LathePlateGeometry.swift; sourceTree = "<group>"; };
@@ -1117,10 +1115,6 @@
 		2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Metalness.jpg; sourceTree = "<group>"; };
 		2ECC7D042F7C21C3009119BF /* CastIron_Normal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Normal.jpg; sourceTree = "<group>"; };
 		2ECC7D052F7C21C3009119BF /* CastIron_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = CastIron_Roughness.jpg; sourceTree = "<group>"; };
-		2ECC7D062F7C21C3009119BF /* RustyIron_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Color.jpg; sourceTree = "<group>"; };
-		2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Metalness.jpg; sourceTree = "<group>"; };
-		2ECC7D082F7C21C3009119BF /* RustyIron_Normal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Normal.jpg; sourceTree = "<group>"; };
-		2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = RustyIron_Roughness.jpg; sourceTree = "<group>"; };
 		2ECC7D132F7C21C3009119BF /* Rubber_Color.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Rubber_Color.jpg; sourceTree = "<group>"; };
 		2ECC7D142F7C21C3009119BF /* Rubber_Normal.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Rubber_Normal.jpg; sourceTree = "<group>"; };
 		2ECC7D152F7C21C3009119BF /* Rubber_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Rubber_Roughness.jpg; sourceTree = "<group>"; };
@@ -2039,6 +2033,7 @@
 				C17CB70000000000000002A2 /* RackAssetDiskCache.swift */,
 				C17CB7000000000000000226 /* RackHexLight.swift */,
 				C17CB7000000000000000227 /* RackRoomFloor.swift */,
+				C17CB7000000000000000228 /* RackRoomRelease.swift */,
 				C17CB7000000000000000223 /* RackStudioEnvironment.swift */,
 				C17CB7000000000000000222 /* LathePlateBuilder.swift */,
 				C17CB7000000000000000221 /* LathePlateGeometry.swift */,
@@ -2724,10 +2719,6 @@
 				2ECC7D032F7C21C3009119BF /* CastIron_Metalness.jpg */,
 				2ECC7D042F7C21C3009119BF /* CastIron_Normal.jpg */,
 				2ECC7D052F7C21C3009119BF /* CastIron_Roughness.jpg */,
-				2ECC7D062F7C21C3009119BF /* RustyIron_Color.jpg */,
-				2ECC7D072F7C21C3009119BF /* RustyIron_Metalness.jpg */,
-				2ECC7D082F7C21C3009119BF /* RustyIron_Normal.jpg */,
-				2ECC7D092F7C21C3009119BF /* RustyIron_Roughness.jpg */,
 				2ECC7D132F7C21C3009119BF /* Rubber_Color.jpg */,
 				2ECC7D142F7C21C3009119BF /* Rubber_Normal.jpg */,
 				2ECC7D152F7C21C3009119BF /* Rubber_Roughness.jpg */,
@@ -3264,14 +3255,10 @@
 				2E510B602E97BAFA0089EE2C /* exercises_clean.json in Resources */,
 				C1A900000000000000000004 /* LaunchScreen.storyboard in Resources */,
 				2E196EAA2EAD398900EB4780 /* Assets.xcassets in Resources */,
-				2ECC7D0B2F7C21C3009119BF /* RustyIron_Metalness.jpg in Resources */,
-				2ECC7D0C2F7C21C3009119BF /* RustyIron_Roughness.jpg in Resources */,
 				2ECC7D0D2F7C21C3009119BF /* CastIron_Color.jpg in Resources */,
 				2ECC7D0E2F7C21C3009119BF /* CastIron_Roughness.jpg in Resources */,
-				2ECC7D0F2F7C21C3009119BF /* RustyIron_Normal.jpg in Resources */,
 				2ECC7D102F7C21C3009119BF /* CastIron_Metalness.jpg in Resources */,
 				2ECC7D112F7C21C3009119BF /* CastIron_Normal.jpg in Resources */,
-				2ECC7D122F7C21C3009119BF /* RustyIron_Color.jpg in Resources */,
 				2ECC7D1B2F7C21C3009119BF /* Rubber_Color.jpg in Resources */,
 				2ECC7D1C2F7C21C3009119BF /* Rubber_Normal.jpg in Resources */,
 				2ECC7D1D2F7C21C3009119BF /* Rubber_Roughness.jpg in Resources */,
@@ -3771,6 +3758,7 @@
 				C17CB70000000000000001A2 /* RackAssetDiskCache.swift in Sources */,
 				C17CB7000000000000000126 /* RackHexLight.swift in Sources */,
 				C17CB7000000000000000127 /* RackRoomFloor.swift in Sources */,
+				C17CB7000000000000000128 /* RackRoomRelease.swift in Sources */,
 				C17CB7000000000000000123 /* RackStudioEnvironment.swift in Sources */,
 				C17CB7000000000000000122 /* LathePlateBuilder.swift in Sources */,
 				C17CB7000000000000000121 /* LathePlateGeometry.swift in Sources */,
