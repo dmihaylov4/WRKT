@@ -223,23 +223,25 @@ func latheFaceSpec(tier: PlateTier, weightKg: Double, engravingText: String,
     var letterRoughness = finish.roughness
     if finish.isMetal {
         if finish.surface == .cast {
-            // Cast lettering stands proud and its tops are worn bright and smooth.
+            // Cast lettering stands proud and its tops are worn smooth, paint filled like the
+            // stamped letters (light on rust, dark on grey iron) so it reads at the bar's distance.
             raised = true
-            letter = simd_min(base * 1.3, SIMD3(repeating: 1))
-            letterRoughness = max(0.22, finish.roughness - 0.24)
+            letter = latheLetterFill(on: base)
+            letterRoughness = max(0.22, finish.roughness - 0.26)
         } else {
-            // Stamped into the metal and darkened, like a filled engraving. The turned face is a
-            // little less polished than the rim, so it spreads the studio instead of mirroring
-            // one dark corner of it.
+            // Stamped into the metal and paint filled, chosen by the face: light fill on dark or
+            // deep coloured metal (Rose Gold, dark chrome, emerald), dark fill on pale metal
+            // (chrome, gold, brass). A dark fill on a dark face read as no lettering at all. The
+            // turned face is a little less polished than the rim, so it spreads the studio
+            // instead of mirroring one dark corner of it.
             raised = false
-            letter = base * 0.42
+            letter = latheLetterFill(on: base)
             roughness = min(0.4, finish.roughness + 0.10)
-            letterRoughness = 0.6
+            letterRoughness = 0.55
         }
     } else {
         raised = true
-        let luminance = 0.2126 * base.x + 0.7152 * base.y + 0.0722 * base.z
-        letter = luminance > 0.55 ? SIMD3(repeating: 0.10) : SIMD3(repeating: 0.96)
+        letter = latheLetterFill(on: base, light: 0.96, dark: 0.10)
         letterRoughness = max(0.35, finish.roughness - 0.2)
     }
     let label: String
@@ -257,6 +259,16 @@ func latheFaceSpec(tier: PlateTier, weightKg: Double, engravingText: String,
         surface: finish.surface, outerRadius: profile.outerRadius,
         faceInnerRadius: face.inner, faceOuterRadius: face.outer
     )
+}
+
+/// The paint in a plate's letters: near white on dark and saturated faces (red bumpers, Rose
+/// Gold, rust), near black on pale ones (chrome, gold, lime, grey iron). The split sits at a
+/// relative luminance of 0.25, where either fill keeps at least 3 to 1 against the face; a pure
+/// contrast pick would put black letters on red, which reads worse on a plate.
+nonisolated func latheLetterFill(on base: SIMD3<Float>, light: Float = 0.94, dark: Float = 0.07) -> SIMD3<Float> {
+    func linear(_ v: Float) -> Float { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+    let face = 0.2126 * linear(base.x) + 0.7152 * linear(base.y) + 0.0722 * linear(base.z)
+    return SIMD3(repeating: face < 0.25 ? light : dark)
 }
 
 extension LatheGeometry {
@@ -344,27 +356,33 @@ nonisolated enum LatheFaceArt {
         let outer = CGFloat(spec.faceOuterRadius) * pixelsPerMetre
         let band = outer - inner
         let centre = CGPoint(x: side / 2, y: side / 2)
-        let textRadius = inner + band * 0.62
+        // Every glyph is filled and stroked (a negative stroke width), which thickens the strokes
+        // so the letters hold up at the bar's distance and through texture filtering.
+        func style(_ name: String, size: CGFloat, weight: UIFont.Weight, kern: CGFloat) -> [NSAttributedString.Key: Any] {
+            [.font: font(name, size: size, weight: weight), .foregroundColor: UIColor.white,
+             .strokeColor: UIColor.white, .strokeWidth: -5.0, .kern: kern]
+        }
+        let textRadius = inner + band * 0.56
         let brandSize = band * 0.30
-        let brand: [NSAttributedString.Key: Any] = [
-            .font: font("BarlowSemiCondensed-Black", size: brandSize, weight: .black),
-            .foregroundColor: UIColor.white, .kern: brandSize * 0.18
-        ]
-        drawArc("VOLIA", centre: centre, radius: textRadius, centreAngle: -.pi / 2, attributes: brand, top: true)
-        let bottom = spec.engraving.isEmpty ? "VOLIA" : spec.engraving
-        let bottomSize = spec.engraving.isEmpty ? brandSize : min(brandSize * 0.8, band * 0.24)
-        var bottomAttributes = brand
-        bottomAttributes[.font] = font("BarlowSemiCondensed-Bold", size: bottomSize, weight: .bold)
-        bottomAttributes[.kern] = bottomSize * 0.10
-        drawArc(bottom, centre: centre, radius: textRadius, centreAngle: .pi / 2, attributes: bottomAttributes, top: false)
+        let brand = style("BarlowSemiCondensed-Black", size: brandSize, weight: .black, kern: brandSize * 0.16)
+        drawArc([("VOLIA", brand)], centre: centre, radius: textRadius, centreAngle: -.pi / 2, top: true)
+        let bottomSize = spec.engraving.isEmpty ? brandSize : min(brandSize * 0.85, band * 0.26)
+        let bottom = spec.engraving.isEmpty ? brand
+            : style("BarlowSemiCondensed-Black", size: bottomSize, weight: .black, kern: bottomSize * 0.08)
+        drawArc([(spec.engraving.isEmpty ? "VOLIA" : spec.engraving, bottom)], centre: centre, radius: textRadius,
+                centreAngle: .pi / 2, top: false)
         guard !spec.weightLabel.isEmpty else { return }
-        let weightSize = band * 0.26
-        let weight: [NSAttributedString.Key: Any] = [
-            .font: font("BarlowSemiCondensed-Black", size: weightSize, weight: .black),
-            .foregroundColor: UIColor.white
-        ]
-        drawArc(spec.weightLabel, centre: centre, radius: textRadius, centreAngle: 0, attributes: weight, top: true)
-        drawArc(spec.weightLabel, centre: centre, radius: textRadius, centreAngle: .pi, attributes: weight, top: true)
+        // The weight leads: large numerals and a small unit, as on a competition plate.
+        let parts = spec.weightLabel.split(separator: " ", maxSplits: 1).map(String.init)
+        let numeralSize = band * 0.50
+        let numerals = style("BarlowSemiCondensed-Black", size: numeralSize, weight: .black, kern: numeralSize * 0.02)
+        var runs = [(parts[0], numerals)]
+        if parts.count > 1 {
+            let unitSize = band * 0.24
+            runs.append((" " + parts[1], style("BarlowSemiCondensed-Black", size: unitSize, weight: .black, kern: unitSize * 0.06)))
+        }
+        drawArc(runs, centre: centre, radius: textRadius, centreAngle: 0, top: true)
+        drawArc(runs, centre: centre, radius: textRadius, centreAngle: .pi, top: true)
     }
 
     private static func drawAccentRings(_ spec: LatheFaceSpec, side: CGFloat, in context: CGContext) {
@@ -383,26 +401,35 @@ nonisolated enum LatheFaceArt {
     /// Letters on an arc, centred on `centreAngle` (0 is right, positive clockwise in image space).
     /// Top arcs read left to right with letters standing outward; bottom arcs read left to right
     /// with letters standing inward, so both read upright.
-    private static func drawArc(_ text: String, centre: CGPoint, radius: CGFloat, centreAngle: CGFloat,
-                                attributes: [NSAttributedString.Key: Any], top: Bool) {
-        guard let context = UIGraphicsGetCurrentContext(), !text.isEmpty else { return }
-        let characters = text.map(String.init)
-        let advances = characters.map { ($0 as NSString).size(withAttributes: attributes).width }
-        let kern = attributes[.kern] as? CGFloat ?? 0
-        let total = advances.reduce(0, +) + kern * CGFloat(max(0, characters.count - 1))
+    /// Runs of different sizes share one baseline circle, so small text sits on the same line as
+    /// large numerals.
+    private static func drawArc(_ runs: [(String, [NSAttributedString.Key: Any])], centre: CGPoint, radius: CGFloat,
+                                centreAngle: CGFloat, top: Bool) {
+        guard let context = UIGraphicsGetCurrentContext() else { return }
+        let glyphs = runs.flatMap { run in run.0.map { (String($0), run.1) } }
+        guard !glyphs.isEmpty else { return }
+        let advances = glyphs.map { ($0.0 as NSString).size(withAttributes: $0.1).width }
+        let kerns = glyphs.map { $0.1[.kern] as? CGFloat ?? 0 }
+        let total = advances.reduce(0, +) + kerns.dropLast().reduce(0, +)
+        // The baseline: below the largest run's centre line for top arcs, above it for bottom arcs.
+        let largest = glyphs.map { ($0.1[.font] as? UIFont)?.capHeight ?? 0 }.max() ?? 0
         let direction: CGFloat = top ? 1 : -1
         var angle = centreAngle - direction * (total / 2) / radius
-        for (i, character) in characters.enumerated() {
+        for (i, glyph) in glyphs.enumerated() {
             let half = advances[i] / 2
             let a = angle + direction * half / radius
             let point = CGPoint(x: centre.x + cos(a) * radius, y: centre.y + sin(a) * radius)
             context.saveGState()
             context.translateBy(x: point.x, y: point.y)
             context.rotate(by: top ? a + .pi / 2 : a - .pi / 2)
-            let size = (character as NSString).size(withAttributes: attributes)
-            (character as NSString).draw(at: CGPoint(x: -size.width / 2, y: -size.height / 2), withAttributes: attributes)
+            let font = glyph.1[.font] as? UIFont
+            let size = (glyph.0 as NSString).size(withAttributes: glyph.1)
+            // Align on the baseline: the glyph's cap height sits largest / 2 above it.
+            let ascender = font?.ascender ?? size.height / 2
+            let baseline = largest / 2
+            (glyph.0 as NSString).draw(at: CGPoint(x: -size.width / 2, y: baseline - ascender), withAttributes: glyph.1)
             context.restoreGState()
-            angle += direction * (advances[i] + kern) / radius
+            angle += direction * (advances[i] + kerns[i]) / radius
         }
     }
 
