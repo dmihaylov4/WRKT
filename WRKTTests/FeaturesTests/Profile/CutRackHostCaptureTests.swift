@@ -31,18 +31,22 @@ struct CutRackHostCaptureTests {
         _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.provisional])
         // TEST_RUNNER_VOLIA_CAPTURE_INVENTORY=owner: the owner's kind of inventory (63 identical red
         // bumpers in storage).
-        let inventory = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_INVENTORY"] == "owner"
-            ? try CutRackRealisticInventory(specs: CutRackRealisticInventory.ownerSpecs)
-            : try CutRackRealisticInventory()
-        // Rail states load and drop plates: saves go to the in-memory inventory, never the store.
-        let previous = BarbellProgressService.shared.swapContextForTesting(inventory.container.mainContext, remoteSyncOff: true)
-        defer { _ = BarbellProgressService.shared.swapContextForTesting(previous, remoteSyncOff: false) }
-        currentInventory = inventory
-        var sizes: [DynamicTypeSize] = [.large]
-        if ProcessInfo.processInfo.environment["VOLIA_CAPTURE_AX"] == "1" { sizes.append(.accessibility5) }
-        for size in sizes {
-            let name = "\(tag)\(size == .large ? "" : "-ax5")"
-            try await show(CutRackHost().modelContainer(inventory.container).environment(\.dynamicTypeSize, size), name: name)
+        // TEST_RUNNER_VOLIA_CAPTURE_ROOMS=<room theme id>,...: one capture per room, as <tag>-<room>.
+        let rooms: [String?] = (ProcessInfo.processInfo.environment["VOLIA_CAPTURE_ROOMS"]?
+            .split(separator: ",").map { String($0) }) ?? [ProcessInfo.processInfo.environment["VOLIA_CAPTURE_ROOM"]]
+        for room in rooms {
+            let specs = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_INVENTORY"] == "owner" ? CutRackRealisticInventory.ownerSpecs : nil
+            let inventory = try CutRackRealisticInventory(specs: specs, room: room)
+            // Rail states load and drop plates: saves go to the in-memory inventory, never the store.
+            let previous = BarbellProgressService.shared.swapContextForTesting(inventory.container.mainContext, remoteSyncOff: true)
+            defer { _ = BarbellProgressService.shared.swapContextForTesting(previous, remoteSyncOff: false) }
+            currentInventory = inventory
+            var sizes: [DynamicTypeSize] = [.large]
+            if ProcessInfo.processInfo.environment["VOLIA_CAPTURE_AX"] == "1" { sizes.append(.accessibility5) }
+            for size in sizes {
+                let name = "\(tag)\(room.map { "-" + $0 } ?? "")\(size == .large ? "" : "-ax5")"
+                try await show(CutRackHost().modelContainer(inventory.container).environment(\.dynamicTypeSize, size), name: name)
+            }
         }
     }
 
@@ -229,7 +233,7 @@ struct CutRackRealisticInventory {
         Spec(tier: 15, kg: 20, count: 2)
     ]
 
-    init(specs: [Spec]? = nil) throws {
+    init(specs: [Spec]? = nil, room: String? = nil) throws {
         container = try ModelContainer(for: EarnedPlate.self, BarbellConfig.self,
                                        configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let day = Date(timeIntervalSince1970: 1_780_000_000)
@@ -246,6 +250,12 @@ struct CutRackRealisticInventory {
                 made.append(plate)
                 index += 1
             }
+        }
+        // The in-memory config selects that room (TEST_RUNNER_VOLIA_CAPTURE_ROOM / _ROOMS).
+        if let room {
+            let config = BarbellConfig()
+            config.selectedRoomThemeIDRaw = room
+            container.mainContext.insert(config)
         }
         try container.mainContext.save()
         plates = made
