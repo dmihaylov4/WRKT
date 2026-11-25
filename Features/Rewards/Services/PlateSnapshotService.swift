@@ -203,7 +203,7 @@ final class PlateSnapshotService {
         // One at a time, after any rack scene that is opening.
         let previous = lastRender
         let render = Task { @MainActor () -> UIImage? in
-            await previous?.value
+            await Self.waitForPrevious(previous)
             await waitForRelease()
             guard !hasCached(tierID: tierID, weightKg: weightKg, engravingText: engravingText) else { return nil }
             return await renderPlate(tierID: tierID, weightKg: weightKg, engravingText: engravingText)
@@ -218,12 +218,27 @@ final class PlateSnapshotService {
     func renderQueued(_ work: @escaping @MainActor () async -> UIImage?) async -> UIImage? {
         let previous = lastRender
         let render = Task { @MainActor () -> UIImage? in
-            await previous?.value
+            await Self.waitForPrevious(previous)
             await waitForRelease()
             return await work()
         }
         lastRender = Task { _ = await render.value }
         return await render.value
+    }
+
+    /// The longest a render waits for the one before it. A render that never finishes (a snapshot
+    /// whose callback never comes) must not stop every later thumbnail, row picture and still.
+    static let previousRenderTimeout: Duration = .seconds(20)
+
+    /// Waits for the previous render, or `previousRenderTimeout`, whichever comes first.
+    static func waitForPrevious(_ previous: Task<Void, Never>?, timeout: Duration = previousRenderTimeout) async {
+        guard let previous else { return }
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await previous.value }
+            group.addTask { try? await Task.sleep(for: timeout) }
+            await group.next()
+            group.cancelAll()
+        }
     }
 
     private func renderPlate(tierID: Int, weightKg: Double, engravingText: String) async -> UIImage? {

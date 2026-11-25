@@ -242,7 +242,7 @@ final class RackRoomStillService {
         guard built.value, let scene = state.sceneRoot.scene else { return nil }
         RackOpenTrace.mark("still.built")
         // A few drawn frames, so the first frame's late work (shadows, probe) has settled.
-        await Self.frames(8, in: scene)
+        guard await Self.frames(8, in: scene) else { return nil }
         RackOpenTrace.mark("still.frames")
         try? await Task.sleep(for: .milliseconds(80))
         guard let arView = Self.arView(in: host.view, showing: scene) else { return nil }
@@ -274,18 +274,22 @@ final class RackRoomStillService {
         return nil
     }
 
-    private static func frames(_ count: Int, in scene: RealityKit.Scene) async {
-        let counter = RoomStillCounter()
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            var subscription: (any Cancellable)?
-            subscription = scene.subscribe(to: SceneEvents.Update.self) { _ in
+    /// Waits for `count` scene updates. False when they do not come within `timeout` (the window
+    /// was hidden, the app went to the background): the render gives up instead of holding the
+    /// plate render queue, which every thumbnail and row picture waits behind.
+    static func frames(_ count: Int, in scene: RealityKit.Scene, timeout: Duration = .seconds(3)) async -> Bool {
+        let wait = RoomStillFrameWait()
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            wait.continuation = continuation
+            wait.subscription = scene.subscribe(to: SceneEvents.Update.self) { _ in
                 MainActor.assumeIsolated {
-                    counter.value += 1
-                    guard counter.value == count else { return }
-                    subscription?.cancel()
-                    subscription = nil
-                    continuation.resume()
+                    wait.frames += 1
+                    if wait.frames >= count { wait.finish(true) }
                 }
+            }
+            wait.timer = Task { @MainActor in
+                try? await Task.sleep(for: timeout)
+                wait.finish(false)
             }
         }
     }
@@ -302,9 +306,7 @@ final class RackRoomStillService {
     /// 20 pt fade from the screen's background at the top, the plate row's floor fade at the
     /// bottom), so the still matches the band as the screen draws it.
     private static func snapshot(_ arView: ARView, sceneSize: CGSize, background: UIColor) async -> UIImage? {
-        let frame: UIImage? = await withCheckedContinuation { continuation in
-            arView.snapshot(saveToHDR: false) { continuation.resume(returning: $0) }
-        }
+        let frame = await arView.snapshot(timeout: .seconds(5))
         guard let frame else { return nil }
         let screenBackground = UIColor(DS.Cut.Colors.background).resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
         let format = UIGraphicsImageRendererFormat()
@@ -336,6 +338,18 @@ private final class RoomStillFlag {
 }
 
 @MainActor
-private final class RoomStillCounter {
-    var value = 0
+private final class RoomStillFrameWait {
+    var frames = 0
+    var continuation: CheckedContinuation<Bool, Never>?
+    var subscription: (any Cancellable)?
+    var timer: Task<Void, Never>?
+
+    func finish(_ drawn: Bool) {
+        guard let continuation else { return }
+        self.continuation = nil
+        subscription?.cancel()
+        subscription = nil
+        timer?.cancel()
+        continuation.resume(returning: drawn)
+    }
 }

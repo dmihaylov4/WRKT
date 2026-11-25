@@ -467,9 +467,7 @@ private final class RackRailStage {
             current = nil
             return nil
         }
-        return await withCheckedContinuation { continuation in
-            view.snapshot(saveToHDR: false) { image in continuation.resume(returning: image) }
-        }
+        return await view.snapshot(timeout: .seconds(5))
     }
 
     func tearDown() {
@@ -569,5 +567,38 @@ struct RackRailFaceArt: View {
         .task(id: RackRailSpriteService.key(request, pose: "lifted", style: RackPlateStyle.current)) {
             if image == nil { image = await RackRailSpriteService.shared.lifted(request) }
         }
+    }
+}
+
+extension ARView {
+    /// ARView.snapshot, or nil when its callback has not come within `timeout` (a view that is
+    /// not drawing), so a caller in the plate render queue never waits forever.
+    @MainActor
+    func snapshot(timeout: Duration) async -> UIImage? {
+        let box = SnapshotWait()
+        return await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
+            box.continuation = continuation
+            snapshot(saveToHDR: false) { image in
+                let result = image.map(PlateSnapshotImageBox.init(image:))
+                Task { @MainActor in box.finish(result?.image) }
+            }
+            box.timer = Task { @MainActor in
+                try? await Task.sleep(for: timeout)
+                box.finish(nil)
+            }
+        }
+    }
+}
+
+@MainActor
+private final class SnapshotWait {
+    var continuation: CheckedContinuation<UIImage?, Never>?
+    var timer: Task<Void, Never>?
+
+    func finish(_ image: UIImage?) {
+        guard let continuation else { return }
+        self.continuation = nil
+        timer?.cancel()
+        continuation.resume(returning: image)
     }
 }
