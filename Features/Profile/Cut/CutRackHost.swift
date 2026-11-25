@@ -37,6 +37,9 @@ struct CutRackHost: View {
     @State private var showsEditor = false
     @State private var showsCollection = false
     @State private var detail: CutRackPlateID?
+    @State private var playPhase: CutRackPlayPhase = .idle
+    @State private var rain = CutRackRainTask()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
@@ -46,14 +49,17 @@ struct CutRackHost: View {
                 plates: ownedPlates.map(CutRackPlateFacts.init),
                 occupiedSlots: rackedPlates.count,
                 unit: unit,
-                notice: notice
+                notice: notice,
+                playPhase: playPhase,
+                rainCap: RackPlateRain.limits(for: sceneState.plateStyle).plates
             )),
             actions: CutRackActions(
                 back: { dismiss() },
                 edit: { showsEditor = true },
                 showAll: { showsCollection = true },
                 toggle: { id in toggle(id) },
-                details: { id in detail = CutRackPlateID(id: id) }
+                details: { id in detail = CutRackPlateID(id: id) },
+                play: { playPhase == .idle ? dropAll() : tidyUp() }
             ),
             scene: { scene },
             thumbnail: { id in thumbnail(id) }
@@ -74,6 +80,8 @@ struct CutRackHost: View {
             if !assetsReady { preload.task?.cancel() }
             preload.releaseThumbnails()
             CutRackWarmUp.sceneIsUp = false
+            // Dropped plates are play only: leaving the screen clears them.
+            if playPhase != .idle { tidyUp(announce: false) }
         }
         .onChange(of: sceneSyncKey) { old, new in syncScene(from: old, to: new) }
         .onChange(of: cosmeticKey) { _, _ in rebuildScene() }
@@ -237,13 +245,50 @@ struct CutRackHost: View {
     }
 
     /// The editor changed the bar, rack or room: build the scene again with the cached materials.
+    /// The new scene has no dropped plates.
     private func rebuildScene() {
         guard assetsReady else { return }
+        rain.task?.cancel()
+        playPhase = .idle
         let fresh = SceneState()
         fresh.materialCache = sceneState.materialCache
         fresh.plateTextureCache = sceneState.plateTextureCache
         sceneState = fresh
         sceneRevision += 1
+    }
+
+    // MARK: Drop them all
+
+    /// Rains the stored plates into the room, variety first and within the scene's caps. Nothing
+    /// is saved; a plate dragged onto a sleeve from the pile is a real load (the scene's onRack).
+    private func dropAll() {
+        guard assetsReady, playPhase == .idle, !sceneState.isPaused else { return }
+        let limits = RackPlateRain.limits(for: sceneState.plateStyle)
+        let stored = ownedPlates.filter { !$0.isRacked }
+        let ids = CutRackRainLogic.selection(ownedPlates.map(CutRackPlateFacts.init), cap: limits.plates,
+                                             maxLooks: limits.looks, exclude: Set(sceneState.entityMap.keys))
+        let byID = Dictionary(stored.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let plates = ids.compactMap { byID[$0] }
+        guard !plates.isEmpty else { return }
+        playPhase = .raining
+        let state = sceneState
+        let gentle = reduceMotion
+        rain.task = Task { @MainActor in
+            await state.rainPlates(plates, gentle: gentle) { dropped in
+                guard !Task.isCancelled, state === sceneState else { return }
+                playPhase = .loose
+                AccessibilityNotification.Announcement(
+                    CutRackRainLogic.announcement(dropped: dropped, stored: stored.count)).post()
+            }
+        }
+    }
+
+    private func tidyUp(announce: Bool = true) {
+        rain.task?.cancel()
+        rain.task = nil
+        sceneState.tidyRainedPlates()
+        playPhase = .idle
+        if announce { AccessibilityNotification.Announcement(CutRackRainLogic.tidyAnnouncement).post() }
     }
 
     // MARK: Tray
@@ -344,6 +389,12 @@ final class CutRackPreload {
             self?.releaseThumbnails()
         }
     }
+}
+
+/// The running "Drop all", kept across body updates so tidying up can stop it.
+@MainActor
+final class CutRackRainTask {
+    var task: Task<Void, Never>?
 }
 
 /// Identifies the plate whose detail sheet is open.
@@ -536,16 +587,44 @@ enum CutRackTap {
 
 extension CutRackPlateFacts {
     init(_ plate: EarnedPlate) {
+        let tier = PlateTier.all.first { $0.id == plate.tierID }
         self.init(
             id: plate.id,
-            tierName: PlateTier.all.first { $0.id == plate.tierID }?.name ?? "Plate",
+            tierName: tier?.name ?? "Plate",
             engraving: plate.engravingText,
             weightKg: plate.weightKg,
             isLoaded: plate.isRacked,
             rackPosition: plate.rackPosition,
             displayOrder: plate.displayOrder,
-            earnedAt: plate.effectiveFirstEarnedAt
+            earnedAt: plate.effectiveFirstEarnedAt,
+            tierID: plate.tierID,
+            progressionTier: plate.currentTier.rawValue,
+            liftTypeID: plate.liftTypeID,
+            material: tier.map(CutRackPlateFamily.material(for:)) ?? .bumper,
+            rarity: tier.map { CutRackPlateFamily.rank($0.rarity) } ?? 0
         )
+    }
+}
+
+extension CutRackPlateFamily {
+    /// The tray section of a tier's plates when they carry no engraving.
+    static func material(for tier: PlateTier) -> CutRackPlateFamily {
+        switch tier.style {
+        case .bumper, .starter: return .bumper
+        case .competition: return tier.metallic >= 0.5 ? .metal : .bumper
+        case .rawIron, .castIron: return .iron
+        case .brass, .polishedSteel, .gold: return .metal
+        }
+    }
+
+    static func rank(_ rarity: PlateTier.Rarity) -> Int {
+        switch rarity {
+        case .common: return 0
+        case .uncommon: return 1
+        case .rare: return 2
+        case .epic: return 3
+        case .legendary: return 4
+        }
     }
 }
 

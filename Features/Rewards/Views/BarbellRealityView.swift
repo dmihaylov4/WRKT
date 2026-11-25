@@ -130,10 +130,14 @@ func barbellRealityCameraPosition(
 /// camera sits closer, centred on the bar with the floor in front of it. The view's field of view
 /// is fixed vertically, so a wide, short band shows more width; the distance follows the band's
 /// height-to-width `aspect` so a fully loaded bar always nearly spans the width. Calibrated on
-/// simulator captures (iPhone, 402 pt wide).
+/// simulator captures (iPhone, 402 pt wide). Past an aspect of 0.81 (the compact Cut header gives
+/// the band most of the screen: about 0.8 on a 375 pt phone, 1.06 on a 402 pt one, 1.2 on a 440
+/// pt one) the original slope pulled the camera back faster than the width shrinks, so the bar
+/// spanned about 85% of a small phone but only about 70% of a large one; the gentler slope there
+/// keeps it near 85%. Framing changes only on layout, never per frame.
 func barbellBarOnlyCameraPosition(aspect: Float) -> SIMD3<Float> {
     let clamped = max(0.4, min(1.6, aspect.isFinite ? aspect : 0.75))
-    return SIMD3(0, -0.52, 1.79 - 1.75 * clamped)
+    return SIMD3(0, -0.52, 1.79 - 1.75 * clamped + 0.682 * max(0, clamped - 0.81))
 }
 
 /// The rack room floor's lines: four strips running back from the camera and four seams across.

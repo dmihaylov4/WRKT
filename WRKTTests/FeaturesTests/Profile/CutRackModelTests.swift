@@ -142,9 +142,15 @@ import Testing
             Self.plate("store-tie-a", order: 20, earned: Self.day),
             Self.plate("store-tie-newer", order: 20, earned: Self.day.addingTimeInterval(60))
         ]
-        #expect(Self.model(plates).tiles.map(\.id) == [
+        // The full list (and the load order inside a tray group) keeps the legacy wall order.
+        #expect(CutRackLogic.trayOrder(plates).map(\.id) == [
             "bar-0", "bar-2", "store-new", "store-tie-newer", "store-tie-a", "store-tie-b", "store-old"
         ])
+        // The tray: the loaded plates one tile each, then these five identical stored plates as
+        // one tile whose tap loads the newest copy.
+        let tiles = Self.model(plates).tiles
+        #expect(tiles.map(\.plateID) == ["bar-0", "bar-2", "store-new"])
+        #expect(tiles.last?.badge == "×5")
     }
 
     @Test func tilesCarryWeightStateAndVoiceOverText() {
