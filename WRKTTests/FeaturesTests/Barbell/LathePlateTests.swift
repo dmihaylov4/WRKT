@@ -142,6 +142,40 @@ import UIKit
         #expect(LatheFinish.body(for: PlateTier.all.first { $0.id == 5 }!).roughness <= 0.15, "chrome is polished")
     }
 
+    @Test func everyColouredFinishKeepsItsThumbnailHueAndDepth() {
+        for tier in Self.liveTiers {
+            let reference = tier.plateColor.barbellHSB
+            guard reference.saturation >= 0.25, reference.brightness >= 0.15 else { continue }
+            let body = LatheFinish.body(for: tier).color.barbellHSB
+            var gap = abs(body.hue - reference.hue) * 360
+            gap = min(gap, 360 - gap)
+            // Greens start up to 20 degrees bluer to offset the tone mapper (LatheFinish.renderedHue).
+            #expect(gap <= 21, "tier \(tier.id) hue \(body.hue * 360) against \(reference.hue * 360)")
+            #expect(body.saturation >= reference.saturation - 0.05, "tier \(tier.id) is not paler than its thumbnail")
+        }
+    }
+
+    @Test func progressionRingsAreGroovesNotPaint() throws {
+        let tier = try #require(PlateTier.all.first { $0.id == 6 })
+        let ringed = latheFaceSpec(tier: tier, weightKg: 20, engravingText: "",
+                                   projection: BarbellPlateRenderProjection(progressionTier: .gold), showEngravings: true)
+        #expect(ringed.accentRings > 0)
+        let images = try #require(LatheFaceArt.images(for: ringed))
+        // No ring pixel takes another hue: the face colour map holds only the plate colour family
+        // (base, darker grooves) and the lettering colour.
+        let data = try #require(images.color.dataProvider?.data as Data?)
+        let bytes = [UInt8](data)
+        let base = SIMD3<Float>(ringed.base.x, ringed.base.y, ringed.base.z)
+        var foreign = 0
+        for i in stride(from: 0, to: bytes.count, by: 4) {
+            let c = SIMD3<Float>(Float(bytes[i]), Float(bytes[i + 1]), Float(bytes[i + 2])) / 255
+            let onBase = simd_length(simd_normalize(c + 1e-4) - simd_normalize(base + 1e-4)) < 0.08
+            let onLetter = simd_length(c - ringed.letter) < 0.2 || simd_length(simd_normalize(c + 1e-4) - simd_normalize(ringed.letter + 1e-4)) < 0.08
+            if !onBase && !onLetter { foreign += 1 }
+        }
+        #expect(Double(foreign) / Double(bytes.count / 4) < 0.01)
+    }
+
     @Test func defaultPlateBuildStaysLegacy() {
         // Previews, the spinning plate and thumbnails never ask for a style and keep their parts.
         let plate = makePlateEntity(tierID: 22, weightKg: 20)
@@ -211,7 +245,7 @@ import UIKit
         // Four columns, one bright: a quarter turn moves the bright column by one.
         let radiance = RackStudioEnvironment.Radiance(width: 4, height: 1, rgb: [8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0])
         func brightColumn(_ yaw: Float) throws -> Int {
-            let image = try #require(RackStudioEnvironment.panorama(radiance, clamp: 48, yawDegrees: yaw))
+            let image = try #require(RackStudioEnvironment.panorama(radiance, clamp: 48, yawDegrees: yaw, symmetric: false))
             let data = try #require(image.dataProvider?.data as Data?)
             let values = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
             return try #require((0..<4).max { values[$0 * 4] < values[$1 * 4] })
@@ -220,6 +254,17 @@ import UIKit
         #expect(try brightColumn(90) == 3)
         #expect(try brightColumn(-90) == 1)
         #expect(try brightColumn(360) == 0)
+    }
+
+    @Test func studioIsMirroredSoBothSleevesMatch() throws {
+        let radiance = RackStudioEnvironment.Radiance(width: 4, height: 1, rgb: [8, 8, 8, 4, 4, 4, 0, 0, 0, 2, 2, 2])
+        let image = try #require(RackStudioEnvironment.panorama(radiance, clamp: 48))
+        let data = try #require(image.dataProvider?.data as Data?)
+        let red = data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }.enumerated().filter { $0.offset % 4 == 0 }.map(\.element)
+        // Column x and its mirror w - 1 - x carry the same light.
+        #expect(red[0] == red[3])
+        #expect(red[1] == red[2])
+        #expect(red.reduce(0, +) == 14)
     }
 
     @Test func malformedHDRIsRejected() {
