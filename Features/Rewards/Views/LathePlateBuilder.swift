@@ -70,21 +70,26 @@ struct LatheFinish: Equatable {
     /// Rim, lip and outer wall.
     static func body(for tier: PlateTier) -> LatheFinish {
         switch tier.id {
-        // Machined and polished metals. Colours are the metals' reflectance in sRGB, nudged
-        // brighter so they read on a phone; roughness by finish.
+        // Neutral metals: the metals' reflectance in sRGB, nudged brighter so they read on a phone.
         case 5: return metal(white: 0.90, roughness: 0.11)                                   // Polished Steel: chrome
         case 26: return metal(UIColor(white: 0.42, alpha: 1), roughness: 0.12)               // Dark Chrome
-        case 12: return metal(UIColor(red: 0.66, green: 0.90, blue: 1.00, alpha: 1), roughness: 0.10) // Diamond: icy tint
-        case 6: return metal(UIColor(red: 1.00, green: 0.82, blue: 0.46, alpha: 1), roughness: 0.16)  // Gold
-        case 31: return metal(UIColor(red: 1.00, green: 0.78, blue: 0.40, alpha: 1), roughness: 0.18) // Forge S1
-        case 11: return metal(UIColor(red: 1.00, green: 0.86, blue: 0.52, alpha: 1), roughness: 0.12) // Royal Gold
-        case 8: return metal(UIColor(red: 1.00, green: 0.66, blue: 0.70, alpha: 1), roughness: 0.16)  // Rose Gold
-        case 3: return metal(UIColor(red: 0.96, green: 0.80, blue: 0.52, alpha: 1), roughness: 0.24)  // Brass
-        case 13: return metal(UIColor(red: 0.98, green: 0.64, blue: 0.50, alpha: 1), roughness: 0.22) // Copper
-        case 28: return metal(UIColor(red: 0.70, green: 0.54, blue: 0.34, alpha: 1), roughness: 0.32) // Iron Crown: bronze
-        case 9: return metal(UIColor(red: 0.34, green: 0.92, blue: 0.62, alpha: 1), roughness: 0.20)  // Emerald: anodised
-        case 0:                                                                                // Rusty Iron: forged, warm
-            return LatheFinish(color: UIColor(red: 0.72, green: 0.54, blue: 0.42, alpha: 1), metallic: 1, roughness: 0.44, surface: .cast)
+        // Coloured metals take their thumbnail's hue and depth, the way anodised or tinted metal
+        // gets colour: a saturated base (a metal's reflection takes its base colour) and enough
+        // roughness that the colour, not a mirror image of the white studio, fills the face. Pale
+        // tints (Rose Gold was 1.0, 0.66, 0.70) mirrored the studio and read pastel.
+        case 6: return tinted(tier, roughness: 0.20)                                          // Gold
+        case 31: return tinted(tier, roughness: 0.22)                                         // Forge S1
+        case 11: return tinted(tier, roughness: 0.18)                                         // Royal Gold
+        case 3: return tinted(tier, roughness: 0.26)                                          // Brass
+        case 13: return tinted(tier, roughness: 0.26)                                         // Copper
+        case 28: return tinted(tier, roughness: 0.32)                                         // Iron Crown: bronze
+        case 8: return anodised(tier)                                                         // Rose Gold: anodised magenta
+        case 9: return anodised(tier)                                                         // Emerald: anodised green
+        case 12: return anodised(tier)                                                        // Diamond: anodised ice blue
+        case 0:                                                                                // Rusty Iron: forged, rust brown
+            var finish = tinted(tier, roughness: 0.44)
+            finish.surface = .cast
+            return finish
         default: break
         }
         switch tier.style {
@@ -116,6 +121,24 @@ struct LatheFinish: Equatable {
         return hub
     }
 
+    /// A coloured metal from the tier's thumbnail colour: same hue and saturation, value at least
+    /// 0.62 so dark tiers (bronze, rust) still reflect.
+    static func tinted(_ tier: PlateTier, roughness: Float) -> LatheFinish {
+        let hsb = tier.plateColor.barbellHSB
+        let color = UIColor(hue: renderedHue(hsb.hue), saturation: hsb.saturation, brightness: max(0.62, hsb.brightness), alpha: 1)
+        return LatheFinish(color: color, metallic: 1, roughness: roughness, surface: .machined)
+    }
+
+    /// Anodised colour: deeper and more saturated than the thumbnail's flat colour and a satin
+    /// finish, because a bright tint on metal mirrors the white studio and reads pastel (the
+    /// owner's 75-workout Rose Gold read pale pink).
+    static func anodised(_ tier: PlateTier) -> LatheFinish {
+        let hsb = tier.plateColor.barbellHSB
+        let color = UIColor(hue: renderedHue(hsb.hue), saturation: min(1, hsb.saturation + 0.2),
+                            brightness: min(0.78, max(0.62, hsb.brightness)), alpha: 1)
+        return LatheFinish(color: color, metallic: 1, roughness: 0.38, surface: .machined)
+    }
+
     private static func metal(white: CGFloat, roughness: Float) -> LatheFinish {
         metal(UIColor(white: white, alpha: 1), roughness: roughness)
     }
@@ -125,10 +148,24 @@ struct LatheFinish: Equatable {
     }
 
     /// Bumper rubber: the readable face colour, black bumpers a true deep black-grey.
+    /// The thumbnail's colour (the legacy readable boost pushed every bumper to full brightness
+    /// and saturation, which the tone mapper bent: green turned yellow, teal pale). Black
+    /// bumpers a true deep black-grey.
     private static func rubberColor(for tier: PlateTier) -> UIColor {
         let hsb = tier.plateColor.barbellHSB
         if hsb.brightness < 0.12 { return UIColor(white: 0.075, alpha: 1) }
-        return PlateDisplaySurface.faceColor(for: tier)
+        return UIColor(hue: renderedHue(hsb.hue), saturation: hsb.saturation, brightness: hsb.brightness, alpha: 1)
+    }
+
+    /// The renderer's tone mapping bends saturated greens toward yellow (a green bumper at hue
+    /// 140 rendered at 118, emerald 153 at 135, measured by LatheColourAuditTests). Greens start a
+    /// little bluer so they land on their thumbnail's hue. Other hues land within a few degrees.
+    static func renderedHue(_ hue: CGFloat) -> CGFloat {
+        let degrees = hue * 360
+        guard degrees > 95, degrees < 170 else { return hue }
+        // Full shift through the greens, fading out toward yellow-green and cyan.
+        let weight = min(1, min(degrees - 95, 170 - degrees) / 25)
+        return (degrees + 20 * weight) / 360
     }
 }
 
@@ -141,8 +178,9 @@ nonisolated struct LatheFaceSpec: Hashable, Sendable {
     /// Face colour, sRGB 0 to 1.
     var base: SIMD3<Float>
     var letter: SIMD3<Float>
-    /// Accent ring colour (progression tier) and how many rings.
-    var accent: SIMD3<Float>
+    /// Progression rings: cut into the face as fine grooves in the plate's own colour (the owner
+    /// found painted accent colours, yellow on gold tiers, did not fit). The tier's accent colour
+    /// is no longer used, so specs differ only by ring count.
     var accentRings: Int
     var weightLabel: String
     var engraving: String
@@ -212,7 +250,7 @@ func latheFaceSpec(tier: PlateTier, weightKg: Double, engravingText: String,
     }
     return LatheFaceSpec(
         family: family, base: base, letter: letter,
-        accent: projection.tierAccentColor.latheRGB, accentRings: tier.id == 7 ? 0 : projection.tierRingCount,
+        accentRings: tier.id == 7 ? 0 : projection.tierRingCount,
         weightLabel: label,
         engraving: showEngravings && tier.id != 7 ? normalizedRimEngravingText(engravingText) : "",
         raised: raised, roughness: roughness, letterRoughness: letterRoughness,
@@ -268,7 +306,8 @@ nonisolated enum LatheFaceArt {
                 let rMetres = (dx * dx + dy * dy).squareRoot() * metresPerPixel
                 let m = letterMask[i], p = paintMask[i]
                 var c = spec.base
-                c = c + (spec.accent - c) * p
+                // A groove reads a shade darker than the face around it.
+                c = c * (1 - 0.12 * p)
                 c = c + (spec.letter - c) * m
                 color[i * 4] = UInt8(max(0, min(255, c.x * 255)))
                 color[i * 4 + 1] = UInt8(max(0, min(255, c.y * 255)))
@@ -276,7 +315,7 @@ nonisolated enum LatheFaceArt {
                 let r = UInt8(max(0, min(255, (spec.roughness + (spec.letterRoughness - spec.roughness) * m) * 255)))
                 rough[i * 4] = r; rough[i * 4 + 1] = r; rough[i * 4 + 2] = r
                 // Height in pixels: letters 1.2 px proud or stamped in, plus the surface detail.
-                var h = (spec.raised ? 1.2 : -1.2) * m
+                var h = (spec.raised ? 1.2 : -1.2) * m - 0.8 * p
                 switch spec.surface {
                 case .machined:
                     // Fine turned rings, about 1.6 mm apart.

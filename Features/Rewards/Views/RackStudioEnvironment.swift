@@ -121,7 +121,14 @@ nonisolated enum RackStudioEnvironment {
     /// A linear float RGBA panorama for EnvironmentResource(equirectangular:), clamped.
     /// `yawDegrees` turns the studio by shifting columns, so the turn is in the pixels themselves
     /// and does not depend on how a renderer treats the light entity's transform.
-    static func panorama(_ radiance: Radiance, clamp: Float = radianceClamp, yawDegrees: Float = 0) -> CGImage? {
+    ///
+    /// `symmetric` averages the studio with its mirror image about the camera's view axis, so the
+    /// left and right sleeves (whose plate faces look opposite ways) are lit as mirror images. The
+    /// photo has one big soft box off to a side; unmirrored, one sleeve's plates read lighter.
+    /// Columns run right to left seen from inside (see RackRoomEnvironment.panorama), with column
+    /// 0 behind the viewer and the middle column ahead, so the mirror is a horizontal flip.
+    static func panorama(_ radiance: Radiance, clamp: Float = radianceClamp, yawDegrees: Float = 0,
+                         symmetric: Bool = true) -> CGImage? {
         let w = radiance.width, h = radiance.height
         let balance = whiteBalance(radiance, clamp: clamp)
         let shift = ((Int((yawDegrees / 360 * Float(w)).rounded()) % w) + w) % w
@@ -129,9 +136,12 @@ nonisolated enum RackStudioEnvironment {
         for y in 0..<h {
             for x in 0..<w {
                 let p = y * w + x, source = y * w + (x + shift) % w
-                pixels[p * 4] = min(clamp, radiance.rgb[source * 3] * balance.x)
-                pixels[p * 4 + 1] = min(clamp, radiance.rgb[source * 3 + 1] * balance.y)
-                pixels[p * 4 + 2] = min(clamp, radiance.rgb[source * 3 + 2] * balance.z)
+                let mirror = y * w + (w - 1 - x + shift) % w
+                for c in 0..<3 {
+                    let direct = min(clamp, radiance.rgb[source * 3 + c] * balance[c])
+                    let mirrored = min(clamp, radiance.rgb[mirror * 3 + c] * balance[c])
+                    pixels[p * 4 + c] = symmetric ? (direct + mirrored) / 2 : direct
+                }
             }
         }
         let data = pixels.withUnsafeBufferPointer { Data(buffer: $0) }
@@ -167,8 +177,11 @@ nonisolated enum RackStudioEnvironment {
         let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
         if let value = overrides["studioClamp"] { clamp = value }
         if let value = overrides["studioBake"] { yaw = value }
+        let symmetric = overrides["studioMirror"].map { $0 != 0 } ?? true
+        #else
+        let symmetric = true
         #endif
-        return panorama(radiance, clamp: clamp, yawDegrees: yaw)
+        return panorama(radiance, clamp: clamp, yawDegrees: yaw, symmetric: symmetric)
     }
 }
 
