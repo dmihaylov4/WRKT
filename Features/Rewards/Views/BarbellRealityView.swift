@@ -758,9 +758,33 @@ final class SceneState {
     @MainActor
     @discardableResult
     func loadPlateOntoBar(_ plate: EarnedPlate, rackSlot: Int) async -> Bool {
+        guard let load = beginLoadPlateOntoBar(plate, rackSlot: rackSlot) else { return false }
+        return await finishLoadPlateOntoBar(load)
+    }
+
+    /// A load started by beginLoadPlateOntoBar.
+    struct BarLoad {
+        let plateID: String
+        let entity: Entity
+        let mirror: ModelEntity
+        let offset: Float
+    }
+
+    private static let barLoadSteps: [(x: Float, y: Float, z: Float, duration: TimeInterval, timing: AnimationTimingFunction)] = [
+        (0.12, 0.22, 0.05, 0.42, .easeInOut),
+        (0, 0.035, 0, 0.18, .easeIn),
+        (0, 0, 0, 0.12, .easeOut)
+    ]
+
+    /// The synchronous start of a load: builds (or takes from the floor) the plate and its mirror,
+    /// makes it a bar plate and starts the first move of both in this frame. Never waits for a
+    /// face: a lathe plate whose lettering is not ready yet swings in with its body finish and
+    /// gets the lettering mid-flight. Returns nil where loadPlateOntoBar returns false.
+    @MainActor
+    func beginLoadPlateOntoBar(_ plate: EarnedPlate, rackSlot: Int) -> BarLoad? {
         if let existing = entityMap[plate.id] {
-            guard existing.components[PlateRoleComponent.self]?.role == .floor else { return false }
-            if case .draggingPlate(let dragging, _, _) = dragPhase, dragging === existing { return false }
+            guard existing.components[PlateRoleComponent.self]?.role == .floor else { return nil }
+            if case .draggingPlate(let dragging, _, _) = dragPhase, dragging === existing { return nil }
             if showcaseEntity === existing {
                 showcaseEntity = nil
                 showcaseToken = nil
@@ -790,7 +814,7 @@ final class SceneState {
         }
         RackOpenTrace.mark("load.entity")
         let slotOffsets: [Float] = [0.600, 0.652, 0.704, 0.756]
-        guard slotOffsets.indices.contains(rackSlot), let entity = entityMap[plate.id] else { return false }
+        guard slotOffsets.indices.contains(rackSlot), let entity = entityMap[plate.id] else { return nil }
         let offset = slotOffsets[rackSlot]
 
         // Everything below moves in bar space, the way the swipe does: a move set up relative to
@@ -810,30 +834,41 @@ final class SceneState {
         barMirrorMap[plate.id] = mirror
         RackOpenTrace.mark("load.mirror")
         RackOpenTrace.markNextFrame("load.moving", scene: entity.scene)
+        let load = BarLoad(plateID: plate.id, entity: entity, mirror: mirror, offset: offset)
+        if !isReduceMotionEnabled { moveBarLoad(load, step: 0) }
+        return load
+    }
 
+    /// Starts one step of the swing on the plate and its mirror together (the same frame).
+    @MainActor
+    private func moveBarLoad(_ load: BarLoad, step: Int) {
+        let target = Self.barLoadSteps[step]
+        for (mover, sign) in [(load.entity, Float(1)), (load.mirror as Entity, Float(-1))] {
+            mover.move(
+                to: Transform(scale: mover.scale, rotation: plateBarOrientation,
+                              translation: SIMD3(sign * (load.offset + target.x), target.y, target.z)),
+                relativeTo: barAnchor, duration: target.duration, timingFunction: target.timing
+            )
+        }
+    }
+
+    /// The rest of a load: the remaining swing steps, seating and the clink.
+    @MainActor
+    @discardableResult
+    func finishLoadPlateOntoBar(_ load: BarLoad) async -> Bool {
+        let (entity, mirror, offset) = (load.entity, load.mirror, load.offset)
         if !isReduceMotionEnabled {
-            let steps: [(SIMD3<Float>, TimeInterval, AnimationTimingFunction)] = [
-                (SIMD3(offset + 0.12, 0.22, 0.05), 0.42, .easeInOut),
-                (SIMD3(offset, 0.035, 0), 0.18, .easeIn),
-                (SIMD3(offset, 0, 0), 0.12, .easeOut)
-            ]
-            for (target, duration, timing) in steps {
+            for step in Self.barLoadSteps.indices {
                 // Taken off again mid-swing: the release owns the plate now.
-                guard barMirrorMap[plate.id] === mirror else { return false }
-                for (mover, sign) in [(entity, Float(1)), (mirror as Entity, Float(-1))] {
-                    mover.move(
-                        to: Transform(scale: mover.scale, rotation: plateBarOrientation,
-                                      translation: SIMD3(sign * target.x, target.y, target.z)),
-                        relativeTo: barAnchor, duration: duration, timingFunction: timing
-                    )
-                }
-                try? await Task.sleep(for: .milliseconds(Int(duration * 1000)))
+                guard barMirrorMap[load.plateID] === mirror else { return false }
+                if step > 0 { moveBarLoad(load, step: step) }
+                try? await Task.sleep(for: .milliseconds(Int(Self.barLoadSteps[step].duration * 1000)))
             }
         }
         // The last move's final frame can land a frame late: seat both now and once more after it.
         for pass in 0..<2 {
             if pass == 1 { try? await Task.sleep(for: .milliseconds(50)) }
-            guard barMirrorMap[plate.id] === mirror else { return false }
+            guard barMirrorMap[load.plateID] === mirror else { return false }
             for (seated, x) in [(entity, offset), (mirror as Entity, -offset)] {
                 seated.stopAllAnimations(recursive: false)
                 seated.position = SIMD3(x, 0, 0)
