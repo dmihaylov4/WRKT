@@ -218,10 +218,9 @@ struct CutRackHost: View {
             guard let plate = rackedPlates.first(where: { $0.id == plateID }) else { continue }
             Task { @MainActor in
                 RackOpenTrace.mark("load.task")
-                if state.plateStyle == .lathe {
-                    // Both faces: as loaded, and the mirror's blank one a later reload builds.
-                    await prepareLathePlates(latheFirstFrameRequests([plate]) + latheLaterRequests([plate]))
-                } else if plate.tierID != 7 {
+                // Lathe plates never wait for their faces (the lettering arrives mid-flight);
+                // legacy plates need their tier's material first.
+                if state.plateStyle != .lathe, plate.tierID != 7 {
                     await cacheMaterial(tierID: plate.tierID)
                 }
                 RackOpenTrace.mark("load.prepared")

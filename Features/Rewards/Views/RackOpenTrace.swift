@@ -29,6 +29,12 @@ nonisolated enum RackWork: String, CaseIterable, Sendable {
     case roomPanoramasBuilt
     /// A plate thumbnail rendered with RealityKit (PlateSnapshotService).
     case thumbnailsRendered
+    /// A lathe plate built before its face was ready, with its body finish on the face.
+    case facePlaceholdersShown
+    /// A ready face put on plates built with the placeholder.
+    case faceSwaps
+    /// A face dropped from the in-memory cache (LatheFaceCache).
+    case faceTexturesEvicted
 }
 
 /// Process-wide counts of RackWork. One locked increment per expensive call.

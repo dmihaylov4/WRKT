@@ -618,29 +618,102 @@ private func latheSlotMaterials(for tier: PlateTier) -> (body: PhysicallyBasedMa
 }
 
 @MainActor
-private func latheFaceMaterial(for spec: LatheFaceSpec, tier: PlateTier) -> PhysicallyBasedMaterial {
+/// The face slot's lettered material, or nil while its textures are not in memory. Never draws.
+private func latheFaceMaterial(for spec: LatheFaceSpec, tier: PlateTier) -> PhysicallyBasedMaterial? {
     if let cached = _latheFaceMaterialCache[spec] { return cached }
+    guard let textures = _latheFaceTextureCache[spec] else { return nil }
     var material = latheMaterial(LatheFinish.body(for: tier), detail: false)
-    if let textures = latheFaceTextures(for: spec) {
-        material.baseColor = .init(tint: .white, texture: latheTexture(textures.color))
-        material.normal = .init(texture: latheTexture(textures.normal))
-        material.roughness = .init(scale: 1, texture: latheTexture(textures.roughness))
-    }
+    material.baseColor = .init(tint: .white, texture: latheTexture(textures.color))
+    material.normal = .init(texture: latheTexture(textures.normal))
+    material.roughness = .init(scale: 1, texture: latheTexture(textures.roughness))
     _latheFaceMaterialCache[spec] = material
     return material
 }
 
+/// The face slot until its lettering is ready: the plate's own body finish, so the plate has its
+/// true colour and shine from its first frame and only the lettering arrives later.
+@MainActor private var _lathePlaceholderFaceCache: [Int: PhysicallyBasedMaterial] = [:]
+
 @MainActor
-private func latheFaceTextures(for spec: LatheFaceSpec, images: LatheFaceArt.Images? = nil) -> (color: TextureResource, normal: TextureResource, roughness: TextureResource)? {
-    if let cached = _latheFaceTextureCache[spec] { return cached }
-    guard let images = images ?? countedFaceImages(for: spec),
-          let color = try? TextureResource(image: images.color, options: .init(semantic: .color)),
-          let normal = try? TextureResource(image: images.normal, options: .init(semantic: .normal)),
-          let roughness = try? TextureResource(image: images.roughness, options: .init(semantic: .raw)) else { return nil }
-    RackWorkCounters.add(.faceTexturesUploaded)
-    _latheFaceTextureCache[spec] = (color, normal, roughness)
-    return (color, normal, roughness)
+private func lathePlaceholderFace(for tier: PlateTier) -> PhysicallyBasedMaterial {
+    if let cached = _lathePlaceholderFaceCache[tier.id] { return cached }
+    let material = latheMaterial(LatheFinish.body(for: tier), detail: false)
+    _lathePlaceholderFaceCache[tier.id] = material
+    return material
 }
+
+// MARK: - Face cache bound
+
+/// The in-memory face textures are bounded: at most `limit` faces (about 4 MB of GPU memory each:
+/// three 512 px RGBA textures with mipmaps), least recently used first, but a face used by a plate
+/// that still exists is never evicted (so the bound can be exceeded by plates in the scene).
+@MainActor
+enum LatheFaceCache {
+    static var limit = 20
+    static let bytesPerFace = 3 * 512 * 512 * 4 * 4 / 3
+
+    fileprivate final class User {
+        weak var entity: ModelEntity?
+        init(_ entity: ModelEntity) { self.entity = entity }
+    }
+    fileprivate static var users: [LatheFaceSpec: [User]] = [:]
+    fileprivate static var lastUse: [LatheFaceSpec: UInt64] = [:]
+    fileprivate static var clock: UInt64 = 0
+    /// Faces being prepared for plates already built with the placeholder.
+    fileprivate static var pending: [LatheFaceSpec: Task<Void, Never>] = [:]
+
+    static var count: Int { _latheFaceTextureCache.count }
+    static func contains(_ spec: LatheFaceSpec) -> Bool { _latheFaceTextureCache[spec] != nil }
+
+    static func touch(_ spec: LatheFaceSpec) {
+        clock += 1
+        lastUse[spec] = clock
+    }
+
+    fileprivate static func register(_ entity: ModelEntity, for spec: LatheFaceSpec) {
+        users[spec, default: []].removeAll { $0.entity == nil }
+        users[spec, default: []].append(User(entity))
+        touch(spec)
+    }
+
+    static func isInUse(_ spec: LatheFaceSpec) -> Bool {
+        users[spec]?.contains { $0.entity != nil } ?? false
+    }
+
+    /// Drops least recently used faces nobody uses until the cache fits the limit.
+    static func evictIfNeeded() {
+        guard _latheFaceTextureCache.count > limit else { return }
+        let candidates = _latheFaceTextureCache.keys
+            .filter { !isInUse($0) && pending[$0] == nil }
+            .sorted { (lastUse[$0] ?? 0) < (lastUse[$1] ?? 0) }
+        for spec in candidates where _latheFaceTextureCache.count > limit {
+            _latheFaceTextureCache[spec] = nil
+            _latheFaceMaterialCache[spec] = nil
+            users[spec] = nil
+            lastUse[spec] = nil
+            RackWorkCounters.add(.faceTexturesEvicted)
+        }
+    }
+
+    /// The distinct faces a set of plates shows (identical plates share one face: its textures
+    /// and material), counting each plate's lettered face and its mirror's blank face. Multiply
+    /// by bytesPerFace for the texture memory a scene with all of them needs.
+    static func distinctFaces(_ plates: [EarnedPlate]) -> Int {
+        var specs = Set<LatheFaceSpec>()
+        for request in latheFirstFrameRequests(plates) + latheLaterRequests(plates) {
+            guard let tier = PlateTier.all.first(where: { $0.id == request.tierID }) else { continue }
+            specs.insert(latheFaceSpec(tier: tier, weightKg: request.weightKg, engravingText: request.engravingText,
+                                       projection: request.projection, showEngravings: request.showEngravings))
+        }
+        return specs.count
+    }
+
+    /// Waits until every face being prepared for a built plate is on its plate (tests).
+    static func waitForPendingFaces() async {
+        while let task = pending.values.first { await task.value }
+    }
+}
+
 
 /// LatheFaceArt.images, counted.
 nonisolated func countedFaceImages(for spec: LatheFaceSpec) -> LatheFaceArt.Images? {
@@ -685,9 +758,33 @@ func prepareLathePlates(_ requests: [LathePlateRequest], priority: TaskPriority 
                                  projection: request.projection, showEngravings: request.showEngravings)
         if _latheFaceTextureCache[spec] == nil, !pending.contains(spec) { pending.append(spec) }
     }
-    guard !(pending.isEmpty && profiles.isEmpty && tiers.isEmpty) else { return }
+    // A face another call is already preparing is waited for, not drawn twice.
+    var others: [Task<Void, Never>] = []
+    pending.removeAll { spec in
+        guard let running = _latheFacesInFlight[spec] else { return false }
+        others.append(running)
+        return true
+    }
+    guard !(pending.isEmpty && profiles.isEmpty && tiers.isEmpty) else {
+        for running in others { await running.value }
+        return
+    }
+    let specs = pending, meshProfiles = profiles, normalSurfaces = surfaces, slotTiers = tiers
+    let job = Task { @MainActor in
+        await prepareLatheWork(specs: specs, profiles: meshProfiles, surfaces: normalSurfaces, tiers: slotTiers, priority: priority)
+    }
+    for spec in specs { _latheFacesInFlight[spec] = job }
+    await job.value
+    for spec in specs where _latheFacesInFlight[spec] == job { _latheFacesInFlight[spec] = nil }
+    for running in others { await running.value }
+}
+
+@MainActor private var _latheFacesInFlight: [LatheFaceSpec: Task<Void, Never>] = [:]
+
+@MainActor
+private func prepareLatheWork(specs: [LatheFaceSpec], profiles meshProfiles: [LatheProfile], surfaces normalSurfaces: [LatheSurface],
+                              tiers: [PlateTier], priority: TaskPriority) async {
     RackOpenTrace.mark("lathe.draw")
-    let specs = pending, meshProfiles = profiles, normalSurfaces = surfaces
     let work = await Task.detached(priority: priority) { () -> LathePreparedWork in
         async let faces = latheFaceImages(for: specs)
         let meshes = meshProfiles.map { (profile: $0, data: LatheMeshData.revolve($0)) }
@@ -705,14 +802,21 @@ func prepareLathePlates(_ requests: [LathePlateRequest], priority: TaskPriority 
         _ = latheSlotMaterials(for: tier)
     }
     for (spec, images) in work.faces where _latheFaceTextureCache[spec] == nil {
-        // The async initialiser leaves the main thread while RealityKit imports the image.
-        guard let color = try? await TextureResource(image: images.color, options: .init(semantic: .color)),
-              let normal = try? await TextureResource(image: images.normal, options: .init(semantic: .normal)),
-              let roughness = try? await TextureResource(image: images.roughness, options: .init(semantic: .raw)),
+        // Each upload still costs the main actor 10 to 20 ms (RealityKit imports the image and
+        // builds its mipmaps there): one per run loop turn, so a plate in flight never hitches.
+        func upload(_ image: CGImage, _ semantic: TextureResource.Semantic) async -> TextureResource? {
+            try? await Task.sleep(for: .milliseconds(1))
+            return try? await TextureResource(image: image, options: .init(semantic: semantic))
+        }
+        guard let color = await upload(images.color, .color),
+              let normal = await upload(images.normal, .normal),
+              let roughness = await upload(images.roughness, .raw),
               _latheFaceTextureCache[spec] == nil else { continue }
         RackWorkCounters.add(.faceTexturesUploaded)
         _latheFaceTextureCache[spec] = (color, normal, roughness)
+        LatheFaceCache.touch(spec)
     }
+    LatheFaceCache.evictIfNeeded()
     RackOpenTrace.mark("lathe.uploaded")
 }
 
@@ -783,9 +887,35 @@ func makeLathePlateVisual(tier: PlateTier, weightKg: Double, engravingText: Stri
     let slots = latheSlotMaterials(for: tier)
     let spec = latheFaceSpec(tier: tier, weightKg: weightKg, engravingText: engravingText,
                              projection: projection, showEngravings: showEngravings)
-    let face = latheFaceMaterial(for: spec, tier: tier)
-    let entity = ModelEntity(mesh: mesh, materials: [slots.body, slots.hub, face])
+    let ready = latheFaceMaterial(for: spec, tier: tier)
+    let entity = ModelEntity(mesh: mesh, materials: [slots.body, slots.hub, ready ?? lathePlaceholderFace(for: tier)])
     entity.name = "lathePlate"
     entity.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(0, 0, 1))
+    LatheFaceCache.register(entity, for: spec)
+    if ready == nil {
+        // Never draw on the main thread: the plate shows its body finish now and its lettering
+        // as soon as the face is read from disk or drawn.
+        RackWorkCounters.add(.facePlaceholdersShown)
+        let request = LathePlateRequest(tierID: tier.id, weightKg: weightKg, engravingText: engravingText,
+                                        projection: projection, showEngravings: showEngravings)
+        applyLatheFaceWhenReady(spec, tier: tier, request: request)
+    }
     return entity
+}
+
+/// Prepares one face in the background and puts it on every plate built with the placeholder.
+@MainActor
+private func applyLatheFaceWhenReady(_ spec: LatheFaceSpec, tier: PlateTier, request: LathePlateRequest) {
+    guard LatheFaceCache.pending[spec] == nil else { return }
+    LatheFaceCache.pending[spec] = Task { @MainActor in
+        await prepareLathePlates([request])
+        defer { LatheFaceCache.pending[spec] = nil }
+        guard let material = latheFaceMaterial(for: spec, tier: tier) else { return }
+        for user in LatheFaceCache.users[spec] ?? [] {
+            guard let entity = user.entity, var materials = entity.model?.materials, materials.count == 3 else { continue }
+            materials[2] = material
+            entity.model?.materials = materials
+            RackWorkCounters.add(.faceSwaps)
+        }
+    }
 }
