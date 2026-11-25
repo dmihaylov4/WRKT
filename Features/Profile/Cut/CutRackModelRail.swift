@@ -2,13 +2,14 @@
 //  CutRackModelRail.swift
 //  WRKT
 //
-//  The rail tray of the Cut rack, as plain values: plates standing on edge on a steel floor rail
-//  under the scene, one group per look (CutRackLogic.lookGroups, so the grouping, families and
-//  order are the card tray's), the weight and count stamped on the rail under each group, a lime
-//  dashed slot for each copy on the bar (or swinging onto it) and a white one for each copy lying
-//  on the floor after "Drop all". Also the lifted plate (a group shown face on, with its load and
-//  take-off actions), the readout that flashes over the scene when the load changes, the slim
-//  footer line, and the switch between this tray and the card tray.
+//  The rail tray of the Cut rack, as plain values: the earned plates standing in a row on the
+//  room's floor at the foot of the scene, faces toward the viewer, one group per look
+//  (CutRackLogic.lookGroups, so the grouping, families and order are the card tray's). Identical
+//  copies stand as one plate with up to two copies showing behind it and a stamped count; a look
+//  whose copies are all on the bar (or all on the floor after "Drop all") stays in its place as a
+//  dim ghost with a tag. Also the lifted plate (a group shown face on, with its load and take-off
+//  actions), the readout that flashes over the scene when the load changes, the slim footer line,
+//  and the switch between this tray and the card tray.
 //
 
 import Foundation
@@ -42,9 +43,10 @@ enum CutRackTrayStyle: String, Equatable, Sendable {
     }
 }
 
-/// What a tap on a rail group does. `.preview` lifts the plate out face on and a second tap on
-/// the same group (or the Load button) loads it; holding loads at once. `.load` loads on a tap,
-/// as the card tray does, and holding lifts the plate out. VOLIA_RACK_RAIL_TAP=load|preview.
+/// What a tap on a rail group does. `.load` (the default) loads on a tap, as the card tray does,
+/// and holding lifts the plate out with its details: the row shows each plate's face, so a tap
+/// already knows which plate it takes. `.preview` lifts the plate out first and a second tap on
+/// the same group (or the Load button) loads it. VOLIA_RACK_RAIL_TAP=load|preview.
 enum CutRackRailTap: String, Equatable, Sendable {
     case preview
     case load
@@ -52,14 +54,14 @@ enum CutRackRailTap: String, Equatable, Sendable {
     static let overrideKey = "VOLIA_RACK_RAIL_TAP"
 
     static func resolve(environment: [String: String]) -> CutRackRailTap {
-        environment[overrideKey].flatMap(CutRackRailTap.init(rawValue:)) ?? .preview
+        environment[overrideKey].flatMap(CutRackRailTap.init(rawValue:)) ?? .load
     }
 
     static var current: CutRackRailTap {
         #if DEBUG
         return resolve(environment: ProcessInfo.processInfo.environment)
         #else
-        return .preview
+        return .load
         #endif
     }
 }
@@ -77,7 +79,7 @@ struct CutRackRailFacts {
     var inFlight: Set<String> = []
     /// Stored plates lying in the room after "Drop all": their slots on the rail stand empty.
     var onFloor: Set<String> = []
-    var tap: CutRackRailTap = .preview
+    var tap: CutRackRailTap = .load
 }
 
 // MARK: - Model
@@ -104,16 +106,19 @@ struct CutRackRailModel: Equatable {
         var loaded: Int
         /// Copies lying on the floor after "Drop all".
         var onFloor: Int
-        /// Plates drawn standing (stored copies, capped so a pile stays short).
-        var platesShown: Int
-        /// Lime dashed slots drawn, one per loaded copy.
-        var loadedSlots: Int
-        /// White dashed slots drawn, one per copy on the floor (capped).
-        var floorSlots: Int
-        /// The weight stamped on the rail: "20", "2.5".
+        /// Copies showing behind the front plate: one per extra copy in the rack, at most two, so
+        /// a pile of 63 reads by its count, not by its depth.
+        var copiesBehind: Int
+        /// No copy stands in the rack: the group shows as a dim ghost of its face.
+        var isGhost: Bool
+        /// The weight: "20", "2.5" (with `unit` under a plate whose face does not show it).
         var numeral: String
-        /// "×12" stamped beside the numeral when more than one copy stands in the rack.
+        /// "×12" stamped on the plate when more than one copy stands in the rack.
         var count: String?
+        /// "On bar", "2 on bar": copies of this look on the bar, as a lime tag.
+        var onBarTag: String?
+        /// "On floor", "3 on floor": copies lying in the room, as a quiet tag.
+        var onFloorTag: String?
         /// The tier name, or the engraving when the plate has one.
         var name: String
         /// "Red Bumper, 20 kilograms, 10 in storage, 2 on the bar"
@@ -128,7 +133,7 @@ struct CutRackRailModel: Equatable {
     }
 
     var sections: [Section]
-    /// The unit stamped once at the rail's start: "kg".
+    /// The user's unit: "kg".
     var unit: String
     /// The footer's line: "87 in storage", "16 on the floor".
     var status: String
@@ -136,6 +141,8 @@ struct CutRackRailModel: Equatable {
     var hint: String?
     /// Shown instead of the rail when no plate has been earned.
     var emptyRail: String?
+    /// The families' names over the row; off while dropped plates lie on the floor in front of it.
+    var showsFamilyTitles = true
 
     var groups: [Group] { sections.flatMap(\.groups) }
 
@@ -173,10 +180,8 @@ struct CutRackReadoutFlash: Equatable {
 // MARK: - Logic
 
 enum CutRackRailLogic {
-    /// Standing plates drawn per group; the count stamp says how many there are.
-    static let maxPlatesShown = 6
-    /// Floor slots drawn per group.
-    static let maxFloorSlots = 4
+    /// Copies drawn behind a group's front plate.
+    static let maxCopiesBehind = 2
 
     static func model(_ facts: CutRackRailFacts, locale: Locale = .current) -> CutRackRailModel {
         let plates = facts.plates.map { plate -> CutRackPlateFacts in
@@ -201,7 +206,8 @@ enum CutRackRailLogic {
             unit: facts.unit.rawValue,
             status: status(stored: stored, onFloor: floor, phase: facts.playPhase),
             hint: hint(facts, loaded: plates.filter(\.isLoaded).count),
-            emptyRail: plates.isEmpty ? CutRackLogic.emptyTrayLine : nil
+            emptyRail: plates.isEmpty ? CutRackLogic.emptyTrayLine : nil,
+            showsFamilyTitles: facts.playPhase == .idle
         )
     }
 
@@ -230,11 +236,12 @@ enum CutRackRailLogic {
             stored: stored,
             loaded: loaded,
             onFloor: floor,
-            platesShown: min(stored, maxPlatesShown),
-            loadedSlots: min(loaded, CutRackLogic.barCapacity),
-            floorSlots: min(floor, maxFloorSlots),
+            copiesBehind: min(max(0, stored - 1), maxCopiesBehind),
+            isGhost: stored == 0,
             numeral: CutRackLogic.number(unit.displayValue(first.weightKg), locale: locale),
             count: stored > 1 ? "×\(stored)" : nil,
+            onBarTag: loaded == 0 ? nil : (stored == 0 && loaded == 1 ? "On bar" : "\(loaded) on bar"),
+            onFloorTag: floor == 0 ? nil : (stored == 0 && loaded == 0 && floor == 1 ? "On floor" : "\(floor) on floor"),
             name: CutRackLogic.name(first),
             accessibilityLabel: parts.joined(separator: ", ")
         )
@@ -257,8 +264,8 @@ enum CutRackRailLogic {
         if facts.playPhase != .idle { return "Drag a plate to a sleeve end to load it." }
         guard loaded == 0 else { return nil }
         switch facts.tap {
-        case .preview: return "Tap a plate on the rack to lift it out."
-        case .load: return "Tap a plate on the rack to load it."
+        case .preview: return "Tap a plate to lift it out."
+        case .load: return "Tap a plate to load it. Hold it to look closer."
         }
     }
 

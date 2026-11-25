@@ -2,15 +2,17 @@
 //  CutRackViewRail.swift
 //  WRKT
 //
-//  The Cut rack ("Your bar") with the storage rail instead of the card tray. The back button,
-//  title and Edit on one row; the live 3D bar takes every spare point of height, with the hint
-//  over its top edge and a short readout ("+40 / 190 kg on the bar") that flashes there when the
-//  load changes and fades; under it a steel floor rail with the plates standing on edge, one group
-//  per look with its weight and count stamped on the rail, lime dashed slots for the copies on the
-//  bar and white ones for copies on the floor, family sections divided by uprights; a slim footer
-//  with the storage line, "Drop 16" or "Tidy up", and "All 90". A tapped group lifts out and shows
-//  its face over the scene's lower edge with "Load onto the bar" and "Take off the bar". Plain
-//  values and closures only: the plate pictures come from the host.
+//  The Cut rack ("Your bar") with the plates standing in the room instead of the card tray. The
+//  back button, title and Edit on one row; the live 3D bar takes every point of height down to
+//  the footer, and the earned plates stand on its floor in a row along the bottom, faces toward
+//  the viewer, each grounded by a soft contact shadow, one per look with up to two copies behind
+//  it and a stamped count. The floor fades to black only below the plates' feet. A look whose
+//  copies are all on the bar (or on the floor after "Drop all") stays as a dim ghost with a tag.
+//  The hint, and a short readout ("+40 / 190 kg on the bar") when the load changes, sit over the
+//  scene's top. A held plate (or a tapped one, with VOLIA_RACK_RAIL_TAP=preview) lifts out over
+//  the row with its face, name, weight and load or take-off; the bar above stays in view. Under
+//  the scene a slim footer: the storage line, "Drop 16" or "Tidy up", and "All 90". Plain values
+//  and closures only: the plate pictures come from the host.
 //
 
 import SwiftUI
@@ -28,15 +30,15 @@ struct CutRackRailActions {
     var closeLift: () -> Void
 }
 
-struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
+struct CutRackRailScreen<SceneContent: View, Stand: View, Face: View>: View {
     let model: CutRackModel
     let rail: CutRackRailModel
     let lifted: CutRackRailPreviewModel?
     let tapMode: CutRackRailTap
     let actions: CutRackRailActions
     @ViewBuilder var scene: () -> SceneContent
-    /// One plate of a group standing on edge.
-    @ViewBuilder var edge: (CutRackRailModel.Group) -> Edge
+    /// A group's plate standing on the floor, face toward the viewer.
+    @ViewBuilder var stand: (CutRackRailModel.Group) -> Stand
     /// The lifted group's plate, face on.
     @ViewBuilder var face: (CutRackRailModel.Group) -> Face
     /// Runs while a group is on screen (the host prepares its next plate's faces).
@@ -46,33 +48,39 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flash: CutRackReadoutFlash?
     @State private var flashToken = 0
+    @State private var width: CGFloat = 390
+
+    /// A plate's drawn side: about four plates across the screen, 90 to 128 points (the plate's
+    /// face is about nine tenths of it).
+    private var plateSide: CGFloat { min(128, max(90, (width / 3.6).rounded())) }
 
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
-                // Large text: the page scrolls, the scene keeps a fixed height and the lifted
-                // plate gets its own place under it instead of covering it.
+                // Large text: the page scrolls, the scene keeps a fixed height with the plates on
+                // its floor, and the lifted plate and the hint get their own place under it.
                 ScrollView {
                     VStack(spacing: 0) {
                         top
-                        sceneArea(height: 300)
+                        sceneArea(height: 340)
                         if flash == nil, let hint = rail.hint {
                             hintText(hint).padding(.vertical, 10)
                         }
-                        if lifted != nil { liftPanel.padding(.horizontal, 12).padding(.bottom, 12) }
-                        railTray
+                        if lifted != nil { liftPanel.padding(.horizontal, 12).padding(.vertical, 12) }
+                        footer
                     }
                 }
             } else {
                 VStack(spacing: 0) {
                     top
                     sceneArea(height: nil)
-                    railTray
+                    footer
                 }
             }
         }
         .background(DS.Cut.Colors.background.ignoresSafeArea())
         .foregroundStyle(DS.Cut.Colors.textPrimary)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .onChange(of: model.totalKg) { old, new in showFlash(from: old, to: new) }
         .sensoryFeedback(.selection, trigger: lifted?.groupID) { _, new in new != nil }
     }
@@ -97,6 +105,7 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
                     .padding(.top, 12)
             }
         }
+        .padding(.bottom, 4)
     }
 
     /// The total is hidden at rest (the plates on the sleeves are the load); VoiceOver still
@@ -116,30 +125,51 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
             .accessibilityHint(Text("Bar, collars and room."))
     }
 
-    // MARK: Scene
+    // MARK: Scene and the row on its floor
 
     private func sceneArea(height: CGFloat?) -> some View {
-        scene()
+        let inline = height != nil
+        return scene()
             .accessibilityValue(Text(model.sceneAccessibilityValue))
-            .frame(maxWidth: .infinity, maxHeight: height == nil ? .infinity : nil)
+            .frame(maxWidth: .infinity, maxHeight: inline ? nil : .infinity)
             .frame(height: height)
-            .clipped()
-            .overlay { edgeFades.allowsHitTesting(false) }
-            .overlay(alignment: .top) { topOverlay(showsHint: height == nil).allowsHitTesting(false) }
+            .overlay { floorShade.allowsHitTesting(false) }
+            .overlay(alignment: .top) { topOverlay(showsHint: !inline).allowsHitTesting(false) }
             .overlay(alignment: .bottom) {
-                if height == nil, lifted != nil {
-                    liftPanel
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 8)
-                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                ZStack(alignment: .bottom) {
+                    plateRow
+                        .opacity(!inline && lifted != nil ? 0 : 1)
+                    if !inline, lifted != nil {
+                        liftPanel
+                            .padding(.horizontal, 10)
+                            .padding(.bottom, 6)
+                            .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
+                .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.86),
+                           value: lifted?.groupID)
             }
-            .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.86), value: lifted?.groupID)
-            .padding(.top, 2)
+            .clipped()
+    }
+
+    /// The room melts into the page at the top; at the bottom the floor darkens only below the
+    /// plates' feet, where their counts and tags sit.
+    private var floorShade: some View {
+        VStack(spacing: 0) {
+            LinearGradient(colors: [DS.Cut.Colors.background, DS.Cut.Colors.background.opacity(0)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 20)
+            Spacer(minLength: 0)
+            LinearGradient(stops: [
+                .init(color: DS.Cut.Colors.background.opacity(0), location: 0),
+                .init(color: DS.Cut.Colors.background.opacity(0.7), location: 0.4),
+                .init(color: DS.Cut.Colors.background, location: 1)
+            ], startPoint: .top, endPoint: .bottom)
+                .frame(height: CutRackPlateRow<Stand>.belowFeet + 4)
+        }
     }
 
     /// The hint, or the readout while it flashes. With large text the hint sits under the scene.
-    @ViewBuilder
     private func topOverlay(showsHint: Bool) -> some View {
         ZStack(alignment: .top) {
             if let flash {
@@ -148,9 +178,10 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.92, anchor: .top)))
             } else if showsHint, let hint = rail.hint {
                 hintText(hint)
-                    .background(CutCornerShape(corner: .bottomTrailing, cut: .points(10)).fill(DS.Cut.Colors.background.opacity(0.82)))
+                    .shadow(color: DS.Cut.Colors.background, radius: 6)
+                    .shadow(color: DS.Cut.Colors.background, radius: 2)
                     .padding(.horizontal, DS.Cut.Metrics.gutter)
-                    .padding(.top, 8)
+                    .padding(.top, 10)
                     .transition(.opacity)
             }
         }
@@ -160,35 +191,34 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
 
     private func hintText(_ hint: String) -> some View {
         Text(hint)
-                    .font(DS.Typography.custom(size: 15, weight: .medium, relativeTo: .callout))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .accessibilityAddTraits(.updatesFrequently)
+            .font(DS.Typography.custom(size: 15, weight: .medium, relativeTo: .callout))
+            .foregroundStyle(DS.Cut.Colors.textSecondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, DS.Cut.Metrics.gutter)
+            .accessibilityAddTraits(.updatesFrequently)
     }
 
+    /// The change in lime and the new total under it, in the display type, lifted off the room
+    /// by a soft shadow.
     private func flashView(_ flash: CutRackReadoutFlash) -> some View {
-        VStack(spacing: 0) {
+        VStack(spacing: -6) {
             Text(flash.delta)
-                .font(DS.Cut.Typography.condensed(size: 56, relativeTo: .largeTitle, monospacedDigits: true))
+                .font(DS.Cut.Typography.condensed(size: 64, relativeTo: .largeTitle, monospacedDigits: true))
                 .foregroundStyle(DS.Cut.Colors.lime)
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(flash.total)
                     .font(DS.Cut.Typography.condensed(size: 30, relativeTo: .title, monospacedDigits: true))
                 Text(flash.unit)
-                    .font(DS.Typography.custom(size: 15, weight: .semibold, relativeTo: .callout))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
+                    .font(DS.Cut.Typography.condensed(size: 17, weight: .bold, relativeTo: .callout))
+                    .textCase(.uppercase)
             }
         }
         .lineLimit(1)
         .minimumScaleFactor(0.6)
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-        .padding(.horizontal, 18)
-        .padding(.top, 2)
-        .padding(.bottom, 10)
-        .background(CutCornerShape(corner: .bottomTrailing, cut: .points(16)).fill(DS.Cut.Colors.background.opacity(0.82)))
+        .shadow(color: .black.opacity(0.9), radius: 14)
+        .shadow(color: .black.opacity(0.7), radius: 3)
         .padding(.top, 6)
         .accessibilityHidden(true)
     }
@@ -205,15 +235,19 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
         }
     }
 
-    private var edgeFades: some View {
-        VStack(spacing: 0) {
-            LinearGradient(colors: [DS.Cut.Colors.background, DS.Cut.Colors.background.opacity(0)],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 24)
-            Spacer(minLength: 0)
-            LinearGradient(colors: [DS.Cut.Colors.background.opacity(0), DS.Cut.Colors.background],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 28)
+    @ViewBuilder
+    private var plateRow: some View {
+        if let empty = rail.emptyRail {
+            Text(empty)
+                .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout))
+                .foregroundStyle(DS.Cut.Colors.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DS.Cut.Metrics.gutter)
+                .padding(.bottom, 16)
+        } else {
+            CutRackPlateRow(model: rail, side: plateSide, lifted: lifted?.groupID, tapMode: tapMode,
+                            actions: actions, groupShown: groupShown, stand: stand)
         }
     }
 
@@ -227,40 +261,26 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
         }
     }
 
-    // MARK: Rail
-
-    private var railTray: some View {
-        VStack(spacing: 0) {
-            if let empty = rail.emptyRail {
-                Text(empty)
-                    .font(DS.Typography.custom(size: 16, weight: .medium, relativeTo: .callout))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, DS.Cut.Metrics.gutter)
-                    .padding(.vertical, 16)
-            } else {
-                CutRackRail(model: rail, lifted: lifted?.groupID, tapMode: tapMode, actions: actions, groupShown: groupShown, edge: edge)
-            }
-            footer
-        }
-    }
+    // MARK: Footer
 
     private var footer: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 14) {
-                status.frame(maxWidth: .infinity, alignment: .leading)
-                footerActions
+        VStack(spacing: 0) {
+            Rectangle().fill(DS.Cut.Colors.hairline).frame(height: DS.Cut.Metrics.hairline)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 14) {
+                    status.frame(maxWidth: .infinity, alignment: .leading)
+                    footerActions
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    status
+                    footerActions
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                status
-                footerActions
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, DS.Cut.Metrics.gutter)
+            .padding(.top, 8)
+            .padding(.bottom, 6)
         }
-        .padding(.horizontal, DS.Cut.Metrics.gutter)
-        .padding(.top, 6)
-        .padding(.bottom, 8)
     }
 
     private var status: some View {
@@ -293,27 +313,32 @@ struct CutRackRailScreen<SceneContent: View, Edge: View, Face: View>: View {
     }
 }
 
-// MARK: - The rail
+// MARK: - The row
 
-/// The steel floor rail with every group standing on it, scrolling sideways.
-struct CutRackRail<Edge: View>: View {
+/// The plates standing on the floor in one row that scrolls sideways: a family's name stamped
+/// small over its first plate and a wider gap between families.
+struct CutRackPlateRow<Stand: View>: View {
     let model: CutRackRailModel
+    let side: CGFloat
     let lifted: String?
     let tapMode: CutRackRailTap
     let actions: CutRackRailActions
     var groupShown: (CutRackRailModel.Group) async -> Void = { _ in }
-    @ViewBuilder var edge: (CutRackRailModel.Group) -> Edge
+    @ViewBuilder var stand: (CutRackRailModel.Group) -> Stand
 
-    /// The rail's contents in order, flat so the stack can be lazy: only groups on screen draw
-    /// their plates and start their work.
+    /// Points under the plates' feet: the tags line and the bottom margin.
+    static var belowFeet: CGFloat { 34 }
+    /// How far a copy behind shows to the right and up, as a share of the plate.
+    static var copyOffset: CGFloat { 0.07 }
+
     private enum Item: Identifiable {
         case group(CutRackRailModel.Group, title: String?)
-        case upright(String)
+        case gap(String)
 
         var id: String {
             switch self {
             case .group(let group, _): return group.id
-            case .upright(let section): return "upright-" + section
+            case .gap(let section): return "gap-" + section
             }
         }
     }
@@ -321,105 +346,61 @@ struct CutRackRail<Edge: View>: View {
     private var items: [Item] {
         var items: [Item] = []
         for (index, section) in model.sections.enumerated() {
-            if index > 0 { items.append(.upright(section.id)) }
+            if index > 0 { items.append(.gap(section.id)) }
             for (position, group) in section.groups.enumerated() {
-                items.append(.group(group, title: position == 0 ? section.title : nil))
+                items.append(.group(group, title: position == 0 && model.showsFamilyTitles ? section.title : nil))
             }
         }
         return items
     }
 
-    @ScaledMetric(relativeTo: .title3) private var railHeight: CGFloat = 30
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// A plate's drawn height (a 0.22 m bumper) and width, from the sprite's framing.
-    static var plateHeight: CGFloat { 78 }
-    static var plateWidth: CGFloat {
-        plateHeight * RackRailSpriteService.EdgeFrame.size.width / RackRailSpriteService.EdgeFrame.size.height
-    }
-    /// The step between copies standing together: about a bumper's thickness at this scale.
-    static var step: CGFloat { 8 }
-
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .bottom, spacing: 0) {
-                Text(model.unit)
-                    .font(DS.Cut.Typography.condensed(size: 15, weight: .bold, relativeTo: .footnote))
-                    .textCase(.uppercase)
-                    .foregroundStyle(DS.Cut.Colors.textTertiary)
-                    .frame(height: railHeight)
-                    .padding(.leading, 16)
-                    .padding(.trailing, 4)
-                    .accessibilityHidden(true)
-                LazyHStack(alignment: .bottom, spacing: 0) {
-                    ForEach(items) { item in
-                        switch item {
-                        case .group(let group, let title):
-                            groupView(group)
-                                .padding(.top, 22)
-                                .overlay(alignment: .topLeading) {
-                                    if let title { sectionTitle(title) }
-                                }
-                        case .upright:
-                            upright
-                        }
+            LazyHStack(alignment: .bottom, spacing: -side * 0.06) {
+                ForEach(items) { item in
+                    switch item {
+                    case .group(let group, let title):
+                        groupView(group)
+                            .overlay(alignment: .topLeading) {
+                                if let title { familyTitle(title) }
+                            }
+                    case .gap:
+                        Color.clear.frame(width: side * 0.32, height: 1).accessibilityHidden(true)
                     }
                 }
-                Color.clear.frame(width: 16, height: railHeight)
             }
-            .background(alignment: .bottom) { steel.frame(height: railHeight) }
-            .padding(.top, 4)
+            .padding(.horizontal, 12)
+            .padding(.top, 20)
         }
-        // A horizontal scroll view takes every spare point of height; the rail keeps its own,
-        // so the scene gets the rest.
+        // A horizontal scroll view takes every spare point of height; the row keeps its own, so
+        // the room above stays the scene's.
         .fixedSize(horizontal: false, vertical: true)
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
     }
 
-    /// The rail: a lit top edge, brushed steel, a dark underside.
-    private var steel: some View {
-        VStack(spacing: 0) {
-            Rectangle().fill(DS.Cut.Colors.hairlineStrong).frame(height: 1)
-            LinearGradient(colors: [DS.Cut.SheetLevel.nested.surface, DS.Cut.SheetLevel.base.surface],
-                           startPoint: .top, endPoint: .bottom)
-            Rectangle().fill(Color.black).frame(height: 1)
-        }
-    }
-
-    /// The upright between two family sections, standing on the rail.
-    private var upright: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(LinearGradient(colors: [DS.Cut.Colors.hairlineStrong, DS.Cut.SheetLevel.nested.control],
-                                     startPoint: .leading, endPoint: .trailing))
-                .frame(width: 4, height: Self.plateHeight * 0.62)
-                .overlay(alignment: .top) { Rectangle().fill(DS.Cut.Colors.hairlineStrong).frame(height: 1) }
-            Color.clear.frame(width: 4, height: railHeight)
-        }
-        .padding(.horizontal, 10)
-        .accessibilityHidden(true)
-    }
-
-    /// The section's name, stamped small over its first group.
-    private func sectionTitle(_ title: String) -> some View {
+    /// The family's name, stamped small over its first plate.
+    private func familyTitle(_ title: String) -> some View {
         Text(title)
-            .font(DS.Typography.custom(size: 13, weight: .semibold, relativeTo: .footnote))
+            .font(DS.Cut.Typography.condensed(size: 15, weight: .bold, relativeTo: .footnote))
             .textCase(.uppercase)
             .foregroundStyle(DS.Cut.Colors.textSecondary)
+            .shadow(color: .black, radius: 4)
             .lineLimit(1)
             .fixedSize()
-            .padding(.leading, 8)
+            .offset(x: 6, y: -18)
             .accessibilityAddTraits(.isHeader)
     }
 
     private func groupView(_ group: CutRackRailModel.Group) -> some View {
         let isLifted = lifted == group.id
-        return VStack(spacing: 0) {
-            stack(group, lifted: isLifted)
-            stamp(group, lifted: isLifted)
-                .frame(height: railHeight)
+        let behind = CGFloat(group.copiesBehind) * side * Self.copyOffset
+        return VStack(spacing: 2) {
+            plates(group)
+                .frame(width: side + behind, height: side + behind * 0.25, alignment: .bottomLeading)
+            tags(group)
+                .frame(height: Self.belowFeet - 6, alignment: .top)
         }
-        .padding(.horizontal, 8)
+        .padding(.bottom, 4)
         .contentShape(Rectangle())
         .task(id: group.nextToLoad) { await groupShown(group) }
         .onTapGesture { actions.tap(group.id) }
@@ -439,75 +420,93 @@ struct CutRackRail<Edge: View>: View {
             return group.nextToLoad != nil ? "Loads one onto the bar." : "Puts the plate back."
         case .load:
             if group.nextToLoad != nil { return "Loads one onto the bar." }
-            return group.nextToUnload != nil ? "Takes one off the bar." : "Shows the plate's face."
+            return group.nextToUnload != nil ? "Takes one off the bar." : "Shows the plate."
         }
     }
 
-    /// The plates standing together, then a lime dashed slot for each copy on the bar and a white
-    /// one for each on the floor, at the front of the stack where those plates stood.
-    private func stack(_ group: CutRackRailModel.Group, lifted: Bool) -> some View {
-        let count = group.platesShown + group.loadedSlots + group.floorSlots
-        let width = Self.plateWidth + CGFloat(max(0, count - 1)) * Self.step
-        return ZStack(alignment: .bottomLeading) {
-            ForEach(0..<group.platesShown, id: \.self) { index in
-                edge(group)
-                    .frame(width: Self.plateWidth, height: Self.plateHeight)
-                    .offset(x: CGFloat(index) * Self.step,
-                            y: lifted && !reduceMotion && index == group.platesShown - 1 ? -10 : 0)
+    /// The front plate with up to two copies behind it, each grounded by a soft shadow; a ghost
+    /// when no copy stands here.
+    private func plates(_ group: CutRackRailModel.Group) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            contactShadow
+            ForEach((0..<group.copiesBehind).reversed(), id: \.self) { index in
+                let step = CGFloat(index + 1) * side * Self.copyOffset
+                plate(group)
+                    .brightness(-0.12 * Double(index + 1))
+                    .offset(x: step, y: -step * 0.25)
             }
-            ForEach(0..<group.loadedSlots, id: \.self) { index in
-                slot(lime: true)
-                    .offset(x: slotX(group, index))
+            plate(group)
+                .saturation(group.isGhost ? 0.15 : 1)
+                .opacity(group.isGhost ? 0.32 : 1)
+        }
+    }
+
+    /// One plate: its picture, darkening toward the floor as the room does.
+    private func plate(_ group: CutRackRailModel.Group) -> some View {
+        stand(group)
+            .frame(width: side, height: side)
+            .overlay {
+                LinearGradient(stops: [.init(color: .clear, location: 0.45), .init(color: .black.opacity(0.32), location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+                    .mask { stand(group).frame(width: side, height: side) }
             }
-            ForEach(0..<group.floorSlots, id: \.self) { index in
-                slot(lime: false)
-                    .offset(x: slotX(group, group.loadedSlots + index))
+    }
+
+    /// Where the plate meets the floor: a soft pool spreading past both sides of the plate and a
+    /// tight dark core under its rim, so it stands on the floor instead of floating over it.
+    private var contactShadow: some View {
+        ZStack {
+            Ellipse().fill(Color.black.opacity(0.7))
+                .frame(width: side * 1.2, height: side * 0.22)
+                .blur(radius: 10)
+            Ellipse().fill(Color.black.opacity(0.9))
+                .frame(width: side * 0.7, height: side * 0.07)
+                .blur(radius: 2.5)
+                .offset(y: -side * 0.02)
+        }
+        .frame(width: side)
+        .offset(y: side * 0.03)
+    }
+
+    /// The count and where the other copies are, stamped under the plate.
+    private func tags(_ group: CutRackRailModel.Group) -> some View {
+        // At most two tags, so they stay within the plate: the count, then where the others are
+        // (the bar first; the footer already counts the floor).
+        HStack(spacing: 4) {
+            if let count = group.count { tag(count, tone: .count) }
+            if let onBar = group.onBarTag {
+                tag(onBar, tone: .bar)
+            } else if let onFloor = group.onFloorTag, group.count == nil || group.isGhost {
+                tag(onFloor, tone: .floor)
             }
         }
-        .frame(width: width + (group.platesShown > 0 && count > group.platesShown ? Self.slotGap : 0),
-               height: Self.plateHeight + 10, alignment: .bottomLeading)
-        .animation(reduceMotion ? .easeOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.8), value: lifted)
-        .animation(.easeOut(duration: 0.25), value: group.platesShown)
-    }
-
-    /// Empty slots stand a little clear of the front plate so their outline reads.
-    static var slotGap: CGFloat { 6 }
-
-    private func slotX(_ group: CutRackRailModel.Group, _ index: Int) -> CGFloat {
-        CGFloat(group.platesShown + index) * Self.step + (group.platesShown > 0 ? Self.slotGap : 0)
-    }
-
-    /// An empty place on the rail: a plate's outline, seen as the plates stand.
-    private func slot(lime: Bool) -> some View {
-        Ellipse()
-            .strokeBorder(lime ? DS.Cut.Colors.lime : DS.Cut.Colors.hairlineStrong,
-                          style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
-            .frame(width: Self.plateWidth * 0.62, height: Self.plateHeight * 0.94)
-            .padding(.leading, Self.plateWidth * 0.19)
-            .padding(.bottom, Self.plateHeight * 0.02)
-    }
-
-    /// The weight and count stamped into the rail under the group.
-    private func stamp(_ group: CutRackRailModel.Group, lifted: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 2) {
-            Text(group.numeral)
-                .font(DS.Cut.Typography.condensed(size: 21, weight: .extraBold, relativeTo: .title3, monospacedDigits: true))
-                .foregroundStyle(lifted ? DS.Cut.Colors.lime : (group.stored > 0 ? DS.Cut.Colors.textPrimary : DS.Cut.Colors.lime))
-            if let count = group.count {
-                Text(count)
-                    .font(DS.Cut.Typography.condensed(size: 15, weight: .bold, relativeTo: .footnote, monospacedDigits: true))
-                    .foregroundStyle(DS.Cut.Colors.textSecondary)
-            }
-        }
-        .lineLimit(1)
-        .fixedSize()
-        // Stamped: a dark lip under each stroke, as if pressed into the steel.
-        .shadow(color: .black.opacity(0.8), radius: 0, x: 0, y: 1)
+        .frame(width: side)
         .accessibilityHidden(true)
+    }
+
+    private enum TagTone { case count, bar, floor }
+
+    private func tag(_ text: String, tone: TagTone) -> some View {
+        Text(text)
+            .font(DS.Cut.Typography.condensed(size: tone == .count ? 17 : 14, weight: .bold, relativeTo: .footnote,
+                                              monospacedDigits: true))
+            .textCase(.uppercase)
+            .foregroundStyle(tone == .bar ? DS.Cut.Colors.ink : DS.Cut.Colors.textPrimary)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 6)
+            .padding(.vertical, 1)
+            .background {
+                switch tone {
+                case .bar: CutCornerShape(corner: .bottomTrailing, cut: .points(5)).fill(DS.Cut.Colors.lime)
+                case .count: CutCornerShape(corner: .bottomTrailing, cut: .points(5)).fill(DS.Cut.Colors.panelControl)
+                case .floor: CutCornerShape(corner: .bottomTrailing, cut: .points(5)).strokeBorder(DS.Cut.Colors.hairlineStrong, lineWidth: 1)
+                }
+            }
     }
 }
 
-/// Load and take-off as VoiceOver actions, plus showing the face.
+/// Load and take-off as VoiceOver actions, plus showing the plate.
 private struct GroupActions: ViewModifier {
     let group: CutRackRailModel.Group
     let actions: CutRackRailActions
@@ -527,9 +526,9 @@ private struct GroupActions: ViewModifier {
 
 // MARK: - Lifted plate
 
-/// The plate lifted out of the rail: its face, large, turning toward the viewer, with its name,
-/// engraving, weight and counts, and load or take-off. A compact chamfered panel over the scene's
-/// lower edge, so the bar above stays in view.
+/// The plate lifted out of the row: its face, large, turning toward the viewer, with its name,
+/// engraving, weight and counts, and load or take-off. A compact chamfered panel over the row,
+/// so the bar above stays in view.
 struct CutRackRailLiftPanel<Face: View>: View {
     let model: CutRackRailPreviewModel
     let actions: CutRackRailActions
@@ -549,12 +548,20 @@ struct CutRackRailLiftPanel<Face: View>: View {
                     buttons
                 }
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .center, spacing: 14) {
+                // The buttons beside the facts when they fit in one line there, else full width
+                // under the face and facts.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: 12) {
                         plate
-                        facts
+                        VStack(alignment: .leading, spacing: 8) {
+                            facts
+                            HStack(spacing: 8) { loadButton; unloadButton; detailsButton }.fixedSize()
+                        }
                     }
-                    buttons
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .center, spacing: 12) { plate; facts }
+                        buttons
+                    }
                 }
             }
         }
@@ -566,9 +573,9 @@ struct CutRackRailLiftPanel<Face: View>: View {
             Button(action: actions.closeLift) {
                 Label("Put back", systemImage: "xmark")
             }
-            .buttonStyle(CutIconButtonStyle(tone: .fill, diameter: 32))
+            .buttonStyle(CutIconButtonStyle(tone: .fill, diameter: 30))
             .frame(width: DS.Cut.Metrics.minTouchTarget, height: DS.Cut.Metrics.minTouchTarget)
-            .offset(x: -12, y: 4)
+            .offset(x: -10, y: 2)
             .accessibilityLabel(Text("Put the plate back"))
         }
         .environment(\.cutSheetLevel, .base)
@@ -576,12 +583,12 @@ struct CutRackRailLiftPanel<Face: View>: View {
         .onAppear { turned = true }
     }
 
-    /// The face turns toward the viewer as it lifts out of the rail.
+    /// The face turns toward the viewer as it lifts out of the row.
     private var plate: some View {
         face()
-            .frame(width: 96, height: 96)
-            .rotation3DEffect(.degrees(turned || reduceMotion ? 0 : 66), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
-            .scaleEffect(turned || reduceMotion ? 1 : 0.7, anchor: .bottom)
+            .frame(width: 104, height: 104)
+            .rotation3DEffect(.degrees(turned || reduceMotion ? 0 : 40), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+            .scaleEffect(turned || reduceMotion ? 1 : 0.85, anchor: .bottom)
             .animation(.spring(response: 0.42, dampingFraction: 0.78), value: turned)
             .contentShape(Circle())
             .onTapGesture { actions.details(group.plateID) }
@@ -589,16 +596,16 @@ struct CutRackRailLiftPanel<Face: View>: View {
     }
 
     private var facts: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 0) {
             Text(model.engraving ?? model.title)
                 .font(DS.Cut.Typography.condensed(size: 24, relativeTo: .title2))
                 .textCase(.uppercase)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.trailing, 36)
+                .padding(.trailing, 34)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(model.weight)
-                    .font(DS.Cut.Typography.condensed(size: 28, relativeTo: .title, monospacedDigits: true))
+                    .font(DS.Cut.Typography.condensed(size: 26, relativeTo: .title, monospacedDigits: true))
                     .textCase(.uppercase)
                     .foregroundStyle(DS.Cut.Colors.lime)
                     .fixedSize()
@@ -606,7 +613,7 @@ struct CutRackRailLiftPanel<Face: View>: View {
                     Text(model.title)
                         .font(DS.Typography.custom(size: 15, weight: .semibold, relativeTo: .subheadline))
                         .foregroundStyle(DS.Cut.Colors.textSecondary)
-                        .lineLimit(1)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 }
             }
             Text(model.counts)
@@ -623,10 +630,7 @@ struct CutRackRailLiftPanel<Face: View>: View {
     private var buttons: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) { loadButton; unloadButton; detailsButton }
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 8) { loadButton; unloadButton }
-                detailsButton
-            }
+            HStack(spacing: 8) { loadButton; unloadButton }
             VStack(alignment: .leading, spacing: 8) { loadButton; unloadButton; detailsButton }
         }
     }
