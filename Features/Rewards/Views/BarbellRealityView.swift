@@ -1330,7 +1330,8 @@ struct BarbellRealityView: View {
                     await prepareLathePlates(latheRequests)
                 }
                 let iblExponent = studio != nil
-                    ? RackRoomLightingPreset.current(for: .lathe).imageBasedLightIntensityExponent
+                    ? (mood?.imageBasedLightIntensityExponent
+                       ?? RackRoomLightingPreset.current(for: .lathe).imageBasedLightIntensityExponent)
                     : RackRoomLightingPreset.current.imageBasedLightIntensityExponent
                 let interval = barbellSignposter.beginInterval("SceneBuild", id: barbellSignposter.makeSignpostID())
                 defer { barbellSignposter.endInterval("SceneBuild", interval) }
@@ -1452,7 +1453,19 @@ struct BarbellRealityView: View {
 
     private var realityBackgroundColor: Color {
         if case .welcome = mode { return .clear }
-        return RoomThemePreset.preset(for: roomThemeID).swiftUIBackground
+        return roomTheme.swiftUIBackground
+    }
+
+    /// The home gym mood (lathe plates in the rack room, debug builds), or nil.
+    private var mood: RackRoomMood? {
+        guard case .rackRoom = mode else { return nil }
+        return RackRoomMood.current(for: sceneState.plateStyle)
+    }
+
+    /// The room's colours, dimmed to the mood's dark room when there is one.
+    private var roomTheme: RoomThemePreset {
+        let theme = RoomThemePreset.preset(for: roomThemeID)
+        return mood.map { theme.dimmed(by: $0.roomBrightness, floor: $0.floorBrightness) } ?? theme
     }
 
     @MainActor
@@ -1555,9 +1568,17 @@ struct BarbellRealityView: View {
 
     private func setupLighting(in sceneRoot: Entity) {
         let lighting = RackRoomLightingPreset.current(for: sceneState.plateStyle)
-        let theme = RoomThemePreset.preset(for: roomThemeID)
+        let theme = roomTheme
         let keyScale = RackRoomLightingPreset.keyScale(
             brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
+
+        // Home gym mood: the lamp over the bar carries the shadowed light; sign and strip add
+        // colour. No studio key and no storage wash.
+        if let mood {
+            mood.addFixtures(to: sceneRoot, signText: barbellNormalizedRoomWallText(roomWallText) ?? "VOLIA",
+                             keyScale: keyScale)
+            return
+        }
 
         // Key: high and well in front of the bar, aimed at the floor just in front of it.
         let key = Entity()
@@ -2675,7 +2696,7 @@ struct BarbellRealityView: View {
         roomThemeID: String = "dark_gym",
         roomWallText: String? = nil
     ) {
-        let theme = RoomThemePreset.preset(for: roomThemeID)
+        let theme = roomTheme
         // Performance budget: 4 racked (bilateral = 8 entities) + 24 floor = 32 plate entities.
         // With shared materialCache, this stays under 150 draw calls on A15+ at 60fps.
         // Plates beyond index 24 are in SwiftData but not rendered.
@@ -2707,7 +2728,8 @@ struct BarbellRealityView: View {
         backdrop.position = SIMD3(0, 0.5, -0.13)
         sceneState.sceneRoot.addChild(backdrop)
 
-        if let wallText = makeRoomWallText(roomWallText, theme: theme) {
+        // The mood's lit sign takes the wall text's place.
+        if mood == nil, let wallText = makeRoomWallText(roomWallText, theme: theme) {
             sceneState.sceneRoot.addChild(wallText)
         }
 
