@@ -631,8 +631,8 @@ struct LathePlateRequest {
 }
 
 /// Builds meshes, shared textures and every face the requests need before the scene is built.
-/// The pure work runs off the main thread: face images (drawn several at once), the revolved mesh
-/// data and the shared surface normal images. The
+/// The pure work runs off the main thread: face images (from the disk cache, RackAssetDiskCache,
+/// or drawn, several at once), the revolved mesh data and the shared surface normal images. The
 /// main actor only creates the RealityKit resources. Later calls with the same plates return at
 /// once. Cancelling leaves whatever finished cached.
 @MainActor
@@ -696,7 +696,8 @@ private struct LathePreparedWork: @unchecked Sendable {
     var surfaceNormals: [(LatheSurface, CGImage)]
 }
 
-/// Each spec's images, drawn a few at a time.
+/// Each spec's images, read from disk or drawn, a few at a time. Newly drawn faces are written to
+/// disk in the background.
 nonisolated func latheFaceImages(for specs: [LatheFaceSpec]) async -> [(LatheFaceSpec, LatheFaceArt.Images)] {
     let width = max(1, min(specs.count, ProcessInfo.processInfo.activeProcessorCount - 1))
     return await withTaskGroup(of: (LatheFaceSpec, LatheFaceArt.Images)?.self) { group in
@@ -706,7 +707,13 @@ nonisolated func latheFaceImages(for specs: [LatheFaceSpec]) async -> [(LatheFac
             let spec = specs[next]
             next += 1
             group.addTask {
-                countedFaceImages(for: spec).map { (spec, $0) }
+                if let cached = LatheFaceDiskCache.images(for: spec) {
+                    RackWorkCounters.add(.faceImagesReadFromDisk)
+                    return (spec, cached)
+                }
+                guard let images = countedFaceImages(for: spec) else { return nil }
+                Task.detached(priority: .utility) { LatheFaceDiskCache.store(images, for: spec) }
+                return (spec, images)
             }
         }
         while next < min(width, specs.count) { add() }

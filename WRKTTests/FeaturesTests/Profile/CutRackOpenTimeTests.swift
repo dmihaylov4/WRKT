@@ -13,13 +13,19 @@ import UIKit
 /// open in the process) and warm. Nothing is written to the account's store.
 /// TEST_RUNNER_VOLIA_RACK_OPEN_TIME=1 enables it; TEST_RUNNER_VOLIA_RACK_OPEN_OUT=<directory> also
 /// writes the report there; TEST_RUNNER_VOLIA_RACK_PLATES=legacy measures the Release plates;
-/// TEST_RUNNER_VOLIA_RACK_OPEN_THUMBS=cold empties the tray's thumbnail cache first.
+/// TEST_RUNNER_VOLIA_RACK_OPEN_THUMBS=cold empties the tray's thumbnail cache first;
+/// TEST_RUNNER_VOLIA_RACK_OPEN_PREWARM=1 runs the Me tab's studio prewarm 3 s before the cold open.
 @MainActor
 @Suite(.serialized)
 struct CutRackOpenTimeTests {
     @Test(.enabled(if: ProcessInfo.processInfo.environment["VOLIA_RACK_OPEN_TIME"] == "1"))
     func measureOpens() async throws {
         let inventory = try RackOpenInventory()
+        if ProcessInfo.processInfo.environment["VOLIA_RACK_OPEN_PREWARM"] == "1" {
+            // What the Me tab does when it appears, a few seconds before "Your barbell" is tapped.
+            prewarmRackStudioPanorama()
+            try await Task.sleep(for: .seconds(3))
+        }
         if let delay = Double(ProcessInfo.processInfo.environment["VOLIA_RACK_OPEN_DELAY"] ?? "") {
             // Time to attach a profiler before the cold open.
             try await Task.sleep(for: .seconds(delay))
