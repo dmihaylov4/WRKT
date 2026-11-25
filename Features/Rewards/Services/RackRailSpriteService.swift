@@ -402,6 +402,7 @@ private final class RackRailStage {
     let view: ARView
     let anchor = AnchorEntity(world: .zero)
     let camera = PerspectiveCamera()
+    private let listener = Entity()
     private var current: Entity?
 
     init?(side: CGFloat, style: RackPlateStyle) async {
@@ -417,8 +418,13 @@ private final class RackRailStage {
         view.renderOptions.insert(.disableMotionBlur)
         view.renderOptions.insert(.disableDepthOfField)
         view.renderOptions.insert(.disableCameraGrain)
+        // A fixed listener: the scene has no sound, and the camera's transform as the default
+        // listener was the input of a RealityKit audio update that spun forever on the main
+        // thread (seen twice in the full test suite, inside its listener clean-up).
+        view.audioListener = listener
         window.addSubview(view)
         view.scene.addAnchor(anchor)
+        anchor.addChild(listener)
         let cameraAnchor = AnchorEntity(world: .zero)
         cameraAnchor.addChild(camera)
         view.scene.addAnchor(cameraAnchor)
