@@ -19,7 +19,7 @@ import UIKit
 struct CutRackCaptureTests {
     nonisolated static let names = [
         "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "rack-owner", "detail", "detail-ax5", "collection", "collection-ax5",
-        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right", "rack-owner-floor"
+        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right", "rack-owner-floor", "rack-letters"
     ]
     nonisolated static var selectedNames: [String] {
         guard let value = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
@@ -58,8 +58,9 @@ struct CutRackCaptureTests {
             zoomIn(name)
             try await Task.sleep(for: .seconds(1.5))
         }
-        if name == "rack-mixed" || name == "rack-owner-floor" {
-            layMixedFloorPlates(name == "rack-mixed" ? Self.mixedPlates : [Self.ownerRedPlates[1]])
+        if name == "rack-mixed" || name == "rack-owner-floor" || name == "rack-letters" {
+            layMixedFloorPlates(name == "rack-mixed" ? Self.mixedPlates : name == "rack-letters" ? Self.letterPlates
+                                : [Self.ownerRedPlates[1]])
             try await Task.sleep(for: .seconds(1.5))
         }
         if name.hasSuffix("-bottom"), let scroll = verticalScroll(in: window) {
@@ -100,7 +101,7 @@ struct CutRackCaptureTests {
             entity.name = "mixed-floor-\(index)"
             let thickness = PlateVisualDesign.profile(for: PlateTier.all.first { $0.id == plate.tierID }!.style).thickness
             entity.orientation = simd_quatf(angle: 0, axis: SIMD3(0, 1, 0))
-            let x = plates.count == 1 ? Float(0.30) : Float(index - 1) * 0.50
+            let x = plates.count == 1 ? Float(0.30) : plates.count == 4 ? (Float(index) - 1.5) * 0.42 : Float(index - 1) * 0.50
             entity.position = SIMD3(x, thickness / 2 + 0.003, 0.50)
             entity.components.set(GroundingShadowComponent(castsShadow: true))
             state.sceneRoot.addChild(entity)
@@ -194,6 +195,15 @@ struct CutRackCaptureTests {
         plate("red3", tier: 14, kg: 20, slot: 3, order: 1)
     ]
 
+    /// One of each lettering finish, on the bar and on the floor: a red bumper, the Rose Gold
+    /// tinted metal, gold, and cast iron.
+    static let letterPlates: [EarnedPlate] = [
+        plate("castiron", tier: 1, kg: 25, slot: 0, order: 4),
+        plate("gold", tier: 6, kg: 20, slot: 1, order: 3),
+        plate("rose", tier: 8, kg: 25, slot: 2, engraving: "75 Workouts", order: 2),
+        plate("red1", tier: 14, kg: 20, slot: 3, order: 1)
+    ]
+
     private static let chromePlates: [EarnedPlate] = [
         plate("steel", tier: 5, kg: 25, slot: 0, engraving: "Bench 100", order: 1)
     ]
@@ -213,7 +223,8 @@ struct CutRackCaptureTests {
         let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates
             : name == "rack-owner" ? Self.ownerPlates : name == "rack-chrome" ? Self.chromePlates
             : name == "rack-mixed" ? Self.mixedPlates : name == "rack-owner25" ? Self.owner25Plates
-            : name == "rack-owner-reds" || name == "rack-owner-floor" ? Self.ownerRedPlates : Self.plates
+            : name == "rack-owner-reds" || name == "rack-owner-floor" ? Self.ownerRedPlates
+            : name == "rack-letters" ? Self.letterPlates : Self.plates
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
