@@ -255,6 +255,9 @@ final class SceneState {
     /// Populate in .task{} before RealityView make{} runs. Pass entries into makePlateEntity(material:).
     var materialCache: [Int: PhysicallyBasedMaterial] = [:]
     var plateTextureCache: [Int: PlateTextures] = [:]
+    /// Lathe plates, studio environment and a shadowed key, or the legacy plates and room light.
+    /// Read once per scene; Release builds are always legacy (see RackPlateStyle).
+    var plateStyle: RackPlateStyle = .current
 
     // MARK: State machine
 
@@ -404,7 +407,8 @@ final class SceneState {
             prominentEngraving: false,
             renderProjection: meta?.renderProjection ?? BarbellPlateRenderProjection(),
             role: .bar,
-            options: .barMirror()
+            options: .barMirror(),
+            plateStyle: plateStyle
         )
         mirror.name = name
         return mirror
@@ -433,7 +437,8 @@ final class SceneState {
             engravingText: plate.engravingText,
             prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
             renderProjection: BarbellPlateRenderProjection(plate: plate),
-            role: .floor
+            role: .floor,
+            plateStyle: plateStyle
         )
         entity.name = plate.id
         entity.orientation = plateDisplayOrientation
@@ -700,7 +705,8 @@ final class SceneState {
             engravingText: plate.engravingText,
             prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
             renderProjection: BarbellPlateRenderProjection(plate: plate),
-            role: .bar
+            role: .bar,
+            plateStyle: plateStyle
         )
         entity.name = plate.id
         entity.position = SIMD3(offset, 0, 0)
@@ -717,7 +723,8 @@ final class SceneState {
             prominentEngraving: false,
             renderProjection: BarbellPlateRenderProjection(plate: plate),
             role: .bar,
-            options: .barMirror()
+            options: .barMirror(),
+            plateStyle: plateStyle
         )
         mirror.name = plate.id + "_mirror"
         mirror.position = SIMD3(-offset, 0, 0)
@@ -762,7 +769,8 @@ final class SceneState {
                 engravingText: plate.engravingText,
                 prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
                 renderProjection: BarbellPlateRenderProjection(plate: plate),
-                role: .floor
+                role: .floor,
+                plateStyle: plateStyle
             )
             entity.name = plate.id
             entity.orientation = plateDisplayOrientation
@@ -1059,8 +1067,19 @@ struct RackRoomLightingPreset: Equatable {
     /// launch environment overrides values for tuning on a device or in simulator captures. Names:
     /// key, keyY, keyZ, targetZ, inner, outer, atten, ibl, wash, shadow (0 or 1); the environment
     /// reads glow, glowCentre, glowHalf, panel, panelPitch and panelHalf (RackRoomEnvironment).
-    static var current: RackRoomLightingPreset {
+    /// The lathe plates' rig: the same high soft key, now casting a real shadow (one draw per
+    /// plate makes the shadow map affordable), with the studio environment as fill.
+    static let studio: RackRoomLightingPreset = {
         var preset = readability
+        preset.keyCastsShadow = true
+        preset.imageBasedLightIntensityExponent = -0.25
+        return preset
+    }()
+
+    static var current: RackRoomLightingPreset { current(for: .legacy) }
+
+    static func current(for style: RackPlateStyle) -> RackRoomLightingPreset {
+        var preset = style == .lathe ? studio : readability
         #if DEBUG
         let overrides = rackRoomLightingOverrides(ProcessInfo.processInfo.environment["VOLIA_RACK_LIGHT"])
         if let value = overrides["key"] { preset.keyIntensity = value }
@@ -1297,7 +1316,22 @@ struct BarbellRealityView: View {
                 // The room's light probe is awaited before anything is built, so the first frame
                 // is already lit by it (no pop-in) and the build below runs without a suspension.
                 // Built once per process; later scenes get it at once.
-                let environment = await sharedRackRoomEnvironmentResource()
+                // Lathe plates: the photographic studio (procedural room if it fails to load), and
+                // every plate's mesh, materials and face textures, all before the first frame.
+                let style = sceneState.plateStyle
+                let studio = style == .lathe ? await sharedRackStudioEnvironmentResource() : nil
+                let environment: EnvironmentResource?
+                if let studio {
+                    environment = studio
+                } else {
+                    environment = await sharedRackRoomEnvironmentResource()
+                }
+                if style == .lathe {
+                    await prepareLathePlates(latheRequests)
+                }
+                let iblExponent = studio != nil
+                    ? RackRoomLightingPreset.current(for: .lathe).imageBasedLightIntensityExponent
+                    : RackRoomLightingPreset.current.imageBasedLightIntensityExponent
                 let interval = barbellSignposter.beginInterval("SceneBuild", id: barbellSignposter.makeSignpostID())
                 defer { barbellSignposter.endInterval("SceneBuild", interval) }
                 sceneState.sceneRoot   = Entity()
@@ -1319,8 +1353,11 @@ struct BarbellRealityView: View {
                     iblEntity.name = "rackRoomEnvironment"
                     iblEntity.components.set(ImageBasedLightComponent(
                         source: .single(environment),
-                        intensityExponent: RackRoomLightingPreset.current.imageBasedLightIntensityExponent
+                        intensityExponent: iblExponent
                     ))
+                    if studio != nil {
+                        iblEntity.orientation = RackStudioEnvironment.orientation
+                    }
                     sceneState.sceneRoot.addChild(iblEntity)
                     // The receiver applies to the whole subtree, including plates added later.
                     sceneState.sceneRoot.components.set(ImageBasedLightReceiverComponent(imageBasedLight: iblEntity))
@@ -1394,6 +1431,25 @@ struct BarbellRealityView: View {
         // the very bottom of the viewport. Fill that gap with a matching floor color so the
         // room appears to extend to the screen edge.
         .background(realityBackgroundColor)
+    }
+
+    /// Every plate the scene builds at first, for prepareLathePlates.
+    private var latheRequests: [LathePlateRequest] {
+        switch mode {
+        case .welcome(let plates):
+            return plates.prefix(4).map {
+                LathePlateRequest(tierID: $0.tierID, weightKg: $0.weightKg, engravingText: $0.engravingText,
+                                  projection: BarbellPlateRenderProjection())
+            }
+        case .rackRoom(let racked, let floor, _, _):
+            // Mirrors and later loads build without the engraving: prepare both faces.
+            return (racked + floor).filter { !$0.isStarterPlate }.flatMap { plate in
+                Set([plate.engravingText, ""]).map {
+                    LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg, engravingText: $0,
+                                      projection: BarbellPlateRenderProjection(plate: plate))
+                }
+            }
+        }
     }
 
     private var realityBackgroundColor: Color {
@@ -1500,7 +1556,7 @@ struct BarbellRealityView: View {
     // MARK: Lighting
 
     private func setupLighting(in sceneRoot: Entity) {
-        let lighting = RackRoomLightingPreset.current
+        let lighting = RackRoomLightingPreset.current(for: sceneState.plateStyle)
         let theme = RoomThemePreset.preset(for: roomThemeID)
         let keyScale = RackRoomLightingPreset.keyScale(
             brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
@@ -1564,7 +1620,8 @@ struct BarbellRealityView: View {
                     weightKg: info.weightKg,
                     engravingText: info.engravingText,
                     prominentEngraving: info.earnedByEvent.hasPrefix("strength_milestone_"),
-                    role: .bar
+                    role: .bar,
+                    plateStyle: sceneState.plateStyle
                 )
                 entity.name = xSign == 1 ? "welcome_plate_\(i)" : "welcome_plate_\(i)_mirror"
                 entity.components.remove(InputTargetComponent.self)
@@ -2852,7 +2909,8 @@ struct BarbellRealityView: View {
                     engravingText: plate.engravingText,
                     prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
                     renderProjection: BarbellPlateRenderProjection(plate: plate),
-                    role: .bar
+                    role: .bar,
+                    plateStyle: sceneState.plateStyle
                 )
                 entity.name = xSign == 1 ? plate.id : plate.id + "_mirror"
                 entity.position = SIMD3(xSign * offset, 0, 0)
@@ -2889,7 +2947,8 @@ struct BarbellRealityView: View {
                 engravingText: plate.engravingText,
                 prominentEngraving: plate.earnedByEvent.hasPrefix("strength_milestone_"),
                 renderProjection: BarbellPlateRenderProjection(plate: plate),
-                role: .floor
+                role: .floor,
+                plateStyle: sceneState.plateStyle
             )
             entity.name = plate.id
             // Same orientation as snapToStorageSlot: side-on like hanging plates.

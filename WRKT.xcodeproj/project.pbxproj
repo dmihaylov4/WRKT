@@ -219,6 +219,9 @@
 		2EBB000A2FA0000000000002 /* BarbellShowcaseCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */; };
 		2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */; };
 		2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */; };
+		C17CB7000000000000000123 /* RackStudioEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000223 /* RackStudioEnvironment.swift */; };
+		C17CB7000000000000000122 /* LathePlateBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000222 /* LathePlateBuilder.swift */; };
+		C17CB7000000000000000121 /* LathePlateGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000221 /* LathePlateGeometry.swift */; };
 		2EBB00112FA0000000000001 /* BarbellAudioBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */; };
 		2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00122FA0000000000001 /* BarbellRealityView.swift */; };
 		2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBB00142FA0000000000001 /* PlateFaceView.swift */; };
@@ -414,6 +417,7 @@
 		2ECC7D202F7C21C3009119BF /* Brass_Roughness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D182F7C21C3009119BF /* Brass_Roughness.jpg */; };
 		2ECC7D212F7C21C3009119BF /* Brass_Metalness.jpg in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D192F7C21C3009119BF /* Brass_Metalness.jpg */; };
 		2ECC7D222F7C21C3009119BF /* IndoorHDRI.exr in Resources */ = {isa = PBXBuildFile; fileRef = 2ECC7D1A2F7C21C3009119BF /* IndoorHDRI.exr */; };
+		C17CB7000000000000000124 /* RackStudio_studio_small_09_1k.hdr in Resources */ = {isa = PBXBuildFile; fileRef = C17CB7000000000000000224 /* RackStudio_studio_small_09_1k.hdr */; };
 		2ED100012FA3000000000001 /* DiagnosticsLogStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED100002FA3000000000001 /* DiagnosticsLogStore.swift */; };
 		2ED100032FA3000000000001 /* DiagnosticsLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED100022FA3000000000001 /* DiagnosticsLogView.swift */; };
 		2ED237862EA51F87009C742E /* AppDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ED237852EA51F87009C742E /* AppDependencies.swift */; };
@@ -897,6 +901,9 @@
 		2EBB000B2FA0000000000002 /* BarbellShowcaseCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellShowcaseCard.swift; sourceTree = "<group>"; };
 		2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellWelcomeView.swift; sourceTree = "<group>"; };
 		2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellEntityBuilder.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000223 /* RackStudioEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackStudioEnvironment.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000222 /* LathePlateBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LathePlateBuilder.swift; sourceTree = "<group>"; };
+		C17CB7000000000000000221 /* LathePlateGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LathePlateGeometry.swift; sourceTree = "<group>"; };
 		2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellAudioBuilder.swift; sourceTree = "<group>"; };
 		2EBB00122FA0000000000001 /* BarbellRealityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarbellRealityView.swift; sourceTree = "<group>"; };
 		2EBB00142FA0000000000001 /* PlateFaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateFaceView.swift; sourceTree = "<group>"; };
@@ -1092,6 +1099,7 @@
 		2ECC7D182F7C21C3009119BF /* Brass_Roughness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Brass_Roughness.jpg; sourceTree = "<group>"; };
 		2ECC7D192F7C21C3009119BF /* Brass_Metalness.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = Brass_Metalness.jpg; sourceTree = "<group>"; };
 		2ECC7D1A2F7C21C3009119BF /* IndoorHDRI.exr */ = {isa = PBXFileReference; lastKnownFileType = file; path = IndoorHDRI.exr; sourceTree = "<group>"; };
+		C17CB7000000000000000224 /* RackStudio_studio_small_09_1k.hdr */ = {isa = PBXFileReference; lastKnownFileType = file; path = RackStudio_studio_small_09_1k.hdr; sourceTree = "<group>"; };
 		2ED100002FA3000000000001 /* DiagnosticsLogStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLogStore.swift; sourceTree = "<group>"; };
 		2ED100022FA3000000000001 /* DiagnosticsLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsLogView.swift; sourceTree = "<group>"; };
 		2ED237852EA51F87009C742E /* AppDependencies.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDependencies.swift; sourceTree = "<group>"; };
@@ -1996,6 +2004,9 @@
 				2EBB00042FA0000000000001 /* BarbellMomentView.swift */,
 				2EBB000C2FA0000000000001 /* BarbellWelcomeView.swift */,
 				2EBB000F2FA0000000000001 /* BarbellEntityBuilder.swift */,
+				C17CB7000000000000000223 /* RackStudioEnvironment.swift */,
+				C17CB7000000000000000222 /* LathePlateBuilder.swift */,
+				C17CB7000000000000000221 /* LathePlateGeometry.swift */,
 				2EBB00102FA0000000000001 /* BarbellAudioBuilder.swift */,
 				2EBB00122FA0000000000001 /* BarbellRealityView.swift */,
 				2EBB00142FA0000000000001 /* PlateFaceView.swift */,
@@ -2686,6 +2697,7 @@
 				2ECC7D182F7C21C3009119BF /* Brass_Roughness.jpg */,
 				2ECC7D192F7C21C3009119BF /* Brass_Metalness.jpg */,
 				2ECC7D1A2F7C21C3009119BF /* IndoorHDRI.exr */,
+				C17CB7000000000000000224 /* RackStudio_studio_small_09_1k.hdr */,
 			);
 			path = PlateTextures;
 			sourceTree = "<group>";
@@ -3223,6 +3235,7 @@
 				2ECC7D202F7C21C3009119BF /* Brass_Roughness.jpg in Resources */,
 				2ECC7D212F7C21C3009119BF /* Brass_Metalness.jpg in Resources */,
 				2ECC7D222F7C21C3009119BF /* IndoorHDRI.exr in Resources */,
+				C17CB7000000000000000124 /* RackStudio_studio_small_09_1k.hdr in Resources */,
 				2EC245C22E9F877800100333 /* exercise_media_final.json in Resources */,
 				2E510B612E97BAFA0089EE2C /* exercises_catalog.json in Resources */,
 				2E510B8A2E9AEEA60089EE2C /* muscles_index.json in Resources */,
@@ -3700,6 +3713,9 @@
 				2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */,
 				2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */,
 				2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */,
+				C17CB7000000000000000123 /* RackStudioEnvironment.swift in Sources */,
+				C17CB7000000000000000122 /* LathePlateBuilder.swift in Sources */,
+				C17CB7000000000000000121 /* LathePlateGeometry.swift in Sources */,
 				2EBB00112FA0000000000001 /* BarbellAudioBuilder.swift in Sources */,
 				2EBB00132FA0000000000001 /* BarbellRealityView.swift in Sources */,
 				2EBB00152FA0000000000001 /* PlateFaceView.swift in Sources */,

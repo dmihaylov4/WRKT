@@ -19,7 +19,7 @@ import UIKit
 struct CutRackCaptureTests {
     nonisolated static let names = [
         "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "rack-owner", "detail", "detail-ax5", "collection", "collection-ax5",
-        "scene-legacy", "scene-moment", "scene-welcome"
+        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner"
     ]
     nonisolated static var selectedNames: [String] {
         guard let value = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
@@ -39,9 +39,9 @@ struct CutRackCaptureTests {
         let previous = scene.windows.first { $0.isKeyWindow }
         previous?.isHidden = true
         let window = UIWindow(windowScene: scene)
-        let content = fixture(name).environment(\.dynamicTypeSize, name.contains("-ax5") ? .accessibility5 : .large)
+        let content = fixture(name.hasPrefix("zoom") ? Self.zoomSource(name) : name).environment(\.dynamicTypeSize, name.contains("-ax5") ? .accessibility5 : .large)
         window.rootViewController = UIHostingController(rootView: Group {
-            if name.hasPrefix("rack") || name.hasPrefix("scene") { content }
+            if name.hasPrefix("rack") || name.hasPrefix("scene") || name.hasPrefix("zoom") { content }
             else { Color.black.sheet(isPresented: .constant(true)) { content } }
         }.preferredColorScheme(.dark))
         window.overrideUserInterfaceStyle = .dark
@@ -54,6 +54,10 @@ struct CutRackCaptureTests {
             previous?.makeKey()
         }
         try await Task.sleep(for: .seconds(3))
+        if name.hasPrefix("zoom") {
+            zoomIn(name)
+            try await Task.sleep(for: .seconds(1.5))
+        }
         if name.hasSuffix("-bottom"), let scroll = verticalScroll(in: window) {
             let bottom = scroll.contentSize.height + scroll.adjustedContentInset.bottom - scroll.bounds.height
             scroll.setContentOffset(CGPoint(x: 0, y: max(-scroll.adjustedContentInset.top, bottom)), animated: false)
@@ -65,14 +69,34 @@ struct CutRackCaptureTests {
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
         try #require(image.pngData()).write(to: root.appendingPathComponent(name + ".png"))
-        if name.hasPrefix("rack") || name.hasPrefix("scene"), let sceneRoot = CutRackFixtureScene.lastSceneState?.sceneRoot {
+        if name.hasPrefix("rack") || name.hasPrefix("scene") || name.hasPrefix("zoom"), let sceneRoot = CutRackFixtureScene.lastSceneState?.sceneRoot {
             try CutRackFixtureScene.stats(sceneRoot).write(to: root.appendingPathComponent(name + ".stats.txt"),
                                                            atomically: true, encoding: .utf8)
+        }
+        if name.hasPrefix("zoom") {
+            // Layout during the snapshot re-frames the bar: move in again for the outside screenshot.
+            zoomIn(name)
+            try await Task.sleep(for: .seconds(1.5))
         }
         if hold > 0 {
             try Data().write(to: root.appendingPathComponent(name + ".ready"))
             try await Task.sleep(for: .seconds(hold))
         }
+    }
+
+    /// A close three-quarter look at the right-hand stack: the camera proxy (the scene root) moves
+    /// the room so the stack sits in front of the fixed camera.
+    private func zoomIn(_ name: String) {
+        guard let root = CutRackFixtureScene.lastSceneState?.sceneRoot else { return }
+        let target = SIMD3<Float>(name == "zoom-stack" ? 0.70 : 0.62, 0.60, 0.12)
+        let turn = simd_quatf(angle: -0.62, axis: SIMD3(0, 1, 0)) * simd_quatf(angle: 0.12, axis: SIMD3(1, 0, 0))
+        // Put the stack where the bar's centre was framed, turned, then bring it toward the camera.
+        let barCentre = SIMD3<Float>(0, 0.60, 0.12)
+        let framed = CutRackFixtureScene.framedRootPosition ?? root.position
+        CutRackFixtureScene.framedRootPosition = framed
+        let forward = Float(Double(ProcessInfo.processInfo.environment["VOLIA_CAPTURE_ZOOM"] ?? "") ?? (name == "zoom-stack" ? 0.55 : 0.75))
+        root.orientation = turn
+        root.position = framed + barCentre - turn.act(target) + SIMD3(0, 0, forward)
     }
 
     private func verticalScroll(in view: UIView) -> UIScrollView? {
@@ -114,6 +138,19 @@ struct CutRackCaptureTests {
         plate("rawiron", tier: 0, kg: 15, slot: 1, order: 1)
     ]
 
+    /// The zoom fixtures reuse a rack fixture's plates and then move the camera in.
+    private static func zoomSource(_ name: String) -> String {
+        switch name {
+        case "zoom-stack": return "rack-full-lb"
+        case "zoom-owner": return "rack-owner"
+        default: return "rack-chrome"
+        }
+    }
+
+    private static let chromePlates: [EarnedPlate] = [
+        plate("steel", tier: 5, kg: 25, slot: 0, engraving: "Bench 100", order: 1)
+    ]
+
     private static let fullPlates: [EarnedPlate] = [
         plate("lime", tier: 22, kg: 20, slot: 0, order: 8),
         plate("blue", tier: 15, kg: 20, slot: 1, order: 7),
@@ -127,7 +164,7 @@ struct CutRackCaptureTests {
         let locale = Locale(identifier: "en_US")
         let unit: WeightUnit = name.hasSuffix("-lb") ? .lb : .kg
         let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates
-            : name == "rack-owner" ? Self.ownerPlates : Self.plates
+            : name == "rack-owner" ? Self.ownerPlates : name == "rack-chrome" ? Self.chromePlates : Self.plates
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
@@ -217,7 +254,11 @@ private struct SharedSceneFixture: View {
 private struct CutRackFixtureScene: View {
     let racked: [EarnedPlate]
     var barSkinID = 0
-    @MainActor static var lastSceneState: SceneState?
+    @MainActor static var lastSceneState: SceneState? {
+        didSet { framedRootPosition = nil }
+    }
+    /// The bar-only framing before a zoom fixture moved the camera in.
+    @MainActor static var framedRootPosition: SIMD3<Float>?
     @State private var sceneState: SceneState = {
         let state = SceneState()
         for tierID in PlateTier.all.map(\.id) where tierID != 7 {
