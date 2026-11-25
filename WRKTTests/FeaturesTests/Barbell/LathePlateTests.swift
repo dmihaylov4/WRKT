@@ -171,9 +171,27 @@ import UIKit
             let c = SIMD3<Float>(Float(bytes[i]), Float(bytes[i + 1]), Float(bytes[i + 2])) / 255
             let onBase = simd_length(simd_normalize(c + 1e-4) - simd_normalize(base + 1e-4)) < 0.08
             let onLetter = simd_length(c - ringed.letter) < 0.2 || simd_length(simd_normalize(c + 1e-4) - simd_normalize(ringed.letter + 1e-4)) < 0.08
-            if !onBase && !onLetter { foreign += 1 }
+            // Antialiased letter edges: a blend of the face (or its groove) and the letter.
+            let t = simd_clamp(simd_dot(c - ringed.letter, base - ringed.letter) / simd_length_squared(base - ringed.letter), 0, 1)
+            let onBlend = simd_length(c - (ringed.letter + (base - ringed.letter) * t)) < 0.06
+            if !onBase && !onLetter && !onBlend { foreign += 1 }
         }
         #expect(Double(foreign) / Double(bytes.count / 4) < 0.01)
+    }
+
+    @Test func letteringStandsApartFromEveryFace() {
+        func luminance(_ c: SIMD3<Float>) -> Float {
+            func linear(_ v: Float) -> Float { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            return 0.2126 * linear(c.x) + 0.7152 * linear(c.y) + 0.0722 * linear(c.z)
+        }
+        for tier in Self.liveTiers {
+            let spec = latheFaceSpec(tier: tier, weightKg: 20, engravingText: "", projection: BarbellPlateRenderProjection(),
+                                     showEngravings: true)
+            let a = luminance(spec.base), b = luminance(spec.letter)
+            let contrast = (max(a, b) + 0.05) / (min(a, b) + 0.05)
+            // The owner could not read dark stamped letters on Rose Gold (about 2.4 to 1).
+            #expect(contrast >= 3, "tier \(tier.id) letters \(spec.letter) on \(spec.base): \(contrast)")
+        }
     }
 
     @Test func defaultPlateBuildStaysLegacy() {
