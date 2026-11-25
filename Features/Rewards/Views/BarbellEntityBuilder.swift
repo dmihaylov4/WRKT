@@ -815,10 +815,13 @@ func loadPlateTexturesAsync(forTierID tierID: Int) async -> PlateTextures {
         guard !Task.isCancelled, let image else { return nil }
         return try? await TextureResource(image: image, options: .init(semantic: semantic))
     }
-    let albedo = await load("Color", semantic: .color)
-    let normal = await load("Normal", semantic: .normal)
-    let roughness = await load("Roughness", semantic: .raw)
-    let metalness = await load("Metalness", semantic: .raw)
+    // The four decodes run side by side.
+    async let albedoLoad = load("Color", semantic: .color)
+    async let normalLoad = load("Normal", semantic: .normal)
+    async let roughnessLoad = load("Roughness", semantic: .raw)
+    async let metalnessLoad = load("Metalness", semantic: .raw)
+    let albedo = await albedoLoad, normal = await normalLoad
+    let roughness = await roughnessLoad, metalness = await metalnessLoad
     let textures = PlateTextures(albedo: albedo, normal: normal, roughness: roughness, metalness: metalness)
     guard !Task.isCancelled else { return textures }
     // Another host may have loaded this prefix across an await.
