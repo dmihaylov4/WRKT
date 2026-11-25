@@ -618,6 +618,11 @@ extension UIColor {
 // doubleSided defaults to true because ring meshes have cylindrical walls that face all directions.
 // Culling back-faces on a ring punches holes in the outer/inner walls, letting the scene
 // background show through. Pass doubleSided: false only for purely flat, one-sided decal geometry.
+/// A plain physically based material. Built once per distinct set of values per process: every
+/// legacy plate part and room surface asks for one on every scene build, and building one costs
+/// RealityKit a shader parameter update per setter (about half of a legacy rack's build time).
+/// Callers get a copy; RealityKit materials are copy on write (PBRMaterialCacheTests), so a caller
+/// that changes its copy never changes the cached one.
 func pbrMaterial(
     color: UIColor,
     metallic: Float,
@@ -625,6 +630,44 @@ func pbrMaterial(
     clearcoat: Float = 0,
     clearcoatRoughness: Float = 0,
     doubleSided: Bool = true
+) -> PhysicallyBasedMaterial {
+    let key = PBRMaterialKey(color: color, metallic: metallic, roughness: roughness, clearcoat: clearcoat,
+                             clearcoatRoughness: clearcoatRoughness, doubleSided: doubleSided)
+    if let key, let cached = _pbrMaterialCache[key] { return cached }
+    let mat = makePBRMaterial(color: color, metallic: metallic, roughness: roughness, clearcoat: clearcoat,
+                              clearcoatRoughness: clearcoatRoughness, doubleSided: doubleSided)
+    if let key {
+        if _pbrMaterialCache.count >= 512 { _pbrMaterialCache.removeAll(keepingCapacity: true) }
+        _pbrMaterialCache[key] = mat
+    }
+    return mat
+}
+
+/// pbrMaterial's values with the colour as exact RGBA bits; nil for colours that are not plain
+/// RGB or grey (those are built every time).
+struct PBRMaterialKey: Hashable {
+    let rgba: [UInt32]
+    let values: [UInt32]
+    let doubleSided: Bool
+
+    init?(color: UIColor, metallic: Float, roughness: Float, clearcoat: Float, clearcoatRoughness: Float, doubleSided: Bool) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+        rgba = [r, g, b, a].map { Float($0).bitPattern }
+        values = [metallic, roughness, clearcoat, clearcoatRoughness].map(\.bitPattern)
+        self.doubleSided = doubleSided
+    }
+}
+
+private var _pbrMaterialCache: [PBRMaterialKey: PhysicallyBasedMaterial] = [:]
+
+private func makePBRMaterial(
+    color: UIColor,
+    metallic: Float,
+    roughness: Float,
+    clearcoat: Float,
+    clearcoatRoughness: Float,
+    doubleSided: Bool
 ) -> PhysicallyBasedMaterial {
     var mat = PhysicallyBasedMaterial()
     mat.baseColor = .init(tint: color)
@@ -648,21 +691,31 @@ func chromeMaterial() -> PhysicallyBasedMaterial {
     return mat
 }
 
-/// Holds shared material instances for a single plate build.
+/// Holds shared material instances for a single plate build. Both are built once per process
+/// (every plate build made one before, about 20 ms on the first scene build).
 struct PlateMaterialCache {
     let darkRubber: PhysicallyBasedMaterial
     let chrome: PhysicallyBasedMaterial
 
     init() {
-        darkRubber = pbrMaterial(
-            color: UIColor(white: 0.025, alpha: 1),
-            metallic: 0,
-            roughness: 0.92,
-            clearcoat: 0.12,
-            clearcoatRoughness: 0.70
-        )
+        darkRubber = darkRubberMaterial()
         chrome = chromeMaterial()
     }
+}
+
+private nonisolated(unsafe) var _sharedDarkRubberMaterial: PhysicallyBasedMaterial?
+
+private func darkRubberMaterial() -> PhysicallyBasedMaterial {
+    if let cached = _sharedDarkRubberMaterial { return cached }
+    let mat = pbrMaterial(
+        color: UIColor(white: 0.025, alpha: 1),
+        metallic: 0,
+        roughness: 0.92,
+        clearcoat: 0.12,
+        clearcoatRoughness: 0.70
+    )
+    _sharedDarkRubberMaterial = mat
+    return mat
 }
 
 private nonisolated(unsafe) var _dishMaterialCache: [String: PhysicallyBasedMaterial] = [:]

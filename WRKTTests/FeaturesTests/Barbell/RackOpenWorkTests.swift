@@ -158,4 +158,28 @@ struct RackOpenWorkTests {
         #expect(left == ["aaaa1111-face-x.bin", "aaaa1111-studio-z.bin"])
         #expect(RackAssetDiskCache.fileURL(kind: "face", identity: "a").lastPathComponent.hasPrefix(RackAssetDiskCache.buildTag + "-face-"))
     }
+
+    // MARK: Material cache
+
+    @Test func cachedMaterialCopiesAreCopyOnWrite() {
+        let color = UIColor(red: 0.31, green: 0.52, blue: 0.17, alpha: 1)
+        let first = pbrMaterial(color: color, metallic: 0.3, roughness: 0.4)
+        var changed = pbrMaterial(color: color, metallic: 0.3, roughness: 0.4)
+        changed.roughness = .init(floatLiteral: 0.9)
+        changed.metallic = .init(floatLiteral: 1)
+        changed.baseColor = .init(tint: .blue)
+        let later = pbrMaterial(color: color, metallic: 0.3, roughness: 0.4)
+        func rgb(_ c: UIColor) -> [CGFloat] {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            c.getRed(&r, green: &g, blue: &b, alpha: &a)
+            return [r, g, b].map { ($0 * 1000).rounded() }
+        }
+        for material in [first, later] {
+            #expect(material.roughness.scale == 0.4)
+            #expect(material.metallic.scale == 0.3)
+            #expect(rgb(material.baseColor.tint) == rgb(color))
+        }
+        #expect(changed.roughness.scale == 0.9)
+        #expect(rgb(changed.baseColor.tint) == rgb(.blue))
+    }
 }
