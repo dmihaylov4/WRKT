@@ -204,11 +204,19 @@ final class RackRoomStillService {
         )
         .frame(width: size.width, height: size.height)
         .environment(\.colorScheme, .dark)
+        RackOpenTrace.mark("still.host")
         let host = UIHostingController(rootView: view)
         host.view.backgroundColor = .clear
-        // Beside the screen, never on it: the window is drawn, the room is not seen.
-        host.view.frame = CGRect(x: -size.width - 40, y: 0, width: size.width, height: size.height)
-        window.addSubview(host.view)
+        // Inside the window but under everything in it and nearly transparent, so it is never
+        // seen. Beside the screen (outside the window's bounds) its layer was never composited,
+        // so RealityKit waited for drawables that never came back: a 1 s main-thread stall on
+        // every render.
+        host.view.frame = CGRect(origin: .zero, size: size)
+        host.view.alpha = 0.01
+        host.view.isUserInteractionEnabled = false
+        host.view.accessibilityElementsHidden = true
+        window.insertSubview(host.view, at: 0)
+        RackOpenTrace.mark("still.added")
         defer {
             host.view.removeFromSuperview()
             state.pauseNonessentialRealityWork()
@@ -219,12 +227,16 @@ final class RackRoomStillService {
             try? await Task.sleep(for: .milliseconds(30))
         }
         guard built.value, let scene = state.sceneRoot.scene else { return nil }
+        RackOpenTrace.mark("still.built")
         // A few drawn frames, so the first frame's late work (shadows, probe) has settled.
         await Self.frames(8, in: scene)
+        RackOpenTrace.mark("still.frames")
         try? await Task.sleep(for: .milliseconds(80))
         guard let arView = Self.arView(in: host.view, showing: scene) else { return nil }
         rendersDone += 1
-        return await Self.snapshot(arView, sceneSize: size, background: Self.background(request.roomTheme, style: state.plateStyle))
+        let image = await Self.snapshot(arView, sceneSize: size, background: Self.background(request.roomTheme, style: state.plateStyle))
+        RackOpenTrace.mark("still.snapshot")
+        return image
     }
 
     // MARK: The live scene's frame
