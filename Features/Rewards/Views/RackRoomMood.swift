@@ -19,7 +19,7 @@
 // painted copy of the honeycomb (RackHexReflection).
 //
 // Debug builds with lathe plates only (RackPlateStyle). In the launch environment,
-// VOLIA_RACK_MOOD=wall|wallHigh|panel|ceiling|off picks the honeycomb (default `wall`) and
+// VOLIA_RACK_MOOD=wall|wallHigh|panel|ceiling|off picks the honeycomb (default `wallHigh`) and
 // VOLIA_RACK_SIGN=lime|white the sign's letters (default `white`).
 
 import RealityKit
@@ -182,7 +182,7 @@ struct RackRoomMood: Equatable {
 }
 
 extension RackHexPlacement {
-    nonisolated static let defaultPlacement: RackHexPlacement = .wall
+    nonisolated static let defaultPlacement: RackHexPlacement = .wallHigh
 
     /// The launch environment's VOLIA_RACK_MOOD: nil for "off", the default for nil or unknown.
     nonisolated static func resolve(_ value: String?) -> RackHexPlacement? {
