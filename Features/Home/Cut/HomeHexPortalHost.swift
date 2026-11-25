@@ -318,7 +318,8 @@ final class HomeHexPortalCoordinator {
         let floor = state.entityMap.values.filter { $0.components[PlateRoleComponent.self]?.role == .floor }.count
         let moving = CutRackTap.pendingSlots.count + state.platesBeingUnracked.count
         guard HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: keyAtOpen, keyAtClose: key, floorPlates: floor,
-                                                         platesMoving: moving) else { return }
+                                                         platesMoving: moving,
+                                                         stillCached: RackRoomStillService.shared.hasStill(key)) else { return }
         guard let image = await RackRoomStillService.shared.captureLive(state, sceneSize: zoomScene.size,
                                                                         roomTheme: facts.roomTheme) else { return }
         mark("liveCaptured")
@@ -541,7 +542,8 @@ struct HomeHexPortalHost: View {
                 cachedKey: service.hasStill(key) ? key : nil, currentKey: key,
                 homeVisible: coordinator.homeVisible, scrolling: coordinator.isScrolling,
                 workoutBusy: workoutBusy || coordinator.workoutStarting,
-                portalIdle: coordinator.phase.stage == .idle)
+                portalIdle: coordinator.phase.stage == .idle,
+                roomDrawnBefore: service.roomHasBeenDrawn)
             switch action {
             case .show:
                 if let image = await service.loadRest(key) { coordinator.setRest(image, key: key, sceneSize: facts.sceneSize) }

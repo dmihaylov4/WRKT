@@ -6,11 +6,12 @@
 // them; nothing here is user data), hold the exact pixel bytes the generators produced (no image
 // codec, so a read-back texture is bit-identical to a drawn one) and are bounded by size.
 //
-// Invalidation: every key starts with RackAssetDiskCache.version and the build stamp of the binary
-// that drew it. Bump `version` whenever what the face art or the studio panorama draws changes
-// (lettering, colours, rings, normal strength, clamp, white balance...). The build stamp also
-// retires every file after each new install (the first write of a process deletes other builds'
-// files), so a forgotten bump costs at most one stale look within one build.
+// Invalidation: every file name starts with a tag made from RackAssetDiskCache.version, and
+// the first write of a process deletes files with any other tag. Files survive app updates that
+// leave the drawing alone (they used to carry the build's stamp too, so every update redrew every
+// face and the panorama). Bump `version` whenever what the face art, the floor or the studio
+// panorama draws changes; RackAssetArtFingerprintTests fails when the drawn pixels change while
+// `version` stays the same, so a forgotten bump is caught before it ships.
 
 import CoreGraphics
 import CryptoKit
@@ -30,33 +31,23 @@ nonisolated enum RackAssetDiskCache {
             .appendingPathComponent("rack_assets", isDirectory: true)
     }
 
-    /// Size and modification date of the image that holds this code (the debug dylib in Debug
-    /// builds, the app binary in Release): changes with every build.
-    static let buildStamp: String = {
-        var info = Dl_info()
-        guard dladdr(#dsohandle, &info) != 0, let path = info.dli_fname,
-              let attributes = try? FileManager.default.attributesOfItem(atPath: String(cString: path)) else { return "unknown" }
-        let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
-        let date = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-        return "\(size)-\(Int64(date * 1000))"
-    }()
-
-    /// Eight hex digits naming this version and build in every file name.
-    static let buildTag: String = hex(SHA256.hash(data: Data("\(version)|\(buildStamp)".utf8))).prefix(8).description
+    /// Eight hex digits naming this version in every file name.
+    static let versionTag: String = hex(SHA256.hash(data: Data(version.utf8))).prefix(8).description
 
     static func fileURL(kind: String, identity: String) -> URL {
-        let digest = hex(SHA256.hash(data: Data("\(version)|\(buildStamp)|\(kind)|\(identity)".utf8)))
-        return directory.appendingPathComponent("\(buildTag)-\(kind)-\(digest).bin")
+        let digest = hex(SHA256.hash(data: Data("\(version)|\(kind)|\(identity)".utf8)))
+        return directory.appendingPathComponent("\(versionTag)-\(kind)-\(digest).bin")
     }
 
     private static func hex(_ digest: SHA256.Digest) -> String {
         digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private static let retiredOtherBuilds = OSAllocatedUnfairLock(initialState: false)
+    private static let retiredOtherVersions = OSAllocatedUnfairLock(initialState: false)
 
-    /// Deletes files another version or build wrote. Once per process, on the first write.
-    static func removeOtherBuilds(in folder: URL = directory, keeping tag: String = buildTag) {
+    /// Deletes files another version wrote (and files from builds that still tagged their files
+    /// with the build). Once per process, on the first write.
+    static func removeOtherVersions(in folder: URL = directory, keeping tag: String = versionTag) {
         guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { return }
         for file in files where !file.lastPathComponent.hasPrefix(tag + "-") {
             try? FileManager.default.removeItem(at: file)
@@ -77,11 +68,11 @@ nonisolated enum RackAssetDiskCache {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         guard let stored = try? (data as NSData).compressed(using: .lzfse) as Data,
               (try? stored.write(to: url, options: .atomic)) != nil else { return }
-        let first = retiredOtherBuilds.withLock { done in
+        let first = retiredOtherVersions.withLock { done in
             defer { done = true }
             return !done
         }
-        if first { removeOtherBuilds() }
+        if first { removeOtherVersions() }
         prune()
     }
 

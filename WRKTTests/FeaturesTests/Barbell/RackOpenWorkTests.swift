@@ -129,7 +129,6 @@ struct RackOpenWorkTests {
         #expect(spec("Bench 100").diskIdentity != spec("Bench 105").diskIdentity)
         #expect(RackAssetDiskCache.fileURL(kind: "face", identity: "a") == RackAssetDiskCache.fileURL(kind: "face", identity: "a"))
         #expect(RackAssetDiskCache.fileURL(kind: "face", identity: "a").path.contains("/Caches/rack_assets/"))
-        #expect(RackAssetDiskCache.buildStamp != "unknown")
     }
 
     @Test func pruneKeepsTheNewestFilesWithinTheBound() throws {
@@ -146,17 +145,20 @@ struct RackOpenWorkTests {
         #expect(left == ["f3.bin", "f4.bin"])
     }
 
-    @Test func otherBuildsFilesAreRetired() throws {
+    @Test func otherVersionsFilesAreRetired() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("rack-builds-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         for name in ["aaaa1111-face-x.bin", "bbbb2222-face-y.bin", "aaaa1111-studio-z.bin"] {
             try Data(count: 10).write(to: folder.appendingPathComponent(name))
         }
-        RackAssetDiskCache.removeOtherBuilds(in: folder, keeping: "aaaa1111")
+        RackAssetDiskCache.removeOtherVersions(in: folder, keeping: "aaaa1111")
         let left = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
         #expect(left == ["aaaa1111-face-x.bin", "aaaa1111-studio-z.bin"])
-        #expect(RackAssetDiskCache.fileURL(kind: "face", identity: "a").lastPathComponent.hasPrefix(RackAssetDiskCache.buildTag + "-face-"))
+        #expect(RackAssetDiskCache.fileURL(kind: "face", identity: "a").lastPathComponent.hasPrefix(RackAssetDiskCache.versionTag + "-face-"))
+        // The tag names the version only, so an app update that keeps the version keeps the files.
+        #expect(RackAssetDiskCache.fileURL(kind: "face", identity: "a").lastPathComponent
+                .hasPrefix(String(RackAssetDiskCache.versionTag.prefix(8)) + "-"))
     }
 
     // MARK: Material cache

@@ -48,6 +48,19 @@ final class RackRoomStillService {
     func fullURL(_ key: String) -> URL { directory.appendingPathComponent("\(key).jpg") }
     func restURL(_ key: String) -> URL { directory.appendingPathComponent("\(key)-rest.png") }
     private var metricsURL: URL { directory.appendingPathComponent("scene-band-v2.json") }
+    /// Present once a rack room has been drawn in this install (HomeHexPortalLogic.stillAction).
+    private static let drawnMarker = "room-drawn"
+    private var drawnMarkerURL: URL { directory.appendingPathComponent(Self.drawnMarker) }
+
+    /// A rack room has been drawn on screen in this install (so RealityKit's shaders are compiled).
+    var roomHasBeenDrawn: Bool { FileManager.default.fileExists(atPath: drawnMarkerURL.path) }
+
+    /// Called when the rack screen's scene is built.
+    func noteRoomDrawn() {
+        guard !roomHasBeenDrawn else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: drawnMarkerURL.path, contents: Data())
+    }
 
     func hasStill(_ key: String) -> Bool {
         FileManager.default.fileExists(atPath: fullURL(key).path) && FileManager.default.fileExists(atPath: restURL(key).path)
@@ -125,7 +138,7 @@ final class RackRoomStillService {
             } catch {
                 return false
             }
-            let keep: Set<String> = [fullURL.lastPathComponent, restURL.lastPathComponent, "scene-band-v2.json"]
+            let keep: Set<String> = [fullURL.lastPathComponent, restURL.lastPathComponent, "scene-band-v2.json", Self.drawnMarker]
             for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
             where !keep.contains(file.lastPathComponent) {
                 try? FileManager.default.removeItem(at: file)
@@ -204,11 +217,19 @@ final class RackRoomStillService {
         )
         .frame(width: size.width, height: size.height)
         .environment(\.colorScheme, .dark)
+        RackOpenTrace.mark("still.host")
         let host = UIHostingController(rootView: view)
         host.view.backgroundColor = .clear
-        // Beside the screen, never on it: the window is drawn, the room is not seen.
-        host.view.frame = CGRect(x: -size.width - 40, y: 0, width: size.width, height: size.height)
-        window.addSubview(host.view)
+        // Inside the window but under everything in it and nearly transparent, so it is never
+        // seen. Beside the screen (outside the window's bounds) its layer was never composited,
+        // so RealityKit waited for drawables that never came back: a 1 s main-thread stall on
+        // every render.
+        host.view.frame = CGRect(origin: .zero, size: size)
+        host.view.alpha = 0.01
+        host.view.isUserInteractionEnabled = false
+        host.view.accessibilityElementsHidden = true
+        window.insertSubview(host.view, at: 0)
+        RackOpenTrace.mark("still.added")
         defer {
             host.view.removeFromSuperview()
             state.pauseNonessentialRealityWork()
@@ -219,12 +240,16 @@ final class RackRoomStillService {
             try? await Task.sleep(for: .milliseconds(30))
         }
         guard built.value, let scene = state.sceneRoot.scene else { return nil }
+        RackOpenTrace.mark("still.built")
         // A few drawn frames, so the first frame's late work (shadows, probe) has settled.
-        await Self.frames(8, in: scene)
+        guard await Self.frames(8, in: scene) else { return nil }
+        RackOpenTrace.mark("still.frames")
         try? await Task.sleep(for: .milliseconds(80))
         guard let arView = Self.arView(in: host.view, showing: scene) else { return nil }
         rendersDone += 1
-        return await Self.snapshot(arView, sceneSize: size, background: Self.background(request.roomTheme, style: state.plateStyle))
+        let image = await Self.snapshot(arView, sceneSize: size, background: Self.background(request.roomTheme, style: state.plateStyle))
+        RackOpenTrace.mark("still.snapshot")
+        return image
     }
 
     // MARK: The live scene's frame
@@ -249,18 +274,22 @@ final class RackRoomStillService {
         return nil
     }
 
-    private static func frames(_ count: Int, in scene: RealityKit.Scene) async {
-        let counter = RoomStillCounter()
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            var subscription: (any Cancellable)?
-            subscription = scene.subscribe(to: SceneEvents.Update.self) { _ in
+    /// Waits for `count` scene updates. False when they do not come within `timeout` (the window
+    /// was hidden, the app went to the background): the render gives up instead of holding the
+    /// plate render queue, which every thumbnail and row picture waits behind.
+    static func frames(_ count: Int, in scene: RealityKit.Scene, timeout: Duration = .seconds(3)) async -> Bool {
+        let wait = RoomStillFrameWait()
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            wait.continuation = continuation
+            wait.subscription = scene.subscribe(to: SceneEvents.Update.self) { _ in
                 MainActor.assumeIsolated {
-                    counter.value += 1
-                    guard counter.value == count else { return }
-                    subscription?.cancel()
-                    subscription = nil
-                    continuation.resume()
+                    wait.frames += 1
+                    if wait.frames >= count { wait.finish(true) }
                 }
+            }
+            wait.timer = Task { @MainActor in
+                try? await Task.sleep(for: timeout)
+                wait.finish(false)
             }
         }
     }
@@ -268,7 +297,7 @@ final class RackRoomStillService {
     /// The scene band's colour behind the room (the room view's own background).
     static func background(_ roomTheme: String, style: RackPlateStyle) -> UIColor {
         let theme = RoomThemePreset.preset(for: roomTheme)
-        let mood = RackRoomMood.current(for: style)
+        let mood = RackRoomMood.current(for: style, roomThemeID: roomTheme)
         let shown = mood.map { theme.dimmed(by: $0.roomBrightness, floor: $0.floorBrightness, floorRoughness: $0.floorRoughness) } ?? theme
         return UIColor(shown.swiftUIBackground)
     }
@@ -277,9 +306,7 @@ final class RackRoomStillService {
     /// 20 pt fade from the screen's background at the top, the plate row's floor fade at the
     /// bottom), so the still matches the band as the screen draws it.
     private static func snapshot(_ arView: ARView, sceneSize: CGSize, background: UIColor) async -> UIImage? {
-        let frame: UIImage? = await withCheckedContinuation { continuation in
-            arView.snapshot(saveToHDR: false) { continuation.resume(returning: $0) }
-        }
+        let frame = await arView.snapshot(timeout: .seconds(5))
         guard let frame else { return nil }
         let screenBackground = UIColor(DS.Cut.Colors.background).resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark))
         let format = UIGraphicsImageRendererFormat()
@@ -311,6 +338,18 @@ private final class RoomStillFlag {
 }
 
 @MainActor
-private final class RoomStillCounter {
-    var value = 0
+private final class RoomStillFrameWait {
+    var frames = 0
+    var continuation: CheckedContinuation<Bool, Never>?
+    var subscription: (any Cancellable)?
+    var timer: Task<Void, Never>?
+
+    func finish(_ drawn: Bool) {
+        guard let continuation else { return }
+        self.continuation = nil
+        subscription?.cancel()
+        subscription = nil
+        timer?.cancel()
+        continuation.resume(returning: drawn)
+    }
 }

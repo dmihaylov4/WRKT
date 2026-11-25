@@ -1,5 +1,6 @@
 import Foundation
 import RealityKit
+import SwiftUI
 import Testing
 import UIKit
 @testable import WRKT
@@ -159,6 +160,17 @@ import UIKit
             #expect(RackRoomMood.current(for: .lathe, roomThemeID: room) == RackRoomMood.current(for: .lathe))
             #expect(RackRoomMood.current(for: .legacy, roomThemeID: room) == nil)
         }
+    }
+
+    /// The portal's still sits on the room's own background: undimmed in the pale rooms.
+    @Test func thePortalStillsBackgroundFollowsTheRoomsMood() {
+        for room in RackRoomMood.paleRooms {
+            #expect(RackRoomStillService.background(room, style: .lathe) == UIColor(RoomThemePreset.preset(for: room).swiftUIBackground))
+        }
+        let mood = RackRoomMood.current(for: .lathe)!
+        let dark = RoomThemePreset.preset(for: "dark_gym").dimmed(by: mood.roomBrightness, floor: mood.floorBrightness,
+                                                                  floorRoughness: mood.floorRoughness)
+        #expect(RackRoomStillService.background("dark_gym", style: .lathe) == UIColor(dark.swiftUIBackground))
     }
 
     @Test func everyRoomAUserCanOwnIsDecided() {

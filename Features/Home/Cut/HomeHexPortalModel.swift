@@ -16,28 +16,28 @@ import Foundation
 
 // MARK: - Flag
 
-/// On in debug builds, off in Release (TestFlight and the App Store are unchanged).
-/// VOLIA_HOME_HEX_PORTAL=0 turns it off in a debug build, =1 keeps it on.
+/// Ships with the new rack room (RackRoomRelease): on in Debug builds and for TestFlight testers
+/// on the new design, off for App Store installs and testers who switched the new design off.
+/// VOLIA_HOME_HEX_PORTAL=0 turns it off in a Debug build, =1 keeps it on; Release builds never
+/// read it.
 enum HomeHexPortalFlag {
     static let overrideKey = "VOLIA_HOME_HEX_PORTAL"
 
-    /// The rule, separated from the build flag so tests can pin both configurations.
-    static func resolve(isDebugBuild: Bool, environment: [String: String]) -> Bool {
-        guard isDebugBuild else { return false }
+    /// The rule, separated from the build flag so tests can pin every case. The override is read
+    /// only when `allowsOverrides` (Debug builds), and can only turn the portal off or keep it on.
+    static func resolve(newRoom: Bool, allowsOverrides: Bool, environment: [String: String]) -> Bool {
+        guard newRoom else { return false }
+        guard allowsOverrides else { return true }
         switch environment[overrideKey]?.lowercased() {
         case "0", "off", "false", "no": return false
         default: return true
         }
     }
 
-    /// This build's value. Release compiles to false without reading the environment.
-    static var isEnabled: Bool {
-        #if DEBUG
-        return resolve(isDebugBuild: true, environment: ProcessInfo.processInfo.environment)
-        #else
-        return false
-        #endif
-    }
+    /// This launch's value, resolved once.
+    static let isEnabled: Bool = resolve(newRoom: RackRoomRelease.isNewRoomEnabled,
+                                         allowsOverrides: RackRoomRelease.allowsLaunchOverrides,
+                                         environment: RackRoomRelease.overrideEnvironment)
 }
 
 // MARK: - Window
@@ -141,18 +141,24 @@ enum HomeHexPortalLogic {
 
     /// The refresh rule. A still is rendered only when it is missing or stale, and never while Home
     /// is not on screen, is scrolling, a workout is running or starting, or the room is open (the
-    /// room's own frame replaces the still when it closes).
+    /// room's own frame replaces the still when it closes). Nor before the room has been drawn once
+    /// in this install (`roomDrawnBefore`): the first room drawn compiles RealityKit's shaders,
+    /// seconds of main-thread stalls on a fresh install, which belong to the first visit to the
+    /// room (behind its loading state), not to Home. Until then the window keeps its placeholder,
+    /// and the first visit's last frame becomes the still.
     static func stillAction(cachedKey: String?, currentKey: String, homeVisible: Bool, scrolling: Bool,
-                            workoutBusy: Bool, portalIdle: Bool) -> StillAction {
+                            workoutBusy: Bool, portalIdle: Bool, roomDrawnBefore: Bool = true) -> StillAction {
         if cachedKey == currentKey { return .show }
-        guard homeVisible, !scrolling, !workoutBusy, portalIdle else { return .wait }
+        guard homeVisible, !scrolling, !workoutBusy, portalIdle, roomDrawnBefore else { return .wait }
         return .render
     }
 
-    /// After a visit: the live scene's last frame becomes the still when the bar changed and the
-    /// frame shows the room as it opens next time (no plates lying on the floor, none moving).
-    static func capturesLiveFrameOnClose(keyAtOpen: String?, keyAtClose: String, floorPlates: Int, platesMoving: Int) -> Bool {
-        keyAtOpen != keyAtClose && floorPlates == 0 && platesMoving == 0
+    /// After a visit: the live scene's last frame becomes the still when the bar changed or there
+    /// is no still for it yet, and the frame shows the room as it opens next time (no plates lying
+    /// on the floor, none moving).
+    static func capturesLiveFrameOnClose(keyAtOpen: String?, keyAtClose: String, floorPlates: Int, platesMoving: Int,
+                                         stillCached: Bool = true) -> Bool {
+        (keyAtOpen != keyAtClose || !stillCached) && floorPlates == 0 && platesMoving == 0
     }
 }
 

@@ -31,7 +31,7 @@ struct CutTrainHost: View {
     /// values it was opened with: a Boolean flag beside a separate optional showed an empty,
     /// full-height sheet the first time, because the content was built before the values arrived.
     @State private var pastWorkouts: PastWorkoutsSheet?
-    /// The hex portal in the field's cut corner (HomeHexPortalFlag: debug builds only).
+    /// The hex portal in the field's cut corner (HomeHexPortalFlag: follows the new rack room).
     @State private var portal = HomeHexPortalCoordinator()
 
     private struct PastWorkoutsSheet: Identifiable {

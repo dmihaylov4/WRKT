@@ -329,7 +329,7 @@ struct HexPortalFixture {
     static func clearStills() {
         let directory = RackRoomStillService.shared.directory
         for file in (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
-        where file.lastPathComponent != "scene-band-v2.json" {
+        where file.lastPathComponent != "scene-band-v2.json" && file.lastPathComponent != "room-drawn" {
             try? FileManager.default.removeItem(at: file)
         }
     }
@@ -344,6 +344,8 @@ final class HexHarness {
     private let previous: UIWindow?
 
     init(fixture: HexPortalFixture, hero: CutTrainHero, dynamicType: DynamicTypeSize = .large) throws {
+        // The harness renders stills: as after a first visit to the room.
+        RackRoomStillService.shared.noteRoomDrawn()
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         previous = scene.windows.first { $0.isKeyWindow }
         previous?.isHidden = true

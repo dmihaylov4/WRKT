@@ -5,24 +5,42 @@ import Testing
 
 @Suite("Home hex portal: flag")
 struct HomeHexPortalFlagTests {
-    @Test func releaseIsOffWhateverTheEnvironmentSays() {
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: false, environment: [:]) == false)
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: false, environment: [HomeHexPortalFlag.overrideKey: "1"]) == false)
+    /// A Release launch's portal for an install and stored tester choice, with every override a
+    /// launch could pass.
+    private static func releasePortal(install: CutInstallKind, applied: Bool?) -> [Bool] {
+        let design = CutTesterSwitch.resolve(build: .release, install: install, applied: applied, debugNewDesign: true)
+        let newRoom = RackRoomRelease.resolve(build: .release, newDesign: design.newDesign)
+        return [[:], [HomeHexPortalFlag.overrideKey: "1"], [HomeHexPortalFlag.overrideKey: "0"]].map {
+            HomeHexPortalFlag.resolve(newRoom: newRoom, allowsOverrides: false, environment: $0)
+        }
+    }
+
+    @Test func appStoreReleaseNeverShowsThePortal() {
+        for applied in [nil, true, false] as [Bool?] {
+            #expect(Self.releasePortal(install: .appStore, applied: applied).allSatisfy { !$0 })
+        }
+    }
+
+    @Test func testFlightOnTheNewDesignShowsThePortal() {
+        for applied in [nil, true] as [Bool?] {
+            #expect(Self.releasePortal(install: .testFlight, applied: applied).allSatisfy { $0 })
+        }
+    }
+
+    @Test func testFlightWithTheNewDesignSwitchedOffHasNoPortal() {
+        #expect(Self.releasePortal(install: .testFlight, applied: false).allSatisfy { !$0 })
     }
 
     @Test func debugIsOnUnlessTurnedOff() {
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [:]))
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [HomeHexPortalFlag.overrideKey: "1"]))
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [HomeHexPortalFlag.overrideKey: "0"]) == false)
-        #expect(HomeHexPortalFlag.resolve(isDebugBuild: true, environment: [HomeHexPortalFlag.overrideKey: "off"]) == false)
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [:]))
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "1"]))
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "0"]) == false)
+        #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "off"]) == false)
+        #expect(HomeHexPortalFlag.resolve(newRoom: false, allowsOverrides: true, environment: [HomeHexPortalFlag.overrideKey: "1"]) == false)
     }
 
     @Test func thisBuildMatchesItsConfiguration() {
-        #if DEBUG
         let expected = ProcessInfo.processInfo.environment[HomeHexPortalFlag.overrideKey] != "0"
-        #else
-        let expected = false
-        #endif
         #expect(HomeHexPortalFlag.isEnabled == expected)
     }
 }
@@ -104,6 +122,11 @@ struct HomeHexPortalStillTests {
         #expect(action(cached: nil, scrolling: true) == .wait)
         #expect(action(cached: nil, busy: true) == .wait)
         #expect(action(cached: nil, idle: false) == .wait)
+        // A fresh install renders no still before the room has been drawn once.
+        #expect(HomeHexPortalLogic.stillAction(cachedKey: nil, currentKey: "k", homeVisible: true, scrolling: false,
+                                               workoutBusy: false, portalIdle: true, roomDrawnBefore: false) == .wait)
+        #expect(HomeHexPortalLogic.stillAction(cachedKey: "k", currentKey: "k", homeVisible: true, scrolling: false,
+                                               workoutBusy: false, portalIdle: true, roomDrawnBefore: false) == .show)
     }
 
     @Test func liveFrameBecomesTheStillOnlyWhenTheBarChangedAndTheRoomIsTidy() {
@@ -111,6 +134,11 @@ struct HomeHexPortalStillTests {
         #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "a", floorPlates: 0, platesMoving: 0))
         #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "b", floorPlates: 2, platesMoving: 0))
         #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "b", floorPlates: 0, platesMoving: 1))
+        // No still yet (the first visit of a fresh install): the visit's last frame becomes it.
+        #expect(HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "a", floorPlates: 0, platesMoving: 0,
+                                                            stillCached: false))
+        #expect(!HomeHexPortalLogic.capturesLiveFrameOnClose(keyAtOpen: "a", keyAtClose: "a", floorPlates: 1, platesMoving: 0,
+                                                             stillCached: false))
     }
 }
 

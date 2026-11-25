@@ -83,8 +83,8 @@ nonisolated enum RackRoomFloorArt {
         return top + (bottom - top) * sy
     }
 
-    /// The style's images: from the disk cache when this build drew them before, else drawn and
-    /// stored (about 0.4 s in a debug build on the simulator, so drawn once per install).
+    /// The style's images: from the disk cache when this version drew them before, else drawn and
+    /// stored (about 0.4 s in a debug build on the simulator, so drawn once per art version).
     static func images(_ style: RackFloorStyle, diskCache: Bool = true) -> Images? {
         let n = side
         let url = RackAssetDiskCache.fileURL(kind: "floor", identity: "\(style.rawValue)|\(n)")
