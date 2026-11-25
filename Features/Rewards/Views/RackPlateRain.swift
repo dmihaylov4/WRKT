@@ -66,11 +66,12 @@ enum RackPlateRain {
     /// Measured with CutRackRainHarnessTests on the iOS 27 simulator (iPhone 17 Pro, 402 x 500
     /// point band), 2026-11-25. Frame time is not what limits it: lathe plates held a 16.7 ms
     /// median and 17 to 18 ms p95 at 30, 60 and 90 plates (90 plates: 146 entities, settled in
-    /// 10 s). The floor is: in front of the bar there is room for one loose layer of plates, and
-    /// past about 16 the pile climbs to bar height (24: 9 plates resting above 0.45 m, up to
-    /// 0.8 m; 30: 9 out of frame; 90: 43 out of frame, a heap 1.8 m high), hiding and blocking
-    /// the bar. At 16: none out of the room, at most 1 at the frame edge, 2 to 3 resting above
-    /// 0.45 m, asleep 5 s after the first plate. Faces: every distinct look is one face set
+    /// 10 s). Settling is. With the disc collider and the stable-pose rest rule (re-measured the
+    /// same day): 16 lathe plates lie in a heap at most 0.33 m high, 13 to 16 of them within 20
+    /// degrees of flat, none on edge, on the bar or out of frame, asleep 2.7 to 4.4 s after the
+    /// first plate. At 20 the heap is still low (0.33 m) but takes until the 4.5 s give-up limit
+    /// (asleep at 6.4 to 6.6 s) and a plate can stay on its edge; at 24, 11 plates lean. Legacy:
+    /// 12 asleep in 2.4 to 2.7 s, 16 in 3.9 s, all flat. Faces: every distinct look is one face set
     /// (memory grew 1 to 13 MB for 16 to 36 faces once the studio was warm), so looks equals
     /// plates for lathe. Legacy plates are about 23 entities each (12 plates: 275 entities) and
     /// their first materials cost: 16 plates gave one 700 ms main-thread stall, 12 at most 36 ms.
