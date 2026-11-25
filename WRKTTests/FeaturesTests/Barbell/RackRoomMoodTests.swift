@@ -147,3 +147,23 @@ import UIKit
         #expect(abs(r - 0.8) < 0.02 && abs(g - 1) < 0.02 && b < 0.02)
     }
 }
+
+/// Which rooms get the mood: the dark rooms do, the pale rooms keep their own colours.
+@MainActor
+@Suite struct RackRoomMoodRoomTests {
+    @Test func paleRoomsKeepTheirOwnLookAndDarkRoomsGetTheMood() {
+        for room in ["concrete_room", "competition_platform", "daylight_studio"] {
+            #expect(RackRoomMood.current(for: .lathe, roomThemeID: room) == nil)
+        }
+        for room in ["dark_gym", "neon_garage", "iron_basement", "brick_powerhouse"] {
+            #expect(RackRoomMood.current(for: .lathe, roomThemeID: room) == RackRoomMood.current(for: .lathe))
+            #expect(RackRoomMood.current(for: .legacy, roomThemeID: room) == nil)
+        }
+    }
+
+    @Test func everyRoomAUserCanOwnIsDecided() {
+        let rooms = BarbellCosmeticCatalog.current.items.filter { $0.kind == .roomTheme }.map(\.id)
+        #expect(Set(rooms) == ["dark_gym", "concrete_room", "competition_platform", "neon_garage",
+                               "iron_basement", "daylight_studio", "brick_powerhouse"])
+    }
+}

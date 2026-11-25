@@ -1597,10 +1597,10 @@ struct BarbellRealityView: View {
         return roomTheme.swiftUIBackground
     }
 
-    /// The home gym mood (lathe plates in the rack room, debug builds), or nil.
+    /// The home gym mood (lathe plates in the rack room, in a room the mood suits), or nil.
     private var mood: RackRoomMood? {
         guard case .rackRoom = mode else { return nil }
-        return RackRoomMood.current(for: sceneState.plateStyle)
+        return RackRoomMood.current(for: sceneState.plateStyle, roomThemeID: roomThemeID)
     }
 
     /// The room's colours, dimmed to the mood's dark room when there is one.
