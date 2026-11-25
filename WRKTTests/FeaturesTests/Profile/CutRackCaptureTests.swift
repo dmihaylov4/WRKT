@@ -19,7 +19,7 @@ import UIKit
 struct CutRackCaptureTests {
     nonisolated static let names = [
         "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "rack-owner", "detail", "detail-ax5", "collection", "collection-ax5",
-        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right"
+        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right", "rack-owner-floor"
     ]
     nonisolated static var selectedNames: [String] {
         guard let value = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
@@ -58,8 +58,8 @@ struct CutRackCaptureTests {
             zoomIn(name)
             try await Task.sleep(for: .seconds(1.5))
         }
-        if name == "rack-mixed" {
-            layMixedFloorPlates()
+        if name == "rack-mixed" || name == "rack-owner-floor" {
+            layMixedFloorPlates(name == "rack-mixed" ? Self.mixedPlates : [Self.ownerRedPlates[1]])
             try await Task.sleep(for: .seconds(1.5))
         }
         if name.hasSuffix("-bottom"), let scroll = verticalScroll(in: window) {
@@ -92,15 +92,16 @@ struct CutRackCaptureTests {
     /// the room so the stack sits in front of the fixed camera.
     /// The same plates as on the bar, lying flat on the floor in front of it (the way a dropped
     /// plate comes to rest), built exactly as the scene builds them.
-    private func layMixedFloorPlates() {
+    private func layMixedFloorPlates(_ plates: [EarnedPlate]) {
         guard let state = CutRackFixtureScene.lastSceneState else { return }
-        for (index, plate) in Self.mixedPlates.enumerated() {
+        for (index, plate) in plates.enumerated() {
             let entity = makePlateEntity(tierID: plate.tierID, weightKg: plate.weightKg, role: .floor,
                                          options: .visualOnly(), plateStyle: state.plateStyle)
             entity.name = "mixed-floor-\(index)"
             let thickness = PlateVisualDesign.profile(for: PlateTier.all.first { $0.id == plate.tierID }!.style).thickness
             entity.orientation = simd_quatf(angle: 0, axis: SIMD3(0, 1, 0))
-            entity.position = SIMD3(Float(index - 1) * 0.50, thickness / 2 + 0.003, 0.50)
+            let x = plates.count == 1 ? Float(0.30) : Float(index - 1) * 0.50
+            entity.position = SIMD3(x, thickness / 2 + 0.003, 0.50)
             entity.components.set(GroundingShadowComponent(castsShadow: true))
             state.sceneRoot.addChild(entity)
         }
@@ -212,7 +213,7 @@ struct CutRackCaptureTests {
         let source: [EarnedPlate] = name == "rack-empty" ? [] : name == "rack-full-lb" ? Self.fullPlates
             : name == "rack-owner" ? Self.ownerPlates : name == "rack-chrome" ? Self.chromePlates
             : name == "rack-mixed" ? Self.mixedPlates : name == "rack-owner25" ? Self.owner25Plates
-            : name == "rack-owner-reds" ? Self.ownerRedPlates : Self.plates
+            : name == "rack-owner-reds" || name == "rack-owner-floor" ? Self.ownerRedPlates : Self.plates
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }
