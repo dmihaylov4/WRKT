@@ -19,7 +19,7 @@ import UIKit
 struct CutRackCaptureTests {
     nonisolated static let names = [
         "rack-default", "rack-ax5", "rack-ax5-bottom", "rack-empty", "rack-full-lb", "rack-owner", "detail", "detail-ax5", "collection", "collection-ax5",
-        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right", "rack-owner-floor", "rack-letters"
+        "scene-legacy", "scene-moment", "scene-welcome", "zoom-stack", "zoom-chrome", "zoom-owner", "rack-mixed", "rack-owner25", "rack-owner-reds", "zoom-left", "zoom-right", "rack-owner-floor", "rack-letters", "rack-rose-floor", "rack-floor-metal"
     ]
     nonisolated static var selectedNames: [String] {
         guard let value = ProcessInfo.processInfo.environment["VOLIA_CAPTURE_STATE"] else { return names }
@@ -58,8 +58,10 @@ struct CutRackCaptureTests {
             zoomIn(name)
             try await Task.sleep(for: .seconds(1.5))
         }
-        if name == "rack-mixed" || name == "rack-owner-floor" || name == "rack-letters" {
+        if name == "rack-mixed" || name == "rack-owner-floor" || name == "rack-letters" || name == "rack-rose-floor"
+            || name == "rack-floor-metal" {
             layMixedFloorPlates(name == "rack-mixed" ? Self.mixedPlates : name == "rack-letters" ? Self.letterPlates
+                                : name == "rack-rose-floor" ? Self.roseFloorPlates : name == "rack-floor-metal" ? Self.floorMetalPlates
                                 : [Self.ownerRedPlates[1]])
             try await Task.sleep(for: .seconds(1.5))
         }
@@ -204,6 +206,14 @@ struct CutRackCaptureTests {
         plate("red1", tier: 14, kg: 20, slot: 3, order: 1)
     ]
 
+    /// The owner's screen: an empty bar and the Rose Gold 25 kg lying on the floor.
+    static let roseFloorPlates: [EarnedPlate] = [plate("rose", tier: 8, kg: 25, engraving: "75 Workouts", order: 1)]
+    /// Reflection check: chrome and gold lying flat on the floor, facing the ceiling and the wall.
+    static let floorMetalPlates: [EarnedPlate] = [
+        plate("steel", tier: 5, kg: 25, order: 2),
+        plate("gold", tier: 6, kg: 20, order: 1)
+    ]
+
     private static let chromePlates: [EarnedPlate] = [
         plate("steel", tier: 5, kg: 25, slot: 0, engraving: "Bench 100", order: 1)
     ]
@@ -224,7 +234,8 @@ struct CutRackCaptureTests {
             : name == "rack-owner" ? Self.ownerPlates : name == "rack-chrome" ? Self.chromePlates
             : name == "rack-mixed" ? Self.mixedPlates : name == "rack-owner25" ? Self.owner25Plates
             : name == "rack-owner-reds" || name == "rack-owner-floor" ? Self.ownerRedPlates
-            : name == "rack-letters" ? Self.letterPlates : Self.plates
+            : name == "rack-letters" ? Self.letterPlates : name == "rack-rose-floor" ? Self.roseFloorPlates
+            : name == "rack-floor-metal" ? Self.floorMetalPlates : Self.plates
         let facts = source.map(CutRackPlateFacts.init)
         let thumbnail: (String) -> AnyView = { id in
             guard let plate = source.first(where: { $0.id == id }) else { return AnyView(EmptyView()) }

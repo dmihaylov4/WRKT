@@ -1503,7 +1503,7 @@ struct BarbellRealityView: View {
     /// The room's colours, dimmed to the mood's dark room when there is one.
     private var roomTheme: RoomThemePreset {
         let theme = RoomThemePreset.preset(for: roomThemeID)
-        return mood.map { theme.dimmed(by: $0.roomBrightness, floor: $0.floorBrightness) } ?? theme
+        return mood.map { theme.dimmed(by: $0.roomBrightness, floor: $0.floorBrightness, floorRoughness: $0.floorRoughness) } ?? theme
     }
 
     @MainActor
@@ -1606,7 +1606,7 @@ struct BarbellRealityView: View {
         let keyScale = RackRoomLightingPreset.keyScale(
             brightestSurfaceLuminance: max(theme.floorLuminance, theme.backdropLuminance))
 
-        // Home gym mood: the lamp over the bar carries the shadowed light; sign and strip add
+        // Home gym mood: the honeycomb's lights (RackRoomMood) replace the studio key; the sign adds
         // colour. No studio key and no storage wash.
         if let mood {
             mood.addFixtures(to: sceneRoot, signText: barbellNormalizedRoomWallText(roomWallText) ?? "VOLIA",

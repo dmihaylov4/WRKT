@@ -20,7 +20,7 @@ import simd
 
 nonisolated enum RackAssetDiskCache {
     /// Bump when the drawn face art or the processed studio panorama changes.
-    static let version = "rack-assets-v2"
+    static let version = "rack-assets-v3"
 
     /// Upper bound for the directory; the oldest files go first.
     static let maximumBytes = 32 * 1024 * 1024
