@@ -55,6 +55,7 @@ struct CutRackRailScreen<SceneContent: View, Stand: View, Face: View>: View {
     private var plateSide: CGFloat { min(128, max(90, (width / 3.6).rounded())) }
 
     var body: some View {
+        let _ = RackWorkCounters.debugTick(.railScreenBodies)
         Group {
             if dynamicTypeSize.isAccessibilitySize {
                 // Large text: the page scrolls, the scene keeps a fixed height with the plates on
@@ -355,6 +356,7 @@ struct CutRackPlateRow<Stand: View>: View {
     }
 
     var body: some View {
+        let _ = RackWorkCounters.debugTick(.railRowBodies)
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(alignment: .bottom, spacing: -side * 0.06) {
                 ForEach(items) { item in

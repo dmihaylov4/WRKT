@@ -318,6 +318,35 @@ private func makePlateRingMesh(height: Float, outerRadius: Float, innerRadius: F
 /// apart smoothly (the old ring segments exploded). Tunnelling is handled by continuous collision
 /// detection on the plate bodies (makePlateEntity), not by thickness.
 let plateDiscColliderSides = 16
+
+/// DEBUG switches for measuring physics cost: VOLIA_RACK_CCD=0 turns continuous collision
+/// detection off, VOLIA_RACK_COLLIDER=box uses the old slab, VOLIA_RACK_DISC_SIDES=<n> changes the
+/// disc's side count. Release builds always use the shipped values.
+enum RackPhysicsDebug {
+    static var ccdEnabled: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["VOLIA_RACK_CCD"] != "0"
+        #else
+        return true
+        #endif
+    }
+
+    static var usesBoxCollider: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.environment["VOLIA_RACK_COLLIDER"] == "box"
+        #else
+        return false
+        #endif
+    }
+
+    static var discSides: Int {
+        #if DEBUG
+        return Int(ProcessInfo.processInfo.environment["VOLIA_RACK_DISC_SIDES"] ?? "") ?? plateDiscColliderSides
+        #else
+        return plateDiscColliderSides
+        #endif
+    }
+}
 let plateLinearDamping: Float = 0.15
 let plateAngularDamping: Float = 1.2
 
@@ -342,9 +371,12 @@ func plateDiscColliderPoints(radius: Float, thickness: Float, sides: Int = plate
 
 @MainActor
 func plateDiscCollisionShape(radius: Float, thickness: Float) -> ShapeResource {
-    let key = "\(radius)x\(thickness)"
+    let sides = RackPhysicsDebug.discSides
+    let key = "\(radius)x\(thickness)x\(sides)x\(RackPhysicsDebug.usesBoxCollider)"
     if let cached = plateDiscShapeCache[key] { return cached }
-    let shape = ShapeResource.generateConvex(from: plateDiscColliderPoints(radius: radius, thickness: thickness))
+    let shape = RackPhysicsDebug.usesBoxCollider
+        ? ShapeResource.generateBox(size: SIMD3(radius * 2, max(thickness, 0.10), radius * 2))
+        : ShapeResource.generateConvex(from: plateDiscColliderPoints(radius: radius, thickness: thickness, sides: sides))
     plateDiscShapeCache[key] = shape
     return shape
 }
@@ -1967,7 +1999,7 @@ func makePlateEntity(
         physicsBody.material = audioCategory.physicsMaterial
         // A plate is 3 to 5 cm thick and falls at up to about 6 m/s (10 cm a frame): swept
         // collision keeps it from passing through another plate, the floor or a wall.
-        physicsBody.isContinuousCollisionDetectionEnabled = true
+        physicsBody.isContinuousCollisionDetectionEnabled = RackPhysicsDebug.ccdEnabled
         // Thin discs stacked in a pile keep trembling in the solver; a little damping lets a
         // heap come to rest in a couple of seconds while a throw still flies and tumbles.
         physicsBody.linearDamping = plateLinearDamping

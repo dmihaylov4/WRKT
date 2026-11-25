@@ -1619,6 +1619,13 @@ struct BarbellRealityView: View {
     }
 
     private func updateFrame(deltaTime: TimeInterval) {
+        #if DEBUG
+        let frameStart = DispatchTime.now().uptimeNanoseconds
+        defer {
+            RackWorkCounters.add(.sceneFrameUpdates)
+            RackWorkCounters.add(.sceneFrameUpdateMicros, Int((DispatchTime.now().uptimeNanoseconds - frameStart) / 1000))
+        }
+        #endif
         if ProcessInfo.processInfo.systemUptime >= sceneState.animationDeadline { sceneState.flushSaves() }
         switch mode {
         case .welcome:

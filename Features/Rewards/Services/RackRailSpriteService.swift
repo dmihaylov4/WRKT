@@ -240,6 +240,9 @@ final class RackRailSpriteService {
     }
 
     #if DEBUG
+    /// Tests: nothing queued or rendering.
+    var isIdleForTesting: Bool { missing.isEmpty && batch == nil }
+
     /// Tests: forget every picture in memory and on disk.
     func removeAllForTesting() {
         memory.removeAllObjects()
@@ -353,6 +356,7 @@ struct RackRailStandArt: View {
     let request: LathePlateRequest
 
     var body: some View {
+        let _ = RackWorkCounters.debugTick(.railPictureBodies)
         let service = RackRailSpriteService.shared
         _ = service.revision
         let image = service.memoryStand(request)
