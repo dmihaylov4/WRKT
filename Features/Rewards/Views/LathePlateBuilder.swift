@@ -904,6 +904,16 @@ func makeLathePlateVisual(tier: PlateTier, weightKg: Double, engravingText: Stri
     return entity
 }
 
+/// A lathe plate with its face slot in the body finish and no lettering, axis along y: the rack
+/// rail's sprites, where a plate stands nearly edge on and lettering would not read. Uses no face
+/// texture, so it never touches LatheFaceCache.
+@MainActor
+func makeLathePlateBlankVisual(tier: PlateTier) -> ModelEntity? {
+    guard let mesh = cachedLatheMesh(for: latheProfile(for: tier)) else { return nil }
+    let slots = latheSlotMaterials(for: tier)
+    return ModelEntity(mesh: mesh, materials: [slots.body, slots.hub, lathePlaceholderFace(for: tier)])
+}
+
 /// Prepares one face in the background and puts it on every plate built with the placeholder.
 @MainActor
 private func applyLatheFaceWhenReady(_ spec: LatheFaceSpec, tier: PlateTier, request: LathePlateRequest) {

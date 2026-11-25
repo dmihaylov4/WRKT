@@ -135,6 +135,9 @@ final class PlateSnapshotService {
         holds += 1
     }
 
+    /// A rack scene is opening or swinging a plate in.
+    var isHeld: Bool { holds > 0 }
+
     func releaseRenders() {
         guard holds > 0 else { return }
         holds -= 1
@@ -169,6 +172,19 @@ final class PlateSnapshotService {
         lastRender = Task { _ = await render.value }
         guard let image = await render.value else { return }
         await writeToDisk(image: image, key: key)
+    }
+
+    /// Runs other offscreen plate renders (the rack rail's sprites) in this queue: one at a time,
+    /// after the renders before them, and only while no rack scene is opening or swinging a plate in.
+    func renderQueued(_ work: @escaping @MainActor () async -> UIImage?) async -> UIImage? {
+        let previous = lastRender
+        let render = Task { @MainActor () -> UIImage? in
+            await previous?.value
+            await waitForRelease()
+            return await work()
+        }
+        lastRender = Task { _ = await render.value }
+        return await render.value
     }
 
     private func renderPlate(tierID: Int, weightKg: Double, engravingText: String) async -> UIImage? {

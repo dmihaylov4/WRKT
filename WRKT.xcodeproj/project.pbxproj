@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		E3B8D2F00000000000000103 /* RackRailSpriteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B8D2F00000000000000203 /* RackRailSpriteService.swift */; };
+		E3B8D2F00000000000000102 /* CutRackViewRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B8D2F00000000000000202 /* CutRackViewRail.swift */; };
+		E3B8D2F00000000000000101 /* CutRackModelRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3B8D2F00000000000000201 /* CutRackModelRail.swift */; };
 		19011C3C8AE14FA9A8C512FF /* DataQualityBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57A79E17002B49138FFFB682 /* DataQualityBadge.swift */; };
 		1F1EC37DF279810DECB4043B /* CardioCharts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F1EC37DF279810DECB4043A /* CardioCharts.swift */; };
 		226FFA5A1F3745D78A805A8E /* ImportRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */; };
@@ -690,6 +693,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		E3B8D2F00000000000000203 /* RackRailSpriteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackRailSpriteService.swift; sourceTree = "<group>"; };
+		E3B8D2F00000000000000202 /* CutRackViewRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackViewRail.swift; sourceTree = "<group>"; };
+		E3B8D2F00000000000000201 /* CutRackModelRail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CutRackModelRail.swift; sourceTree = "<group>"; };
 		1224B0B0525C4C3EA6BAC040 /* ImportRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportRecord.swift; sourceTree = "<group>"; };
 		1848F2CE0BE744519C79CD42 /* plate_clink.caf */ = {isa = PBXFileReference; lastKnownFileType = audio.caf; path = plate_clink.caf; sourceTree = "<group>"; };
 		1F1EC37DF279810DECB4043A /* CardioCharts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardioCharts.swift; sourceTree = "<group>"; };
@@ -2058,6 +2064,7 @@
 				ABCD1236ABCD1236ABCD1236 /* BarbellCustomizationService.swift */,
 				2EBB00022FA0000000000001 /* BarbellUnlockRules.swift */,
 				2EBB001B2FA0000000000001 /* PlateSnapshotService.swift */,
+				E3B8D2F00000000000000203 /* RackRailSpriteService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -2987,6 +2994,8 @@
 				C17CB5000000000000000201 /* CutRackModel.swift */,
 				C17CB5000000000000000202 /* CutRackView.swift */,
 				C17CB5000000000000000203 /* CutRackHost.swift */,
+				E3B8D2F00000000000000202 /* CutRackViewRail.swift */,
+				E3B8D2F00000000000000201 /* CutRackModelRail.swift */,
 			);
 			path = Cut;
 			sourceTree = "<group>";
@@ -3473,6 +3482,8 @@
 				C17CB5000000000000000101 /* CutRackModel.swift in Sources */,
 				C17CB5000000000000000102 /* CutRackView.swift in Sources */,
 				C17CB5000000000000000103 /* CutRackHost.swift in Sources */,
+				E3B8D2F00000000000000102 /* CutRackViewRail.swift in Sources */,
+				E3B8D2F00000000000000101 /* CutRackModelRail.swift in Sources */,
 				C17CAE000000000000000203 /* CutWeeklyGoalHost.swift in Sources */,
 				C17CAE000000000000000204 /* CutWeeklyGoalSetupModel.swift in Sources */,
 				C17CAE000000000000000205 /* CutWeeklyGoalSetupView.swift in Sources */,
@@ -3731,6 +3742,7 @@
 				2EBB00012FA0000000000001 /* BarbellProgressService.swift in Sources */,
 				2EBB00032FA0000000000001 /* BarbellUnlockRules.swift in Sources */,
 				2EBB001C2FA0000000000001 /* PlateSnapshotService.swift in Sources */,
+				E3B8D2F00000000000000103 /* RackRailSpriteService.swift in Sources */,
 				2EBB00052FA0000000000001 /* BarbellMomentView.swift in Sources */,
 				2EBB000D2FA0000000000001 /* BarbellWelcomeView.swift in Sources */,
 				2EBB000E2FA0000000000001 /* BarbellEntityBuilder.swift in Sources */,

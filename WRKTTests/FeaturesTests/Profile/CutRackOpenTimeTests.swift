@@ -38,8 +38,10 @@ struct CutRackOpenTimeTests {
             where file.pathExtension == "png" {
                 try? FileManager.default.removeItem(at: file)
             }
+            // And the rail's plate sprites, so the rail renders them again.
+            RackRailSpriteService.shared.removeAllForTesting()
         }
-        var report = "style=\(RackPlateStyle.current.rawValue) plates=\(inventory.plates.count) onBar=\(inventory.plates.filter(\.isRacked).count)\n"
+        var report = "tray=\(CutRackTrayStyle.current.rawValue) style=\(RackPlateStyle.current.rawValue) plates=\(inventory.plates.count) onBar=\(inventory.plates.filter(\.isRacked).count)\n"
         for label in ["cold", "warm"] {
             let result = try await RackOpenMeasurement.open(container: inventory.container)
             report += "\n[\(label)]\n" + result.description

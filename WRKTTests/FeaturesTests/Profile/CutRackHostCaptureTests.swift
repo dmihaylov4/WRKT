@@ -30,12 +30,61 @@ struct CutRackHostCaptureTests {
         // request on launch does not put a system alert over the capture (on later runs).
         _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.provisional])
         let inventory = try CutRackRealisticInventory()
+        // Rail states load and drop plates: saves go to the in-memory inventory, never the store.
+        let previous = BarbellProgressService.shared.swapContextForTesting(inventory.container.mainContext, remoteSyncOff: true)
+        defer { _ = BarbellProgressService.shared.swapContextForTesting(previous, remoteSyncOff: false) }
+        currentInventory = inventory
         var sizes: [DynamicTypeSize] = [.large]
         if ProcessInfo.processInfo.environment["VOLIA_CAPTURE_AX"] == "1" { sizes.append(.accessibility5) }
         for size in sizes {
             let name = "\(tag)\(size == .large ? "" : "-ax5")"
             try await show(CutRackHost().modelContainer(inventory.container).environment(\.dynamicTypeSize, size), name: name)
         }
+    }
+
+    private var currentInventory: CutRackRealisticInventory? {
+        get { Self.inventory }
+        nonmutating set { Self.inventory = newValue }
+    }
+    private static var inventory: CutRackRealisticInventory?
+
+    private func ready(_ name: String) async throws {
+        guard hold > 0 else { return }
+        try Data().write(to: root.appendingPathComponent(name + ".ready"))
+        try await Task.sleep(for: .seconds(hold))
+    }
+
+    /// TEST_RUNNER_VOLIA_CAPTURE_RAIL=1: the rail's states, after the rest and tray captures: a group
+    /// lifted face on, the readout flashing after a load, the loaded slot, plates dropped on the
+    /// floor. Only on the rail (debug default).
+    private func captureRail(name: String, window: UIWindow) async throws {
+        guard ProcessInfo.processInfo.environment["VOLIA_CAPTURE_RAIL"] == "1", CutRackTrayStyle.current == .rail,
+              let rail = CutRackHost.testRail, let toggle = CutRackHost.testToggle, let inventory = currentInventory else { return }
+        if let tray = Self.horizontalScroll(in: window) { tray.setContentOffset(.zero, animated: false) }
+        // The engraved "75 Workouts" Rose Gold plate is on the bar; lift the red 20 kg bumpers.
+        let groups = rail.groupIDs()
+        if let red = groups.first(where: { $0.hasPrefix("look:14|") }) {
+            rail.lift(red)
+            try await Task.sleep(for: .seconds(4))
+            if let page = Self.verticalScroll(in: window) {
+                page.setContentOffset(CGPoint(x: 0, y: max(0, page.contentSize.height - page.bounds.height + page.adjustedContentInset.bottom)), animated: false)
+                try await Task.sleep(for: .seconds(1))
+            }
+            try await ready(name + "-lifted")
+            rail.lift(nil)
+            try await Task.sleep(for: .seconds(1))
+        }
+        // Load a blue bumper: the readout flashes as it seats, then its slot stays on the rail.
+        if let blue = inventory.plates.first(where: { $0.tierID == 15 && !$0.isRacked }) {
+            toggle(blue.id)
+            try await Task.sleep(for: .milliseconds(950))
+            try await ready(name + "-flash")
+            try await Task.sleep(for: .seconds(2))
+            try await ready(name + "-loaded")
+        }
+        rail.drop()
+        try await Task.sleep(for: .seconds(7))
+        try await ready(name + "-dropped")
     }
 
     private func show<Content: View>(_ content: Content, name: String) async throws {
@@ -69,6 +118,19 @@ struct CutRackHostCaptureTests {
                 try await Task.sleep(for: .seconds(hold))
             }
         }
+        // Large text: the page scrolls; the bottom shows the tray.
+        if let page = Self.verticalScroll(in: window) {
+            page.setContentOffset(CGPoint(x: 0, y: max(0, page.contentSize.height - page.bounds.height + page.adjustedContentInset.bottom)), animated: false)
+            try await Task.sleep(for: .seconds(1))
+            try await ready(name + "-bottom")
+        }
+        try await captureRail(name: name, window: window)
+    }
+
+    private static func verticalScroll(in view: UIView) -> UIScrollView? {
+        if let scroll = view as? UIScrollView, scroll.contentSize.height > scroll.bounds.height + 1 { return scroll }
+        for child in view.subviews { if let found = verticalScroll(in: child) { return found } }
+        return nil
     }
 
     private static func horizontalScroll(in view: UIView) -> UIScrollView? {

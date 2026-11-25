@@ -78,7 +78,7 @@ struct CutRackTapTimeTests {
             try await Task.sleep(for: .seconds(1))
         }
 
-        var report = "style=\(RackPlateStyle.current.rawValue) plates=90 onBar=1\n"
+        var report = "tray=\(CutRackTrayStyle.current.rawValue) style=\(RackPlateStyle.current.rawValue) plates=90 onBar=1\n"
         let toggle = try #require(CutRackHost.testToggle)
         for (label, plate) in cases {
             for (action, until) in [("load", "load.clink"), ("release", "release.drop")] {

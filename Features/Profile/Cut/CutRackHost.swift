@@ -40,33 +40,28 @@ struct CutRackHost: View {
     @State private var playPhase: CutRackPlayPhase = .idle
     @State private var rain = CutRackRainTask()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The card tray or the storage rail (CutRackTrayStyle: the rail in debug builds only).
+    private let trayStyle = CutRackTrayStyle.current
+    private let railTap = CutRackRailTap.current
+    /// Rail: the group lifted out and shown face on.
+    @State private var lifted: String?
+    /// Rail: plates a tap started swinging onto the bar, not saved yet.
+    @State private var inFlight: Set<String> = []
+    /// Rail: stored plates lying in the room after "Drop all".
+    @State private var onFloor: Set<String> = []
 
     private var unit: WeightUnit { WeightUnit(rawValue: weightUnitRaw) ?? .kg }
 
     var body: some View {
-        CutRackView(
-            model: CutRackLogic.model(CutRackFacts(
-                plates: ownedPlates.map(CutRackPlateFacts.init),
-                occupiedSlots: rackedPlates.count,
-                unit: unit,
-                notice: notice,
-                playPhase: playPhase,
-                rainCap: RackPlateRain.limits(for: sceneState.plateStyle).plates
-            )),
-            actions: CutRackActions(
-                back: { dismiss() },
-                edit: { showsEditor = true },
-                showAll: { showsCollection = true },
-                toggle: { id in toggle(id) },
-                details: { id in detail = CutRackPlateID(id: id) },
-                play: { playPhase == .idle ? dropAll() : tidyUp() }
-            ),
-            scene: { scene },
-            thumbnail: { id in thumbnail(id) }
-        )
+        screen
         .task {
             #if DEBUG
-            Self.testToggle = { id in toggle(id) }
+            Self.testToggle = { id in trayStyle == .rail ? railToggle(id) : toggle(id) }
+            Self.testRail = CutRackRailTestHooks(
+                lift: { id in lifted = id },
+                drop: { dropAll() },
+                groupIDs: { railModel.groups.map(\.id) }
+            )
             #endif
             let preload = startPreload()
             // The screen's first frame (header, summary, tray) is drawn before RealityKit sets
@@ -92,10 +87,135 @@ struct CutRackHost: View {
                 .environmentObject(dependencies.workoutStore)
         }
         .sheet(isPresented: $showsCollection) {
-            CutRackCollectionHost(toggle: toggle)
+            CutRackCollectionHost(toggle: sheetToggle)
         }
         .sheet(item: $detail) { item in
-            CutRackPlateDetailHost(plateID: item.id, toggle: toggle)
+            CutRackPlateDetailHost(plateID: item.id, toggle: sheetToggle)
+        }
+    }
+
+    /// A load or take-off from the detail or collection sheet.
+    private func sheetToggle(_ id: String) {
+        trayStyle == .rail ? railToggle(id) : toggle(id)
+    }
+
+    private var model: CutRackModel {
+        CutRackLogic.model(CutRackFacts(
+            plates: ownedPlates.map(CutRackPlateFacts.init),
+            occupiedSlots: rackedPlates.count,
+            unit: unit,
+            notice: notice,
+            playPhase: playPhase,
+            rainCap: RackPlateRain.limits(for: sceneState.plateStyle).plates
+        ))
+    }
+
+    @ViewBuilder
+    private var screen: some View {
+        if trayStyle == .rail {
+            railScreen
+        } else {
+            CutRackView(
+                model: model,
+                actions: CutRackActions(
+                    back: { dismiss() },
+                    edit: { showsEditor = true },
+                    showAll: { showsCollection = true },
+                    toggle: { id in toggle(id) },
+                    details: { id in detail = CutRackPlateID(id: id) },
+                    play: { playPhase == .idle ? dropAll() : tidyUp() }
+                ),
+                scene: { scene },
+                thumbnail: { id in thumbnail(id) }
+            )
+        }
+    }
+
+    // MARK: Rail
+
+    private var railModel: CutRackRailModel {
+        CutRackRailLogic.model(CutRackRailFacts(
+            plates: ownedPlates.map(CutRackPlateFacts.init),
+            unit: unit,
+            notice: notice,
+            playPhase: playPhase,
+            inFlight: inFlight,
+            onFloor: onFloor,
+            tap: railTap
+        ))
+    }
+
+    private var railScreen: some View {
+        let rail = railModel
+        let preview = lifted.flatMap(rail.group).map {
+            CutRackRailLogic.preview($0, barIsFull: CutRackRailLogic.isBarFull(occupiedSlots: rackedPlates.count,
+                                                                               inFlight: inFlight.count), unit: unit)
+        }
+        return CutRackRailScreen(
+            model: model,
+            rail: rail,
+            lifted: preview,
+            tapMode: railTap,
+            actions: CutRackRailActions(
+                back: { dismiss() },
+                edit: { showsEditor = true },
+                showAll: { showsCollection = true },
+                play: { playPhase == .idle ? dropAll() : tidyUp() },
+                tap: { id in
+                    guard let group = railModel.group(id) else { return }
+                    apply(CutRackRailLogic.tap(group, lifted: lifted, mode: railTap))
+                },
+                hold: { id in
+                    guard let group = railModel.group(id) else { return }
+                    apply(CutRackRailLogic.hold(group))
+                },
+                load: { id in apply(.load(id)) },
+                unload: { id in apply(.unload(id)) },
+                details: { id in detail = CutRackPlateID(id: id) },
+                closeLift: { lifted = nil }
+            ),
+            scene: { scene },
+            edge: { group in RackRailEdgeArt(tierID: group.tierID) },
+            face: { group in faceArt(group.plateID) },
+            groupShown: { group in await prefetch(group.nextToLoad) }
+        )
+    }
+
+    private func apply(_ outcome: CutRackRailLogic.Outcome) {
+        switch outcome {
+        case .lift(let id): lifted = id
+        case .close: lifted = nil
+        case .load(let id), .unload(let id):
+            lifted = nil
+            railToggle(id)
+        }
+    }
+
+    /// The tray's toggle, with the plate leaving the rail as it swings in. The rail changes a
+    /// moment after the tap, never in the frame where the plate starts to move (a host update
+    /// there cost that frame about 30 ms), and only while the load is still in flight.
+    private func railToggle(_ id: String) {
+        let loading = ownedPlates.first { $0.id == id }.map { !$0.isRacked } ?? false
+        toggle(id, finished: { inFlight.remove(id) })
+        guard loading else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(40))
+            if CutRackTap.pendingSlots[id] != nil { inFlight.insert(id) }
+        }
+    }
+
+    /// A rail group's next plate gets its lathe faces ready, as a card tile's plate does.
+    private func prefetch(_ id: String?) async {
+        guard let id, let plate = ownedPlates.first(where: { $0.id == id }) else { return }
+        await CutRackWarmUp.prefetchFaces(for: plate)
+    }
+
+    @ViewBuilder
+    private func faceArt(_ id: String) -> some View {
+        if let plate = ownedPlates.first(where: { $0.id == id }) {
+            RackRailFaceArt(request: LathePlateRequest(tierID: plate.tierID, weightKg: plate.weightKg,
+                                                       engravingText: plate.engravingText,
+                                                       projection: BarbellPlateRenderProjection(plate: plate)))
         }
     }
 
@@ -253,6 +373,7 @@ struct CutRackHost: View {
         rain.task?.cancel()
         sceneState.finishTidy()
         playPhase = .idle
+        onFloor = []
         let fresh = SceneState()
         fresh.materialCache = sceneState.materialCache
         fresh.plateTextureCache = sceneState.plateTextureCache
@@ -273,6 +394,8 @@ struct CutRackHost: View {
         let byID = Dictionary(stored.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let plates = ids.compactMap { byID[$0] }
         guard !plates.isEmpty else { return }
+        lifted = nil
+        onFloor = Set(plates.map(\.id))
         playPhase = .raining
         let state = sceneState
         let gentle = reduceMotion
@@ -291,6 +414,7 @@ struct CutRackHost: View {
         rain.task = nil
         sceneState.tidyRainedPlates(exit: animated ? RackTidyStyle.current : nil, reduceMotion: reduceMotion)
         playPhase = .idle
+        onFloor = []
         if announce { AccessibilityNotification.Announcement(CutRackRainLogic.tidyAnnouncement).post() }
     }
 
@@ -299,15 +423,19 @@ struct CutRackHost: View {
     #if DEBUG
     /// Tests: the tray's toggle of the most recently shown rack (the harness taps through it).
     static var testToggle: ((String) -> Void)?
+    /// Tests: the rail of the most recently shown rack (the capture harness lifts and drops).
+    static var testRail: CutRackRailTestHooks?
     #endif
 
-    private func toggle(_ id: String) {
+    /// - Parameter finished: runs when the tap's save is done (rail: the plate has landed).
+    private func toggle(_ id: String, finished: (() -> Void)? = nil) {
         RackOpenTrace.mark("tap")
-        guard let plate = ownedPlates.first(where: { $0.id == id }) else { return }
+        guard let plate = ownedPlates.first(where: { $0.id == id }) else { finished?(); return }
         let live = assetsReady && !sceneState.isPaused ? sceneState : nil
         let unit = unit
         CutRackTap.perform(plate, racked: rackedPlates, scene: live) { result in
             RackOpenTrace.mark("tap.saved")
+            finished?()
             notice = result
             if result != nil {
                 AccessibilityNotification.Announcement(CutRackLogic.hint(
@@ -399,6 +527,15 @@ final class CutRackPreload {
 final class CutRackRainTask {
     var task: Task<Void, Never>?
 }
+
+#if DEBUG
+/// Tests: drive the rail of the rack on screen.
+struct CutRackRailTestHooks {
+    var lift: (String?) -> Void
+    var drop: () -> Void
+    var groupIDs: () -> [String]
+}
+#endif
 
 /// Identifies the plate whose detail sheet is open.
 struct CutRackPlateID: Identifiable, Hashable {

@@ -87,6 +87,11 @@ struct CutRackPlateGroup: Equatable {
     var family: CutRackPlateFamily
     var stored: [CutRackPlateFacts]
     var loadedCount: Int
+    /// The copies on the bar, in bar order (innermost first). Filled by lookGroups only.
+    var loaded: [CutRackPlateFacts] = []
+
+    /// The plate that stands for the group: its next stored copy, or its first loaded one.
+    var representative: CutRackPlateFacts? { stored.first ?? loaded.first }
 }
 
 /// The room's play state: idle, plates raining in, or dropped plates lying loose.
@@ -175,6 +180,9 @@ struct CutRackModel: Equatable {
     var sections: [Section]
     /// Shown in the tray when no plate has been earned.
     var emptyTray: String
+    /// The total in kilograms and the unit it shows in, for the rail's readout flash.
+    var totalKg: Double = 0
+    var unit: WeightUnit = .kg
 
     /// Every tile, in tray order.
     var tiles: [Tile] { sections.flatMap(\.tiles) }
@@ -207,7 +215,9 @@ enum CutRackLogic {
             allAccessibilityLabel: "Show all \(tray.count) plates",
             playAction: playAction(phase: facts.playPhase, storage: storage, cap: facts.rainCap),
             sections: sections(facts.plates, unit: facts.unit, locale: locale),
-            emptyTray: emptyTrayLine
+            emptyTray: emptyTrayLine,
+            totalKg: total,
+            unit: facts.unit
         )
     }
 
@@ -248,30 +258,41 @@ enum CutRackLogic {
     /// and within a family weight is the plain thing that tells similar plates apart. Inside a
     /// group, copies load in the legacy wall order (newest first).
     static func storageGroups(_ plates: [CutRackPlateFacts]) -> [CutRackPlateGroup] {
+        lookGroups(plates).filter { !$0.stored.isEmpty }.map { group in
+            var group = group
+            group.loaded = []
+            return group
+        }
+    }
+
+    /// Every look the owner has, stored or on the bar, grouped and ordered by the same rules as
+    /// storageGroups (a look whose copies are all on the bar keeps its place, with no stored
+    /// copies). The rail tray shows these, so a loaded plate leaves its slot where it stood.
+    static func lookGroups(_ plates: [CutRackPlateFacts]) -> [CutRackPlateGroup] {
         let ordered = trayOrder(plates)
         var groups: [CutRackPlateLook: CutRackPlateGroup] = [:]
-        var loadedByLook: [CutRackPlateLook: Int] = [:]
         for plate in ordered {
             let key = look(plate)
+            if groups[key] == nil {
+                groups[key] = CutRackPlateGroup(look: key, family: family(plate), stored: [], loadedCount: 0)
+            }
             if plate.isLoaded {
-                loadedByLook[key, default: 0] += 1
-            } else if groups[key] != nil {
-                groups[key]?.stored.append(plate)
+                groups[key]?.loaded.append(plate)
+                groups[key]?.loadedCount += 1
             } else {
-                groups[key] = CutRackPlateGroup(look: key, family: family(plate), stored: [plate], loadedCount: 0)
+                groups[key]?.stored.append(plate)
             }
         }
-        for key in groups.keys { groups[key]?.loadedCount = loadedByLook[key] ?? 0 }
         return groups.values.sorted(by: groupPrecedes)
     }
 
     private static func groupPrecedes(_ a: CutRackPlateGroup, _ b: CutRackPlateGroup) -> Bool {
         if a.family != b.family { return a.family < b.family }
         if a.look.weightKg != b.look.weightKg { return a.look.weightKg > b.look.weightKg }
-        let rarityA = a.stored.first?.rarity ?? 0, rarityB = b.stored.first?.rarity ?? 0
+        let rarityA = a.representative?.rarity ?? 0, rarityB = b.representative?.rarity ?? 0
         if rarityA != rarityB { return rarityA > rarityB }
         if a.stored.count != b.stored.count { return a.stored.count > b.stored.count }
-        let nameA = name(a.stored[0]), nameB = name(b.stored[0])
+        let nameA = a.representative.map { name($0) } ?? "", nameB = b.representative.map { name($0) } ?? ""
         if nameA != nameB { return nameA < nameB }
         let rankA = BarbellPlateProgressionTier(rawValue: a.look.progressionTier)?.rank ?? 0
         let rankB = BarbellPlateProgressionTier(rawValue: b.look.progressionTier)?.rank ?? 0

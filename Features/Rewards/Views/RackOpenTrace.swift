@@ -29,6 +29,8 @@ nonisolated enum RackWork: String, CaseIterable, Sendable {
     case roomPanoramasBuilt
     /// A plate thumbnail rendered with RealityKit (PlateSnapshotService).
     case thumbnailsRendered
+    /// A rack rail sprite or lifted face rendered with RealityKit (RackRailSpriteService).
+    case railSpritesRendered
     /// A lathe plate built before its face was ready, with its body finish on the face.
     case facePlaceholdersShown
     /// A ready face put on plates built with the placeholder.
