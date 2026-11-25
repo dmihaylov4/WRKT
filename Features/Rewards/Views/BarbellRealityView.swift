@@ -1338,6 +1338,9 @@ struct BarbellRealityView: View {
                 RackOpenTrace.mark("make.start")
                 if let prepare { await prepare() }
                 let style = sceneState.plateStyle
+                // The mood's floor draws alongside the light probe.
+                let floorStyle = moodFloorStyle
+                async let floorReady: Void = { if let floorStyle { await RackRoomFloor.prepare(floorStyle) } }()
                 let studio = style == .lathe ? await sharedRackStudioEnvironmentResource() : nil
                 let environment: EnvironmentResource?
                 if let studio {
@@ -1346,6 +1349,7 @@ struct BarbellRealityView: View {
                     environment = await sharedRackRoomEnvironmentResource()
                 }
                 RackOpenTrace.mark("make.environment")
+                await floorReady
                 if style == .lathe {
                     await prepareLathePlates(latheRequests)
                 }
@@ -2645,6 +2649,44 @@ struct BarbellRealityView: View {
         }
     }
 
+    /// The plain floor: a slab in the theme's floor colour with raised strips and seams.
+    private func addPlainFloor(theme: RoomThemePreset) {
+        let floorLine = ModelEntity(
+            mesh: cachedBox(size: SIMD3(20.0, 0.008, 4.0)),
+            materials: [pbrMaterial(color: theme.floorColor, metallic: theme.floorMetallic, roughness: theme.floorRoughness)]
+        )
+        floorLine.position = SIMD3(0, -0.006, -0.5)
+        sceneState.sceneRoot.addChild(floorLine)
+
+        // Subtle platform strips make sliding/falling easier to read against the floor. Half as
+        // many as before and a few centimetres wide: 1 cm strips and 8 mm seams were a pixel or
+        // two on screen and shimmered as the camera framing changed.
+        let stripMat = pbrMaterial(color: theme.stripColor, metallic: 0.03, roughness: 0.9)
+        for x in barbellRackRoomFloorStripXs {
+            let strip = ModelEntity(
+                mesh: cachedBox(size: SIMD3(barbellRackRoomFloorLineWidth, 0.004, 3.2)),
+                materials: [stripMat]
+            )
+            strip.position = SIMD3(x, 0.0005, -0.5)
+            sceneState.sceneRoot.addChild(strip)
+        }
+        for z in barbellRackRoomFloorSeamZs {
+            let seam = ModelEntity(
+                mesh: cachedBox(size: SIMD3(1.7, 0.004, barbellRackRoomFloorLineWidth)),
+                materials: [stripMat]
+            )
+            seam.position = SIMD3(0, 0.001, z)
+            sceneState.sceneRoot.addChild(seam)
+        }
+    }
+
+    /// The home gym mood's floor style when the room is the dark gym (other rooms keep their
+    /// own floor colours), else nil.
+    private var moodFloorStyle: RackFloorStyle? {
+        guard mood != nil, roomThemeID == "dark_gym" else { return nil }
+        return RackFloorStyle.current
+    }
+
     private func setupRackRoomScene(
         content: inout RealityViewCameraContent,
         racked: [EarnedPlate], floor: [EarnedPlate],
@@ -2706,33 +2748,11 @@ struct BarbellRealityView: View {
         plateZoneBacking.position = SIMD3(0, 0.90, -0.108)
         sceneState.sceneRoot.addChild(plateZoneBacking)
 
-        // Floor plane -- visual only.
-        let floorLine = ModelEntity(
-            mesh: cachedBox(size: SIMD3(20.0, 0.008, 4.0)),
-            materials: [pbrMaterial(color: theme.floorColor, metallic: theme.floorMetallic, roughness: theme.floorRoughness)]
-        )
-        floorLine.position = SIMD3(0, -0.006, -0.5)
-        sceneState.sceneRoot.addChild(floorLine)
-
-        // Subtle platform strips make sliding/falling easier to read against the floor. Half as
-        // many as before and a few centimetres wide: 1 cm strips and 8 mm seams were a pixel or
-        // two on screen and shimmered as the camera framing changed.
-        let stripMat = pbrMaterial(color: theme.stripColor, metallic: 0.03, roughness: 0.9)
-        for x in barbellRackRoomFloorStripXs {
-            let strip = ModelEntity(
-                mesh: cachedBox(size: SIMD3(barbellRackRoomFloorLineWidth, 0.004, 3.2)),
-                materials: [stripMat]
-            )
-            strip.position = SIMD3(x, 0.0005, -0.5)
-            sceneState.sceneRoot.addChild(strip)
-        }
-        for z in barbellRackRoomFloorSeamZs {
-            let seam = ModelEntity(
-                mesh: cachedBox(size: SIMD3(1.7, 0.004, barbellRackRoomFloorLineWidth)),
-                materials: [stripMat]
-            )
-            seam.position = SIMD3(0, 0.001, z)
-            sceneState.sceneRoot.addChild(seam)
+        // The home gym mood's rubber floor in the dark gym: its joints are the floor lines.
+        if let style = moodFloorStyle, let floor = RackRoomFloor.makeEntity(style) {
+            sceneState.sceneRoot.addChild(floor)
+        } else {
+            addPlainFloor(theme: theme)
         }
 
         // Low bumpers bound the playable area. They are collision only: drawn as raised rails

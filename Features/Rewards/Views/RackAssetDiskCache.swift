@@ -20,7 +20,7 @@ import simd
 
 nonisolated enum RackAssetDiskCache {
     /// Bump when the drawn face art or the processed studio panorama changes.
-    static let version = "rack-assets-v3"
+    static let version = "rack-assets-v4"
 
     /// Upper bound for the directory; the oldest files go first.
     static let maximumBytes = 32 * 1024 * 1024
@@ -159,7 +159,7 @@ nonisolated enum RackStudioPanoramaDiskCache {
 
     /// Width, height and every setting the processed panorama depends on.
     static func identity(sourceBytes: Int, clamp: Float, yawDegrees: Float, symmetric: Bool, hex: RackHexPlacement? = nil) -> String {
-        "\(RackStudioEnvironment.resourceName)|\(sourceBytes)|\(String(clamp.bitPattern, radix: 16))|\(String(yawDegrees.bitPattern, radix: 16))|\(symmetric)|\(hex.map { String(describing: $0) } ?? "none")"
+        "\(RackStudioEnvironment.resourceName)|\(sourceBytes)|\(String(clamp.bitPattern, radix: 16))|\(String(yawDegrees.bitPattern, radix: 16))|\(symmetric)|\(hex.map { "\($0)@\(String(RackHexFixture.signHeight.bitPattern, radix: 16))" } ?? "none")"
     }
 
     static func url(identity: String) -> URL {
