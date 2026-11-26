@@ -408,7 +408,13 @@ final class HomeHexPortalCoordinator {
     private func finishClose() {
         var transaction = Transaction()
         transaction.disablesAnimations = true
-        withTransaction(transaction) { isPresented = false }
+        // UIKit still slides the cover down when it is let go, and the cover's coordinates jump to
+        // the slide's end, so a cell it still drew came down from the top onto the window. The
+        // window shows the same picture from this frame on: the cover draws nothing on its way out.
+        withTransaction(transaction) {
+            coverOpacity = 0
+            isPresented = false
+        }
         handOffFallback?.cancel()
         liveSubscription?.cancel()
         liveSubscription = nil
