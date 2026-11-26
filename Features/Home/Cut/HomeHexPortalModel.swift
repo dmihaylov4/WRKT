@@ -16,22 +16,18 @@ import Foundation
 
 // MARK: - Flag
 
-/// On in Debug builds only for now: the window's place and look are being redesigned, so
-/// Release builds (TestFlight and the App Store) do not show it (`shipsInRelease`). When that
-/// is turned on it follows the new rack room (RackRoomRelease): testers on the new design.
+/// Ships with the new rack room (RackRoomRelease): on in Debug builds and for TestFlight testers
+/// on the new design, off for App Store installs and testers who switched the new design off.
 /// VOLIA_HOME_HEX_PORTAL=0 turns it off in a Debug build, =1 keeps it on; Release builds never
 /// read it.
 enum HomeHexPortalFlag {
     static let overrideKey = "VOLIA_HOME_HEX_PORTAL"
-    /// Whether Release builds with the new rack room show the portal.
-    static let shipsInRelease = false
 
     /// The rule, separated from the build flag so tests can pin every case. The override is read
     /// only when `allowsOverrides` (Debug builds), and can only turn the portal off or keep it on.
-    static func resolve(newRoom: Bool, allowsOverrides: Bool, environment: [String: String],
-                        shipsInRelease: Bool = HomeHexPortalFlag.shipsInRelease) -> Bool {
+    static func resolve(newRoom: Bool, allowsOverrides: Bool, environment: [String: String]) -> Bool {
         guard newRoom else { return false }
-        guard allowsOverrides else { return shipsInRelease }
+        guard allowsOverrides else { return true }
         switch environment[overrideKey]?.lowercased() {
         case "0", "off", "false", "no": return false
         default: return true
