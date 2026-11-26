@@ -21,9 +21,19 @@ struct HomeHexPortalFlagTests {
         }
     }
 
-    @Test func testFlightOnTheNewDesignShowsThePortal() {
+    /// The portal is held back from Release builds while it is redesigned.
+    @Test func testFlightOnTheNewDesignHasNoPortalWhileItIsHeldBack() {
+        #expect(HomeHexPortalFlag.shipsInRelease == false)
         for applied in [nil, true] as [Bool?] {
-            #expect(Self.releasePortal(install: .testFlight, applied: applied).allSatisfy { $0 })
+            #expect(Self.releasePortal(install: .testFlight, applied: applied).allSatisfy { !$0 })
+        }
+    }
+
+    /// Once released, it follows the new room and still ignores launch overrides.
+    @Test func aReleasedPortalFollowsTheNewRoom() {
+        for env in [[:], [HomeHexPortalFlag.overrideKey: "0"]] as [[String: String]] {
+            #expect(HomeHexPortalFlag.resolve(newRoom: true, allowsOverrides: false, environment: env, shipsInRelease: true))
+            #expect(HomeHexPortalFlag.resolve(newRoom: false, allowsOverrides: false, environment: env, shipsInRelease: true) == false)
         }
     }
 
